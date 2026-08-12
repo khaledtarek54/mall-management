@@ -24,7 +24,8 @@ keeps the accounting capability matrix. This file is the priority call across al
 > tax it carried, and the rate is picked rather than typed unless the operator holds
 > `tax_codes.override`. **TX-06 shipped too** — the return now separates zero-rated from exempt.
 > **§8.2 DF-01→04 are shipped** as of the same day; DF-05 (fixed assets, vendor contracts, PDC,
-> work-order SLA) is what remains there.
+> work-order SLA) is what remains there. **§8.3 CFG-01/02 and §8.4 RP-05 are shipped too** — the
+> settings page is reflection-driven and audited, and the financial statements finally drill down.
 > Next is **TX-04** (AP input tax: `expenses.vat_amount` and `vendor_bills.vat_amount` are still
 > money someone keys). **TX-04 shipped too.** Next is **TX-05** (withholding by rate), which retires
 > **TX-05 shipped too — no rate lives in settings any more.** What remains in the tax cycle is
@@ -602,7 +603,7 @@ CSV on all six main reports, PDF for monthly close and tenant/asset statements, 
 | **RP-02** | 🟠 | 🧑‍💻 | **One parameter bar.** Reports variously take a period, an as-of, or a range. A shared filter component — property · as-of/period · comparison basis · include-inactive — remembered per user. |
 | **RP-03** | 🟠 | 🧑‍💻 | **Saved report versions** — name a set of parameters and re-run it. Yardi's "report versions"; prerequisite for RP-04. |
 | **RP-04** | 🟠 | 🧑‍💻 | **Scheduled delivery** — email a saved report on a schedule (the month-end pack to the owner). Nothing exists today; the scheduler, the PDF builders and the CSV exporter all do. |
-| **RP-05** | 🟠 | 🧑‍💻 | **Drill-down.** Verified: no row URLs on the income statement, trial balance or general ledger. A statement line should open its GL entries, and a GL line its source document. **This is the single biggest "why doesn't it feel like Yardi" difference** — the numbers are right, they are just terminal. |
+| **RP-05** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** A statement account row opens the general ledger for THAT account, **carrying the report's own year, month and property** — landing on "this year, all properties" would answer a different question from the one clicked. A ledger line opens the document that caused it, resolved through `Filament::getModelResource()` (`App\Support\SourceDocumentUrl`) rather than a hand-kept map, so a new posting source is linkable the day its resource exists. Every failure — no resource, no edit page, a record the operator may not view, a deleted source — renders plain text instead of a dead link. **Note the hazard it introduced and closed:** `assetId` now arrives in a query string, so it is clamped to the operator's visible set. *(Original row below.)* **Drill-down.** Verified: no row URLs on the income statement, trial balance or general ledger. A statement line should open its GL entries, and a GL line its source document. **This is the single biggest "why doesn't it feel like Yardi" difference** — the numbers are right, they are just terminal. |
 | **RP-06** | 🟡 | 🧑‍💻 | **Comparative + budget columns** on the income statement (prior period · prior year · variance). `ComparativeStatementService` gets part way; **budget-vs-actual is a build, not a column** — there is no budget model at all. |
 | **RP-07** | 🟡 | 🧑‍💻 | **Excel export** alongside CSV — headers, number formats, frozen panes. What an accountant actually receives from Yardi, and the reason CSV gets reformatted by hand today. |
 | **RP-08** | 🟡 | 🧑‍💻 | **Owner pack** — module 32 issues owner statements; group the owner's reports into one deliverable pack (FRD ask). |

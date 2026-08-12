@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages\Concerns;
 
+use App\Filament\Admin\Pages\GeneralLedger;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -52,6 +53,10 @@ trait RendersFinancialStatement
                     'account' => $locale === 'ar' ? ($row['name_ar'] ?? '') : ($row['name_en'] ?? ''),
                     'amount' => round((float) ($row['amount'] ?? 0), 2),
                     'is_total' => false,
+                    // What this line is made of. A statement whose figures cannot be opened is
+                    // correct and terminal — the numbers are right, and there is no way to ask
+                    // where they came from without leaving the report and rebuilding its filters.
+                    'account_id' => $row['account_id'] ?? null,
                 ];
             }
 
@@ -62,6 +67,9 @@ trait RendersFinancialStatement
                 'account' => $section['total_label'],
                 'amount' => round((float) $section['total'], 2),
                 'is_total' => true,
+                // A total is not an account, so there is nothing to open. Deliberately null rather
+                // than absent, so the column's URL closure has one shape for every row.
+                'account_id' => null,
             ];
         }
 
@@ -69,6 +77,27 @@ trait RendersFinancialStatement
     }
 
     /** The common column/group configuration for a statement table. */
+    /**
+     * The general-ledger link for a statement row, carrying the report's own scope.
+     *
+     * Null for a total (nothing to open) and for a row with no account — an aggregate the report
+     * assembled rather than a ledger account. Null renders as plain text, which reads as
+     * information; a dead link reads as a broken screen.
+     */
+    protected function ledgerUrlFor(array $record): ?string
+    {
+        if ($record['is_total'] || blank($record['account_id'] ?? null)) {
+            return null;
+        }
+
+        return GeneralLedger::getUrl(array_filter([
+            'accountId' => $record['account_id'],
+            'year' => $this->year ?? null,
+            'period' => $this->period ?? null,
+            'assetId' => $this->assetId ?? null,
+        ], fn ($value) => filled($value)));
+    }
+
     protected function statementTable(Table $table): Table
     {
         return $table
@@ -81,7 +110,12 @@ trait RendersFinancialStatement
                 TextColumn::make('account')
                     ->label(__('admin.tables.ledger_account.account'))
                     // The total line is the one an eye should land on.
-                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal'),
+                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal')
+                    // Into the general ledger for THIS account, over the same period and property
+                    // the statement was run for. Landing on "this year, all properties" would
+                    // answer a different question from the one that was clicked.
+                    ->url(fn (array $record): ?string => $this->ledgerUrlFor($record))
+                    ->color(fn (array $record): ?string => $this->ledgerUrlFor($record) ? 'primary' : null),
                 TextColumn::make('amount')
                     ->label(__('admin.fields.amount'))
                     ->money('EGP')

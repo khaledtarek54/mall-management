@@ -115,6 +115,11 @@ class LedgerReportService
                 'jl.debit',
                 'jl.credit',
                 'jl.description as line_description',
+                // The link back to the document. Selected as columns rather than hydrated, because
+                // a statement of a thousand lines points at far fewer documents and
+                // `App\Support\SourceDocumentUrl` resolves each one once.
+                'je.source_type',
+                'je.source_id',
             ]);
 
         $running = $opening;
@@ -264,6 +269,7 @@ class LedgerReportService
             // Cash & bank branch (111…) — the balance being explained, not a section.
             if (str_starts_with((string) $row->code, '111')) {
                 $cashMovement = round($cashMovement + $movement, 2); // asset: net debit = cash in
+
                 continue;
             }
 

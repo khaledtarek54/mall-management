@@ -8,6 +8,7 @@ use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\ReportCsv;
+use App\Support\SourceDocumentUrl;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -55,6 +56,27 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
     protected static string $routePath = 'general-ledger';
 
     public ?int $accountId = null;
+
+    /**
+     * Open on the account, year and property a statement row was clicked from.
+     *
+     * `ScopesLedgerReport::mount()` sets the year to today and nothing else, so without this a
+     * drill-down link landed on an empty page headed "choose an account" — which is worse than no
+     * link, because the operator has to rebuild the filters they just came from.
+     */
+    public function mount(): void
+    {
+        $this->hydrateLedgerScopeFromQuery();
+
+        $accountId = request()->query('accountId');
+
+        if (filled($accountId) && is_numeric($accountId)) {
+            // Clamped to what this operator may actually read: the id arrives in a URL, and a
+            // general ledger of an account outside their properties is exactly what property
+            // isolation exists to refuse. `account()` re-checks it too — this is the friendly half.
+            $this->accountId = LedgerAccount::whereKey((int) $accountId)->value('id');
+        }
+    }
 
     public function getTitle(): string
     {
@@ -209,6 +231,10 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
                         'credit' => (float) $line->credit > 0 ? (float) $line->credit : null,
                         'running_balance' => $line->running_balance,
                         'is_opening' => false,
+                        // The other end of the trail. A ledger whose numbers cannot be opened is
+                        // correct and terminal; this is what makes "what is this line made of?" a
+                        // click rather than a search.
+                        'source_url' => SourceDocumentUrl::forSource($line->source_type, $line->source_id),
                     ];
                 }
 
@@ -234,6 +260,8 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
                     ->formatStateUsing(fn ($state): string => $state ? Carbon::parse($state)->format('d/m/Y') : '')
                     ->placeholder(''),
                 TextColumn::make('entry_number')
+                    ->url(fn (array $record): ?string => $record['source_url'] ?? null)
+                    ->color(fn (array $record): ?string => ($record['source_url'] ?? null) ? 'primary' : null)
                     ->label(__('admin.tables.journal_entry.number'))
                     ->fontFamily('mono')
                     ->size('sm')

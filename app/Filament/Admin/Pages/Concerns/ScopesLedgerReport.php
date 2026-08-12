@@ -44,7 +44,37 @@ trait ScopesLedgerReport
 
     public function mount(): void
     {
-        $this->year = (int) now()->year;
+        $this->hydrateLedgerScopeFromQuery();
+    }
+
+    /**
+     * Take the year, month and property from the URL when a drill-down link supplies them.
+     *
+     * A statement links into the ledger for the period and property it was itself run for; landing
+     * on "this year, all properties" would answer a different question from the one the operator
+     * clicked. Every value is validated rather than trusted — `assetId` in particular, which is the
+     * property-isolation dimension and arrives from a query string.
+     */
+    protected function hydrateLedgerScopeFromQuery(): void
+    {
+        $year = request()->query('year');
+        $this->year = is_numeric($year) ? (int) $year : (int) now()->year;
+
+        $period = request()->query('period');
+        $this->period = is_string($period) && preg_match('/^\d{4}-\d{2}$/', $period) ? $period : null;
+
+        $assetId = request()->query('assetId');
+
+        if (filled($assetId) && is_numeric($assetId)) {
+            // Clamped to the operator's visible set. An unclamped id here would let a link hand
+            // someone another mall's ledger, which is the one thing this dimension must not do.
+            $visible = TenantScope::visibleAssetIds();
+            $candidate = (int) $assetId;
+
+            $this->assetId = ($visible === null || in_array($candidate, $visible, true))
+                ? $candidate
+                : null;
+        }
     }
 
     /**

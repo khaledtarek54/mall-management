@@ -31,6 +31,27 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 
 ## 3. Business rules & invariants
 
+> **The statements drill down (2026-08-12).** An account row on the income statement, balance sheet
+> or trial balance opens the general ledger for that account, carrying the report's own year, month
+> and property — the scope is the point, because landing on "this year, all properties" answers a
+> different question from the one that was clicked. A ledger line then opens the DOCUMENT that
+> caused it.
+>
+> Every piece was already in the database: `journal_entries.source_type/source_id` names the
+> document and the statement rows already carried `account_id`. None of it was on a screen, so the
+> numbers were correct and terminal.
+>
+> The source URL resolves through `Filament::getModelResource()` (`App\Support\SourceDocumentUrl`)
+> rather than a hand-kept map, so a new posting source is linkable the day its resource exists.
+> Every failure — no resource, no edit page, a record the operator may not view, a source since
+> deleted — returns null and the column renders plain text: a dead link reads as a broken screen,
+> a label reads as information.
+>
+> **The hazard it introduced:** `assetId` now arrives in a query string, which is exactly the shape
+> that leaks another property's books. It is clamped to the operator's visible set in
+> `ScopesLedgerReport::hydrateLedgerScopeFromQuery()`, with a paired control in
+> `FinancialStatementDrilldownTest` proving the clamp is a filter and not a blanket refusal.
+
 ### Invoices & AR
 - **Invoice balance** = `total - paid_amount - credit_applied_amount`. When balance ≤ 0, status → `paid`; when balance > 0 and paid_amount > 0, status → `partially_paid`.
 - **Open invoices** for AR aging: status ∈ {`issued`, `partially_paid`, `overdue`} AND balance > 0.
