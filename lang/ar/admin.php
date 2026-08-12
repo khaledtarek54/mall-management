@@ -3289,7 +3289,17 @@ return [
         'tax_direction' => ['sales' => 'مبيعات — تُحمَّل على المستأجر', 'purchases' => 'مشتريات — يُحمِّلها المورِّد علينا'],
         'tax_treatment' => ['standard' => 'خاضع بنسبة', 'exempt' => 'معفى (خارج النطاق)', 'zero_rated' => 'خاضع بنسبة صفر'],
         'approval_module' => ['inventory_draw' => 'صرف مخزون', 'purchase_request' => 'طلب شراء', 'disbursement' => 'صرف للمالك'],
-        'approval_tier' => ['approvals.tier_1' => 'مشرف (المستوى ١)', 'approvals.tier_2' => 'مدير (المستوى ٢)', 'approvals.tier_3' => 'إدارة عليا (المستوى ٣)'],
+        // NESTED, not 'approvals.tier_1' => '…'. The stored value is a PERMISSION name that
+        // contains a dot, and `__()` splits its key on dots — so a flat key with a dot inside
+        // is unreachable and the raw key rendered on screen. Laravel offers no escape for this;
+        // the structure has to match the traversal.
+        'approval_tier' => [
+            'approvals' => [
+                'tier_1' => 'مشرف (المستوى ١)',
+                'tier_2' => 'مدير (المستوى ٢)',
+                'tier_3' => 'إدارة عليا (المستوى ٣)',
+            ],
+        ],
         'tenant_document_type' => [
             'insurance_coi' => 'شهادة تأمين',
             'tax_card' => 'بطاقة ضريبية',
@@ -3608,6 +3618,9 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            // spatie's fallback log name. Every model now declares its own, but rows written
+            // BEFORE that fix are still filed under `default` and must still read as something.
+            'default' => 'أخرى',
             'property_setting' => 'إعداد عقار',
             'tax_code' => 'كود ضريبي',
             'tax_rate' => 'نسبة ضريبية',

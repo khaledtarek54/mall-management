@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * A floor of a property — B2, B1, G, M, 1, 2 — defined once and then SELECTED.
@@ -71,5 +72,15 @@ class Floor extends Model
     public function label(): string
     {
         return $this->name ? "{$this->code} — {$this->name}" : $this->code;
+    }
+
+    /** Named log — see RentableItem::getActivitylogOptions() for why this is not optional. */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['asset_id', 'code', 'name', 'level'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->useLogName('floor');
     }
 }

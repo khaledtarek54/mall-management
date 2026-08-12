@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * Something let alongside a lease that is NOT lettable floor area — parking, storage, signage.
@@ -139,5 +140,19 @@ class RentableItem extends Model
     public function searchTextSources(): array
     {
         return [$this->code, $this->name, $this->type, $this->notes];
+    }
+
+    /**
+     * Named log. Without `useLogName()` spatie files every entry under `default`, and the activity
+     * log rendered the raw key `admin.activity.subjects.default` — the existing subject-label gate
+     * could not see it, because it enumerates models that CALL useLogName and this one did not.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['asset_id', 'area_id', 'floor_id', 'code', 'type', 'name', 'status', 'monthly_rate', 'notes'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->useLogName('rentable_item');
     }
 }

@@ -63,3 +63,25 @@ it('finds some log names at all', function () {
     // useLogName() or a move of the Models directory would silently disarm this gate.
     expect(count(activityLogNames()))->toBeGreaterThan(20);
 });
+
+it('every model that logs activity NAMES its log', function () {
+    // The blind spot in this file. `activityLogNames()` above enumerates models that CALL
+    // useLogName(), so a model that logs and does not is invisible here — it files under spatie's
+    // `default`, and the activity log rendered the raw key `admin.activity.subjects.default`.
+    // Found by rendering the page, not by reading the models. Two models were doing it.
+    $anonymous = [];
+
+    foreach (glob(app_path('Models/*.php')) as $file) {
+        $source = (string) file_get_contents($file);
+
+        if (! str_contains($source, 'LogsActivity')) {
+            continue;
+        }
+
+        if (! preg_match('/useLogName\([\'"]([a-z_]+)[\'"]\)/', $source)) {
+            $anonymous[] = basename($file, '.php');
+        }
+    }
+
+    expect($anonymous)->toBe([], 'These models write to the activity log without naming it, so their entries file under `default` and read as one undifferentiated bucket: '.implode(', ', $anonymous));
+});

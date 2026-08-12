@@ -1,5 +1,10 @@
 <?php
 
+use App\Models\Asset;
+use App\Models\User;
+use Database\Seeders\ApprovalRulesSeeder;
+use Database\Seeders\DemoSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Lang;
 use PhpParser\Node;
@@ -412,4 +417,125 @@ it('F: no Filament component renders an auto-generated English label', function 
     }
 
     expect($offenders)->toBe([], "Untranslated by omission — add ->label(__('…')), or ->hiddenLabel() where the label is deliberately not shown:\n  ".implode("\n  ", $offenders));
+})->group('conformance');
+
+it('G: no language key contains a dot, which would make it unreachable', function () {
+    // `__()` splits its key on dots, so a key written as `'approvals.tier_1' => '…'` is looked up
+    // as ['approvals']['tier_1'] and never found — Laravel then returns the key, and the operator
+    // reads `admin.enums.approval_tier.approvals.tier_1` on screen.
+    //
+    // This shipped exactly once, and it is invisible to every other test here: the key EXISTS in
+    // the file (so a human reading it sees a translation), the catalogues stay in parity, and the
+    // static scan only ever verified the PREFIX of an interpolated key — `admin.enums.approval_tier`
+    // resolves fine; it is the composed leaf that does not.
+    //
+    // The values are permission names (`approvals.tier_1`) and a stored value must not be reshaped
+    // to suit a lang file, so the fix is to NEST the array to match how the key is traversed.
+    $dotted = [];
+
+    $walk = function (array $items, string $prefix, string $file) use (&$walk, &$dotted): void {
+        foreach ($items as $key => $value) {
+            $path = $prefix === '' ? (string) $key : "{$prefix}.{$key}";
+
+            if (is_string($key) && str_contains($key, '.')) {
+                $dotted[] = "{$file}: '{$path}' — the dot inside this key makes it unreachable; nest it instead";
+            }
+
+            if (is_array($value)) {
+                $walk($value, $path, $file);
+            }
+        }
+    };
+
+    $files = array_merge(glob(lang_path('en/*.php')), glob(lang_path('ar/*.php')));
+
+    foreach ($files as $file) {
+        $walk(require $file, '', str_replace(base_path().'/', '', $file));
+    }
+
+    expect($dotted)->toBe([], implode("\n  ", array_merge([''], $dotted)));
+    expect(count($files))->toBeGreaterThan(10);
+})->group('conformance');
+
+it('H: no admin list renders a raw translation key, in either locale', function () {
+    // The gate for keys that STATIC analysis cannot see. A label built as `__("…{$record->status}")`
+    // composes its key from a database value, so the only way to know it resolves is to render the
+    // page against real rows and look.
+    //
+    // **Its coverage is bounded by the fixture, and that is not a footnote.** A table with no rows
+    // renders no cells, so nothing is checked — the approval-tier bug that prompted this test lives
+    // on a list `DemoSeeder` does not populate, which is why ApprovalRulesSeeder is run explicitly
+    // below. When adding an enum-bearing resource, seed a row for it or this test silently covers
+    // less than it appears to.
+    //
+    // Scans VISIBLE TEXT only: Livewire registers its components under dotted names
+    // (`admin.resources.leases.pages.list`) that live in attributes and script payloads and would
+    // otherwise produce ~44 false positives per run.
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->seed(DemoSeeder::class);
+    $this->seed(ApprovalRulesSeeder::class);
+
+    $user = User::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->firstOrFail();
+    $this->actingAs($user);
+
+    $asset = Asset::where('code', '!=', Asset::ALL_PROPERTIES_CODE)->firstOrFail();
+
+    $namespaces = 'admin|validation|auth|errors|guides|api|pay|mail';
+    $found = [];
+    $rendered = 0;
+    $original = app()->getLocale();
+
+    try {
+        foreach (['en', 'ar'] as $locale) {
+            app()->setLocale($locale);
+
+            asTenant($asset, function () use ($asset, $locale, $namespaces, &$found, &$rendered) {
+                $urls = [];
+
+                foreach (Filament::getPanel('admin')->getResources() as $resource) {
+                    if ($resource::getPages()['index'] ?? null) {
+                        $urls[class_basename($resource)] = $resource::getUrl('index', [], tenant: $asset);
+                    }
+                }
+
+                // PAGES too, not just resources. The report hub is a Page, and it is where the
+                // first raw label was actually spotted — a sweep of resource lists alone would
+                // have missed the screen that started this.
+                foreach (Filament::getPanel('admin')->getPages() as $page) {
+                    $url = rescue(fn () => $page::getUrl(tenant: $asset), null, false);
+
+                    if ($url !== null) {
+                        $urls[class_basename($page)] = $url;
+                    }
+                }
+
+                foreach ($urls as $label => $url) {
+                    $response = rescue(fn () => $this->get($url), null, false);
+
+                    if ($response === null || $response->getStatusCode() !== 200) {
+                        continue;
+                    }
+
+                    $html = $response->getContent();
+                    $rendered++;
+
+                    $text = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#si', ' ', $html);
+                    $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5);
+
+                    if (preg_match_all('/\b('.$namespaces.')\.[a-z0-9_]+(?:\.[a-z0-9_]+)+/', $text, $matches)) {
+                        foreach (array_unique($matches[0]) as $key) {
+                            $found[] = "[{$locale}] {$label} renders the raw key {$key}";
+                        }
+                    }
+                }
+            });
+        }
+    } finally {
+        app()->setLocale($original);
+    }
+
+    expect(array_unique($found))->toBe([], "A translation key reached the screen instead of a translation:\n  ".implode("\n  ", array_unique($found)));
+
+    // Vacuity guard: if the panel stopped enumerating, this test would pass having rendered nothing.
+    expect($rendered)->toBeGreaterThan(80);
 })->group('conformance');
