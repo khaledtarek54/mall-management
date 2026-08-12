@@ -152,6 +152,26 @@ it('does not offer a link back to the page you are already reading', function ()
     expect($link->invoke($centre, $row))->toBeNull();
 });
 
+it('keeps mark-all-read whatever else a page puts in its own header', function () {
+    // A class method beats a trait method SILENTLY. When each page grew its own
+    // `getHeaderActions()` — to carry the screen guide — the trait's version stopped being called
+    // and this button simply ceased to exist, with nothing red anywhere to say so. The pages now
+    // spread `notificationCentreHeaderActions()` into their list; this is what proves they still do.
+    $this->actingAs($this->operator);
+
+    foreach ([AdminCentre::class, PortalCentre::class] as $page) {
+        $instance = new $page;
+        $method = new ReflectionMethod($instance, 'getHeaderActions');
+        $method->setAccessible(true);
+
+        $names = array_map(fn ($action): string => $action->getName(), $method->invoke($instance));
+
+        // `toContain` is variadic over needles, not (needle, message) — hence the explicit boolean.
+        expect(in_array('mark_all_read', $names, true))->toBeTrue(
+            class_basename($page).' lost its mark-all-read action');
+    }
+});
+
 it('groups alerts by what they are about rather than by class name', function () {
     // Four separate notification classes concern a work order. A reader hunting for "that SLA
     // thing" wants the work-order group, not a menu of thirty-six PHP class names.

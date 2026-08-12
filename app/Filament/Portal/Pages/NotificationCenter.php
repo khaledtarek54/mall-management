@@ -2,14 +2,15 @@
 
 namespace App\Filament\Portal\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Concerns\RendersNotificationCentre;
 use BackedEnum;
-use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * The tenant's own alert history. Same page as the operator's, minus the property segment — the
@@ -30,6 +31,14 @@ class NotificationCenter extends Page implements HasTable
     use InteractsWithTable;
     use RendersNotificationCentre;
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            GuideAction::for(static::class),
+            ...$this->notificationCentreHeaderActions(),
+        ];
+    }
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBell;
 
     protected static ?string $slug = 'notifications';
@@ -37,6 +46,17 @@ class NotificationCenter extends Page implements HasTable
     protected static ?int $navigationSort = 90;
 
     protected string $view = 'filament.pages.notification-center';
+
+    protected function panelId(): string
+    {
+        return 'portal';
+    }
+
+    /** `->authGuard('portal')` is what PortalPanelProvider declares; this is the same statement. */
+    protected function readerGuard(): ?string
+    {
+        return 'portal';
+    }
 
     public function table(Table $table): Table
     {
@@ -60,7 +80,7 @@ class NotificationCenter extends Page implements HasTable
 
     public static function getNavigationBadge(): ?string
     {
-        $user = Filament::auth()->user();
+        $user = Auth::guard('portal')->user();
 
         if (! $user) {
             return null;
@@ -78,6 +98,6 @@ class NotificationCenter extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return Filament::auth()->check();
+        return Auth::guard('portal')->check();
     }
 }

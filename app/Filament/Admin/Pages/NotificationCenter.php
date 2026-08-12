@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Concerns\RendersNotificationCentre;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -28,6 +29,14 @@ class NotificationCenter extends Page implements HasTable
     use InteractsWithTable;
     use RendersNotificationCentre;
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            GuideAction::for(static::class),
+            ...$this->notificationCentreHeaderActions(),
+        ];
+    }
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBell;
 
     protected static ?string $slug = 'notifications';
@@ -35,6 +44,11 @@ class NotificationCenter extends Page implements HasTable
     protected static ?int $navigationSort = 2;
 
     protected string $view = 'filament.pages.notification-center';
+
+    protected function panelId(): string
+    {
+        return 'admin';
+    }
 
     public function table(Table $table): Table
     {

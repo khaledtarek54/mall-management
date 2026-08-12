@@ -6,7 +6,6 @@ use App\Support\NotificationTargets;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
-use Filament\Facades\Filament;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification as Toast;
 use Filament\Pages\Page;
@@ -21,6 +20,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * **The notification centre, shared by both panels.**
@@ -41,10 +41,34 @@ use Illuminate\Support\Collection;
  */
 trait RendersNotificationCentre
 {
-    /** The signed-in reader, resolved through the panel's own guard (portal is not the web guard). */
+    /**
+     * Which panel this page IS, stated rather than sensed.
+     *
+     * `Filament::getCurrentPanel()` answers whatever the last request or test left set, so reading
+     * the panel from the environment makes this page's behaviour depend on what ran before it —
+     * exactly the inference that produces cross-panel links in the first place. Both pages declare
+     * their own.
+     */
+    abstract protected function panelId(): string;
+
+    /**
+     * The guard this page's reader signs in with. Null = the panel's default (`web` on /admin);
+     * the portal overrides it, because `->authGuard('portal')` is what its panel declares.
+     */
+    protected function readerGuard(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * The signed-in reader. Deliberately NOT `Filament::auth()`, which resolves the CURRENT panel's
+     * guard: mount this component while another panel happens to be current and it returns null,
+     * the query returns nothing, and every count reads zero — a silent empty inbox rather than an
+     * error. Asking a named guard cannot drift.
+     */
     protected function reader(): ?Authenticatable
     {
-        return Filament::auth()->user();
+        return Auth::guard($this->readerGuard())->user();
     }
 
     /**
@@ -167,9 +191,15 @@ trait RendersNotificationCentre
      * inbox, not about the rows a filter happens to be showing. Putting it in the table's header
      * would say the opposite, and would make it disappear whenever the table is empty.
      *
+     * Not named `getHeaderActions()`, for the same reason `notificationCentreTable()` is not named
+     * `table()`: a page that also wants a header action of its own would declare that method, and a
+     * class method beats a trait method **silently** — the button simply stops existing, with
+     * nothing red anywhere. That is not hypothetical; it happened, to the guide action. Each page
+     * spreads this into its own list instead.
+     *
      * @return array<int, Action>
      */
-    protected function getHeaderActions(): array
+    protected function notificationCentreHeaderActions(): array
     {
         return [
             $this->markAllReadAction(),
@@ -333,7 +363,7 @@ trait RendersNotificationCentre
      */
     protected function subjectLabel(string $notificationClass): string
     {
-        $panel = Filament::getCurrentPanel()?->getId() ?? 'admin';
+        $panel = $this->panelId();
         $destination = NotificationTargets::destination($notificationClass, $panel)
             // A notification with no destination on THIS panel is still about something; borrow
             // the other panel's noun rather than filing it under "Other".
