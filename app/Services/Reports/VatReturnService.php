@@ -7,6 +7,7 @@ use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\TaxCode;
 use App\Services\Accounting\AccountResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -27,8 +28,20 @@ use Illuminate\Support\Facades\DB;
  *
  * **The taxable base can only come from the documents.** The GL knows revenue by account, not by
  * tax treatment, so which supplies were standard-rated and which exempt is a question only the
- * invoice lines can answer — and it matters here because base rent is exempt while service charges
- * are not (`App\Support\Vat`).
+ * document lines can answer — and it matters here because base rent is exempt while service charges
+ * are not.
+ *
+ * **The split reads the line's TAX CODE, not its rate.** Until 2026-08-12 it asked `vat_rate > 0`,
+ * which cannot tell a **zero-rated** supply from an **exempt** one — both bill nothing, and they are
+ * different lines on a filed return. That distinction lives on the tax code and now travels onto the
+ * line (`invoice_items.tax_code`), so the return can finally state it. Lines raised before that
+ * change carry no code and fall back to the old heuristic, which is honest about what it can know: a
+ * document that recorded only a zero cannot be asked, afterwards, which kind of zero it was.
+ *
+ * **Only VAT-family supplies count.** Stamp duty and schedule tax are separate Egyptian taxes with
+ * their own accounts and their own returns; a line billed under one contributes neither base nor
+ * output VAT here. Nothing can carry them yet — those codes ship inactive pending their GL wiring —
+ * but the return is written so that commissioning them does not silently corrupt it.
  *
  * Read-only. Nothing here posts, and filing is not modelled at all: this reports the position.
  */
@@ -41,7 +54,8 @@ class VatReturnService
      *     period_start: string, period_end: string,
      *     output_vat: float, input_vat: float, net_payable: float,
      *     output_vat_documents: float, output_vat_difference: float, ties_out: bool,
-     *     base_standard: float, base_exempt: float,
+     *     base_standard: float, base_zero_rated: float, base_exempt: float,
+     *     unclassified_lines: int,
      * }
      */
     public function for(CarbonImmutable $start, CarbonImmutable $end, ?int $assetId = null): array
@@ -76,44 +90,53 @@ class VatReturnService
             ->with('items')
             ->get();
 
-        $outputVatDocuments = round(
-            (float) $invoices->sum(fn (Invoice $i) => (float) $i->vat_amount)
-            - (float) $creditNotes->sum(fn (CreditNote $c) => (float) $c->vat_amount),
-            2
-        );
+        // Summed from the LINES rather than the document headers, which are equal today
+        // (`Invoice::syncTotalsFromItems` derives the header) but stop being so the moment a
+        // non-VAT tax can sit on a line: a stamp-duty line's tax belongs to a different return.
+        $base = ['standard' => 0.0, 'zero_rated' => 0.0, 'exempt' => 0.0];
+        $unclassified = 0;
+        $outputVatDocuments = 0.0;
 
-        $baseStandard = 0.0;
-        $baseExempt = 0.0;
+        // The treatment is the LINE's, not the invoice's: one invoice carries exempt base rent and
+        // standard-rated service charge together, which is the normal case here rather than an edge
+        // one. Credit notes are subtracted through the same classification — a note against exempt
+        // base rent reduces the exempt supply, one against a service charge reduces the
+        // standard-rated supply, and netting them into a single bucket would misstate the split the
+        // return is filed on.
+        $accumulate = function ($items, int $sign) use (&$base, &$unclassified, &$outputVatDocuments) {
+            foreach ($items as $item) {
+                $taxCode = $item->tax_code;
+                $family = TaxCode::familyOf($taxCode);
 
-        foreach ($invoices as $invoice) {
-            foreach ($invoice->items as $item) {
-                // The treatment is the LINE's, not the invoice's: one invoice carries exempt base
-                // rent and standard-rated service charge together, which is the normal case here
-                // rather than an edge one.
-                if (round((float) $item->vat_rate, 4) > 0) {
-                    $baseStandard += (float) $item->amount;
-                } else {
-                    $baseExempt += (float) $item->amount;
-                }
-            }
-        }
-
-        // Same line-level treatment, subtracted. A credit note against exempt base rent reduces the
-        // exempt supply; one against a service charge reduces the standard-rated supply. Netting
-        // them into a single bucket would misstate the split the return is filed on.
-        foreach ($creditNotes as $note) {
-            foreach ($note->items as $item) {
-                if (! $item instanceof CreditNoteItem) {
+                // A supply outside VAT belongs to another tax's return entirely.
+                if ($family !== null && $family !== TaxCode::FAMILY_VAT) {
                     continue;
                 }
 
-                if (round((float) $item->vat_rate, 4) > 0) {
-                    $baseStandard -= (float) $item->amount;
-                } else {
-                    $baseExempt -= (float) $item->amount;
+                $treatment = TaxCode::treatmentOf((string) $taxCode);
+
+                if ($treatment === null) {
+                    // No code: a line raised before the classification existed. All the document
+                    // can still say is whether it was taxed, so zero-rated and exempt collapse —
+                    // which is exactly the ambiguity the code was added to remove going forward.
+                    $treatment = round((float) $item->vat_rate, 4) > 0 ? TaxCode::STANDARD : TaxCode::EXEMPT;
+                    $unclassified++;
                 }
+
+                $base[$treatment] += $sign * (float) $item->amount;
+                $outputVatDocuments += $sign * (float) $item->vat_amount;
             }
+        };
+
+        foreach ($invoices as $invoice) {
+            $accumulate($invoice->items, 1);
         }
+
+        foreach ($creditNotes as $note) {
+            $accumulate($note->items->filter(fn ($i) => $i instanceof CreditNoteItem), -1);
+        }
+
+        $outputVatDocuments = round($outputVatDocuments, 2);
 
         $difference = round($outputVat - $outputVatDocuments, 2);
 
@@ -128,8 +151,16 @@ class VatReturnService
             'output_vat_documents' => $outputVatDocuments,
             'output_vat_difference' => $difference,
             'ties_out' => abs($difference) < 0.005,
-            'base_standard' => round($baseStandard, 2),
-            'base_exempt' => round($baseExempt, 2),
+            'base_standard' => round($base['standard'], 2),
+            // Zero-rated is a TAXABLE supply at 0%; exempt is outside the scope. Both bill nothing
+            // and they are separate lines on the return, which is the whole reason the treatment is
+            // stored on the tax code rather than inferred from a zero on a line.
+            'base_zero_rated' => round($base['zero_rated'], 2),
+            'base_exempt' => round($base['exempt'], 2),
+            // How many lines in this period could not be classified from a tax code. Surfaced
+            // rather than hidden: it is the difference between "no zero-rated supplies this period"
+            // and "we cannot tell", and only one of those is safe to file.
+            'unclassified_lines' => $unclassified,
         ];
     }
 

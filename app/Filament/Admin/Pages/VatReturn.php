@@ -74,9 +74,22 @@ class VatReturn extends Page implements HasSchemas, HasTable
                 'difference' => number_format($report['output_vat_difference'], 2),
             ]);
 
-        return $check.' · '.__('admin.reports.vat_net_payable', [
+        $subheading = $check.' · '.__('admin.reports.vat_net_payable', [
             'amount' => number_format($report['net_payable'], 2),
         ]);
+
+        // Lines raised before the tax catalogue existed carry no code, so they are split by rate —
+        // which cannot separate zero-rated from exempt. Said here rather than left implicit: "0
+        // zero-rated supplies" is a fact about the period, and this is the difference between that
+        // and a limit of the data. The person signing the return is entitled to know which they
+        // are looking at.
+        if ($report['unclassified_lines'] > 0) {
+            $subheading .= ' · ⚠ '.__('admin.reports.vat_unclassified_note', [
+                'count' => $report['unclassified_lines'],
+            ]);
+        }
+
+        return $subheading;
     }
 
     protected function getHeaderActions(): array
@@ -99,6 +112,7 @@ class VatReturn extends Page implements HasSchemas, HasTable
                         [__('admin.reports.vat_line'), __('admin.fields.amount')],
                         [
                             [__('admin.reports.vat_base_standard'), number_format($r['base_standard'], 2, '.', '')],
+                            [__('admin.reports.vat_base_zero_rated'), number_format($r['base_zero_rated'], 2, '.', '')],
                             [__('admin.reports.vat_base_exempt'), number_format($r['base_exempt'], 2, '.', '')],
                             [__('admin.reports.vat_output'), number_format($r['output_vat'], 2, '.', '')],
                             [__('admin.reports.vat_input'), number_format($r['input_vat'], 2, '.', '')],
@@ -137,6 +151,9 @@ class VatReturn extends Page implements HasSchemas, HasTable
 
                 return [
                     ['id' => 'base_standard', 'line' => __('admin.reports.vat_base_standard'), 'amount' => $r['base_standard'], 'note' => __('admin.reports.vat_base_standard_note')],
+                    // A taxable supply at 0% is not an exempt one. Separate lines on the return,
+                    // and separable here only because the line carries its tax code.
+                    ['id' => 'base_zero_rated', 'line' => __('admin.reports.vat_base_zero_rated'), 'amount' => $r['base_zero_rated'], 'note' => __('admin.reports.vat_base_zero_rated_note')],
                     ['id' => 'base_exempt', 'line' => __('admin.reports.vat_base_exempt'), 'amount' => $r['base_exempt'], 'note' => __('admin.reports.vat_base_exempt_note')],
                     ['id' => 'output', 'line' => __('admin.reports.vat_output'), 'amount' => $r['output_vat'], 'note' => __('admin.reports.vat_output_note')],
                     ['id' => 'input', 'line' => __('admin.reports.vat_input'), 'amount' => $r['input_vat'], 'note' => __('admin.reports.vat_input_note')],

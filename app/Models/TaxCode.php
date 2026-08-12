@@ -243,6 +243,12 @@ class TaxCode extends Model
         return self::catalogue()[$code]['treatment'] ?? null;
     }
 
+    /** Which Egyptian tax this code belongs to, or null when the catalogue has no row for it. */
+    public static function familyOf(?string $code): ?string
+    {
+        return $code === null ? null : (self::catalogue()[$code]['family'] ?? null);
+    }
+
     /** The GL posting role this code's collections land in, if it collects anything. */
     public static function postingRoleOf(string $code): ?string
     {

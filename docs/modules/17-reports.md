@@ -271,6 +271,15 @@ public function build(CarbonImmutable $period): string
 
 #### `for(CarbonImmutable $start, CarbonImmutable $end, ?int $assetId = null): array`
 
+> **The taxable base is split by the line's TAX CODE (2026-08-12), not by its rate.** It previously
+> asked `vat_rate > 0`, which cannot tell a zero-rated supply (taxable at 0%) from an exempt one
+> (outside the scope) — different lines on a filed return. `base_zero_rated` is now its own figure.
+> Lines raised before `invoice_items.tax_code` existed carry no code and fall back to the old
+> heuristic; they are counted in `unclassified_lines` and the count is shown in the page subheading,
+> because "no zero-rated supplies this period" and "we cannot tell" are different answers and only
+> one of them is safe to sign. Non-VAT families (stamp duty, schedule tax) are excluded from the
+> base and from the output-VAT tie-out entirely — they are separate taxes with their own returns.
+
 | Key | Source | Why from there |
 |---|---|---|
 | `output_vat` | **Ledger** — credit-side movement on `vat_payable` | The ledger is the single source of truth; a return derived from documents would be a second opinion about the same money, and the two agree right up until the month they don't. |
