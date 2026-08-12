@@ -39,6 +39,31 @@ beforeEach(function () {
     $this->invoice = makeInvoice($this->lease, ['total' => 1000, 'balance' => 1000]);
 });
 
+/**
+ * Drop the invoice's balance the way production does — by SETTLING part of it.
+ *
+ * `$invoice->update(['balance' => 700])` stopped working in `35ab6524`, and correctly so: the
+ * `saving` hook re-derives `balance` from `total − paid_amount` on every write, because the four
+ * settlement channels are the only things allowed to move it. A direct write is now a silent
+ * no-op — so this test was setting a column no code path writes, and the guard it names was no
+ * longer being exercised at all. (CLAUDE.md: a fixture that writes what no form, service or seeder
+ * writes is a test that is green over dead code.)
+ */
+function settlePartOf(\App\Models\Invoice $invoice, float $amount): void
+{
+    $payment = Payment::create([
+        'tenant_id' => $invoice->tenant_id,
+        'amount' => $amount,
+        'currency' => 'EGP',
+        'method' => 'cash',
+        'status' => 'captured',
+        'payment_date' => now()->toDateString(),
+    ]);
+
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => $amount]);
+    $invoice->recomputeTotals();
+}
+
 it('cuts a fresh session for the new lower balance instead of reusing the stale higher-amount one', function () {
     // One shared Http::fake hands out distinct order ids via a sequence —
     // a second Http::fake() would NOT override the first orders stub.
@@ -58,12 +83,14 @@ it('cuts a fresh session for the new lower balance instead of reusing the stale 
     expect($first['reused'])->toBeFalse();
     expect((float) Payment::find($first['payment_id'])->amount)->toBe(1000.0);
 
-    // A credit / partial payment lands and the balance drops to 700. The old
-    // gateway token is still bound to 1000.
-    $this->invoice->update(['balance' => 700]);
+    // A partial payment lands and the balance drops to 700. The old gateway token is still
+    // bound to 1000.
+    settlePartOf($this->invoice->fresh(), 300);
 
-    // Second tap: must NOT reuse the stale 1000 token — it would overcharge.
-    $second = app(PaymobPaymentInitiator::class)->start($this->invoice);
+    // Second tap: must NOT reuse the stale 1000 token — it would overcharge. `fresh()` because the
+    // settlement moved the row, not this in-memory instance; a request loads the invoice anew, and
+    // comparing against a stale copy would make this pass for the wrong reason.
+    $second = app(PaymobPaymentInitiator::class)->start($this->invoice->fresh());
 
     expect($second['reused'])->toBeFalse();
     expect($second['payment_id'])->not->toBe($first['payment_id']);
@@ -97,7 +124,7 @@ it('findReusableSession returns null on the amount-mismatch branch', function ()
     expect($reflect->invoke($initiator, $this->invoice->fresh()))->not->toBeNull();
 
     // Drop the balance to 700 — the stored 1000 amount no longer matches.
-    $this->invoice->update(['balance' => 700]);
+    settlePartOf($this->invoice->fresh(), 300);
 
     // The amount-mismatch branch must return null so start() falls through to
     // a fresh session.

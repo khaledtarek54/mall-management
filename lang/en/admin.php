@@ -1053,6 +1053,17 @@ return [
         'page_title' => 'Reports',
         'subheading' => 'Everything this system can tell you, and what each answer is for. Only the reports you can open are listed.',
         'report' => 'Report',
+        'save_view' => 'Save this view',
+        'save_view_description' => 'Remember the filters as they are now, so this report can be re-run in one click.',
+        'share_view' => 'Share with the team',
+        'share_view_help' => 'Everyone who can open this report will see the saved view. It is a bookmark, not access — the report still applies each person\'s own property scope.',
+        'view_saved' => 'View saved',
+        'view_saved_body' => 'It is listed under Saved views on the Reports page.',
+        'saved_views' => 'Saved views',
+        'delete_view' => 'Delete',
+        'view_deleted' => 'Saved view deleted',
+        'shared_by' => 'Shared by :name',
+
         'empty' => 'You do not have access to any report yet.',
         'categories' => [
             'financial' => 'Financial statements',
@@ -2559,6 +2570,7 @@ return [
         'lease' => 'Lease',
         'description' => 'Description',
         'vat_rate' => 'VAT %',
+        'note' => 'Note',
         'tax_code' => 'Tax code',
         'tax_family' => 'Tax',
         'tax_direction' => 'Applies to',
@@ -2668,6 +2680,8 @@ return [
     ],
 
     'helpers' => [
+        'due_date_derived' => 'Derived from the issue date and the lease’s payment terms. Override only for a one-off arrangement.',
+        'expiry_date_derived' => 'Derived from the commencement date and the term. Override only when the contract states a different end date.',
         'tax_code_section' => 'Every tax this system applies, with its rates and the dates they came into force. The rate is resolved from the DOCUMENT\'s date: an invoice dated before a rate change bills the rate that was in force when it was raised, and a rate entered in advance starts applying by itself on the day.',
         'tax_code_code' => 'Upper-case letters, digits and underscores. Fixed once saved — charge codes reference this string, so renaming it would silently un-classify every supply pointed at it.',
         'tax_family' => 'Which Egyptian tax this is. It decides the account the tax lands in, and — for withholding — that the rate is deducted from a payment rather than added to it.',
@@ -3409,6 +3423,8 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'tax_code' => 'Tax code',
+            'tax_rate' => 'Tax rate',
             'bank_match' => 'Bank match',
             'bank_account' => 'Bank account',
             'bank_statement' => 'Bank statement',
@@ -3955,6 +3971,7 @@ return [
             'empty_description' => 'Record the insurance certificate, tax card and commercial register so lapses are chased before they bite.',
         ],
         'wht' => [
+            'use_default' => 'Use the portfolio default',
             'code' => 'Withholding code',
             'code_hint' => 'The nature of what this supplier is paid for, from the tax catalogue. The rate is the code\'s. Blank uses the portfolio default.',
             'exempt' => 'Exempt from withholding',
