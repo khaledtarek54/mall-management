@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Units\Pages;
 
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Imports\UnitImporter;
 use App\Support\Imports;
@@ -12,13 +14,16 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListUnits extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = UnitResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(UnitResource::class),
-ImportAction::make()
+            ...$this->savedViewActions(),
+            GuideAction::for(UnitResource::class),
+            ImportAction::make()
                 ->importer(UnitImporter::class)
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')

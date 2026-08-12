@@ -24,10 +24,12 @@ class UtilityMetersTable
                     ->size('xs')
                     ->weight('medium')
                     ->searchable()
-                    ->copyable(),
+                    ->copyable()
+                    ->sortable(),
                 TextColumn::make('asset.name')
                     ->label(__('admin.resources.asset.singular'))
                     ->badge()
+                    ->sortable()
                     ->color('gray'),
                 TextColumn::make('unit.code')
                     ->label(__('admin.tables.meter.location'))
@@ -46,6 +48,7 @@ class UtilityMetersTable
                     }),
                 TextColumn::make('provider')
                     ->label(__('admin.fields.meter_provider'))
+                    ->sortable()
                     ->toggleable(),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
@@ -61,6 +64,7 @@ class UtilityMetersTable
                     ->label(__('admin.tables.meter.readings'))
                     ->counts('readings')
                     ->badge()
+                    ->sortable()
                     ->color('gray'),
             ])
             ->filters([

@@ -18,8 +18,13 @@ class PaymentsTable
     {
         return $table
             ->columns([
+                // Sortable so a tenant can order their receipts by reference. Search is NOT set
+                // here on purpose: App\Support\TableDefaults already gives every table in both
+                // panels a blob search, and `reference` is in Payment::searchTextSources() — a
+                // second, column-level searchable would be a duplicate of a working mechanism.
                 TextColumn::make('reference')
                     ->label(__('admin.tables.payment.reference'))
+                    ->sortable()
                     ->fontFamily('mono')
                     ->size('xs'),
                 TextColumn::make('payment_date')

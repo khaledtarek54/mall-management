@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\TenantRequests\Pages;
 
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -9,11 +10,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListTenantRequests extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = TenantRequestResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             CreateAction::make()
                 ->visible(fn () => TenantRequestResource::canCreate()),
         ];

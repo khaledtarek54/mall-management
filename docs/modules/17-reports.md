@@ -65,6 +65,31 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 > ageing as at last month-end for Atriom Walk" was six clicks, every time. "Save this view" names
 > the filters a page is currently carrying; saved views list first on the hub.
 >
+> **The resource LISTS have their own saved views (2026-08-12).** Same idea, different table, and
+> the registers are where filters actually pile up — Leases carries 12, Invoices 10, tenant requests
+> 9. `App\Filament\Admin\Resources\Concerns\SavesTableViews` adds "Save view" + a saved-view menu
+> to a list page's header; it is on Invoices, Leases, Payments, Tenant requests, Units, Tenants and
+> Work orders.
+>
+> **A view is a URL.** It stores the four keys a list page binds — `filters`, `sort`, `search`,
+> `tab` — and opening one is a link built by `App\Support\ResourceLink`. There is no second code
+> path setting Livewire state, so a saved view inherits everything `ResourceLinkConformanceTest`
+> already guarantees (including that a URL beats a stale session filter), and it can be pasted to a
+> colleague as a plain link.
+>
+> **Stored in `table_views`, not `saved_reports`.** They are the same idea and not the same record:
+> `saved_reports` carries the scheduled-delivery half (`frequency`, `recipients`,
+> `last_delivered_on`), and emailing someone "the leases list" is not a thing. Those columns would
+> be permanently null, and every existing hub/delivery query would need a `where type = …` it does
+> not have.
+>
+> **Sharing grants nothing.** `is_shared` publishes a view to everyone who can open that list.
+> Opening it is opening a URL, so the list re-scopes every filter through its own
+> `getEloquentQuery()` — property isolation and RBAC apply exactly as for a hand-typed one. Pinned
+> by `SavedTableViewsTest`, which opens a shared view as a user assigned to a different property and
+> asserts they see nothing. Only the owner may delete a view, re-checked at the delete itself
+> rather than only when the option list was built.
+>
 > Parameters are read from each page's own public scalar properties by reflection
 > (`App\Support\ReportParameters`) — so a report that grows a filter has it saved with nothing to
 > register. Trait-provided properties are excluded explicitly: reflection reports them as declared

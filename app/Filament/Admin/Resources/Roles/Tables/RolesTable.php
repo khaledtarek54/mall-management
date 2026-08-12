@@ -29,7 +29,8 @@ class RolesTable
                 TextColumn::make('name')
                     ->label(__('admin.fields.role_name'))
                     ->weight('bold')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('description')
                     ->label(__('admin.fields.role_description'))
                     ->state(fn ($record) => RolesPermissionsSeeder::ROLES[$record->name] ?? __('admin.fields.role_custom'))
@@ -39,11 +40,13 @@ class RolesTable
                     ->label(__('admin.tables.role.permissions'))
                     ->counts('permissions')
                     ->badge()
+                    ->sortable()
                     ->color('gray'),
                 TextColumn::make('users_count')
                     ->label(__('admin.tables.role.users'))
                     ->counts('users')
                     ->badge()
+                    ->sortable()
                     ->color('gray'),
             ])
             // RBAC hygiene: which roles did someone hand-roll, and which are dead weight.

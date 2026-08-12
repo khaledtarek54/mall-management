@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Invoices\Pages;
 
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Imports\OpeningInvoiceImporter;
 use App\Support\Imports;
@@ -12,12 +14,15 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListInvoices extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = InvoiceResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-            \App\Filament\Actions\GuideAction::for(InvoiceResource::class),
+            ...$this->savedViewActions(),
+            GuideAction::for(InvoiceResource::class),
             CreateAction::make(),
             // Cut-over only: the receivables already outstanding when Atriom took over. Gated on
             // the import right (FR-USR-02: mall_admin is the role that may load data), and hidden

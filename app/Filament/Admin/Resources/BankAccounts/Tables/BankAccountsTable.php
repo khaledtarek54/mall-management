@@ -25,6 +25,7 @@ class BankAccountsTable
                     ->label(__('admin.fields.bank_account_name'))
                     ->weight('bold')
                     ->searchable(['search_text'])
+                    ->sortable()
                     // The number is masked in the list: recognisable, not exposed on a shared screen.
                     ->description(fn (BankAccount $record) => trim(
                         ($record->bank_name ?? '').' '.($record->maskedNumber() ?? '')
@@ -32,19 +33,23 @@ class BankAccountsTable
                 TextColumn::make('asset.name')
                     ->label(__('admin.fields.property'))
                     ->badge()
+                    ->sortable()
                     ->color('gray'),
                 TextColumn::make('ledgerAccount.code')
                     ->label(__('admin.fields.ledger_account'))
                     ->placeholder(__('admin.fields.bank_no_ledger_account'))
                     ->fontFamily('mono')
-                    ->size('xs'),
+                    ->size('xs')
+                    ->sortable(),
                 TextColumn::make('currency')
                     ->label(__('admin.fields.currency'))
                     ->badge()
                     ->color('gray')
+                    ->sortable()
                     ->toggleable(),
                 IconColumn::make('is_active')
                     ->label(__('admin.fields.is_active'))
+                    ->sortable()
                     ->boolean(),
             ])
             ->filters([

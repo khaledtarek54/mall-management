@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Payments\Pages;
 
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -9,13 +11,16 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListPayments extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = PaymentResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(PaymentResource::class),
-CreateAction::make(),
+            ...$this->savedViewActions(),
+            GuideAction::for(PaymentResource::class),
+            CreateAction::make(),
         ];
     }
 

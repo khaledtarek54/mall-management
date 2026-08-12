@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Leases\Pages;
 
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Imports\ChargeImporter;
 use App\Filament\Imports\LeaseImporter;
@@ -13,13 +15,16 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListLeases extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = LeaseResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(LeaseResource::class),
-ImportAction::make()
+            ...$this->savedViewActions(),
+            GuideAction::for(LeaseResource::class),
+            ImportAction::make()
                 ->importer(LeaseImporter::class)
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')

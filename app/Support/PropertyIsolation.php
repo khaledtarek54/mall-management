@@ -7,13 +7,16 @@ use App\Models\AccountMapping;
 use App\Models\Announcement;
 use App\Models\ApprovalRule;
 use App\Models\Area;
-use App\Models\Floor;
-use App\Models\RentableItem;
 use App\Models\Asset;
 use App\Models\AssetOwner;
+use App\Models\BankAccount;
+use App\Models\BankMatch;
+use App\Models\BankStatement;
+use App\Models\BankStatementLine;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\ChargeCode;
 use App\Models\CreditNote;
 use App\Models\CreditNoteApplication;
 use App\Models\CreditNoteItem;
@@ -33,6 +36,7 @@ use App\Models\Expense;
 use App\Models\FiscalYear;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
+use App\Models\Floor;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -64,15 +68,22 @@ use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Models\PostDatedCheque;
+use App\Models\PropertySetting;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestLine;
-use App\Models\PropertySetting;
+use App\Models\RentableItem;
 use App\Models\ReportPreference;
+use App\Models\SavedReport;
 use App\Models\SlaPolicy;
 use App\Models\StockMovement;
+use App\Models\StraightLineRentAdjustment;
 use App\Models\SystemSetting;
+use App\Models\TableView;
+use App\Models\TaxCode;
+use App\Models\TaxRate;
 use App\Models\Tenant;
 use App\Models\TenantCreditApplication;
+use App\Models\TenantDocument;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
 use App\Models\TenantSalesDeclaration;
@@ -87,11 +98,6 @@ use App\Models\VendorBillPayment;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
-use App\Models\ChargeCode;
-use App\Models\SavedReport;
-use App\Models\TaxCode;
-use App\Models\TaxRate;
-use App\Models\TenantDocument;
 use App\Models\VendorDocument;
 use App\Models\Violation;
 use App\Models\Warehouse;
@@ -136,6 +142,7 @@ class PropertyIsolation
         AccountMapping::class,      // global posting-rule defaults + optional per-property override rows
         ChargeCode::class,          // portfolio billing vocabulary; the per-property override lives on the mapping it names
         SavedReport::class,         // an operator's own report bookmark; the PROPERTY it filters on lives in its parameters and is re-clamped on open
+        TableView::class,           // the same, for a resource LIST: a property named in its filters is re-clamped by the list's own getEloquentQuery() on open
         TaxCode::class,             // one tax law applies to the whole portfolio — a rate is national, not per-mall
         TaxRate::class,             // a rung on a TaxCode's dated ladder; shared for the same reason as its parent
         ApprovalRule::class,        // operator-wide approval policy (FR-CM-11) — authority is a company rule, not a per-mall one
@@ -178,10 +185,10 @@ class PropertyIsolation
         Custody::class => null,
         CustodyTransaction::class => null,
         Warehouse::class => null,
-        \App\Models\BankAccount::class => null,   // owns its asset_id: the mall whose money it holds
-        \App\Models\BankStatement::class => 'bankAccount',   // reaches its property through the account it belongs to
-        \App\Models\BankStatementLine::class => 'statement.bankAccount',
-        \App\Models\BankMatch::class => 'statementLine.statement.bankAccount',
+        BankAccount::class => null,   // owns its asset_id: the mall whose money it holds
+        BankStatement::class => 'bankAccount',   // reaches its property through the account it belongs to
+        BankStatementLine::class => 'statement.bankAccount',
+        BankMatch::class => 'statementLine.statement.bankAccount',
         Expense::class => null,
         Payroll::class => null,
         JournalEntry::class => null,           // asset_id nullable = the books dimension (null = consolidated)
@@ -198,7 +205,7 @@ class PropertyIsolation
         OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)
         TenantCreditApplication::class => null, // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
         DepositApplication::class => null,        // netting a deposit against an invoice; asset = the invoice's property; service-created, no Filament resource
-        \App\Models\StraightLineRentAdjustment::class => null, // monthly rent-recognition adjustment; asset = the lease's property; service-created, no Filament resource
+        StraightLineRentAdjustment::class => null, // monthly rent-recognition adjustment; asset = the lease's property; service-created, no Filament resource
         OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
         Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
         PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)

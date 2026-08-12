@@ -260,9 +260,9 @@ build if a model ships unclassified, so this list is complete by construction.
 
 `Announcement` · `Area` · `AssetOwner` · `BankAccount` · `BankMatch` · `BankStatementLine` · `BankStatement` · `CamAllocation` · `CamExpensePool` · `Charge` · `CreditNoteApplication` · `CreditNoteItem` · `CreditNote` · `CustodyTransaction` · `Custody` · `Department` · `DepositApplication` · `DepositTransaction` · `DepreciationEntry` · `Disbursement` · `EmployeeAdvanceRepayment` · `EmployeeAdvance` · `Employee` · `Equipment` · `Expense` · `FixedAssetDisposal` · `FixedAsset` · `Floor` · `InvoiceItem` · `InvoiceWriteOff` · `Invoice` · `JournalEntry` · `JournalLine` · `LeaseCamTerm` · `LeaseEvent` · `LeaseOption` · `LeasePercentageRentTier` · `Lease` · `LowStockAlert` · `MaintenancePenalty` · `MaintenancePlan` · `MaintenanceWorkOrderItem` · `MaintenanceWorkOrderPart` · `MaintenanceWorkOrder` · `MarketingBudget` · `MarketingPost` · `MarketingSpend` · `MeterReading` · `OwnerRequestReply` · `OwnerRequest` · `OwnerStatementRun` · `OwnerStatement` · `Payment` · `PayrollLine` · `Payroll` · `PostDatedCheque` · `PropertySetting` · `PurchaseRequestLine` · `PurchaseRequest` · `RentableItem` · `SlaPolicy` · `StockMovement` · `StraightLineRentAdjustment` · `TenantCreditApplication` · `TenantRequestComment` · `TenantRequest` · `TenantSalesDeclaration` · `UnitArea` · `Unit` · `UtilityMeter` · `VendorBillPayment` · `VendorBill` · `VendorContractAmendment` · `VendorContract` · `Violation` · `Warehouse`
 
-**Shared (21)** — portfolio-wide by design:
+**Shared (22)** — portfolio-wide by design:
 
-`AccountMapping` · `AccountingPeriod` · `ApprovalRule` · `ChargeCode` · `DeviceToken` · `FiscalYear` · `InventoryItem` · `LedgerAccount` · `Note` · `ReportPreference` · `SavedReport` · `SystemSetting` · `TaxCode` · `TaxRate` · `TenantDocument` · `TenantUser` · `Tenant` · `User` · `VendorContact` · `VendorDocument` · `Vendor`
+`AccountMapping` · `AccountingPeriod` · `ApprovalRule` · `ChargeCode` · `DeviceToken` · `FiscalYear` · `InventoryItem` · `LedgerAccount` · `Note` · `ReportPreference` · `SavedReport` · `SystemSetting` · `TableView` · `TaxCode` · `TaxRate` · `TenantDocument` · `TenantUser` · `Tenant` · `User` · `VendorContact` · `VendorDocument` · `Vendor`
 
 **Self (1)** — the property record itself:
 

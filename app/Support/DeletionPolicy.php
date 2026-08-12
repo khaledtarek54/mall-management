@@ -2,6 +2,106 @@
 
 namespace App\Support;
 
+use App\Models\AccountingPeriod;
+use App\Models\AccountMapping;
+use App\Models\Announcement;
+use App\Models\ApprovalRule;
+use App\Models\Area;
+use App\Models\Asset;
+use App\Models\AssetOwner;
+use App\Models\BankAccount;
+use App\Models\BankMatch;
+use App\Models\BankStatement;
+use App\Models\BankStatementLine;
+use App\Models\CamAllocation;
+use App\Models\CamExpensePool;
+use App\Models\Charge;
+use App\Models\ChargeCode;
+use App\Models\CreditNote;
+use App\Models\CreditNoteApplication;
+use App\Models\CreditNoteItem;
+use App\Models\Custody;
+use App\Models\CustodyTransaction;
+use App\Models\Department;
+use App\Models\DepositApplication;
+use App\Models\DepositTransaction;
+use App\Models\DepreciationEntry;
+use App\Models\DeviceToken;
+use App\Models\Disbursement;
+use App\Models\Employee;
+use App\Models\EmployeeAdvance;
+use App\Models\EmployeeAdvanceRepayment;
+use App\Models\Equipment;
+use App\Models\Expense;
+use App\Models\FiscalYear;
+use App\Models\FixedAsset;
+use App\Models\FixedAssetDisposal;
+use App\Models\Floor;
+use App\Models\InventoryItem;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\InvoiceWriteOff;
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
+use App\Models\Lease;
+use App\Models\LeaseCamTerm;
+use App\Models\LeaseEvent;
+use App\Models\LeaseOption;
+use App\Models\LeasePercentageRentTier;
+use App\Models\LedgerAccount;
+use App\Models\LowStockAlert;
+use App\Models\MaintenancePenalty;
+use App\Models\MaintenancePlan;
+use App\Models\MaintenanceWorkOrder;
+use App\Models\MaintenanceWorkOrderItem;
+use App\Models\MaintenanceWorkOrderPart;
+use App\Models\MarketingBudget;
+use App\Models\MarketingPost;
+use App\Models\MarketingSpend;
+use App\Models\MeterReading;
+use App\Models\Note;
+use App\Models\OwnerRequest;
+use App\Models\OwnerRequestReply;
+use App\Models\OwnerStatement;
+use App\Models\OwnerStatementRun;
+use App\Models\Payment;
+use App\Models\Payroll;
+use App\Models\PayrollLine;
+use App\Models\PostDatedCheque;
+use App\Models\PropertySetting;
+use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestLine;
+use App\Models\RentableItem;
+use App\Models\ReportPreference;
+use App\Models\SavedReport;
+use App\Models\SlaPolicy;
+use App\Models\StockMovement;
+use App\Models\StraightLineRentAdjustment;
+use App\Models\SystemSetting;
+use App\Models\TableView;
+use App\Models\TaxCode;
+use App\Models\TaxRate;
+use App\Models\Tenant;
+use App\Models\TenantCreditApplication;
+use App\Models\TenantDocument;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
+use App\Models\TenantSalesDeclaration;
+use App\Models\TenantUser;
+use App\Models\Unit;
+use App\Models\UnitArea;
+use App\Models\User;
+use App\Models\UtilityMeter;
+use App\Models\Vendor;
+use App\Models\VendorBill;
+use App\Models\VendorBillPayment;
+use App\Models\VendorContact;
+use App\Models\VendorContract;
+use App\Models\VendorContractAmendment;
+use App\Models\VendorDocument;
+use App\Models\Violation;
+use App\Models\Warehouse;
+
 /**
  * What may be deleted, and what must be corrected instead.
  *
@@ -42,28 +142,27 @@ class DeletionPolicy
      * @var array<class-string, string>
      */
     public const NEVER_DELETABLE = [
-        \App\Models\Invoice::class => 'cancel the invoice, or issue a credit note',
-        \App\Models\Payment::class => 'void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice',
-        \App\Models\JournalEntry::class => 'post a reversing entry; a posted entry is never removed',
-        \App\Models\CreditNote::class => 'cancel the note — it un-applies against the original invoice',
-        \App\Models\VendorBill::class => 'cancel the bill',
-        \App\Models\Expense::class => 'cancel the expense',
-        \App\Models\DepositTransaction::class => 'reverse the deposit transaction',
-        \App\Models\Payroll::class => 'cancel the run — payslips and their GL entries follow it',
-        \App\Models\PostDatedCheque::class => 'cancel or bounce the cheque',
+        Invoice::class => 'cancel the invoice, or issue a credit note',
+        Payment::class => 'void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice',
+        JournalEntry::class => 'post a reversing entry; a posted entry is never removed',
+        CreditNote::class => 'cancel the note — it un-applies against the original invoice',
+        VendorBill::class => 'cancel the bill',
+        Expense::class => 'cancel the expense',
+        DepositTransaction::class => 'reverse the deposit transaction',
+        Payroll::class => 'cancel the run — payslips and their GL entries follow it',
+        PostDatedCheque::class => 'cancel or bounce the cheque',
 
         // Money and audit records reached through a parent rather than their own screen. Each was
         // checked for a deletion call site in app/ before being listed — none has one, so guarding
         // them removes nothing that works today.
-        \App\Models\Disbursement::class => 'cancel the disbursement — it is a GL source and an owner payout',
-        \App\Models\StockMovement::class => 'post a correcting movement; the original is what the GL was built from',
-        \App\Models\DepreciationEntry::class => 'reverse the depreciation run',
-        \App\Models\VendorBillPayment::class => 'void the payment — money left the bank',
-        \App\Models\FixedAssetDisposal::class => 'reverse the disposal',
-        \App\Models\MaintenancePenalty::class => 'waive or release the penalty — it feeds the vendor bill',
-        \App\Models\LeaseEvent::class => 'record the correcting event — a lease event is an assertion about something that happened, and the model refuses updates and deletes outright (no deletion call site exists in app/, so guarding it removes nothing that works)',
+        Disbursement::class => 'cancel the disbursement — it is a GL source and an owner payout',
+        StockMovement::class => 'post a correcting movement; the original is what the GL was built from',
+        DepreciationEntry::class => 'reverse the depreciation run',
+        VendorBillPayment::class => 'void the payment — money left the bank',
+        FixedAssetDisposal::class => 'reverse the disposal',
+        MaintenancePenalty::class => 'waive or release the penalty — it feeds the vendor bill',
+        LeaseEvent::class => 'record the correcting event — a lease event is an assertion about something that happened, and the model refuses updates and deletes outright (no deletion call site exists in app/, so guarding it removes nothing that works)',
     ];
-
 
     /**
      * Master data: deletable only while nothing in the system points at it.
@@ -86,7 +185,7 @@ class DeletionPolicy
      * @var array<class-string, array{blocked_by: array<int, string>, instead: string}>
      */
     public const WHEN_UNUSED = [
-        \App\Models\Tenant::class => [
+        Tenant::class => [
             // + postDatedCheques: a NEVER-deletable money record a tenant can hold before any invoice
             // (a year of PDCs lodged up front) — omitting it left a tenant with only lodged cheques
             // deletable, stranding them on the maturity dashboard (pre-go-live review).
@@ -95,7 +194,7 @@ class DeletionPolicy
             'blocked_by' => ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'maintenanceRequests', 'postDatedCheques', 'violations'],
             'instead' => 'set the tenant to inactive — the history stays queryable and the AR still ties out',
         ],
-        \App\Models\Vendor::class => [
+        Vendor::class => [
             // NOT `purchaseRequests`: a PR's vendor_id is nullable + nullOnDelete BY DESIGN — the
             // vendor there is a pre-award suggestion, not a commitment, and PurchaseRequest is
             // classified operational-ALLOWED. The actual AP obligation is the VendorBill, which
@@ -103,7 +202,7 @@ class DeletionPolicy
             'blocked_by' => ['bills', 'contracts', 'maintenanceRequests', 'documents'],
             'instead' => 'set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills',
         ],
-        \App\Models\Lease::class => [
+        Lease::class => [
             // deposits + postDatedCheques are NEVER-deletable money records that reference the lease
             // and can exist BEFORE any invoice (a deposit is taken at signing, a year of PDCs lodged
             // up front) — so an invoices/charges-only list left a lease with a deposit or lodged
@@ -114,7 +213,7 @@ class DeletionPolicy
             'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'],
             'instead' => 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history',
         ],
-        \App\Models\Floor::class => [
+        Floor::class => [
             // A floor with anything standing on it is part of the property's structure — deleting it
             // would orphan units and bays from the geography every report groups by.
             'blocked_by' => ['units', 'rentableItems'],
@@ -125,24 +224,24 @@ class DeletionPolicy
         // would cascade its whole rate ladder away — so the history stops being explicable rather
         // than the code stopping being useful. Deactivate instead: it disappears from every picker
         // and keeps answering for the past.
-        \App\Models\TaxCode::class => [
+        TaxCode::class => [
             'blocked_by' => ['chargeCodes'],
             'instead' => 'deactivate the tax code — it leaves the pickers immediately and still explains what past documents were taxed at',
         ],
-        \App\Models\RentableItem::class => [
+        RentableItem::class => [
             // A bay that has ever been let is part of the property record — the lease history and
             // its billing reference it. Withdraw it from letting instead; that is what
             // `out_of_service` is for, and it is the same call as a unit set to maintenance.
             'blocked_by' => ['leases'],
             'instead' => 'set the item out of service — an item that has been let is part of the property record',
         ],
-        \App\Models\Unit::class => [
+        Unit::class => [
             // allLeases, NOT leases: a multi-unit lease keeps its extra units in the lease_unit
             // pivot, so the master-only relation would report a leased unit as never used.
             'blocked_by' => ['allLeases', 'maintenanceRequests', 'utilityMeters'],
             'instead' => 'set the unit to maintenance if it is out of service — a unit that has been leased is part of the property record',
         ],
-        \App\Models\Asset::class => [
+        Asset::class => [
             // The property is the ROOT of the GL isolation dimension, so it carries the widest
             // history — and the financial/HR children's asset_id FKs are cascadeOnDelete, so a
             // MISSING blocker doesn't just orphan on delete, a force-delete DESTROYS them outright,
@@ -162,37 +261,37 @@ class DeletionPolicy
             ],
             'instead' => 'deactivate the property — deleting one would orphan (or cascade-destroy) every book, payroll, register and penalty that reports on it',
         ],
-        \App\Models\Employee::class => [
+        Employee::class => [
             'blocked_by' => ['payrollLines', 'advances', 'custodies'],
             'instead' => 'set the employee inactive — payroll history is a statutory record',
         ],
-        \App\Models\LedgerAccount::class => [
+        LedgerAccount::class => [
             // + accountMappings: a source→account mapping (restrictOnDelete) is what makes an account
             // a posting target BEFORE anything posts to it — without this, a mapped-but-unposted
             // account failed on a DB constraint instead of the friendly refusal.
             'blocked_by' => ['lines', 'children', 'accountMappings'],
             'instead' => 'deactivate the account — removing one that has been posted to breaks every prior statement',
         ],
-        \App\Models\AccountingPeriod::class => [
+        AccountingPeriod::class => [
             'blocked_by' => ['entries'],
             'instead' => 'a period that has been posted to is part of the books; close it rather than remove it',
         ],
-        \App\Models\CamExpensePool::class => [
+        CamExpensePool::class => [
             'blocked_by' => ['allocations'],
             'instead' => 'void the allocations first — they are what tenants were billed from',
         ],
-        \App\Models\Department::class => [
+        Department::class => [
             // members = app Users (RBAC); employees = HR staff. Two different dimensions — the
             // employees.department_id FK is nullOnDelete, so a department with staff would be
             // deletable and silently un-assign them. Both block.
             'blocked_by' => ['members', 'employees'],
             'instead' => 'move its members first, then delete the empty department',
         ],
-        \App\Models\Warehouse::class => [
+        Warehouse::class => [
             'blocked_by' => ['movements'],
             'instead' => 'a warehouse with stock history is part of the inventory record',
         ],
-        \App\Models\InventoryItem::class => [
+        InventoryItem::class => [
             'blocked_by' => ['movements'],
             'instead' => 'deactivate the item — its movements are what the stock valuation was built from',
         ],
@@ -211,7 +310,6 @@ class DeletionPolicy
      * reports must still show (tenant, lease, unit, property), or is it a supported retirement the
      * system already handles end-to-end (meter)?
      */
-
 
     /**
      * Everything else, and WHY each is safe to delete.
@@ -238,96 +336,97 @@ class DeletionPolicy
      */
     public const ALLOWED = [
         // parent-managed children (deleting these IS the workflow)
-        \App\Models\InvoiceItem::class => 'parent-managed: rebuilt whenever the invoice is recomputed',
-        \App\Models\CreditNoteItem::class => 'parent-managed: rebuilt with its credit note',
-        \App\Models\CreditNoteApplication::class => 'parent-managed: deleted to UN-APPLY a credit note',
-        \App\Models\TenantCreditApplication::class => 'parent-managed: soft-deleted to reverse an applied tenant credit',
-        \App\Models\DepositApplication::class => 'parent-managed: soft-deleted to reverse a deposit netted against an invoice (ApplyDepositToInvoiceService::reverse), which re-opens the AR and returns the deposit balance',
-        \App\Models\StraightLineRentAdjustment::class => 'parent-managed: soft-deleted to reverse a month\'s rent-recognition adjustment (PostStraightLineRentService::reverseFrom), which voids its journal entry — the path a forward-only re-derivation uses after an amendment',
-        \App\Models\InvoiceWriteOff::class => 'parent-managed: soft-deleted to reverse a bad-debt write-off (WriteOffInvoiceService::reverse), which voids the GL entry and re-opens the invoice. NEVER_DELETABLE would have broken that recovery path — the exact trap CLAUDE.md warns about before adding a model to NEVER',
-        \App\Models\JournalLine::class => 'parent-managed: rebuilt when its entry is re-posted',
-        \App\Models\PayrollLine::class => 'parent-managed: rebuilt when payslips are regenerated',
-        \App\Models\OwnerStatement::class => 'parent-managed: force-deleted when its run is rebuilt',
-        \App\Models\EmployeeAdvanceRepayment::class => 'parent-managed: deleted to reverse a repayment',
-        \App\Models\CustodyTransaction::class => 'parent-managed: removed on settlement',
-        \App\Models\MaintenanceWorkOrderItem::class => 'parent-managed: edited as part of the work order',
-        \App\Models\MaintenanceWorkOrderPart::class => 'parent-managed: edited as part of the work order',
-        \App\Models\PurchaseRequestLine::class => 'parent-managed: edited while the request is still a draft',
-        \App\Models\VendorContractAmendment::class => 'parent-managed: append-only in practice, removable while unsent',
-        \App\Models\OwnerRequestReply::class => 'parent-managed: belongs to its thread',
-        \App\Models\TenantRequestComment::class => 'parent-managed: belongs to its request',
-        \App\Models\LeaseCamTerm::class => 'parent-managed: effective-dated terms on a lease',
-        \App\Models\LeasePercentageRentTier::class => 'parent-managed: one band of a lease\'s breakpoint ladder, edited from the lease',
-        \App\Models\LeaseOption::class => 'parent-managed: the optionality recorded on a lease, edited from it. An option that was never really in the contract is removed; one that WAS is resolved (exercised/lapsed/waived), which keeps the history',
-        \App\Models\AssetOwner::class => 'parent-managed: the ownership pivot, edited from the property',
-        \App\Models\DeviceToken::class => 'parent-managed: pruned automatically when a push token goes dead',
+        InvoiceItem::class => 'parent-managed: rebuilt whenever the invoice is recomputed',
+        CreditNoteItem::class => 'parent-managed: rebuilt with its credit note',
+        CreditNoteApplication::class => 'parent-managed: deleted to UN-APPLY a credit note',
+        TenantCreditApplication::class => 'parent-managed: soft-deleted to reverse an applied tenant credit',
+        DepositApplication::class => 'parent-managed: soft-deleted to reverse a deposit netted against an invoice (ApplyDepositToInvoiceService::reverse), which re-opens the AR and returns the deposit balance',
+        StraightLineRentAdjustment::class => 'parent-managed: soft-deleted to reverse a month\'s rent-recognition adjustment (PostStraightLineRentService::reverseFrom), which voids its journal entry — the path a forward-only re-derivation uses after an amendment',
+        InvoiceWriteOff::class => 'parent-managed: soft-deleted to reverse a bad-debt write-off (WriteOffInvoiceService::reverse), which voids the GL entry and re-opens the invoice. NEVER_DELETABLE would have broken that recovery path — the exact trap CLAUDE.md warns about before adding a model to NEVER',
+        JournalLine::class => 'parent-managed: rebuilt when its entry is re-posted',
+        PayrollLine::class => 'parent-managed: rebuilt when payslips are regenerated',
+        OwnerStatement::class => 'parent-managed: force-deleted when its run is rebuilt',
+        EmployeeAdvanceRepayment::class => 'parent-managed: deleted to reverse a repayment',
+        CustodyTransaction::class => 'parent-managed: removed on settlement',
+        MaintenanceWorkOrderItem::class => 'parent-managed: edited as part of the work order',
+        MaintenanceWorkOrderPart::class => 'parent-managed: edited as part of the work order',
+        PurchaseRequestLine::class => 'parent-managed: edited while the request is still a draft',
+        VendorContractAmendment::class => 'parent-managed: append-only in practice, removable while unsent',
+        OwnerRequestReply::class => 'parent-managed: belongs to its thread',
+        TenantRequestComment::class => 'parent-managed: belongs to its request',
+        LeaseCamTerm::class => 'parent-managed: effective-dated terms on a lease',
+        LeasePercentageRentTier::class => 'parent-managed: one band of a lease\'s breakpoint ladder, edited from the lease',
+        LeaseOption::class => 'parent-managed: the optionality recorded on a lease, edited from it. An option that was never really in the contract is removed; one that WAS is resolved (exercised/lapsed/waived), which keeps the history',
+        AssetOwner::class => 'parent-managed: the ownership pivot, edited from the property',
+        DeviceToken::class => 'parent-managed: pruned automatically when a push token goes dead',
 
         // configuration / setup
-        \App\Models\AccountMapping::class => 'configuration: which account a source posts to',
-        \App\Models\UnitArea::class => 'parent-managed: one measurement of a unit for a period, edited from the unit. A wrong figure is corrected by recording a new measurement — the register is what makes a past period explicable, so rows are not removed',
-        \App\Models\ChargeCode::class => 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup',
+        AccountMapping::class => 'configuration: which account a source posts to',
+        UnitArea::class => 'parent-managed: one measurement of a unit for a period, edited from the unit. A wrong figure is corrected by recording a new measurement — the register is what makes a past period explicable, so rows are not removed',
+        ChargeCode::class => 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup',
         // Parent-managed: one rung of a tax code's dated ladder, edited from the code. A rung
         // posts nothing and settles nothing — issued documents carry their own rate and are
         // never re-rated — so removing one changes what is billed NEXT and no history. Same
         // call, and same reasoning, as LeaseCamTerm's effective-dated terms.
-        \App\Models\TaxRate::class => 'parent-managed: effective-dated rates on a tax code, edited from the code',
+        TaxRate::class => 'parent-managed: effective-dated rates on a tax code, edited from the code',
         // A bookmark. It records no money, explains no balance and is referenced by nothing —
         // deleting one loses a set of filters its owner chose to keep, and nothing else.
-        \App\Models\SavedReport::class => 'preference: a saved set of report filters, owned by the operator who saved it',
-        \App\Models\ApprovalRule::class => 'configuration: approval bands',
+        SavedReport::class => 'preference: a saved set of report filters, owned by the operator who saved it',
+        TableView::class => 'preference: a saved filter/sort state for a resource list, owned by the operator who saved it — same reasoning as SavedReport above',
+        ApprovalRule::class => 'configuration: approval bands',
         // Configuration today: nothing references a bank account yet. Slice 2 of the
         // reconciliation plan adds statements, and this MUST become WHEN_UNUSED blocked_by them at
         // that point — an account with reconciled statements behind it explains a balance.
-        \App\Models\BankAccount::class => 'configuration: the operator\'s bank accounts (revisit when statements exist)',
+        BankAccount::class => 'configuration: the operator\'s bank accounts (revisit when statements exist)',
         // Evidence, not a money record: a statement posts nothing, so removing a mis-imported one
         // changes no balance. Re-import is the correction, and the unique (account, period) index is
         // what makes deleting the wrong one the only way to re-import it.
-        \App\Models\BankStatement::class => 'evidence: re-import the statement',
-        \App\Models\BankStatementLine::class => 'evidence: parent-managed, rebuilt on re-import',
+        BankStatement::class => 'evidence: re-import the statement',
+        BankStatementLine::class => 'evidence: parent-managed, rebuilt on re-import',
         // Unmatching IS the correction, and it deletes the row. A match posted nothing, so removing
         // one changes no balance — the reason this is annotation rather than a money record.
-        \App\Models\BankMatch::class => 'annotation: unmatch it',
-        \App\Models\SlaPolicy::class => 'configuration: SLA targets',
+        BankMatch::class => 'annotation: unmatch it',
+        SlaPolicy::class => 'configuration: SLA targets',
         // Clearing an override IS the correction — it restores the portfolio's answer, which is
         // always available. Nothing posted, so removing one changes no balance.
-        \App\Models\PropertySetting::class => 'configuration: a per-property override; deleting restores the portfolio default',
+        PropertySetting::class => 'configuration: a per-property override; deleting restores the portfolio default',
         // A UI preference. Clearing it restores the report's own default, which is always available.
-        \App\Models\ReportPreference::class => 'preference: one operator\'s remembered report filters',
-        \App\Models\SystemSetting::class => 'configuration',
-        \App\Models\Area::class => 'configuration: a zone used for routing',
-        \App\Models\Equipment::class => 'configuration: an asset register entry with no ledger of its own',
-        \App\Models\MaintenancePlan::class => 'configuration: a PPM schedule',
-        \App\Models\MarketingBudget::class => 'configuration: a spend envelope',
-        \App\Models\FiscalYear::class => 'configuration: its periods carry the entries, and they are guarded',
-        \App\Models\Charge::class => 'configuration: a recurring billing line; issued invoices keep their own copy',
-        \App\Models\Note::class => 'configuration: a free-text note',
-        \App\Models\Announcement::class => 'configuration: a notice board post',
+        ReportPreference::class => 'preference: one operator\'s remembered report filters',
+        SystemSetting::class => 'configuration',
+        Area::class => 'configuration: a zone used for routing',
+        Equipment::class => 'configuration: an asset register entry with no ledger of its own',
+        MaintenancePlan::class => 'configuration: a PPM schedule',
+        MarketingBudget::class => 'configuration: a spend envelope',
+        FiscalYear::class => 'configuration: its periods carry the entries, and they are guarded',
+        Charge::class => 'configuration: a recurring billing line; issued invoices keep their own copy',
+        Note::class => 'configuration: a free-text note',
+        Announcement::class => 'configuration: a notice board post',
 
         // operational records (work, not money)
-        \App\Models\MaintenanceWorkOrder::class => 'operational: a job record',
-        \App\Models\TenantRequest::class => 'operational: terminal states are already immutable',
-        \App\Models\OwnerRequest::class => 'operational: responded requests are already immutable',
-        \App\Models\PurchaseRequest::class => 'operational: its GRNI posting lives on the vendor bill',
-        \App\Models\Violation::class => 'operational: force-delete is already blocked once a fine is billed',
-        \App\Models\MeterReading::class => 'operational: already refuses deletion once billed',
-        \App\Models\TenantSalesDeclaration::class => 'operational: locking is what makes it billable, and a locked one voids rather than deletes',
-        \App\Models\CamAllocation::class => 'operational: voided through the pool, not removed',
-        \App\Models\MarketingSpend::class => 'operational: a spend line',
-        \App\Models\MarketingPost::class => 'operational: shopper-facing content, not a record of anything that happened. `archived` is the retirement path an operator should use (it keeps the campaign in the register with its engagement counters), but a post typed by mistake — wrong mall, duplicated draft, artwork that never ran — is genuinely a row that should not exist, and refusing it would leave the register full of things the marketing team has to mentally skip. Soft-deletes, so a mis-delete is recoverable',
-        \App\Models\LowStockAlert::class => 'operational: a transient alert',
-        \App\Models\Custody::class => 'operational: settled through SettleCustodyService',
-        \App\Models\EmployeeAdvance::class => 'operational: reversed rather than removed',
-        \App\Models\VendorContract::class => 'operational: expired/terminated rather than removed',
-        \App\Models\VendorDocument::class => 'operational: superseded by a newer certificate',
-        \App\Models\TenantDocument::class => 'operational: superseded by a newer certificate',
-        \App\Models\VendorContact::class => 'operational: a contact person',
-        \App\Models\OwnerStatementRun::class => 'operational: superseded by a new version rather than removed',
-        \App\Models\UtilityMeter::class => 'operational: soft-delete IS the retirement path, and the energy trend already excludes retired meters',
-        \App\Models\FixedAsset::class => 'operational: soft-delete IS the retirement path — the sweep voids the asset\'s entire GL footprint, which a scenario test pins',
+        MaintenanceWorkOrder::class => 'operational: a job record',
+        TenantRequest::class => 'operational: terminal states are already immutable',
+        OwnerRequest::class => 'operational: responded requests are already immutable',
+        PurchaseRequest::class => 'operational: its GRNI posting lives on the vendor bill',
+        Violation::class => 'operational: force-delete is already blocked once a fine is billed',
+        MeterReading::class => 'operational: already refuses deletion once billed',
+        TenantSalesDeclaration::class => 'operational: locking is what makes it billable, and a locked one voids rather than deletes',
+        CamAllocation::class => 'operational: voided through the pool, not removed',
+        MarketingSpend::class => 'operational: a spend line',
+        MarketingPost::class => 'operational: shopper-facing content, not a record of anything that happened. `archived` is the retirement path an operator should use (it keeps the campaign in the register with its engagement counters), but a post typed by mistake — wrong mall, duplicated draft, artwork that never ran — is genuinely a row that should not exist, and refusing it would leave the register full of things the marketing team has to mentally skip. Soft-deletes, so a mis-delete is recoverable',
+        LowStockAlert::class => 'operational: a transient alert',
+        Custody::class => 'operational: settled through SettleCustodyService',
+        EmployeeAdvance::class => 'operational: reversed rather than removed',
+        VendorContract::class => 'operational: expired/terminated rather than removed',
+        VendorDocument::class => 'operational: superseded by a newer certificate',
+        TenantDocument::class => 'operational: superseded by a newer certificate',
+        VendorContact::class => 'operational: a contact person',
+        OwnerStatementRun::class => 'operational: superseded by a new version rather than removed',
+        UtilityMeter::class => 'operational: soft-delete IS the retirement path, and the energy trend already excludes retired meters',
+        FixedAsset::class => 'operational: soft-delete IS the retirement path — the sweep voids the asset\'s entire GL footprint, which a scenario test pins',
 
         // identity
-        \App\Models\User::class => 'identity: deactivated in practice; delete stays super_admin-only',
-        \App\Models\TenantUser::class => 'identity: a portal login',
+        User::class => 'identity: deactivated in practice; delete stays super_admin-only',
+        TenantUser::class => 'identity: a portal login',
     ];
 
     /** Is this model deletable only while unreferenced? */

@@ -31,14 +31,21 @@ class InventoryItemsTable
                 TextColumn::make('sku')
                     ->label(__('admin.inventory.fields.sku'))
                     ->fontFamily('mono')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('name')
                     ->label(__('admin.inventory.fields.name'))
                     ->weight('bold')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('category')
                     ->label(__('admin.inventory.fields.category'))
+                    ->sortable()
                     ->placeholder('—'),
+                // `on_hand` and `stock_value` are withSum() aliases from
+                // InventoryItemResource::getEloquentQuery(), so ORDER BY resolves them.
+                // Sorting on_hand ascending IS the reorder worklist — the single most
+                // useful ordering this table has, and it was unavailable.
                 TextColumn::make('on_hand')
                     ->label(__('admin.inventory.fields.on_hand'))
                     ->numeric(decimalPlaces: 3)
@@ -46,10 +53,12 @@ class InventoryItemsTable
                     // Highlight when at/below the reorder level (low stock).
                     ->color(fn ($state, $record) => (float) $state <= (float) $record->reorder_level ? 'danger' : 'success')
                     ->weight('bold')
+                    ->sortable()
                     ->suffix(fn ($record) => ' '.$record->unit),
                 TextColumn::make('unit_cost')
                     ->label(__('admin.inventory.fields.unit_cost'))
                     ->money('EGP')
+                    ->sortable()
                     ->toggleable(),
                 // What the stock on hand is WORTH (on_hand × unit cost) — the number an operator
                 // and their accountant actually want, and which was nowhere on screen.
@@ -59,6 +68,7 @@ class InventoryItemsTable
                     ->money('EGP')
                     ->alignRight()
                     ->weight('bold')
+                    ->sortable()
                     // The value of the whole (filtered) catalogue — the number the accountant
                     // reconciles the inventory account against. Summed in SQL because the
                     // column itself is derived state, not a real column.
@@ -71,6 +81,7 @@ class InventoryItemsTable
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.fields.reorder_level'))
                     ->numeric(decimalPlaces: 3)
+                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('is_active')
                     ->label(__('admin.inventory.fields.active'))

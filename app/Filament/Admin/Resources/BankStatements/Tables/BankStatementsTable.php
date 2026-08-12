@@ -3,11 +3,19 @@
 namespace App\Filament\Admin\Resources\BankStatements\Tables;
 
 use App\Filament\Admin\Resources\BankStatements\BankStatementResource;
+use App\Models\Asset;
+use App\Models\BankAccount;
 use App\Models\BankStatement;
+use App\Support\TenantScope;
+use Carbon\Carbon;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BankStatementsTable
 {
@@ -20,23 +28,30 @@ class BankStatementsTable
                 TextColumn::make('bankAccount.name')
                     ->label(__('admin.resources.bank_account.singular'))
                     ->weight('bold')
+                    ->sortable()
                     ->description(function (BankStatement $record) {
                         $account = $record->getRelationValue('bankAccount');
 
-                        $asset = $account instanceof \App\Models\BankAccount ? $account->getRelationValue('asset') : null;
+                        $asset = $account instanceof BankAccount ? $account->getRelationValue('asset') : null;
 
-                        return $asset instanceof \App\Models\Asset ? $asset->name : null;
+                        return $asset instanceof Asset ? $asset->name : null;
                     }),
+                // The displayed value is a formatted range, so name the real columns to
+                // sort on — sorting the literal string "01/07/2026 – 31/07/2026" would
+                // order by day-of-month.
                 TextColumn::make('period')
                     ->label(__('admin.fields.period'))
+                    ->sortable(['period_start', 'period_end'])
                     ->getStateUsing(fn (BankStatement $record) => $record->label()),
                 TextColumn::make('lines_count')
                     ->label(__('admin.fields.statement_lines'))
                     ->badge()
+                    ->sortable()
                     ->color('gray'),
                 TextColumn::make('closing_balance')
                     ->label(__('admin.fields.closing_balance'))
                     ->money('EGP')
+                    ->sortable()
                     ->alignRight(),
                 // The cheapest signal that a file was truncated, half-mapped, or had its signs read
                 // backwards: does the BANK's own arithmetic hold? It says nothing about the books,
@@ -63,6 +78,46 @@ class BankStatementsTable
                         : __('admin.bank.inconsistent'))
                     ->color(fn (BankStatement $record) => $record->isSelfConsistent() ? 'success' : 'danger')
                     ->tooltip(__('admin.helpers.statement_consistent')),
+            ])
+            // The register had no filters at all: once a mall has a year of statements
+            // across two or three accounts, "the July CIB one" was a scroll, not a query.
+            ->filters([
+                // Property-scoped: the options are the accounts this user can already see,
+                // so the filter can never name an account from another mall.
+                SelectFilter::make('bank_account_id')
+                    ->label(__('admin.resources.bank_account.singular'))
+                    ->options(fn () => BankAccount::query()
+                        ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
+                        ->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->preload(),
+                Filter::make('period')
+                    ->label(__('admin.filters.period'))
+                    ->schema([
+                        DatePicker::make('period_from')
+                            ->label(__('admin.filters.period_from'))
+                            ->native(false),
+                        DatePicker::make('period_until')
+                            ->label(__('admin.filters.period_until'))
+                            ->native(false),
+                    ])
+                    ->columns(2)
+                    // A statement OVERLAPPING the window, not one contained by it — asking
+                    // for "July" must return the statement that runs 25 Jun – 24 Jul.
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['period_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_end', '>=', $date))
+                        ->when($data['period_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '<=', $date)))
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['period_from'] ?? null) {
+                            $indicators[] = __('admin.filters.period_from').': '.Carbon::parse($data['period_from'])->format('d/m/Y');
+                        }
+                        if ($data['period_until'] ?? null) {
+                            $indicators[] = __('admin.filters.period_until').': '.Carbon::parse($data['period_until'])->format('d/m/Y');
+                        }
+
+                        return $indicators;
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),

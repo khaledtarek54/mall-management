@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages;
 
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Models\Asset;
 use App\Services\FacilityWorkLogPdfService;
@@ -14,11 +15,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListMaintenanceWorkOrders extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = MaintenanceWorkOrderResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             // Facility work-log report (RPT-1) — a bilingual PDF of the work orders for the
             // current property over a date range. Scoped to what the user can see.
             Action::make('work_log')

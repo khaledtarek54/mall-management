@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Tenants\Pages;
 
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Imports\TenantImporter;
 use App\Support\Imports;
@@ -12,17 +14,20 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListTenants extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = TenantResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(TenantResource::class),
-ImportAction::make()
+            ...$this->savedViewActions(),
+            GuideAction::for(TenantResource::class),
+            ImportAction::make()
                 ->importer(TenantImporter::class)
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')
-                // Bulk import writes tenant records — gate server-side (was ungated).
+                            // Bulk import writes tenant records — gate server-side (was ungated).
                 ->visible(fn () => Imports::allowed())
                 ->authorize(fn () => Imports::allowed()),
             CreateAction::make(),
