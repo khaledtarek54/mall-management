@@ -799,6 +799,44 @@ place — `BooksReconciliationService::glTieOut()` — and is reused by the
 (GL balances are cumulative, so it's skipped for a `--month` run) and self-skips when the
 GL isn't configured/populated.
 
+**…and the delta now reaches somebody (2026-08-12).** Until then the sweep computed the
+tie-out and printed it with `warn()`. The sweep runs on cron, so that went to `/dev/null` —
+the one number that says *the books no longer agree with themselves* reached no channel at
+all: not the console, not the bell, not `/health`, not a stored value anyone could query.
+The obvious objection — "there is already a ledger alert" — is precisely why it stayed
+invisible: `LedgerSyncFailedNotification` fires from `recordAndAlertFailures()`, which
+**returns early on `$failed === 0`**, and a ledger that drifts while posting every document
+cleanly has zero failures *by definition*. Both persisted keys were about documents that
+threw. So `SyncLedgerCommand::recordAndAlertDrift()` now:
+
+| | |
+|---|---|
+| **persists** | `ledger_tie_out_ar_delta` · `ledger_tie_out_ap_delta` · `ledger_tie_out_checked_at` · `ledger_books_drifting` |
+| **alerts** | `BooksDriftDetectedNotification` (mail + bell) to holders of `journal_entries.post`, **on the transition into drift only** — a nightly message repeating a known delta is a message people filter |
+| **surfaces** | `/health` → `books_tie_out`, so an uptime monitor sees it without anyone opening `/admin` |
+
+The same health check also reports a standing `ledger_last_sync_failures`. That count had the
+identical gap one layer over: `recordAndAlertFailures()` de-dupes on a *change* in the number, so a
+failure sitting at 3 for a month alerts once and afterwards exists only on `PostsToLedger`'s banner,
+on report pages nobody has open. An un-postable document is the other way the books stop agreeing,
+and it belongs on a surface something polls.
+
+Two deliberate asymmetries against the failures counter next to it. It **clears on any
+run**, including a windowed one: `glTieOut()` sums the whole ledger against the whole
+sub-ledger, so even a two-day sweep computes a full-scope answer and there is no partial
+view to false-clear from. And a **missing** stamp is reported healthy — that means the
+sweep has not run, which the `scheduler` check already reports; failing here too would give
+the operator two alarms for one cause and teach them to ignore this one.
+
+**`billing:reconcile` is scheduled (2026-08-12).** The tie-out says the books disagree;
+the deep re-derivation says *which document* disagrees. It existed, it worked, and it
+appeared nowhere in `routes/console.php` — only an operator working through the month-end
+checklist ever ran it. Now `billing:reconcile --deep`, Fridays 04:00, `withoutOverlapping`.
+Pinned by `tests/Feature/Regression/BooksDriftIsVisibleTest.php`, which asserts against the
+real `Schedule` rather than the file's text, and drives the alert through the command
+itself — a test that constructed the notification by hand would have passed against the
+old code, since the defect was that nothing ever called it.
+
 **Near-real-time posting (Phase 2 hardening) — done:** in addition to the daily sweep and
 the on-demand button, every posting source now dispatches a queued `SyncDocumentToLedger`
 job **after commit** on save/delete/restore (`App\Support\LedgerRealtimeSync`, wired in

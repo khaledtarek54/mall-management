@@ -251,6 +251,19 @@ Schedule::command('accounting:sync-ledger --all --scheduled')
     ->name('atriom-sync-ledger-full')
     ->withoutOverlapping();
 
+// The independent re-derivation of the AR books — and until 2026-08-12 it was never scheduled at
+// all. It existed, it worked, and the only thing that ran it was a diligent operator opening the
+// month-end checklist. A control nobody runs is not a control.
+//
+// Read-only, so it is safe to run unattended, and it goes AFTER the weekly full sweep: reconciling
+// before the sweep has had its chance to self-heal would report drift the next hour would fix.
+// The tie-out that the sweep records on every run is the cheap daily signal; this is the deep one
+// that says WHICH document disagrees.
+Schedule::command('billing:reconcile --deep')
+    ->weeklyOn(5, '04:00')
+    ->name('atriom-books-reconcile')
+    ->withoutOverlapping();
+
 /*
 |--------------------------------------------------------------------------
 | Backups

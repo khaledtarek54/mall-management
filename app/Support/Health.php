@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -63,6 +64,7 @@ class Health
             'storage' => self::checkStorage(),
             'two_factor' => self::checkTwoFactor(),
             'accounting' => self::checkAccounting(),
+            'books_tie_out' => self::checkBooksTieOut(),
             'admin_access' => self::checkAdminAccess(),
             'demo_accounts' => self::checkDemoAccounts(),
             'demo_payments' => self::checkDemoPayments(),
@@ -244,6 +246,66 @@ class Health
      *
      * @return array{ok: bool, detail: string}
      */
+    /**
+     * Do the books still agree with themselves?
+     *
+     * `accounting:sync-ledger` computes the GL↔AR and GL↔AP tie-out on every run and, since
+     * 2026-08-12, persists it. This surfaces that stamp — which is the point: the delta used to be
+     * printed with `warn()` and nothing else, so on a cron it went to `/dev/null`, and the sibling
+     * alert only fires for documents that THREW. A ledger drifting with zero failed documents was
+     * invisible to every channel at once.
+     *
+     * Reads the stamp rather than recomputing. `glTieOut()` sums the whole ledger against the whole
+     * sub-ledger, which is not something to run inside a health endpoint an uptime monitor hits
+     * every minute — and a health check that is expensive is a health check somebody turns off.
+     *
+     * A MISSING stamp is not a failure: it means the sweep has not run yet, which `scheduler`
+     * already reports. Only a recorded, non-zero delta is.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkBooksTieOut(): array
+    {
+        $parts = [];
+
+        // A document that could not post is the other way the books stop agreeing, and it had the
+        // same channel gap: `recordAndAlertFailures()` alerts on a CHANGE in the count, so a failure
+        // that persists at the same number alerts once and then lives only on the report pages that
+        // happen to render `PostsToLedger`'s banner. A standing count belongs on a surface something
+        // polls.
+        $failures = (int) (SystemSetting::get('ledger_last_sync_failures') ?? 0);
+        if ($failures > 0) {
+            $parts[] = $failures.' document(s) could not post — see the ledger sync log';
+        }
+
+        $checkedAt = SystemSetting::get('ledger_tie_out_checked_at');
+
+        if (blank($checkedAt)) {
+            // A MISSING stamp is not drift — it means the sweep has not run, which the `scheduler`
+            // check already reports. Failing twice for one cause teaches the operator to ignore one
+            // of the two alarms, and it will be this one.
+            return $parts === []
+                ? ['ok' => true, 'detail' => 'not computed yet — the ledger sweep has not run']
+                : ['ok' => false, 'detail' => implode('; ', $parts)];
+        }
+
+        $ar = round((float) SystemSetting::get('ledger_tie_out_ar_delta'), 2);
+        $ap = round((float) SystemSetting::get('ledger_tie_out_ap_delta'), 2);
+
+        if (abs($ar) >= 0.01) {
+            $parts[] = 'AR off by '.number_format($ar, 2);
+        }
+        if (abs($ap) >= 0.01) {
+            $parts[] = 'AP off by '.number_format($ap, 2);
+        }
+
+        if ($parts === []) {
+            return ['ok' => true, 'detail' => 'GL ties to AR and AP'];
+        }
+
+        return ['ok' => false, 'detail' => implode('; ', $parts).' — run billing:reconcile'];
+    }
+
     private static function checkAccounting(): array
     {
         $verdict = self::accountingReadiness();

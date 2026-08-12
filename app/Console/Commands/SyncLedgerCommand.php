@@ -8,6 +8,7 @@ use App\Models\MaintenancePenalty;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Notifications\BooksDriftDetectedNotification;
 use App\Notifications\LedgerSyncFailedNotification;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
@@ -237,6 +238,56 @@ class SyncLedgerCommand extends Command
             $this->info('✓ GL ties to AP.');
         } else {
             $this->warn('⚠ GL ↔ AP delta: '.number_format($gl['ap']['delta'], 2).' — investigate.');
+        }
+
+        $this->recordAndAlertDrift($gl);
+    }
+
+    /**
+     * Persist the tie-out and alert when the books START drifting.
+     *
+     * **Until 2026-08-12 this printed to the console and stopped there.** The sweep runs on cron, so
+     * a `warn()` goes to whatever the scheduler does with stdout — nowhere, on this deployment. The
+     * two keys that WERE persisted are both about documents that threw, and this class of bug throws
+     * nothing: `recordAndAlertFailures()` returns early on `$failed === 0`, which is exactly the
+     * state a drifting-but-erroring-free ledger is in. So the one number that says "the books no
+     * longer agree with themselves" was the one number nobody could see.
+     *
+     * Unlike the failures counter this is safe to clear on ANY run: `glTieOut()` sums the whole
+     * ledger against the whole sub-ledger, so even a two-day windowed sweep computes a full-scope
+     * answer. There is no partial view to false-clear from.
+     *
+     * Alerts only on a CHANGE into drift, for the same reason the failures path does — a nightly
+     * message repeating a known delta is a message people filter.
+     *
+     * @param  array{ar: array{delta: float}, ap: array{delta: float}}  $gl
+     */
+    private function recordAndAlertDrift(array $gl): void
+    {
+        $ar = round((float) $gl['ar']['delta'], 2);
+        $ap = round((float) $gl['ap']['delta'], 2);
+        $drifting = abs($ar) >= 0.01 || abs($ap) >= 0.01;
+
+        $wasDrifting = (bool) (SystemSetting::get('ledger_books_drifting') ?? false);
+
+        SystemSetting::put('ledger_tie_out_ar_delta', (string) $ar);
+        SystemSetting::put('ledger_tie_out_ap_delta', (string) $ap);
+        SystemSetting::put('ledger_tie_out_checked_at', now()->toIso8601String());
+        SystemSetting::put('ledger_books_drifting', $drifting ? '1' : '');
+
+        if (! $drifting || $wasDrifting) {
+            return;
+        }
+
+        // Same recipients and the same belt-and-braces as the failure alert: a notification hiccup
+        // must never fail the deliberately exit-0 sweep it is only reporting on.
+        try {
+            $recipients = User::query()->permission('journal_entries.post')->get();
+            if ($recipients->isNotEmpty()) {
+                Notification::send($recipients, new BooksDriftDetectedNotification($ar, $ap));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Books-drift alert could not be sent: '.$e->getMessage());
         }
     }
 }

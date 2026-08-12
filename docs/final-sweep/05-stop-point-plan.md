@@ -126,7 +126,7 @@ Then run `atriom:audit-charge-schedules` and have it be meaningful.
 | 17 | Shared `REPORTABLE` constant + the one test asserting bank-rec ≡ ledger for the same account | FS-07 | M |
 | 18 | Per-pool CAM estimate charge codes; default non-`cam` pools to `stated` | FS-08 | S |
 | 19 | Credit notes into the VAT return's documents side and both base buckets; give it a page | FS-09 | S |
-| 20 | `billing:reconcile`: all four channels; then **schedule it** and alert on drift | FS-18, FS-33 | S |
+| ~~20~~ ✅ | ~~`billing:reconcile`: all four channels; then **schedule it** and alert on drift~~ — **done.** Channels in `8f5fcfa` (FS-18); scheduled + persisted + alerted + on `/health` 2026-08-12 (FS-33) | FS-18, FS-33 | S |
 | 21 | `alreadyBilledForMonth`: status filter + `nsf_fee` | FS-19 | S |
 | 22 | Month-range on the four statement pages | FS-20 | S–M |
 | 23 | Deposit posting-date guard; correct the false `system:` registry entry | FS-25 | S |
