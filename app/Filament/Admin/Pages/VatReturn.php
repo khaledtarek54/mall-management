@@ -10,6 +10,7 @@ use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Reports\VatReturnService;
 use BackedEnum;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -57,6 +58,33 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
     /** Recomputed twice per render otherwise — records() and getSubheading() both need it. */
     private ?array $cachedReport = null;
 
+    /**
+     * Set when the report cannot be built because the chart is not wired — see {@see report()}.
+     */
+    private ?string $configurationError = null;
+
+    /**
+     * A return with nothing in it, used only when {@see report()} could not be built.
+     *
+     * Every figure is zero and NO row is rendered from it ({@see Table()} returns an empty record
+     * set once `$configurationError` is set) — it exists so the accessors have a shape to read,
+     * never so an operator sees a zero they might file.
+     */
+    private const EMPTY_REPORT = [
+        'period_start' => null,
+        'period_end' => null,
+        'output_vat' => 0.0,
+        'input_vat' => 0.0,
+        'net_payable' => 0.0,
+        'output_vat_documents' => 0.0,
+        'output_vat_difference' => 0.0,
+        'ties_out' => true,
+        'base_standard' => 0.0,
+        'base_zero_rated' => 0.0,
+        'base_exempt' => 0.0,
+        'unclassified_lines' => 0,
+    ];
+
     public function getTitle(): string
     {
         return __('admin.reports.vat_return_title');
@@ -71,6 +99,11 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
      */
     public function getSubheading(): ?string
     {
+        // A posting role this report reads is unmapped — say which, and stop. See report().
+        if ($this->configurationError !== null) {
+            return '✗ '.__('admin.reports.vat_unavailable', ['reason' => $this->configurationError]);
+        }
+
         $report = $this->report();
 
         $check = $report['ties_out']
@@ -114,17 +147,44 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
         return __('admin.navigation.vat_return');
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * The return, or an empty one and a stated reason when the chart cannot answer.
+     *
+     * **Why this is caught here rather than left to throw.** `AccountResolver` refuses an unmapped
+     * posting role with a `DomainException`, which everywhere else in this system renders as a
+     * toast. Not here: the refusal is raised while the TABLE renders, so Blade wraps it in a
+     * `ViewException` and the handler that recognises a refusal never sees one — the operator got a
+     * 500 on a screen Egypt requires monthly. An incomplete posting map is not an exotic state; it
+     * is one `ConfigurationHealth` has a check for, and loading the operator's real chart of
+     * accounts is still ahead of us.
+     *
+     * **And the figures must NOT fall back to zero.** A VAT return showing 0 because a role is
+     * unmapped is far worse than one that refuses: it is a filing position, it looks answered, and
+     * nothing on the screen says the number is missing rather than nil. So the rows go away
+     * entirely and the subheading says which role is unmapped — no figure an operator could sign.
+     *
+     * @return array<string, mixed>
+     */
     protected function report(): array
     {
-        return $this->cachedReport ??= app(VatReturnService::class)->for(
-            CarbonImmutable::instance($this->periodStart()),
-            CarbonImmutable::instance($this->periodEnd()),
-            // The service takes ONE asset id, not a set: a VAT return is filed per registration,
-            // and the operator's registration covers the portfolio. A property filter here would
-            // invite someone to file a per-mall return, which is not a thing.
-            null,
-        );
+        if ($this->cachedReport !== null) {
+            return $this->cachedReport;
+        }
+
+        try {
+            return $this->cachedReport = app(VatReturnService::class)->for(
+                CarbonImmutable::instance($this->periodStart()),
+                CarbonImmutable::instance($this->periodEnd()),
+                // The service takes ONE asset id, not a set: a VAT return is filed per registration,
+                // and the operator's registration covers the portfolio. A property filter here would
+                // invite someone to file a per-mall return, which is not a thing.
+                null,
+            );
+        } catch (DomainException $e) {
+            $this->configurationError = $e->getMessage();
+
+            return $this->cachedReport = self::EMPTY_REPORT;
+        }
     }
 
     /**
@@ -158,6 +218,12 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
         return $table
             ->records(function (): array {
                 $r = $this->report();
+
+                // No figures at all when the chart cannot answer. A zeroed VAT return reads as a
+                // filed position; an empty one beside the subheading's reason reads as what it is.
+                if ($this->configurationError !== null) {
+                    return [];
+                }
 
                 return [
                     ['id' => 'base_standard', 'line' => __('admin.reports.vat_base_standard'), 'amount' => $r['base_standard'], 'note' => __('admin.reports.vat_base_standard_note')],

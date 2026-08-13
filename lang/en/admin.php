@@ -1267,6 +1267,7 @@ return [
         'vat_base_zero_rated' => 'Zero-rated supplies',
         'vat_base_zero_rated_note' => 'Taxable supplies at 0% — a different line on the return from exempt ones, which are outside the scope of VAT altogether.',
         'vat_unclassified_note' => ':count line(s) in this period predate the tax catalogue and carry no tax code. They are counted by rate, which cannot separate zero-rated from exempt.',
+        'vat_unavailable' => 'This return cannot be produced: :reason Map it at Settings → Accounting → posting map. No figures are shown, because a return of zero is not the same as a return of nothing.',
         'vat_base_exempt' => 'Exempt supplies (base)',
         'vat_base_exempt_note' => 'Invoice lines at zero rate, net of credit notes. Base rent sits here — confirm the treatment with your accountant.',
         'vat_output' => 'Output VAT',
