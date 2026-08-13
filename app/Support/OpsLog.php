@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Support\Facades\Log;
+use Sentry\Event;
 
 /**
  * Operational logging for the money + integration paths (Paymob, ETA, billing,
@@ -80,5 +81,31 @@ class OpsLog
         }
 
         return $context;
+    }
+
+    /**
+     * Sentry's `before_send` hook — the last line of defence before an event leaves the building.
+     *
+     * `send_default_pii => false` already withholds request/cookie/user data, but anything a
+     * developer hands Sentry deliberately (`extra`, breadcrumb context) is still sent. This runs it
+     * through {@see scrub()}, the SAME redaction list that protects ops.log, so a key that is unsafe
+     * to write to disk is equally unsafe to transmit.
+     *
+     * **It lives here as a static method rather than a closure in `config/sentry.php`, and that is
+     * load-bearing.** `php artisan config:cache` serialises the whole config tree with
+     * `var_export()`, which cannot represent a closure — so a closure anywhere in config makes the
+     * command throw, and config caching is a step in every production deploy. A `[Class, 'method']`
+     * array is both a valid PHP callable and plain `var_export`-able data, so the hook survives
+     * caching instead of blocking it. Any future config hook belongs here for the same reason.
+     */
+    public static function scrubSentryEvent(Event $event): ?Event
+    {
+        $extra = $event->getExtra();
+
+        if ($extra !== []) {
+            $event->setExtra(self::scrub($extra));
+        }
+
+        return $event;
     }
 }

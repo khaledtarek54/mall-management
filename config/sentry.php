@@ -71,23 +71,21 @@ return [
     'send_default_pii' => env('SENTRY_SEND_DEFAULT_PII', false),
 
     /**
-     * Last line of defence before an event leaves the building.
+     * Last line of defence before an event leaves the building — see {@see OpsLog::scrubSentryEvent()}.
      *
      * `send_default_pii => false` already withholds request/cookie/user data, but anything a
-     * developer hands Sentry deliberately — `extra`, breadcrumb context — is still sent. This
-     * runs it through {@see OpsLog::scrub()}, the SAME redaction list that protects ops.log, so
-     * a key that is unsafe to write to disk is equally unsafe to transmit. One policy, two
-     * consumers: a second list would drift, and the copy that drifts is the one that leaks.
+     * developer hands Sentry deliberately — `extra`, breadcrumb context — is still sent. That hook
+     * runs it through `OpsLog::scrub()`, the SAME redaction list that protects ops.log, so a key
+     * that is unsafe to write to disk is equally unsafe to transmit. One policy, two consumers: a
+     * second list would drift, and the copy that drifts is the one that leaks.
+     *
+     * **This must stay an array callable, never a closure.** `php artisan config:cache` serialises
+     * config with `var_export()` and throws `LogicException` on a closure, and config caching runs
+     * in every production deploy — so a closure here does not degrade the hook, it fails the deploy.
+     * `[OpsLog::class, 'scrubSentryEvent']` is a valid callable AND plain exportable data.
+     * `ConfigIsCacheableTest` pins it.
      */
-    'before_send' => static function (\Sentry\Event $event): ?\Sentry\Event {
-        $extra = $event->getExtra();
-
-        if ($extra !== []) {
-            $event->setExtra(OpsLog::scrub($extra));
-        }
-
-        return $event;
-    },
+    'before_send' => [OpsLog::class, 'scrubSentryEvent'],
 
     // @see: https://docs.sentry.io/platforms/php/guides/laravel/configuration/options/#ignore_exceptions
     // 'ignore_exceptions' => [],
