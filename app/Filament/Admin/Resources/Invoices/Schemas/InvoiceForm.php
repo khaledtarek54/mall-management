@@ -18,6 +18,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -321,45 +322,55 @@ class InvoiceForm
                                     ->dehydrated()
                                     ->columnSpan(2),
                             ]),
+
+                        // The totals sit at the FOOT OF THE LINES, not on a tab of their own.
+                        //
+                        // They are derived from the repeater directly above them — `recomputeInvoiceTotals()`
+                        // fires on every line change — so the number an operator is checking and the lines
+                        // that produce it must be readable at the same time. On a separate tab, verifying a
+                        // total meant switching away from the evidence for it and trusting memory, which is
+                        // exactly where a mis-keyed line goes unnoticed. Every invoice an accountant has ever
+                        // read puts the totals under the lines for this reason.
+                        Section::make(__('admin.sections.amounts'))
+                            ->columns(4)
+                            ->schema([
+                                TextInput::make('subtotal')
+                                    ->label(__('admin.fields.subtotal'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->readOnly()
+                                    ->dehydrated(),
+                                TextInput::make('vat_amount')
+                                    ->label(__('admin.fields.tax_total'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->readOnly()
+                                    ->dehydrated(),
+                                TextInput::make('total')
+                                    ->label(__('admin.fields.total'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->readOnly()
+                                    ->dehydrated(),
+                                TextInput::make('balance')
+                                    ->label(__('admin.fields.balance'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->readOnly()
+                                    ->dehydrated(),
+                                // Show credit settled distinctly from cash paid (both fold into paid_amount
+                                // otherwise), so the operator/tenant can tell how this invoice was settled.
+                                // Only when it applies.
+                                Placeholder::make('credit_applied_display')
+                                    ->label(__('admin.fields.credit_applied'))
+                                    ->content(fn ($record) => $record ? 'EGP '.number_format((float) $record->credit_applied_amount, 2) : '—')
+                                    ->visible(fn ($record) => $record !== null && (float) $record->credit_applied_amount > 0),
+                            ]),
                     ]),
-
-                    FormTab::make(__('admin.sections.amounts'), [
-
-                        TextInput::make('subtotal')
-                            ->label(__('admin.fields.subtotal'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->default(0)
-                            ->readOnly()
-                            ->dehydrated(),
-                        TextInput::make('vat_amount')
-                            ->label(__('admin.fields.tax_total'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->default(0)
-                            ->readOnly()
-                            ->dehydrated(),
-                        TextInput::make('total')
-                            ->label(__('admin.fields.total'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->default(0)
-                            ->readOnly()
-                            ->dehydrated(),
-                        TextInput::make('balance')
-                            ->label(__('admin.fields.balance'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->default(0)
-                            ->readOnly()
-                            ->dehydrated(),
-                        // Show credit settled distinctly from cash paid (both fold into paid_amount otherwise),
-                        // so the operator/tenant can tell how this invoice was settled. Only when it applies.
-                        Placeholder::make('credit_applied_display')
-                            ->label(__('admin.fields.credit_applied'))
-                            ->content(fn ($record) => $record ? 'EGP '.number_format((float) $record->credit_applied_amount, 2) : '—')
-                            ->visible(fn ($record) => $record !== null && (float) $record->credit_applied_amount > 0),
-                    ])->columns(4),
 
                     FormTab::make(__('admin.sections.notes'), [
 

@@ -12,6 +12,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use App\Support\FormTab;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -248,21 +249,25 @@ class CreditNoteForm
                                 ->dehydrated()
                                 ->columnSpan(3),
                         ]),
+
+                        // The totals sit at the FOOT OF THE LINES, not on a tab of their own — same
+                        // reasoning as the invoice form: they are derived from the repeater directly
+                        // above, so the figure and the lines that produce it have to be readable at
+                        // once. Checking a total should not mean navigating away from its evidence.
+                        Section::make(__('admin.sections.amounts'))
+                            ->columns(4)
+                            ->schema([
+                                // Persist the derived amounts only while the note is a draft. Once
+                                // finalized these are readOnly (not disabled), so without this a plain
+                                // Edit-save would dehydrate the STALE fill-time balance back over a
+                                // value that applyToInvoice() has since changed — breaking the
+                                // note's balance = total - applied_amount invariant (lost update).
+                                TextInput::make('subtotal')->label(__('admin.fields.subtotal'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                                TextInput::make('vat_amount')->label(__('admin.fields.tax_total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                                TextInput::make('total')->label(__('admin.fields.total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                                TextInput::make('balance')->label(__('admin.fields.balance'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                            ]),
                     ]),
-
-                    FormTab::make(__('admin.sections.amounts'), [
-
-
-                    // Persist the derived amounts only while the note is a draft. Once
-                    // finalized these are readOnly (not disabled), so without this a plain
-                    // Edit-save would dehydrate the STALE fill-time balance back over a
-                    // value that applyToInvoice() has since changed — breaking the
-                    // note's balance = total - applied_amount invariant (lost update).
-                    TextInput::make('subtotal')->label(__('admin.fields.subtotal'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
-                    TextInput::make('vat_amount')->label(__('admin.fields.tax_total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
-                    TextInput::make('total')->label(__('admin.fields.total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
-                    TextInput::make('balance')->label(__('admin.fields.balance'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
-                    ])->columns(4),
 
                     FormTab::make(__('admin.sections.notes'), [
 
