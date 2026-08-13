@@ -309,9 +309,20 @@ works on some documents and not others is worse than none.
 
 Three things to keep right:
 
-- **Apply it BEFORE the sync's change-detection.** The existing entry already carries the moved date;
-  comparing it against the raw document date reports a drift that is not one, and the sweep
-  void-and-reposts the same entry every night.
+- **Apply it BEFORE the change-detection — in EVERY reader, not just the sweep.** The existing entry
+  already carries the moved date; comparing it against the raw document date reports a drift that is
+  not one. `sync()` got this right from the start and `wouldChange()` did not, so for two months any
+  overridden document sat in a permanent standoff: the sweep correctly reported it *unchanged* while
+  `billing:reconcile --deep` reported it *drifted*, and no run could ever clear it. That failed the
+  reconciler, failed `books_tie_out` on `/health`, and paged the GL managers with
+  `BooksDriftDetectedNotification` — **a permanent un-clearable alarm on the very mechanism built to
+  make real drift visible**, which teaches an operator to ignore it. Both readers now derive the
+  payload from one method, `LedgerPoster::effectivePayload()` (soft-delete + override), so they
+  cannot reach different verdicts about the same document. Pinned by
+  `PostMonthOverrideTest → it reports no drift to the reconciler once the override is applied`, whose
+  control moves the override behind the service's back so the check is not merely hard-wired to
+  false. *The general lesson is the one this project keeps paying for: when a guard is added, ask
+  **where else** the same question is asked.*
 - **A CLOSED target is still refused** — `PostingDate::assertOpen()`, the same guard as everywhere.
   This reaches an open month with an honest document date; it does not reopen a sealed period.
 - **The day is clamped, not rolled.** 31 January → February is the 28th, never 2 March.

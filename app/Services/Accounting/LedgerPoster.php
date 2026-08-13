@@ -210,18 +210,9 @@ class LedgerPoster
             }
             $lock->whereKey($source->getKey())->lockForUpdate()->first();
 
-            // A soft-deleted document has no ledger effect — its entry must be voided,
-            // exactly like a cancelled one. The sweep visits trashed sources
-            // (withTrashed) so a deleted-but-posted document self-heals to void.
-            $trashed = method_exists($source, 'trashed') && $source->trashed();
-            $payload = $trashed ? null : $journalizer->payload($source);
-
-            // BEFORE the change-detection below, not after. The existing entry already carries the
-            // overridden date; comparing it against the raw document date would report a drift that
-            // is not one, and the sweep would void and re-post the same entry every night.
-            if ($payload !== null) {
-                $payload = self::applyPostMonth($payload, $source);
-            }
+            // The payload the entry SHOULD carry — soft-delete handling and the operator's
+            // post-month override included, because the change detection below compares against it.
+            $payload = $this->effectivePayload($source, $journalizer);
 
             // `posted` only, and correctly so: this asks "which entry is CURRENTLY live for this
             // source?", not "how much money is on this account". A void entry is a superseded
@@ -328,8 +319,9 @@ class LedgerPoster
             return false;
         }
 
-        $trashed = method_exists($source, 'trashed') && $source->trashed();
-        $payload = $trashed ? null : $journalizer->payload($source);
+        // The SAME payload sync() would act on — override included. Deriving it any other way here
+        // is what made this method disagree with sync(); see effectivePayload().
+        $payload = $this->effectivePayload($source, $journalizer);
 
         // Only 'posted' entries, matching sync()'s void/re-post decision. (post()'s idempotency
         // guard also considers 'draft' entries, but no code path ever keys a draft entry to a
@@ -350,6 +342,43 @@ class LedgerPoster
         }
 
         return ! $this->matches($existing, $payload); // differs → would re-post
+    }
+
+    /**
+     * **The payload a document's live entry SHOULD carry** — the one answer both {@see sync()} and
+     * {@see wouldChange()} compare against, so they cannot reach different verdicts about the same
+     * document.
+     *
+     * Two adjustments sit between the journalizer and the truth, and BOTH belong here:
+     *
+     *  - a **soft-deleted** document has no ledger effect, so its payload is null and its entry is
+     *    voided — the same treatment a cancelled one gets;
+     *  - the operator's **post-month override** (`posting_month_overrides`) moves the entry into a
+     *    month the document's own date does not name.
+     *
+     * **Why this is one method rather than two copies.** `sync()` applied the override before
+     * comparing; `wouldChange()` compared the RAW journalizer payload. So for every document
+     * carrying an override the two permanently disagreed: `sync()` correctly saw the entry as
+     * current and left it, while `wouldChange()` saw the document's own date against the entry's
+     * overridden one and reported drift that no sweep could ever clear. That is not a cosmetic
+     * disagreement — `wouldChange()` is what `billing:reconcile --deep` asks, which fails the run,
+     * fails `books_tie_out` on `/health`, and raises `BooksDriftDetectedNotification` to the GL
+     * managers. A permanent un-clearable alarm on the very mechanism built to make real drift
+     * visible is worse than no alarm, because it teaches the operator to ignore it.
+     *
+     * `sync()`'s own comment already warned that comparing against the raw date "would report a
+     * drift that is not one" — the guard was simply never propagated to the second reader. Keeping
+     * one method is what stops the third reader repeating it.
+     */
+    private function effectivePayload(Model $source, mixed $journalizer): ?array
+    {
+        if (method_exists($source, 'trashed') && $source->trashed()) {
+            return null;
+        }
+
+        $payload = $journalizer->payload($source);
+
+        return $payload === null ? null : self::applyPostMonth($payload, $source);
     }
 
     /** True when a posted entry's lines already equal the payload's (same accounts + amounts). */

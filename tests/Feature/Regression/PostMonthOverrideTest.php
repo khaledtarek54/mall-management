@@ -115,6 +115,43 @@ it('re-posts nothing on a second sweep', function () {
         ->toBe($after);
 });
 
+it('reports no drift to the reconciler once the override is applied', function () {
+    // The SECOND half of the sweep trap, and the half that was missing. `sync()` applied the
+    // override before comparing; `wouldChange()` compared the RAW document date. So an overridden
+    // document sat in a permanent standoff: `sync()` correctly left the entry alone ("unchanged"),
+    // while `wouldChange()` reported drift that no sweep could ever clear.
+    //
+    // That is not cosmetic. `wouldChange()` is what `billing:reconcile --deep` asks, so the run
+    // failed, `books_tie_out` failed on /health, and BooksDriftDetectedNotification paged the GL
+    // managers — permanently, on the one mechanism built to make REAL drift visible. Found on the
+    // demo data, where the single post-month override in the database was the single document the
+    // reconciler flagged.
+    openMonth('2026-02-01');
+    openMonth('2026-03-01');
+    $bill = billDated('2026-02-20');
+    $poster = app(LedgerPoster::class);
+    $poster->sync($bill->fresh());
+
+    app(SetPostMonthService::class)->set($bill, '2026-03-01', 'Bill arrived after February closed.');
+
+    // The entry really did move — otherwise this asserts agreement about a no-op.
+    expect(JournalEntry::where('source_id', $bill->id)->where('status', 'posted')->sole()
+        ->entry_date->toDateString())->toBe('2026-03-20')
+        ->and($poster->wouldChange($bill->fresh()))->toBeFalse();
+
+    // The control: `wouldChange()` must still SEE a real change, or this test would pass just as
+    // happily against a method hard-wired to false. Moving the override behind the service's back
+    // is the control that stays ON the path this fix touched — the entry is dated March while the
+    // override now says April, which is exactly the drift the reconciler exists to catch.
+    openMonth('2026-04-01');
+    DB::table('posting_month_overrides')
+        ->where('source_type', $bill->getMorphClass())
+        ->where('source_id', $bill->id)
+        ->update(['post_month' => '2026-04-01']);
+
+    expect($poster->wouldChange($bill->fresh()))->toBeTrue();
+});
+
 it('clamps a day the target month does not have', function () {
     // 31 January posted to February must land on the 28th, never roll into 2 March — which would
     // put it in a period the operator did not choose, silently.
