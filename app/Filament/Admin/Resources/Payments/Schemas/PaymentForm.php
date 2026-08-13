@@ -39,7 +39,7 @@ class PaymentForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make(__('admin.sections.payment'), [
+                    FormTab::make('admin.sections.payment', [
 
 
                     TextInput::make('reference')
@@ -131,7 +131,7 @@ class PaymentForm
                         ->native(false),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.allocations'), [
+                    FormTab::make('admin.sections.allocations', [
                         Placeholder::make('__tab_help')
                             ->hiddenLabel()
                             ->content(__('admin.sections.allocations_helper'))
@@ -286,7 +286,7 @@ class PaymentForm
                     }),
                     ]),
 
-                    FormTab::make(__('admin.sections.gateway_cheque'), [
+                    FormTab::make('admin.sections.gateway_cheque', [
 
 
 
@@ -301,7 +301,7 @@ class PaymentForm
                         ->label(__('admin.fields.cheque_clearance_date'))
                         ->native(false),
                     ])->columns(2),
-                    FormTab::make(__('admin.sections.notes'), [
+                    FormTab::make('admin.sections.notes', [
 
 
 

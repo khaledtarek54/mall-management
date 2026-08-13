@@ -38,7 +38,7 @@ class MaintenancePlanForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make(__('admin.preventive_maintenance.tabs.scope'), [
+                    FormTab::make('admin.preventive_maintenance.tabs.scope', [
                         Select::make('asset_id')
                             ->label(__('admin.preventive_maintenance.fields.property'))
                             ->options(fn () => TenantScope::selectableAssetOptions())
@@ -81,7 +81,7 @@ class MaintenancePlanForm
                             ->native(false),
                     ])->columns(2),
 
-                    FormTab::make(__('admin.preventive_maintenance.tabs.work'), [
+                    FormTab::make('admin.preventive_maintenance.tabs.work', [
                         TextInput::make('title')
                             ->label(__('admin.preventive_maintenance.fields.title'))
                             ->required()
@@ -110,7 +110,7 @@ class MaintenancePlanForm
                             ->columnSpanFull(),
                     ])->columns(2),
 
-                    FormTab::make(__('admin.preventive_maintenance.tabs.schedule'), [
+                    FormTab::make('admin.preventive_maintenance.tabs.schedule', [
                         TextInput::make('frequency_value')
                             ->label(__('admin.preventive_maintenance.fields.frequency_value'))
                             ->numeric()
@@ -146,7 +146,7 @@ class MaintenancePlanForm
                     // scoped to CM on purpose: a preventive round genuinely splits — in-house does
                     // the monthly filter change, a contractor the annual statutory inspection. See
                     // module 26's doc for the asymmetry.
-                    FormTab::make(__('admin.preventive_maintenance.tabs.assignment'), [
+                    FormTab::make('admin.preventive_maintenance.tabs.assignment', [
                         Select::make('department_id')
                             ->label(__('admin.preventive_maintenance.fields.department'))
                             ->options(fn () => Department::selectableOptions())

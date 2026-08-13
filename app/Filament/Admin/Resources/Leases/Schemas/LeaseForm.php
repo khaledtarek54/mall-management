@@ -39,7 +39,7 @@ class LeaseForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make(__('admin.sections.lease_details'), [
+                    FormTab::make('admin.sections.lease_details', [
                         TextInput::make('reference')
                             ->label(__('admin.fields.reference'))
                             ->default(fn () => Lease::generateReference('AW'))
@@ -198,7 +198,7 @@ class LeaseForm
                             ->columnSpan(2),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.term'), [
+                    FormTab::make('admin.sections.term', [
                         // ── Commencement ⇄ term ⇄ expiry ──────────────────────────────────────────
                         // These were three INDEPENDENT inputs until 2026-08-12, so a lease could be
                         // saved as "36 months" spanning twelve — and `term_months` is not decoration:
@@ -238,7 +238,7 @@ class LeaseForm
                             ->helperText(__('admin.helpers.expiry_date_derived')),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.financial_terms'), [
+                    FormTab::make('admin.sections.financial_terms', [
                         // Rent fields are read-only on Edit. Operators change them
                         // through the "Change rent" record action so the matching
                         // Charge.amount stays in sync (audit M04 F-20 / D-13). On
@@ -483,7 +483,7 @@ class LeaseForm
                             ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_minimum),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.percentage_rent'), [
+                    FormTab::make('admin.sections.percentage_rent', [
                         Toggle::make('has_percentage_rent')
                             ->label(__('admin.sections.percentage_rent'))
                             ->live()
@@ -564,7 +564,7 @@ class LeaseForm
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.documents'), [
+                    FormTab::make('admin.sections.documents', [
                         Textarea::make('notes')
                             ->label(__('admin.fields.notes'))
                             ->rows(3)

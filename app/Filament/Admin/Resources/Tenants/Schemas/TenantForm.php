@@ -29,7 +29,7 @@ class TenantForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make(__('admin.sections.tenant_information'), [
+                    FormTab::make('admin.sections.tenant_information', [
 
                         TextInput::make('name')
                             ->label(__('admin.fields.brand_name'))
@@ -78,7 +78,7 @@ class TenantForm
                             ->label(__('admin.fields.commercial_register'))
                             ->maxLength(50),
                     ])->columns(2),
-                    FormTab::make(__('admin.sections.contact'), [
+                    FormTab::make('admin.sections.contact', [
 
                         TextInput::make('email')
                             ->label(__('admin.fields.email'))
@@ -110,7 +110,7 @@ class TenantForm
                     // be carved out of the freeform address above at submission time. Required
                     // only for BUSINESS tenants — that is who gets filed (EtaJsonBuilder refuses
                     // a business submission without them, rather than filing a guess).
-                    FormTab::make(__('admin.sections.tax_address'), [
+                    FormTab::make('admin.sections.tax_address', [
                         Placeholder::make('__tab_help')
                             ->hiddenLabel()
                             ->content(__('admin.sections.tax_address_description'))
@@ -143,7 +143,7 @@ class TenantForm
                     // two things to open for one field. Placed after the tax address and before
                     // documents: it is marketing's, filled in once, and nothing in the leasing or
                     // billing flow depends on it.
-                    FormTab::make(__('admin.sections.store_directory'), [
+                    FormTab::make('admin.sections.store_directory', [
                         Placeholder::make('__tab_help')
                             ->hiddenLabel()
                             ->content(__('admin.sections.store_directory_description'))
@@ -195,7 +195,7 @@ class TenantForm
                             ->maxSize(2048)
                             ->columnSpanFull(),
                     ])->columns(2),
-                    FormTab::make(__('admin.sections.documents'), [
+                    FormTab::make('admin.sections.documents', [
                         Placeholder::make('__tab_help')
                             ->hiddenLabel()
                             ->content(__('admin.sections.documents_description'))

@@ -6,6 +6,7 @@ use Filament\Forms\Components\Field;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -34,11 +35,42 @@ use Throwable;
 class FormTab
 {
     /**
+     * Build a tab from its TRANSLATION KEY — not from an already-translated string.
+     *
+     * **Why the key and not the label.** Filament derives a tab's identity from its label:
+     * `Tab::setUp()` sets the key to `Str::slug(Str::transliterate($label))`, and that key is what
+     * `persistTabInQueryString()` writes into the URL and what `getActiveTab()` matches on. With a
+     * translated label the identity is therefore per-LANGUAGE — the invoice's Line Items tab is
+     * `line-items::data::tab` in English and `albnwd::data::tab` in Arabic. Same tab, two names.
+     *
+     * The consequence is quiet and was found in a browser, not in a test: a deep link to a tab —
+     * a bookmark, a link pasted to a colleague, anything saved while the panel was in the other
+     * language — matches no tab on arrival, so the form opens on tab ONE instead. Nothing errors;
+     * the reader simply lands somewhere else and concludes the tab they wanted did not load. In a
+     * bilingual system where operators switch language routinely, that is not an edge case.
+     *
+     * Deriving the id from the translation key fixes it at the only point where a stable, unique,
+     * locale-independent name for the tab already exists. Taking the KEY as the argument rather
+     * than adding an optional id is deliberate: an optional id is one somebody forgets, and a
+     * forgotten one silently returns to the locale-dependent behaviour. Passing an already
+     * translated string here is loudly wrong instead of quietly wrong — the raw key renders as
+     * the tab's label.
+     *
+     * The `::{statePath}::tab` suffix mirrors Filament's own format exactly, so only the slug
+     * changes and nothing that consumes the key sees a shape it does not expect.
+     *
+     * @param  string  $translationKey  e.g. `admin.sections.items`
      * @param  array<int, mixed>  $schema
      */
-    public static function make(string $label, array $schema): Tab
+    public static function make(string $translationKey, array $schema): Tab
     {
-        return Tab::make($label)
+        return Tab::make(__($translationKey))
+            ->key(function (Tab $component) use ($translationKey): string {
+                $statePath = $component->getStatePath();
+
+                return Str::slug(str_replace('.', '-', $translationKey))
+                    .'::'.(filled($statePath) ? "{$statePath}::tab" : 'tab');
+            }, isInheritable: false)
             ->schema($schema)
             ->badge(fn (Tab $component, $livewire): ?int => static::errorCount($component, $livewire) ?: null)
             ->badgeColor('danger');

@@ -41,7 +41,7 @@ class CreditNoteForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make(__('admin.sections.credit_note_details'), [
+                    FormTab::make('admin.sections.credit_note_details', [
 
 
                     TextInput::make('number')
@@ -177,7 +177,7 @@ class CreditNoteForm
                         ->native(false),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.items'), [
+                    FormTab::make('admin.sections.items', [
 
                     Repeater::make('items')
                         ->relationship()
@@ -269,7 +269,7 @@ class CreditNoteForm
                             ]),
                     ]),
 
-                    FormTab::make(__('admin.sections.notes'), [
+                    FormTab::make('admin.sections.notes', [
 
 
 

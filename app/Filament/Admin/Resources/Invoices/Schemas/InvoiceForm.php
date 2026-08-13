@@ -48,7 +48,7 @@ class InvoiceForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make(__('admin.sections.invoice_details'), [
+                    FormTab::make('admin.sections.invoice_details', [
 
                         TextInput::make('number')
                             ->label(__('admin.fields.invoice_number'))
@@ -196,7 +196,7 @@ class InvoiceForm
                             ->native(false),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.items'), [
+                    FormTab::make('admin.sections.items', [
 
                         Repeater::make('items')
                             ->relationship()
@@ -372,7 +372,7 @@ class InvoiceForm
                             ]),
                     ]),
 
-                    FormTab::make(__('admin.sections.notes'), [
+                    FormTab::make('admin.sections.notes', [
 
                         Textarea::make('notes')
                             ->label(__('admin.fields.notes'))

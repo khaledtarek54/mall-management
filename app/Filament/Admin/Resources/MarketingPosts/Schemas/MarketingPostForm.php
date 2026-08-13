@@ -32,7 +32,7 @@ class MarketingPostForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-            FormTab::make(__('admin.marketing_posts.sections.what'), [
+            FormTab::make('admin.marketing_posts.sections.what', [
                     Select::make('asset_id')
                         ->label(__('admin.marketing_posts.fields.property'))
                         // Scoped to the user's visible properties (never offers another mall).
@@ -87,7 +87,7 @@ class MarketingPostForm
                         ->native(false),
             ])->columns(2),
 
-            FormTab::make(__('admin.marketing_posts.sections.copy'), [
+            FormTab::make('admin.marketing_posts.sections.copy', [
                     TextInput::make('title')
                         ->label(__('admin.marketing_posts.fields.title'))
                         ->required()
@@ -133,7 +133,7 @@ class MarketingPostForm
                         ->maxLength(2000),
             ])->columns(2),
 
-            FormTab::make(__('admin.marketing_posts.sections.artwork'), [
+            FormTab::make('admin.marketing_posts.sections.artwork', [
                     SpatieMediaLibraryFileUpload::make('hero')
                         ->label(__('admin.marketing_posts.fields.hero'))
                         ->helperText(__('admin.marketing_posts.fields.hero_hint'))
@@ -155,7 +155,7 @@ class MarketingPostForm
                         ->maxSize(5120),
             ])->columns(1),
 
-            FormTab::make(__('admin.marketing_posts.sections.when'), [
+            FormTab::make('admin.marketing_posts.sections.when', [
                 // Kept as a Section purely to carry its description. A Tab has nowhere to put one,
                 // and this particular sentence is what stops the two windows being confused — the
                 // validity window is the promise made to the shopper, the display window is when the
@@ -192,7 +192,7 @@ class MarketingPostForm
                     ]),
             ])->columns(2),
 
-            FormTab::make(__('admin.marketing_posts.sections.placement'), [
+            FormTab::make('admin.marketing_posts.sections.placement', [
                     Toggle::make('is_featured')
                         ->label(__('admin.marketing_posts.fields.is_featured'))
                         ->helperText(__('admin.marketing_posts.fields.is_featured_hint'))

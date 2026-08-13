@@ -34,7 +34,7 @@ class TenantRequestForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make(__('admin.sections.maintenance_request'), [
+                    FormTab::make('admin.sections.maintenance_request', [
 
 
                     TextInput::make('reference')
@@ -141,7 +141,7 @@ class TenantRequestForm
                         ->native(false),
                     ])->columns(3),
 
-                    FormTab::make(__('admin.sections.maintenance_details'), [
+                    FormTab::make('admin.sections.maintenance_details', [
 
 
                     TextInput::make('title')
@@ -161,7 +161,7 @@ class TenantRequestForm
             // The model guards the ordering (valid_to >= valid_from) as a backstop; the inline
             // afterOrEqual keeps a bad range from ever reaching it. NO approval step — a permit is a
             // typed request that carries this window, nothing more.
-                    FormTab::make(__('admin.sections.permit_validity'), [
+                    FormTab::make('admin.sections.permit_validity', [
                         Placeholder::make('__tab_help')
                             ->hiddenLabel()
                             ->content(__('admin.sections.permit_validity_description'))
@@ -185,7 +185,7 @@ class TenantRequestForm
                         // irrelevant permit tab.
                         ->visible(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value),
 
-                    FormTab::make(__('admin.sections.assignment'), [
+                    FormTab::make('admin.sections.assignment', [
 
 
                     Select::make('department_id')
@@ -244,7 +244,7 @@ class TenantRequestForm
                         ->afterOrEqual('scheduled_from'),
                     ])->columns(2),
 
-                    FormTab::make(__('admin.sections.resolution'), [
+                    FormTab::make('admin.sections.resolution', [
 
 
 
@@ -255,7 +255,7 @@ class TenantRequestForm
                         ->columnSpanFull(),
                     ])->columns(1),
 
-                    FormTab::make(__('admin.sections.attachments'), [
+                    FormTab::make('admin.sections.attachments', [
                         Placeholder::make('__tab_help')
                             ->hiddenLabel()
                             ->content(__('admin.sections.attachments_description'))
