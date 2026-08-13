@@ -95,7 +95,7 @@ class VerifyBackupService
         File::ensureDirectoryExists($workspace);
 
         try {
-            $dump = $this->extractDump($archive['absolute'], $workspace);
+            $dump = $this->extractDump($this->localCopyOf($archive, $workspace), $workspace);
             $this->createScratch($connection, $scratch);
             $statements = $this->replay($connection, $scratch, $dump);
 
@@ -168,7 +168,10 @@ class VerifyBackupService
                 if ($newest === null || $timestamp > $newest['timestamp']) {
                     $newest = [
                         'path' => $disk.':'.$file,
-                        'absolute' => $storage->path($file),
+                        // NOT `$storage->path($file)` — see localCopyOf(). On a remote disk that
+                        // returns a key, not a readable file, so the archive is fetched instead.
+                        'disk' => $disk,
+                        'file' => $file,
                         'timestamp' => $timestamp,
                         'bytes' => $storage->size($file),
                     ];
@@ -177,6 +180,53 @@ class VerifyBackupService
         }
 
         return $newest;
+    }
+
+    /**
+     * A path on THIS machine's filesystem for the archive, fetching it first when it is not local.
+     *
+     * **Why this is not `Storage::disk($d)->path($file)`.** That is a local-driver method: on S3 it
+     * returns the object KEY, so the reader below opened a path that does not exist and the drill
+     * failed. The recommended production setting is `BACKUP_DISKS="backups,s3"` precisely so a copy
+     * survives the machine — which means the off-site copy was the ONE the drill could never
+     * verify, and the newest archive is usually the remote one, so this was not a rare branch.
+     *
+     * Streamed rather than read into memory: a real mall's dump is not something to hold in a PHP
+     * string, and this runs on a box sized for the app rather than for restores.
+     *
+     * @param  array{disk: string, file: string, path: string}  $archive
+     */
+    private function localCopyOf(array $archive, string $workspace): string
+    {
+        $storage = Storage::disk($archive['disk']);
+
+        if (config("filesystems.disks.{$archive['disk']}.driver") === 'local') {
+            return $storage->path($archive['file']);
+        }
+
+        $destination = $workspace.'/'.basename($archive['file']);
+        $source = $storage->readStream($archive['file']);
+
+        if ($source === null || $source === false) {
+            throw new RuntimeException("could not read {$archive['path']} from the {$archive['disk']} disk");
+        }
+
+        $target = fopen($destination, 'w');
+
+        if ($target === false) {
+            fclose($source);
+
+            throw new RuntimeException('could not open a local workspace file for the archive');
+        }
+
+        try {
+            stream_copy_to_stream($source, $target);
+        } finally {
+            fclose($source);
+            fclose($target);
+        }
+
+        return $destination;
     }
 
     /** Write the archive's DB dump into $workspace, via the dedicated reader. */
@@ -192,10 +242,40 @@ class VerifyBackupService
         return $path;
     }
 
+    /**
+     * Make an empty scratch schema — creating it, or emptying a pre-created one.
+     *
+     * **`CREATE DATABASE` is not a privilege the production user necessarily has.** The topology in
+     * INFRASTRUCTURE.md is Aiven managed MySQL, where the application account is scoped to its own
+     * schema and cannot create another. So the drill this project schedules weekly would have
+     * failed on the real box with a raw SQL privilege error — on the one tool whose entire purpose
+     * is to prove the backups are restorable.
+     *
+     * The fallback is to REUSE a scratch schema someone created once by hand, emptying it instead.
+     * That is a normal way to run this on managed MySQL: create `<app>__restore_check`, grant the
+     * app user rights on it, and the weekly drill works from then on with no elevated privilege.
+     *
+     * `assertScratchIsSafe()` has already refused the application's own database by the time
+     * anything here runs, which is what makes "empty every table in it" safe to do.
+     */
     private function createScratch(string $connection, string $scratch): void
     {
-        DB::connection($connection)->statement("DROP DATABASE IF EXISTS `{$scratch}`");
-        DB::connection($connection)->statement("CREATE DATABASE `{$scratch}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        try {
+            DB::connection($connection)->statement("DROP DATABASE IF EXISTS `{$scratch}`");
+            DB::connection($connection)->statement("CREATE DATABASE `{$scratch}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch (\Throwable $e) {
+            if (! $this->schemaExists($connection, $scratch)) {
+                throw new RuntimeException(
+                    "cannot create the scratch database `{$scratch}` ({$e->getMessage()}). "
+                    ."On managed MySQL the app user often may not CREATE DATABASE — create `{$scratch}` "
+                    .'once by hand, grant this user rights on it, and re-run: the drill will reuse it.'
+                );
+            }
+
+            OpsLog::warning('backup.verify.reusing_scratch', ['scratch' => $scratch, 'error' => $e->getMessage()]);
+
+            $this->emptySchema($connection, $scratch);
+        }
 
         // A runtime clone of the app connection pointed at the scratch schema, so the replay
         // cannot touch the real one even by accident.
@@ -331,7 +411,47 @@ class VerifyBackupService
             DB::purge('backup_verify');
             DB::connection($connection)->statement("DROP DATABASE IF EXISTS `{$scratch}`");
         } catch (\Throwable $e) {
-            OpsLog::warning('backup.verify.scratch_not_dropped', ['scratch' => $scratch, 'error' => $e->getMessage()]);
+            // Same privilege story as createScratch(): if the schema cannot be dropped, empty it,
+            // so a reused scratch is not left holding a full copy of production between runs.
+            try {
+                $this->emptySchema($connection, $scratch);
+                OpsLog::warning('backup.verify.scratch_emptied_not_dropped', ['scratch' => $scratch, 'error' => $e->getMessage()]);
+            } catch (\Throwable $inner) {
+                OpsLog::warning('backup.verify.scratch_not_dropped', ['scratch' => $scratch, 'error' => $inner->getMessage()]);
+            }
+        }
+    }
+
+    private function schemaExists(string $connection, string $schema): bool
+    {
+        return DB::connection($connection)->select(
+            'SELECT schema_name FROM information_schema.schemata WHERE schema_name = ?',
+            [$schema]
+        ) !== [];
+    }
+
+    /**
+     * Drop every table in a schema, for the managed-MySQL path where the schema itself is not ours
+     * to drop. Foreign keys are ignored for the duration — the dump recreates them, and dropping in
+     * dependency order would be a second, weaker copy of what `DROP DATABASE` does for free.
+     */
+    private function emptySchema(string $connection, string $schema): void
+    {
+        $tables = $this->tablesIn($connection, $schema);
+
+        if ($tables === []) {
+            return;
+        }
+
+        $db = DB::connection($connection);
+        $db->statement('SET FOREIGN_KEY_CHECKS=0');
+
+        try {
+            foreach ($tables as $table) {
+                $db->statement("DROP TABLE IF EXISTS `{$schema}`.`{$table}`");
+            }
+        } finally {
+            $db->statement('SET FOREIGN_KEY_CHECKS=1');
         }
     }
 }
