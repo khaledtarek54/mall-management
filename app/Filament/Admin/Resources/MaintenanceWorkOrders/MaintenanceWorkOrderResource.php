@@ -71,7 +71,7 @@ class MaintenanceWorkOrderResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.preventive_maintenance.group');
+        return __('admin.groups.facility');
     }
 
     public static function form(Schema $schema): Schema
