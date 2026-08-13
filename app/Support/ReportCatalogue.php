@@ -14,6 +14,7 @@ use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\ExpirationSchedule;
 use App\Filament\Admin\Pages\GeneralLedger;
+use App\Filament\Admin\Pages\Handbook;
 use App\Filament\Admin\Pages\IncomeStatement;
 use App\Filament\Admin\Pages\MonthEndClose;
 use App\Filament\Admin\Pages\NotificationCenter;
@@ -122,6 +123,7 @@ class ReportCatalogue
         Settings::class => 'Configuration — it changes what the system does rather than reporting on what it did.',
         ConfigurationHealth::class => 'It reports on the SETUP, not on the data — what is unset and what that breaks. Listing it beside the rent roll would put an operator looking for a business answer in front of a maintenance checklist.',
         PropertyOverrides::class => 'Configuration, like the settings page it sits beside — it changes what this property charges rather than reporting on what it charged. Same reasoning as Settings above.',
+        Handbook::class => 'The manual, not a measurement. Every report here answers a question about this portfolio\'s data and changes when the data changes; the handbook explains how the system works and reads identically on an empty database. Listing it beside the rent roll would send an operator looking for a number to a page that has none.',
         NotificationCenter::class => 'One reader\'s own alert history. Every report here answers a question about the BUSINESS and reads the same for any two operators with the same permissions; this reads differently for every single person, because it is scoped to their own notifications. It is mail, not a report — and listing it in the report hub would promise a portfolio answer and deliver an inbox.',
     ];
 

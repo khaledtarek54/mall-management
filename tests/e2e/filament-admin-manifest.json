@@ -390,6 +390,10 @@
             "slug": "general-ledger"
         },
         {
+            "class": "Handbook",
+            "slug": "handbook"
+        },
+        {
             "class": "IncomeStatement",
             "slug": "income-statement"
         },
