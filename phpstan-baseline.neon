@@ -25,6 +25,36 @@ parameters:
 			path: app/Console/Commands/DumpAdminManifest.php
 
 		-
+			message: '#^Call to function is_countable\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Console/Commands/DumpHandbookData.php
+
+		-
+			message: '#^Call to function is_string\(\) with ''App\\\\Models\\\\DepositTransaction''\|''App\\\\Models\\\\Expense''\|''App\\\\Models\\\\FixedAsset''\|''App\\\\Models\\\\Invoice''\|''App\\\\Models\\\\MarketingSpend''\|''App\\\\Models\\\\Payment''\|''App\\\\Services\\\\ApplyDepositToInvoiceService''\|''App\\\\Services\\\\CreditNoteService''\|''App\\\\Services\\\\DisposeFixedAssetService''\|''App\\\\Services\\\\GrantCustodyService''\|''App\\\\Services\\\\GrantEmployeeAdvanceService''\|''App\\\\Services\\\\OwnerAccounting\\\\DisbursementService''\|''App\\\\Services\\\\OwnerAccounting\\\\FinaliseOwnerStatementRunService''\|''App\\\\Services\\\\PayrollService''\|''App\\\\Services\\\\RecordAdvanceRepaymentService''\|''App\\\\Services\\\\SettleCustodyService''\|''App\\\\Services\\\\StockMovementService''\|''App\\\\Services\\\\VendorBillService''\|''App\\\\Services\\\\WriteOffInvoiceService''\|''system\:applied_at…''\|''system\:entry_date…''\|''system\:period_month…'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 3
+			path: app/Console/Commands/DumpHandbookData.php
+
+		-
+			message: '#^Offset ''App\\\\Models\\\\CreditNote''\|''App\\\\Models\\\\Custody''\|''App\\\\Models\\\\CustodyTransaction''\|''App\\\\Models\\\\DepositApplication''\|''App\\\\Models\\\\DepositTransaction''\|''App\\\\Models\\\\DepreciationEntry''\|''App\\\\Models\\\\Disbursement''\|''App\\\\Models\\\\EmployeeAdvance''\|''App\\\\Models\\\\EmployeeAdvanceRepayment''\|''App\\\\Models\\\\Expense''\|''App\\\\Models\\\\FixedAsset''\|''App\\\\Models\\\\FixedAssetDisposal''\|''App\\\\Models\\\\Invoice''\|''App\\\\Models\\\\InvoiceWriteOff''\|''App\\\\Models\\\\MaintenancePenalty''\|''App\\\\Models\\\\MarketingSpend''\|''App\\\\Models\\\\OwnerStatementRun''\|''App\\\\Models\\\\Payment''\|''App\\\\Models\\\\Payroll''\|''App\\\\Models\\\\StockMovement''\|''App\\\\Models\\\\StraightLineRentAdjustment''\|''App\\\\Models\\\\TenantCreditApplication''\|''App\\\\Models\\\\VendorBill''\|''App\\\\Models\\\\VendorBillPayment'' on array\{App\\Models\\CreditNote\: ''App\\\\Services\\\\CreditNoteService'', App\\Models\\InvoiceWriteOff\: ''App\\\\Services\\\\WriteOffInvoiceService'', App\\Models\\VendorBill\: ''App\\\\Services\\\\VendorBillService'', App\\Models\\VendorBillPayment\: ''App\\\\Services\\\\VendorBillService'', App\\Models\\Payroll\: ''App\\\\Services\\\\PayrollService'', App\\Models\\FixedAssetDisposal\: ''App\\\\Services\\\\DisposeFixedAssetService'', App\\Models\\EmployeeAdvance\: ''App\\\\Services\\\\GrantEmployeeAdvanceService'', App\\Models\\EmployeeAdvanceRepayment\: ''App\\\\Services\\\\RecordAdvanceRepaymentService'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Console/Commands/DumpHandbookData.php
+
+		-
+			message: '#^Offset ''App\\\\Models\\\\CreditNote''\|''App\\\\Models\\\\Custody''\|''App\\\\Models\\\\CustodyTransaction''\|''App\\\\Models\\\\DepositApplication''\|''App\\\\Models\\\\DepositTransaction''\|''App\\\\Models\\\\DepreciationEntry''\|''App\\\\Models\\\\Disbursement''\|''App\\\\Models\\\\EmployeeAdvance''\|''App\\\\Models\\\\EmployeeAdvanceRepayment''\|''App\\\\Models\\\\Expense''\|''App\\\\Models\\\\FixedAsset''\|''App\\\\Models\\\\FixedAssetDisposal''\|''App\\\\Models\\\\Invoice''\|''App\\\\Models\\\\InvoiceWriteOff''\|''App\\\\Models\\\\MaintenancePenalty''\|''App\\\\Models\\\\MarketingSpend''\|''App\\\\Models\\\\OwnerStatementRun''\|''App\\\\Models\\\\Payment''\|''App\\\\Models\\\\Payroll''\|''App\\\\Models\\\\StockMovement''\|''App\\\\Models\\\\StraightLineRentAdjustment''\|''App\\\\Models\\\\TenantCreditApplication''\|''App\\\\Models\\\\VendorBill''\|''App\\\\Models\\\\VendorBillPayment'' on array\{App\\Models\\Invoice\: ''issue_date'', App\\Models\\Payment\: ''payment_date'', App\\Models\\CreditNote\: ''issue_date'', App\\Models\\VendorBill\: ''bill_date'', App\\Models\\VendorBillPayment\: ''payment_date'', App\\Models\\Expense\: ''expense_date'', App\\Models\\Payroll\: ''period_month'', App\\Models\\DepositTransaction\: ''transaction_date'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Console/Commands/DumpHandbookData.php
+
+		-
+			message: '#^Offset ''instead'' on array\{blocked_by\: array\{''allLeases'', ''maintenanceRequests'', ''utilityMeters''\}, instead\: ''set the unit to…''\}\|array\{blocked_by\: array\{''allocations''\}, instead\: ''void the…''\}\|array\{blocked_by\: array\{''bills'', ''contracts'', ''maintenanceRequests'', ''documents''\}, instead\: ''set the vendor to…''\}\|array\{blocked_by\: array\{''chargeCodes''\}, instead\: ''deactivate the tax…''\}\|array\{blocked_by\: array\{''entries''\}, instead\: ''a period that has…''\}\|array\{blocked_by\: array\{''invoices'', ''charges'', ''salesDeclarations'', ''camAllocations'', ''maintenanceRequests'', ''renewals'', ''deposits'', ''postDatedCheques'', \.\.\.\}, instead\: ''terminate the lease…''\}\|array\{blocked_by\: array\{''leases'', ''invoices'', ''payments'', ''creditNotes'', ''salesDeclarations'', ''maintenanceRequests'', ''postDatedCheques'', ''violations''\}\|array\{''leases''\}, instead\: ''set the item out of…''\|''set the tenant to…''\}\|array\{blocked_by\: array\{''lines'', ''children'', ''accountMappings''\}, instead\: ''deactivate the…''\}\|array\{blocked_by\: array\{''members'', ''employees''\}, instead\: ''move its members…''\}\|array\{blocked_by\: array\{''movements''\}, instead\: ''a warehouse with…''\|''deactivate the item…''\}\|array\{blocked_by\: array\{''payrollLines'', ''advances'', ''custodies''\}, instead\: ''set the employee…''\}\|array\{blocked_by\: array\{''units'', ''leases'', ''camPools'', ''utilityMeters'', ''journalEntries'', ''expenses'', ''vendorBills'', ''payrolls'', \.\.\.\}, instead\: ''deactivate the…''\}\|array\{blocked_by\: array\{''units'', ''rentableItems''\}, instead\: ''rename or re\-order…''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Console/Commands/DumpHandbookData.php
+
+		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -67,40 +97,52 @@ parameters:
 			path: app/Console/Commands/ScanTenantRequestSlaBreachesCommand.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Filament/Admin/Pages/ActivityLog.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Pages/ActivityLog.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Filament/Admin/Pages/ActivityLog.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Filament/Admin/Pages/ArCollections.php
 
 		-
-			message: '#^Anonymous function should return Illuminate\\Pagination\\LengthAwarePaginator\<int, array\{id\: string, entry_date\: mixed, entry_number\: mixed, description\: mixed, debit\: float\|null, credit\: float\|null, running_balance\: mixed, is_opening\: bool\}\> but returns Illuminate\\Pagination\\LengthAwarePaginator\<int, array\{id\: string, entry_date\: mixed, entry_number\: mixed, description\: mixed, debit\: float\|null, credit\: float\|null, running_balance\: mixed, is_opening\: bool\}\>\.$#'
+			message: '#^Offset ''count'' does not exist on array\{key\: string, category\: string, severity\: string, ok\: false, detail\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Filament/Admin/Pages/ConfigurationHealth.php
+
+		-
+			message: '#^Offset ''count'' does not exist on array\{key\: string, category\: string, severity\: string, ok\: true, detail\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Filament/Admin/Pages/ConfigurationHealth.php
+
+		-
+			message: '#^Anonymous function should return Illuminate\\Pagination\\LengthAwarePaginator\<int, array\{id\: string, entry_date\: mixed, entry_number\: mixed, description\: mixed, debit\: float\|null, credit\: float\|null, running_balance\: mixed, is_opening\: bool, \.\.\.\}\> but returns Illuminate\\Pagination\\LengthAwarePaginator\<int, array\{id\: string, entry_date\: mixed, entry_number\: mixed, description\: mixed, debit\: float\|null, credit\: float\|null, running_balance\: mixed, is_opening\: bool, \.\.\.\}\>\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Filament/Admin/Pages/GeneralLedger.php
+
+		-
+			message: '#^Access to an undefined property App\\Filament\\Admin\\Pages\\PropertyOverrides\:\:\$form\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Filament/Admin/Pages/PropertyOverrides.php
 
 		-
 			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
 			path: app/Filament/Admin/Pages/RentRoll.php
+
+		-
+			message: '#^Method App\\Filament\\Admin\\Pages\\ReportHub\:\:savedViews\(\) should return Illuminate\\Support\\Collection\<int, object\> but returns Illuminate\\Support\\Collection\<int, object\{id\: int, name\: string, user_id\: int\<0, max\>, description\: \(array\|string\), url\: string\}&stdClass\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Filament/Admin/Pages/ReportHub.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Pages/ReportHub.php
 
 		-
 			message: '#^Access to an undefined property App\\Filament\\Admin\\Pages\\Settings\:\:\$form\.$#'
@@ -217,6 +259,12 @@ parameters:
 			path: app/Filament/Admin/Resources/Assets/AssetResource.php
 
 		-
+			message: '#^Trait App\\Filament\\Admin\\Resources\\Concerns\\SavesTableViews is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: app/Filament/Admin/Resources/Concerns/SavesTableViews.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
 			identifier: property.notFound
 			count: 1
@@ -290,6 +338,12 @@ parameters:
 
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:holdover\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:owingSalesDeclaration\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
@@ -409,6 +463,36 @@ parameters:
 			path: app/Filament/Admin/Resources/PurchaseRequests/Tables/PurchaseRequestsTable.php
 
 		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Filament/Admin/Resources/StockMovements/Tables/StockMovementsTable.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/StockMovements/Tables/StockMovementsTable.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Resources/StockMovements/Tables/StockMovementsTable.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Resources/StockMovements/Tables/StockMovementsTable.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>sku" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Resources/StockMovements/Tables/StockMovementsTable.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
 			identifier: property.notFound
 			count: 1
@@ -505,6 +589,12 @@ parameters:
 			path: app/Filament/Admin/Resources/UtilityMeters/RelationManagers/ReadingsRelationManager.php
 
 		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:noticeDue\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/Vendors/Tables/VendorsTable.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$phone\.$#'
 			identifier: property.notFound
 			count: 1
@@ -521,6 +611,30 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/Vendors/VendorResource.php
+
+		-
+			message: '#^Property App\\Filament\\Admin\\Widgets\\ArAging\:\:\$columnSpan \(array\<string, int\|null\>\|int\|string\) does not accept default value of type array\<string, int\|string\>\.$#'
+			identifier: property.defaultValue
+			count: 1
+			path: app/Filament/Admin/Widgets/ArAging.php
+
+		-
+			message: '#^Property App\\Filament\\Admin\\Widgets\\EnergyConsumptionTrend\:\:\$columnSpan \(array\<string, int\|null\>\|int\|string\) does not accept default value of type array\<string, int\|string\>\.$#'
+			identifier: property.defaultValue
+			count: 1
+			path: app/Filament/Admin/Widgets/EnergyConsumptionTrend.php
+
+		-
+			message: '#^Property App\\Filament\\Admin\\Widgets\\MonthlyRevenueTrend\:\:\$columnSpan \(array\<string, int\|null\>\|int\|string\) does not accept default value of type array\<string, int\|string\>\.$#'
+			identifier: property.defaultValue
+			count: 1
+			path: app/Filament/Admin/Widgets/MonthlyRevenueTrend.php
+
+		-
+			message: '#^Property App\\Filament\\Admin\\Widgets\\TenantMix\:\:\$columnSpan \(array\<string, int\|null\>\|int\|string\) does not accept default value of type array\<string, int\|string\>\.$#'
+			identifier: property.defaultValue
+			count: 1
+			path: app/Filament/Admin/Widgets/TenantMix.php
 
 		-
 			message: '#^Parameter \#1 \$invoice of method App\\Services\\InvoicePdfService\:\:build\(\) expects App\\Models\\Invoice, Illuminate\\Database\\Eloquent\\Model given\.$#'
@@ -769,8 +883,20 @@ parameters:
 			path: app/Models/Expense.php
 
 		-
+			message: '#^Access to an undefined property App\\Models\\InvoiceItem\:\:\$tax_code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/InvoiceItem.php
+
+		-
 			message: '#^Property App\\Models\\Lease\:\:\$next_escalation_date \(Carbon\\Carbon\|null\) does not accept string\.$#'
 			identifier: assign.propertyType
+			count: 1
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>asset_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Models/Lease.php
 
@@ -913,10 +1039,22 @@ parameters:
 			path: app/Models/PurchaseRequestLine.php
 
 		-
+			message: '#^Access to an undefined property App\\Models\\Tenant\:\:\$locale\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Tenant.php
+
+		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:received\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: app/Models/Tenant.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\TenantUser\:\:\$locale\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/TenantUser.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
@@ -932,6 +1070,12 @@ parameters:
 
 		-
 			message: '#^Access to an undefined property App\\Models\\Asset\:\:\$pivot\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$locale\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Models/User.php
@@ -1417,6 +1561,12 @@ parameters:
 			path: app/Services/Accounting/LedgerPoster.php
 
 		-
+			message: '#^Method App\\Services\\Accounting\\LedgerReportService\:\:accountsWithNoMovement\(\) should return Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> but returns Illuminate\\Support\\Collection\<int, array\{account_id\: int, code\: string, name_en\: string, name_ar\: string, type\: ''asset''\|''equity''\|''expense''\|''liability''\|''revenue'', normal_balance\: ''credit''\|''debit'', debit_total\: 0\.0, credit_total\: 0\.0, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Accounting/LedgerReportService.php
+
+		-
 			message: '#^Method App\\Services\\Accounting\\LedgerReportService\:\:profitLossBalances\(\) should return Illuminate\\Support\\Collection\<int, array\{account_id\: int, code\: string, type\: string, net_credit\: float\}\> but returns Illuminate\\Support\\Collection\<int, array\{account_id\: int, code\: mixed, type\: mixed, net_credit\: float\}\>\.$#'
 			identifier: return.type
 			count: 1
@@ -1469,6 +1619,12 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Services/AssetStatementPdfService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:assetId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/BillBouncedChequeFeeService.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -1657,6 +1813,12 @@ parameters:
 			path: app/Services/MonthlyBillingService.php
 
 		-
+			message: '#^Parameter \#2 \$asset of method App\\Services\\OwnerAccounting\\BuildOwnerPackService\:\:addAssetReports\(\) expects App\\Models\\Asset, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/OwnerAccounting/BuildOwnerPackService.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner_share\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1801,13 +1963,19 @@ parameters:
 			path: app/Services/RecordAdvanceRepaymentService.php
 
 		-
+			message: '#^Call to an undefined static method App\\Contracts\\DeliverableReport\:\:canAccess\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: app/Services/Reports/DeliverSavedReportService.php
+
+		-
 			message: '#^Access to an undefined property App\\Models\\InvoiceItem\:\:\$subtotal\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/Reports/ReportService.php
 
 		-
-			message: '#^Method App\\Services\\Reports\\ReportService\:\:arCollectionsByTenant\(\) should return Illuminate\\Support\\Collection\<int, array\{tenant\: App\\Models\\Tenant\|null, tenant_id\: int, total\: float, buckets\: array\<string, float\>, invoice_count\: int, oldest_days\: int, last_payment_at\: Illuminate\\Support\\Carbon\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{tenant_id\: int, tenant\: App\\Models\\Tenant\|null, total\: float, buckets\: non\-empty\-array\<string, float\>, invoice_count\: int, oldest_days\: int, last_payment_at\: mixed\}\>\.$#'
+			message: '#^Method App\\Services\\Reports\\ReportService\:\:arCollectionsByTenant\(\) should return Illuminate\\Support\\Collection\<int, array\{tenant\: App\\Models\\Tenant\|null, tenant_id\: int, total\: float, buckets\: array\<string, float\>, invoice_count\: int, oldest_days\: int, last_payment_at\: Illuminate\\Support\\Carbon\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{tenant_id\: int, tenant\: App\\Models\\Tenant\|null, total\: float, buckets\: array\<string, float\>, invoice_count\: int, oldest_days\: int, last_payment_at\: mixed\}\>\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Services/Reports/ReportService.php
@@ -1909,6 +2077,24 @@ parameters:
 			path: app/Support/AssignmentScope.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>status" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/ConfigurationHealth.php
+
+		-
+			message: '#^Method App\\Support\\DerivedFields\:\:candidatesIn\(\) should return array\<string, array\{start\: array\<int, string\>, end\: array\<int, string\>, duration\: array\<int, string\>\}\> but returns array\{start\: non\-empty\-list\<non\-falsy\-string\>, end\: list\<non\-falsy\-string\>, duration\: list\<non\-falsy\-string\>\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Support/DerivedFields.php
+
+		-
+			message: '#^Offset 1 on array\{list\<string\>, list\<non\-empty\-string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Support/DerivedFields.php
+
+		-
 			message: '#^Method App\\Support\\FormTab\:\:statePaths\(\) should return Illuminate\\Support\\Collection\<int, string\|null\> but returns Illuminate\\Support\\Collection\<int, non\-falsy\-string\>\.$#'
 			identifier: return.type
 			count: 1
@@ -1921,7 +2107,61 @@ parameters:
 			path: app/Support/LedgerRealtimeSync.php
 
 		-
+			message: '#^Method App\\Support\\NotificationLink\:\:resourceUrl\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Support/NotificationLink.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>tenant_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/NotificationLink.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type mixed\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Support/NotificationLink.php
+
+		-
+			message: '#^Offset 1 on array\{''App\\\\Filament\\\\Admin\\\\Resources\\\\OwnerStatementRuns\\\\OwnerStatementRunResource'', ''run''\}\|array\{''App\\\\Models\\\\Announcement'', ''announcement_id''\}\|array\{''App\\\\Models\\\\InventoryItem'', ''inventory_item_id''\}\|array\{''App\\\\Models\\\\Invoice'', ''invoice_id''\}\|array\{''App\\\\Models\\\\Lease'', ''lease_id''\}\|array\{''App\\\\Models\\\\MaintenancePlan'', ''maintenance_plan_id''\}\|array\{''App\\\\Models\\\\MaintenanceWorkOrder'', ''work_order_id''\}\|array\{''App\\\\Models\\\\MarketingPost'', ''marketing_post_id''\}\|array\{''App\\\\Models\\\\OwnerRequest'', ''owner_request_id''\}\|array\{''App\\\\Models\\\\OwnerStatement'', ''owner_statement_id''\}\|array\{''App\\\\Models\\\\Payment'', ''payment_id''\}\|array\{''App\\\\Models\\\\Tenant'', ''tenant_id''\}\|array\{''App\\\\Models\\\\TenantRequest'', ''request_id''\}\|array\{''App\\\\Models\\\\TenantSalesDeclaration'', ''declaration_id''\}\|array\{''App\\\\Models\\\\Vendor'', ''vendor_id''\}\|array\{''App\\\\Models\\\\Violation'', ''violation_id''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/NotificationTargets.php
+
+		-
+			message: '#^PHPDoc tag @var for constant App\\Support\\NotificationTargets\:\:TARGETS with type array\<class\-string, array\{record\?\: array\{class\-string, string\}, admin\?\: mixed, portal\?\: mixed, why\?\: string\}\> is not subtype of value array\{App\\Notifications\\InvoiceIssuedNotification\: array\{record\: array\{''App\\\\Models\\\\Invoice'', ''invoice_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\Invoices\\\\InvoiceResource'', portal\: ''App\\\\Filament\\\\Portal\\\\Resources\\\\Invoices\\\\InvoiceResource''\}, App\\Notifications\\InvoiceOverdueOwnerNotification\: array\{record\: array\{''App\\\\Models\\\\Invoice'', ''invoice_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\Invoices\\\\InvoiceResource'', portal\: null\}, App\\Notifications\\InvoiceOverdueTenantNotification\: array\{record\: array\{''App\\\\Models\\\\Invoice'', ''invoice_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\Invoices\\\\InvoiceResource'', portal\: ''App\\\\Filament\\\\Portal\\\\Resources\\\\Invoices\\\\InvoiceResource''\}, App\\Notifications\\LateFeeAppliedNotification\: array\{record\: array\{''App\\\\Models\\\\Invoice'', ''invoice_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\Invoices\\\\InvoiceResource'', portal\: ''App\\\\Filament\\\\Portal\\\\Resources\\\\Invoices\\\\InvoiceResource''\}, App\\Notifications\\PaymentReceivedNotification\: array\{record\: array\{''App\\\\Models\\\\Payment'', ''payment_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\Payments\\\\PaymentResource'', portal\: ''App\\\\Filament\\\\Portal\\\\Resources\\\\Payments\\\\PaymentResource''\}, App\\Notifications\\LeaseExpiryApproachingNotification\: array\{record\: array\{''App\\\\Models\\\\Lease'', ''lease_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\Leases\\\\LeaseResource'', portal\: ''App\\\\Filament\\\\Portal\\\\Resources\\\\Leases\\\\LeaseResource''\}, App\\Notifications\\LeaseOptionWindowNotification\: array\{record\: array\{''App\\\\Models\\\\Lease'', ''lease_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\Leases\\\\LeaseResource'', portal\: null\}, App\\Notifications\\SalesDeclarationSubmittedNotification\: array\{record\: array\{''App\\\\Models\\\\TenantSalesDeclaration'', ''declaration_id''\}, admin\: ''App\\\\Filament\\\\Admin\\\\Resources\\\\TenantSalesDeclarations\\\\TenantSalesDeclarationResource'', portal\: null\}, \.\.\.\}\.$#'
+			identifier: classConstant.phpDocType
+			count: 1
+			path: app/Support/NotificationTargets.php
+
+		-
 			message: '#^Method App\\Support\\Portal\:\:tenant\(\) should return App\\Models\\Tenant\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Support/Portal.php
+
+		-
+			message: '#^Call to an undefined static method App\\Contracts\\DeliverableReport\:\:canAccess\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: app/Support/ReportCatalogue.php
+
+		-
+			message: '#^Offset string on array\{\} in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: app/Support/ScreenGuides.php
+
+		-
+			message: '#^Call to an undefined method ReflectionType\:\:getName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/SettingsRegistry.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>withholding_tax_code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/WithholdingTax.php

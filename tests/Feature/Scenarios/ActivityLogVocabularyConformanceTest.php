@@ -272,7 +272,14 @@ it('resolves a whole page of foreign keys in one query per table', function () {
     expect($queries)->toBe(1)
         // ...and it really did resolve — a batch that silently returns nothing would also be 1.
         ->and($rendered->first())->toContain($lease->reference)
-        ->and($rendered->first())->not->toContain((string) $lease->id);
+        // The raw id must not appear AS A VALUE. Deliberately a word-boundary match rather than
+        // `not->toContain((string) $lease->id)`: the rendered string necessarily contains the
+        // lease REFERENCE, which carries a random hex suffix, so a bare substring check fails
+        // whenever that hex happens to contain the id's digits — `LeaseL-6a7d916e0807c` against
+        // id 1. That made this gate pass or fail on the luck of a uniqid, which is worse than not
+        // having it: it failed 6 runs out of 6 in isolation (where the id is 1) while passing in
+        // the parallel suite (where ids are larger), so it read as flakiness in the code it guards.
+        ->and($rendered->first())->not->toMatch('/\b'.preg_quote((string) $lease->id, '/').'\b/');
 });
 
 it('points every foreign key at a real model that can name itself', function () {
