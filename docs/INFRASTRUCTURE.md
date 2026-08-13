@@ -370,9 +370,14 @@ AWS_USE_PATH_STYLE_ENDPOINT=true
 9. Cloudflare: WAF, rate-limits, Access on staging.
 10. Backup cron ([§7](#7-backups)) + run the runbook's **pre-flight gates** ([PRODUCTION-RUNBOOK.md §7](PRODUCTION-RUNBOOK.md)).
 
-**Each release** thereafter follows [PRODUCTION-RUNBOOK.md §2](PRODUCTION-RUNBOOK.md) per environment
-(a `deploy.sh` that runs `git pull` → `composer install --no-dev` → `migrate --force` → cache rebuild
-→ `queue:restart`). Deploy staging freely; gate prod behind a manual confirm.
+**Each release** thereafter is **`./deploy.sh`** at the repo root, which is
+[PRODUCTION-RUNBOOK.md §2](PRODUCTION-RUNBOOK.md) in one command: `git pull` →
+`composer install --no-dev` → `npm ci && npm run build` → `migrate --force` → cache rebuild →
+`queue:restart` → `atriom:health`. It gates production behind a manual confirm (`--yes` for a CI
+caller) and deploys staging freely, as this section always intended. *This file described that
+script for months before it existed; every release until 2026-08-13 was somebody retyping the nine
+commands, where a skipped `npm run build` renders both panels with no CSS and a skipped
+`queue:restart` leaves workers on the previous release's code.*
 
 ---
 

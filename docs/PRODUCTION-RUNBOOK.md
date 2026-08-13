@@ -47,6 +47,12 @@ Integration creds (see ETA-PAYMOB-CERTIFICATION.md): `PAYMOB_*` (live, after KYC
 
 ## 2. Deploy steps (each release)
 
+> **Use `./deploy.sh`.** It runs exactly the sequence below and refuses rather than continues — a
+> dirty working tree, a missing `npm`, an asset build that produced nothing, `--skip-migrate` while
+> migrations are pending. It prompts on production (`--yes` for a CI caller) and lifts maintenance
+> mode even if a step fails, so a broken deploy cannot leave the site dark with no explanation.
+> The list below is what it does, and remains the manual fallback.
+
 ```
 git pull
 composer install --no-dev --optimize-autoloader
@@ -224,4 +230,175 @@ Then: Paymob KYC done + live keys + prod callback URLs registered; ETA signing c
 
 - Code: redeploy the previous tag + `php artisan queue:restart`.
 - DB: migrations are forward-only — restore from the latest backup (§5) if a migration must be undone.
+  **Read [§13](#13-undoing-a-schema-change) before running `migrate:rollback`**: 171 migrations drop
+  columns in `down()`, so a rollback destroys the data in them rather than returning you to the
+  previous release.
 - Integrations: flip `ETA_MOCK=true` / `PAYMOB_ENABLED=false` to safely disable a misbehaving gateway without a deploy.
+
+---
+
+# Incident procedures
+
+> These five were written 2026-08-13, because the sweep before staging found the runbook covered
+> how to *deploy* the system and nothing about the days it misbehaves. Each is the thing you do at
+> 08:00 when something has already gone wrong — so each starts with **how to tell**, not with a
+> fix, and each says what NOT to do, because in every one of these the instinctive move is the
+> damaging one.
+
+## 9. A billing run failed or half-completed
+
+**How to tell.** Tenants report a missing invoice; `atriom-monthly-billing` is absent from the
+scheduler log; or the run reports `Failed > 0`.
+
+```
+php artisan billing:run-monthly --period=YYYY-MM     # re-run, safely
+```
+
+**Re-running is the correct first move, and it is safe.** The run is idempotent: it skips any
+lease already billed for that period (`Considered / Created / Skipped / Failed`). A clean re-run
+after a partial one reports the remainder as *Created* and everything else as *Skipped*. This is
+verified — a second run on a complete month creates 0 and skips all.
+
+**If rows report `Failed`:** the reason is per-lease, not global. The usual causes, in order of
+likelihood:
+
+1. **The period is closed.** A closed accounting period refuses the posting date. Reopen it
+   (`/admin/month-end-close`) or bill into the open month with a post-month override.
+2. **Overlapping or missing charge rows.** `php artisan atriom:audit-charge-schedules` — a lease
+   whose charge rows overlap bills **nothing**, and the refusal is caught rather than thrown.
+3. **A missing account mapping.** `php artisan atriom:health` → `accounting`.
+
+**Do NOT** create the missing invoices by hand. They would carry no `period_start`/`period_end`
+linkage the run recognises, so the next run bills that lease-month *again* and the tenant gets two.
+
+**Afterwards, always:** `php artisan billing:reconcile --deep`. A partial run is exactly the state
+that leaves AR and the GL disagreeing, and this is the only thing that tells you which document.
+
+---
+
+## 10. A user is locked out
+
+**First, which surface?** They are different systems and the fix for one does nothing for the other:
+`/admin` is a `User` with spatie roles · `/portal` is a `TenantUser` · the mobile app authenticates a
+`Tenant` through `/api/v1`.
+
+**Admin.** There is no self-service reset for `/admin` by design.
+
+```
+php artisan tinker
+>>> $u = App\Models\User::where('email', 'them@example.com')->firstOrFail();
+>>> $u->update(['password' => bcrypt('<a generated password>')]);   # hashed by the cast
+>>> $u->status                                                       # 'suspended' locks them out too
+```
+
+If `status` is `suspended`, that is a deliberate act by an administrator — find out who and why
+before reversing it; it is in the activity log.
+
+**2FA is the more common cause than a forgotten password.** A lost authenticator device locks an
+account whose password is fine. Clear the enrolment and let them re-enrol:
+
+```
+>>> $u->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null,
+...   'two_factor_confirmed_at' => null])->save();
+```
+
+**Nobody can reach `/admin` at all.** `atriom:health` → `admin_access` reports zero `super_admin`
+accounts. Re-run `php artisan atriom:install --admin-email=…`; it creates the first administrator,
+prints a generated password once, and skips silently when one already exists.
+
+**Portal / mobile.** Both have working self-service reset. If the mail never arrives, that is a mail
+problem, not an auth one — `php artisan integrations:check --mail`. Note `APP_MOBILE_RESET_URL`:
+unset, the mobile reset mail's only button 404s, and `atriom:health` fails in production while it is.
+
+**Do NOT** grant a role to work around a lockout. `super_admin` is not a way to log someone in, and
+the grant outlives the incident.
+
+---
+
+## 11. Rotating a secret
+
+Order matters: **add the new credential, deploy, verify, then revoke the old one.** Revoking first
+means every request between revocation and deploy fails.
+
+```
+# 1. edit .env on the box            2. the cache is what the app actually reads
+php artisan config:cache
+# 3. workers hold the OLD value in memory until restarted — this is the step people miss
+php artisan queue:restart
+# 4. prove it
+php artisan integrations:check
+```
+
+**`APP_KEY` is not in this list.** Rotating it makes every encrypted column and every session
+unreadable. It is a data migration, not a secret rotation; do not do it casually.
+
+| Secret | Verify with | Note |
+|---|---|---|
+| `PAYMOB_*` | `php artisan integrations:check` | Rotate the HMAC secret and the callback URL together, or callbacks fail signature checks. |
+| `MAIL_*` | `php artisan mail:test` | Must land in a real inbox from the verified domain. |
+| DB password | `php artisan atriom:health` → `database` | Update the backup config too — it authenticates separately. |
+| `BACKUP_ARCHIVE_PASSWORD` | `php artisan atriom:backup-verify` | **Archives written with the OLD password stay encrypted with it.** Keep the old one escrowed for as long as you keep those archives, or they are unreadable. |
+| `HEALTH_TOKEN` | `curl -H "X-Health-Token: …" /health` | Update the external monitor in the same change or it starts alerting. |
+
+---
+
+## 12. Cut-over — loading a real mall
+
+Rehearse this on **staging** first, twice, and get the same result both times. That is the exit
+test; a cut-over you have not repeated is a cut-over you have not tested.
+
+**Order is not optional** — each import resolves records the previous one created:
+
+```
+php artisan atriom:install --admin-email=…      # reference data + first admin, then PROVES the DB can post
+```
+
+1. **Properties, floors, units** — `UnitImporter`
+2. **Tenants** — `TenantImporter` (identity on tax id, then email; never on name)
+3. **Leases** — `LeaseImporter` (seeds the standard charges; a lease with none bills nothing)
+4. **Charge schedules** — `ChargeImporter`, which writes through `ChargeScheduleService`
+5. **Vendors · Employees · Fixed assets · Meter readings** — their own importers
+6. **Opening balances** — `OpeningInvoiceImporter`
+
+**Opening AR arrives as real invoices, not a lump sum.** Ageing, dunning, statements and
+per-invoice allocation all work on documents. They deliberately post NOTHING to the GL — the
+revenue is already inside the accountant's opening journal entry, and posting it again would
+double-count every pound of it. Imported fixed assets carry
+`opening_accumulated_depreciation` for the same reason.
+
+**Then, before anyone bills anything:**
+
+```
+php artisan atriom:audit-charge-schedules   # overlapping/gapped/undated charge rows — exits non-zero
+php artisan billing:reconcile --deep        # the AR tie-out is what proves the migration loaded everything
+php artisan atriom:health
+```
+
+**Do NOT** run `migrate:fresh --seed` on the target. `DemoSeeder` is demo data, and it is the one
+thing in the codebase that creates users.
+
+---
+
+## 13. Undoing a schema change
+
+**Read this before `migrate:rollback`.** 171 of this project's migrations drop columns in `down()`.
+Rolling back does not return you to the previous release — it **destroys the data in those
+columns**, and no error says so. Rollback is a development tool here, not a production one.
+
+**In production, restore instead.** The backup IS the rollback story:
+
+```
+php artisan atriom:backup-verify --keep    # replay the newest archive into a scratch schema FIRST
+```
+
+That proves the archive restores *before* you touch the live database, and `--keep` leaves the
+scratch schema up so you can inspect it. Only then restore over production, redeploy the matching
+release tag, and `php artisan queue:restart`.
+
+**The narrow case where rollback is right:** the migration is the newest one, it added something
+and dropped nothing, and no release has run against it. Read its `down()` and confirm — do not
+infer it from the name.
+
+**Whatever the route, afterwards:** `php artisan billing:reconcile --deep`. A restore returns the
+database to an earlier moment; any document created after that moment is gone, and the tie-out is
+what tells you whether the books still agree with themselves.
