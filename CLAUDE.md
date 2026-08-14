@@ -19,7 +19,7 @@ Operator **Eltizam** runs malls for owners (**Jawad**); **tenants** are the reta
   - **Suite exits 255 with NO output at all?** That is almost always two test files declaring the same file-scope helper — a fatal redeclaration during collection, before any test runs. It has happened three times (`makeViolation`, `optionOn`, `annualPctLease`). `--parallel` hides it (each worker only loads its own files) and every instinctive recovery — re-run, run the directory, add a `--filter` — loads everything and dies identically. **The one command that works:** `vendor/bin/pest tests/Feature/Scenarios/TestHelperUniquenessConformanceTest.php` — a path-scoped run loads only that path, and the gate names both files. The fix is usually to *reuse* the existing helper, not rename yours; shared ones belong in `tests/Pest.php` or a class under `Tests\Support`.
 - **Business logic** goes in single-action services (`app/Services`); keep controllers + Filament pages thin.
 - **Docs are part of "done":** changing a module's logic → update its `docs/modules/NN-*.md` (+ `docs/OVERVIEW.md` if cross-cutting) **in the same commit**.
-- **Local DB:** MySQL; reseed with `php artisan migrate:fresh --seed` after a feature (`DemoSeeder` = canonical demo data).
+- **Local DB:** MySQL; reseed with `php artisan migrate:fresh --seed` after a feature (`DemoSeeder` = canonical demo data). **`LearningSeeder` is the empty-mall variant** — the same reference data `atriom:install` lays down, one property, 12 vacant units, 3 tenants and *nothing else*, so an experiment's own numbers are the only numbers on screen.
 - **Commits:** push to `main` directly (owner's established preference). End commit messages with the `Co-Authored-By:` line.
 
 ## Invariants — don't break
@@ -47,7 +47,8 @@ Operator **Eltizam** runs malls for owners (**Jawad**); **tenants** are the reta
 
 ## Key commands
 ```
-php artisan migrate:fresh --seed          # reset local demo data
+php artisan migrate:fresh --seed          # reset local demo data (DemoSeeder — a mall mid-life)
+php artisan migrate:fresh --seed --seeder='Database\Seeders\LearningSeeder'   # an EMPTY mall instead: reference data + 1 property + 12 vacant units + 3 tenants, zero leases/invoices/GL
 vendor/bin/pest --parallel                # test suite
 npx playwright test --project=chromium    # E2E (against Herd mall-management.test)
 npm run build                             # app assets AND the handbook — the one command a deploy needs
