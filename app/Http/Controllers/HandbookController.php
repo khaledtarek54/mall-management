@@ -24,9 +24,6 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class HandbookController extends Controller
 {
-    /** Where `npm run docs:build` writes — see docs/visual/.vitepress/config.mts `outDir`. */
-    private const ROOT = 'app/handbook';
-
     /**
      * VitePress emits a fixed set of asset types. Anything not listed is refused rather than
      * guessed at: this route reads from disk, so an open-ended content-type map is how a stray
@@ -52,7 +49,7 @@ class HandbookController extends Controller
 
     public function __invoke(Request $request, string $path = ''): Response|BinaryFileResponse
     {
-        $root = realpath(storage_path(self::ROOT));
+        $root = realpath((string) config('handbook.root'));
 
         // Not built yet. Say so rather than 404-ing, because "the handbook is missing" and "that
         // page does not exist" send whoever sees it to completely different places — and the cause
