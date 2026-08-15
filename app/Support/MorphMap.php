@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\Announcement;
+use App\Models\AnnouncementRecipient;
 use App\Models\ApprovalRule;
 use App\Models\Area;
 use App\Models\Asset;
@@ -145,6 +146,7 @@ class MorphMap
         'account_mapping' => AccountMapping::class,
         'accounting_period' => AccountingPeriod::class,
         'announcement' => Announcement::class,
+        'announcement_recipient' => AnnouncementRecipient::class,
         'approval_rule' => ApprovalRule::class,
         'area' => Area::class,
         'asset' => Asset::class,

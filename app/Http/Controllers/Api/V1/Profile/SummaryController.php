@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Profile;
 
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Models\Announcement;
 use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use Illuminate\Http\JsonResponse;
@@ -59,6 +60,17 @@ class SummaryController extends ApiController
             'can_declare_sales' => (bool) $tenant->leases()
                 ->where('has_percentage_rent', true)->where('status', 'active')->exists(),
             'unread_notifications' => (int) $tenant->unreadNotifications()->count(),
+            // Mall news the tenant has not opened. Counted off the recipient rows rather than the
+            // notification inbox, because the two answer different questions: marking the bell
+            // "all read" is a gesture at an inbox, while opening the notice is the thing an
+            // operator is entitled to count. Same predicate as the feed itself, so the badge can
+            // never show a number the list cannot produce.
+            'unread_announcements' => (int) Announcement::query()
+                ->liveFor($tenant)
+                ->whereHas('recipients', fn ($q) => $q
+                    ->where('tenant_id', $tenant->getKey())
+                    ->whereNull('read_at'))
+                ->count(),
 
             'currency' => 'EGP',
         ]);

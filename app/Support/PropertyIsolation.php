@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\Announcement;
+use App\Models\AnnouncementRecipient;
 use App\Models\ApprovalRule;
 use App\Models\Area;
 use App\Models\Asset;
@@ -223,6 +224,10 @@ class PropertyIsolation
         // lease, and an invoice that cannot name its property is invisible to every scoped query.
         Invoice::class => null,
         InvoiceItem::class => 'invoice',            // its invoice now carries the property itself
+        // A tenant's copy of a notice. The property is the NOTICE's, never re-derived from the
+        // tenant: a retailer trades in more than one mall, and asking which of them a receipt
+        // belongs to through the tenant would answer "all of them".
+        AnnouncementRecipient::class => 'announcement',
         Charge::class => 'lease.unit',
         LeaseCamTerm::class => 'lease.unit',
         LeaseOption::class => 'lease.unit',

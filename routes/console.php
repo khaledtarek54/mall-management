@@ -98,6 +98,16 @@ Schedule::command('marketing:expire-posts')
     ->name('atriom-expire-marketing-posts')
     ->withoutOverlapping();
 
+// Mall news (module 27). Broadcasts notices whose scheduled time has arrived. Every fifteen
+// minutes rather than hourly: the operator picks a wall-clock time in the form, and a notice
+// scheduled for 09:00 that lands at 09:58 is a notice the operator will stop trusting the
+// scheduler for. The sweep is idempotent and re-checks each row under a lock, so a short interval
+// costs a query and nothing else.
+Schedule::command('announcements:send-scheduled')
+    ->everyFifteenMinutes()
+    ->name('atriom-send-scheduled-announcements')
+    ->withoutOverlapping();
+
 // Chase vendor compliance documents 30 days out and again on lapse. The dispatch gate
 // already drops a vendor with lapsed insurance from every assignment picker — without
 // this the operator gets no warning, just a contractor missing from a dropdown. The

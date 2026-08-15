@@ -743,18 +743,21 @@ return [
     ],
 
     'announcements' => [
-        'purpose' => 'A message broadcast to every active tenant of one property.',
+        'purpose' => 'Mall news — a notice broadcast to every active tenant of one property, and kept as a post they can re-read.',
         'steps' => [
-            'Write the announcement and pick the property it goes to.',
-            'Publish it.',
-            'It reaches tenants in their portal bell and on their phones.',
+            'Write the notice in both languages and pick the property it goes to.',
+            'Choose Send now, Schedule for a time, or Save as draft.',
+            'Open a sent notice to see which tenants have actually opened it.',
         ],
         'affects' => [
-            'Every active tenant of that property is notified in-app and by mobile push. Announcements are deliberately not emailed.',
+            'Every active tenant of that property is notified in-app and by mobile push, and the notice joins their news feed in the app and the portal. Announcements are deliberately not emailed.',
+            'A read receipt is recorded per tenant the first time they open it — that is the record behind "we told you".',
         ],
         'rules' => [
             'One announcement targets exactly one property. To reach two malls, write two.',
-            'Tenants who are not active at that property do not receive it.',
+            'Tenants who are not active at that property do not receive it, and a tenant who moves in later does not see it.',
+            'A sent notice cannot be edited — tenants already hold a push quoting its text. Correct it by sending another.',
+            'Sending is a separate permission from composing, so a draft can be written by someone who cannot broadcast it.',
         ],
     ],
 
@@ -1433,6 +1436,22 @@ return [
             'Your share is normally your area as a proportion of the mall\'s, weighted for the days you held the space.',
             'At year end, an underpayment is billed and an overpayment is credited back to you.',
             'Where your lease has a cap or a base year, anything above it is the landlord\'s cost, not yours.',
+        ],
+    ],
+
+    'portal_announcements' => [
+        'purpose' => 'Mall news — everything the mall office has told the tenants of your property.',
+        'steps' => [
+            'Unread notices are shown in bold, with a count on the menu item.',
+            'Open one to read it in full, with any image the mall attached.',
+            'Notices with an end date drop off the list once it passes.',
+        ],
+        'affects' => [
+            'Opening a notice records that your company has read it. The mall can see that, which is how "we were never told" gets settled.',
+        ],
+        'rules' => [
+            'You see only notices sent to your company while you were an active tenant of that property.',
+            'Nothing here is editable — a notice is the mall\'s record, not yours.',
         ],
     ],
 

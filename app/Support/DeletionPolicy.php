@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\Announcement;
+use App\Models\AnnouncementRecipient;
 use App\Models\ApprovalRule;
 use App\Models\Area;
 use App\Models\Asset;
@@ -412,7 +413,11 @@ class DeletionPolicy
         FiscalYear::class => 'configuration: its periods carry the entries, and they are guarded',
         Charge::class => 'configuration: a recurring billing line; issued invoices keep their own copy',
         Note::class => 'configuration: a free-text note',
-        Announcement::class => 'configuration: a notice board post',
+        Announcement::class => 'configuration: a notice board post; a SENT one is refused by the resource, which is the state that carries evidence',
+        // Cascades with its notice and is written only by the fan-out. Never deleted on its own —
+        // there is no call site and no screen — but classified rather than left to the gate,
+        // which fails the build on an unclassified model precisely so this is a decision.
+        AnnouncementRecipient::class => 'operational: a delivery + read receipt, cascaded from its announcement',
 
         // operational records (work, not money)
         FacilityWorkOrder::class => 'operational: a job record',

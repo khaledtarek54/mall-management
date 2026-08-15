@@ -18,8 +18,8 @@
             "class": "AnnouncementResource",
             "slug": "announcements",
             "hasCreate": true,
-            "hasEdit": false,
-            "hasView": false
+            "hasEdit": true,
+            "hasView": true
         },
         {
             "class": "ApprovalRuleResource",

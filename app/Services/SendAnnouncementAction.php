@@ -7,13 +7,24 @@ use App\Models\Announcement;
 use App\Models\Tenant;
 use App\Notifications\AnnouncementNotification;
 use App\Support\OpsLog;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Broadcast an announcement to every ACTIVE tenant of its target property, then
- * stamp sent_at + recipients_count. A tenant is "in" the property when they hold
- * an active lease on a unit there. Idempotent: a re-run on an already-sent
- * announcement is a no-op (so a retried {@see BroadcastAnnouncement}
- * can't double-notify).
+ * Broadcast an announcement to every ACTIVE tenant of its target property: record the recipient
+ * list, notify each of them, then stamp `status`, `sent_at` and `recipients_count`.
+ *
+ * A tenant is "in" the property when they hold an active lease on a unit there. Idempotent: a
+ * re-run on an already-sent announcement is a no-op, so a retried {@see BroadcastAnnouncement}
+ * cannot double-notify.
+ *
+ * **The recipient rows are written BEFORE the notifications go out, in their own transaction.**
+ * That ordering is the whole reason the feed can be trusted. `AnnouncementNotification` deep-links
+ * into the post, and `Announcement::liveFor()` only shows a post to a tenant who has a recipient
+ * row — so a push that arrives before its row exists deep-links to a 404. Writing the list first
+ * costs one statement and removes the window entirely.
+ *
+ * The rows are also what survives the blast: `recipients_count` is a number, and a number cannot
+ * answer "has that store read it yet", which is the question an operator actually asks.
  */
 class SendAnnouncementAction
 {
@@ -31,6 +42,8 @@ class SendAnnouncementAction
             ->with('users') // notifyPortal fans to each portal login — avoid an N+1
             ->get();
 
+        $this->recordRecipients($announcement, $tenants->modelKeys());
+
         $reached = 0;
 
         foreach ($tenants as $tenant) {
@@ -47,16 +60,58 @@ class SendAnnouncementAction
                     'tenant_id' => $tenant->id,
                     'error' => $e->getMessage(),
                 ]);
+
+                continue;
             }
+
+            // Stamped per recipient, after their own delivery succeeded, so a null `notified_at`
+            // names exactly who the blast missed. The row itself stays either way: they are still
+            // an intended recipient, the notice still belongs in their feed, and hiding it would
+            // turn a delivery failure into a silent omission.
+            $announcement->recipients()
+                ->where('tenant_id', $tenant->getKey())
+                ->update(['notified_at' => now()]);
         }
 
         // Always stamp, even on a partial blast: sent_at closes the record (the
         // guard above) and recipients_count reports who actually got it.
         $announcement->forceFill([
+            'status' => Announcement::STATUS_SENT,
             'sent_at' => now(),
             'recipients_count' => $reached,
         ])->save();
 
         return $reached;
+    }
+
+    /**
+     * Write the recipient list in one statement.
+     *
+     * `insertOrIgnore` against the `(announcement_id, tenant_id)` unique key rather than a
+     * per-tenant `firstOrCreate`: a property with 200 retailers would otherwise cost 400 queries
+     * before a single notification is sent, and the collision case here is a re-run, which the
+     * `sent_at` guard has already refused.
+     *
+     * @param  array<int, int|string>  $tenantIds
+     */
+    private function recordRecipients(Announcement $announcement, array $tenantIds): void
+    {
+        if ($tenantIds === []) {
+            return;
+        }
+
+        $now = now();
+
+        DB::table('announcement_recipients')->insertOrIgnore(
+            collect($tenantIds)->map(fn ($tenantId) => [
+                'announcement_id' => $announcement->getKey(),
+                'tenant_id' => $tenantId,
+                'notified_at' => null,
+                'read_at' => null,
+                'read_by_tenant_user_id' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all()
+        );
     }
 }

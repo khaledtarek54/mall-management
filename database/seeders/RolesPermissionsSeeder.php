@@ -408,9 +408,16 @@ class RolesPermissionsSeeder extends Seeder
             'fixed_assets.edit' => 'Edit fixed assets, dispose & post depreciation',
             'fixed_assets.delete' => 'Delete fixed-asset records',
         ],
+        // Mall news (module 27). `send` is its own permission and not folded into `create`, for
+        // the same reason `marketing_posts.approve` is separate from `edit`: since notices gained
+        // a draft state, composing one and pushing it to every retailer's phone stopped being the
+        // same act. An assistant can reasonably draft the Ramadan-hours notice without being the
+        // person who decides it goes out.
         'announcements' => [
-            'announcements.view' => 'View sent announcements',
-            'announcements.create' => 'Compose & broadcast announcements to tenants',
+            'announcements.view' => 'View announcements & their read receipts',
+            'announcements.create' => 'Compose announcements to tenants',
+            'announcements.edit' => 'Edit a draft or scheduled announcement (sent ones are immutable)',
+            'announcements.send' => 'Broadcast an announcement to a property\'s tenants',
         ],
         // The shopper-facing feed (module 36). `approve` is its own permission and not folded into
         // `edit`: deciding what the mall says to the public is a different authority from tidying
@@ -712,7 +719,7 @@ class RolesPermissionsSeeder extends Seeder
         // marketing: Marketing Budgets + spend, plus tenant announcements.
         $grants['marketing'] = [
             'marketing.view', 'marketing.create', 'marketing.edit',
-            'announcements.view', 'announcements.create',
+            'announcements.view', 'announcements.create', 'announcements.edit', 'announcements.send',
             // The department that owns tenant comms owns the shopper feed too, including the
             // review queue — approving a retailer's offer IS the marketing team's job.
             'marketing_posts.view', 'marketing_posts.create', 'marketing_posts.edit',

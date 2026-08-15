@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Filament\Admin\Resources\AccountMappings\AccountMappingResource;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
+use App\Filament\Portal\Resources\Announcements\AnnouncementResource as PortalAnnouncementResource;
 use App\Filament\Admin\Resources\ApprovalRules\ApprovalRuleResource;
 use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Filament\Admin\Resources\Assets\AssetResource;
@@ -228,6 +229,7 @@ class SearchPolicy
         PortalCamAllocationResource::class => 'A tenant reaches their CAM allocation from the lease it belongs to. It carries no reference of its own — only a pool and a share.',
         PortalTenantSalesDeclarationResource::class => 'A tenant has a handful of declarations, listed by period. Nothing on one is typed to find it.',
         PortalMarketingPostResource::class => 'A retailer has a handful of their own offers, listed on one screen with a status filter. Global search would be a longer route to a shorter list. (The OPERATOR\'s MarketingPostResource IS searchable — they hold every mall\'s.)',
+        PortalAnnouncementResource::class => 'A retailer reads their mall\'s notices as a board, newest first, with an unread badge on the nav item. Nobody types a notice\'s title to find one — they open the board. (The OPERATOR\'s AnnouncementResource IS searchable — they hold every mall\'s.)',
     ];
 
     /**

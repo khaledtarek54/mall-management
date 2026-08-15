@@ -803,6 +803,158 @@
                 }
             }
         },
+        "/v1/me/announcements": {
+            "get": {
+                "operationId": "v1.me.announcements.index",
+                "tags": [
+                    "ListAnnouncements"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `AnnouncementResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/AnnouncementResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "currentPage": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 1
+                                                },
+                                                "lastPage": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "links": {
+                                                    "type": "array",
+                                                    "description": "Generated paginator links.",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "active": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "url",
+                                                            "label",
+                                                            "active"
+                                                        ]
+                                                    }
+                                                },
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "perPage": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "description": "Number of the last item in the slice.",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items being paginated.",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "currentPage",
+                                                "from",
+                                                "lastPage",
+                                                "links",
+                                                "path",
+                                                "perPage",
+                                                "to",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/credit-notes": {
             "get": {
                 "operationId": "v1.me.credit-notes.index",
@@ -1346,6 +1498,67 @@
                                         "message": {
                                             "type": "string",
                                             "const": "Notification marked as read."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/announcements/{id}/read": {
+            "post": {
+                "operationId": "v1.me.announcements.read",
+                "tags": [
+                    "MarkAnnouncementRead"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "read": {
+                                                    "type": "boolean"
+                                                },
+                                                "readAt": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "read",
+                                                "readAt"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "null"
                                         }
                                     },
                                     "required": [
@@ -2071,6 +2284,96 @@
                 }
             }
         },
+        "/v1/me/announcements/{id}": {
+            "get": {
+                "operationId": "v1.me.announcements.show",
+                "tags": [
+                    "ShowAnnouncement"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": []
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/announcements/{id}/hero/{media}": {
+            "get": {
+                "operationId": "v1.me.announcements.hero",
+                "tags": [
+                    "ShowAnnouncementHero"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "media",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/credit-notes/{id}": {
             "get": {
                 "operationId": "v1.me.credit-notes.show",
@@ -2631,7 +2934,7 @@
                                                 },
                                                 "openMaintenance": {
                                                     "type": "integer",
-                                                    "description": "Open work"
+                                                    "description": "Open work. \u26a0\ufe0f `open_maintenance` is a WIRE CONTRACT, not an identifier \u2014 the camelCase middleware\nships it as `openMaintenance`, and a released mobile client reads that key. It keeps\nthe old word deliberately: renaming it is a breaking API change that needs a version\nbump and a client release, not a ride-along on an internal rename. The 2026-08-15\nsweep renamed it and the contract test caught it. Everything BEHIND the key moved\n(`tenantRequests()`, `TenantRequest`); only the key the app parses is frozen."
                                                 },
                                                 "disputedDeclarations": {
                                                     "type": "integer",
@@ -2642,6 +2945,10 @@
                                                 },
                                                 "unreadNotifications": {
                                                     "type": "integer"
+                                                },
+                                                "unreadAnnouncements": {
+                                                    "type": "integer",
+                                                    "description": "Mall news the tenant has not opened. Counted off the recipient rows rather than the\nnotification inbox, because the two answer different questions: marking the bell\n\"all read\" is a gesture at an inbox, while opening the notice is the thing an\noperator is entitled to count. Same predicate as the feed itself, so the badge can\nnever show a number the list cannot produce."
                                                 },
                                                 "currency": {
                                                     "type": "string",
@@ -2658,6 +2965,7 @@
                                                 "disputedDeclarations",
                                                 "canDeclareSales",
                                                 "unreadNotifications",
+                                                "unreadAnnouncements",
                                                 "currency"
                                             ]
                                         },
@@ -2775,6 +3083,82 @@
     },
     "components": {
         "schemas": {
+            "AnnouncementResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "titleAr": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "bodyAr": {
+                        "type": "string"
+                    },
+                    "heroUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "isPinned": {
+                        "type": "boolean"
+                    },
+                    "sentAt": {
+                        "type": "string",
+                        "description": "When it was broadcast \u2014 the date the app shows. Not `created_at`: a notice composed\na fortnight early and scheduled would otherwise show up as two weeks old the moment\nit arrived."
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "description": "When it drops off the feed. Null = standing notice. Shipped so the app can show\n\"until Friday\" rather than the reader wondering whether it still applies."
+                    },
+                    "read": {
+                        "type": "boolean"
+                    },
+                    "readAt": {
+                        "type": "string"
+                    },
+                    "property": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "name"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "category",
+                    "title",
+                    "titleAr",
+                    "body",
+                    "bodyAr",
+                    "heroUrl",
+                    "isPinned",
+                    "sentAt",
+                    "expiresAt",
+                    "read",
+                    "readAt"
+                ],
+                "title": "AnnouncementResource"
+            },
             "ChangePasswordRequest": {
                 "type": "object",
                 "properties": {
@@ -3020,53 +3404,6 @@
                 ],
                 "title": "DeviceTokenResource"
             },
-            "Floor": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "assetId": {
-                        "type": "integer"
-                    },
-                    "code": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "level": {
-                        "type": "integer"
-                    },
-                    "createdAt": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
-                    },
-                    "updatedAt": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
-                    }
-                },
-                "required": [
-                    "id",
-                    "assetId",
-                    "code",
-                    "name",
-                    "level",
-                    "createdAt",
-                    "updatedAt"
-                ],
-                "title": "Floor"
-            },
             "ForgotPasswordRequest": {
                 "type": "object",
                 "properties": {
@@ -3224,7 +3561,7 @@
                                         "type": "string"
                                     },
                                     "floor": {
-                                        "$ref": "#/components/schemas/Floor"
+                                        "type": "string"
                                     }
                                 },
                                 "required": [
@@ -3317,7 +3654,8 @@
                                 "type": "string"
                             },
                             "floor": {
-                                "$ref": "#/components/schemas/Floor"
+                                "type": "string",
+                                "description": "`floors.code` \u2014 a STRING like \"G\" or \"1\", which is what this field has always\ncarried. `units.floor` was a string column until it was replaced by the Floor\nregister; `$unit->floor` is now the RELATION, so emitting it raw put a whole\nFloor object on the wire where the mobile client expects a scalar."
                             },
                             "category": {
                                 "type": "string"
@@ -3639,9 +3977,9 @@
                         "description": "UUID\nShort class name (e.g. \"PaymentReceivedNotification\") so the app can\nbranch on it without coupling to the PHP namespace."
                     },
                     "data": {
-                        "type": "array",
-                        "description": "Notification payload, minus the Filament bell render hints \u2014 those\nare server-side presentation cruft the mobile app shouldn't see (and\nstripping them keeps this from silently shipping internal keys).",
-                        "items": []
+                        "type": "object",
+                        "description": "Notification payload, minus the Filament bell render hints \u2014 those\nare server-side presentation cruft the mobile app shouldn't see (and\nstripping them keeps this from silently shipping internal keys). `actions` is stripped for a stronger reason than tidiness: it holds an absolute\n/admin or /portal URL built for a WEB panel the app has no session in. Shipping it\nwould invite the client to open a link that lands on a login screen. The app already\ndeep-links from the id fields below, which is the contract it was written against.\n\n`NotificationLocale::forDisplay` resolves `title`/`body` into the language THIS\nrequest asked for (SetApiLocale reads Accept-Language) and drops the `i18n` block\nthat made that possible. Without it the app would render whatever language the alert\nwas raised in \u2014 for the nightly sweeps, always the app default \u2014 and a retailer whose\nphone is in Arabic would read English push history in an Arabic app.",
+                        "additionalProperties": []
                     },
                     "read": {
                         "type": "boolean"
@@ -3973,8 +4311,12 @@
                         ]
                     },
                     "locations": {
-                        "type": "string",
-                        "description": "Where to find it, when the caller asked for a specific mall and we resolved the\nunits this retailer occupies THERE. A bare unit code is not commercially sensitive\n(it is painted on the shopfront), but it is only ever scoped to the mall being\nbrowsed \u2014 never the retailer's presence across the operator's whole portfolio,\nwhich would let anyone map a chain's footprint from a public endpoint."
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "Where to find it, when the caller asked for a specific mall and we resolved the\nunits this retailer occupies THERE. A bare unit code is not commercially sensitive\n(it is painted on the shopfront), but it is only ever scoped to the mall being\nbrowsed \u2014 never the retailer's presence across the operator's whole portfolio,\nwhich would let anyone map a chain's footprint from a public endpoint.",
+                        "items": []
                     }
                 },
                 "required": [
@@ -4358,7 +4700,7 @@
                                 "type": "string"
                             },
                             "floor": {
-                                "$ref": "#/components/schemas/Floor"
+                                "type": "string"
                             }
                         },
                         "required": [

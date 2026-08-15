@@ -98,6 +98,10 @@ final class ConcurrencyPolicy
         // transaction — without it two workers both read "not sent today" and the recipient
         // gets the month-end pack twice.
         'app/Console/Commands/DeliverScheduledReportsCommand.php' => 1,
+        // Claims a due notice under the lock and re-checks its status inside the transaction.
+        // Without it two workers both read "still scheduled" and every retailer in the mall gets
+        // the same push twice — the one failure a broadcast cannot take back.
+        'app/Console/Commands/SendScheduledAnnouncementsCommand.php' => 1,
         'app/Console/Commands/ScanLeaseOptionWindowsCommand.php' => 1,
         'app/Console/Commands/ScanLowStockCommand.php' => 1,
         // A cache lock, not a row lock: this scan has no single row to hold, so an atomic lock is

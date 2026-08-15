@@ -27,21 +27,21 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **100** models | **147** services | **51** admin resources | **7** portal resources |
-| **47** API controllers | **17** dashboard widgets | **45** console commands | **6** queued jobs |
-| **35** notifications | **220** migrations | **37** module docs | **709** test files |
+| **101** models | **148** services | **51** admin resources | **8** portal resources |
+| **51** API controllers | **17** dashboard widgets | **46** console commands | **6** queued jobs |
+| **35** notifications | **224** migrations | **37** module docs | **713** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 100 models classified — 77 property-owned, 22 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 101 models classified — 78 property-owned, 22 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 24 posting sources, 24 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 709 files — 121 scenario, 343 regression. |
+| **Tests** | 713 files — 122 scenario, 346 regression. |
 | **Module flags** | 17 toggleable modules (`App\Support\Modules`). |
 
-**Scheduled automation** — commands: `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `reports:deliver` · `marketing:expire-posts` · `vendors:scan-document-expiry` · `tenants:scan-document-expiry` · `vendors:scan-contract-renewals` · `activitylog:clean` · `requests:auto-close` · `facility:generate-preventive` · `requests:scan-sla-breaches` · `facility:scan-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `billing:reconcile --deep` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`
+**Scheduled automation** — commands: `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `reports:deliver` · `marketing:expire-posts` · `announcements:send-scheduled` · `vendors:scan-document-expiry` · `tenants:scan-document-expiry` · `vendors:scan-contract-renewals` · `activitylog:clean` · `requests:auto-close` · `facility:generate-preventive` · `requests:scan-sla-breaches` · `facility:scan-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `billing:reconcile --deep` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`
 ; jobs: `RunMonthlyBilling` · `ApplyLateFees` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).
 
 ### Gap-analysis coverage

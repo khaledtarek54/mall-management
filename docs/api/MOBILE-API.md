@@ -273,9 +273,11 @@ doesn't fan out to balance + maintenance + declarations + notifications.
 { "data": { "outstanding": 8000.00, "overdue": 5000.00, "openInvoices": 2,
   "creditAvailable": 1500.00, "isDelinquent": true, "openMaintenance": 1,
   "disputedDeclarations": 0, "canDeclareSales": true,
-  "unreadNotifications": 3, "currency": "EGP" } }
+  "unreadNotifications": 3, "unreadAnnouncements": 2, "currency": "EGP" } }
 ```
 `canDeclareSales` is true when the tenant has an active percentage-rent lease.
+`unreadAnnouncements` badges the **Mall news** entry (§4.12) — it counts notices the
+tenant has not opened, which is a different question from the bell's unread count.
 
 #### 🔒 `GET /me/leases` — active leases (usually one)
 ```json
@@ -402,6 +404,50 @@ Pass `?unread=1` for unread only.
 #### 🔒 `GET /me/notifications/unread-count` → `{ "data": { "unreadCount": 3 } }` (badge)
 #### 🔒 `POST /me/notifications/{id}/read` — mark one read (`404` if not yours).
 #### 🔒 `POST /me/notifications/read-all` — mark every unread read.
+
+---
+
+### 4.12 Mall news (announcements)
+
+Notices the mall office sent to this tenant — works, trading hours, events. Delivered as a push +
+an inbox row (`AnnouncementNotification`, §4.6) **and** kept here as a post the tenant can re-read.
+A push tap should deep-link to `announcementId` from the notification payload.
+
+**Both languages ship on every row and the client picks.** `titleAr`/`bodyAr` are null when the
+operator wrote only English — render `title`/`body` in that case rather than a blank.
+
+#### 🔒 `GET /me/announcements` — paginated; pinned first, then newest
+Pass `?unread=1` for unopened only.
+```json
+{ "data": [ { "id": 42, "category": "operations",
+  "title": "Loading bay closed", "titleAr": "إغلاق منطقة التحميل",
+  "body": "Friday, all day.", "bodyAr": "الجمعة، طوال اليوم.",
+  "heroUrl": "https://…/api/v1/me/announcements/42/hero/91",
+  "isPinned": false, "sentAt": "2026-08-15T09:00:00+00:00",
+  "expiresAt": "2026-08-22T00:00:00+00:00",
+  "read": false, "readAt": null,
+  "property": { "code": "AW", "name": "Atriom Walk" } } ],
+  "meta": { … }, "links": { … } }
+```
+`category` ∈ `general` · `operations` · `event` · `emergency` · `hours` — render a chip, and
+colour `emergency` differently. `expiresAt` may be null (a standing notice); a notice past its
+expiry is already gone from this list.
+
+#### 🔒 `GET /me/announcements/{id}` — one notice in full
+`404` if it was never sent to you. **Does not** mark it read — that is deliberate, so a push
+preview or a prefetch never counts as somebody having seen it.
+
+#### 🔒 `POST /me/announcements/{id}/read` — record that this tenant opened it
+```json
+{ "data": { "id": 42, "read": true, "readAt": "2026-08-15T10:12:00+00:00" } }
+```
+Idempotent: the FIRST read is what stays recorded. Call it when the detail screen is actually
+shown to a person, not on prefetch. `404` if not yours.
+
+#### 🔒 `GET /me/announcements/{id}/hero/{media}` — the artwork
+Streamed from a **private** disk (a notice can carry an evacuation map), so it needs the
+`Authorization` header like any other endpoint — it is not a public CDN URL. `heroUrl` above is
+already this route; it is null when the notice has no image.
 
 ---
 
@@ -655,6 +701,7 @@ badge — "20% OFF"), `startsAt`/`endsAt` (show as "valid until"), `isFeatured`,
 | Profile / settings | `GET /me`, `PATCH /me`, `GET /me/leases` |
 | App launch (push) | `POST /me/devices`; on logout: `DELETE /me/devices/{id}` |
 | My offers (retailer) | `GET/POST /me/marketing-posts`, `POST /{id}`, `POST /{id}/submit`, `POST /{id}/withdraw` |
+| **Mall news list / detail** | `GET /me/announcements`, `GET /{id}`, `POST /{id}/read` |
 | What's on at my mall | `GET /me/feed` |
 | **Visitor app — home / carousel** | `GET /public/malls/{code}/posts` (featured-first; no auth) |
 | **Visitor app — offer detail** | `GET /public/malls/{code}/posts/{id}`, `POST /{id}/click` |

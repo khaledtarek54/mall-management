@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Announcements\ListAnnouncementsController;
+use App\Http\Controllers\Api\V1\Announcements\MarkAnnouncementReadController;
+use App\Http\Controllers\Api\V1\Announcements\ShowAnnouncementController;
+use App\Http\Controllers\Api\V1\Announcements\ShowAnnouncementHeroController;
 use App\Http\Controllers\Api\V1\Auth\ChangePasswordController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
@@ -15,20 +19,6 @@ use App\Http\Controllers\Api\V1\Invoices\ListInvoicesController;
 use App\Http\Controllers\Api\V1\Invoices\ShowInvoiceController;
 use App\Http\Controllers\Api\V1\Invoices\StatementController;
 use App\Http\Controllers\Api\V1\MarketingPosts\MarketingPostsController;
-use App\Http\Controllers\Api\V1\PublicFeed\ListPublicMallsController;
-use App\Http\Controllers\Api\V1\PublicFeed\ListPublicPostsController;
-use App\Http\Controllers\Api\V1\PublicFeed\ListPublicStoresController;
-use App\Http\Controllers\Api\V1\PublicFeed\RecordPostClickController;
-use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicPostController;
-use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicStoreController;
-use App\Http\Middleware\EnsureMarketingPostsEnabled;
-use App\Http\Controllers\Api\V1\Requests\CancelTenantRequestController;
-use App\Http\Controllers\Api\V1\Requests\CommentTenantRequestController;
-use App\Http\Controllers\Api\V1\Requests\CreateTenantRequestController;
-use App\Http\Controllers\Api\V1\Requests\ListTenantRequestsController;
-use App\Http\Controllers\Api\V1\Requests\RateTenantRequestController;
-use App\Http\Controllers\Api\V1\Requests\ShowTenantRequestAttachmentController;
-use App\Http\Controllers\Api\V1\Requests\ShowTenantRequestController;
 use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
 use App\Http\Controllers\Api\V1\Notifications\MarkAllNotificationsReadController;
 use App\Http\Controllers\Api\V1\Notifications\MarkNotificationReadController;
@@ -40,12 +30,27 @@ use App\Http\Controllers\Api\V1\Profile\LeasesController;
 use App\Http\Controllers\Api\V1\Profile\ShowProfileController;
 use App\Http\Controllers\Api\V1\Profile\SummaryController;
 use App\Http\Controllers\Api\V1\Profile\UpdateProfileController;
+use App\Http\Controllers\Api\V1\PublicFeed\ListPublicMallsController;
+use App\Http\Controllers\Api\V1\PublicFeed\ListPublicPostsController;
+use App\Http\Controllers\Api\V1\PublicFeed\ListPublicStoresController;
+use App\Http\Controllers\Api\V1\PublicFeed\RecordPostClickController;
+use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicPostController;
+use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicStoreController;
+use App\Http\Controllers\Api\V1\Requests\CancelTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\CommentTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\CreateTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\ListTenantRequestsController;
+use App\Http\Controllers\Api\V1\Requests\RateTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\ShowTenantRequestAttachmentController;
+use App\Http\Controllers\Api\V1\Requests\ShowTenantRequestController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\CreateSalesDeclarationController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ListSalesDeclarationsController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationAttachmentController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationController;
 use App\Http\Controllers\Api\V1\Tenant\DemoPayInvoiceController;
 use App\Http\Controllers\Api\V1\Tenant\InitiatePaymobSessionController;
+use App\Http\Middleware\EnsureMarketingPostsEnabled;
+use App\Http\Middleware\EnsureTenantActive;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -124,7 +129,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ============ Authenticated (Sanctum tenant-api guard) ============
-    Route::middleware(['auth:tenant-api', \App\Http\Middleware\EnsureTenantActive::class, 'throttle:60,1'])->group(function () {
+    Route::middleware(['auth:tenant-api', EnsureTenantActive::class, 'throttle:60,1'])->group(function () {
 
         // --- Auth / session ---
         Route::get('auth/me', MeController::class)->name('api.v1.auth.me');
@@ -174,6 +179,19 @@ Route::prefix('v1')->group(function () {
         Route::get('me/notifications/unread-count', UnreadCountController::class)->name('api.v1.me.notifications.unread-count');
         Route::post('me/notifications/read-all', MarkAllNotificationsReadController::class)->name('api.v1.me.notifications.read-all');
         Route::post('me/notifications/{id}/read', MarkNotificationReadController::class)->name('api.v1.me.notifications.read');
+
+        // --- Mall news (module 27): the operator's notices to this mall's tenants ---
+        // The read surface an announcement never had. It is deliberately NOT behind a module
+        // flag: `announcements` is core (absent from Modules::KEYS on purpose), because a mall
+        // that cannot tell its tenants the garage is shut has no fallback channel.
+        Route::get('me/announcements', ListAnnouncementsController::class)->name('api.v1.me.announcements.index');
+        Route::get('me/announcements/{id}', ShowAnnouncementController::class)
+            ->whereNumber('id')->name('api.v1.me.announcements.show');
+        Route::post('me/announcements/{id}/read', MarkAnnouncementReadController::class)
+            ->whereNumber('id')->name('api.v1.me.announcements.read');
+        // Private artwork, streamed — never a public URL. See the controller docblock.
+        Route::get('me/announcements/{id}/hero/{media}', ShowAnnouncementHeroController::class)
+            ->whereNumber('id')->whereNumber('media')->name('api.v1.me.announcements.hero');
 
         // --- Maintenance requests ---
         Route::get('me/requests', ListTenantRequestsController::class)->name('api.v1.me.requests.index');

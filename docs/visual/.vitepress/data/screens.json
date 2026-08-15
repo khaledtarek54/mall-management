@@ -270,6 +270,12 @@
         "guide": "payrolls"
     },
     {
+        "screen": "AnnouncementResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_announcements"
+    },
+    {
         "screen": "CamAllocationResource",
         "panel": "portal",
         "kind": "resource",

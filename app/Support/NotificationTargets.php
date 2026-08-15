@@ -293,10 +293,10 @@ final class NotificationTargets
             'record' => [Announcement::class, 'announcement_id'],
             // Reaches operators only when one broadcasts to themselves; the audience is tenants.
             'admin' => AnnouncementResource::class,
-            // Tenant-facing: the portal has no announcements resource. The announcement's whole
-            // content is its title + body, both already in the payload, so the centre shows the
-            // reader everything the record would have.
-            'portal' => null,
+            // The notice board. The payload now carries only a headline and an excerpt — the full
+            // body, the artwork and the read receipt live on the record — so a bell entry that
+            // could not be opened would be strictly less than the alert used to be.
+            'portal' => \App\Filament\Portal\Resources\Announcements\AnnouncementResource::class,
         ],
 
         // ---- Inventory ---------------------------------------------------------------------

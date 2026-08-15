@@ -48,6 +48,8 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 | `maintenance_requests` | `MaintenanceRequest` | `id`, `reference`, `tenant_id`, `unit_id`, `status` enum, `priority`, `category`, `title`, `description`, `submitted_at`, `channel` ('portal'/etc), `deleted_at` (soft) | Tenant-reported issues. Accepted via `/me/requests`. Attachments stored via Spatie Media. |
 | `maintenance_comments` | `MaintenanceComment` | `id`, `request_id`, `author_id`, `body`, `created_at` | Comments on requests (tenant + staff). |
 | `tenant_sales_declarations` | `TenantSalesDeclaration` | `id`, `lease_id`, `period_start`, `period_end`, `declared_sales` (**nullable**), `calculated_percentage_rent`, `status` enum(`submitted`/`locked`/`disputed`), `declared_at` | Monthly sales for percentage-rent leases. Tenant uploads a **sales report file** (Spatie `sales_report` collection, private disk) — `declared_sales` is null at submission and entered by staff on review. Percentage rent = `(declared_sales - threshold) * rate` (if declared_sales > threshold, else 0). |
+| `announcements` | `Announcement` | `id`, `asset_id`, `title`/`title_ar`, `body`/`body_ar`, `category`, `status`, `sent_at`, `expires_at`, `is_pinned`, `hero` media (**private disk**) | Mall news. Served read-only at `/me/announcements`; see [modules/27](27-announcements.md). |
+| `announcement_recipients` | `AnnouncementRecipient` | `announcement_id`, `tenant_id`, `notified_at`, `read_at`, `read_by_tenant_user_id` | Who a notice went to and whether they opened it. **The recipient row is what makes a notice visible** — `Announcement::liveFor()` asks whether one exists, never whether the tenant is currently in that property. |
 | `device_tokens` | `DeviceToken` | `id`, `tenant_id`, `platform` (fcm/apns), `token`, `device_name`, `last_used_at` | Push token. Upserted on register (deduped by tenant + platform + device_name). |
 | `tenant_password_reset_tokens` | — | `email`, `token` (hashed), `created_at` | One-time reset tokens (separate table so tenant + user emails don't collide). Expires in 60 minutes. |
 
@@ -60,6 +62,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - `Tenant::salesDeclarations()` — HasManyThrough Lease
 - `Tenant::users()` — HasMany (portal login accounts; mobile uses only Tenant itself)
 - `Tenant::deviceTokens()` — HasMany
+- `Announcement::recipients()` — HasMany `AnnouncementRecipient` (and `reads()`, the opened subset)
 - `Invoice::lease()` — BelongsTo
 - `Invoice::items()` — HasMany (line-item breakdown)
 - `Payment::invoices()` — BelongsToMany (via `payment_invoice` pivot with `allocated_amount`)

@@ -244,6 +244,7 @@ class ScreenGuides
         \App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource::class => 'portal_sales',
         CamAllocationResource::class => 'portal_cam',
         \App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource::class => 'portal_posts',
+        \App\Filament\Portal\Resources\Announcements\AnnouncementResource::class => 'portal_announcements',
         \App\Filament\Portal\Pages\NotificationCenter::class => 'portal_notifications',
     ];
 

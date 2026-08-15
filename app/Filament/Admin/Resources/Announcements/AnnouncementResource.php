@@ -3,7 +3,10 @@
 namespace App\Filament\Admin\Resources\Announcements;
 
 use App\Filament\Admin\Resources\Announcements\Pages\CreateAnnouncement;
+use App\Filament\Admin\Resources\Announcements\Pages\EditAnnouncement;
 use App\Filament\Admin\Resources\Announcements\Pages\ListAnnouncements;
+use App\Filament\Admin\Resources\Announcements\Pages\ViewAnnouncement;
+use App\Filament\Admin\Resources\Announcements\RelationManagers\RecipientsRelationManager;
 use App\Filament\Admin\Resources\Announcements\Schemas\AnnouncementForm;
 use App\Filament\Admin\Resources\Announcements\Tables\AnnouncementsTable;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
@@ -22,20 +25,30 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 /**
- * Operator broadcasts to a property's active tenants (bell + mobile push).
- * Property-owned (direct asset_id). Composing an announcement IS the send —
- * records are immutable after creation (no edit page), so the write attack
- * surface is create-only. Gated by `announcements.*` permissions.
+ * Mall news — the operator's notices to a property's tenants, delivered as bell + mobile push and
+ * kept as a post the tenant can still read next month.
+ *
+ * Property-owned (direct asset_id). Gated by `announcements.*` permissions, with **send split from
+ * create**: since notices gained a draft state, composing one and pushing it to every retailer's
+ * phone stopped being the same act, and an assistant can reasonably hold one authority without the
+ * other. Same reasoning that gives `marketing_posts` a separate `approve`.
+ *
+ * **Editing is state-dependent, not absent.** A draft or scheduled notice is ordinary content; a
+ * SENT one is evidence — tenants hold a push quoting its text and `announcement_recipients`
+ * records who received it — so `canEdit()` refuses it and the edit page re-checks. The old rule
+ * ("no edit page at all, an announcement is immutable") was the right instinct applied one state
+ * too early: it made composing and sending the same keystroke, which is why the Ramadan-hours
+ * notice could only ever be written on the morning it went out.
  *
  * The target property is CLIENT-SUPPLIED (the operator picks which mall to
  * broadcast to), so this deliberately does NOT use Filament's tenancy ownership
  * (`$tenantOwnershipRelationshipName`): that registers a model `creating` hook
  * which force-associates asset_id with the *current* panel tenant, and in
  * "All Properties" mode the tenant is the ALL pseudo-asset — it would silently
- * overwrite the chosen property and broadcast to nobody (no unit belongs to ALL,
- * and the record can't be edited afterwards). BypassesFilamentTenantAutoScope
- * turns that hook off; reads are scoped explicitly in getEloquentQuery() and the
- * submitted asset_id is re-validated by assertAssetInScope() on create.
+ * overwrite the chosen property and broadcast to nobody (no unit belongs to ALL).
+ * BypassesFilamentTenantAutoScope turns that hook off; reads are scoped explicitly in
+ * getEloquentQuery() and the submitted asset_id is re-validated by assertAssetInScope() on
+ * create AND on edit (Filament only stamps asset_id on create, never on update).
  */
 class AnnouncementResource extends Resource
 {
@@ -72,6 +85,29 @@ class AnnouncementResource extends Resource
         return $query;
     }
 
+    /**
+     * May this operator push a notice to a property's tenants?
+     *
+     * **Named once and used everywhere** — the row action's `visible()`, the same action's
+     * `abort_unless`, and both save pages. Naming the predicate is what keeps the UI gate and the
+     * real gate from drifting into disagreement, which is the failure `visible()`-only actions
+     * produce and no test at either end notices.
+     */
+    public static function canSend(): bool
+    {
+        return static::hasPermission('send');
+    }
+
+    /**
+     * A notice stops being editable the moment it is broadcast. See the class docblock.
+     */
+    public static function canEdit(Model $record): bool
+    {
+        return $record instanceof Announcement
+            && $record->isEditable()
+            && static::hasPermission('edit');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('admin.announcements.plural');
@@ -102,12 +138,27 @@ class AnnouncementResource extends Resource
         return AnnouncementsTable::configure($table);
     }
 
+    /**
+     * Who was sent it and who has opened it — the read receipts, on the notice's own screen.
+     *
+     * @return array<class-string>
+     */
+    public static function getRelations(): array
+    {
+        return [
+            RecipientsRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
-        // No edit: an announcement is immutable once broadcast.
         return [
             'index' => ListAnnouncements::route('/'),
             'create' => CreateAnnouncement::route('/create'),
+            // The read-receipt screen. A sent notice has no edit page, so without this there is
+            // nowhere for its recipient list to live.
+            'view' => ViewAnnouncement::route('/{record}'),
+            'edit' => EditAnnouncement::route('/{record}/edit'),
         ];
     }
 
@@ -125,12 +176,13 @@ class AnnouncementResource extends Resource
             'search_text',
         ];
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  Announcement  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                                can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
@@ -138,5 +190,4 @@ class AnnouncementResource extends Resource
             __('admin.fields.description') => Str::limit((string) $record->body, 80),
         ];
     }
-
 }

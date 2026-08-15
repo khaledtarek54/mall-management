@@ -78,6 +78,11 @@ class ValueSets
      */
     public const SETS = [
         'accounting_periods.status' => ['open', 'closed'],
+        // Mall news (module 27). `status` is the lifecycle a notice moves through; only
+        // SendAnnouncementAction ever writes `sent`, because that word means "tenants have been
+        // pushed this text" and no form can know that.
+        'announcements.status' => ['draft', 'scheduled', 'sent'],
+        'announcements.category' => ['general', 'operations', 'event', 'emergency', 'hours'],
         'assets.type' => ['mall', 'retail_walk', 'mixed_use', 'office', 'residential'],
         'cam_allocations.status' => ['pending', 'billed', 'disputed', 'closed'],
         'cam_expense_pools.status' => ['draft', 'reconciling', 'reconciled', 'closed'],

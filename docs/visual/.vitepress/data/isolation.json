@@ -18,6 +18,12 @@
         "note": null
     },
     {
+        "model": "AnnouncementRecipient",
+        "label": "Announcement Recipient",
+        "classification": "owned",
+        "note": "announcement"
+    },
+    {
         "model": "ApprovalRule",
         "label": "Approval Rule",
         "classification": "shared",
@@ -99,13 +105,13 @@
         "model": "CreditNoteApplication",
         "label": "Credit Note Application",
         "classification": "owned",
-        "note": "creditNote.lease.unit"
+        "note": "creditNote"
     },
     {
         "model": "CreditNoteItem",
         "label": "Credit Note Item",
         "classification": "owned",
-        "note": "creditNote.lease.unit"
+        "note": "creditNote"
     },
     {
         "model": "Custody",
