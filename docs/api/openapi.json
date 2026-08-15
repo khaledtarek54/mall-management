@@ -4852,6 +4852,39 @@
                             "null"
                         ]
                     },
+                    "requiresDecision": {
+                        "type": "boolean",
+                        "description": "---- The ANSWER, for requests that asked for something. Until 2026-08-15 the seven statuses were all a client had, so the app inferred an\noutcome from the lifecycle \u2014 `resolved`/`closed` \u2192 \"Approved\" \u2014 and a staff\nREJECTION read to the tenant as an approval on the card they show a guard.\n\n`requires_decision` is shipped so the client can tell the two nulls apart: a\nmaintenance ticket has no answer because it was never a question, while a permit\nwith a null decision is a row that predates this field. **Neither may render as\napproved.**"
+                    },
+                    "decision": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "decisionReason": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Why it was refused. The whole reason a rejection demands one."
+                    },
+                    "decidedAt": {
+                        "type": "string"
+                    },
+                    "validFrom": {
+                        "type": "string",
+                        "description": "---- The permit's window. These columns have existed since 2026-07-18 and were\noperator-editable in admin, but were never put on the wire \u2014 so the app derived a\nvalidity from what the TENANT typed while the mall's authoritative answer sat\nunread. `valid_*` is the permit's own validity; `scheduled_*` is when the work or\nvisit is booked for."
+                    },
+                    "validTo": {
+                        "type": "string"
+                    },
+                    "scheduledFrom": {
+                        "type": "string"
+                    },
+                    "scheduledTo": {
+                        "type": "string"
+                    },
                     "unit": {
                         "type": [
                             "object",
@@ -4935,7 +4968,15 @@
                     "resolvedAt",
                     "closedAt",
                     "targetResolutionAt",
-                    "resolutionNotes"
+                    "resolutionNotes",
+                    "requiresDecision",
+                    "decision",
+                    "decisionReason",
+                    "decidedAt",
+                    "validFrom",
+                    "validTo",
+                    "scheduledFrom",
+                    "scheduledTo"
                 ],
                 "title": "TenantRequestResource"
             },

@@ -225,6 +225,38 @@ cancelled        → (terminal, no successors)
 - `acknowledged_at` when → acknowledged
 - `resolved_at` when → resolved (resolution_notes also set from extra array)
 - `closed_at` when → closed
+- `decided_at` + `decided_by` whenever a `decision` is given (see below)
+
+### The decision — a request that ASKED for something records its answer (2026-08-15)
+
+**The status alone is not an outcome, and a client that treats it as one gets it backwards.**
+The mobile permit card mapped `resolved`/`closed` → **"Approved"**, so a staff **rejection read to
+the tenant as an approval** on the artifact they hand a security guard. Nothing on the wire said
+otherwise, and the app had nothing better to use. (This reverses the note in migration
+`2026_07_18_150001`, which closed with *"There is NO approval step"* — coherent while the only
+reader was a human in the admin panel.)
+
+- **Which types are questions**: `TenantRequestType::requiresDecision()` → `permit`, `access`,
+  `document`. The tenant is asking for permission, or for a thing. `maintenance`, `complaint`,
+  `inquiry`, `billing`, `other` are not — a leaking pipe is fixed or it is not.
+- **`decision`** ∈ `approved` | `rejected`, registered in `ValueSets` (`tenant_requests.decision`).
+- **Enforced in `TenantRequestService::transition()`**, beside the evidence gate and for the same
+  reason: it is the one place admin, portal and the mobile API all pass through. Resolving a
+  decidable request with no decision is a `DomainException`; so is a rejection with no
+  `decision_reason` — *a tenant told only "rejected" resubmits the same request on Monday*.
+- **`decision` is nullable and stays that way.** Null on a resolved permit means **"we do not
+  know"** (a row predating the column), and `TenantRequest::decisionUnknown()` names that state so
+  no reader has to re-derive it. **Defaulting the column would have recreated the original bug at
+  scale, silently.**
+- **Frozen once terminal**, with the other descriptive fields: a tenant has been told, and may have
+  shown the permit at a gate. Re-open the request to change the answer.
+- The status-change notification announces the **answer** rather than the lifecycle when one
+  exists, and a rejection is `danger`, not `success`.
+
+**On the wire** (`TenantRequestResource`): `requires_decision`, `decision`, `decision_reason`,
+`decided_at` — plus `valid_from`/`valid_to`/`scheduled_from`/`scheduled_to`, which existed since
+2026-07-18 and had never been published, leaving clients to derive a validity window from what the
+tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 **Awaiting tenant detour**:
 - From `in_progress`, staff can send it to `awaiting_tenant` (e.g. waiting for tenant access).

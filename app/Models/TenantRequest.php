@@ -66,7 +66,7 @@ class TenantRequest extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'valid_from', 'valid_to', 'resolution_notes', 'csat_rating'])
+            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'valid_from', 'valid_to', 'resolution_notes', 'decision', 'decision_reason', 'csat_rating'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('tenant_request');
@@ -92,6 +92,10 @@ class TenantRequest extends Model implements HasMedia
         'title',
         'description',
         'resolution_notes',
+        'decision',
+        'decision_reason',
+        'decided_at',
+        'decided_by',
         'submitted_at',
         'acknowledged_at',
         'resolved_at',
@@ -119,6 +123,7 @@ class TenantRequest extends Model implements HasMedia
         'valid_from' => 'date',
         'valid_to' => 'date',
         'sla_breach_notified_at' => 'datetime',
+        'decided_at' => 'datetime',
     ];
 
     /** The only channel a tenant raises for themselves; every other channel is staff-logged intake. */
@@ -148,7 +153,12 @@ class TenantRequest extends Model implements HasMedia
         // enforced in the model so admin + portal + API all inherit it. Only the ORDERING is an
         // invariant here — if BOTH dates are set, valid_to must not predate valid_from. The dates
         // are NOT hard-required at this layer (the permit form requires them for its type), so
-        // non-permit rows and partial data never blow up. There is NO approval step.
+        // non-permit rows and partial data never blow up.
+        //
+        // (This comment used to end "There is NO approval step." That stopped being true on
+        // 2026-08-15: a permit is a question, and `decision` now records the answer. See the
+        // migration `a_request_records_the_answer_it_was_given` for why the original call was
+        // reversed.)
         static::saving(function (self $request) {
             if ($request->valid_from === null || $request->valid_to === null) {
                 return;
@@ -176,6 +186,11 @@ class TenantRequest extends Model implements HasMedia
                 'unit_id', 'lease_id', 'tenant_id',
                 'target_resolution_at', 'scheduled_from', 'scheduled_to', 'valid_from', 'valid_to',
                 'resolution_notes',
+                // The answer freezes with everything else. A tenant has been told, and may have
+                // shown the permit at a gate; quietly flipping an approval to a rejection after
+                // the fact is not a correction, it is a rewrite. Re-open the request to change it.
+                // (Setting it on the `resolved` hop is unaffected — resolved is not terminal.)
+                'decision', 'decision_reason',
             ];
             foreach ($frozen as $field) {
                 if ($request->isDirty($field)) {
@@ -356,6 +371,40 @@ class TenantRequest extends Model implements HasMedia
         return $this->isOpen()
             && $this->target_resolution_at
             && $this->target_resolution_at->isPast();
+    }
+
+    /**
+     * Whether resolving this request has to state approved/rejected — i.e. whether it ASKED for
+     * something. Delegates to the type so there is one answer, not one per surface.
+     */
+    public function requiresDecision(): bool
+    {
+        return ($this->request_type ?? TenantRequestType::default())->requiresDecision();
+    }
+
+    public function wasApproved(): bool
+    {
+        return $this->decision === 'approved';
+    }
+
+    public function wasRejected(): bool
+    {
+        return $this->decision === 'rejected';
+    }
+
+    /**
+     * A request that should carry an answer, is finished, and has none.
+     *
+     * Only rows written before the decision column existed can be in this state — the service
+     * refuses to create a new one. It is named rather than left implicit because **every reader
+     * must render it as "we do not know", never as an approval**: inferring approval from a closed
+     * ticket is the exact bug the column was added to end.
+     */
+    public function decisionUnknown(): bool
+    {
+        return $this->requiresDecision()
+            && in_array($this->status, ['resolved', 'closed'], true)
+            && $this->decision === null;
     }
 
     /**

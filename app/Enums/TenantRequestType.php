@@ -81,6 +81,28 @@ enum TenantRequestType: string
         };
     }
 
+    /**
+     * Whether resolving this type has to state an ANSWER — approved or rejected.
+     *
+     * The three here are the ones where the tenant is asking for permission or for a thing: a
+     * permit to work, access to somewhere, a document. For those, "resolved" on its own is not an
+     * outcome, and a client rendering the request has nothing to show but the lifecycle — which is
+     * how a staff rejection came to read as an approval on the mobile permit card.
+     *
+     * The rest are not questions. A leaking pipe is fixed or it is not; a complaint is addressed;
+     * an enquiry is answered. Forcing an approve/reject on those would make the operator pick a
+     * word that does not describe what they did.
+     *
+     * @see \App\Services\TenantRequestService::transition()  refuses to resolve one of these blind
+     */
+    public function requiresDecision(): bool
+    {
+        return match ($this) {
+            self::Permit, self::Access, self::Document => true,
+            default => false,
+        };
+    }
+
     /** Whether this type is governed by a resolution SLA (drives target_resolution_at). */
     public function hasSla(): bool
     {

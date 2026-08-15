@@ -516,17 +516,53 @@ Query: `status`, `page`, `per_page`.
   "submittedAt": "2026-05-20T09:00:00+00:00",
   "acknowledgedAt": "...", "resolvedAt": null, "closedAt": null,
   "targetResolutionAt": "...", "resolutionNotes": null,
+  "requiresDecision": false, "decision": null, "decisionReason": null, "decidedAt": null,
+  "validFrom": null, "validTo": null, "scheduledFrom": null, "scheduledTo": null,
   "unit": { "id": 4, "code": "A-01", "floor": "G" } } ],
   "meta": { ... }, "links": { ... } }
 ```
 `requestType` ∈ `maintenance`, `complaint`, `inquiry`, `access`, `billing`,
-`document`, `other`. `status` ∈ `submitted`, `acknowledged`, `in_progress`,
+`document`, `permit`, `other`. `status` ∈ `submitted`, `acknowledged`, `in_progress`,
 `awaiting_tenant`, `resolved`, `closed`, `cancelled`. `priority` ∈ `low`,
 `medium`, `high`, `urgent`. `category` is the **type's sub-category** (e.g.
 maintenance → `electrical`…`other`; access → `parking`…; `null` for types with
 none). Use **`canCancel`** to show/hide the cancel button (true only while
 `submitted`/`acknowledged`) and **`canRate`** to show the rating prompt (true
 once `resolved`/`closed`).
+
+#### The outcome — `requiresDecision` · `decision` · `decisionReason`
+
+> 🚨 **Never infer approval from `status`.** Added 2026-08-15 because a client did, and had to:
+> `resolved`/`closed` was read as "Approved", so **a staff rejection displayed to the tenant as an
+> approval** on a permit card. The status is identical either way — that is the whole point.
+
+- **`requiresDecision`** — whether this type is a *question*. True for `permit`, `access` and
+  `document` (the tenant is asking for permission or for a thing); false for everything else.
+- **`decision`** ∈ `approved` · `rejected` · `null`.
+- **`decisionReason`** — why it was refused. Present on rejections; **show it**, or the tenant
+  resubmits the same request unchanged.
+- **`decidedAt`** — when the mall answered.
+
+**`null` has two meanings and `requiresDecision` is how you tell them apart:**
+
+| `requiresDecision` | `decision` | Render |
+|---|---|---|
+| `false` | `null` | Never a question — show the status normally |
+| `true` | `"approved"` | **Approved** |
+| `true` | `"rejected"` | **Rejected** + the reason |
+| `true` | `null` | **Outcome unknown** — a row predating this field. *Not* an approval. |
+
+Only the last row should ever be rare: the server refuses to resolve a decidable request without
+an answer, so a new one cannot be created.
+
+#### The permit window — `validFrom` · `validTo` · `scheduledFrom` · `scheduledTo`
+
+`validFrom`/`validTo` (dates) are the permit's **validity**; `scheduledFrom`/`scheduledTo`
+(datetimes) are when the work or visit is booked. These columns have existed since 2026-07-18 and
+were operator-editable in admin, but were not on the wire until 2026-08-15 — so a client had to
+derive a validity from what the tenant typed while the mall's authoritative answer sat unread.
+**Render the server's window; do not compute one.** All four are null for request types that have
+no window.
 
 #### 🔒 `POST /me/requests` — submit (any request type)
 ```json

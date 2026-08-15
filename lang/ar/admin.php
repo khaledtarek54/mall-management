@@ -2454,6 +2454,7 @@ return [
         'request_status_title' => 'تحديث :type · :reference',
         'request_status_body' => 'انتقل :type ":title" من :from إلى :to.',
         'request_status_short' => '":title" أصبحت :status.',
+        'request_decision_short' => '«:title» — :decision.',
         'request_status_resolution' => 'ملاحظات الحل: :notes',
         'request_comment_subject' => 'تحديث جديد على :type :reference',
         'request_comment_title' => 'تحديث :type · :reference',
@@ -3007,6 +3008,10 @@ return [
         'valid_to' => 'صالح حتى',
         'resolved_at' => 'تاريخ الحل',
         'resolution_notes' => 'ملاحظات الحل',
+        'decision' => 'القرار',
+        'decision_help' => 'يظهر للمستأجر باعتباره نتيجة طلبه.',
+        'decision_reason' => 'سبب الرفض',
+        'decision_reason_help' => 'يُرسل إلى المستأجر. اذكر ما الذي يجب تغييره.',
         'new_status' => 'الحالة الجديدة',
         'attachments' => 'المرفقات',
         'sales_report' => 'تقرير المبيعات',
@@ -3483,6 +3488,10 @@ return [
             'resolved' => 'تم الحل',
             'closed' => 'مغلق',
             'cancelled' => 'ملغي',
+        ],
+        'tenant_request_decision' => [
+            'approved' => 'مقبول',
+            'rejected' => 'مرفوض',
         ],
         'tenant_sales' => [
             'submitted' => 'مُقدَّم',
@@ -4199,6 +4208,8 @@ return [
             'portal_needs_tenant' => 'طلب البوابة يجب أن يرتبط بمستأجر. أما مكالمة أو زيارة من شخص غير مسجَّل كمستأجر، فاختر قناة موظف بدلاً من البوابة.',
             'caller_or_tenant_required' => 'اختر المستأجر، أو سجِّل اسم المتصل — يجب أن يوضّح الطلب من الذي أبلغ عنه.',
             'permit_validity_order' => 'تاريخ انتهاء صلاحية التصريح لا يمكن أن يسبق تاريخ بدايته.',
+            'decision_required' => 'حدِّد ما إذا كان الطلب مقبولًا أم مرفوضًا قبل إنجازه. المستأجر يطلب شيئًا، و«منجَز» وحدها لا تخبره بالإجابة.',
+            'rejection_needs_reason' => 'اذكر سبب الرفض. المستأجر الذي يُخبَر بالرفض فقط سيعيد تقديم الطلب نفسه.',
             'terminal_immutable' => 'الطلب المغلق أو الملغى غير قابل للتعديل — أعد فتحه أولاً إن كان يحتاج تغييرًا.',
         ],
         'caller' => [

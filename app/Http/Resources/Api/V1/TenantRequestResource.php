@@ -45,6 +45,32 @@ class TenantRequestResource extends JsonResource
             'closed_at' => optional($this->closed_at)->toIso8601String(),
             'target_resolution_at' => optional($this->target_resolution_at)->toIso8601String(),
             'resolution_notes' => $this->resolution_notes,
+
+            // ---- The ANSWER, for requests that asked for something.
+            //
+            // Until 2026-08-15 the seven statuses were all a client had, so the app inferred an
+            // outcome from the lifecycle — `resolved`/`closed` → "Approved" — and a staff
+            // REJECTION read to the tenant as an approval on the card they show a guard.
+            //
+            // `requires_decision` is shipped so the client can tell the two nulls apart: a
+            // maintenance ticket has no answer because it was never a question, while a permit
+            // with a null decision is a row that predates this field. **Neither may render as
+            // approved.**
+            'requires_decision' => $this->requiresDecision(),
+            'decision' => $this->decision,
+            // Why it was refused. The whole reason a rejection demands one.
+            'decision_reason' => $this->decision_reason,
+            'decided_at' => optional($this->decided_at)->toIso8601String(),
+
+            // ---- The permit's window. These columns have existed since 2026-07-18 and were
+            // operator-editable in admin, but were never put on the wire — so the app derived a
+            // validity from what the TENANT typed while the mall's authoritative answer sat
+            // unread. `valid_*` is the permit's own validity; `scheduled_*` is when the work or
+            // visit is booked for.
+            'valid_from' => optional($this->valid_from)->toDateString(),
+            'valid_to' => optional($this->valid_to)->toDateString(),
+            'scheduled_from' => optional($this->scheduled_from)->toIso8601String(),
+            'scheduled_to' => optional($this->scheduled_to)->toIso8601String(),
             'unit' => $this->whenLoaded('unit', fn () => $this->unit ? [
                 'id' => $this->unit->id,
                 'code' => $this->unit->code,

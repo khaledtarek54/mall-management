@@ -245,6 +245,30 @@ class TenantRequestsTable
                             ->required()
                             ->native(false)
                             ->live(),
+                        // The ANSWER, for the types that asked for something (permit / access /
+                        // document). Shown only when resolving one of those, because it is the
+                        // only hop where it means anything — and required there, because
+                        // "resolved" alone is what the mobile permit card was left to interpret,
+                        // and it interpreted a rejection as an approval.
+                        Select::make('decision')
+                            ->label(__('admin.fields.decision'))
+                            ->options([
+                                'approved' => __('admin.statuses.tenant_request_decision.approved'),
+                                'rejected' => __('admin.statuses.tenant_request_decision.rejected'),
+                            ])
+                            ->native(false)
+                            ->live()
+                            ->required(fn ($get) => $get('status') === 'resolved' && $record->requiresDecision())
+                            ->visible(fn ($get) => $get('status') === 'resolved' && $record->requiresDecision())
+                            ->helperText(__('admin.fields.decision_help')),
+                        Textarea::make('decision_reason')
+                            ->label(__('admin.fields.decision_reason'))
+                            ->rows(2)
+                            // Only a refusal owes an explanation, and it owes one every time: the
+                            // tenant has to know what to change before they resubmit.
+                            ->required(fn ($get) => $get('decision') === 'rejected')
+                            ->visible(fn ($get) => $get('decision') === 'rejected')
+                            ->helperText(__('admin.fields.decision_reason_help')),
                         Textarea::make('resolution_notes')
                             ->label(__('admin.fields.resolution_notes'))
                             ->rows(3)

@@ -226,6 +226,32 @@ class TenantRequestService
             throw new DomainException(__('admin.tenant_requests.errors.resolution_needs_evidence'));
         }
 
+        // **A request that ASKED for something cannot be finished without an answer.**
+        //
+        // Permits, access and documents are questions (see TenantRequestType::requiresDecision).
+        // Resolving one without saying yes or no leaves the outcome to be guessed from the
+        // lifecycle — which is exactly what the mobile permit card did, mapping `resolved`/`closed`
+        // to "Approved" and so showing a REFUSED tenant an approval on the artifact they hand a
+        // security guard.
+        //
+        // Guarded here rather than in a form, because this is the one place admin, portal and the
+        // mobile API all pass through; a rule enforced in the UI is a rule the API skips.
+        // A rejection must also carry its reason — a tenant told only "rejected" resubmits the
+        // same request on Monday, which costs the operator the time the refusal was meant to save.
+        $decision = $extra['decision'] ?? null;
+
+        if ($next === 'resolved' && $request->requiresDecision() && $decision === null) {
+            throw new DomainException(__('admin.tenant_requests.errors.decision_required'));
+        }
+
+        if ($decision !== null && ! in_array($decision, ['approved', 'rejected'], true)) {
+            throw new InvalidArgumentException("Unknown decision: {$decision}");
+        }
+
+        if ($decision === 'rejected' && blank($extra['decision_reason'] ?? null)) {
+            throw new DomainException(__('admin.tenant_requests.errors.rejection_needs_reason'));
+        }
+
         $payload = ['status' => $next];
 
         match ($next) {
@@ -237,6 +263,16 @@ class TenantRequestService
             'closed' => $payload['closed_at'] = now(),
             default => null,
         };
+
+        // Stamped whenever an answer is given, which in practice is on the `resolved` hop. Kept
+        // outside the match so a later correction (resolved → in_progress → resolved) can restate
+        // it, and so `decided_by` records WHO answered — a refusal someone put their name to.
+        if ($decision !== null) {
+            $payload['decision'] = $decision;
+            $payload['decision_reason'] = $extra['decision_reason'] ?? null;
+            $payload['decided_at'] = now();
+            $payload['decided_by'] = $extra['decided_by'] ?? auth()->id();
+        }
 
         if (array_key_exists('assigned_to', $extra)) {
             $payload['assigned_to'] = $extra['assigned_to'];
