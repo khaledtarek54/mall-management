@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UnitOwnershipStatus;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
@@ -11,6 +12,7 @@ use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
 use App\Models\Unit;
+use App\Models\UnitOwnership;
 use App\Support\OpsLog;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
@@ -43,16 +45,22 @@ class CamReconciliationService
         // against the new denominator → Σ(allocated) ≠ total_actual_expense (broken tie-out) and
         // over-/under-billed tenants. The pool freeze guard protects the expense basis; this
         // protects the area basis, its missing counterpart.
-        $existingLeaseIds = $pool->allocations()->pluck('lease_id')->all();
-        $isRerun = ! empty($existingLeaseIds);
+        $existing = $pool->allocations()->get(['lease_id', 'unit_ownership_id', 'pro_rata_share_pct']);
+        $isRerun = $existing->isNotEmpty();
 
         $leases = $isRerun
-            ? Lease::query()->whereIn('id', $existingLeaseIds)->with('unit', 'units.areas')->get()
+            ? Lease::query()->whereIn('id', $existing->pluck('lease_id')->filter())->with('unit', 'units.areas')->get()
+                ->concat(UnitOwnership::query()->whereIn('id', $existing->pluck('unit_ownership_id')->filter())->with('unit')->get())
             : $this->participants($pool);
 
         // Frozen shares (as a fraction) for the re-run path; the sqm denominator for the first run.
+        //
+        // Keyed by AGREEMENT, not by lease id. A `pluck(..., 'lease_id')` collapses every ownership
+        // row onto the key `null` — so on a mall with two sold units the second would overwrite the
+        // first and both would re-run against one share. Silent, and it only shows up as a broken
+        // tie-out on the second reconciliation of a pool that reconciled cleanly the first time.
         $frozenShares = $isRerun
-            ? $pool->allocations()->pluck('pro_rata_share_pct', 'lease_id')
+            ? $existing->mapWithKeys(fn ($a) => [self::agreementKey($a) => $a->pro_rata_share_pct])
             : collect();
 
         // The pool covers a YEAR, so the area basis is the TIME-WEIGHTED area over that year
@@ -98,9 +106,15 @@ class CamReconciliationService
             $allocatedTotal = 0.0;
 
             foreach ($leases as $lease) {
+                // An ownership brings no CAM CLAUSE — no stated share, no ceiling, no controllable
+                // carve-out, no banked headroom. Those are terms negotiated into a lease, and a sale
+                // has none of them, so it takes the plain pro-rata path below rather than answering
+                // each of them with a neutral value at runtime.
+                $isLease = $lease instanceof Lease;
+
                 if ($isRerun) {
                     // Reuse the established share — never recompute from live sqm on a re-run.
-                    $share = (float) ($frozenShares[$lease->id] ?? 0) / 100;
+                    $share = (float) ($frozenShares[self::agreementKeyFor($lease)] ?? 0) / 100;
                     if ($share <= 0) {
                         continue;
                     }
@@ -108,12 +122,12 @@ class CamReconciliationService
                     // A lease whose contract NAMES its percentage wins over any derived one — no
                     // denominator can produce a number the parties simply agreed (RC-03). Common in
                     // Egyptian leases, and previously unrepresentable.
-                    $stated = $lease->statedCamSharePct((int) $pool->period_year);
+                    $stated = $isLease ? $lease->statedCamSharePct((int) $pool->period_year) : null;
 
                     if ($stated !== null) {
                         $share = $stated / 100;
                     } else {
-                        $sqm = $lease->totalAreaSqmForPeriod($periodStart, $periodEnd);
+                        $sqm = self::areaForPeriod($lease, $periodStart, $periodEnd);
                         if ($sqm <= 0) {
                             continue;
                         }
@@ -127,6 +141,11 @@ class CamReconciliationService
                 // estimate BILLED are the same number by construction. On `stated` — every pool
                 // that already exists — it stays the pro-rata slice of a hand-typed total, which
                 // is what those years were reconciled against and must keep being.
+                // What this participant already paid toward the pool. For an OWNER that is his
+                // monthly صيانة: an assessment and a tenant's service-charge estimate are the same
+                // economic act — recovery of common cost — billed under the same charge type, which
+                // is exactly what this query sums. That is what makes an ownership a participant
+                // rather than a second parallel system.
                 $estimated = $pool->estimate_basis === CamExpensePool::BASIS_BILLED
                     ? app(SyncCamPoolFromLedgerService::class)->estimateBilledFor($pool, $lease)
                     : round((float) $pool->total_estimated_collected * $share, 2);
@@ -136,7 +155,7 @@ class CamReconciliationService
                 // books-check's Σ allocated = total_actual_expense tie-out is untouched. The
                 // landlord ABSORBS the difference (cap_absorbed). No cap term ⇒ ceiling null ⇒
                 // capped_cost = allocated ⇒ true-up + fee byte-identical to the no-cap slice.
-                $ceiling = $lease->resolveCamCeiling((int) $pool->period_year);
+                $ceiling = $isLease ? $lease->resolveCamCeiling((int) $pool->period_year) : null;
 
                 // How the cap bites (story RC-07). Two refinements over "cap the whole share":
                 //
@@ -147,8 +166,8 @@ class CamReconciliationService
                 //   CARRY-FORWARD — a cumulative cap banks the headroom of a year that came in
                 //   under, so a later spike can draw on it. Without it, running the centre cheaply
                 //   for three years earns no credit in the fourth.
-                $capScope = $lease->camCapScope((int) $pool->period_year);
-                $carryForward = $lease->camCapCarriesForward((int) $pool->period_year);
+                $capScope = $isLease ? $lease->camCapScope((int) $pool->period_year) : null;
+                $carryForward = $isLease && $lease->camCapCarriesForward((int) $pool->period_year);
 
                 $controllableShare = $capScope === LeaseCamTerm::SCOPE_CONTROLLABLE
                     ? $pool->controllableShare()
@@ -192,9 +211,11 @@ class CamReconciliationService
                 // sees committed truth — a concurrent bill() that flipped it to
                 // 'billed' between a stale read and our save would otherwise be
                 // clobbered back to 'pending' and re-billed (double charge/credit).
+                $link = self::allocationLink($lease);
+
                 $allocation = CamAllocation::query()
                     ->where('cam_expense_pool_id', $pool->id)
-                    ->where('lease_id', $lease->id)
+                    ->where(key($link), current($link))
                     ->lockForUpdate()
                     ->first();
 
@@ -203,10 +224,7 @@ class CamReconciliationService
                     continue;
                 }
 
-                $allocation ??= new CamAllocation([
-                    'cam_expense_pool_id' => $pool->id,
-                    'lease_id' => $lease->id,
-                ]);
+                $allocation ??= new CamAllocation(['cam_expense_pool_id' => $pool->id] + $link);
 
                 $allocation->fill([
                     'pro_rata_share_pct' => round($share * 100, 4),
@@ -292,10 +310,57 @@ class CamReconciliationService
         // exactly the set this allocates to. `active` stays HERE and not there: an allocation
         // target must be a live lease, but a departed tenant's estimate is still part of what the
         // pool collected during the year (see CamExpensePool::participantLeaseQuery()).
-        return $pool->participantLeaseQuery()
+        $leases = $pool->participantLeaseQuery()
             ->where('status', 'active')
             ->with('unit', 'units.areas')
             ->get();
+
+        // Sold units are participants too. An owner occupies common area, so leaving him out did not
+        // merely under-recover — it moved his share onto the remaining tenants, who paid it without
+        // anything on any screen saying so. Only HANDED-OVER ownerships whose tenure covers the
+        // reconciled year: before handover the operator still carries the unit's cost.
+        $ownerships = UnitOwnership::query()
+            ->where('asset_id', $pool->asset_id)
+            ->where('status', UnitOwnershipStatus::HandedOver->value)
+            ->covering(CarbonImmutable::create((int) $pool->period_year, 12, 31))
+            ->with('unit')
+            ->get();
+
+        return $leases->concat($ownerships);
+    }
+
+    /** A stable key per participant — `L:12` / `O:7` — so an ownership cannot collide on a null. */
+    private static function agreementKey(CamAllocation $allocation): string
+    {
+        return $allocation->lease_id !== null ? 'L:'.$allocation->lease_id : 'O:'.$allocation->unit_ownership_id;
+    }
+
+    /** The same key, from the participant rather than from a stored allocation. */
+    private static function agreementKeyFor($participant): string
+    {
+        return $participant instanceof Lease ? 'L:'.$participant->id : 'O:'.$participant->id;
+    }
+
+    /** The FK this participant's allocation is keyed by. */
+    private static function allocationLink($participant): array
+    {
+        return $participant instanceof Lease
+            ? ['lease_id' => $participant->id]
+            : ['unit_ownership_id' => $participant->id];
+    }
+
+    /**
+     * The participant's area over the reconciled year.
+     *
+     * A lease is time-weighted across every unit on it (an expansion part-way through the year must
+     * not carry a whole year of CAM). An ownership is one unit, and its tenure is already what
+     * decides whether it participates at all, so its area is the unit's.
+     */
+    private static function areaForPeriod($participant, CarbonImmutable $start, CarbonImmutable $end): float
+    {
+        return $participant instanceof Lease
+            ? $participant->totalAreaSqmForPeriod($start, $end)
+            : (float) ($participant->unit?->area_sqm ?? 0);
     }
 
     /**
@@ -362,7 +427,7 @@ class CamReconciliationService
     /** @param  Collection<int, Lease>  $leases */
     private function occupiedDenominator($leases, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): float
     {
-        return (float) $leases->sum(fn (Lease $l) => $l->totalAreaSqmForPeriod($periodStart, $periodEnd));
+        return (float) $leases->sum(fn ($p) => self::areaForPeriod($p, $periodStart, $periodEnd));
     }
 
     /**
@@ -531,7 +596,7 @@ class CamReconciliationService
                 // what the tenant owes — instead of sitting unapplied until an
                 // admin remembers to click Apply. Any remainder stays on the
                 // note as a standing credit (preserved, never lost).
-                $this->applyCreditToOpenInvoices($note, $allocation->lease_id);
+                $this->applyCreditToOpenInvoices($note, $allocation);
 
                 $update['billed_credit_note_id'] = $note->id;
 
@@ -661,8 +726,10 @@ class CamReconciliationService
      */
     private function billChargeImmediately(CamAllocation $allocation, float $amount, int $year): array
     {
-        /** @var Lease $lease */
-        $lease = $allocation->lease;
+        // The agreement that owes this recovery — a lease OR a unit ownership. Both implement
+        // `BillableAgreement`, so the invoice below is raised through the one seam either way and
+        // an owner's true-up is an ordinary receivable rather than a second billing path.
+        $agreement = $allocation->agreement();
         $now = CarbonImmutable::now();
         $name = "CAM Reconciliation — {$year}";
 
@@ -679,8 +746,7 @@ class CamReconciliationService
         // and dated to the reconciled year so the monthly billing engine (which
         // loads only is_active charges) never picks it up and double-bills the
         // true-up onto the tenant's regular monthly invoice.
-        $charge = Charge::create([
-            'lease_id' => $lease->id,
+        $charge = Charge::create($allocation->chargeLink() + [
             'name' => $name,
             'type' => 'other',
             'amount' => $amount,
@@ -694,7 +760,7 @@ class CamReconciliationService
         ]);
 
         $invoice = app(IssueInvoiceService::class)->issue(
-            agreement: $lease,
+            agreement: $agreement,
             items: [[
                 'charge_id' => $charge->id,
                 'description' => $name,
@@ -729,8 +795,7 @@ class CamReconciliationService
      */
     private function billAdminFee(CamAllocation $allocation, float $fee, float $feeVat, int $year, ?Invoice $invoice): Charge
     {
-        /** @var Lease $lease */
-        $lease = $allocation->lease;
+        $agreement = $allocation->agreement();
         $now = CarbonImmutable::now();
         $name = "CAM Admin Fee — {$year}";
         $lineTotal = round($fee + $feeVat, 2);
@@ -744,8 +809,7 @@ class CamReconciliationService
 
         // Anchor charge — is_active=false + dated to the reconciled year so the monthly
         // engine never re-bills it, exactly like the cost charge above.
-        $charge = Charge::create([
-            'lease_id' => $lease->id,
+        $charge = Charge::create($allocation->chargeLink() + [
             'name' => $name,
             'type' => 'other',
             'amount' => $fee,
@@ -773,7 +837,7 @@ class CamReconciliationService
             // It used to be created at 0/0/0 and left for the item hook to correct a moment later;
             // raising it from its line means its first persisted state is already the true one.
             $invoice = app(IssueInvoiceService::class)->issue(
-                agreement: $lease,
+                agreement: $agreement,
                 items: [$feeLine],
                 issueDate: $now,
                 periodStart: CarbonImmutable::create($year, 1, 1),
@@ -794,12 +858,17 @@ class CamReconciliationService
     }
 
     /** Apply a freshly-issued credit to the lease's open invoices, oldest first. */
-    private function applyCreditToOpenInvoices(CreditNote $note, int $leaseId): void
+    private function applyCreditToOpenInvoices(CreditNote $note, CamAllocation $allocation): void
     {
         $service = app(CreditNoteService::class);
 
+        // The agreement's own open invoices — an owner's assessments, or a lease's rent. Keyed by
+        // whichever link the allocation carries, so an over-recovery is credited against the debt
+        // of the party it was over-recovered from.
+        $link = $allocation->chargeLink();
+
         $openInvoices = Invoice::query()
-            ->where('lease_id', $leaseId)
+            ->where(key($link), current($link))
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             ->orderBy('due_date')
@@ -821,16 +890,19 @@ class CamReconciliationService
      */
     private function billCredit(CamAllocation $allocation, float $credit, int $year): CreditNote
     {
-        /** @var Lease $lease */
-        $lease = $allocation->lease;
+        $agreement = $allocation->agreement();
 
         $vatRate = (float) ($allocation->pool->recovery_vat_rate ?? 0);
         $vat = round($credit * $vatRate / 100, 2);
         $total = round($credit + $vat, 2);
 
         return CreditNote::create([
-            'tenant_id' => $lease->tenant_id,
-            'lease_id' => $lease->id,
+            'tenant_id' => $agreement->billingTenantId(),
+            // A note against an OWNER's over-recovery has no lease. `asset_id` is what carries the
+            // property now (2026_08_15_130000) — passed explicitly rather than left for the model to
+            // derive, because there is no invoice on a standalone note to derive it from.
+            'lease_id' => $allocation->lease_id,
+            'asset_id' => $agreement->assetId(),
             'status' => 'issued',
             'issue_date' => now(),
             'reason' => 'adjustment',

@@ -325,10 +325,10 @@ class RolesPermissionsSeeder extends Seeder
             'violations.notify' => 'Send a violation notice to the tenant (FR-REQ-17)',
         ],
         'facility' => [
-            'facility.view' => 'View preventive-maintenance plans & work orders',
-            'facility.create' => 'Create preventive-maintenance plans / work orders',
-            'facility.edit' => 'Edit preventive-maintenance plans / work orders',
-            'facility.delete' => 'Delete preventive-maintenance plans / work orders',
+            'facility.view' => 'View service plans & work orders',
+            'facility.create' => 'Create service plans / work orders',
+            'facility.edit' => 'Edit service plans / work orders',
+            'facility.delete' => 'Delete service plans / work orders',
             'facility.complete' => 'Complete a work order (tick checklist items, mark done)',
             // FR-CM-12/13. Deliberately NOT granted to operations: recording what you found is
             // engineering, but ruling that a TENANT is financially responsible is a commercial

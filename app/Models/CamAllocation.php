@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\BillableAgreement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ class CamAllocation extends Model
     protected $fillable = [
         'cam_expense_pool_id',
         'lease_id',
+        'unit_ownership_id',
         'pro_rata_share_pct',
         'allocated_amount',
         'estimated_paid',
@@ -53,6 +55,11 @@ class CamAllocation extends Model
         'exclusions' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(fn (self $a) => $a->assertBelongsToExactlyOneAgreement());
+    }
+
     /** @return BelongsTo<CamExpensePool, $this> */
     public function pool(): BelongsTo
     {
@@ -65,6 +72,61 @@ class CamAllocation extends Model
         return $this->belongsTo(Lease::class);
     }
 
+    /**
+     * The unit ownership this share belongs to — null for a lease allocation.
+     *
+     * @return BelongsTo<UnitOwnership, $this>
+     */
+    public function unitOwnership(): BelongsTo
+    {
+        return $this->belongsTo(UnitOwnership::class);
+    }
+
+    /**
+     * WHO this share belongs to, without the caller asking which kind.
+     *
+     * Both implement `BillableAgreement`, so the true-up can be billed to either through the same
+     * seam. Callers that need lease LAW — a ceiling, a stated share, banked headroom — must still
+     * ask for `lease` explicitly and handle its absence: a sale carries no CAM clause, which is the
+     * whole reason an ownership takes the plain pro-rata path.
+     */
+    public function agreement(): ?BillableAgreement
+    {
+        return $this->lease ?? $this->unitOwnership;
+    }
+
+    /**
+     * The FK that ties a document raised for this allocation back to its agreement.
+     *
+     * Used for the anchor `Charge`, and to find the agreement's open invoices when an over-recovery
+     * is credited. Returned as an array so a caller never has to branch on which kind it is.
+     *
+     * @return array<string, int>
+     */
+    public function chargeLink(): array
+    {
+        return $this->lease_id !== null
+            ? ['lease_id' => $this->lease_id]
+            : ['unit_ownership_id' => $this->unit_ownership_id];
+    }
+
+    /**
+     * Exactly one agreement — a lease OR an ownership, never both, never neither.
+     *
+     * On the model rather than as a CHECK constraint: SQLite drops CHECKs on any later `->change()`
+     * to the table, and this table has just had one. "Neither" is the silent case — an allocation
+     * attached to nothing still counts toward the pool's tie-out while belonging to no party, so
+     * the pool would reconcile perfectly and bill nobody.
+     *
+     * @throws \DomainException
+     */
+    public function assertBelongsToExactlyOneAgreement(): void
+    {
+        if (($this->lease_id !== null) === ($this->unit_ownership_id !== null)) {
+            throw new \DomainException(__('admin.errors.cam_allocation_needs_one_agreement'));
+        }
+    }
+
     public function billedCharge(): BelongsTo
     {
         return $this->belongsTo(Charge::class, 'billed_charge_id');
@@ -73,7 +135,7 @@ class CamAllocation extends Model
     /** Set instead of billedCharge when the true-up is a credit (negative). */
     public function billedCreditNote(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\CreditNote::class, 'billed_credit_note_id');
+        return $this->belongsTo(CreditNote::class, 'billed_credit_note_id');
     }
 
     public function isBilled(): bool

@@ -5,7 +5,7 @@
 >
 > **Status: phases 1, 2a and 2b SHIPPED (2026-08-15).** The register, the screen, and the monthly
 > صيانة run — an owner with no lease is now billed, ages, and posts to the ledger. Outstanding:
-> CAM participation (3), owner-let leases (4), the agency fee and remittance (5), portal and
+> owner-let leases (4), the agency fee and remittance (5), portal and
 > resale certificate (6).
 
 ## 1. Purpose & business context
@@ -147,9 +147,42 @@ straight-line rent, escalation ladders. An ownership has a tenure and a schedule
 Generalising it would make every one of those rules answer *not applicable* at runtime, on the one
 path where a wrong answer bills the wrong person.
 
+## 7b. CAM — a sold unit carries its share (phase 3)
+
+An owner occupies common area, so he is a pool participant like any tenant.
+
+**The design, because it is not obvious: an owner's monthly صيانة IS his CAM estimate.** A tenant
+pays a monthly service-charge estimate and settles it annually against actuals; an owner pays a
+monthly assessment. Same economic act, same `service_charge` charge type — which is exactly what
+`estimateBilledFor()` sums. So an ownership joins as an ordinary participant whose `estimated_paid`
+is the assessments it was billed that year, and it settles with a true-up like anybody else. No
+parallel system.
+
+What an ownership does NOT bring is CAM **clause** machinery — stated share, ceiling, controllable
+carve-out, banked carry-forward. Those are negotiated into a lease; a sale has none, so an ownership
+takes the plain pro-rata path and the cap block is skipped rather than answered with neutral values.
+
+> **What it was doing before.** Measured on a mall half let and half sold with a 100,000 pool: the
+> one tenant was allocated **100%** and billed **EGP 100,000**, where a just share of his own half is
+> 50,000. The owner used the common area and the tenants paid for it. And **the pool tied out
+> exactly** — Σ allocated = total expense by construction — so the books-check passed and the report
+> showed nothing amiss. A tie-out proves the money was fully apportioned; it cannot notice it was
+> apportioned over the wrong set of parties.
+
+Two traps worth knowing if you touch this again:
+
+- **The frozen-share key.** Re-run shares were pinned by `pluck(..., 'lease_id')`. Every ownership
+  row keys on `null`, so a second sold unit would overwrite the first and both would re-run against
+  one share — visible only as a broken tie-out on the SECOND reconciliation of a pool that
+  reconciled cleanly the first time. Keyed `L:12` / `O:7` now.
+- **Allocating without billing is a cash regression, not a partial fix.** The tenant correctly drops
+  to 50,000 while the owner's 50,000 sits uncollectable. The billing path moved to
+  `BillableAgreement` in the same change for that reason, and a test asserts the owner's true-up
+  becomes a real invoice.
+
 ## 8. Still outstanding
 
-CAM participation for owned units (phase 3), owner-let leases (4), the management fee, cash-basis
+owner-let leases (4), the management fee, cash-basis
 owner statement and remittance (5), the portal surface and the resale/estoppel certificate (6).
 
 **~25 read sites still scope invoices through `lease.unit`** — reports, widgets, statement PDFs. They

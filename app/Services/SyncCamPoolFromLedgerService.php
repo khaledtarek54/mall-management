@@ -2,12 +2,16 @@
 
 namespace App\Services;
 
+use App\Contracts\BillableAgreement;
 use App\Models\CamExpensePool;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -32,7 +36,7 @@ use InvalidArgumentException;
 class SyncCamPoolFromLedgerService
 {
     /**
-     * @return array{expense: ?float, estimate: ?float}  the totals written, null where the basis is `stated`
+     * @return array{expense: ?float, estimate: ?float} the totals written, null where the basis is `stated`
      */
     public function sync(CamExpensePool $pool): array
     {
@@ -154,7 +158,7 @@ class SyncCamPoolFromLedgerService
      * three copies of this query would eventually disagree about what "posted" or "this property"
      * means, and the splits would stop summing to the total they divide.
      *
-     * @param  \Illuminate\Support\Collection<int, int>  $accountIds
+     * @param  Collection<int, int>  $accountIds
      */
     private function netForAccounts(CamExpensePool $pool, $accountIds): float
     {
@@ -223,13 +227,20 @@ class SyncCamPoolFromLedgerService
      * Used by the reconciliation when `estimate_basis = billed`, which is what makes the estimate
      * reconciled and the estimate billed the same number by construction rather than by diligence.
      */
-    public function estimateBilledFor(CamExpensePool $pool, Lease $lease): float
+    public function estimateBilledFor(CamExpensePool $pool, BillableAgreement $agreement): float
     {
         $start = CarbonImmutable::create((int) $pool->period_year, 1, 1)->toDateString();
         $end = CarbonImmutable::create((int) $pool->period_year, 12, 31)->toDateString();
 
+        // Filtered by whichever agreement raised the invoices — a lease's service-charge estimate,
+        // or a unit OWNER's monthly صيانة. They are the same economic act, recovery of common cost,
+        // billed under the same charge type, which is why an owner needs no separate treatment
+        // here: what he already paid toward the pool is simply what he was assessed.
+        $link = $agreement->invoiceLinkAttributes();
+        $column = array_key_first(array_filter($link, fn ($v) => $v !== null));
+
         return round((float) $this->billedServiceChargeQuery($pool, $start, $end)
-            ->where('invoices.lease_id', $lease->id)
+            ->where('invoices.'.$column, $link[$column])
             ->sum('invoice_items.amount'), 2);
     }
 
@@ -250,7 +261,7 @@ class SyncCamPoolFromLedgerService
      * has no business making it. A refusal costs the operator a form field; the guess cost them a
      * credit note.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\InvoiceItem>
+     * @return Builder<InvoiceItem>
      */
     private function billedServiceChargeQuery(CamExpensePool $pool, string $start, string $end)
     {
@@ -262,7 +273,7 @@ class SyncCamPoolFromLedgerService
             ]));
         }
 
-        return \App\Models\InvoiceItem::query()
+        return InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->whereIn('invoices.lease_id', $pool->participantLeaseQuery()->select('leases.id'))
             ->whereNotIn('invoices.status', ['cancelled', 'written_off'])
