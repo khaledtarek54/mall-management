@@ -90,6 +90,7 @@ use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\UnitArea;
+use App\Models\UnitOwnership;
 use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Models\Vendor;
@@ -212,6 +213,17 @@ class DeletionPolicy
             // shape of the Asset/financial-dimension omission found in the deletion-policy review.
             'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'],
             'instead' => 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history',
+        ],
+        UnitOwnership::class => [
+            // A sale that has billed anything is history, and a resale is `ended_at` — never a
+            // delete, or every invoice and statement that quoted this ownership loses its basis.
+            // Deletable only while it is a mistyped record that never reached the books.
+            //
+            // `invoices` and `charges` are the two that can reference it (phase 2 adds both FKs);
+            // until they exist the list is empty of live blockers, which is correct — an ownership
+            // recorded today genuinely has nothing behind it yet.
+            'blocked_by' => ['invoices', 'charges'],
+            'instead' => 'transfer the ownership — that is the documented end of a holding, and it keeps the assessment history and the arrears at handover',
         ],
         Floor::class => [
             // A floor with anything standing on it is part of the property's structure — deleting it

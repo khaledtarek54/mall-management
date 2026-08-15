@@ -90,6 +90,7 @@ use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\UnitArea;
+use App\Models\UnitOwnership;
 use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Models\Vendor;
@@ -209,6 +210,10 @@ class PropertyIsolation
         OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
         Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
         PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)
+        // A unit sale belongs to the mall the unit stands in. `asset_id` is carried directly rather
+        // than reached through `unit`, deliberately: the assessment sweep asks for every live
+        // ownership in one property, and a join per row is the N+1 the CAM path already had to fix.
+        UnitOwnership::class => null,
 
         // ---- Indirect (relation chain to asset_id) ----
         UnitArea::class => 'unit',             // a unit's measurement history — reached through its unit, never portfolio-wide

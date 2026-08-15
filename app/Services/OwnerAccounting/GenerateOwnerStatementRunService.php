@@ -4,6 +4,7 @@ namespace App\Services\OwnerAccounting;
 
 use App\Models\AccountingPeriod;
 use App\Models\Asset;
+use App\Models\AssetOwner;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Services\Accounting\LedgerReportService;
@@ -125,8 +126,8 @@ class GenerateOwnerStatementRunService
         $run->statements()->forceDelete();
 
         // Current owners = those whose ownership tenure overlaps the period (normally exactly one).
-        $owners = $asset->owners()->get()->filter(function ($owner) use ($periodStart, $periodEnd) {
-            /** @var \App\Models\AssetOwner $p */
+        $owners = $asset->propertyOwners()->get()->filter(function ($owner) use ($periodStart, $periodEnd) {
+            /** @var AssetOwner $p */
             $p = $owner->pivot;
             $start = $p->started_at ?? $periodStart;
             $end = $p->ended_at ?? $periodEnd;
@@ -166,7 +167,7 @@ class GenerateOwnerStatementRunService
         }
 
         foreach ($owners as $owner) {
-            /** @var \App\Models\AssetOwner $p */
+            /** @var AssetOwner $p */
             $p = $owner->pivot;
             $weight = $weights[$owner->id];
 

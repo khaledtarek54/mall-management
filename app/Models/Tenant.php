@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PartyType;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
@@ -11,6 +12,7 @@ use Filament\Panel;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Contracts\Translation\HasLocalePreference;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -122,6 +124,9 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         'name',
         'legal_name',
         'type',
+        // Which kind of AR party this row is — a retailer who leases, or a buyer who owns a unit.
+        // See App\Enums\PartyType for why both live in one table.
+        'party_type',
         'email',
         'password',
         'phone',
@@ -159,6 +164,10 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     /** `is_listed` is NOT NULL; an unrendered form field must not send null into it. */
     protected $attributes = [
         'is_listed' => true,
+        // Mirrors the column default so a NEW instance already reads `retailer` rather than null —
+        // every existing creation path omits it, and code asking `isUnitOwner()` on the object a
+        // create returns must not get a null answer to a question with two real answers.
+        'party_type' => 'retailer',
     ];
 
     protected function casts(): array
@@ -168,7 +177,42 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_listed' => 'boolean',
+            'party_type' => PartyType::class,
         ];
+    }
+
+    /**
+     * Units this party BOUGHT — empty for a retailer.
+     *
+     * @return HasMany<UnitOwnership, $this>
+     */
+    public function unitOwnerships(): HasMany
+    {
+        return $this->hasMany(UnitOwnership::class);
+    }
+
+    /** Retailers only — the parties who lease space and declare sales. */
+    public function scopeRetailers(Builder $query): void
+    {
+        $query->where('party_type', PartyType::Retailer->value);
+    }
+
+    /**
+     * Unit owners only — مُلّاك الوحدات.
+     *
+     * Filtered on the column rather than on "has an ownership row", deliberately: a buyer is a unit
+     * owner from the moment he is recorded, before any unit is assigned to him, and a party who
+     * sold his last unit is still the counterparty on the arrears he left behind.
+     */
+    public function scopeUnitOwners(Builder $query): void
+    {
+        $query->where('party_type', PartyType::UnitOwner->value);
+    }
+
+    /** Is this party a unit owner? Asked of the enum so a third party kind cannot be forgotten. */
+    public function isUnitOwner(): bool
+    {
+        return $this->party_type === PartyType::UnitOwner;
     }
 
     // ============ Store directory ============

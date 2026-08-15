@@ -367,16 +367,27 @@ generalizing it now, against no second implementer, would be guessing. Phase 2 d
 implementer in hand. Verified: 254 tests green across the engine, the lease lifecycle and eight
 conformance gates.
 
-**0.3 · Split `Lease`.** 1,360 lines and ~60 public methods spanning eight responsibilities. Pure moves
-into `Models\Concerns`: `HasLeaseUnits` (units/area/remeasure), `HasRentTerms` (flat vs rate, escalation),
-`HasCamTerms` (ceilings, carry-forward, stated share), `HasBillingEligibility` (billable-for-period,
-fit-out, abatement), `HasHoldover`. No logic changes. *Payoff:* this is the file most likely to be touched
-by an unrelated change and break something — which is the user's stated concern.
+**0.3 · Split `Lease` — ❌ RETIRED 2026-08-15, not done.** The plan was to move 1,360 lines into five
+concerns. On reflection that is **relocation, not decoupling**: `Lease` would still expose ~60 public
+methods, still be the same surface to every consumer, and the diff would be wide across the model half
+the system touches. The structural win — the one that actually lets a new agreement type be added
+without editing the engine — was 0.2, and it is done. Splitting for file size is cosmetic, and the
+codebase's own standard is that a refactor must pay for something.
 
-**0.4 · Filament: extract what actually repeats.** Measured: the property column is declared **29×** and a
-`status` column **31×** across 50 resources. The property column is pure duplication → one shared
-`Support\Filament\Columns::property()`. Status badges have per-resource colour maps → **left alone**;
-extracting them would be a config-object abstraction that reads worse than the duplication.
+**0.4 · Extract the repeated Filament property column — ❌ RETIRED 2026-08-15: the premise was wrong.**
+The raw count said `asset.name` was declared 29× and looked like pure duplication. Reading the
+declarations, they are not: they differ in badge, sortable, toggleable and placeholder — all real
+per-table decisions — and they use six different label keys, which looked like the actual bug.
+Then the keys were checked, and **all six render the identical word in both languages** ("Property" /
+"العقار"). So there is no user-visible inconsistency and no duplication worth extracting; converging
+the keys would be churn with no behaviour or UX change. Retired rather than done, and recorded here so
+nobody re-derives it from the same misleading count.
+
+**Phase 0 is therefore CLOSED at 0.1 + 0.2** — the two steps that carry weight.
+
+*The general lesson, since it cost two investigations: a `grep | sort | uniq -c` count identifies
+candidates, never findings. Both retired items looked compelling as counts and dissolved on reading the
+code — the same shape as the house rule that absence claims are usually false.*
 
 **Deliberately NOT in Phase 0** (churn > value): re-namespacing the 76 flat files under `app/Support`;
 splitting `ReportService` (954) and `CamReconciliationService` (858), neither of which this feature
@@ -386,7 +397,7 @@ touches; any `Tenant` → `Party` rename.
 
 | Phase | Deliverable | Ends when |
 |---|---|---|
-| **1 · Ownership record** | `tenants.party_type`; `unit_ownerships` + model + service; Unit Owners resource; unit "sold" state; all eight registries + gates; [modules/37](../modules/) doc | An operator can record who bought which unit, at what share, with the contract on file — and a resale is a tenure end, not a delete |
+| **1 · Ownership record** — 🟡 *register SHIPPED 2026-08-15, screen outstanding* | `tenants.party_type`; `unit_ownerships` + model; the four config enums; registries + gates; [modules/37](../modules/37-unit-owners.md). **Still to do:** the Filament resource, `unit-owners.*` RBAC, screen guide + field help, search indexing, unit "sold" state | An operator can record who bought which unit, at what share, with the contract on file — and a resale is a tenure end, not a delete |
 | **2 · Assessments** | Charges & invoices agreement-bound; `UnitOwnership implements BillableAgreement`; monthly run bills ownerships; sinking-fund charge code + liability role; VAT | A vacant owned unit and an owner-occupier are both invoiced صيانة monthly, age, attract late fees, and post to the GL correctly |
 | **3 · CAM participation** | Owned units in the pool; `participation_pct` basis | Pool tie-out holds with a mixed owned/leased building; every existing basis answers identically |
 | **4 · Owner-let leases** | `leases.unit_ownership_id` + `revenue_mode` | A self-let unit's tenant is fully governed (violations, SLA, fit-out) while raising no rent invoice |

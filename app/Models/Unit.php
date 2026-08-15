@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Unit extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, SoftDeletes;
+    use HasFactory, HasSearchText, RefusesDeletionWhenReferenced, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -74,6 +75,40 @@ class Unit extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class);
+    }
+
+    /**
+     * Every ownership of this unit, current and historic — مُلّاك الوحدة.
+     *
+     * A unit legitimately has SEVERAL rows: a resale ends the seller's tenure and opens the buyer's,
+     * and neither is deleted, or the invoices and statements that quoted them lose their basis. Use
+     * {@see ownershipOn()} for "who owns it on a date"; this relation is the register.
+     *
+     * Named `unitOwnerships`, never `owners` — `Asset::propertyOwners()` is the mall's owner and a
+     * different kind of party entirely (a `User` receiving money, not a `Tenant` paying it).
+     *
+     * @return HasMany<UnitOwnership, $this>
+     */
+    public function unitOwnerships(): HasMany
+    {
+        return $this->hasMany(UnitOwnership::class);
+    }
+
+    /**
+     * The ownership in effect on $on, or null when the unit is not sold.
+     *
+     * Null is the normal answer for a leased mall, and every caller must treat it as "this unit is
+     * let, not owned" rather than as missing data.
+     */
+    public function ownershipOn(\DateTimeInterface|string|null $on = null): ?UnitOwnership
+    {
+        return $this->unitOwnerships()->covering($on)->first();
+    }
+
+    /** Has this unit been sold — is there an owner standing behind it on $on? */
+    public function isOwned(\DateTimeInterface|string|null $on = null): bool
+    {
+        return $this->ownershipOn($on) !== null;
     }
 
     public function leases(): HasMany
@@ -267,9 +302,9 @@ class Unit extends Model
      * what keeps a unit created before this table (or by a factory that writes only the column)
      * behaving exactly as it did.
      */
-    public function areaOn(?\Carbon\CarbonImmutable $on = null): float
+    public function areaOn(?CarbonImmutable $on = null): float
     {
-        $on = ($on ?? \Carbon\CarbonImmutable::now())->startOfDay();
+        $on = ($on ?? CarbonImmutable::now())->startOfDay();
         $date = $on->toDateString();
 
         $row = $this->relationLoaded('areas')
@@ -299,7 +334,7 @@ class Unit extends Model
      * existed — fall back to the denormalised column, which is exactly what `areaOn()` does for the
      * same case, so a property with no remeasurement history answers precisely as it did before.
      */
-    public function areaSqmDaysBetween(\Carbon\CarbonImmutable $from, \Carbon\CarbonImmutable $to): float
+    public function areaSqmDaysBetween(CarbonImmutable $from, CarbonImmutable $to): float
     {
         $from = $from->startOfDay();
         $to = $to->startOfDay();
@@ -323,10 +358,10 @@ class Unit extends Model
         foreach ($rows as $row) {
             /** @var UnitArea $row */
             $rowFrom = $row->effective_from
-                ? \Carbon\CarbonImmutable::parse($row->effective_from)->startOfDay()
+                ? CarbonImmutable::parse($row->effective_from)->startOfDay()
                 : $from;
             $rowTo = $row->effective_to
-                ? \Carbon\CarbonImmutable::parse($row->effective_to)->startOfDay()
+                ? CarbonImmutable::parse($row->effective_to)->startOfDay()
                 : $to;
 
             $start = $rowFrom->greaterThan($from) ? $rowFrom : $from;
@@ -356,8 +391,8 @@ class Unit extends Model
     public function activeLease(): HasOne
     {
         return $this->hasOne(Lease::class)
-                    ->where('status', 'active')
-                    ->latest('commencement_date');
+            ->where('status', 'active')
+            ->latest('commencement_date');
     }
 
     public function currentTenant(): ?Tenant

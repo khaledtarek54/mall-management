@@ -45,7 +45,7 @@ function postPropertyPandL($test, int $assetId, float $revenue, float $expense):
 it('generates a draft statement giving the sole owner 100% of the property net', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postPropertyPandL($this, $asset->id, 10000, 4000); // net 6000
 
     $run = $this->generate->generate($asset, $this->march);
@@ -69,7 +69,7 @@ it('generates a draft statement giving the sole owner 100% of the property net',
 it('regenerating a draft reuses the same run and refreshes its figures', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postPropertyPandL($this, $asset->id, 10000, 4000);
 
     $first = $this->generate->generate($asset, $this->march);
@@ -101,7 +101,7 @@ it('generates a run with zero distributed when the property has no current owner
 it('excludes an owner whose tenure ended before the period', function () {
     $asset = makeAsset();
     $former = makeUser('owner');
-    $asset->owners()->attach($former->id, ['ownership_percentage' => 100, 'ended_at' => '2026-01-31']);
+    $asset->propertyOwners()->attach($former->id, ['ownership_percentage' => 100, 'ended_at' => '2026-01-31']);
     postPropertyPandL($this, $asset->id, 8000, 3000);
 
     $run = $this->generate->generate($asset, $this->march);
@@ -114,8 +114,8 @@ it('splits normalized across co-owners so the shares always sum to the full net 
     $asset = makeAsset();
     $a = makeUser('owner');
     $b = makeUser('owner');
-    $asset->owners()->attach($a->id, ['ownership_percentage' => 60]);
-    $asset->owners()->attach($b->id, ['ownership_percentage' => 40]);
+    $asset->propertyOwners()->attach($a->id, ['ownership_percentage' => 60]);
+    $asset->propertyOwners()->attach($b->id, ['ownership_percentage' => 40]);
     postPropertyPandL($this, $asset->id, 10000, 4000); // net 6000
 
     $run = $this->generate->generate($asset, $this->march);
@@ -132,7 +132,7 @@ it('splits normalized across co-owners so the shares always sum to the full net 
 it('refuses to regenerate over a finalised run', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postPropertyPandL($this, $asset->id, 10000, 4000);
 
     $run = $this->generate->generate($asset, $this->march);

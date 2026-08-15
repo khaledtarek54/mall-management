@@ -63,6 +63,9 @@ class DocumentNumbering
         'purchase_request' => ['default' => 'PR', 'label' => 'Purchase request'],
         'lease' => ['default' => 'LSE', 'label' => 'Lease'],
         'post_dated_cheque' => ['default' => 'PDC', 'label' => 'Post-dated cheque'],
+        // UO, not OWN: the series identifies the OWNERSHIP agreement over one unit, which is the
+        // peer of a lease (LSE) and not of the property-owner records module 32 apportions to.
+        'unit_ownership' => ['default' => 'UO', 'label' => 'Unit ownership'],
     ];
 
     /**

@@ -47,7 +47,7 @@ function postDetailedPandL($test, int $assetId): void
 it('snapshots the per-account income breakdown that reconciles to the totals', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postDetailedPandL($this, $asset->id);
 
     $run = $this->generate->generate($asset, $this->march);
@@ -68,7 +68,7 @@ it('snapshots the per-account income breakdown that reconciles to the totals', f
 it('freezes the breakdown — a later ledger change does not rewrite a generated run', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postDetailedPandL($this, $asset->id);
 
     $run = $this->generate->generate($asset, $this->march);
@@ -87,7 +87,7 @@ it('freezes the breakdown — a later ledger change does not rewrite a generated
 it('renders the itemized breakdown into the statement PDF', function () {
     $asset = makeAsset(['name' => 'Atriom Walk']);
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postDetailedPandL($this, $asset->id);
 
     $run = $this->generate->generate($asset, $this->march);

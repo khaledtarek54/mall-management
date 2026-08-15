@@ -39,7 +39,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AssetOwnersRelationManager extends RelationManager
 {
-    protected static string $relationship = 'owners';
+    protected static string $relationship = 'propertyOwners';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {

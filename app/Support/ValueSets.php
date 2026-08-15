@@ -2,8 +2,13 @@
 
 namespace App\Support;
 
+use App\Enums\AssessmentBasis;
 use App\Enums\InvoiceItemType;
+use App\Enums\ManagementFeeBasis;
 use App\Enums\TenantRequestType;
+use App\Enums\UnitManagementMode;
+use App\Enums\UnitOwnershipStatus;
+use App\Enums\UnitTenureType;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 
@@ -129,8 +134,17 @@ class ValueSets
             'submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled',
         ],
         'tenant_sales_declarations.status' => ['submitted', 'locked', 'disputed'],
+        'tenants.party_type' => ['retailer', 'unit_owner'],
         'tenants.status' => ['active', 'inactive', 'blacklisted'],
         'tenants.type' => ['individual', 'company'],
+        // Declared as the ENUM the model also casts to, not as a copied list — see `resolved()`.
+        // The cast is type safety for the developer; this registry is the runtime refusal that
+        // covers an importer or an API write. One source of cases, two layers of enforcement.
+        'unit_ownerships.assessment_basis' => AssessmentBasis::class,
+        'unit_ownerships.fee_basis' => ManagementFeeBasis::class,
+        'unit_ownerships.management_mode' => UnitManagementMode::class,
+        'unit_ownerships.status' => UnitOwnershipStatus::class,
+        'unit_ownerships.tenure_type' => UnitTenureType::class,
         'units.category' => ['retail', 'food_beverage', 'wellness', 'service', 'kiosk', 'office', 'storage'],
         'units.status' => ['vacant', 'reserved', 'occupied', 'maintenance'],
         'utility_meters.status' => ['active', 'inactive', 'faulty'],
@@ -166,7 +180,10 @@ class ValueSets
 
             foreach (self::SETS as $key => $values) {
                 [$onTable, $column] = explode('.', $key, 2);
-                $byTable[$onTable][$column] = $values;
+                // Expanded here, once, so the guard always compares against real values — an entry
+                // declared as an enum class-string would otherwise reach the comparison as a
+                // class name and refuse every value the column legitimately holds.
+                $byTable[$onTable][$column] = self::expand($values);
             }
 
             self::$byTable = $byTable;
@@ -178,7 +195,39 @@ class ValueSets
     /** The values a column accepts, or null when it is not a constrained column. */
     public static function allowed(string $table, string $column): ?array
     {
-        return self::SETS[$table.'.'.$column] ?? null;
+        $set = self::SETS[$table.'.'.$column] ?? null;
+
+        return $set === null ? null : self::expand($set);
+    }
+
+    /**
+     * Every set with its values resolved — the EFFECTIVE registry.
+     *
+     * A set may be declared two ways: a literal list, or the class-string of a backed enum the model
+     * also casts to. The second is the better shape where a PHP enum exists, because the cases are
+     * then the single source — the model casts against them and this listener refuses against them,
+     * so the two cannot drift the way two hand-kept copies of a list always eventually do
+     * (CLAUDE.md: don't re-list a set).
+     *
+     * Conformance reads THIS rather than the raw `SETS`, so it checks what the system actually
+     * enforces instead of how the entry happened to be written.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function resolved(): array
+    {
+        return array_map(static fn (array|string $set): array => self::expand($set), self::SETS);
+    }
+
+    /**
+     * @param  list<string>|class-string<\BackedEnum>  $set
+     * @return list<string>
+     */
+    private static function expand(array|string $set): array
+    {
+        return is_string($set)
+            ? array_column($set::cases(), 'value')
+            : $set;
     }
 
     /**
@@ -217,6 +266,20 @@ class ValueSets
             }
 
             $value = $model->getAttribute($column);
+
+            // ── A cast column hands back the ENUM, not the string ──────────────────────────────
+            // `$casts` turns the attribute into a backed-enum instance on the way out, and casting
+            // that to string is a TypeError — so a column that is BOTH registered here and cast on
+            // the model used to throw "could not be converted to string" on every single save.
+            //
+            // It had never happened because the two mechanisms had never met: the only enum-cast
+            // column in the app (`tenant_requests.request_type`) is not registered here. Casting is
+            // the better shape where a PHP enum exists — the service gets
+            // `->operatorCollectsRent()` instead of a string literal — so the guard learns about it
+            // rather than the models avoiding it.
+            if ($value instanceof \BackedEnum) {
+                $value = $value->value;
+            }
 
             if ($value === null || $value === '') {
                 continue;

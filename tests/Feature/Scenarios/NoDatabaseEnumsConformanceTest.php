@@ -119,7 +119,9 @@ it('holds every freed column as a string column, not an integer or a date', func
 });
 
 it('states a non-empty set of values for every registered column', function () {
-    $empty = array_keys(array_filter(ValueSets::SETS, fn (array $values): bool => $values === []));
+    // `resolved()`, not the raw `SETS`: a set may be declared as the backed-enum class the model
+    // also casts to, and what must be non-empty is what the guard actually compares against.
+    $empty = array_keys(array_filter(ValueSets::resolved(), fn (array $values): bool => $values === []));
 
     expect($empty)->toBe([], 'Empty value set(s) — a column that accepts nothing cannot be saved: '.implode(', ', $empty));
 });
@@ -128,7 +130,7 @@ it('lists each value once per column', function () {
     // A duplicate is harmless to the check and a sign the set was edited by hand from two places.
     $dupes = [];
 
-    foreach (ValueSets::SETS as $key => $values) {
+    foreach (ValueSets::resolved() as $key => $values) {
         if (count($values) !== count(array_unique($values))) {
             $dupes[] = $key;
         }

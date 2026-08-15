@@ -28,12 +28,12 @@ it('lets an operator record an owner and their share', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
 
-    $asset->owners()->attach($owner->id, [
+    $asset->propertyOwners()->attach($owner->id, [
         'ownership_percentage' => 60.00,
         'started_at' => '2026-01-01',
     ]);
 
-    $pivot = $asset->fresh()->owners()->first()->pivot;
+    $pivot = $asset->fresh()->propertyOwners()->first()->pivot;
 
     expect((float) $pivot->ownership_percentage)->toBe(60.0)
         ->and($pivot->coversDate('2026-06-01'))->toBeTrue();
@@ -45,13 +45,13 @@ it('keeps a former owner resolvable after a sale', function () {
 
     // A sale is an END DATE, never a deleted row — the former owner's past statements have to keep
     // resolving, which is why the relation manager warns before a detach.
-    $asset->owners()->attach($owner->id, [
+    $asset->propertyOwners()->attach($owner->id, [
         'ownership_percentage' => 100.00,
         'started_at' => '2024-01-01',
         'ended_at' => '2026-03-31',
     ]);
 
-    $pivot = $asset->fresh()->owners()->first()->pivot;
+    $pivot = $asset->fresh()->propertyOwners()->first()->pivot;
 
     expect($pivot->coversDate('2026-02-01'))->toBeTrue()
         ->and($pivot->coversDate('2026-06-01'))->toBeFalse();

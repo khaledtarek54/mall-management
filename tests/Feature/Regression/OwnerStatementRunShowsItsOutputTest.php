@@ -36,7 +36,7 @@ beforeEach(function () {
 
     $this->asset = makeAsset(['code' => 'OSV']);
     $this->owner = makeUser('owner');
-    $this->asset->owners()->attach($this->owner->id, ['ownership_percentage' => 100]);
+    $this->asset->propertyOwners()->attach($this->owner->id, ['ownership_percentage' => 100]);
     $this->march = AccountingPeriod::forDate(CarbonImmutable::create(2026, 3, 15));
 
     $post = app(JournalPostingService::class);

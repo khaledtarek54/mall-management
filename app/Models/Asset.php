@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Support\Occupancy;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Occupancy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -18,7 +18,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Asset extends Model implements HasMedia
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     /**
      * Reserved code for the synthetic "All Properties" tenant — the
@@ -152,7 +152,21 @@ class Asset extends Model implements HasMedia
         return $this->hasMany(RentableItem::class)->orderBy('code');
     }
 
-    public function owners(): BelongsToMany
+    /**
+     * The legal owners of the PROPERTY — Jawad, an admin `User` with the `owner` role, holding a
+     * share and a tenure window. This is whose money an owner statement apportions.
+     *
+     * **Named `propertyOwners`, not `owners`, on purpose.** A unit can be sold to a buyer, and that
+     * buyer is an owner too — of one shop, not of the mall, and a `Tenant` (the AR party) rather
+     * than a `User`. The two are opposite money directions: a property owner RECEIVES the net, a
+     * unit owner PAYS the service charge. `$asset->owners` beside `$unit->owners` was one keystroke
+     * away from apportioning a statement to the wrong kind of owner, so neither is called that.
+     *
+     * @see docs/plans/08-unit-owners.md §3
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function propertyOwners(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'asset_owner')
             ->using(AssetOwner::class)
@@ -162,7 +176,7 @@ class Asset extends Model implements HasMedia
 
     /**
      * Staff (admin panel users) assigned to this property. Distinct from
-     * `owners()` which is the legal-ownership relationship.
+     * `propertyOwners()` which is the legal-ownership relationship.
      */
     public function staff(): BelongsToMany
     {
@@ -258,6 +272,7 @@ class Asset extends Model implements HasMedia
             return 0;
         }
         $occupied = $this->units()->where('status', 'occupied')->count();
+
         return round(($occupied / $total) * 100, 1);
     }
 
@@ -292,7 +307,7 @@ class Asset extends Model implements HasMedia
      * shows "—" when there is nothing to measure, rather than a red 0% that reads as a mall nobody
      * has let.
      *
-     * The definition lives in {@see \App\Support\Occupancy}, shared with the dashboard so the two
+     * The definition lives in {@see Occupancy}, shared with the dashboard so the two
      * cannot drift apart.
      */
     public function areaOccupancyRate(): float

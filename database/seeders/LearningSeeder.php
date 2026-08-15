@@ -136,7 +136,7 @@ class LearningSeeder extends Seeder
             ],
         );
 
-        $asset->owners()->syncWithoutDetaching([
+        $asset->propertyOwners()->syncWithoutDetaching([
             $users['owner@atriom.test']->id => [
                 'ownership_percentage' => 100,
                 'started_at' => now()->startOfYear()->toDateString(),

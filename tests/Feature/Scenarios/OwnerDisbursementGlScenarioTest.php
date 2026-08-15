@@ -45,7 +45,7 @@ function finalisedOwnerStatement($test, float $net = 6000): App\Models\OwnerStat
 {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
 
     $revenue = $net + 4000;
     $test->post->post(['entry_date' => '2026-03-10', 'asset_id' => $asset->id, 'lines' => [

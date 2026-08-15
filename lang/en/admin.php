@@ -33,6 +33,7 @@ return [
         'unmatched_done' => 'Link removed. The posting is available to match again.',
     ],
     'document_types' => [
+        'unit_ownership' => 'Unit ownership',
         'invoice' => 'Tax invoice',
         'credit_note' => 'Credit note',
         'journal_entry' => 'Journal entry',
@@ -46,6 +47,7 @@ return [
     ],
 
     'errors' => [
+        'unit_ownership_tenure_inverted' => 'The ownership cannot end before it starts — check the start and end dates.',
         'document_prefix_invalid' => 'The prefix :prefix is not usable — use 2 to 6 letters or digits.',
         'document_prefix_duplicated' => 'Two document types cannot share the prefix :prefix; their numbers would run into one series.',
         'fiscal_year_start_locked' => 'The fiscal year start cannot change once entries have been posted — it would re-date periods that already contain them. Set it on a fresh installation, before the first entry.',
@@ -2579,6 +2581,14 @@ return [
     ],
 
     'fields' => [
+        'tenure_type' => 'Tenure',
+        'management_mode' => 'Managed as',
+        'assessment_basis' => 'Service-charge basis',
+        'ownership_share_pct' => 'Ownership share %',
+        'participation_pct' => 'Participation interest %',
+        'started_at' => 'Owned from',
+        'management_fee_pct' => 'Management fee %',
+        'fee_basis' => 'Fee charged on',
         // Columns that models log via LogsActivity->logOnly() but that no form had labelled
         // yet. The audit trail resolves field names from THIS catalogue (see
         // App\Support\ActivityVocabulary::field), so a logged column with no key here used to
@@ -3550,6 +3560,37 @@ return [
     ],
 
     'enums' => [
+        'party_type' => [
+            'retailer' => 'Retailer',
+            'unit_owner' => 'Unit owner',
+        ],
+        'unit_tenure_type' => [
+            'freehold' => 'Freehold',
+            'usufruct' => 'Usufruct',
+            'leasehold_sale' => 'Leasehold sale',
+        ],
+        'unit_ownership_status' => [
+            'reserved' => 'Reserved',
+            'contracted' => 'Contracted',
+            'handed_over' => 'Handed over',
+            'transferred' => 'Transferred',
+        ],
+        'unit_management_mode' => [
+            'self_occupied' => 'Owner-occupied',
+            'self_let' => 'Let by the owner',
+            'operator_managed' => 'Managed by us',
+            'vacant' => 'Vacant',
+        ],
+        'assessment_basis' => [
+            'area' => 'Share of area',
+            'participation' => 'Participation interest',
+            'purchase_value' => 'Share of purchase price',
+            'stated' => 'Stated percentage',
+        ],
+        'management_fee_basis' => [
+            'collected' => 'Rent collected',
+            'billed' => 'Rent billed',
+        ],
         'tenant_type' => [
             'individual' => 'Individual',
             'company' => 'Company',
@@ -3932,6 +3973,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'unit_ownership' => 'Unit ownership',
             // spatie's fallback log name. Every model now declares its own, but rows written
             // BEFORE that fix are still filed under `default` and must still read as something.
             'default' => 'Other',

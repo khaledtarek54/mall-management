@@ -56,7 +56,7 @@ function earningAsset(string $code, bool $withOwner = true): \App\Models\Asset
     $asset = makeAsset(['code' => $code]);
 
     if ($withOwner) {
-        $asset->owners()->attach(makeUser('owner')->id, ['ownership_percentage' => 100]);
+        $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 100]);
     }
 
     Filament::setTenant($asset);
@@ -154,7 +154,7 @@ it('refuses to finalise a statement for a property with no owner', function () {
 
     // The control: assign the owner and the identical call goes through, so the refusal is the
     // missing-owner rule and not a broken fixture.
-    $asset->owners()->attach(makeUser('owner')->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 100]);
 
     $finalised = app(FinaliseOwnerStatementRunService::class)->finalise($run->fresh(), $this->actor);
 

@@ -62,7 +62,7 @@ function ownerRunEntry(App\Models\OwnerStatementRun $run): ?JournalEntry
 it('finalise + sweep accrues Dr Owner Distributions / Cr Due to Owner for the net, books balanced', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postPandL($this, $asset->id, 10000, 4000); // net 6000
 
     $run = $this->generate->generate($asset, $this->march);
@@ -100,7 +100,7 @@ it('finalise + sweep accrues Dr Owner Distributions / Cr Due to Owner for the ne
 it('does not post anything for a draft run (only finalised runs reach the GL)', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postPandL($this, $asset->id, 10000, 4000);
 
     $run = $this->generate->generate($asset, $this->march); // DRAFT — not finalised
@@ -114,7 +114,7 @@ it('does not post anything for a draft run (only finalised runs reach the GL)', 
 it('revise voids the old accrual and posts the corrected one; books stay balanced', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postPandL($this, $asset->id, 10000, 4000); // net 6000
 
     $v1 = $this->finalise->finalise($this->generate->generate($asset, $this->march), $owner);
@@ -144,7 +144,7 @@ it('revise voids the old accrual and posts the corrected one; books stay balance
 it('refuses to finalise into a closed period (posting-date guard, in the service)', function () {
     $asset = makeAsset();
     $owner = makeUser('owner');
-    $asset->owners()->attach($owner->id, ['ownership_percentage' => 100]);
+    $asset->propertyOwners()->attach($owner->id, ['ownership_percentage' => 100]);
     postPandL($this, $asset->id, 10000, 4000);
     $run = $this->generate->generate($asset, $this->march);
 

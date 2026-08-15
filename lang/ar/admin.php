@@ -33,6 +33,7 @@ return [
         'unmatched_done' => 'أُزيل الربط. أصبح القيد متاحًا للمطابقة من جديد.',
     ],
     'document_types' => [
+        'unit_ownership' => 'ملكية وحدة',
         'invoice' => 'فاتورة ضريبية',
         'credit_note' => 'إشعار دائن',
         'journal_entry' => 'قيد يومية',
@@ -46,6 +47,7 @@ return [
     ],
 
     'errors' => [
+        'unit_ownership_tenure_inverted' => 'لا يمكن أن تنتهي الملكية قبل أن تبدأ — راجع تاريخي البداية والنهاية.',
         'document_prefix_invalid' => 'البادئة :prefix غير صالحة — استخدم من 2 إلى 6 حروف أو أرقام.',
         'document_prefix_duplicated' => 'لا يمكن لنوعي مستندات مشاركة البادئة :prefix؛ ستندمج أرقامهما في سلسلة واحدة.',
         'fiscal_year_start_locked' => 'لا يمكن تغيير بداية السنة المالية بعد ترحيل القيود — لأن ذلك يعيد تأريخ فترات تحتوي عليها بالفعل.',
@@ -2568,6 +2570,14 @@ return [
     ],
 
     'fields' => [
+        'tenure_type' => 'نوع الملكية',
+        'management_mode' => 'طريقة الإدارة',
+        'assessment_basis' => 'أساس رسوم الصيانة',
+        'ownership_share_pct' => 'نسبة الملكية %',
+        'participation_pct' => 'نسبة المشاركة %',
+        'started_at' => 'مملوكة من',
+        'management_fee_pct' => 'نسبة أتعاب الإدارة %',
+        'fee_basis' => 'تُحتسب الأتعاب على',
         // أعمدة تُسجَّل في سجل النشاط عبر logOnly() ولم تكن تحمل تسمية في أي نموذج إدخال.
         // سجل النشاط يقرأ أسماء الحقول من هذا الفهرس (انظر App\Support\ActivityVocabulary::field)،
         // فالعمود الذي لا مفتاح له كان يظهر باسمه الإنجليزي في اللغتين معًا.
@@ -3536,6 +3546,37 @@ return [
     ],
 
     'enums' => [
+        'party_type' => [
+            'retailer' => 'مستأجر',
+            'unit_owner' => 'مالك وحدة',
+        ],
+        'unit_tenure_type' => [
+            'freehold' => 'تمليك',
+            'usufruct' => 'حق انتفاع',
+            'leasehold_sale' => 'بيع حق إيجار',
+        ],
+        'unit_ownership_status' => [
+            'reserved' => 'محجوزة',
+            'contracted' => 'متعاقد عليها',
+            'handed_over' => 'تم التسليم',
+            'transferred' => 'تم نقل الملكية',
+        ],
+        'unit_management_mode' => [
+            'self_occupied' => 'يشغلها المالك',
+            'self_let' => 'أجّرها المالك بنفسه',
+            'operator_managed' => 'تحت إدارتنا',
+            'vacant' => 'شاغرة',
+        ],
+        'assessment_basis' => [
+            'area' => 'حصة من المساحة',
+            'participation' => 'نسبة المشاركة',
+            'purchase_value' => 'حصة من ثمن الشراء',
+            'stated' => 'نسبة متفق عليها',
+        ],
+        'management_fee_basis' => [
+            'collected' => 'الإيجار المُحصَّل',
+            'billed' => 'الإيجار المُفوتر',
+        ],
         'tenant_type' => [
             'individual' => 'فرد',
             'company' => 'شركة',
@@ -3917,6 +3958,7 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            'unit_ownership' => 'ملكية وحدة',
             // spatie's fallback log name. Every model now declares its own, but rows written
             // BEFORE that fix are still filed under `default` and must still read as something.
             'default' => 'أخرى',

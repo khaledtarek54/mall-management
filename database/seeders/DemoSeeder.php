@@ -157,7 +157,7 @@ class DemoSeeder extends Seeder
         // Attach the owner user to Atriom Walk at 100% ownership
         $ownerUser = User::where('email', 'owner@atriom.test')->first();
         if ($ownerUser) {
-            $atriomWalk->owners()->syncWithoutDetaching([
+            $atriomWalk->propertyOwners()->syncWithoutDetaching([
                 $ownerUser->id => [
                     'ownership_percentage' => 100,
                     'started_at' => '2020-01-01',
@@ -3367,7 +3367,7 @@ class DemoSeeder extends Seeder
     private function seedOwnerStatements(Asset $asset): void
     {
         $owner = User::where('email', 'owner@atriom.test')->first();
-        if (! $owner || ! $asset->owners()->where('users.id', $owner->id)->exists()) {
+        if (! $owner || ! $asset->propertyOwners()->where('users.id', $owner->id)->exists()) {
             return;
         }
 
