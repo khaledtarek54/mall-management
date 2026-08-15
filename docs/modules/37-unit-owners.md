@@ -5,7 +5,7 @@
 >
 > **Status: phases 1, 2a and 2b SHIPPED (2026-08-15).** The register, the screen, and the monthly
 > صيانة run — an owner with no lease is now billed, ages, and posts to the ledger. Outstanding:
-> owner-let leases (4), the agency fee and remittance (5), portal and
+> the agency fee and remittance (5), portal and
 > resale certificate (6).
 
 ## 1. Purpose & business context
@@ -180,9 +180,44 @@ Two traps worth knowing if you touch this again:
   `BillableAgreement` in the same change for that reason, and a test asserts the owner's true-up
   becomes a real invoice.
 
+## 7c. The owner lets his own unit (phase 4)
+
+`leases.unit_ownership_id` — **one nullable column, and deliberately nothing else.**
+
+This is Yardi's construct: in Voyager Condo/Co-Op & HOA a lessee in a sold unit is a **sub-record
+under the owner's unit**. Two consequences follow, and both are pinned by
+`OwnerLetsHisOwnUnitTest`:
+
+- **The owner remains liable for the assessment.** Letting the unit does not move the service charge
+  onto the occupant and does not suspend it.
+- **The lessee is a real occupant.** Access, violations, SLA, fit-out and the occupancy figure all
+  apply to a tenant the mall never signed. Owner of record ≠ occupant of record.
+
+> **What was nearly built here, and why it was not.** The plan called for a second column,
+> `leases.revenue_mode` (`operator_collects` / `owner_collects`), so billing could skip a lease whose
+> rent the owner keeps. **Yardi has no such flag** — whether the operator collects is a term of the
+> MANAGEMENT AGREEMENT, which this system already holds as `unit_ownerships.management_mode`. A flag
+> on the lease would have been a second place to state one fact, and the two would eventually
+> disagree. It would also have been dead code: `MonthlyBillingService` returns early for a lease with
+> no applicable charge, so a tenancy carrying no rent charge **already bills nothing**. Asserted in
+> the test with a paired control rather than assumed.
+
+## 7d. Where this module departs from Yardi, deliberately
+
+Stated plainly so nobody reads the whole module as standard behaviour:
+
+| Ours | Yardi | Why |
+|---|---|---|
+| `management_mode` — four states (`self_occupied` · `self_let` · `operator_managed` · `vacant`) | Splits the two directions across two products: condo (owner pays) and third-party management (owner receives) | An Egyptian mall sells units and manages them in one building, so one register has to say which arrangement each unit is under |
+| `assessment_basis` — four options (`area` · `participation` · `purchase_value` · `stated`) | Participation interest, carried per unit | `purchase_value` and `stated` are Egyptian developer-contract practice; `area` is the default and reproduces today's CAM behaviour |
+| `tenure_type` — `freehold` · `usufruct` · `leasehold_sale` | n/a | حق انتفاع is an Egyptian legal instrument with no Voyager equivalent. Billing is identical across all three; only the tenure bounds differ |
+
+Everything else in this module — the owner as a customer record, assessments on his ledger, CAM
+participation, the lessee-under-owner lease — is Voyager behaviour.
+
 ## 8. Still outstanding
 
-owner-let leases (4), the management fee, cash-basis
+the management fee, cash-basis
 owner statement and remittance (5), the portal surface and the resale/estoppel certificate (6).
 
 **~25 read sites still scope invoices through `lease.unit`** — reports, widgets, statement PDFs. They

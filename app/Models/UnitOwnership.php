@@ -211,6 +211,20 @@ class UnitOwnership extends Model implements BillableAgreement
     }
 
     /**
+     * Tenancies the OWNER granted over this unit — Yardi's lessee sub-records.
+     *
+     * Almost always none or one. They exist so the mall can govern a tenant it did not sign:
+     * violations, SLA, fit-out, access. They never make the owner's assessment somebody else's
+     * liability.
+     *
+     * @return HasMany<Lease, $this>
+     */
+    public function leases(): HasMany
+    {
+        return $this->hasMany(Lease::class);
+    }
+
+    /**
      * Assessments raised against this ownership.
      *
      * Empty until phase 2 writes them; the relation exists now because `DeletionPolicy` blocks a

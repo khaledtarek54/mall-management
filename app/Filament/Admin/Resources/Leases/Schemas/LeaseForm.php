@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Lease;
 use App\Models\Unit;
+use App\Models\UnitOwnership;
 use App\Services\MarketingLevyService;
 use App\Settings\AccountingSettings;
 use App\Settings\BillingSettings;
@@ -87,7 +88,26 @@ class LeaseForm
                             ->required()
                             ->helperText(fn (Get $get): ?string => $get('show_occupied_units')
                                 ? __('admin.helpers.unit_showing_all')
-                                : __('admin.helpers.only_available_units'))
+                                : __('admin.helpers.only_available_units')),
+
+                        // Yardi's lessee-under-owner record: when a unit has been SOLD and the owner
+                        // lets it himself, the mall still keeps the tenancy on file — for access,
+                        // violations, SLA and fit-out — and the OWNER stays liable for the
+                        // assessment. Shown only when the chosen unit actually has an owner, so it
+                        // is invisible on the ordinary lease, which is nearly all of them.
+                        Select::make('unit_ownership_id')
+                            ->label(__('admin.fields.unit_ownership'))
+                            ->options(fn (Get $get): array => UnitOwnership::query()
+                                ->where('unit_id', $get('unit_id'))
+                                ->with('owner')
+                                ->get()
+                                ->mapWithKeys(fn (UnitOwnership $o) => [
+                                    $o->id => $o->owner?->name.' · '.$o->reference,
+                                ])
+                                ->all())
+                            ->visible(fn (Get $get): bool => $get('unit_id') !== null
+                                && UnitOwnership::where('unit_id', $get('unit_id'))->exists())
+                            ->helperText(__('admin.helpers.lease_under_ownership'))
                             ->rules([
                                 fn (Get $get, ?Lease $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     if ($get('status') !== 'active' || ! $value) {

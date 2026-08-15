@@ -2589,6 +2589,7 @@ return [
     ],
 
     'fields' => [
+        'unit_ownership' => 'Owner (unit is sold)',
         'party_type' => 'Party type',
         'tenure_type' => 'Tenure',
         'management_mode' => 'Managed as',
@@ -3074,6 +3075,7 @@ return [
     ],
 
     'helpers' => [
+        'lease_under_ownership' => 'The owner lets this unit himself. He still owes the service charge.',
         'due_date_derived' => 'Derived from the issue date and the lease’s payment terms. Override only for a one-off arrangement.',
         'expiry_date_derived' => 'Derived from the commencement date and the term. Override only when the contract states a different end date.',
         'tax_code_section' => 'Every tax this system applies, with its rates and the dates they came into force. The rate is resolved from the DOCUMENT\'s date: an invoice dated before a rate change bills the rate that was in force when it was raised, and a rate entered in advance starts applying by itself on the day.',

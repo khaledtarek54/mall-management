@@ -288,6 +288,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
     protected $fillable = [
         'reference',
         'unit_id',
+        'unit_ownership_id',
         'tenant_id',
         'previous_lease_id',
         'status',
@@ -650,6 +651,34 @@ class Lease extends Model implements BillableAgreement, HasMedia
             ->get()
             ->each
             ->recomputeStatus();
+    }
+
+    /**
+     * The unit ownership this tenancy sits under — the OWNER's own tenant.
+     *
+     * Yardi's construct: when an owner lets his unit out, the lessee is a sub-record under the
+     * owner's unit. The lessee is a real occupant for access, violations, SLA, fit-out and every
+     * mall rule — and **the owner stays liable for the assessments**. Owner of record is not
+     * occupant of record.
+     *
+     * Null for an ordinary lease of space the mall still owns, which is almost all of them.
+     *
+     * Deliberately NOT accompanied by a "do we collect this rent" flag: that is a term of the
+     * management agreement, held on the ownership (`management_mode`), and a lease we do not bill
+     * rent on simply carries no rent charge row — which the billing engine already handles by
+     * raising nothing.
+     *
+     * @return BelongsTo<UnitOwnership, $this>
+     */
+    public function unitOwnership(): BelongsTo
+    {
+        return $this->belongsTo(UnitOwnership::class);
+    }
+
+    /** Is this tenancy the OWNER's, rather than one the mall signed itself? */
+    public function isUnderOwnership(): bool
+    {
+        return $this->unit_ownership_id !== null;
     }
 
     /** @return BelongsTo<Tenant, $this> */
