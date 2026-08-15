@@ -170,4 +170,56 @@ class PropertyIsolation
     {
         return self::registers()['self'];
     }
+
+    /**
+     * Does a null `asset_id` on this model mean "portfolio-level, visible from every property"?
+     *
+     * **Exposed because the register could not answer it.** `registers()` keeps only the `via`
+     * chain, so `owned()` — and therefore the conformance gate, `atriom:dump-registries`, the
+     * census and the handbook's isolation.json — were structurally blind to this flag. A model
+     * could carry it, lose it, or gain it wrongly and nothing in the build could tell.
+     *
+     * That matters because the flag has exactly ONE reader, `ScopesToProperty`. The other
+     * property-scoping path, {@see self::applyTo()}'s neighbour `TenantScope::applyTo()` (25 call
+     * sites — every report and dashboard widget), emits a strict `where('asset_id', X)` and cannot
+     * express the null branch at all. So an expense recorded against "Consolidated (all)" appears
+     * on `/admin/expenses` and is absent from the weekly-spend report, with nothing flagging it.
+     *
+     * **RULED, 2026-08-16, on the Yardi standard: the reports are right and must not change.**
+     * In Yardi every GL entry carries a property dimension, and a property's income statement shows
+     * that property's own entries. Shared cost reaches a property P&L by ALLOCATION — apportioned on
+     * a stated basis so it becomes real per-property rows — never by a property silently absorbing
+     * an unallocated corporate bill. Adding null-asset rows to `applyTo` would put one insurance
+     * premium into every mall's fixed-cost line at full value, which is the double-count Yardi's
+     * allocation step exists to avoid. So the strictness is correct, not an oversight.
+     *
+     * **Two deviations from Yardi remain, and both are deliberate:**
+     *  1. The REGISTER shows consolidated rows beside a property's own, where Yardi would scope the
+     *     list as it scopes the report. This is a visibility convenience for a single-entity
+     *     operator — it states no total — and it is the existing product intent.
+     *  2. **Atriom has no allocation mechanism at all** (verified: nothing apportions a null-asset
+     *     expense). So consolidated overhead sits in a bucket no property's P&L ever absorbs, and
+     *     property-level cost is understated by exactly the shared spend. That is the real gap
+     *     against Yardi here — a missing feature, not a scoping bug, and the correct fix is an
+     *     allocation basis rather than a looser `where`.
+     */
+    public static function portfolioRowsWhenNull(string $model): bool
+    {
+        $declared = self::declared($model, PropertyOwned::class);
+
+        return $declared instanceof PropertyOwned && $declared->portfolioRowsWhenNull;
+    }
+
+    /**
+     * The models whose null `asset_id` means portfolio-level.
+     *
+     * @return array<int, class-string>
+     */
+    public static function hybridModels(): array
+    {
+        return array_values(array_filter(
+            self::ownedModels(),
+            fn (string $model): bool => self::portfolioRowsWhenNull($model),
+        ));
+    }
 }

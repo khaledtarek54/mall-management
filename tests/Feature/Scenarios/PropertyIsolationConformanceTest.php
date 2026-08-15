@@ -425,3 +425,65 @@ it('opts every editable-asset_id create form out of Filament tenant auto-stamp (
             .'write guard: '.implode(', ', $offenders),
     );
 });
+
+// ---- Test F: the nullable-asset rule is pinned, and its ONE reader is named ------------------
+
+it('F: pins which models treat a null asset_id as portfolio-level', function () {
+    // `#[PropertyOwned(portfolioRowsWhenNull: true)]` says a null `asset_id` is portfolio-level
+    // overhead every property must still see — an operator-wide insurance bill is not hidden
+    // because someone picked a mall.
+    //
+    // WHY THIS NEEDS A GATE OF ITS OWN. `PropertyIsolation::registers()` keeps only the `via`
+    // chain, so `owned()` — and with it every other check in this file, `atriom:dump-registries`,
+    // the census and the handbook's isolation.json — could not see this flag at all. A model could
+    // gain or lose it and the whole build would stay green. Same shape as a register derived from
+    // the source it is meant to check, one layer further in.
+    //
+    // Scoping a hybrid strictly HIDES real rows; scoping a strict model loosely SHOWS it rows
+    // belonging to nobody. Neither throws.
+    expect(PropertyIsolation::hybridModels())->toBe([
+        App\Models\DepositTransaction::class,
+        App\Models\Expense::class,
+        App\Models\JournalEntry::class,
+        App\Models\Payroll::class,
+        App\Models\VendorBill::class,
+    ], 'The set of models whose null asset_id means "portfolio-level" changed. That is a money decision — confirm it deliberately, then update this list.');
+
+    // A control, so the assertion above cannot pass by the flag being universally true.
+    expect(PropertyIsolation::portfolioRowsWhenNull(App\Models\Area::class))->toBeFalse();
+})->group('conformance');
+
+it('F: records that only ONE of the two property-scoping paths can express the nullable rule', function () {
+    // ScopesToProperty honours the flag. TenantScope::applyTo() — the other entry point, behind
+    // every report and dashboard widget — emits a strict where('asset_id', X) with no way to
+    // express the null branch.
+    //
+    // So an expense recorded against "Consolidated (all)" appears on /admin/expenses and is absent
+    // from the weekly-spend report.
+    //
+    // RULED 2026-08-16 ON THE YARDI STANDARD, AND THE REPORTS ARE RIGHT. In Yardi a property's
+    // income statement shows that property's own dimensioned entries; shared cost reaches a P&L by
+    // ALLOCATION on a stated basis, never by each property absorbing an unallocated corporate bill.
+    // Teaching applyTo() the null branch would put one insurance premium into every mall's fixed
+    // cost at full value — the double-count the allocation step exists to prevent. So this test
+    // PINS the strictness deliberately rather than tolerating it.
+    //
+    // The real gap against Yardi is elsewhere: Atriom has no allocation mechanism, so consolidated
+    // overhead sits in a bucket no property's P&L ever absorbs. That is a missing feature, and the
+    // fix is an allocation basis — not a looser where-clause here.
+    $readers = [];
+
+    foreach ([
+        'app/Filament/Admin/Resources/Concerns/ScopesToProperty.php',
+        'app/Support/TenantScope.php',
+    ] as $candidate) {
+        if (str_contains((string) file_get_contents(base_path($candidate)), 'portfolioRowsWhenNull')) {
+            $readers[] = $candidate;
+        }
+    }
+
+    expect($readers)->toBe(
+        ['app/Filament/Admin/Resources/Concerns/ScopesToProperty.php'],
+        'The set of scoping paths honouring portfolioRowsWhenNull changed. If TenantScope::applyTo() now reads it, every report and widget just changed what it counts — confirm that was intended, then update this test.'
+    );
+})->group('conformance');
