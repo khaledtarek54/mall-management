@@ -85,7 +85,7 @@ class MarketingBudget extends Model
             ->whereHas('invoice', function ($q) {
                 $q->where('status', '!=', 'cancelled')
                     ->whereYear('issue_date', $this->period_year)
-                    ->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $this->asset_id));
+                    ->where('invoices.asset_id', $this->asset_id);
             })
             ->sum('amount');
 

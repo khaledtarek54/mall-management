@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Payment;
 use App\Models\Tenant;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\View;
@@ -12,10 +13,10 @@ class TenantStatementPdfService
 {
     /**
      * @param  array<int>|null  $visibleAssetIds  Restrict the statement to these properties. Pass
-     *   TenantScope::visibleAssetIds() from the ADMIN surface so a property-restricted operator can't
-     *   read a shared tenant's AR in a mall they can't see. Pass null (the default) for the tenant's
-     *   OWN statement (portal / mobile API) — the tenant is entitled to their whole-company view.
-     *   Note: null also means "unrestricted" (super_admin), matching visibleAssetIds()'s null.
+     *                                            TenantScope::visibleAssetIds() from the ADMIN surface so a property-restricted operator can't
+     *                                            read a shared tenant's AR in a mall they can't see. Pass null (the default) for the tenant's
+     *                                            OWN statement (portal / mobile API) — the tenant is entitled to their whole-company view.
+     *                                            Note: null also means "unrestricted" (super_admin), matching visibleAssetIds()'s null.
      */
     public function build(Tenant $tenant, ?array $visibleAssetIds = null): string
     {
@@ -27,7 +28,7 @@ class TenantStatementPdfService
         $invoicesAll = $tenant->invoices()
             ->with('lease.unit')
             ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
-            ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
+            ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->get();
 
         $openInvoices = $invoicesAll
@@ -41,9 +42,9 @@ class TenantStatementPdfService
             ->values();
 
         $payments = $tenant->payments()
-            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
+            ->whereIn('status', Payment::RECEIVED_STATUSES)
             ->where('payment_date', '>=', $since)
-            ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('invoices.lease.unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
+            ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $visibleAssetIds)))
             ->orderByDesc('payment_date')
             ->get();
 

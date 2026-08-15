@@ -126,8 +126,8 @@ class MonthEndReadinessService
             ->whereIn('status', ['initiated', 'authorized'])
             ->whereBetween('payment_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
             ->when($assetId, fn ($q) => $q->whereHas(
-                'invoices.lease.unit',
-                fn ($u) => $u->where('asset_id', $assetId),
+                'invoices',
+                fn ($i) => $i->where('invoices.asset_id', $assetId),
             ))
             ->count();
 
@@ -199,7 +199,7 @@ class MonthEndReadinessService
      * A month reported to the owner but left open. Not a blocker — the close itself is the remedy,
      * and this is the step that says so. The window between issuing a statement and sealing the
      * period is exactly where a correction restates a figure someone is already holding
-     * ({@see \App\Support\ReportedPeriod}).
+     * ({@see ReportedPeriod}).
      */
     private function reportedStep(CarbonImmutable $periodStart, bool $closed, ?int $assetId): array
     {

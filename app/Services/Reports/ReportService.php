@@ -72,7 +72,7 @@ class ReportService
         $monthStart = $period;
         $monthEnd = $period->endOfMonth();
 
-        $invoicesInMonth = TenantScope::applyTo(Invoice::query(), 'lease.unit')
+        $invoicesInMonth = TenantScope::applyTo(Invoice::query())
             ->whereBetween('issue_date', [$monthStart, $monthEnd])
             ->get();
 
@@ -87,7 +87,7 @@ class ReportService
             'total' => round((float) $group->sum('total'), 2),
         ])->all();
 
-        $paymentsInMonth = TenantScope::applyTo(Payment::query(), 'invoices.lease.unit')
+        $paymentsInMonth = TenantScope::applyTo(Payment::query(), 'invoices')
             ->whereBetween('payment_date', [$monthStart, $monthEnd])
             ->whereIn('status', Payment::RECEIVED_STATUSES)
             ->get();
@@ -243,7 +243,7 @@ class ReportService
     {
         $asOf = $asOf ?? CarbonImmutable::now()->endOfDay();
 
-        $openInvoices = TenantScope::applyTo(Invoice::query(), 'lease.unit')
+        $openInvoices = TenantScope::applyTo(Invoice::query())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             ->whereDate('issue_date', '<=', $asOf)
@@ -807,13 +807,13 @@ class ReportService
      */
     private function openInvoicesAsOf(CarbonImmutable $asOf): Collection
     {
-        return TenantScope::applyTo(Invoice::query(), 'lease.unit')
+        return TenantScope::applyTo(Invoice::query())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             // The same inclusion cutoff for every view, so a drill-down can never surface an
             // invoice its own summary bucket did not count.
             ->whereDate('issue_date', '<=', $asOf)
-            ->with(['tenant', 'lease.unit'])
+            ->with(['tenant', 'lease.unit', 'asset'])
             ->get();
     }
 
@@ -854,7 +854,7 @@ class ReportService
     {
         $now = CarbonImmutable::now();
 
-        $openInvoices = TenantScope::applyTo(Invoice::query(), 'lease.unit')
+        $openInvoices = TenantScope::applyTo(Invoice::query())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             ->whereDate('due_date', '<', $now)
@@ -893,24 +893,15 @@ class ReportService
             ->whereBetween('invoices.issue_date', [$start, $end])
             ->whereNotIn('invoices.status', ['cancelled', 'draft']);
 
+        // Scoped on the invoice's own property. This used to be a hand-rolled EXISTS over
+        // `leases` JOIN `units`, which no owner assessment could ever satisfy — it has no lease to
+        // join to, so its marketing/VAT lines vanished from the split.
         if ($assetId = TenantScope::currentAssetId()) {
-            $query->whereExists(function ($q) use ($assetId) {
-                $q->select(\DB::raw(1))
-                    ->from('leases')
-                    ->join('units', 'units.id', '=', 'leases.unit_id')
-                    ->whereColumn('leases.id', 'invoices.lease_id')
-                    ->where('units.asset_id', $assetId);
-            });
+            $query->where('invoices.asset_id', $assetId);
         } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
             // "All Properties" for a RESTRICTED user — pin to their assigned set (else
             // this leaked every mall's revenue; mirrors TenantScope::applyTo's fallback).
-            $query->whereExists(function ($q) use ($ids) {
-                $q->select(\DB::raw(1))
-                    ->from('leases')
-                    ->join('units', 'units.id', '=', 'leases.unit_id')
-                    ->whereColumn('leases.id', 'invoices.lease_id')
-                    ->whereIn('units.asset_id', $ids);
-            });
+            $query->whereIn('invoices.asset_id', $ids);
         }
 
         $rows = $query

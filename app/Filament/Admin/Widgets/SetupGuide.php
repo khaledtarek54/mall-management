@@ -81,7 +81,7 @@ class SetupGuide extends Widget
                 ->whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
                 ->exists(),
             'invoices' => Invoice::query()
-                ->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+                ->where('asset_id', $assetId)
                 ->exists(),
         ];
     }

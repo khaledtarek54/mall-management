@@ -88,7 +88,10 @@ it('posts the assessment to the ledger against the right property', function () 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertSuccessful();
 
     $entry = JournalEntry::query()
-        ->where('source_type', Invoice::class)->where('source_id', $invoice->id)
+        // `getMorphClass()`, never `::class` — with a morph map registered the column stores an
+        // ALIAS, so a test comparing the FQCN silently finds nothing and reads as "no entry
+        // was posted". This asks the model how it identifies itself, which is right either way.
+        ->where('source_type', $invoice->getMorphClass())->where('source_id', $invoice->id)
         ->firstOrFail();
 
     expect($entry->asset_id)->toBe($this->asset->id)

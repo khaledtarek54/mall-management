@@ -50,11 +50,11 @@ class MonthlyRevenueTrend extends ChartWidget
         };
 
         $invoiceBase = $assetIds !== null
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ? Invoice::whereIn('asset_id', $assetIds)
             : Invoice::query();
 
         $paymentBase = $assetIds !== null
-            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ? Payment::whereHas('invoices', fn ($q) => $q->whereIn('invoices.asset_id', $assetIds))
             : Payment::query();
 
         $billed = (clone $invoiceBase)

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Asset;
+use App\Models\Invoice;
+use App\Models\Payment;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
@@ -27,8 +29,8 @@ class AssetStatementPdfService
         $since = $asOf->subMonths(12)->startOfMonth();
 
         // Every non-cancelled invoice across every lease at the property.
-        $invoicesAll = \App\Models\Invoice::query()
-            ->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $asset->id))
+        $invoicesAll = Invoice::query()
+            ->where('asset_id', $asset->id)
             ->with(['lease.unit', 'tenant'])
             ->whereNotIn('status', ['cancelled', 'credited'])
             ->get();
@@ -43,9 +45,9 @@ class AssetStatementPdfService
             ->sortByDesc('issue_date')
             ->values();
 
-        $payments = \App\Models\Payment::query()
-            ->whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $asset->id))
-            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
+        $payments = Payment::query()
+            ->whereHas('invoices', fn ($q) => $q->where('invoices.asset_id', $asset->id))
+            ->whereIn('status', Payment::RECEIVED_STATUSES)
             ->where('payment_date', '>=', $since)
             ->with('tenant')
             ->orderByDesc('payment_date')
@@ -119,6 +121,6 @@ class AssetStatementPdfService
 
     public function filename(Asset $asset): string
     {
-        return 'Property-Statement-' . str($asset->code)->slug() . '-' . now()->format('Ymd') . '.pdf';
+        return 'Property-Statement-'.str($asset->code)->slug().'-'.now()->format('Ymd').'.pdf';
     }
 }

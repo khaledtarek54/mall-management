@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Widgets;
 
-use App\Support\Occupancy;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
 use App\Models\Payment;
@@ -10,6 +9,7 @@ use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Services\Reports\ReportService;
 use App\Support\DashboardLayout;
+use App\Support\Occupancy;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
@@ -41,7 +41,7 @@ class MallStats extends StatsOverviewWidget
             : Lease::query();
 
         $paymentQuery = fn () => $assetIds !== null
-            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ? Payment::whereHas('invoices', fn ($q) => $q->whereIn('invoices.asset_id', $assetIds))
             : Payment::query();
 
         $totalUnits = $unitQuery()->count();

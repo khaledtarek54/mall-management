@@ -2,11 +2,16 @@
 
 namespace App\Services\Reconciliation;
 
+use App\Models\CamAllocation;
+use App\Models\CamExpensePool;
+use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\DepositApplication;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\InvoiceWriteOff;
 use App\Models\JournalEntry;
+use App\Models\MarketingBudget;
 use App\Models\Payment;
 use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
@@ -93,7 +98,7 @@ class BooksReconciliationService
         $d = [];
         foreach ($invoices as $inv) {
             $allocated = round((float) $inv->payments()
-                ->whereIn('payments.status', \App\Models\Payment::RECEIVED_STATUSES)
+                ->whereIn('payments.status', Payment::RECEIVED_STATUSES)
                 ->sum('invoice_payment.allocated_amount'), 2);
             $creditNotes = round((float) $inv->credit_applied_amount, 2);
             $tenantCredit = round((float) TenantCreditApplication::where('invoice_id', $inv->id)->sum('amount'), 2);
@@ -120,7 +125,7 @@ class BooksReconciliationService
 
         // 4. No captured payment is allocated beyond its own amount.
         $d = [];
-        foreach (Payment::query()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)->with('invoices')->get() as $p) {
+        foreach (Payment::query()->whereIn('status', Payment::RECEIVED_STATUSES)->with('invoices')->get() as $p) {
             $alloc = round((float) $p->invoices->sum(fn ($i) => $i->pivot->allocated_amount), 2);
             if ($alloc - (float) $p->amount > self::EPS) {
                 $d[] = ['ref' => $p->reference ?? "payment #{$p->id}", 'detail' => "allocated {$alloc} > captured amount {$p->amount}"];
@@ -131,12 +136,12 @@ class BooksReconciliationService
         // 5. Marketing fund integrity: accrued + spent must match their derived
         //    sources (billed marketing items / recorded spends). Catches any drift.
         $d = [];
-        foreach (\App\Models\MarketingBudget::query()->with('asset')->get() as $budget) {
-            $accrued = round((float) \App\Models\InvoiceItem::query()
+        foreach (MarketingBudget::query()->with('asset')->get() as $budget) {
+            $accrued = round((float) InvoiceItem::query()
                 ->where('invoice_items.type', 'marketing')
                 ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled')
                     ->whereYear('issue_date', $budget->period_year)
-                    ->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $budget->asset_id)))
+                    ->where('invoices.asset_id', $budget->asset_id))
                 ->sum('amount'), 2);
             $spent = round((float) $budget->spends()->sum('amount'), 2);
             $ref = ($budget->asset?->name ?? "asset {$budget->asset_id}")." {$budget->period_year}";
@@ -154,7 +159,7 @@ class BooksReconciliationService
         //    (within rounding), and every BILLED allocation is backed by a charge
         //    (catches the "billed without/lost charge" + double-bill drift class).
         $d = [];
-        $pools = \App\Models\CamExpensePool::query()->with('allocations')->get();
+        $pools = CamExpensePool::query()->with('allocations')->get();
 
         // Batch the per-billed-allocation backing lookups (charge exists / credit
         // note exists / charge reached a non-cancelled invoice) into three set
@@ -169,14 +174,14 @@ class BooksReconciliationService
 
         $existingCharges = $chargeIds->isEmpty()
             ? collect()
-            : \App\Models\Charge::whereIn('id', $chargeIds)->pluck('id')->flip();
+            : Charge::whereIn('id', $chargeIds)->pluck('id')->flip();
         $existingCredits = $creditIds->isEmpty()
             ? collect()
-            : \App\Models\CreditNote::whereIn('id', $creditIds)->pluck('id')->flip();
+            : CreditNote::whereIn('id', $creditIds)->pluck('id')->flip();
         // charge_ids that reached a non-cancelled invoice (the lost-revenue guard).
         $reachedCharges = $chargeIds->isEmpty()
             ? collect()
-            : \App\Models\InvoiceItem::query()
+            : InvoiceItem::query()
                 ->whereIn('charge_id', $chargeIds)
                 ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled'))
                 ->distinct()
@@ -204,7 +209,7 @@ class BooksReconciliationService
                 ];
             }
             foreach ($pool->allocations->where('status', 'billed') as $alloc) {
-                /** @var \App\Models\CamAllocation $alloc */
+                /** @var CamAllocation $alloc */
                 // A billed allocation must be backed by a charge (positive true-up),
                 // a credit note (negative true-up), OR — when the true-up nets to zero
                 // but an admin fee is owed — the admin-fee charge.
@@ -261,9 +266,9 @@ class BooksReconciliationService
 
         // Control totals — the figures an accountant reconciles against their own books.
         $controlTotals = [
-            'invoiceCount'  => $invoices->count(),
-            'invoiced'      => round((float) $invoices->sum('total'), 2),
-            'collected'     => round((float) $invoices->sum('paid_amount'), 2),
+            'invoiceCount' => $invoices->count(),
+            'invoiced' => round((float) $invoices->sum('total'), 2),
+            'collected' => round((float) $invoices->sum('paid_amount'), 2),
             'creditApplied' => round((float) $invoices->sum('credit_applied_amount'), 2),
             // Outstanding AR = the canonical AR definition (open + owed), matching
             // outstandingBalance() / the AR-aging report — not every non-cancelled
@@ -272,13 +277,13 @@ class BooksReconciliationService
                 ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
                 ->where('balance', '>', 0)
                 ->sum('balance'), 2),
-            'vatTotal'      => round((float) $invoices->sum('vat_amount'), 2),
+            'vatTotal' => round((float) $invoices->sum('vat_amount'), 2),
         ];
 
         // Standing (unapplied) credit notes are a liability that nets against AR —
         // include them so net AR matches Tenant::outstandingBalance() (which nets
         // them) and the accountant doesn't read AR gross.
-        $controlTotals['creditOutstanding'] = round((float) \App\Models\CreditNote::query()
+        $controlTotals['creditOutstanding'] = round((float) CreditNote::query()
             ->whereIn('status', ['issued', 'applied'])
             ->where('balance', '>', 0)
             ->sum('balance'), 2);

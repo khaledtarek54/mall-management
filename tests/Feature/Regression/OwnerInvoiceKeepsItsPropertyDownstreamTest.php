@@ -91,7 +91,10 @@ it('posts that credit note with a property dimension', function () {
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertSuccessful();
 
     $entry = JournalEntry::query()
-        ->where('source_type', CreditNote::class)->where('source_id', $note->id)
+        // `getMorphClass()`, never `::class` — with a morph map registered the column stores an
+        // ALIAS, so a test comparing the FQCN silently finds nothing and reads as "no entry
+        // was posted". This asks the model how it identifies itself, which is right either way.
+        ->where('source_type', $note->getMorphClass())->where('source_id', $note->id)
         ->firstOrFail();
 
     // A null here is the whole defect: the entry still balances and still ties out, and the mall's

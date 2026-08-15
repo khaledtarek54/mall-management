@@ -3,18 +3,18 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
+use App\Models\FacilityWorkOrder;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Lease;
-use App\Models\FacilityWorkOrder;
 use App\Models\PostDatedCheque;
 use App\Models\TenantRequest;
 use App\Models\Unit;
@@ -80,7 +80,7 @@ class ActionRequired extends Widget
         $assetIds = TenantScope::visibleAssetIds();
 
         $invoiceBase = fn () => $assetIds !== null
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ? Invoice::whereIn('asset_id', $assetIds)
             : Invoice::query();
 
         $leaseBase = fn () => $assetIds !== null

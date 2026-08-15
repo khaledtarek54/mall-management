@@ -31,7 +31,7 @@ class EtaCompliance extends StatsOverviewWidget
     {
         // We only count invoices that have actually been issued (or beyond).
         // Drafts and cancelled invoices aren't part of the compliance posture.
-        $base = TenantScope::applyTo(Invoice::query(), 'lease.unit')
+        $base = TenantScope::applyTo(Invoice::query())
             ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overdue']);
 
         $valid = (clone $base)->where('eta_status', 'valid')->count();
