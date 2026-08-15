@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * quietly destroy this table's value is a well-meaning "fix the typo in the reason" action.
  */
 #[NeverDeletable(correction: 'record the correcting event — a lease event is an assertion about something that happened, and the model refuses updates and deletes outright (no deletion call site exists in app/, so guarding it removes nothing that works)')]
+#[PropertyOwned(via: 'lease.unit')]
 class LeaseEvent extends Model
 {
     use HasFactory, RefusesDeletionOfCommittedRecords;

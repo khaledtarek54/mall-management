@@ -7,6 +7,7 @@ use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Support\PropertySettings;
 use Carbon\CarbonImmutable;
@@ -25,6 +26,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[DeletableWhenUnused(blockedBy: ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'tenantRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'], instead: 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history')]
+#[PropertyOwned(via: 'unit')]
 class Lease extends Model implements BillableAgreement, HasMedia
 {
     use AllocatesDocumentNumber, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;

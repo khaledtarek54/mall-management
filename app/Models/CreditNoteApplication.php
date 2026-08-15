@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * (soft-deleted) by reverseApplication() / the invoice-cancel un-apply. Not a GL source.
  */
 #[DeletionAllowed(reason: 'parent-managed: deleted to UN-APPLY a credit note')]
+// one application of a note; asset = the note's property; service-created, no Filament resource
+#[PropertyOwned(via: 'creditNote')]
 class CreditNoteApplication extends Model
 {
     use HasFactory, SoftDeletes;

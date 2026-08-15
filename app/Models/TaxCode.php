@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PortfolioShared;
 use App\Support\PostingRoles;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
@@ -33,6 +34,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * origination point calls.
  */
 #[DeletableWhenUnused(blockedBy: ['chargeCodes'], instead: 'deactivate the tax code — it leaves the pickers immediately and still explains what past documents were taxed at')]
+// one tax law applies to the whole portfolio — a rate is national, not per-mall
+#[PortfolioShared]
 class TaxCode extends Model
 {
     use LogsActivity;

@@ -7,6 +7,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Notifications\AnnouncementNotification;
 use App\Services\SendAnnouncementAction;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -48,6 +49,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * Property-owned (direct `asset_id`) — a notice targets exactly one mall.
  */
 #[DeletionAllowed(reason: 'configuration: a notice board post; a SENT one is refused by the resource, which is the state that carries evidence')]
+// broadcast targeted at one property
+#[PropertyOwned]
 class Announcement extends Model implements HasMedia
 {
     use HasSearchText, InteractsWithMedia, SoftDeletes;

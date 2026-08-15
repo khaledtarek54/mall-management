@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\SlaResolver;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,6 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * marked `done` (a terminal, immutable state, like closed maintenance requests).
  */
 #[DeletionAllowed(reason: 'operational: a job record')]
+#[PropertyOwned]
 class FacilityWorkOrder extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

@@ -3,10 +3,16 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[DeletionAllowed(reason: 'parent-managed: rebuilt with its credit note')]
+// Both stop at the note, which now carries its own asset_id. The old
+// `creditNote.lease.unit` tail broke the moment a note could belong to a unit-owner
+// assessment: that note's lease_id is NULL, so the chain resolved to nothing and the row
+// fell out of every property-scoped read. Same correction as Invoice/InvoiceItem.
+#[PropertyOwned(via: 'creditNote')]
 class CreditNoteItem extends Model
 {
     protected $fillable = [

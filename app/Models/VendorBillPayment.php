@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * a trashed source's journal entry, whereas a hard delete would orphan it (F7).
  */
 #[NeverDeletable(correction: 'void the payment — money left the bank')]
+#[PropertyOwned(via: 'bill')]
 class VendorBillPayment extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, SoftDeletes;

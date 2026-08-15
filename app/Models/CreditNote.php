@@ -6,6 +6,7 @@ use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,9 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[NeverDeletable(correction: 'cancel the note — it un-applies against the original invoice')]
+// Denormalized asset_id, like Invoice. The `lease.unit` chain answered NULL for a note
+// against a unit-owner invoice, dropping it from every property-scoped read.
+#[PropertyOwned]
 class CreditNote extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;

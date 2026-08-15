@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * time would silently restate history the moment someone renegotiates the rate.
  */
 #[NeverDeletable(correction: 'waive or release the penalty — it feeds the vendor bill')]
+// asset_id copied from the breaching work order
+#[PropertyOwned]
 class SlaPenalty extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity;

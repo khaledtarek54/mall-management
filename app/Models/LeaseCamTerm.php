@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * (a soft-deleted row would collide with the index and block ever re-adding that year's cap).
  */
 #[DeletionAllowed(reason: 'parent-managed: effective-dated terms on a lease')]
+#[PropertyOwned(via: 'lease.unit')]
 class LeaseCamTerm extends Model
 {
     use HasFactory;

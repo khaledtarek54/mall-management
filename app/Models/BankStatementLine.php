@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * because two columns can contradict each other and a signed number cannot.
  */
 #[DeletionAllowed(reason: 'evidence: parent-managed, rebuilt on re-import')]
+#[PropertyOwned(via: 'statement.bankAccount')]
 class BankStatementLine extends Model
 {
     use HasFactory;

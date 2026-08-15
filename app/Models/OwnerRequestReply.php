@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * ticket into a real back-and-forth. Immutable once posted (a conversation log), so no update path.
  */
 #[DeletionAllowed(reason: 'parent-managed: belongs to its thread')]
+// a reply reaches its property through its request; no resource of its own (posted via the Reply action)
+#[PropertyOwned(via: 'ownerRequest')]
 class OwnerRequestReply extends Model
 {
     protected $fillable = [

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -22,6 +23,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * it (which posts a balanced reversing entry).
  */
 #[NeverDeletable(correction: 'post a reversing entry; a posted entry is never removed')]
+// asset_id nullable = the books dimension (null = consolidated)
+#[PropertyOwned]
 class JournalEntry extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

@@ -6,6 +6,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\AccessControlAudit;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * asset_id scopes it to one property. See docs/FUNCTIONAL-REQUIREMENTS.md §5.
  */
 #[DeletableWhenUnused(blockedBy: ['members', 'employees'], instead: 'move its members first, then delete the empty department')]
+// asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
+#[PropertyOwned]
 class Department extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * booted() cascade). `asset_id` is denormalised from the custody for the GL dimension.
  */
 #[DeletionAllowed(reason: 'parent-managed: removed on settlement')]
+#[PropertyOwned]
 class CustodyTransaction extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

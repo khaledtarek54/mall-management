@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * set per mall, approval authority is a company policy. Don't add `asset_id` speculatively.
  */
 #[DeletionAllowed(reason: 'configuration: approval bands')]
+// operator-wide approval policy (FR-CM-11) — authority is a company rule, not a per-mall one
+#[PortfolioShared]
 class ApprovalRule extends Model
 {
     use HasFactory, LogsActivity;

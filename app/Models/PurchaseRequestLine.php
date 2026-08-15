@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ use InvalidArgumentException;
  * services", and a service is not stock. Never both: the two would disagree about what was bought.
  */
 #[DeletionAllowed(reason: 'parent-managed: edited while the request is still a draft')]
+#[PropertyOwned(via: 'request')]
 class PurchaseRequestLine extends Model
 {
     use HasFactory;

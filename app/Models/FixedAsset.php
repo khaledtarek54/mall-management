@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\PostingDate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * (DepreciationService), never a cached column.
  */
 #[DeletionAllowed(reason: 'operational: soft-delete IS the retirement path — the sweep voids the asset\'s entire GL footprint, which a scenario test pins')]
+#[PropertyOwned]
 class FixedAsset extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * {@see \App\Services\Push\PushSender} (NullPushSender until FCM creds land).
  */
 #[DeletionAllowed(reason: 'parent-managed: pruned automatically when a push token goes dead')]
+// push token for a Tenant
+#[PortfolioShared]
 class DeviceToken extends Model
 {
     protected $fillable = [

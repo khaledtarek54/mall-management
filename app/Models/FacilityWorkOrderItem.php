@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * (a visit that finds a fault is still a completed visit; the fault becomes a CM).
  */
 #[DeletionAllowed(reason: 'parent-managed: edited as part of the work order')]
+#[PropertyOwned(via: 'workOrder')]
 class FacilityWorkOrderItem extends Model
 {
     use HasFactory;

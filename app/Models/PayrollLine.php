@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read float $net Gross − salary tax − social insurance (accessor).
  */
 #[DeletionAllowed(reason: 'parent-managed: rebuilt when payslips are regenerated')]
+#[PropertyOwned(via: 'payroll')]
 class PayrollLine extends Model
 {
     use HasFactory;

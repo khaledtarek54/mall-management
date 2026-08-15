@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +34,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * understand. Nothing here is a second billing engine.
  */
 #[DeletableWhenUnused(blockedBy: ['leases'], instead: 'set the item out of service — an item that has been let is part of the property record')]
+// a parking bay / store / signage face stands in one mall; code unique per property
+#[PropertyOwned]
 class RentableItem extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;

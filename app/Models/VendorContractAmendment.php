@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -16,6 +17,10 @@ use Spatie\Activitylog\Support\LogOptions;
  * A signed `value_delta` moves the commitment with a dated, attributed, stated reason behind it.
  */
 #[DeletionAllowed(reason: 'parent-managed: append-only in practice, removable while unsent')]
+// A change order reaches its property through the contract it varies. No Filament
+// resource of its own — recorded via the "Add change order" action on the vendor's
+// contracts list, which is already property-scoped.
+#[PropertyOwned(via: 'contract')]
 class VendorContractAmendment extends Model
 {
     use LogsActivity;

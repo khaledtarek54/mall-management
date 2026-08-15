@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[DeletableWhenUnused(blockedBy: ['allocations'], instead: 'void the allocations first — they are what tenants were billed from')]
+#[PropertyOwned]
 class CamExpensePool extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;

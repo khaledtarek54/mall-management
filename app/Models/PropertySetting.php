@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -20,6 +21,9 @@ use Spatie\Activitylog\Support\LogOptions;
  * asked about one.
  */
 #[DeletionAllowed(reason: 'configuration: a per-property override; deleting restores the portfolio default')]
+// A setting one mall answers differently from the portfolio (CFG-03). Absent = the
+// portfolio's answer, never zero — see App\Support\PropertySettings.
+#[PropertyOwned]
 class PropertySetting extends Model
 {
     use LogsActivity;

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
@@ -35,6 +36,8 @@ use Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticatable;
 #[Fillable(['name', 'email', 'password', 'status', 'suspended_at', 'suspended_reason'])]
 #[Hidden(['password', 'remember_token'])]
 #[DeletionAllowed(reason: 'identity: deactivated in practice; delete stays super_admin-only')]
+// operator staff (assigned to properties via asset_user)
+#[PortfolioShared]
 class User extends Authenticatable implements FilamentUser, HasLocalePreference, HasTenants
 {
     /** @use HasFactory<UserFactory> */

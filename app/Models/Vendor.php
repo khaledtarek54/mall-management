@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,8 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[DeletableWhenUnused(blockedBy: ['bills', 'contracts', 'tenantRequests', 'documents'], instead: 'set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills')]
+// shared vendor catalog; engagement per-property (VendorContract/Bill)
+#[PortfolioShared]
 class Vendor extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

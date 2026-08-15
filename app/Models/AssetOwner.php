@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Carbon;
 
@@ -18,6 +19,8 @@ use Illuminate\Support\Carbon;
  * segments, which the current `unique(user_id, asset_id)` intentionally does not yet allow.
  */
 #[DeletionAllowed(reason: 'parent-managed: the ownership pivot, edited from the property')]
+// the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament RESOURCE, managed through AssetOwnersRelationManager on the Asset (added 2026-08-11; until then this comment described a UI that did not exist, which is how the gap stayed invisible)
+#[PropertyOwned]
 class AssetOwner extends Pivot
 {
     protected $table = 'asset_owner';

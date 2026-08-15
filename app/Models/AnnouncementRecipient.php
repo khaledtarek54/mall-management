@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\Announcements\MarkAnnouncementReadAction;
 use App\Services\SendAnnouncementAction;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * guard on write — the parent decides, once.
  */
 #[DeletionAllowed(reason: 'operational: a delivery + read receipt, cascaded from its announcement')]
+// A tenant's copy of a notice. The property is the NOTICE's, never re-derived from the
+// tenant: a retailer trades in more than one mall, and asking which of them a receipt
+// belongs to through the tenant would answer "all of them".
+#[PropertyOwned(via: 'announcement')]
 class AnnouncementRecipient extends Model
 {
     protected $fillable = [

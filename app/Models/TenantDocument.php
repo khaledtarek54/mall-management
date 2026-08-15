@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSupersededDocuments;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * a business rule nobody agreed, which is why there is no `BLOCKING_TYPES` constant to copy.
  */
 #[DeletionAllowed(reason: 'operational: superseded by a newer certificate')]
+// compliance file of the shared Tenant; occupancy decides who is alerted, not who may read it
+#[PortfolioShared]
 class TenantDocument extends Model implements HasMedia
 {
     use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;

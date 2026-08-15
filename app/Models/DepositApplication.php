@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * is part of settling a move-out rather than a thing to do on its own.
  */
 #[DeletionAllowed(reason: 'parent-managed: soft-deleted to reverse a deposit netted against an invoice (ApplyDepositToInvoiceService::reverse), which re-opens the AR and returns the deposit balance')]
+// netting a deposit against an invoice; asset = the invoice's property; service-created, no Filament resource
+#[PropertyOwned]
 class DepositApplication extends Model
 {
     use HasFactory, SoftDeletes;

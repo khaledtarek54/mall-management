@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * operator conventions with no reliable delimiter, unlike a numeric chart of accounts.
  */
 #[DeletionAllowed(reason: 'configuration: an asset register entry with no ledger of its own')]
+// a machine stands in exactly one mall; code unique per property
+#[PropertyOwned]
 class Equipment extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

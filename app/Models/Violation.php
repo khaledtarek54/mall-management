@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +34,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * The lifecycle is intentionally minimal: `open` → `resolved`.
  */
 #[DeletionAllowed(reason: 'operational: force-delete is already blocked once a fine is billed')]
+// a tenant violation is pinned to the mall where it occurred (module 31)
+#[PropertyOwned]
 class Violation extends Model implements HasMedia
 {
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;

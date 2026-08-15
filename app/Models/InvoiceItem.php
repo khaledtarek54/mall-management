@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[DeletionAllowed(reason: 'parent-managed: rebuilt whenever the invoice is recomputed')]
+// its invoice now carries the property itself
+#[PropertyOwned(via: 'invoice')]
 class InvoiceItem extends Model
 {
     use HasFactory;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * @see docs/accounting/BANK-RECONCILIATION-PLAN.md
  */
 #[DeletionAllowed(reason: 'evidence: re-import the statement')]
+// reaches its property through the account it belongs to
+#[PropertyOwned(via: 'bankAccount')]
 class BankStatement extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

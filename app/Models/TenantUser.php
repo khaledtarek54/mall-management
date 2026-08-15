@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Auth\Passwords\CanResetPassword;
@@ -22,6 +23,8 @@ use Laravel\Sanctum\HasApiTokens;
  * record is reached via ->tenant.
  */
 #[DeletionAllowed(reason: 'identity: a portal login')]
+// portal login for a Tenant (transitively multi-property)
+#[PortfolioShared]
 class TenantUser extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference
 {
     use CanResetPassword, HasApiTokens, HasFactory, Notifiable, SoftDeletes;

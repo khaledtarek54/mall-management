@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * spends. balance() is always computed — never hand-edited.
  */
 #[DeletionAllowed(reason: 'configuration: a spend envelope')]
+#[PropertyOwned]
 class MarketingBudget extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

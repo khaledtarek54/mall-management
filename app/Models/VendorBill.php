@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -22,6 +23,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * recompute() — never set directly (mirrors the Invoice AR invariant).
  */
 #[NeverDeletable(correction: 'cancel the bill')]
+// asset_id nullable = property the expense belongs to
+#[PropertyOwned]
 class VendorBill extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

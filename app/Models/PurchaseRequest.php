@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Support\ApprovalPolicy;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * neither (confirm before building one).
  */
 #[DeletionAllowed(reason: 'operational: its GRNI posting lives on the vendor bill')]
+#[PropertyOwned]
 class PurchaseRequest extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

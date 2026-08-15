@@ -2,301 +2,130 @@
 
 namespace App\Support;
 
-use App\Models\AccountingPeriod;
-use App\Models\AccountMapping;
-use App\Models\Announcement;
-use App\Models\AnnouncementRecipient;
-use App\Models\ApprovalRule;
-use App\Models\Area;
-use App\Models\Asset;
-use App\Models\AssetOwner;
-use App\Models\BankAccount;
-use App\Models\BankMatch;
-use App\Models\BankStatement;
-use App\Models\BankStatementLine;
-use App\Models\CamAllocation;
-use App\Models\CamExpensePool;
-use App\Models\Charge;
-use App\Models\ChargeCode;
-use App\Models\CreditNote;
-use App\Models\CreditNoteApplication;
-use App\Models\CreditNoteItem;
-use App\Models\Custody;
-use App\Models\CustodyTransaction;
-use App\Models\Department;
-use App\Models\DepositApplication;
-use App\Models\DepositTransaction;
-use App\Models\DepreciationEntry;
-use App\Models\DeviceToken;
-use App\Models\Disbursement;
-use App\Models\Employee;
-use App\Models\EmployeeAdvance;
-use App\Models\EmployeeAdvanceRepayment;
-use App\Models\Equipment;
-use App\Models\Expense;
-use App\Models\FacilityWorkOrder;
-use App\Models\FacilityWorkOrderItem;
-use App\Models\FacilityWorkOrderPart;
-use App\Models\FiscalYear;
-use App\Models\FixedAsset;
-use App\Models\FixedAssetDisposal;
-use App\Models\Floor;
-use App\Models\InventoryItem;
-use App\Models\Invoice;
-use App\Models\InvoiceItem;
-use App\Models\InvoiceWriteOff;
-use App\Models\JournalEntry;
-use App\Models\JournalLine;
-use App\Models\Lease;
-use App\Models\LeaseCamTerm;
-use App\Models\LeaseEvent;
-use App\Models\LeaseOption;
-use App\Models\LeasePercentageRentTier;
-use App\Models\LedgerAccount;
-use App\Models\LowStockAlert;
-use App\Models\MarketingBudget;
-use App\Models\MarketingPost;
-use App\Models\MarketingSpend;
-use App\Models\MeterReading;
-use App\Models\Note;
-use App\Models\OwnerRequest;
-use App\Models\OwnerRequestReply;
-use App\Models\OwnerStatement;
-use App\Models\OwnerStatementRun;
-use App\Models\Payment;
-use App\Models\Payroll;
-use App\Models\PayrollLine;
-use App\Models\PostDatedCheque;
-use App\Models\PropertySetting;
-use App\Models\PurchaseRequest;
-use App\Models\PurchaseRequestLine;
-use App\Models\RentableItem;
-use App\Models\ReportPreference;
-use App\Models\SavedReport;
-use App\Models\ServicePlan;
-use App\Models\SlaPenalty;
-use App\Models\SlaPolicy;
-use App\Models\StockMovement;
-use App\Models\StraightLineRentAdjustment;
-use App\Models\SystemSetting;
-use App\Models\TableView;
-use App\Models\TaxCode;
-use App\Models\TaxRate;
-use App\Models\Tenant;
-use App\Models\TenantCreditApplication;
-use App\Models\TenantDocument;
-use App\Models\TenantRequest;
-use App\Models\TenantRequestComment;
-use App\Models\TenantSalesDeclaration;
-use App\Models\TenantUser;
-use App\Models\Unit;
-use App\Models\UnitArea;
-use App\Models\UnitOwnership;
-use App\Models\User;
-use App\Models\UtilityMeter;
-use App\Models\Vendor;
-use App\Models\VendorBill;
-use App\Models\VendorBillPayment;
-use App\Models\VendorContact;
-use App\Models\VendorContract;
-use App\Models\VendorContractAmendment;
-use App\Models\VendorDocument;
-use App\Models\Violation;
-use App\Models\Warehouse;
+use App\Support\Attributes\PortfolioShared;
+use App\Support\Attributes\PropertyItself;
+use App\Support\Attributes\PropertyOwned;
+use Illuminate\Database\Eloquent\Model;
+use ReflectionClass;
 
 /**
- * The authoritative register of which models are SHARED across every property
- * and which are ISOLATED to one property — the code-level source of truth for
- * total property isolation. See docs/PROPERTY-ISOLATION-PLAN.md.
+ * The authoritative register of which models are SHARED across every property and which are
+ * ISOLATED to one property — the code-level source of truth for total property isolation.
+ * See docs/PROPERTY-ISOLATION.md.
  *
- * `PropertyIsolationConformanceTest` reflects over this registry so that a new
- * model or resource that ships unclassified (or a property-owned resource that
- * ships unscoped) FAILS CI instead of leaking silently in production. Add every
- * new model here — that is the point of the gate.
+ * `PropertyIsolationConformanceTest` reflects over this register so that a new model or resource
+ * that ships unclassified (or a property-owned resource that ships unscoped) FAILS the build
+ * instead of leaking silently in production.
+ *
+ * **Each model now declares its own classification** ({@see PortfolioShared},
+ * {@see PropertyOwned}, {@see PropertyItself}) and this file derives the three registers rather
+ * than storing them. The reasoning that used to sit as a comment beside each entry moved with it,
+ * verbatim, onto the model — the answer to "why is Vendor shared?" now sits on `Vendor`.
+ *
+ * **That does not weaken the gate.** It never trusted this file for completeness: it globs
+ * `app/Models` and asks whether each model is classified, so a model declaring nothing is still
+ * unclassified and still fails the build. A register derived from the same source it is checked
+ * against could not catch an omission; this one is checked against the filesystem.
+ *
+ * The property-owned register answers `via` — null for a direct `asset_id` column, or the relation
+ * chain ending at a model that has one (`Invoice → lease → unit` is `'lease.unit'`).
  */
 class PropertyIsolation
 {
     /**
-     * GLOBAL / shared models. They intentionally carry no per-property row
-     * scoping — they are operator-wide catalogs, config, or people (docs §4a).
-     * Where a shared master is *used* per-property, the usage rows live in
-     * OWNED (e.g. Vendor is shared; VendorBill/VendorContract are owned).
+     * The derived registers, built once per process.
      *
-     * @var array<int, class-string>
+     * Only the ENUMERATING methods pay for the scan; the per-model questions reflect on the single
+     * class they were handed. `isOwned()` / `linkageFor()` are on the read path of every scoped
+     * resource query, so they must not glob the models directory.
+     *
+     * @var array{shared: array<int, class-string>, owned: array<class-string, string|null>, self: array<int, class-string>}|null
      */
-    private const SHARED = [
-        User::class,                // operator staff (assigned to properties via asset_user)
-        // One operator's remembered report filters. Belongs to the USER, not a property: the
-        // stored assetId IS the preference, not an ownership claim, and scoping the row itself
-        // would mean re-picking the mall on a report whose whole point is not re-picking it.
-        ReportPreference::class,
-        Tenant::class,              // a retailer can lease in several malls; money is per-property (Invoice/Payment)
-        TenantUser::class,          // portal login for a Tenant (transitively multi-property)
-        DeviceToken::class,         // push token for a Tenant
-        Vendor::class,              // shared vendor catalog; engagement per-property (VendorContract/Bill)
-        VendorContact::class,       // belongs to the shared Vendor
-        VendorDocument::class,      // compliance file (insurance/tax card/register) of the shared Vendor
-        TenantDocument::class,      // compliance file of the shared Tenant; occupancy decides who is alerted, not who may read it
-        InventoryItem::class,       // shared SKU catalog; stock is per-Warehouse
-        LedgerAccount::class,       // one shared chart of accounts; property is a dimension on entries
-        FiscalYear::class,          // one operator fiscal calendar
-        AccountingPeriod::class,    // one operator period calendar
-        AccountMapping::class,      // global posting-rule defaults + optional per-property override rows
-        ChargeCode::class,          // portfolio billing vocabulary; the per-property override lives on the mapping it names
-        SavedReport::class,         // an operator's own report bookmark; the PROPERTY it filters on lives in its parameters and is re-clamped on open
-        TableView::class,           // the same, for a resource LIST: a property named in its filters is re-clamped by the list's own getEloquentQuery() on open
-        TaxCode::class,             // one tax law applies to the whole portfolio — a rate is national, not per-mall
-        TaxRate::class,             // a rung on a TaxCode's dated ladder; shared for the same reason as its parent
-        ApprovalRule::class,        // operator-wide approval policy (FR-CM-11) — authority is a company rule, not a per-mall one
-        SystemSetting::class,       // system state / config
-        Note::class,                // polymorphic note attached to various records
-    ];
+    private static ?array $registers = null;
 
     /**
-     * PROPERTY-OWNED models → how each row reaches its Asset.
-     *   null    = a direct `asset_id` column on the model's table.
-     *   'chain' = the relation chain ending at a model that has `asset_id`
-     *             (e.g. Invoice → lease → unit → asset_id => 'lease.unit').
-     * Every row here is isolated to exactly one property (docs §4b).
-     *
-     * @var array<class-string, string|null>
+     * @return array{shared: array<int, class-string>, owned: array<class-string, string|null>, self: array<int, class-string>}
      */
-    private const OWNED = [
-        // ---- Direct asset_id column ----
-        Unit::class => null,
-        Announcement::class => null,           // broadcast targeted at one property
-        Equipment::class => null,              // a machine stands in exactly one mall; code unique per property
-        Area::class => null,                   // a facility zone stands in exactly one mall; code unique per property
-        RentableItem::class => null,           // a parking bay / store / signage face stands in one mall; code unique per property
-        Floor::class => null,                  // a floor belongs to one building; code and level unique per property
-        Violation::class => null,              // a tenant violation is pinned to the mall where it occurred (module 31)
-        SlaPolicy::class => null,              // per-property SLA override (FR-CM-05); absent = operator default
-        // A setting one mall answers differently from the portfolio (CFG-03). Absent = the
-        // portfolio's answer, never zero — see App\Support\PropertySettings.
-        PropertySetting::class => null,
-        UtilityMeter::class => null,
-        CamExpensePool::class => null,
-        MarketingBudget::class => null,
-        // A shopper-facing offer/event/news card runs in exactly one mall — a shopper reading it
-        // is standing in the building. Direct asset_id (module 36).
-        MarketingPost::class => null,
-        Employee::class => null,
-        EmployeeAdvance::class => null,
-        EmployeeAdvanceRepayment::class => null,
-        FixedAsset::class => null,
-        Custody::class => null,
-        CustodyTransaction::class => null,
-        Warehouse::class => null,
-        BankAccount::class => null,   // owns its asset_id: the mall whose money it holds
-        BankStatement::class => 'bankAccount',   // reaches its property through the account it belongs to
-        BankStatementLine::class => 'statement.bankAccount',
-        BankMatch::class => 'statementLine.statement.bankAccount',
-        Expense::class => null,
-        Payroll::class => null,
-        JournalEntry::class => null,           // asset_id nullable = the books dimension (null = consolidated)
-        DepositTransaction::class => null,     // asset_id derived from the lease in the model's saving hook
-        VendorBill::class => null,             // asset_id nullable = property the expense belongs to
-        VendorContract::class => null,
-        ServicePlan::class => null,
-        FacilityWorkOrder::class => null,
-        SlaPenalty::class => null,   // asset_id copied from the breaching work order
-        OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
-        OwnerRequestReply::class => 'ownerRequest', // a reply reaches its property through its request; no resource of its own (posted via the Reply action)
-        Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
-        AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament RESOURCE, managed through AssetOwnersRelationManager on the Asset (added 2026-08-11; until then this comment described a UI that did not exist, which is how the gap stayed invisible)
-        OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)
-        TenantCreditApplication::class => null, // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
-        DepositApplication::class => null,        // netting a deposit against an invoice; asset = the invoice's property; service-created, no Filament resource
-        StraightLineRentAdjustment::class => null, // monthly rent-recognition adjustment; asset = the lease's property; service-created, no Filament resource
-        OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
-        Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
-        PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)
-        // A unit sale belongs to the mall the unit stands in. `asset_id` is carried directly rather
-        // than reached through `unit`, deliberately: the assessment sweep asks for every live
-        // ownership in one property, and a join per row is the N+1 the CAM path already had to fix.
-        UnitOwnership::class => null,
+    private static function registers(): array
+    {
+        if (self::$registers !== null) {
+            return self::$registers;
+        }
 
-        // ---- Indirect (relation chain to asset_id) ----
-        UnitArea::class => 'unit',             // a unit's measurement history — reached through its unit, never portfolio-wide
-        Lease::class => 'unit',
-        // Denormalized asset_id (like Disbursement / OwnerStatement). It USED to walk
-        // `lease.unit`, which was only safe while `lease_id` was NOT NULL — a unit owner has no
-        // lease, and an invoice that cannot name its property is invisible to every scoped query.
-        Invoice::class => null,
-        InvoiceItem::class => 'invoice',            // its invoice now carries the property itself
-        // A tenant's copy of a notice. The property is the NOTICE's, never re-derived from the
-        // tenant: a retailer trades in more than one mall, and asking which of them a receipt
-        // belongs to through the tenant would answer "all of them".
-        AnnouncementRecipient::class => 'announcement',
-        Charge::class => 'lease.unit',
-        LeaseCamTerm::class => 'lease.unit',
-        LeaseOption::class => 'lease.unit',
-        LeasePercentageRentTier::class => 'lease.unit',
-        LeaseEvent::class => 'lease.unit',
-        InvoiceWriteOff::class => 'asset',
-        Payment::class => 'invoices',               // ditto, one hop shorter than it used to be
-        // Denormalized asset_id, like Invoice. The `lease.unit` chain answered NULL for a note
-        // against a unit-owner invoice, dropping it from every property-scoped read.
-        CreditNote::class => null,
-        // Both stop at the note, which now carries its own asset_id. The old
-        // `creditNote.lease.unit` tail broke the moment a note could belong to a unit-owner
-        // assessment: that note's lease_id is NULL, so the chain resolved to nothing and the row
-        // fell out of every property-scoped read. Same correction as Invoice/InvoiceItem.
-        CreditNoteItem::class => 'creditNote',
-        CreditNoteApplication::class => 'creditNote', // one application of a note; asset = the note's property; service-created, no Filament resource
-        TenantRequest::class => 'unit',
-        TenantRequestComment::class => 'request.unit',
-        TenantSalesDeclaration::class => 'lease.unit',
-        MeterReading::class => 'meter',
-        FixedAssetDisposal::class => 'fixedAsset',
-        DepreciationEntry::class => 'fixedAsset',
-        MarketingSpend::class => 'budget',
-        CamAllocation::class => 'pool',
-        JournalLine::class => 'entry',
-        PayrollLine::class => 'payroll',
-        FacilityWorkOrderItem::class => 'workOrder',
-        FacilityWorkOrderPart::class => 'workOrder',
-        // A change order reaches its property through the contract it varies. No Filament
-        // resource of its own — recorded via the "Add change order" action on the vendor's
-        // contracts list, which is already property-scoped.
-        VendorContractAmendment::class => 'contract',
-        LowStockAlert::class => null,
-        PurchaseRequest::class => null,
-        PurchaseRequestLine::class => 'request',
-        StockMovement::class => 'warehouse',
-        VendorBillPayment::class => 'bill',
-    ];
+        $registers = ['shared' => [], 'owned' => [], 'self' => []];
+
+        foreach (glob(app_path('Models/*.php')) ?: [] as $file) {
+            $model = 'App\\Models\\'.basename($file, '.php');
+
+            if (! class_exists($model) || ! is_subclass_of($model, Model::class)) {
+                continue;
+            }
+
+            $reflection = new ReflectionClass($model);
+
+            if ($reflection->isAbstract()) {
+                continue;
+            }
+
+            // Not inherited: a child model must state its own classification rather than quietly
+            // adopting a parent's, because "scoped like my parent" is exactly the assumption that
+            // leaks a property.
+            if ($reflection->getAttributes(PortfolioShared::class) !== []) {
+                $registers['shared'][] = $model;
+            }
+
+            foreach ($reflection->getAttributes(PropertyOwned::class) as $attribute) {
+                $registers['owned'][$model] = $attribute->newInstance()->via;
+            }
+
+            if ($reflection->getAttributes(PropertyItself::class) !== []) {
+                $registers['self'][] = $model;
+            }
+        }
+
+        return self::$registers = $registers;
+    }
 
     /**
-     * The property itself — it IS the Filament tenant, scoped by identity, so it
-     * belongs to neither bucket.
+     * The per-model questions. Each reflects on the one class it was handed.
      *
-     * @var array<int, class-string>
+     * @param  class-string  $model
      */
-    private const SELF = [
-        Asset::class,
-    ];
+    private static function declared(string $model, string $attribute): ?object
+    {
+        if (! class_exists($model)) {
+            return null;
+        }
+
+        $found = (new ReflectionClass($model))->getAttributes($attribute);
+
+        return $found === [] ? null : $found[0]->newInstance();
+    }
 
     public static function isShared(string $model): bool
     {
-        return in_array($model, self::SHARED, true);
+        return self::declared($model, PortfolioShared::class) !== null;
     }
 
     public static function isOwned(string $model): bool
     {
-        return array_key_exists($model, self::OWNED);
+        return self::declared($model, PropertyOwned::class) !== null;
     }
 
     /** True when the owned model carries a direct `asset_id` column. */
     public static function isDirect(string $model): bool
     {
-        return self::isOwned($model) && self::OWNED[$model] === null;
+        $declared = self::declared($model, PropertyOwned::class);
+
+        return $declared instanceof PropertyOwned && $declared->via === null;
     }
 
     /** The relation chain for an indirect owned model, or null for direct / unknown. */
     public static function linkageFor(string $model): ?string
     {
-        return self::OWNED[$model] ?? null;
+        $declared = self::declared($model, PropertyOwned::class);
+
+        return $declared instanceof PropertyOwned ? $declared->via : null;
     }
 
     /** Every model is expected to be classified into exactly one bucket. */
@@ -304,40 +133,41 @@ class PropertyIsolation
     {
         return self::isShared($model)
             || self::isOwned($model)
-            || in_array($model, self::SELF, true);
+            || self::declared($model, PropertyItself::class) !== null;
     }
 
     /** @return array<int, class-string> */
     public static function ownedModels(): array
     {
-        return array_keys(self::OWNED);
+        return array_keys(self::registers()['owned']);
     }
 
     /** @return array<int, class-string> */
     public static function sharedModels(): array
     {
-        return self::SHARED;
+        return self::registers()['shared'];
     }
 
     /**
      * The property-owned register as a map of model => linkage (null = direct `asset_id`).
      *
-     * This is the READ API for the register itself — the backing consts are private so the
-     * storage can change (a per-model declaration rather than one central array) without
-     * touching a caller. Prefer `linkageFor()` / `isDirect()` when asking about ONE model;
-     * this is for the callers that legitimately enumerate the whole register (the census, the
-     * registry dump, the handbook data).
+     * Prefer `linkageFor()` / `isDirect()` when asking about ONE model; this is for the callers
+     * that legitimately enumerate the whole register (the census, the registry dump, the handbook).
      *
      * @return array<class-string, string|null>
      */
     public static function owned(): array
     {
-        return self::OWNED;
+        return self::registers()['owned'];
     }
 
-    /** The property itself — scoped by identity, in neither bucket. @return array<int, class-string> */
+    /**
+     * The property itself — scoped by identity, in neither bucket.
+     *
+     * @return array<int, class-string>
+     */
     public static function selfModels(): array
     {
-        return self::SELF;
+        return self::registers()['self'];
     }
 }

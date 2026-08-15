@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * four numbers for every property.
  */
 #[DeletionAllowed(reason: 'configuration: SLA targets')]
+// per-property SLA override (FR-CM-05); absent = operator default
+#[PropertyOwned]
 class SlaPolicy extends Model
 {
     use HasFactory, LogsActivity;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use App\Support\PostingRoles;
 use DomainException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,6 +18,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * a row with asset_id overrides it for that property.
  */
 #[DeletionAllowed(reason: 'configuration: which account a source posts to')]
+// global posting-rule defaults + optional per-property override rows
+#[PortfolioShared]
 class AccountMapping extends Model
 {
     use HasFactory, LogsActivity;

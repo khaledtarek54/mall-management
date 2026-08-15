@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -15,6 +16,7 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[DeletionAllowed(reason: 'configuration: a recurring billing line; issued invoices keep their own copy')]
+#[PropertyOwned(via: 'lease.unit')]
 class Charge extends Model
 {
     use HasFactory, LogsActivity;

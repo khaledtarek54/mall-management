@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -25,6 +26,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * nobody recorded it.
  */
 #[DeletionAllowed(reason: 'parent-managed: effective-dated rates on a tax code, edited from the code')]
+// a rung on a TaxCode's dated ladder; shared for the same reason as its parent
+#[PortfolioShared]
 class TaxRate extends Model
 {
     use LogsActivity;

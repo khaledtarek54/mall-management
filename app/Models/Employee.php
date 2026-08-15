@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * (Phase 3); advances/loans (Phase 2) attach to it.
  */
 #[DeletableWhenUnused(blockedBy: ['payrollLines', 'advances', 'custodies'], instead: 'set the employee inactive — payroll history is a statutory record')]
+#[PropertyOwned]
 class Employee extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Exactly one of debit/credit is > 0. Carries optional analytical dimensions.
  */
 #[DeletionAllowed(reason: 'parent-managed: rebuilt when its entry is re-posted')]
+#[PropertyOwned(via: 'entry')]
 class JournalLine extends Model
 {
     use HasFactory;

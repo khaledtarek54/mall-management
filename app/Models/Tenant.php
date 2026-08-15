@@ -7,6 +7,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PortfolioShared;
 use App\Support\MarketingFeedCache;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -30,6 +31,8 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[DeletableWhenUnused(blockedBy: ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'tenantRequests', 'postDatedCheques', 'violations'], instead: 'set the tenant to inactive — the history stays queryable and the AR still ties out')]
+// a retailer can lease in several malls; money is per-property (Invoice/Payment)
+#[PortfolioShared]
 class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference, HasMedia
 {
     use CanResetPassword, HasApiTokens, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, Notifiable, RefusesDeletionWhenReferenced, SoftDeletes;

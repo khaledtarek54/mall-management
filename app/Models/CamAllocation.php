@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Contracts\BillableAgreement;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[DeletionAllowed(reason: 'operational: voided through the pool, not removed')]
+#[PropertyOwned(via: 'pool')]
 class CamAllocation extends Model
 {
     use HasFactory, SoftDeletes;

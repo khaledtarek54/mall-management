@@ -10,6 +10,7 @@ use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
 use App\Settings\BillingSettings;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Support\OpsLog;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -28,6 +29,10 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[NeverDeletable(correction: 'cancel the invoice, or issue a credit note')]
+// Denormalized asset_id (like Disbursement / OwnerStatement). It USED to walk
+// `lease.unit`, which was only safe while `lease_id` was NOT NULL — a unit owner has no
+// lease, and an invoice that cannot name its property is invisible to every scoped query.
+#[PropertyOwned]
 class Invoice extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * returned before.
  */
 #[DeletionAllowed(reason: 'parent-managed: one measurement of a unit for a period, edited from the unit. A wrong figure is corrected by recording a new measurement — the register is what makes a past period explicable, so rows are not removed')]
+// a unit's measurement history — reached through its unit, never portfolio-wide
+#[PropertyOwned(via: 'unit')]
 class UnitArea extends Model
 {
     protected $fillable = [

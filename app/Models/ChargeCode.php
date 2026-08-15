@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\InvoiceItemType;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use App\Support\PostingRoles;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * and the two lists cannot drift.
  */
 #[DeletionAllowed(reason: 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup')]
+// portfolio billing vocabulary; the per-property override lives on the mapping it names
+#[PortfolioShared]
 class ChargeCode extends Model
 {
     use LogsActivity;

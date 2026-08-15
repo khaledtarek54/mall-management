@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * another owner user. Closed/cancelled requests are immutable (REQ-3).
  */
 #[DeletionAllowed(reason: 'operational: responded requests are already immutable')]
+// asset_id nullable (property-specific or cross-property)
+#[PropertyOwned]
 class OwnerRequest extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

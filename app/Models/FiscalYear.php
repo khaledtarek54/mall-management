@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * السنة المالية — a financial year and the window it spans.
  */
 #[DeletionAllowed(reason: 'configuration: its periods carry the entries, and they are guarded')]
+// one operator fiscal calendar
+#[PortfolioShared]
 class FiscalYear extends Model
 {
     use HasFactory;

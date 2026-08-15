@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,8 @@ use Illuminate\Support\Carbon;
  * period is refused by JournalPostingService.
  */
 #[DeletableWhenUnused(blockedBy: ['entries'], instead: 'a period that has been posted to is part of the books; close it rather than remove it')]
+// one operator period calendar
+#[PortfolioShared]
 class AccountingPeriod extends Model
 {
     use HasFactory, RefusesDeletionWhenReferenced;

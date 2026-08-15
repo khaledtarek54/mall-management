@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[DeletableWhenUnused(blockedBy: ['allLeases', 'tenantRequests', 'utilityMeters'], instead: 'set the unit to maintenance if it is out of service — a unit that has been leased is part of the property record')]
+#[PropertyOwned]
 class Unit extends Model
 {
     use HasFactory, HasSearchText, RefusesDeletionWhenReferenced, SoftDeletes;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @see docs/accounting/BANK-RECONCILIATION-PLAN.md
  */
 #[DeletionAllowed(reason: 'annotation: unmatch it')]
+#[PropertyOwned(via: 'statementLine.statement.bankAccount')]
 class BankMatch extends Model
 {
     use HasFactory, LogsActivity;

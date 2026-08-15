@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,6 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * this plan's checklist, then advances `next_due_date` by the frequency.
  */
 #[DeletionAllowed(reason: 'configuration: a PPM schedule')]
+#[PropertyOwned]
 class ServicePlan extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

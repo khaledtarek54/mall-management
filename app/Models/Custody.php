@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * denormalised from the custodian so the GL dimension survives the employee's archival.
  */
 #[DeletionAllowed(reason: 'operational: settled through SettleCustodyService')]
+#[PropertyOwned]
 class Custody extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

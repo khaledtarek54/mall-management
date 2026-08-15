@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * cleared or cancelled cheque is terminal-immutable.
  */
 #[NeverDeletable(correction: 'cancel or bounce the cheque')]
+// a tenant's forward cheque, pinned to the property it relates to (module 33)
+#[PropertyOwned]
 class PostDatedCheque extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;

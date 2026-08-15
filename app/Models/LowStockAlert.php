@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * make "is this mall still short of filters?" a question about the newest of N rows.
  */
 #[DeletionAllowed(reason: 'operational: a transient alert')]
+#[PropertyOwned]
 class LowStockAlert extends Model
 {
     use HasFactory;

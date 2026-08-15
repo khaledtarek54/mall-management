@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use App\Support\ReportCatalogue;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Nothing about saving a view widens what its owner — or anyone they share it with — may see.
  */
 #[DeletionAllowed(reason: 'preference: a saved set of report filters, owned by the operator who saved it')]
+// an operator's own report bookmark; the PROPERTY it filters on lives in its parameters and is re-clamped on open
+#[PortfolioShared]
 class SavedReport extends Model
 {
     public const MONTHLY = 'monthly';

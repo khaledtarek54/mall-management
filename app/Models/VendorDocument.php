@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSupersededDocuments;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * work being dispatched.
  */
 #[DeletionAllowed(reason: 'operational: superseded by a newer certificate')]
+// compliance file (insurance/tax card/register) of the shared Vendor
+#[PortfolioShared]
 class VendorDocument extends Model implements HasMedia
 {
     use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;

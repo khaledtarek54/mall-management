@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
  * powering the "Ledger last synced" indicator on the accounting screens.
  */
 #[DeletionAllowed(reason: 'configuration')]
+// system state / config
+#[PortfolioShared]
 class SystemSetting extends Model
 {
     protected $fillable = ['key', 'value'];

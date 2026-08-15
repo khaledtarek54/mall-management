@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * never set by hand.
  */
 #[DeletionAllowed(reason: 'parent-managed: force-deleted when its run is rebuilt')]
+// per-owner child; asset_id denormalized for uniform auto-scope
+#[PropertyOwned]
 class OwnerStatement extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

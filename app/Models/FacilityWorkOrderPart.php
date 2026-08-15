@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * Now both are recorded, so "what did we buy outside this month?" has an answer.
  */
 #[DeletionAllowed(reason: 'parent-managed: edited as part of the work order')]
+#[PropertyOwned(via: 'workOrder')]
 class FacilityWorkOrderPart extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;
