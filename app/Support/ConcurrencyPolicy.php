@@ -123,6 +123,9 @@ final class ConcurrencyPolicy
         // One row lock (the ownership, re-checked inside the txn) plus the per-period cache lock
         // that stops a manual assessment run racing the scheduled one.
         'app/Services/BillUnitOwnershipsService.php' => 2,
+        // One row lock on the ownership being sold: two operators transferring the same unit must
+        // not each open a buyer tenure, which would leave it owned twice on the same day.
+        'app/Services/TransferUnitOwnershipService.php' => 1,
         'app/Services/CreditNoteService.php' => 11,
         'app/Services/MonthlyBillingService.php' => 2,
         'app/Services/Paymob/PaymobPaymentInitiator.php' => 1,

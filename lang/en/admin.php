@@ -47,6 +47,9 @@ return [
     ],
 
     'errors' => [
+        'unit_ownership_already_transferred' => 'This ownership has already been transferred — the unit is on its next owner\'s record.',
+        'unit_ownership_buyer_not_owner' => 'The buyer must be recorded as a unit owner first — a retailer cannot hold a unit.',
+        'unit_ownership_transfer_blocked_arrears' => 'EGP :amount is still outstanding on this unit. Settle it, or transfer over it deliberately — the resale certificate states the figure either way.',
         'cam_allocation_needs_one_agreement' => 'A CAM allocation must belong to either a lease or a unit ownership — one of the two, not both and not neither.',
         'charge_needs_one_agreement' => 'A charge must belong to either a lease or a unit ownership — one of the two, not both and not neither.',
         'invoice_needs_one_agreement' => 'An invoice must be raised against either a lease or a unit ownership — one of the two, not both and not neither.',

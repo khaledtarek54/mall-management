@@ -6,7 +6,7 @@
 > **Status: phases 1, 2a and 2b SHIPPED (2026-08-15).** The register, the screen, and the monthly
 > صيانة run — an owner with no lease is now billed, ages, and posts to the ledger. Outstanding:
 > the agency fee and remittance (5), portal and
-> resale certificate (6).
+
 
 ## 1. Purpose & business context
 
@@ -215,10 +215,42 @@ Stated plainly so nobody reads the whole module as standard behaviour:
 Everything else in this module — the owner as a customer record, assessments on his ledger, CAM
 participation, the lessee-under-owner lease — is Voyager behaviour.
 
+## 7e. The owner's portal, and the resale certificate (phase 6)
+
+**The portal needed no new panel** — and that is the party decision paying for itself a third time.
+An owner IS a `tenants` row, the portal authenticates a `TenantUser` against one, and every portal
+query already scopes on `tenant_id`. He signs in and sees his assessments and payments with no code
+written for it. Yardi's condo owner portal is likewise the same product the residents use.
+
+Two things did need fixing, both found by writing the test first:
+
+- **CAM allocations were scoped `whereHas('lease', …)`** — an owner's allocation has no lease since
+  phase 3 made ownerships participants, so he was billed a true-up whose basis he could not see. One
+  more instance of the lease-chain assumption.
+- **Leases and sales declarations were offered to him.** He signs neither. Hidden for a unit owner,
+  unchanged for a retailer — asserted both ways, because over-applying the filter is the easier
+  mistake.
+
+### The resale certificate
+
+`TransferUnitOwnershipService` — Yardi's change-of-ownership. It closes the seller's tenure, opens
+the buyer's, keeps the unit's history, and returns the **resale (estoppel) certificate**.
+
+- **Every figure is read from the books**, never typed. `outstanding` is the invoices' own `balance`,
+  which `Invoice::recomputeTotals()` owns across all four settlement channels — because that number
+  is what the buyer's solicitor holds back from the price.
+- **Arrears are refused, not warned about.** Transferring over a debt is possible but deliberate
+  (`allowOutstanding: true`) and recorded on the ownership. Letting it through quietly is how a debt
+  becomes the wrong person's.
+- **The buyer inherits the TERMS, not the debt** — tenure type, assessment basis, share. The seller's
+  arrears stay on the seller's ledger, and the certificate states them.
+- The seller's row is closed, **never deleted**: his assessments, CAM shares and statements all point
+  at it.
+
 ## 8. Still outstanding
 
 the management fee, cash-basis
-owner statement and remittance (5), the portal surface and the resale/estoppel certificate (6).
+owner statement and remittance (5), 
 
 **~25 read sites still scope invoices through `lease.unit`** — reports, widgets, statement PDFs. They
 are correct for lease-raised invoices and will MISS owner invoices; migrating them is tracked in

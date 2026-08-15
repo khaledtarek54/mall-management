@@ -83,6 +83,19 @@ class LeaseResource extends Resource
         ];
     }
 
+
+    /**
+     * Hidden from a UNIT OWNER, who signs neither.
+     *
+     * Voyager's condo owner portal shows dues, statements and requests — not leases and not sales
+     * declarations. An empty screen is worse than no screen here: it invites the owner to wonder
+     * what is missing from it. A retailer's portal is unchanged.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! (\App\Support\Portal::tenant()?->isUnitOwner() ?? false);
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
