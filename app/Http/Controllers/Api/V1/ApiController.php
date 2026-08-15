@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -43,6 +44,30 @@ abstract class ApiController extends Controller
         $value = (int) $request->integer('per_page', $default);
 
         return max(1, min($value ?: $default, $max));
+    }
+
+    /**
+     * The `meta` block for an endpoint that shapes its own payload instead of returning a resource
+     * collection.
+     *
+     * Laravel emits six keys on a paginated `ResourceCollection`; the three hand-rolled endpoints
+     * here emitted four, so the client had **two** pagination shapes to model depending on which
+     * list it was reading — and `from`/`to` (what this page actually covers) were the two missing.
+     * One method so there is one shape.
+     *
+     * @param  \Illuminate\Contracts\Pagination\LengthAwarePaginator<int, mixed>  $paginator
+     * @return array<string, int|null>
+     */
+    protected function paginationMeta(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+        ];
     }
 
     /**

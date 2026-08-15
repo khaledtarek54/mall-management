@@ -134,11 +134,26 @@ List endpoints return Laravel's paginator shape:
 {
   "data": [ ... ],
   "links": { "first": "...", "last": "...", "prev": null, "next": "..." },
-  "meta": { "currentPage": 1, "lastPage": 4, "perPage": 25, "total": 92 }
+  "meta": { "currentPage": 1, "lastPage": 4, "perPage": 25, "total": 92, "from": 1, "to": 25 }
 }
 ```
 
 Control with `?page=N` and `?perPage=N` (default **25**, max **100**).
+
+**Every list uses this same `meta` shape**, including the endpoints that build their own payload
+(`/me/feed`, `/me/marketing-posts`, `/public/malls/{code}/posts`) — those emitted four of the six
+keys until 2026-08-15, so a client had two shapes to model depending on which list it read.
+`links` is present only on the resource-collection endpoints; **key your paging off `meta`, never
+`links`.**
+
+> ⚠️ **`meta` is the whole reason a list is complete.** The default page is 25 and the money lists
+> are newest-first, so a client that ignores `meta` silently truncates the OLDEST rows — exactly
+> where long-unpaid invoices live — and any total it computes over `data` is wrong with no
+> indication anything is missing. Drive paging off `currentPage < lastPage`, and treat an **absent**
+> `meta` as "one page" rather than looping.
+>
+> The two endpoints that are deliberately **not** paginated are `GET /me/leases` and
+> `GET /me/devices` — both a handful of rows, both returning a bare `{ data: [...] }`.
 
 ### Localization
 
@@ -246,10 +261,23 @@ password is weak.
 
 #### 🔒 `GET /me` → tenant profile
 ```json
-{ "data": { "id": 1, "name": "Acme Co", "legal_name": "Acme Trading LLC", "type": "company",
-  "email": "...", "phone": "...", "whatsapp": "...", "contact_person": "...",
-  "status": "active", "tax_id": "100-200-300" } }
+{ "data": { "id": 1, "name": "Acme Co", "legalName": "Acme Trading LLC", "type": "company",
+  "email": "...", "phone": "...", "whatsapp": "...", "contactPerson": "...",
+  "contactPersonPhone": "+20 100 555 0000", "address": "12 Corniche El Nil, Cairo",
+  "status": "active", "taxId": "100-200-300",
+  "logoUrl": "https://…/storage/…/logo.png" } }
 ```
+**Whatever `PATCH /me` accepts, `GET /me` gives back.** `contactPersonPhone` and `address` were
+accepted and stored but never returned until 2026-08-15, which made them write-only — the tenant's
+own edit form could not show what it had just saved.
+
+`logoUrl` is the store's brand mark, or `null`. Safe to hand straight to an image widget: the
+`logo` collection is on the **public** disk (the shopper directory renders it unauthenticated),
+unlike `documents`, which shares the model and stays private.
+
+#### 🔒 `GET /auth/me` — identical to `GET /me`
+The same controller answers both, so the two can never drift. Prefer `GET /me`; it also owns the
+`PATCH`.
 
 #### 🔒 `PATCH /me` — update **own contact fields only**
 Editable: `phone`, `whatsapp`, `contactPerson`, `contactPersonPhone`,
@@ -353,6 +381,15 @@ balance** — show others as informational.
 `channel` ∈ `mobile_api`, `portal`, `payment_link`, `admin` (how the payment was
 taken). `receiptAt` is when the captured-payment receipt fired (null until captured).
 
+#### 🔒 `GET /me/payments/{id}/receipt` — the receipt voucher (سند قبض) as a PDF
+The same document the admin table and the portal hand out — one service, so all three surfaces
+give the tenant a byte-identical file. RTL follows `Accept-Language`.
+
+Only for a payment whose money actually **arrived** (`captured` / `reconciled` / `settled`):
+anything else returns **`422`** with a message you can show, because a receipt asserts cash was
+received. `404` if the payment is not yours. Gate the button on `status` — or simply on
+`receiptAt` being non-null, which is the same moment.
+
 #### 🔒 `POST /me/invoices/{id}/paymob-session` — start an in-app payment
 Returns a Paymob session (`paymentToken` + `iframeUrl`) tagged with the
 `mobile_api` channel. Hand the token to the Paymob Flutter SDK (native card form,
@@ -396,10 +433,25 @@ Pass `?unread=1` for unread only.
 ```json
 { "data": [ { "id": "9b1c...", "type": "PaymentReceivedNotification",
   "data": { "title": "Payment received", "invoiceNumber": "INV-HW-202605-0001" },
+  "link": { "target": "payment", "id": 31 },
   "read": false, "readAt": null, "createdAt": "2026-05-09T11:30:00+00:00" } ],
   "meta": { ... }, "links": { ... } }
 ```
-`type` is the short notification class name — branch on it in the app.
+`type` is the short notification class name — branch on it for the ICON and the wording.
+
+**`link` is where it opens. Do not infer a destination from `type`.** Added 2026-08-15: the app was
+matching substrings of the class name against its own table, which failed silently — it looked for
+a `maintenanceId` that has never existed (the payload has always carried `request_id`), so the two
+most frequent tenant alerts deep-linked nowhere, and `LateFeeApplied…` / `LeaseExpiryApproaching…`
+matched no keyword at all and fell through while carrying a perfectly good id.
+
+`target` ∈ `invoice` · `payment` · `request` · `sales` · `announcement` → `/invoices/{id}`,
+`/payments/{id}`, `/requests/{id}`, `/sales/{id}`, `/news/{id}`.
+
+`link` is **`null` when there is nowhere to go** — a staff-only record (a work order, a vendor
+document) or a record the app has no screen for. Render the row unclickable; never invent a route.
+The identical key rides on the **push** payload, so a push tap and an inbox tap resolve to the same
+screen through the same code path.
 
 #### 🔒 `GET /me/notifications/unread-count` → `{ "data": { "unreadCount": 3 } }` (badge)
 #### 🔒 `POST /me/notifications/{id}/read` — mark one read (`404` if not yours).
@@ -526,16 +578,20 @@ hide this section of the app.
 
 The tenant **uploads their sales report file** (image/PDF) for the period rather
 than typing a figure; the property team reads the number off the report, enters
-it, and **locks** the declaration to bill any percentage rent. So `declaredSales`
-and `calculatedPercentageRent` are **`null`/`0` until staff review** — show
-"Pending review", not `0`.
+it, and **locks** the declaration to bill any percentage rent. So **both** `declaredSales` and
+`calculatedPercentageRent` are **`null` until staff enter the turnover** — show "Pending review".
+
+⚠️ **`calculatedPercentageRent` used to arrive as `0` in that state, and that was a real
+ambiguity**, corrected 2026-08-15: a pre-review `0` was indistinguishable from a *reviewed* period
+that came in below the threshold and genuinely owes `0.00`. Those are opposite facts. The rule is
+now the same on both figures — **`null` means nobody has looked yet; `0` is an answer.**
 
 #### 🔒 `GET /me/sales-declarations` — paginated, newest period first
 Query: `status`, `page`, `per_page`.
 ```json
 { "data": [ { "id": 7, "periodStart": "2026-05-01", "periodEnd": "2026-05-31",
   "periodLabel": "May 2026", "declaredSales": null,
-  "calculatedPercentageRent": 0, "status": "submitted",
+  "calculatedPercentageRent": null, "status": "submitted",
   "isLocked": false, "declaredAt": "2026-06-01T08:00:00+00:00", "lockedAt": null,
   "hasReport": true,
   "attachments": [ { "id": 12, "name": "may-sales.pdf", "mimeType": "application/pdf",
@@ -572,18 +628,37 @@ cross-tenant disclosure). Use the `url` returned in `attachments[]` above.
 Register the device's FCM (Android) / APNS (iOS) token so the backend can target
 pushes. **Push delivery is wired** (FCM): once the backend's Firebase creds are
 set (`PUSH_ENABLED`), every tenant-facing notification — invoice issued, payment
-received, maintenance status/comment, sales declaration locked — is pushed to the
-registered tokens, carrying the same title/body as the in-app inbox plus id
-fields (`invoiceId`, `maintenanceId`, `declarationId`) in the `data` payload for
-deep-linking on tap. Until creds are set the backend no-ops gracefully (inbox +
-email still deliver), so registering now is safe.
+received, request status/comment, sales declaration locked, mall news — is pushed
+to the registered tokens, carrying the same title/body as the in-app inbox. Until
+creds are set the backend no-ops gracefully (inbox + email still deliver), so
+registering now is safe.
+
+> ⚠️ **This section used to name the push deep-link keys as `invoiceId`,
+> `maintenanceId`, `declarationId`. `maintenanceId` was never sent by anything** — every
+> tenant-request notification has always emitted `request_id` → `requestId`. A client that
+> implemented this paragraph faithfully got a dead deep link on the two most frequent tenant
+> alerts, which is exactly what happened. **Do not read ids out of the payload at all now:** the
+> push carries the same `link: { target, id }` object the inbox does (§4.6), and that is the only
+> supported way to resolve a destination.
 
 #### 🔒 `POST /me/devices`
 ```json
 { "platform": "ios", "token": "<apns-or-fcm-token>", "deviceName": "Khaled's iPhone 16" }
 ```
 `platform` ∈ `ios`, `android`. Upserts on `(tenant, platform, deviceName)` —
-calling it again with a refreshed token replaces, never stacks. → `201`.
+calling it again with a refreshed token replaces, never stacks.
+→ `201 { "data": { "id": 12, "platform": "ios", "deviceName": "…", "createdAt": "…" },
+"message": "Device registered for push notifications." }` — keep the `id`, it is what the sign-out
+`DELETE` takes.
+
+#### 🔒 `GET /me/devices` — the devices currently registered
+```json
+{ "data": [ { "id": 12, "platform": "ios", "deviceName": "Khaled's iPhone 16",
+  "createdAt": "2026-08-15T09:00:00+00:00" } ] }
+```
+Not paginated (a handful of rows). **The raw push token is never echoed back** — it is a
+write-only credential from the client's side. This is what makes the `DELETE` reachable by a
+client that did not perform the registration: a tenant who lost a phone can list and revoke it.
 
 #### 🔒 `DELETE /me/devices/{id}` — unregister. → `200`, or `404` if not yours.
 
@@ -691,15 +766,17 @@ badge — "20% OFF"), `startsAt`/`endsAt` (show as "valid until"), `isFeatured`,
 |---|---|
 | Login / first-run | `POST /auth/login`, `POST /auth/change-password` |
 | Forgot password | `POST /auth/forgot-password` → `POST /auth/reset-password` |
-| Home / dashboard | `GET /me/balance`, `GET /me/requests?status=…` |
+| Home / dashboard | **`GET /me/summary`** — one rollup, no fan-out. ⚠️ Not `/me/balance`: that is a strict subset and omits `creditAvailable`. |
 | Invoices list / detail | `GET /me/invoices`, `GET /me/invoices/{id}` |
 | Invoice PDF / share | `GET /me/invoices/{id}/pdf` |
 | Statement | `GET /me/statement` |
-| Payments | `GET /me/payments`, `GET /me/payments/{id}` |
+| Payments | `GET /me/payments`, `GET /me/payments/{id}`, `GET /{id}/receipt` (PDF) |
 | Maintenance | `GET/POST /me/requests`, `GET /{id}`, `POST /{id}/comments`, `POST /{id}/cancel` |
 | Sales declarations | `GET/POST /me/sales-declarations`, `GET /{id}`, `GET /{id}/attachments/{media}` |
 | Profile / settings | `GET /me`, `PATCH /me`, `GET /me/leases` |
 | App launch (push) | `POST /me/devices`; on logout: `DELETE /me/devices/{id}` |
+| Signed-in devices | `GET /me/devices` → `DELETE /me/devices/{id}` |
+| Any notification tap | follow `link.target` + `link.id` (§4.6) — never infer from `type` |
 | My offers (retailer) | `GET/POST /me/marketing-posts`, `POST /{id}`, `POST /{id}/submit`, `POST /{id}/withdraw` |
 | **Mall news list / detail** | `GET /me/announcements`, `GET /{id}`, `POST /{id}/read` |
 | What's on at my mall | `GET /me/feed` |

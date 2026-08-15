@@ -67,12 +67,7 @@ class ListPublicPostsController extends PublicFeedController
 
             return [
                 'data' => PublicMarketingPostResource::collection($posts)->resolve(),
-                'meta' => [
-                    'current_page' => $posts->currentPage(),
-                    'last_page' => $posts->lastPage(),
-                    'per_page' => $posts->perPage(),
-                    'total' => $posts->total(),
-                ],
+                'meta' => $this->paginationMeta($posts),
             ];
         });
 

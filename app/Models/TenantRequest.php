@@ -35,15 +35,13 @@ class TenantRequest extends Model implements HasMedia
 
     public const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 
-    public const CATEGORIES = [
-        'electrical',
-        'plumbing',
-        'hvac',
-        'structural',
-        'cleaning',
-        'safety',
-        'other',
-    ];
+    // NOTE: there is deliberately no `CATEGORIES` const here. There was one — the seven
+    // MAINTENANCE sub-categories, left over from when maintenance was the only kind of request —
+    // and it had no readers at all by the time it was removed. Its danger was that it looked like
+    // the answer: a sub-category is scoped to its TYPE (`access` has `keys_cards`/`parking`/…,
+    // `document` has `lease_copy`/…, and `inquiry`/`billing` PROHIBIT one), so any single flat list
+    // is wrong for six of the eight types. The one answer is
+    // {@see \App\Enums\TenantRequestType::subcategories()}.
 
     public const OPEN_STATUSES = ['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant'];
 

@@ -34,6 +34,8 @@ return [
     'marketing_post_rejected_body' => 'لم يتم اعتماد «:title». السبب: :reason',
 
     // Devices
+    'payment_receipt_not_available' => 'يصدر سند القبض بعد تحصيل الدفعة. هذه الدفعة لم تُحصَّل بعد.',
+
     'device_registered' => 'تم تسجيل الجهاز لاستقبال الإشعارات.',
     'device_unregistered' => 'تمت إزالة الجهاز.',
 

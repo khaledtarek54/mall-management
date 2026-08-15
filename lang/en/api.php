@@ -33,6 +33,9 @@ return [
     'marketing_post_rejected_title' => 'Your offer needs changes',
     'marketing_post_rejected_body' => '":title" was not approved. Reason: :reason',
 
+    // Payments
+    'payment_receipt_not_available' => 'A receipt is issued once the payment has been received. This one has not cleared yet.',
+
     // Devices
     'device_registered' => 'Device registered for push notifications.',
     'device_unregistered' => 'Device removed.',
