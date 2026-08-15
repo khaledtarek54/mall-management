@@ -197,3 +197,57 @@ it('tells the app when a null decision means "never a question"', function () {
         ->assertJsonPath('data.requiresDecision', false)
         ->assertJsonPath('data.decision', null);
 });
+
+it('freezes the answer once the request is terminal', function () {
+    $request = decidableRequest();
+
+    app(TenantRequestService::class)->transition($request, 'resolved', [
+        'resolution_notes' => 'Approved.',
+        'decision' => 'approved',
+    ]);
+    app(TenantRequestService::class)->transition($request->refresh(), 'closed');
+
+    // The tenant has been told, and may have shown the permit at a gate. Flipping the answer
+    // afterwards is not a correction, it is a rewrite — re-open the request instead.
+    expect(fn () => $request->refresh()->update(['decision' => 'rejected']))
+        ->toThrow(DomainException::class);
+
+    expect($request->refresh()->decision)->toBe('approved');
+});
+
+it('lets a resolved answer be corrected before it closes', function () {
+    // `resolved` is NOT terminal, so an operator who picked the wrong one can re-open and restate
+    // it. The freeze above must not have taken this away.
+    $request = decidableRequest();
+    $service = app(TenantRequestService::class);
+
+    $service->transition($request, 'resolved', [
+        'resolution_notes' => 'Approved in error.',
+        'decision' => 'approved',
+    ]);
+    $service->transition($request->refresh(), 'in_progress');
+    $service->transition($request->refresh(), 'resolved', [
+        'resolution_notes' => 'Corrected.',
+        'decision' => 'rejected',
+        'decision_reason' => 'Blocks a fire exit after all.',
+    ]);
+
+    expect($request->refresh()->decision)->toBe('rejected');
+});
+
+it('attributes the answer only to a staff user, never to a tenant', function () {
+    // `decided_by` is a FK to `users`. `auth()->id()` answers for the DEFAULT guard, which is not
+    // the guard an /api/v1 caller authenticated on — so acting as a Tenant must leave it null
+    // rather than writing their id into a users column.
+    $request = decidableRequest();
+    $tenant = makeTenant();
+
+    auth()->guard('tenant-api')->setUser($tenant);
+
+    app(TenantRequestService::class)->transition($request, 'resolved', [
+        'resolution_notes' => 'x',
+        'decision' => 'approved',
+    ]);
+
+    expect($request->refresh()->decided_by)->toBeNull();
+});

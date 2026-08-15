@@ -200,6 +200,21 @@ class TenantRequestService
         );
     }
 
+    /**
+     * The staff User making this change, or null.
+     *
+     * Deliberately narrower than `auth()->id()`: it checks the resolved user is actually a
+     * {@see User}. A `/portal` or `/api/v1` caller is a TenantUser or a Tenant, and writing either
+     * of their ids into `tenant_requests.decided_by` — a FK to `users` — would attribute the
+     * mall's decision to whoever it happened to number-match.
+     */
+    protected static function actingUserId(): ?int
+    {
+        $user = auth()->user();
+
+        return $user instanceof User ? $user->getKey() : null;
+    }
+
     public function transition(TenantRequest $request, string $next, array $extra = []): TenantRequest
     {
         $current = $request->status;
@@ -271,7 +286,13 @@ class TenantRequestService
             $payload['decision'] = $decision;
             $payload['decision_reason'] = $extra['decision_reason'] ?? null;
             $payload['decided_at'] = now();
-            $payload['decided_by'] = $extra['decided_by'] ?? auth()->id();
+            // **Only a staff User, resolved explicitly.** `decided_by` is a FK to `users`, and
+            // `auth()->id()` answers for the DEFAULT guard — which is not the guard an /api/v1
+            // caller authenticated on. Today no tenant-reachable transition passes a decision (the
+            // API's only hop is `cancelled`, with no extra), so this is hardening rather than a
+            // live fix; but relying on "the default guard happens to be web, so a Tenant resolves
+            // to null" is the kind of implicit thing that stops being true quietly.
+            $payload['decided_by'] = $extra['decided_by'] ?? self::actingUserId();
         }
 
         if (array_key_exists('assigned_to', $extra)) {
