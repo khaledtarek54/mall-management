@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use App\Support\Vat;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -43,6 +46,7 @@ class Charge extends Model
 
     protected $fillable = [
         'lease_id',
+        'unit_ownership_id',
         'name',
         'type',
         'origin',
@@ -65,6 +69,16 @@ class Charge extends Model
         'end_date' => 'date',
     ];
 
+    /**
+     * The unit ownership this assessment belongs to — null for a lease charge.
+     *
+     * @return BelongsTo<UnitOwnership, $this>
+     */
+    public function unitOwnership(): BelongsTo
+    {
+        return $this->belongsTo(UnitOwnership::class);
+    }
+
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);
@@ -85,6 +99,7 @@ class Charge extends Model
         // Only RECURRING rows: several one-offs genuinely share a month (a CAM true-up, a
         // percentage-rent overage and a utility recharge), and they are not a schedule.
         static::saving(function (self $charge): void {
+            $charge->assertBelongsToExactlyOneAgreement();
             $charge->assertTypeIsAKnownChargeCode();
             $charge->assertNoScheduleOverlap();
         });
@@ -105,6 +120,29 @@ class Charge extends Model
      *
      * @throws \DomainException when the type is not a charge code anyone has heard of
      */
+    /**
+     * A charge belongs to exactly one agreement — a lease OR a unit ownership, never both, never
+     * neither.
+     *
+     * Enforced here rather than as a CHECK constraint because SQLite drops CHECKs on any later
+     * `->change()` to the table, so the guard would vanish the next time somebody widened a column
+     * and nothing would say so. Same reasoning as `ValueSets` standing in for the DB enums.
+     *
+     * "Neither" is the one that would be silent: a charge attached to nothing bills nobody, forever,
+     * and reads as a perfectly ordinary row on the schedule screen.
+     *
+     * @throws \DomainException
+     */
+    public function assertBelongsToExactlyOneAgreement(): void
+    {
+        $hasLease = $this->lease_id !== null;
+        $hasOwnership = $this->unit_ownership_id !== null;
+
+        if ($hasLease === $hasOwnership) {
+            throw new \DomainException(__('admin.errors.charge_needs_one_agreement'));
+        }
+    }
+
     public function assertTypeIsAKnownChargeCode(): void
     {
         $type = (string) $this->type;
@@ -128,8 +166,8 @@ class Charge extends Model
             return;
         }
 
-        $start = $this->start_date ? \Carbon\CarbonImmutable::instance($this->start_date) : null;
-        $end = $this->end_date ? \Carbon\CarbonImmutable::instance($this->end_date) : null;
+        $start = $this->start_date ? CarbonImmutable::instance($this->start_date) : null;
+        $end = $this->end_date ? CarbonImmutable::instance($this->end_date) : null;
 
         if ($start && $end && $end->lessThan($start)) {
             throw new \DomainException(__('admin.errors.charge_schedule_inverted', [
@@ -147,8 +185,8 @@ class Charge extends Model
             ->when($this->exists, fn ($q) => $q->whereKeyNot($this->getKey()))
             ->get()
             ->first(function (self $other) use ($start, $end): bool {
-                $otherStart = $other->start_date ? \Carbon\CarbonImmutable::instance($other->start_date) : null;
-                $otherEnd = $other->end_date ? \Carbon\CarbonImmutable::instance($other->end_date) : null;
+                $otherStart = $other->start_date ? CarbonImmutable::instance($other->start_date) : null;
+                $otherEnd = $other->end_date ? CarbonImmutable::instance($other->end_date) : null;
 
                 // Closed ranges: they overlap unless one ends strictly before the other begins.
                 // A null bound is unbounded on that side.
@@ -175,11 +213,11 @@ class Charge extends Model
      * Open-ended on either side counts as covering, which is what makes the pre-schedule rows
      * (`start_date` = commencement, `end_date` = null) behave exactly as they always have.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  Builder  $query
      */
     public function scopeEffectiveOn($query, \DateTimeInterface $date)
     {
-        $d = \Illuminate\Support\Carbon::instance($date)->toDateString();
+        $d = Carbon::instance($date)->toDateString();
 
         return $query
             ->where('is_active', true)

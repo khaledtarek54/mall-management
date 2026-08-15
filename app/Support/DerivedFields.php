@@ -118,6 +118,10 @@ class DerivedFields
      * @var array<class-string|string, array{verdict: string, note: string}>
      */
     public const CANDIDATE_VERDICTS = [
+        'app/Filament/Admin/Resources/UnitOwnerships/Schemas/UnitOwnershipForm.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'started_at + ended_at on a unit ownership. The end of a tenure is a fact recorded when the unit is resold, never a projection from the purchase — a freehold has no term at all, and deriving an end date would invent one. Same verdict, and the same reasoning, as the property-ownership tenure next door.',
+        ],
         'app/Filament/Admin/RelationManagers/AssetOwnersRelationManager.php' => [
             'verdict' => 'INDEPENDENT',
             'note' => 'An ownership tenure starts when it starts and ends when it ends — a sale is not scheduled from the purchase. There is no duration field and there should not be one.',

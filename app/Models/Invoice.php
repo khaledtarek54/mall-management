@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -27,7 +28,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Invoice extends Model
 {
-    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
+    use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
@@ -68,6 +69,7 @@ class Invoice extends Model
         'number',
         'asset_id',
         'lease_id',
+        'unit_ownership_id',
         'tenant_id',
         'status',
         'is_opening_balance',
@@ -112,6 +114,31 @@ class Invoice extends Model
     ];
 
     /**
+     * A lease OR a unit ownership raised this — never both, never neither.
+     *
+     * At the model rather than as a CHECK constraint, because SQLite drops CHECKs on any later
+     * `->change()` to `invoices` and the guard would disappear without a word.
+     *
+     * @throws \DomainException
+     */
+    public function assertBelongsToExactlyOneAgreement(): void
+    {
+        if (($this->lease_id !== null) === ($this->unit_ownership_id !== null)) {
+            throw new \DomainException(__('admin.errors.invoice_needs_one_agreement'));
+        }
+    }
+
+    /**
+     * The unit ownership this assessment was raised against — null for a lease invoice.
+     *
+     * @return BelongsTo<UnitOwnership, $this>
+     */
+    public function unitOwnership(): BelongsTo
+    {
+        return $this->belongsTo(UnitOwnership::class);
+    }
+
+    /**
      * The property whose books this receivable belongs to — denormalized, never inferred.
      *
      * @return BelongsTo<Asset, $this>
@@ -131,7 +158,10 @@ class Invoice extends Model
     protected function deriveAssetId(): ?int
     {
         if ($this->lease_id === null) {
-            return null;
+            // An ownership carries asset_id directly — no chain to walk, which is the whole point.
+            return $this->unit_ownership_id === null
+                ? null
+                : UnitOwnership::withTrashed()->whereKey($this->unit_ownership_id)->value('asset_id');
         }
 
         // Use the loaded relation when there is one, so the billing run does not pay for a query per
@@ -476,6 +506,11 @@ class Invoice extends Model
                 $invoice->asset_id = $invoice->deriveAssetId();
             }
 
+            // Exactly one agreement raised this document — a lease OR a unit ownership. "Neither"
+            // is the silent one: an invoice attached to nothing still ages and still duns, but no
+            // screen that starts from an agreement will ever show it.
+            $invoice->assertBelongsToExactlyOneAgreement();
+
             if ($invoice->asset_id === null) {
                 // Refused rather than defaulted. An invoice with no property is invisible to every
                 // property-scoped screen and posts to the GL with no dimension — it would read as
@@ -536,6 +571,12 @@ class Invoice extends Model
                 throw new \DomainException(__('admin.errors.invoice_without_property'));
             }
 
+            // An edit must not be able to leave the document belonging to both agreements or to
+            // neither — the create-time invariant, applied again to the path that could undo it.
+            if ($invoice->isDirty(['lease_id', 'unit_ownership_id'])) {
+                $invoice->assertBelongsToExactlyOneAgreement();
+            }
+
             // Captured CASH blocks a cancel — on EVERY path, not just VoidInvoiceService, and
             // in `updating` so the write is refused rather than merely reported.
             //
@@ -575,7 +616,7 @@ class Invoice extends Model
             // `asset_id` joins the list: it IS the GL's property dimension now, so moving it on an
             // issued invoice books the revenue into another mall's P&L and another owner's
             // statement — the very thing `lease_id` was refused for before it stopped carrying it.
-            foreach (['issue_date', 'asset_id', 'tenant_id', 'lease_id', 'number'] as $field) {
+            foreach (['issue_date', 'asset_id', 'tenant_id', 'lease_id', 'unit_ownership_id', 'number'] as $field) {
                 if ($invoice->isDirty($field)) {
                     throw new \DomainException("A finalized invoice's {$field} is immutable — void and re-issue instead.");
                 }

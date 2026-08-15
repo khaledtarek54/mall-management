@@ -97,6 +97,13 @@ class OwnerVisibility
      * @var array<string, string>
      */
     public const OPERATOR_INTERNAL = [
+        // ---- The operator's counterparties ----
+        // Deliberately internal FOR NOW, and it is a decision rather than an oversight: the
+        // register names the operator's buyers, their contract numbers and their purchase
+        // prices. It becomes owner-visible when phase 5 makes unit ownership change the owner's
+        // OWN numbers — at that point withholding it would hide the reason his statement moved.
+        'unit_ownerships' => 'Who bought which unit, at what price, on whose contract. Reclassify to VISIBLE with phase 5, when a sold unit starts changing what the property owner is paid.',
+
         // ---- The operator's people and pay ----
         'payrolls' => 'Eltizam\'s salary bill. Assigning a member of staff to Jawad\'s mall does not make their salary Jawad\'s information.',
         'employees' => 'Eltizam\'s staff records — names, contracts, national IDs, salary structures.',

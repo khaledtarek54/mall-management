@@ -116,6 +116,9 @@ final class ConcurrencyPolicy
         'app/Models/Payment.php' => 2,
         'app/Services/ApplyDepositToInvoiceService.php' => 1,
         'app/Services/Banking/MatchBankStatementLineService.php' => 1,
+        // One row lock (the ownership, re-checked inside the txn) plus the per-period cache lock
+        // that stops a manual assessment run racing the scheduled one.
+        'app/Services/BillUnitOwnershipsService.php' => 2,
         'app/Services/CreditNoteService.php' => 11,
         'app/Services/MonthlyBillingService.php' => 2,
         'app/Services/Paymob/PaymobPaymentInitiator.php' => 1,

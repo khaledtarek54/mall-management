@@ -47,6 +47,8 @@ return [
     ],
 
     'errors' => [
+        'charge_needs_one_agreement' => 'A charge must belong to either a lease or a unit ownership — one of the two, not both and not neither.',
+        'invoice_needs_one_agreement' => 'An invoice must be raised against either a lease or a unit ownership — one of the two, not both and not neither.',
         'invoice_without_property' => 'An invoice must belong to a property — it would be invisible on every screen and post to the ledger with no property against it.',
         'unit_ownership_tenure_inverted' => 'The ownership cannot end before it starts — check the start and end dates.',
         'document_prefix_invalid' => 'The prefix :prefix is not usable — use 2 to 6 letters or digits.',

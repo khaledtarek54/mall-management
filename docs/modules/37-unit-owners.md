@@ -3,8 +3,10 @@
 > The buyer who bought a shop instead of renting one. A peer of the lease, not a variant of it —
 > and **not** the mall owner ([module 32](32-owner-statements.md)), who is the opposite money direction.
 >
-> **Status: phase 1 of [plan 08](../plans/08-unit-owners.md) — the register, COMPLETE.** The record,
-> the party type, the registries and the admin screen exist. Billing an owner is phase 2.
+> **Status: phases 1, 2a and 2b SHIPPED (2026-08-15).** The register, the screen, and the monthly
+> صيانة run — an owner with no lease is now billed, ages, and posts to the ledger. Outstanding:
+> CAM participation (3), owner-let leases (4), the agency fee and remittance (5), portal and
+> resale certificate (6).
 
 ## 1. Purpose & business context
 
@@ -119,19 +121,50 @@ before choosing a menu.
   basis reads it (`AssessmentBasis::requiredColumn()`), the fee fields only when the operator manages
   the unit. A basis that needs a number nobody typed is the inert-configuration bug again.
 
-## 7. What phase 1 does NOT do
+## 7. Billing an owner (phase 2)
 
-Stated so nobody looks for it: no assessment billing, no CAM participation, no owner portal, no
-transfer workflow, no GL posting. `invoices.lease_id` is still NOT NULL, so an owner with no lease
-**cannot yet be invoiced** — that is the phase-2 schema change. See
-[plan 08 §7](../plans/08-unit-owners.md).
+`BillUnitOwnershipsService` raises the monthly assessment. `invoices.lease_id` and `charges.lease_id`
+are now nullable, and **exactly one** of `lease_id` / `unit_ownership_id` is set on each — enforced at
+the model, not as a CHECK, because SQLite drops CHECKs on any later `->change()` to the table.
+
+- **Handover is the trigger.** `UnitOwnershipStatus::HandedOver` + a tenure covering the period.
+- **Proration and the invoice header are SHARED, not reimplemented.** The run calls
+  `MonthlyBillingService::monthsCovered()` and `IssueInvoiceService` — the two rules that must never
+  fork. A resale on the 10th bills the seller 10/31 and the buyer 21/31, summing to exactly one
+  month: neither owner subsidises the other and the mall is not short.
+- **A co-owner pays `ownership_share_pct` of the assessment**, not all of it.
+- **VAT comes from the charge code**, resolved for the invoice's date — an assessment is a service
+  supply and taxable in full, with no exempt base rent to net against.
+- **The GL needs no new journalizer.** An assessment is an ordinary `Invoice`, so `InvoiceJournalizer`
+  posts it; the credit account is the charge code's posting role, which is data.
+- **Never a zero invoice** — an empty or fully-abated schedule produces no document rather than a
+  0.00 one that ages and duns.
+
+### Why this is a separate service from the lease run
+
+`MonthlyBillingService` is 760 lines of lease law — fit-out grace, holdover, percentage rent,
+straight-line rent, escalation ladders. An ownership has a tenure and a schedule and none of the rest.
+Generalising it would make every one of those rules answer *not applicable* at runtime, on the one
+path where a wrong answer bills the wrong person.
+
+## 8. Still outstanding
+
+CAM participation for owned units (phase 3), owner-let leases (4), the management fee, cash-basis
+owner statement and remittance (5), the portal surface and the resale/estoppel certificate (6).
+
+**~25 read sites still scope invoices through `lease.unit`** — reports, widgets, statement PDFs. They
+are correct for lease-raised invoices and will MISS owner invoices; migrating them is tracked in
+[plan 08 §5.2b](../plans/08-unit-owners.md).
+
+Also unchanged and still true: [module 32](32-owner-statements.md) apportions the whole property P&L
+to the mall owner, so it over-pays from the day a unit is genuinely sold. Phase 5.
 
 There is also deliberately **no `sold` unit status**. Occupancy and ownership are different axes: a
 sold unit can be occupied, let or empty, and collapsing them into one column would make
 `units.status` answer two questions badly. `Unit::isOwned()` answers the ownership one. (This departs
 from the plan's own phase-1 line, which listed a "sold" state.)
 
-## 8. Tests
+## 9. Tests
 
 `tests/Feature/UnitOwnershipTest.php` — the party decision, the defaults, which layer refuses, the
 handover trigger, resale-as-tenure-end, the reference series, and the audit trail rendered in **both

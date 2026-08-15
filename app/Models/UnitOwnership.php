@@ -12,6 +12,7 @@ use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\DocumentNumbering;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,7 +44,7 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * @see docs/plans/08-unit-owners.md
  */
-class UnitOwnership extends Model
+class UnitOwnership extends Model implements BillableAgreement
 {
     use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
@@ -265,6 +266,106 @@ class UnitOwnership extends Model
 
         $query->where(fn (Builder $q) => $q->whereNull('started_at')->orWhereDate('started_at', '<=', $date))
             ->where(fn (Builder $q) => $q->whereNull('ended_at')->orWhereDate('ended_at', '>=', $date));
+    }
+
+    // ============ BillableAgreement ============
+    //
+    // The moment an ownership becomes billable. Everything downstream — `IssueInvoiceService`, AR
+    // ageing, late fees, credit notes, the GL — already speaks this contract and needs no idea that
+    // owners exist. `Lease` answered the same eight questions from lease law; these answer them from
+    // a sale.
+
+    /** @see BillableAgreement::billingTenantId() */
+    public function billingTenantId(): int
+    {
+        return (int) $this->tenant_id;
+    }
+
+    /**
+     * The property, from this row's own column.
+     *
+     * A `Lease` has to reach through its unit for this. An ownership does not, which is the same
+     * reasoning that put `asset_id` on `invoices` — a financial fact carries its own dimensions.
+     *
+     * @see BillableAgreement::assetId()
+     */
+    public function assetId(): ?int
+    {
+        return $this->asset_id;
+    }
+
+    /** @see BillableAgreement::billingCurrency() */
+    public function billingCurrency(): string
+    {
+        return $this->currency ?? 'EGP';
+    }
+
+    /**
+     * How long the owner has to pay an assessment.
+     *
+     * The column is NOT NULL with a default, so this is simply the column — **no `?? setting`
+     * fallback**, because on a NOT NULL column that branch can never fire and the setting would
+     * silently apply to nothing. `Lease::paymentTermsDays()` documents that exact trap (the same
+     * dead fallback once sat at eight billing call sites); copying its shape reproduced the bug, and
+     * `SettingsReachConformanceTest` caught it.
+     *
+     * The property's convention belongs at ORIGINATION instead — the form pre-fills a new ownership
+     * from it, and from then on the sale carries its own number. That is also the correct semantics:
+     * changing a property's default must not move the due date on assessments already raised.
+     *
+     * @see BillableAgreement::paymentTermsDays()
+     */
+    public function paymentTermsDays(): int
+    {
+        return (int) $this->payment_terms_days;
+    }
+
+    /**
+     * How many months one assessment invoice covers.
+     *
+     * Monthly, always, and deliberately not configurable yet: no operator has asked for quarterly
+     * صيانة, and a `billing_frequency` column nothing reads is the inert-configuration bug. It
+     * becomes a column the day somebody needs it — the contract already has the seam.
+     *
+     * @see BillableAgreement::billingCycleMonths()
+     */
+    public function billingCycleMonths(): int
+    {
+        return 1;
+    }
+
+    /**
+     * Does this ownership bill anything for the period?
+     *
+     * Two conditions, and they are different questions. The STATUS says the keys have changed hands
+     * — the operator carries the unit's cost until handover, not until contract signature. The
+     * TENURE says the owner still held it during the period: a resale mid-month bills the seller for
+     * the part he owned and the buyer for the rest, because each ownership's own window says so.
+     *
+     * Measured against the period's LAST day rather than its first, so a handover on the 20th still
+     * bills that month (prorated by the run) instead of silently starting the month after.
+     *
+     * @see BillableAgreement::isBillableForPeriod()
+     */
+    public function isBillableForPeriod(CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
+    {
+        if ($this->status?->isBillable() !== true) {
+            return false;
+        }
+
+        // Any overlap at all between the tenure and the period — a tenure that ends mid-period still
+        // owes for the days it covered.
+        if ($this->started_at !== null && $this->started_at->startOfDay()->gt($periodEnd)) {
+            return false;
+        }
+
+        return ! ($this->ended_at !== null && $this->ended_at->startOfDay()->lt($periodStart));
+    }
+
+    /** @see BillableAgreement::invoiceLinkAttributes() */
+    public function invoiceLinkAttributes(): array
+    {
+        return ['unit_ownership_id' => $this->id, 'lease_id' => null];
     }
 
     /**

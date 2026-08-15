@@ -104,6 +104,7 @@ class ChangeImpact
                 'issue_date' => 'it IS the entry date, so it decides which period recognises the revenue',
                 'tenant_id' => 'the AR dimension — re-pointing an issued invoice books the receivable against someone else',
                 'asset_id' => 'THE property dimension of the GL entry (denormalized 2026-08-15). Re-pointing an issued invoice books its revenue into another mall\'s P&L and another owner\'s statement',
+                'unit_ownership_id' => 'the other half of the AR document\'s identity — the unit sale that raised it. Re-pointing an issued assessment moves a live receivable to a different owner',
                 'lease_id' => 'the AR document\'s identity — which agreement raised it. It no longer carries the property (see asset_id above), but re-pointing an issued invoice still re-parents a live receivable',
             ],
             self::DERIVED => [

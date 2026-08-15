@@ -1,6 +1,6 @@
 # 08 · Unit Owners (ملّاك الوحدات) — design & phased plan
 
-> **Status:** phase 0 CLOSED, phase 1 SHIPPED (2026-08-15). Phases 2-6 outstanding.
+> **Status:** phase 0 CLOSED; phases 1, 2a and 2b SHIPPED (2026-08-15). Phases 3-6 outstanding.
 > **Standard followed:** Yardi (house rule — [feedback: Yardi is the default standard]).
 > **Written:** 2026-08-15.
 
@@ -455,7 +455,7 @@ touches; any `Tenant` → `Party` rename.
 |---|---|---|
 | **1 · Ownership record** — ✅ **SHIPPED 2026-08-15** | `tenants.party_type`; `unit_ownerships` + model; six config enums; the admin resource with property scoping + `unit_ownerships.*` RBAC; bilingual screen guide, labels, hints and activity vocabulary; search indexing; every registry + gate; [modules/37](../modules/37-unit-owners.md). *No unit "sold" state — occupancy and ownership are different axes; see modules/37 §7* | An operator can record who bought which unit, at what share, with the contract on file — and a resale is a tenure end, not a delete |
 | **2a · Give an invoice its own property** *(added 2026-08-15 — see §5.2b)* | `invoices.asset_id` denormalized + backfilled; `Invoice` moves from the `'lease.unit'` isolation chain to a direct column; the journalizer, number prefix and levy hook read the row instead of inferring through the lease | Every existing invoice answers "which property" from its own row, GL tie-out unchanged — **prerequisite for anything below** |
-| **2b · Assessments** | Charges & invoices agreement-bound; `UnitOwnership implements BillableAgreement`; the ownership billing run; sinking-fund charge code + liability role; VAT | A vacant owned unit and an owner-occupier are both invoiced صيانة monthly, age, attract late fees, and post to the GL correctly |
+| **2b · Assessments** — ✅ **SHIPPED 2026-08-15** | Charges & invoices agreement-bound; `UnitOwnership implements BillableAgreement`; the ownership billing run; sinking-fund charge code + liability role; VAT | A vacant owned unit and an owner-occupier are both invoiced صيانة monthly, age, attract late fees, and post to the GL correctly |
 | **3 · CAM participation** | Owned units in the pool; `participation_pct` basis | Pool tie-out holds with a mixed owned/leased building; every existing basis answers identically |
 | **4 · Owner-let leases** | `leases.unit_ownership_id` + `revenue_mode` | A self-let unit's tenant is fully governed (violations, SLA, fit-out) while raising no rent invoice |
 | **5 · Agency** | Management fee, cash-basis unit-owner statement, remittance, one new GL source; **module 32's apportionment corrected for sold units** | The operator can collect rent for an owner, keep its fee, and pay the net with an audit trail |

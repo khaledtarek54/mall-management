@@ -219,13 +219,13 @@
         "model": "Invoice",
         "label": "Invoice",
         "classification": "owned",
-        "note": "lease.unit"
+        "note": null
     },
     {
         "model": "InvoiceItem",
         "label": "Invoice Item",
         "classification": "owned",
-        "note": "invoice.lease.unit"
+        "note": "invoice"
     },
     {
         "model": "InvoiceWriteOff",
@@ -375,7 +375,7 @@
         "model": "Payment",
         "label": "Payment",
         "classification": "owned",
-        "note": "invoices.lease.unit"
+        "note": "invoices"
     },
     {
         "model": "Payroll",
