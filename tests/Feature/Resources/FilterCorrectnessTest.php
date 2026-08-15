@@ -72,6 +72,34 @@ function fcTotal($records): int
  * the selected value no longer implies "column == value", so the soundness
  * check below must not be applied to it.
  */
+/**
+ * A model attribute as a comparable scalar.
+ *
+ * A filterable column is NOT always a string once it leaves the database. A model may cast it, and
+ * `(string) $value` is a fatal rather than a fallback for the two casts that matter here: a PHP
+ * backed enum is not Stringable, and neither is an array cast. That is exactly what happened when
+ * module 37 shipped `UnitOwnership::$management_mode` — cast to `UnitManagementMode` — behind an
+ * ordinary SelectFilter: this whole sweep died with "Object of class App\Enums\UnitManagementMode
+ * could not be converted to string", so every filter in the app stopped being checked because ONE
+ * model added a cast.
+ *
+ * The point of this file is to need no per-column maintenance, so it normalises structurally rather
+ * than naming the types that broke it. `json_encode` is the last resort precisely because it cannot
+ * fatal — a comparison that is merely WRONG shows up as a reported violation, which is visible; a
+ * comparison that throws takes the entire sweep down silently, which is not.
+ */
+function fcScalar(mixed $value): string
+{
+    return match (true) {
+        $value === null => '',
+        $value instanceof BackedEnum => (string) $value->value,
+        $value instanceof UnitEnum => $value->name,
+        is_scalar($value) => (string) $value,
+        $value instanceof Stringable, is_object($value) && method_exists($value, '__toString') => (string) $value,
+        default => json_encode($value) ?: '',
+    };
+}
+
 function fcHasCustomQuery($filter): bool
 {
     $ref = new ReflectionMethod($filter, 'hasQueryModificationCallback');
@@ -139,13 +167,13 @@ it('returns only matching rows for every column-backed filter', function () {
 
                     $checked++;
 
-                    $wrong = $rows->filter(fn ($r) => (string) ($r->{$column} ?? '') !== (string) $value);
+                    $wrong = $rows->filter(fn ($r) => fcScalar($r->{$column}) !== fcScalar($value));
 
                     if ($wrong->isNotEmpty()) {
                         $violations[] = sprintf(
                             '%s::%s = %s returned %d row(s) whose %s is not %s (e.g. %s)',
-                            class_basename($page), $name, $value, $wrong->count(), $column, $value,
-                            (string) ($wrong->first()->{$column} ?? 'null'),
+                            class_basename($page), $name, fcScalar($value), $wrong->count(), $column, fcScalar($value),
+                            fcScalar($wrong->first()->{$column}) ?: 'null',
                         );
                     }
                 }
@@ -231,7 +259,7 @@ it('returns only rows inside the window for every date-range filter', function (
                     $violations[] = sprintf(
                         '%s::%s from %s returned %d row(s) dated earlier (e.g. %s)',
                         class_basename($page), $name, $cutoff->toDateString(), $tooEarly->count(),
-                        (string) $tooEarly->first()->{$column},
+                        fcScalar($tooEarly->first()->{$column}),
                     );
                 }
             }

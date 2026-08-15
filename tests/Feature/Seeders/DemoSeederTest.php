@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PartyType;
 use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
@@ -23,7 +24,16 @@ it('seeds a complete, correctly-branded demo dataset', function () {
     $this->seed(DatabaseSeeder::class);
 
     // --- runs end to end and produces the expected shape -------------------------
-    expect(Tenant::count())->toBe(33);
+    // Counted BY PARTY TYPE, not as one literal — for exactly the reason stated three assertions
+    // down about the unit count. `toBe(33)` broke the moment module 37 seeded sold units, because a
+    // unit OWNER is a `tenants` row distinguished by `party_type`: the total went 33 -> 39 with
+    // nothing wrong. Bumping the literal would only defer the same breakage to the next expansion.
+    //
+    // This is also STRICTER than the total it replaces. A single count of 39 is satisfied by 39
+    // retailers and zero owners — it could not notice the owner demo data disappearing, which is
+    // the half most likely to regress because it is the newest.
+    expect(Tenant::where('party_type', PartyType::Retailer->value)->count())->toBeGreaterThan(20);
+    expect(Tenant::where('party_type', PartyType::UnitOwner->value)->count())->toBeGreaterThan(0);
     expect(Invoice::count())->toBeGreaterThan(0);
     expect(Asset::where('code', 'AW')->exists())->toBeTrue();
     // Every unit held by a live lease is occupied, and nothing else is. Asserted as the INVARIANT
