@@ -216,6 +216,34 @@ with their posting roles — which is the whole GL story, see §5.4.
 
 `ChargeScheduleService` gets the same `Lease` → `BillableAgreement` retype as the billing engine.
 
+### 5.2b ⚠️ Phase 2 blocker found 2026-08-15: an invoice finds its property THROUGH the lease
+
+Auditing the nullable-`lease_id` change turned up something the plan had not costed. **Four separate
+places derive an invoice's property by walking `lease → unit → asset`**, and every one of them
+returns null for an owner invoice that has no lease:
+
+| Site | What breaks when `lease_id` is null |
+|---|---|
+| `PropertyIsolation::OWNED[Invoice] = 'lease.unit'` | The invoice falls out of **every property-scoped query** — an receivable that exists but nobody can see. An isolation hole, not a cosmetic gap |
+| `InvoiceJournalizer:100` — `$invoice->lease?->unit?->asset_id` | The journal entry posts with **no property dimension**, so per-property P&L and the owner statement silently stop seeing that revenue |
+| `Invoice::creating:434` — number prefix | The assessment is numbered `INV-AW-…` regardless of which mall it belongs to |
+| `InvoiceItem:100` — marketing-levy accrual | The levy stops finding its budget |
+
+**Recommended fix: denormalize `invoices.asset_id`**, backfilled from `lease.unit.asset_id`, and move
+`Invoice` from the `'lease.unit'` chain to `null` (direct column) in the isolation registry. This is
+**already the house pattern for exactly this reason** — `Disbursement` and `OwnerStatement` both carry
+a denormalized `asset_id` with the note *"journalizer reads own row"*. It is also what Yardi does: AR
+belongs to a property by construction rather than by inference through whatever document raised it.
+
+**Why this is not a small change.** It alters how *every* invoice in the system finds its property —
+the isolation registry, the GL dimension, document numbering and the levy hook — plus a backfill over
+every existing row. It wants its own focused pass with the GL tie-out re-run, not a corner of the
+assessment work. Sequenced as **Phase 2a**, before anything writes `unit_ownership_id`.
+
+*The lesson worth keeping: `lease_id` was NOT NULL, so four different pieces of code were entitled to
+treat the lease as the route to the property. Relaxing a NOT NULL is never only a schema change — it
+is a change to every inference that column licensed.*
+
 ### 5.3 Invoicing an owner
 
 `invoices.lease_id` becomes nullable; a nullable `unit_ownership_id` is added; exactly one is set.
@@ -398,7 +426,8 @@ touches; any `Tenant` → `Party` rename.
 | Phase | Deliverable | Ends when |
 |---|---|---|
 | **1 · Ownership record** — ✅ **SHIPPED 2026-08-15** | `tenants.party_type`; `unit_ownerships` + model; six config enums; the admin resource with property scoping + `unit_ownerships.*` RBAC; bilingual screen guide, labels, hints and activity vocabulary; search indexing; every registry + gate; [modules/37](../modules/37-unit-owners.md). *No unit "sold" state — occupancy and ownership are different axes; see modules/37 §7* | An operator can record who bought which unit, at what share, with the contract on file — and a resale is a tenure end, not a delete |
-| **2 · Assessments** | Charges & invoices agreement-bound; `UnitOwnership implements BillableAgreement`; monthly run bills ownerships; sinking-fund charge code + liability role; VAT | A vacant owned unit and an owner-occupier are both invoiced صيانة monthly, age, attract late fees, and post to the GL correctly |
+| **2a · Give an invoice its own property** *(added 2026-08-15 — see §5.2b)* | `invoices.asset_id` denormalized + backfilled; `Invoice` moves from the `'lease.unit'` isolation chain to a direct column; the journalizer, number prefix and levy hook read the row instead of inferring through the lease | Every existing invoice answers "which property" from its own row, GL tie-out unchanged — **prerequisite for anything below** |
+| **2b · Assessments** | Charges & invoices agreement-bound; `UnitOwnership implements BillableAgreement`; the ownership billing run; sinking-fund charge code + liability role; VAT | A vacant owned unit and an owner-occupier are both invoiced صيانة monthly, age, attract late fees, and post to the GL correctly |
 | **3 · CAM participation** | Owned units in the pool; `participation_pct` basis | Pool tie-out holds with a mixed owned/leased building; every existing basis answers identically |
 | **4 · Owner-let leases** | `leases.unit_ownership_id` + `revenue_mode` | A self-let unit's tenant is fully governed (violations, SLA, fit-out) while raising no rent invoice |
 | **5 · Agency** | Management fee, cash-basis unit-owner statement, remittance, one new GL source; **module 32's apportionment corrected for sold units** | The operator can collect rent for an owner, keep its fee, and pay the net with an audit trail |
