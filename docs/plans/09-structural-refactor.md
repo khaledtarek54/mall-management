@@ -231,7 +231,33 @@ keep producing byte-identical output — `GeneratedDocsConformanceTest` and
 
 ---
 
-## Phase 3 — Base Filament resource
+## Phase 3 — Base Filament resource — **DONE**
+
+**Outcome: every remaining `getEloquentQuery()` in the admin panel is a singleton shape.** It began
+with 18 resources sharing one copy-pasted query and 5 sharing another; there is no duplicated
+scoping logic left, and **29 resources share one path** via `ScopesToProperty`, which reads the rule
+off the model's `#[PropertyOwned]`.
+
+| Step | What |
+|---|---|
+| 3a | 18 strict resources → the trait (−354 lines) |
+| 3b | 5 hybrid money resources; `portfolioRowsWhenNull` declared on the model |
+| 3c | 6 resources with an aggregate reuse `scopeToProperty()` rather than restating it |
+
+**Five resources deliberately keep bespoke queries**, each checked rather than forced: `Asset` (the
+property itself — a different axis), `CreditNote` (ORs two chains), `Department` (deliberately does
+not narrow to the *selected* property), `InventoryItem` (shared catalogue, stock scoped by warehouse
+subquery), `OwnerRequest` (branches on role, filters on `recipient`).
+
+**The rollout lesson, worth more than the diff.** The first script stripped each method with a
+multiline regex that also swallowed any docblock above it; under `/s` the `.*?` matched *across*
+earlier methods and deleted two of them. The isolation suite caught it. Rewritten line-based — walk
+from the signature to the closing brace, take only comment lines directly above, never past a blank
+line or another member. **A regex spanning arbitrary lines has no business editing PHP.**
+
+---
+
+## Phase 3 — original design notes
 
 **Depends on Phase 2, deliberately.** Once `PropertyIsolation` can answer each model's scoping mode
 from an attribute, the base resource implements `getEloquentQuery()` **once** for all 50 resources —
