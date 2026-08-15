@@ -170,7 +170,7 @@ it('the coordinator role oversees the whole board and may assign', function () {
     // AND `requests.assign` — the authority the technician deliberately lacks.
     $coordinator = makeUser('coordinator', [$this->asset->id]);
 
-    expect(AssignmentScope::isRestricted($coordinator, 'maintenance'))->toBeFalse()
+    expect(AssignmentScope::isRestricted($coordinator, 'requests'))->toBeFalse()
         ->and(AssignmentScope::isRestricted($coordinator, 'facility'))->toBeFalse()
         ->and($coordinator->can('requests.assign'))->toBeTrue()
         ->and($coordinator->can('requests.change_status'))->toBeTrue();
@@ -187,7 +187,7 @@ it('customer service fields any call but has no work authority', function () {
     // but may only LOG one — no assign, no status moves, no completing a work order.
     $cs = makeUser('customer_service', [$this->asset->id]);
 
-    expect(AssignmentScope::isRestricted($cs, 'maintenance'))->toBeFalse()
+    expect(AssignmentScope::isRestricted($cs, 'requests'))->toBeFalse()
         ->and($cs->can('requests.create'))->toBeTrue()
         ->and($cs->can('requests.assign'))->toBeFalse()
         ->and($cs->can('requests.change_status'))->toBeFalse()

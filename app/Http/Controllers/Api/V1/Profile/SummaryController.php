@@ -41,8 +41,15 @@ class SummaryController extends ApiController
                 ->where('status', 'issued')->sum('balance'), 2),
             'is_delinquent' => (bool) $tenant->isDelinquent(),
 
-            // Open work
-            'open_requests' => (int) $tenant->tenantRequests()
+            // Open work.
+            //
+            // ⚠️ `open_maintenance` is a WIRE CONTRACT, not an identifier — the camelCase middleware
+            // ships it as `openMaintenance`, and a released mobile client reads that key. It keeps
+            // the old word deliberately: renaming it is a breaking API change that needs a version
+            // bump and a client release, not a ride-along on an internal rename. The 2026-08-15
+            // sweep renamed it and the contract test caught it. Everything BEHIND the key moved
+            // (`tenantRequests()`, `TenantRequest`); only the key the app parses is frozen.
+            'open_maintenance' => (int) $tenant->tenantRequests()
                 ->whereIn('status', TenantRequest::OPEN_STATUSES)->count(),
 
             // Needs the tenant's attention
