@@ -9,7 +9,9 @@ use App\Models\Lease;
 use App\Models\LeasePercentageRentTier;
 use App\Models\TenantSalesDeclaration;
 use App\Models\User;
+use App\Notifications\SalesDeclarationLockedNotification;
 use App\Support\Vat;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -179,7 +181,7 @@ class PercentageRentCalculationService
         return [
             'year' => $year,
             'months' => $months->map(fn ($d) => [
-                'period' => \Illuminate\Support\Carbon::parse($d->period_start)->isoFormat('MMM YYYY'),
+                'period' => Carbon::parse($d->period_start)->isoFormat('MMM YYYY'),
                 'share' => (float) $d->calculated_percentage_rent,
             ])->all(),
             'total' => (float) $months->sum('calculated_percentage_rent'),
@@ -227,7 +229,7 @@ class PercentageRentCalculationService
             ->where('lease_id', $declaration->lease_id)
             ->where('status', 'locked')
             ->where('id', '!=', $declaration->id)
-            ->whereYear('period_start', \Illuminate\Support\Carbon::parse($declaration->period_start)->year)
+            ->whereYear('period_start', Carbon::parse($declaration->period_start)->year)
             ->whereDate('period_start', '<', $declaration->period_start)
             ->sum('declared_sales');
     }
@@ -361,7 +363,7 @@ class PercentageRentCalculationService
                     // Re-true the WHOLE calendar year (this newly-locked month + every other locked
                     // month) so the live overage invoices always sum to overage(cumulative year sales),
                     // whatever order months were locked in.
-                    $this->retrueAnnualYear($fresh->lease_id, \Illuminate\Support\Carbon::parse($fresh->period_start)->year);
+                    $this->retrueAnnualYear($fresh->lease_id, Carbon::parse($fresh->period_start)->year);
                 } else {
                     // Re-lock safety: reverse any prior overage for this lease+period before billing the
                     // fresh one, so a re-lock can never double-bill.
@@ -399,7 +401,7 @@ class PercentageRentCalculationService
         }
 
         try {
-            $tenant->notifyPortal(new \App\Notifications\SalesDeclarationLockedNotification($declaration->refresh()));
+            $tenant->notifyPortal(new SalesDeclarationLockedNotification($declaration->refresh()));
         } catch (\Throwable $e) {
             \Log::warning('Sales declaration locked notification failed', [
                 'declaration_id' => $declaration->id,
@@ -437,13 +439,13 @@ class PercentageRentCalculationService
             // been PAID, VoidInvoiceService throws — the void is refused until it's refunded.
             $this->reverseOverage($declaration);
 
-            $existing = $declaration->audit_notes ? rtrim($declaration->audit_notes) . "\n\n" : '';
+            $existing = $declaration->audit_notes ? rtrim($declaration->audit_notes)."\n\n" : '';
             $stamp = now()->format('Y-m-d');
             $note = "Voided on {$stamp} by {$voidedBy->name}: {$reason}";
 
             $declaration->update([
                 'status' => 'disputed',
-                'audit_notes' => $existing . $note,
+                'audit_notes' => $existing.$note,
             ]);
 
             // Annual: this month's sales just left the cumulative, so the OTHER locked months — sized
@@ -454,7 +456,7 @@ class PercentageRentCalculationService
             if ($lease instanceof Lease && $lease->percentage_rent_frequency === 'annual') {
                 $this->retrueAnnualYear(
                     $declaration->lease_id,
-                    \Illuminate\Support\Carbon::parse($declaration->period_start)->year
+                    Carbon::parse($declaration->period_start)->year
                 );
             }
 
@@ -527,32 +529,21 @@ class PercentageRentCalculationService
         // billed" window, so both of its idempotency probes explicitly exclude pure
         // percentage-rent overage invoices (whereDoesntHave items type=percentage_rent) —
         // otherwise a back-filled monthly run for this month would skip the base rent.
-        $invoice = Invoice::create([
-            'lease_id' => $lease->id,
-            'tenant_id' => $lease->tenant_id,
-            'status' => 'issued',
-            'issue_date' => $now,
-            'due_date' => $now->copy()->addDays($lease->paymentTermsDays()),
-            'period_start' => $declaration->period_start,
-            'period_end' => $declaration->period_end,
-            'subtotal' => $amount,
-            'vat_amount' => $vat,
-            'total' => $total,
-            'paid_amount' => 0,
-            'balance' => $total,
-            'currency' => $lease->currency ?? 'EGP',
-        ]);
-
-        InvoiceItem::create([
-            'invoice_id' => $invoice->id,
-            'charge_id' => $charge->id,
-            'description' => $label,
-            'type' => 'percentage_rent', // → percentage_rent_revenue in the GL journalizer
-            'amount' => $amount,
-            'vat_rate' => $vatRate,
-            'vat_amount' => $vat,
-            'total' => $total,
-        ]);
+        $invoice = app(IssueInvoiceService::class)->issue(
+            lease: $lease,
+            items: [[
+                'charge_id' => $charge->id,
+                'description' => $label,
+                'type' => 'percentage_rent', // → percentage_rent_revenue in the GL journalizer
+                'amount' => $amount,
+                'vat_rate' => $vatRate,
+                'vat_amount' => $vat,
+                'total' => $total,
+            ]],
+            issueDate: $now,
+            periodStart: $declaration->period_start,
+            periodEnd: $declaration->period_end,
+        );
 
         return $charge;
     }

@@ -428,6 +428,39 @@ in module 25. Tests: `DepositReceiptFrozenOnceUsedTest`.
 
 ## 5. Services, jobs & scheduled commands
 
+### IssueInvoiceService — the one seam an AR document is born through
+
+**File:** `/app/Services/IssueInvoiceService.php`
+
+Every service that raises an invoice goes through `issue()`. It derives `subtotal` / `vat_amount` /
+`total` from the lines it is given and seeds `paid_amount = 0`, `balance = total`.
+
+**Why it exists.** Eight services hand-built the identical header — `MonthlyBilling`,
+`BillMeterReading`, `BillViolationFine`, `LateFee`, `PercentageRentCalculation`,
+`CamReconciliation` (×2) and `BillBouncedChequeFee`. Each re-derived the totals from lines it was
+about to write anyway, and each hand-seeded the two fields `Invoice::recomputeTotals()` owns. That
+is eight chances to seed the AR invariant wrong and eight edits whenever the header changes.
+
+**What it deliberately does not do.** It does not re-implement the header-follows-items rule:
+`InvoiceItem::saved` already calls `Invoice::syncTotalsFromItems()`, so the header is re-derived the
+moment the lines land. The totals are still computed on the CREATE rather than left to that hook,
+because `LedgerRealtimeSync` dispatches on `saved` and an invoice born at zero is one that was
+momentarily wrong on the books.
+
+**Three callers pass an override rather than taking the lease's value**, and each has a reason:
+
+| Override | Who | Why |
+|---|---|---|
+| `tenantId` | violation fine · bounced cheque · late fee | The debtor is stated on the source document, not inferred from the lease it was matched to |
+| `currency` | late fee | A penalty is denominated in the currency of the debt it penalises |
+| `dueDate` | monthly run | It anchors the due date to the later of the issue date and today, so a back-filled run is not born overdue |
+
+`IssueInvoiceServiceTest` pins the contract **and** sweeps `app/` to prove nothing else hand-builds
+an invoice — extracting the seam is worth little if the ninth caller writes its own
+`Invoice::create([...])`, which is exactly how the eight accumulated. Filament's create page is not
+a hand-built header (form + relationship repeater, corrected by the item hook) and is out of that
+sweep by construction.
+
 ### MonthlyBillingService
 
 **File:** `/app/Services/MonthlyBillingService.php`

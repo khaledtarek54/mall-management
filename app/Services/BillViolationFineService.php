@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\InvoiceItemType;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\Violation;
 use App\Support\Vat;
@@ -76,36 +75,27 @@ class BillViolationFineService
             $vat = Vat::atRate($fine, $vatRate);
             $total = round($fine + $vat, 2);
 
-            $invoice = Invoice::create([
-                'lease_id' => $lease->id,
-                'tenant_id' => $locked->tenant_id,
-                'status' => 'issued',
-                'issue_date' => $now,
-                'due_date' => $now->copy()->addDays($lease->paymentTermsDays()),
+            $invoice = app(IssueInvoiceService::class)->issue(
+                lease: $lease,
+                items: [[
+                    'description' => __('admin.violations.fine_line', [
+                        'reference' => $locked->reference,
+                        'category' => __("admin.violations.categories.{$locked->category}"),
+                        'date' => $locked->violation_date->isoFormat('D MMM YYYY'),
+                    ]),
+                    'type' => InvoiceItemType::ViolationFine->value, // → misc_income in the GL journalizer
+                    'amount' => $fine,
+                    'vat_rate' => $vatRate,
+                    'vat_amount' => $vat,
+                    'total' => $total,
+                ]],
+                issueDate: $now,
                 // The violation's month (truthful), not now() — see the probe-exclusion note above.
-                'period_start' => $periodStart,
-                'period_end' => $periodEnd,
-                'subtotal' => $fine,
-                'vat_amount' => $vat,
-                'total' => $total,
-                'paid_amount' => 0,
-                'balance' => $total,
-                'currency' => $lease->currency ?? 'EGP',
-            ]);
-
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => __('admin.violations.fine_line', [
-                    'reference' => $locked->reference,
-                    'category' => __("admin.violations.categories.{$locked->category}"),
-                    'date' => $locked->violation_date->isoFormat('D MMM YYYY'),
-                ]),
-                'type' => InvoiceItemType::ViolationFine->value, // → misc_income in the GL journalizer
-                'amount' => $fine,
-                'vat_rate' => $vatRate,
-                'vat_amount' => $vat,
-                'total' => $total,
-            ]);
+                periodStart: $periodStart,
+                periodEnd: $periodEnd,
+                // The debtor is stated on the violation, not inferred from the lease it was matched to.
+                tenantId: $locked->tenant_id,
+            );
 
             $locked->update(['billed_invoice_id' => $invoice->id, 'billed_at' => $now]);
 

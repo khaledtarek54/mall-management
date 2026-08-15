@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
-use App\Mail\InvoiceIssued;
 use App\Models\Charge;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Notifications\InvoiceIssuedNotification;
+use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use App\Support\OpsLog;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -34,7 +34,7 @@ class MonthlyBillingService
         //
         // The lock key is deliberately NOT scoped by asset: a property-scoped run must still
         // serialise against the portfolio-wide scheduled job, whose lease set contains its own.
-        $result = Cache::lock('billing:run:' . $period->format('Y-m'), 900)
+        $result = Cache::lock('billing:run:'.$period->format('Y-m'), 900)
             ->get(fn () => $this->billForPeriod($period, $assetId));
 
         if ($result === false) {
@@ -75,6 +75,7 @@ class MonthlyBillingService
 
                     if ($this->alreadyBilledForMonth($lease, $periodStart, $periodEnd)) {
                         $stats['skipped']++;
+
                         continue;
                     }
 
@@ -145,7 +146,7 @@ class MonthlyBillingService
         // check-then-create with no DB unique key — so a double-click, a second admin, or a
         // manual generate racing the scheduled run could each pass the alreadyBilled probe
         // and mint a duplicate invoice for the same lease-month. The lock is the real guard.
-        $result = Cache::lock('billing:run:' . $period->format('Y-m'), 900)
+        $result = Cache::lock('billing:run:'.$period->format('Y-m'), 900)
             ->get(fn () => $this->generateForLeaseUnderLock($lease, $period, $prorate));
 
         if ($result === false) {
@@ -234,7 +235,7 @@ class MonthlyBillingService
         try {
             // Notification ships via 'mail' + 'database' so the tenant gets
             // both an email with PDF attachment and a portal bell entry.
-            $tenant->notifyPortal(new \App\Notifications\InvoiceIssuedNotification($invoice));
+            $tenant->notifyPortal(new InvoiceIssuedNotification($invoice));
         } catch (Throwable $e) {
             OpsLog::warning('Invoice issued notification failed to queue', [
                 'invoice_id' => $invoice->id,
@@ -251,25 +252,19 @@ class MonthlyBillingService
             return null;
         }
 
-        $invoice = Invoice::create([
-            'lease_id' => $lease->id,
-            'tenant_id' => $lease->tenant_id,
-            'status' => 'issued',
-            'issue_date' => $plan['issue_date'],
-            'due_date' => $plan['due_date'],
-            'period_start' => $plan['period_start'],
-            'period_end' => $plan['period_end'],
-            'subtotal' => $plan['subtotal'],
-            'vat_amount' => $plan['vat_amount'],
-            'total' => $plan['total'],
-            'paid_amount' => 0,
-            'balance' => $plan['total'],
-            'currency' => $lease->currency ?? 'EGP',
-        ]);
-
-        foreach ($plan['items'] as $item) {
-            InvoiceItem::create($item + ['invoice_id' => $invoice->id]);
-        }
+        // The plan's own subtotal/vat_amount/total are not passed: `IssueInvoiceService` derives
+        // them from the same lines by the same rule, so passing them would be two statements of one
+        // number. The preview still reads them off the plan — it renders without writing anything.
+        $invoice = app(IssueInvoiceService::class)->issue(
+            lease: $lease,
+            items: $plan['items'],
+            issueDate: $plan['issue_date'],
+            periodStart: $plan['period_start'],
+            periodEnd: $plan['period_end'],
+            // Passed rather than defaulted: the monthly run anchors the due date to the later of
+            // the issue date and today, so a back-filled or off-the-1st run is not born overdue.
+            dueDate: $plan['due_date'],
+        );
 
         // The marketing levy is now a real line item (charged to the tenant) and
         // funds the property's marketing budget via InvoiceItem's saved hook
@@ -307,10 +302,10 @@ class MonthlyBillingService
      * does not reach contributes 0. Day-share per MONTH rather than across the whole window,
      * because a quarter's months are 30, 31 and 31 days and rent is a monthly amount.
      *
-     * @param  CarbonImmutable  $cycleStart   first month of the cycle
-     * @param  int  $cycleMonths              how many months the cycle spans
+     * @param  CarbonImmutable  $cycleStart  first month of the cycle
+     * @param  int  $cycleMonths  how many months the cycle spans
      * @param  CarbonImmutable  $windowStart  first day the lease runs inside it
-     * @param  CarbonImmutable  $windowEnd    last day the lease runs inside it
+     * @param  CarbonImmutable  $windowEnd  last day the lease runs inside it
      */
     public static function monthsCovered(
         CarbonImmutable $cycleStart,
@@ -480,11 +475,11 @@ class MonthlyBillingService
             $amount = round((float) $charge->amount * $multiplier, 2);
             $vatRate = $charge->resolvedVatRate($effectivePeriodStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
-            $label = $charge->name . ' - ' . ($cycleMonths > 1
+            $label = $charge->name.' - '.($cycleMonths > 1
                 ? $this->cycleLabel($periodStart, $periodEnd)
                 : $periodStart->format('F Y'));
             if ($factor < 1) {
-                $label .= ' (' . round($factor * 100) . '% pro-rated)';
+                $label .= ' ('.round($factor * 100).'% pro-rated)';
             }
 
             return [
@@ -654,7 +649,7 @@ class MonthlyBillingService
      * One-off charges are exempt: several genuinely can land in one month (a CAM true-up, a
      * percentage-rent overage, a utility recharge), and they are not a schedule.
      *
-     * @param  \Illuminate\Support\Collection<int, Charge>  $applicable
+     * @param  Collection<int, Charge>  $applicable
      */
     private function assertScheduleUnambiguous(Lease $lease, $applicable, CarbonImmutable $periodStart): void
     {
@@ -727,8 +722,8 @@ class MonthlyBillingService
     private function cycleLabel(CarbonImmutable $periodStart, CarbonImmutable $periodEnd): string
     {
         return $periodStart->year === $periodEnd->year
-            ? $periodStart->format('M') . '–' . $periodEnd->format('M Y')
-            : $periodStart->format('M Y') . ' – ' . $periodEnd->format('M Y');
+            ? $periodStart->format('M').'–'.$periodEnd->format('M Y')
+            : $periodStart->format('M Y').' – '.$periodEnd->format('M Y');
     }
 
     private function chargeAppliesToPeriod(Charge $charge, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool

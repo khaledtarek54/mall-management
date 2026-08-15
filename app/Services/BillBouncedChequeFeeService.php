@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Enums\InvoiceItemType;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
+use App\Models\Lease;
 use App\Models\PostDatedCheque;
 use App\Support\PropertySettings;
 use App\Support\Vat;
@@ -66,7 +66,7 @@ class BillBouncedChequeFeeService
             // AR hangs off a lease: the invoice's property derives from lease.unit.asset_id, which
             // is what keeps the charge in the mall the cheque was taken in. A cheque carries its own
             // lease, so unlike the violation fine there is nothing to infer.
-            /** @var \App\Models\Lease|null $lease */
+            /** @var Lease|null $lease */
             $lease = $locked->lease;
 
             if ($lease === null) {
@@ -81,36 +81,27 @@ class BillBouncedChequeFeeService
             $vat = Vat::atRate($fee, $vatRate);
             $total = round($fee + $vat, 2);
 
-            $invoice = Invoice::create([
-                'lease_id' => $lease->id,
-                'tenant_id' => $locked->tenant_id,
-                'status' => 'issued',
-                'issue_date' => $now,
-                'due_date' => $now->copy()->addDays($lease->paymentTermsDays()),
+            $invoice = app(IssueInvoiceService::class)->issue(
+                lease: $lease,
+                items: [[
+                    'description' => __('admin.post_dated_cheques.nsf_fee_line', [
+                        'cheque' => $locked->cheque_number,
+                        'bank' => $locked->bank_name ?: '—',
+                    ]),
+                    'type' => InvoiceItemType::NsfFee->value,   // → misc_income in the GL journalizer
+                    'amount' => $fee,
+                    'vat_rate' => $vatRate,
+                    'vat_amount' => $vat,
+                    'total' => $total,
+                ]],
+                issueDate: $now,
                 // The month the cheque bounced in, which is when the cost was incurred — not the
                 // month the operator got round to charging it.
-                'period_start' => $now->copy()->startOfMonth(),
-                'period_end' => $now->copy()->endOfMonth(),
-                'subtotal' => $fee,
-                'vat_amount' => $vat,
-                'total' => $total,
-                'paid_amount' => 0,
-                'balance' => $total,
-                'currency' => $lease->currency ?? 'EGP',
-            ]);
-
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => __('admin.post_dated_cheques.nsf_fee_line', [
-                    'cheque' => $locked->cheque_number,
-                    'bank' => $locked->bank_name ?: '—',
-                ]),
-                'type' => InvoiceItemType::NsfFee->value,   // → misc_income in the GL journalizer
-                'amount' => $fee,
-                'vat_rate' => $vatRate,
-                'vat_amount' => $vat,
-                'total' => $total,
-            ]);
+                periodStart: $now->copy()->startOfMonth(),
+                periodEnd: $now->copy()->endOfMonth(),
+                // The debtor is stated on the cheque, not inferred from the lease it hangs off.
+                tenantId: $locked->tenant_id,
+            );
 
             $locked->update(['nsf_fee_invoice_id' => $invoice->id]);
 

@@ -2,13 +2,11 @@
 
 namespace App\Services;
 
-use App\Support\Vat;
-
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\MeterReading;
 use App\Models\UtilityMeter;
+use App\Support\Vat;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -95,38 +93,27 @@ class BillMeterReadingService
             $periodStart = $locked->reading_date->copy()->startOfMonth();
             $periodEnd = $locked->reading_date->copy()->endOfMonth();
 
-            $invoice = Invoice::create([
-                'lease_id' => $lease->id,
-                'tenant_id' => $lease->tenant_id,
-                'status' => 'issued',
-                'issue_date' => $now,
-                'due_date' => $now->copy()->addDays($lease->paymentTermsDays()),
+            $invoice = app(IssueInvoiceService::class)->issue(
+                lease: $lease,
+                items: [[
+                    'description' => __('admin.utility.recharge_line', [
+                        'type' => __('admin.enums.meter_type')[$meter->type] ?? $meter->type,
+                        'meter' => $meter->meter_number,
+                        'consumption' => number_format((float) $locked->consumption, 2),
+                        'uom' => $meter->unit_of_measurement ?: '',
+                        'period' => $periodStart->isoFormat('MMM YYYY'),
+                    ]),
+                    'type' => 'utility', // → utility_revenue in the GL journalizer
+                    'amount' => $amount,
+                    'vat_rate' => $vatRate,
+                    'vat_amount' => $vat,
+                    'total' => round($amount + $vat, 2),
+                ]],
+                issueDate: $now,
                 // The CONSUMPTION period (truthful), not now() — see the probe-exclusion note above.
-                'period_start' => $periodStart,
-                'period_end' => $periodEnd,
-                'subtotal' => $amount,
-                'vat_amount' => $vat,
-                'total' => round($amount + $vat, 2),
-                'paid_amount' => 0,
-                'balance' => round($amount + $vat, 2),
-                'currency' => $lease->currency ?? 'EGP',
-            ]);
-
-            InvoiceItem::create([
-                'invoice_id' => $invoice->id,
-                'description' => __('admin.utility.recharge_line', [
-                    'type' => __('admin.enums.meter_type')[$meter->type] ?? $meter->type,
-                    'meter' => $meter->meter_number,
-                    'consumption' => number_format((float) $locked->consumption, 2),
-                    'uom' => $meter->unit_of_measurement ?: '',
-                    'period' => $periodStart->isoFormat('MMM YYYY'),
-                ]),
-                'type' => 'utility', // → utility_revenue in the GL journalizer
-                'amount' => $amount,
-                'vat_rate' => $vatRate,
-                'vat_amount' => $vat,
-                'total' => round($amount + $vat, 2),
-            ]);
+                periodStart: $periodStart,
+                periodEnd: $periodEnd,
+            );
 
             $locked->update(['billed_invoice_id' => $invoice->id, 'billed_at' => $now]);
 

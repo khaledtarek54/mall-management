@@ -3,15 +3,14 @@
 namespace App\Services;
 
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\Tenant;
 use App\Notifications\LateFeeAppliedNotification;
+use App\Settings\BillingSettings;
 use App\Support\OpsLog;
 use App\Support\PropertySettings;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use App\Settings\BillingSettings;
 
 class LateFeeService
 {
@@ -182,38 +181,32 @@ class LateFeeService
             // a lease that states no payment terms of its own.
             $dueInDays = $locked->lease->paymentTermsDays();
 
-            $feeInvoice = Invoice::create([
-                'lease_id' => $locked->lease_id,
-                'tenant_id' => $locked->tenant_id,
-                'status' => 'issued',
-                'issue_date' => $today,
-                'due_date' => $today->addDays($dueInDays),
-                'period_start' => $today->startOfMonth(),
-                'period_end' => $today->endOfMonth(),
-                'subtotal' => $fee,
-                'vat_amount' => $vat,
-                'total' => $total,
-                'paid_amount' => 0,
-                'balance' => $total,
-                'currency' => $locked->currency ?? 'EGP',
-            ]);
-
-            InvoiceItem::create([
-                'invoice_id' => $feeInvoice->id,
-                // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
-                // the charge instead of seeing a bare "Late Fee" amount. It now also names the
-                // invoice being penalised, which the line no longer sits on.
-                'description' => __('admin.actions.late_fee_line_description', [
-                    'percent' => rtrim(rtrim(number_format($percent, 2), '0'), '.'),
-                    'balance' => 'EGP '.number_format($chargeable, 2),
-                    'min' => 'EGP '.number_format((float) $min, 2),
-                ]).' — '.$locked->number,
-                'type' => 'late_fee',
-                'amount' => $fee,
-                'vat_rate' => $vatRate,
-                'vat_amount' => $vat,
-                'total' => $total,
-            ]);
+            $feeInvoice = app(IssueInvoiceService::class)->issue(
+                lease: $locked->lease,
+                items: [[
+                    // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
+                    // the charge instead of seeing a bare "Late Fee" amount. It now also names the
+                    // invoice being penalised, which the line no longer sits on.
+                    'description' => __('admin.actions.late_fee_line_description', [
+                        'percent' => rtrim(rtrim(number_format($percent, 2), '0'), '.'),
+                        'balance' => 'EGP '.number_format($chargeable, 2),
+                        'min' => 'EGP '.number_format((float) $min, 2),
+                    ]).' — '.$locked->number,
+                    'type' => 'late_fee',
+                    'amount' => $fee,
+                    'vat_rate' => $vatRate,
+                    'vat_amount' => $vat,
+                    'total' => $total,
+                ]],
+                issueDate: $today,
+                periodStart: $today->startOfMonth(),
+                periodEnd: $today->endOfMonth(),
+                dueDate: $today->addDays($dueInDays),
+                // The debtor is stated on the invoice being penalised, not inferred from its lease.
+                tenantId: $locked->tenant_id,
+                // A penalty is denominated in the currency of the debt it penalises.
+                currency: $locked->currency ?? 'EGP',
+            );
 
             // The link is the idempotency stamp AND the audit trail: it is what says WHY this
             // invoice exists. Written on the source, mirroring `Violation::billed_invoice_id`.

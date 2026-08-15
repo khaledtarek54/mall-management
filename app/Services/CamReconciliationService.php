@@ -9,10 +9,12 @@ use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Models\LeaseCamTerm;
 use App\Models\Unit;
-use App\Support\Vat;
 use App\Support\OpsLog;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CamReconciliationService
@@ -148,7 +150,7 @@ class CamReconciliationService
                 $capScope = $lease->camCapScope((int) $pool->period_year);
                 $carryForward = $lease->camCapCarriesForward((int) $pool->period_year);
 
-                $controllableShare = $capScope === \App\Models\LeaseCamTerm::SCOPE_CONTROLLABLE
+                $controllableShare = $capScope === LeaseCamTerm::SCOPE_CONTROLLABLE
                     ? $pool->controllableShare()
                     : 1.0;
 
@@ -282,7 +284,7 @@ class CamReconciliationService
      * multi-unit lease whose master is outside the zone but whose annexe is inside it still
      * participates, and clamping to the master alone would silently drop it.
      *
-     * @return \Illuminate\Support\Collection<int, Lease>
+     * @return Collection<int, Lease>
      */
     private function participants(CamExpensePool $pool)
     {
@@ -299,7 +301,7 @@ class CamReconciliationService
     /**
      * The area every share divides by (story RC-03).
      *
-     * @param  \Illuminate\Support\Collection<int, Lease>  $leases
+     * @param  Collection<int, Lease>  $leases
      */
     private function resolveDenominator(
         CamExpensePool $pool,
@@ -357,7 +359,7 @@ class CamReconciliationService
             ->sum(fn (Unit $unit) => $unit->areaSqmDaysBetween($periodStart, $periodEnd) / $days);
     }
 
-    /** @param  \Illuminate\Support\Collection<int, Lease>  $leases */
+    /** @param  Collection<int, Lease>  $leases */
     private function occupiedDenominator($leases, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): float
     {
         return (float) $leases->sum(fn (Lease $l) => $l->totalAreaSqmForPeriod($periodStart, $periodEnd));
@@ -655,7 +657,7 @@ class CamReconciliationService
      * the date. Mirrors the negative path, which applies the credit immediately.
      *
      * @return array{0: Charge, 1: Invoice} the anchor charge + the recovery invoice it settled
-     *   (returned so the caller can append the admin-fee line to the same document).
+     *                                      (returned so the caller can append the admin-fee line to the same document).
      */
     private function billChargeImmediately(CamAllocation $allocation, float $amount, int $year): array
     {
@@ -691,40 +693,29 @@ class CamReconciliationService
             'is_active' => false,
         ]);
 
-        $invoice = Invoice::create([
-            'lease_id' => $lease->id,
-            'tenant_id' => $lease->tenant_id,
-            'status' => 'issued',
-            'issue_date' => $now,
-            'due_date' => $now->addDays($lease->paymentTermsDays()),
+        $invoice = app(IssueInvoiceService::class)->issue(
+            lease: $lease,
+            items: [[
+                'charge_id' => $charge->id,
+                'description' => $name,
+                // 'cam_recovery' routes this to the dedicated CAM Recovery Revenue account
+                // (إيرادات استرداد المصروفات المشتركة) in the GL, not generic misc income.
+                'type' => 'cam_recovery',
+                'amount' => $amount,
+                'vat_rate' => $vatRate,
+                'vat_amount' => $vat,
+                'total' => $lineTotal,
+            ]],
+            issueDate: $now,
             // Period = the RECONCILED CAM YEAR, NOT the current month. The monthly
             // billing engine's idempotency is a per-lease period-OVERLAP check; if
             // this recovery invoice carried the current month's period it would
             // satisfy that guard and make the monthly run SKIP the lease's regular
             // rent invoice for the month (lost revenue). A past-year period never
             // collides with a live monthly run.
-            'period_start' => CarbonImmutable::create($year, 1, 1),
-            'period_end' => CarbonImmutable::create($year, 12, 31),
-            'subtotal' => $amount,
-            'vat_amount' => $vat,
-            'total' => $lineTotal,
-            'paid_amount' => 0,
-            'balance' => $lineTotal,
-            'currency' => $lease->currency ?? 'EGP',
-        ]);
-
-        InvoiceItem::create([
-            'invoice_id' => $invoice->id,
-            'charge_id' => $charge->id,
-            'description' => $name,
-            // 'cam_recovery' routes this to the dedicated CAM Recovery Revenue account
-            // (إيرادات استرداد المصروفات المشتركة) in the GL, not generic misc income.
-            'type' => 'cam_recovery',
-            'amount' => $amount,
-            'vat_rate' => $vatRate,
-            'vat_amount' => $vat,
-            'total' => $lineTotal,
-        ]);
+            periodStart: CarbonImmutable::create($year, 1, 1),
+            periodEnd: CarbonImmutable::create($year, 12, 31),
+        );
 
         return [$charge, $invoice];
     }
@@ -767,27 +758,7 @@ class CamReconciliationService
             'is_active' => false,
         ]);
 
-        if ($invoice === null) {
-            // Fee-only invoice (period = the reconciled CAM year, same rationale as the cost invoice).
-            $invoice = Invoice::create([
-                'lease_id' => $lease->id,
-                'tenant_id' => $lease->tenant_id,
-                'status' => 'issued',
-                'issue_date' => $now,
-                'due_date' => $now->addDays($lease->paymentTermsDays()),
-                'period_start' => CarbonImmutable::create($year, 1, 1),
-                'period_end' => CarbonImmutable::create($year, 12, 31),
-                'subtotal' => 0,
-                'vat_amount' => 0,
-                'total' => 0,
-                'paid_amount' => 0,
-                'balance' => 0,
-                'currency' => $lease->currency ?? 'EGP',
-            ]);
-        }
-
-        InvoiceItem::create([
-            'invoice_id' => $invoice->id,
+        $feeLine = [
             'charge_id' => $charge->id,
             'description' => $name,
             'type' => 'cam_admin_fee',
@@ -795,12 +766,29 @@ class CamReconciliationService
             'vat_rate' => $feeVatRate,
             'vat_amount' => $feeVat,
             'total' => $lineTotal,
-        ]);
+        ];
 
-        // The header now follows its items automatically (Invoice::syncTotalsFromItems, fired by
-        // InvoiceItem::saved). This service used to carry its own private rebuildInvoiceHeader() —
+        if ($invoice === null) {
+            // Fee-only invoice (period = the reconciled CAM year, same rationale as the cost invoice).
+            // It used to be created at 0/0/0 and left for the item hook to correct a moment later;
+            // raising it from its line means its first persisted state is already the true one.
+            $invoice = app(IssueInvoiceService::class)->issue(
+                lease: $lease,
+                items: [$feeLine],
+                issueDate: $now,
+                periodStart: CarbonImmutable::create($year, 1, 1),
+                periodEnd: CarbonImmutable::create($year, 12, 31),
+            );
+
+            return $charge;
+        }
+
+        // A POSITIVE true-up: the fee rides the recovery invoice raised moments ago as a second,
+        // VAT-bearing line. The header follows it automatically (Invoice::syncTotalsFromItems, fired
+        // by InvoiceItem::saved). This service used to carry its own private rebuildInvoiceHeader() —
         // the same rule, written once here and forgotten everywhere else, which is exactly why it
         // was promoted to the model.
+        InvoiceItem::create($feeLine + ['invoice_id' => $invoice->id]);
 
         return $charge;
     }
