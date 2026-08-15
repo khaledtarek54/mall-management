@@ -77,7 +77,33 @@ Run one heavy process at a time — no stacking a suite and a seed.
 
 ---
 
-## Phase 1 — Split the translation monolith
+## Phase 1 — Split the translation monolith — **DONE**
+
+`lang/{en,ar}/admin.php`: **5,564 lines → 38**, split into **19 partials per locale** behind an
+aggregator. Key paths unchanged, so no `__('admin.…')` call site moved and the six tests that
+`require` the catalogue as one array needed no edit.
+
+Partitioned by **concern, not module**, because that is what predicts who edits what — the
+cross-cutting catalogues (`fields`, `actions`, `statuses`, `tables`, `empty-states`) are exactly the
+ones every feature touches, so isolating them is what stops unrelated work colliding. The aggregator
+throws if two partials define the same key rather than letting load order pick a winner; a missing
+AR partial needs no new gate, since the existing EN/AR parity checks fail on the keys that go
+missing.
+
+**Verification corrected the verifier.** The first parity check used `===` and reported DIFFERS with
+no lost, new, or changed values — because `===` on arrays also demands identical top-level *order*,
+and grouping keys into files necessarily reorders them. Order is meaningless for a catalogue every
+consumer key-looks-up. The right property is `==` for values, plus `ksort`-then-`===` to pin that
+*nested* order is untouched. Both locales: 113 keys, values identical, nested order preserved.
+
+**Two failed attempts, both caught rather than assumed:** slicing each block from the *previous
+key's start* made adjacent blocks overlap and duplicate content; fixing that by walking back over
+comment lines then let a boundary land *inside* a docblock, leaving an unterminated comment. The
+boundary now finds the opening `/*` and moves only if the whole block fits above the key.
+
+---
+
+## Phase 1 — original design notes
 
 **Target:** `lang/en/admin.php` and `lang/ar/admin.php` (5,562 lines each, 113 top-level keys).
 
