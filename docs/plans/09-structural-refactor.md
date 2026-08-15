@@ -140,9 +140,26 @@ class Unit extends Model { … }
 keep working. `DeletionPolicy::for()` still answers; only its backing store changes.
 
 Migrate in this order, one merge each, highest churn first:
-`DeletionPolicy` (494 LOC) → `PropertyIsolation` (316) → `MorphMap` (308) → `SearchPolicy` (304) →
-`DerivedFields` (242) → `PostingDateGuards` (155) → `ChangeImpact` (596, per-column map — last,
-it's the most intricate).
+**`DeletionPolicy` (DONE — 548 → 240 LOC)** → `PropertyIsolation` (316) → `MorphMap` (308) →
+`SearchPolicy` (304) → `DerivedFields` (242) → `PostingDateGuards` (155) → `ChangeImpact` (596,
+per-column map — last, it's the most intricate).
+
+**Two techniques from the pilot, both of which cost a wasted attempt to learn:**
+
+1. **Migrate with a generator that reads the old registry through its Phase 2a accessors** — never
+   by hand. 101 models were attributed by the thing that already held the data, so a `blocked_by`
+   relation name could not be mistyped in transit, and a mistyped relation blocks nothing while
+   looking exactly like a working guard.
+2. **Do not run Pint afterwards.** The models are not Pint-clean, so a formatter pass rewrote trait
+   order, const spacing and concat style in code the change never touched — 222 lines of unrelated
+   churn across 101 files. Insert the `use` in sorted position in the generator instead; the diff
+   then lands at exactly two lines per model, which is the only thing that makes a 101-file change
+   reviewable.
+
+**Prove parity, don't assert it.** Load the previous registry from git under a second class name
+alongside the new one and diff every tier (`scratchpad/verify_deletion_parity.php` is the shape).
+The pilot came out 16 / 16 / 69 and 101 classified, byte-equal. Pair that with regenerating the
+handbook datasets and checking for zero drift.
 
 **Leave central**, because they are genuinely cross-cutting rather than per-model — moving them
 would be co-location for its own sake: `ValueSets`, `DashboardLayout`, `ReportCatalogue`,
