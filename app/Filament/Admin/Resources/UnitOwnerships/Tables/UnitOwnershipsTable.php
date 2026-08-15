@@ -5,8 +5,9 @@ namespace App\Filament\Admin\Resources\UnitOwnerships\Tables;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
-use App\Support\TableDefaults;
+use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -24,7 +25,10 @@ class UnitOwnershipsTable
 {
     public static function configure(Table $table): Table
     {
-        return TableDefaults::apply($table)
+        // No TableDefaults call: `TableDefaults::register()` is a global
+        // `Table::configureUsing()` applied to every table in the panel, so search persistence,
+        // striping and pagination arrive here already.
+        return $table
             ->defaultSort('unit.code')
             ->columns([
                 TextColumn::make('reference')
@@ -112,6 +116,12 @@ class UnitOwnershipsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the sale without opening its edit form — the register is consulted far more
+                // often than it is changed ("who owns A-102, and on what footing"), and a view-only
+                // role must not be handed a write surface to answer that. The schema is the
+                // resource's own form rendered disabled, so it cannot drift from the real fields.
+                ViewAction::make()
+                    ->visible(fn ($record): bool => UnitOwnershipResource::canView($record)),
                 EditAction::make(),
             ]);
     }

@@ -233,8 +233,12 @@ class PropertyIsolation
         // Denormalized asset_id, like Invoice. The `lease.unit` chain answered NULL for a note
         // against a unit-owner invoice, dropping it from every property-scoped read.
         CreditNote::class => null,
-        CreditNoteItem::class => 'creditNote.lease.unit',
-        CreditNoteApplication::class => 'creditNote.lease.unit', // one application of a note; asset = the note's (invoice's) property; service-created, no Filament resource
+        // Both stop at the note, which now carries its own asset_id. The old
+        // `creditNote.lease.unit` tail broke the moment a note could belong to a unit-owner
+        // assessment: that note's lease_id is NULL, so the chain resolved to nothing and the row
+        // fell out of every property-scoped read. Same correction as Invoice/InvoiceItem.
+        CreditNoteItem::class => 'creditNote',
+        CreditNoteApplication::class => 'creditNote', // one application of a note; asset = the note's property; service-created, no Filament resource
         TenantRequest::class => 'unit',
         TenantRequestComment::class => 'request.unit',
         TenantSalesDeclaration::class => 'lease.unit',

@@ -28,9 +28,11 @@
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Http\Resources\Api\V1\NotificationResource;
+use App\Models\Payment;
 use App\Notifications\Channels\PushChannel;
 use App\Notifications\DepartmentMessageNotification;
 use App\Notifications\InvoiceIssuedNotification;
+use App\Notifications\PaymentReceivedNotification;
 use App\Support\NotificationLink;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Notifications\DatabaseNotification;
@@ -188,10 +190,39 @@ it('drops the dead `url` key six payloads used to carry', function () {
     expect($this->operator->notifications()->first()->data)->not->toHaveKey('url');
 });
 
-it('resolves the property through the isolation registry, not an asset_id column', function () {
-    // Invoice has no asset_id — it reaches its property via `lease.unit`, which is exactly what
-    // PropertyIsolation::OWNED already declares. Asserting the slug proves the chain was walked.
-    expect($this->invoice->getAttributes())->not->toHaveKey('asset_id');
+it('resolves the property through the isolation registry, not a guessed asset_id column', function () {
+    // ── This test was RE-WITNESSED on 2026-08-15, and the reason matters more than the change. ──
+    //
+    // It used to prove the point with an INVOICE, on the stated grounds that "Invoice has no
+    // asset_id, so resolving the slug proves the chain was walked". Giving invoices their own
+    // column (2026_08_15_110000) falsified that premise — and the danger was not that the old
+    // assertion failed. It is that flipping it to match reality would have left a test still NAMED
+    // for the registry walk while proving nothing: a naive `$record->asset_id` read now answers
+    // correctly for an invoice, so the invoice can no longer distinguish the two implementations.
+    //
+    // So the witness moved to a model that is STILL indirect. `Payment => 'invoices'`
+    // (PropertyIsolation) has no asset_id of its own and must hop to reach one, so the slug below
+    // can only be right if the registry was consulted and the hop taken.
+    $payment = Payment::create([
+        'tenant_id' => $this->tenant->id,
+        'amount' => 100, 'currency' => 'EGP', 'method' => 'cash',
+        'status' => 'captured', 'payment_date' => '2026-02-20',
+    ]);
+    $payment->invoices()->attach($this->invoice->id, ['allocated_amount' => 100]);
+
+    expect($payment->getAttributes())->not->toHaveKey('asset_id');
+
+    $this->operator->notify(new PaymentReceivedNotification($payment->fresh()));
+
+    expect(bellAction($this->operator)['url'])->toContain('/admin/ATRIOM/');
+});
+
+it('reads the column directly for a record the registry says is direct', function () {
+    // The other half, now that the two shapes are genuinely different. An invoice IS direct
+    // (PropertyIsolation::OWNED[Invoice] === null), so the resolver must take the no-hop path and
+    // read the column — which is what makes an OWNER assessment, with no lease to walk, resolvable
+    // at all. Asserted as a pair with the walk above so neither path can rot unnoticed.
+    expect($this->invoice->asset_id)->toBe($this->asset->id);
 
     $this->operator->notify(new InvoiceIssuedNotification($this->invoice));
 
