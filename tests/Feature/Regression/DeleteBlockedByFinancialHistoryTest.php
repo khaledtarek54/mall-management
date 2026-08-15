@@ -15,7 +15,7 @@ use App\Models\Violation;
  * THE GAP. DeletionPolicy's WHEN_UNUSED `blocked_by` lists omitted the financial dimension:
  *  - Asset blocked only on units/leases/camPools/utilityMeters. Its money/HR/GL children carry a
  *    direct asset_id whose FK is cascadeOnDelete, so a force-delete of a property with financial
- *    history DESTROYED them outright — including a NEVER-deletable MaintenancePenalty — bypassing
+ *    history DESTROYED them outright — including a NEVER-deletable SlaPenalty — bypassing
  *    every model guard, and even a soft-delete stranded the books.
  *  - Lease omitted deposits + post-dated cheques (both NEVER money, both can exist before any invoice).
  *  - Tenant omitted post-dated cheques.

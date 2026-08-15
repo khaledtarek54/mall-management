@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * The maintainable-asset register (FR-PPM-03/04/05) — scoped to the current property
  * (direct asset_id, like Unit / Warehouse). Part of module 26, so it is gated by the
- * `preventive_maintenance` module flag + `preventive_maintenance.*` permissions: the
+ * `facility` module flag + `facility.*` permissions: the
  * engineers who service the machines are the people who maintain this list.
  */
 class EquipmentResource extends Resource
@@ -50,7 +50,7 @@ class EquipmentResource extends Resource
 
     protected static function permissionModule(): string
     {
-        return 'preventive_maintenance';
+        return 'facility';
     }
 
     /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
@@ -70,17 +70,17 @@ class EquipmentResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return __('admin.preventive_maintenance.equipment.plural');
+        return __('admin.facility.equipment.plural');
     }
 
     public static function getModelLabel(): string
     {
-        return __('admin.preventive_maintenance.equipment.singular');
+        return __('admin.facility.equipment.singular');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('admin.preventive_maintenance.equipment.plural');
+        return __('admin.facility.equipment.plural');
     }
 
     public static function getNavigationGroup(): ?string

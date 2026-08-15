@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Without this distinction, renewing a certificate the honest way — upload the new one, keep the
  * lapsed one as the record of what was in force last year — makes the party permanently
  * non-compliant, because the lapsed row never stops existing. For a vendor that is not a warning:
- * `Vendor::scopeAssignable()` drops it from every picker and `MaintenanceWorkOrder::saving()`
+ * `Vendor::scopeAssignable()` drops it from every picker and `FacilityWorkOrder::saving()`
  * refuses it, so **doing the paperwork correctly bricks the contractor**, and the only escape is
  * deleting the evidence. It also stopped that contractor's preventive-maintenance plans generating
  * at all — a statutory lift round that silently never happens.

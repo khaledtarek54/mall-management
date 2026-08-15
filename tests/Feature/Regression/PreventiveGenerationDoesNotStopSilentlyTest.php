@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use App\Models\VendorDocument;
 use App\Notifications\PreventiveGenerationFailedNotification;
@@ -30,9 +30,9 @@ beforeEach(function () {
     $this->asset = makeAsset(['code' => 'MALL']);
 });
 
-function inspectionPlanFor(?Vendor $vendor, array $attrs = []): MaintenancePlan
+function inspectionPlanFor(?Vendor $vendor, array $attrs = []): ServicePlan
 {
-    return MaintenancePlan::create(array_merge([
+    return ServicePlan::create(array_merge([
         'asset_id' => test()->asset->id,
         'title' => 'Lift statutory inspection',
         'category' => 'safety',
@@ -64,7 +64,7 @@ it('still raises the statutory round when the contractor cannot be dispatched', 
 
     expect($this->gen->run('2026-05-02'))->toBe(1);
 
-    $order = MaintenanceWorkOrder::where('maintenance_plan_id', $plan->id)->sole();
+    $order = FacilityWorkOrder::where('service_plan_id', $plan->id)->sole();
 
     expect($order->vendor_id)->toBeNull()
         ->and($order->notes)->toContain('Uninsured Lifts')
@@ -86,7 +86,7 @@ it('keeps the assignment when the contractor is compliant — the paired control
     $plan = inspectionPlanFor($vendor);
 
     $this->gen->run('2026-05-02');
-    $order = MaintenanceWorkOrder::where('maintenance_plan_id', $plan->id)->sole();
+    $order = FacilityWorkOrder::where('service_plan_id', $plan->id)->sole();
 
     expect($order->vendor_id)->toBe($vendor->id)
         ->and((string) $order->notes)->not->toContain('cannot be dispatched');
@@ -105,7 +105,7 @@ it('does not withhold the assignment from a contractor who RENEWED', function ()
 
     $this->gen->run('2026-05-02');
 
-    expect(MaintenanceWorkOrder::where('maintenance_plan_id', $plan->id)->sole()->vendor_id)->toBe($vendor->id);
+    expect(FacilityWorkOrder::where('service_plan_id', $plan->id)->sole()->vendor_id)->toBe($vendor->id);
 });
 
 it('stamps the plan that cannot generate, so being stuck is visible on the row', function () {
@@ -114,7 +114,7 @@ it('stamps the plan that cannot generate, so being stuck is visible on the row',
     $plan = inspectionPlanFor(null);
     // An unknown frequency unit is the other real trigger: `advanceDue()` throws on it, reachable
     // by a direct DB edit or an import. Written past the model guard on purpose.
-    MaintenancePlan::whereKey($plan->id)->update(['frequency_unit' => 'fortnights']);
+    ServicePlan::whereKey($plan->id)->update(['frequency_unit' => 'fortnights']);
 
     $this->gen->run('2026-05-02');
     $plan->refresh();
@@ -132,7 +132,7 @@ it('alerts the property once when a plan first gets stuck, not every night', fun
     $manager->assignedAssets()->attach($this->asset->id);
 
     $plan = inspectionPlanFor(null);
-    MaintenancePlan::whereKey($plan->id)->update(['frequency_unit' => 'fortnights']);
+    ServicePlan::whereKey($plan->id)->update(['frequency_unit' => 'fortnights']);
 
     Notification::fake();
     $this->gen->run('2026-05-02');
@@ -159,11 +159,11 @@ it('clears the stamp once the plan generates again', function () {
     // A stamp that outlives its cause is worse than none: the operator learns the badge means
     // nothing and stops reading it.
     $plan = inspectionPlanFor(null);
-    MaintenancePlan::whereKey($plan->id)->update(['frequency_unit' => 'fortnights']);
+    ServicePlan::whereKey($plan->id)->update(['frequency_unit' => 'fortnights']);
     $this->gen->run('2026-05-02');
     expect($plan->fresh()->generationIsFailing())->toBeTrue();
 
-    MaintenancePlan::whereKey($plan->id)->update(['frequency_unit' => 'months']);
+    ServicePlan::whereKey($plan->id)->update(['frequency_unit' => 'months']);
     $this->gen->run('2026-05-02');
 
     expect($plan->fresh()->generationIsFailing())->toBeFalse()
@@ -173,10 +173,10 @@ it('clears the stamp once the plan generates again', function () {
 it('contains one stuck plan without stopping the rest of the portfolio', function () {
     // The containment that made this invisible is still the right call, and must stay working.
     $stuck = inspectionPlanFor(null, ['title' => 'Broken plan']);
-    MaintenancePlan::whereKey($stuck->id)->update(['frequency_unit' => 'fortnights']);
+    ServicePlan::whereKey($stuck->id)->update(['frequency_unit' => 'fortnights']);
     $healthy = inspectionPlanFor(null, ['title' => 'Chiller service']);
 
     expect($this->gen->run('2026-05-02'))->toBe(1)
-        ->and(MaintenanceWorkOrder::where('maintenance_plan_id', $healthy->id)->count())->toBe(1)
-        ->and(MaintenanceWorkOrder::where('maintenance_plan_id', $stuck->id)->count())->toBe(0);
+        ->and(FacilityWorkOrder::where('service_plan_id', $healthy->id)->count())->toBe(1)
+        ->and(FacilityWorkOrder::where('service_plan_id', $stuck->id)->count())->toBe(0);
 });

@@ -9,11 +9,11 @@
 |
 |  - Settings + Roles edit render a permission toggle per Modules::KEYS, but the
 |    newer modules (inventory, fixed_assets, employees, custodies,
-|    preventive_maintenance) had no admin.permission_modules.* label →
+|    facility) had no admin.permission_modules.* label →
 |    "admin.permission_modules.employees" showed as visible text.
 |  - Maintenance Plans/Work Orders label a row by its category, but the seeded
 |    categories (elevator, fire-safety, generator) weren't in
-|    admin.preventive_maintenance.categories → raw keys shown.
+|    admin.facility.categories → raw keys shown.
 |
 | These guards keep every module/category label present in BOTH locales so the
 | next module added can't silently reintroduce the leak.
@@ -54,7 +54,7 @@ it('has a label in en + ar for every maintenance category the app uses', functio
     $missing = [];
     foreach ($categories as $cat) {
         foreach (['en', 'ar'] as $locale) {
-            if (! Lang::has("admin.preventive_maintenance.categories.{$cat}", $locale)) {
+            if (! Lang::has("admin.facility.categories.{$cat}", $locale)) {
                 $missing[] = "{$cat} [{$locale}]";
             }
         }

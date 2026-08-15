@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use App\Services\Reports\VendorScorecardService;
 use Carbon\CarbonImmutable;
@@ -20,7 +20,7 @@ function scorecardVendor(string $name = 'Cool Air'): Vendor
     return Vendor::create(['name' => $name.' '.uniqid(), 'status' => Vendor::STATUS_ACTIVE]);
 }
 
-function scorecardOrder(Vendor $vendor, int $assetId, array $attrs = []): MaintenanceWorkOrder
+function scorecardOrder(Vendor $vendor, int $assetId, array $attrs = []): FacilityWorkOrder
 {
     // `created_at` is not mass-assignable, so a fixture that passes it in the create array is
     // silently ignored and every order lands at "now" — which is how the first run of these tests
@@ -28,7 +28,7 @@ function scorecardOrder(Vendor $vendor, int $assetId, array $attrs = []): Mainte
     $createdAt = $attrs['created_at'] ?? null;
     unset($attrs['created_at']);
 
-    $order = MaintenanceWorkOrder::create(array_merge([
+    $order = FacilityWorkOrder::create(array_merge([
         'asset_id' => $assetId,
         'vendor_id' => $vendor->id,
         'work_order_type' => 'cm',

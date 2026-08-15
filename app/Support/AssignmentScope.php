@@ -60,9 +60,9 @@ class AssignmentScope
      * Constrain a query to the rows assigned to the current user, if their role says so.
      *
      * @param  Builder  $query  the resource's query
-     * @param  string  $module  the permission module (`maintenance`, `preventive_maintenance`)
+     * @param  string  $module  the permission module (`maintenance`, `facility`)
      * @param  string  $column  the assignee column — it differs per table (`assigned_to` on
-     *                          tenant_requests, `assigned_to_user_id` on maintenance_work_orders),
+     *                          tenant_requests, `assigned_to_user_id` on facility_work_orders),
      *                          which is exactly why this is one primitive and not two copies
      */
     public static function apply(Builder $query, string $module, string $column, ?User $user = null): Builder

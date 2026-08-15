@@ -1,18 +1,18 @@
 <?php
 
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorContract;
 use Database\Seeders\RolesPermissionsSeeder;
 
 /**
- * Regression — gap-analysis **F-96** (module 26): `maintenance:scan-wo-sla-breaches --dry-run`
+ * Regression — gap-analysis **F-96** (module 26): `facility:scan-sla-breaches --dry-run`
  * still wrote.
  *
  * THE BUG. `assessPenalties()` ran BEFORE the dry-run check, so a "preview" documented as
- * "print what would be alerted WITHOUT writing" created/updated real `maintenance_penalties`
+ * "print what would be alerted WITHOUT writing" created/updated real `sla_penalties`
  * (financial) rows. An operator sizing up impact on a fresh install got live penalty records.
  *
  * THE FIX. The command returns on `--dry-run` before assessPenalties() and before the alert
@@ -30,7 +30,7 @@ beforeEach(function () {
         'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'value' => 100000,
         'sla_penalty_basis' => 'flat', 'sla_penalty_rate' => 500,
     ]);
-    $this->order = MaintenanceWorkOrder::create([
+    $this->order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => $this->vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
         'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
@@ -39,15 +39,15 @@ beforeEach(function () {
 });
 
 it('writes no penalty row (and stamps nothing) on --dry-run', function () {
-    $this->artisan('maintenance:scan-wo-sla-breaches', ['--dry-run' => true])->assertExitCode(0);
+    $this->artisan('facility:scan-sla-breaches', ['--dry-run' => true])->assertExitCode(0);
 
-    expect(MaintenancePenalty::count())->toBe(0, 'a preview must not create a financial record')
+    expect(SlaPenalty::count())->toBe(0, 'a preview must not create a financial record')
         ->and($this->order->fresh()->sla_breach_notified_at)->toBeNull('a preview must not stamp the alert');
 });
 
 it('still assesses the penalty on a real (non-dry) run', function () {
     // Proves the fix moved the write behind the flag WITHOUT disabling real accrual.
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertExitCode(0);
+    $this->artisan('facility:scan-sla-breaches')->assertExitCode(0);
 
-    expect(MaintenancePenalty::where('maintenance_work_order_id', $this->order->id)->count())->toBe(1);
+    expect(SlaPenalty::where('facility_work_order_id', $this->order->id)->count())->toBe(1);
 });

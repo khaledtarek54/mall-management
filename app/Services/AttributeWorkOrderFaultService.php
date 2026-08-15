@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\User;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +30,7 @@ class AttributeWorkOrderFaultService
      * second-pair-of-eyes principle as a part-draw approval (FR-CM-10). Withheld from `operations`
      * in the seeder for exactly that reason.
      */
-    public const PERMISSION = 'preventive_maintenance.attribute_fault';
+    public const PERMISSION = 'facility.attribute_fault';
 
     /**
      * Record the cause and derive the bearer.
@@ -43,23 +43,23 @@ class AttributeWorkOrderFaultService
      * @throws DomainException|InvalidArgumentException
      */
     public function attribute(
-        MaintenanceWorkOrder $order,
+        FacilityWorkOrder $order,
         string $faultParty,
         ?string $notes = null,
         ?string $bearerOverride = null,
         ?User $actor = null,
-    ): MaintenanceWorkOrder {
+    ): FacilityWorkOrder {
         $actor ??= auth()->user();
 
-        if (! in_array($faultParty, MaintenanceWorkOrder::FAULT_PARTIES, true)) {
+        if (! in_array($faultParty, FacilityWorkOrder::FAULT_PARTIES, true)) {
             throw new InvalidArgumentException(
-                "Unknown fault party '{$faultParty}'; expected one of: ".implode(', ', MaintenanceWorkOrder::FAULT_PARTIES).'.'
+                "Unknown fault party '{$faultParty}'; expected one of: ".implode(', ', FacilityWorkOrder::FAULT_PARTIES).'.'
             );
         }
 
         return DB::transaction(function () use ($order, $faultParty, $notes, $bearerOverride, $actor) {
-            /** @var MaintenanceWorkOrder $locked */
-            $locked = MaintenanceWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            /** @var FacilityWorkOrder $locked */
+            $locked = FacilityWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertMayAttribute($actor);
 
@@ -69,22 +69,22 @@ class AttributeWorkOrderFaultService
             // record it on a closed job would mean the finding could never be recorded at all —
             // and FR-CM-12 explicitly wants it "as recorded on the work order".
             if ($locked->status === 'cancelled') {
-                throw new DomainException(__('admin.preventive_maintenance.errors.fault_cancelled'));
+                throw new DomainException(__('admin.facility.errors.fault_cancelled'));
             }
 
             // FR-CM-13: derived from the cause, not typed in beside it.
-            $bearer = MaintenanceWorkOrder::bearerFor($faultParty);
+            $bearer = FacilityWorkOrder::bearerFor($faultParty);
 
             if ($bearerOverride !== null && $bearerOverride !== $bearer) {
                 // An override is legitimate (a lease may make the tenant liable for wear on their
                 // own fit-out), but it is the operator overruling the FRD's own derivation, so it
                 // must be argued for rather than clicked.
-                if (! in_array($bearerOverride, MaintenanceWorkOrder::COST_BEARERS, true)) {
+                if (! in_array($bearerOverride, FacilityWorkOrder::COST_BEARERS, true)) {
                     throw new InvalidArgumentException("Unknown cost bearer '{$bearerOverride}'.");
                 }
 
                 if (blank($notes)) {
-                    throw new DomainException(__('admin.preventive_maintenance.errors.fault_override_needs_reason'));
+                    throw new DomainException(__('admin.facility.errors.fault_override_needs_reason'));
                 }
 
                 $bearer = $bearerOverride;
@@ -94,8 +94,8 @@ class AttributeWorkOrderFaultService
             // NULLABLE unit_id — a common-area chiller has no occupier — so this is reachable
             // whenever someone attributes a common-area job to a tenant, and it is exactly the
             // case that would later produce an invoice addressed to nobody.
-            if ($bearer === MaintenanceWorkOrder::BEARER_TENANT && $locked->bearingTenant() === null) {
-                throw new DomainException(__('admin.preventive_maintenance.errors.fault_no_tenant'));
+            if ($bearer === FacilityWorkOrder::BEARER_TENANT && $locked->bearingTenant() === null) {
+                throw new DomainException(__('admin.facility.errors.fault_no_tenant'));
             }
 
             $locked->update([
@@ -114,7 +114,7 @@ class AttributeWorkOrderFaultService
     private function assertMayAttribute(?User $actor): void
     {
         if ($actor === null || ! $actor->can(self::PERMISSION)) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.fault_denied'));
+            throw new DomainException(__('admin.facility.errors.fault_denied'));
         }
     }
 

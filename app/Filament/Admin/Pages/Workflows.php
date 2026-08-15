@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Models\PurchaseRequest;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\TenantRequestService;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Auth;
  * each workflow, every status and the statuses it may move to (a terminal status has none).
  *
  * Driven straight off the `TRANSITIONS` matrices that ENFORCE the flows (PurchaseRequest,
- * MaintenanceWorkOrder, TenantRequest), so this can never document a transition the services don't
+ * FacilityWorkOrder, TenantRequest), so this can never document a transition the services don't
  * actually allow — no domain change, just a rendering of the single source of truth.
  */
 class Workflows extends Page implements HasSchemas, HasTable
@@ -87,7 +87,7 @@ class Workflows extends Page implements HasSchemas, HasTable
     {
         return [
             'tenant_request' => TenantRequestService::TRANSITIONS,
-            'work_order' => MaintenanceWorkOrderService::TRANSITIONS,
+            'work_order' => FacilityWorkOrderService::TRANSITIONS,
             'purchase_request' => PurchaseRequest::TRANSITIONS,
         ];
     }

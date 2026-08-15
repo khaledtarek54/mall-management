@@ -150,11 +150,11 @@ class VendorBill extends Model
     /**
      * Children whose posted ENTRY is derived from this bill, but whose ROWS have their own life.
      *
-     * `MaintenancePenaltyJournalizer` reads the parent bill for everything it posts — the amount's
+     * `SlaPenaltyJournalizer` reads the parent bill for everything it posts — the amount's
      * expense role, the description, and `asset_id` — so a penalty's entry is as dependent on the
      * bill as a payment's is. **But the row is not.** A penalty belongs to a work order and records
      * that a vendor missed an SLA; that stays true whether or not the bill it was deducted from is
-     * still on the books, and `maintenance_penalties` has no `deleted_at` to cascade into.
+     * still on the books, and `sla_penalties` has no `deleted_at` to cascade into.
      *
      * So these get a `touch`, not a `deleted_at` — enough for the windowed sweep (which keys on
      * each row's own `updated_at`) to re-read them and re-derive, which is the whole point.
@@ -168,7 +168,7 @@ class VendorBill extends Model
      * The test for membership here is **"does its journalizer read the parent?"** — not "does it
      * have its own row", which is what the single list conflated.
      *
-     * @return array<int, \Illuminate\Database\Eloquent\Relations\HasMany<MaintenancePenalty, self>>
+     * @return array<int, \Illuminate\Database\Eloquent\Relations\HasMany<SlaPenalty, self>>
      */
     protected function ledgerDerivedRelations(): array
     {
@@ -222,7 +222,7 @@ class VendorBill extends Model
     /** FR-CM-08 — SLA penalties charged against this bill. */
     public function penalties(): HasMany
     {
-        return $this->hasMany(MaintenancePenalty::class, 'vendor_bill_id');
+        return $this->hasMany(SlaPenalty::class, 'vendor_bill_id');
     }
 
     /**
@@ -494,7 +494,7 @@ class VendorBill extends Model
             }
 
             // The derived children follow a WIDER set of columns than the owned ones, because
-            // `MaintenancePenaltyJournalizer` reads all three off the parent:
+            // `SlaPenaltyJournalizer` reads all three off the parent:
             //
             //   asset_id → the entry's property dimension (the bill's, not the work order's)
             //   status   → whether it posts at all (`! $bill->isPostable()` returns null, so

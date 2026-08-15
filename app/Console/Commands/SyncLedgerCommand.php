@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\DepreciationEntry;
 use App\Models\FixedAssetDisposal;
-use App\Models\MaintenancePenalty;
+use App\Models\SlaPenalty;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -48,7 +48,7 @@ class SyncLedgerCommand extends Command
         StockMovement::class => ['warehouse'],
         DepreciationEntry::class => ['fixedAsset'],
         FixedAssetDisposal::class => ['fixedAsset'],
-        MaintenancePenalty::class => ['bill', 'workOrder'],
+        SlaPenalty::class => ['bill', 'workOrder'],
     ];
 
     public function handle(LedgerPoster $poster, FiscalCalendar $calendar, BooksReconciliationService $recon): int
@@ -63,7 +63,7 @@ class SyncLedgerCommand extends Command
 
         // Derived from the registry, never re-listed: a journalizer registered in
         // LedgerPoster::JOURNALIZERS is swept here automatically. Hand-listing this is what
-        // stranded MaintenancePenalty's entries (2026-07-16) — the sweep couldn't self-heal
+        // stranded SlaPenalty's entries (2026-07-16) — the sweep couldn't self-heal
         // a source it had never heard of.
         foreach (LedgerPoster::sources() as $source) {
             $query = $source::query();

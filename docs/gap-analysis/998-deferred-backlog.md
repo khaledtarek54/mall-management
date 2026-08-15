@@ -55,7 +55,7 @@ Tier suggestions: **P0** = before demo · **P1** = before pilot · **P2** = post
 | D-24 | M08 F-33 | EtaCompliance Rejected tile counts invalid+rejected but filter is invalid only | Add multi-value filter OR repoint tile | P2 |
 | D-26 | M08 F-35 | EtaCompliance Pending tile not clickable | Bundle with D-24 | P2 |
 | D-27 | M08 | e2e assertion for new PDF ETA block text | Post-sweep test pass | P3 |
-| D-28 | M09 F-36 | MaintenanceSettings SLA props unused (service reads `config()`) | Wire service to Settings (B) — admin-tunable SLAs | P2 |
+| D-28 | M09 F-36 | SlaSettings SLA props unused (service reads `config()`) | Wire service to Settings (B) — admin-tunable SLAs | P2 |
 | D-29 | M09 F-37 | No maintenance notifications | Bundle notification design | P2 |
 | D-30 | M09 F-38 | `auto_close_after_days` config never acted on | Add `maintenance:auto-close` command + daily schedule | P2 |
 | D-36 | M12 F-48/F-50/F-51 | No void-locked declaration; no `cancelled` state; no re-submission | Product feature | P2 |

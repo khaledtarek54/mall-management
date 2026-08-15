@@ -55,7 +55,7 @@ The module enforces **idempotency** through two mechanisms:
    - Formula: if `status` ∈ `['issued', 'partially_paid', 'overdue']` AND `balance > 0` AND `due_date < today()` AND `owner_overdue_notified_at IS NULL`, alert fires.
    - Tested in `ScanOverdueInvoicesCommandTest` (implicit via command tests).
 
-4. **SLA targets are priority-based** (from `config/maintenance.php`)  
+4. **SLA targets are priority-based** (from `config/sla.php`)  
    - urgent: 24h, high: 72h, medium: 7 days (168h), low: 14 days (336h)
    - `MaintenanceRequest.target_resolution_at = created_at + priority_hours`
 
@@ -411,7 +411,7 @@ The `push` channel delivers tenant-facing notifications to the tenant mobile app
 
 ### Changing SLA targets:
 
-Edit `config/maintenance.php` `sla` array. The `MaintenanceRequestService` reads this at create-time to set `target_resolution_at`. **Changing the config does NOT update existing targets** — only new requests get the new SLA. If you need to re-calculate existing requests, write a one-off command.
+Edit `config/sla.php` `sla` array. The `MaintenanceRequestService` reads this at create-time to set `target_resolution_at`. **Changing the config does NOT update existing targets** — only new requests get the new SLA. If you need to re-calculate existing requests, write a one-off command.
 
 ### Changing late-fee policy:
 

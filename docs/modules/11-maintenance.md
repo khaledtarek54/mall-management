@@ -14,8 +14,8 @@
 > |---|---|
 > | `maintenance.*` permissions | **`requests.*`** (`TenantRequestResource::permissionModule()`) |
 > | `Modules::enabled('maintenance')` | **`Modules::enabled('requests')`** |
-> | `MaintenanceSettings` (group `maintenance`) | **`SlaSettings`** (group `sla`) — shared with module 26, which is why it is named for neither |
-> | `config/maintenance.php` | **`config/sla.php`** + **`config/requests.php`** — it held two unrelated things |
+> | `SlaSettings` (group `maintenance`) | **`SlaSettings`** (group `sla`) — shared with module 26, which is why it is named for neither |
+> | `config/sla.php` | **`config/sla.php`** + **`config/requests.php`** — it held two unrelated things |
 >
 > Also renamed: the `maintenanceRequests()` relation on Tenant/Lease/Unit/Vendor is now
 > `tenantRequests()`, `PortalMaintenanceSubmittedNotification` is `PortalRequestSubmittedNotification`,
@@ -58,7 +58,7 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 
 | Type | Sub-categories | SLA | Routes to | Ref prefix |
 |------|----------------|-----|-----------|-----------|
-| maintenance | electrical, plumbing, hvac, structural, cleaning, safety, other | yes (operator-tunable via MaintenanceSettings) | Operations | `MR` |
+| maintenance | electrical, plumbing, hvac, structural, cleaning, safety, other | yes (operator-tunable via SlaSettings) | Operations | `MR` |
 | complaint | noise, cleanliness, conduct, other | yes (code map) | Operations | `CR` |
 | access | keys_cards, parking, after_hours, visitor, delivery | yes (code map) | Operations | `AR` |
 | document | lease_copy, renewal, termination_notice, noc_certificate | no | Leasing | `DR` |
@@ -151,13 +151,13 @@ invariant is enforced in `TenantRequest::booted` — so admin, portal and API al
 `unit_id` stays required: a request is still about a unit. Unit-less common-area work is a **work
 order** (module 26), which carries its own `asset_id`.
 
-**SLA Targets** (config/maintenance.php + MaintenanceSettings):
+**SLA Targets** (config/sla.php + SlaSettings):
 - urgent: 4 hours (default config: 24h; Settings SLA: 4h)
 - high: 24 hours (default config: 72h; Settings SLA: 24h)
 - medium: 72 hours (default config: 168h = 7d; Settings SLA: 72h)
 - low: 168 hours (default config: 336h = 14d; Settings SLA: 168h)
 
-On `create()`, the service calls `defaultTargetResolution($priority)` to compute the target: reads from MaintenanceSettings first (via app()), then falls back to config/maintenance.php. If Settings fails to load, uses config only (guards against missing rows in minimal test envs).
+On `create()`, the service calls `defaultTargetResolution($priority)` to compute the target: reads from SlaSettings first (via app()), then falls back to config/sla.php. If Settings fails to load, uses config only (guards against missing rows in minimal test envs).
 
 **Formulas (verbatim from code)**:
 - `target_resolution_at = now() + (priority_hours from settings or config)`
@@ -280,8 +280,8 @@ cancelled        → (terminal, no successors)
 - Returns the saved comment.
 
 *`defaultTargetResolution(string $priority): Carbon`*
-- Reads from MaintenanceSettings via app().
-- On Throwable (missing settings rows), falls back to config/maintenance.php sla.{priority}.resolve_hours.
+- Reads from SlaSettings via app().
+- On Throwable (missing settings rows), falls back to config/sla.php sla.{priority}.resolve_hours.
 - Returns now()->addHours((int) $hours).
 
 ---
@@ -464,8 +464,8 @@ cancelled        → (terminal, no successors)
 1. Add to MaintenanceRequest::PRIORITIES const.
 2. Add to MaintenanceRequest::CATEGORIES const if a category.
 3. Add translation key 'admin.enums.maintenance_priority.{new}' in lang/.
-4. Add SLA hours to MaintenanceSettings: `public int $sla_{new}_hours = {value}`;
-5. Update config/maintenance.php sla.{new}.resolve_hours fallback.
+4. Add SLA hours to SlaSettings: `public int $sla_{new}_hours = {value}`;
+5. Update config/sla.php sla.{new}.resolve_hours fallback.
 6. Add form option in MaintenanceRequestForm (automatic via __('admin.enums.maintenance_priority')).
 7. Add test in MaintenanceScenarioTest covering new tier.
 
@@ -491,7 +491,7 @@ cancelled        → (terminal, no successors)
 
 **To change SLA computation**:
 1. Edit defaultTargetResolution() in MaintenanceRequestService.
-2. Or adjust MaintenanceSettings values via /admin/settings → Maintenance.
+2. Or adjust SlaSettings values via /admin/settings → Maintenance.
 3. Do NOT modify the column name target_resolution_at (many queries filter on it).
 
 **To auto-close faster/slower**:
@@ -664,8 +664,8 @@ can never re-status, reassign or reroute a request. Guarded by `TenantRequestAct
 ---
 
 **Configuration files**
-- `config/maintenance.php`: SLA hours by priority, auto-close days
-- `app/Settings/MaintenanceSettings.php`: Operator-tunable SLA hours (read first, then config fallback)
+- `config/sla.php`: SLA hours by priority, auto-close days
+- `app/Settings/SlaSettings.php`: Operator-tunable SLA hours (read first, then config fallback)
 
 **Database migrations**
 1. 2026_05_16_233721: Create maintenance_requests + comments tables
@@ -687,5 +687,5 @@ button reappears on a money record.
 
 | Model | Rule | Instead / why |
 |---|---|---|
-| `MaintenancePenalty` | **Never deletable** | waive or release the penalty — it feeds the vendor bill |
-| `MaintenanceWorkOrder` | Deletable (super_admin) | operational: a job record |
+| `SlaPenalty` | **Never deletable** | waive or release the penalty — it feeds the vendor bill |
+| `FacilityWorkOrder` | Deletable (super_admin) | operational: a job record |

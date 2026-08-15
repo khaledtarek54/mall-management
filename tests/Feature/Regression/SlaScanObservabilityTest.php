@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorContract;
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Log;
  * `schedule:run` that output is **discarded**. Combined with per-row containment — a failure
  * is caught, counted, and the command still returns SUCCESS — every failure was silent:
  *
- *   - `maintenance:scan-wo-sla-breaches` runs **hourly** and calls AssessSlaPenaltyService.
+ *   - `facility:scan-sla-breaches` runs **hourly** and calls AssessSlaPenaltyService.
  *     A throw there means **the vendor is never charged for missing its SLA**, and the only
  *     evidence went to a stdout nobody reads.
  *   - A failed breach alert meant an engineer was never told a job was late.
@@ -43,9 +43,9 @@ beforeEach(function () {
 });
 
 /** An open, external CM whose SLA target is already in the past. */
-function overdueWorkOrder(): MaintenanceWorkOrder
+function overdueWorkOrder(): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create([
+    return FacilityWorkOrder::create([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => test()->vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
         'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
@@ -62,7 +62,7 @@ it('logs a durable summary of every work-order SLA scan', function () {
         $events[] = $event;
     });
 
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertExitCode(0);
+    $this->artisan('facility:scan-sla-breaches')->assertExitCode(0);
 
     expect($events)->toContain('Work-order SLA scan complete');
 });
@@ -75,7 +75,7 @@ it('logs a failed penalty assessment loudly — the vendor going uncharged is no
     $this->app->bind(AssessSlaPenaltyService::class, function () {
         return new class extends AssessSlaPenaltyService
         {
-            public function assess(MaintenanceWorkOrder $order): ?\App\Models\MaintenancePenalty
+            public function assess(FacilityWorkOrder $order): ?\App\Models\SlaPenalty
             {
                 throw new RuntimeException('contract terms unreadable');
             }
@@ -94,7 +94,7 @@ it('logs a failed penalty assessment loudly — the vendor going uncharged is no
     });
 
     // Still exits 0 — per-row containment is deliberate. That is precisely why the log matters.
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertExitCode(0);
+    $this->artisan('facility:scan-sla-breaches')->assertExitCode(0);
 
     expect($errors)->not->toBeEmpty('a failed penalty assessment must reach the ops channel');
     expect($errors[0][0])->toBe('SLA penalty assessment failed — vendor not charged');

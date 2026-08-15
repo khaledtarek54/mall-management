@@ -6,7 +6,7 @@ use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
@@ -14,7 +14,7 @@ use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Lease;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\PostDatedCheque;
 use App\Models\TenantRequest;
 use App\Models\Unit;
@@ -46,8 +46,8 @@ class ActionRequired extends Widget
     private const CARD_PERMISSIONS = [
         'urgent_requests' => 'requests.view',
         'sla_breached' => 'requests.view',
-        'wo_sla_breached' => 'preventive_maintenance.view',
-        'wo_response_breached' => 'preventive_maintenance.view',
+        'wo_sla_breached' => 'facility.view',
+        'wo_response_breached' => 'facility.view',
         'ledger_without_property' => 'journal_entries.view',
         'vendor_documents' => 'vendors.view',
         'contract_notice' => 'vendors.view',
@@ -97,8 +97,8 @@ class ActionRequired extends Widget
 
         // Work orders carry asset_id directly (no unit hop) — a common-area job has no unit.
         $workOrderBase = fn () => $assetIds !== null
-            ? MaintenanceWorkOrder::whereIn('asset_id', $assetIds)
-            : MaintenanceWorkOrder::query();
+            ? FacilityWorkOrder::whereIn('asset_id', $assetIds)
+            : FacilityWorkOrder::query();
 
         $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();
         $overdueAmount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->sum('balance');
@@ -216,7 +216,7 @@ class ActionRequired extends Widget
 
         $items = [];
         $requestsEnabled = Modules::enabled('requests');
-        $ppmEnabled = Modules::enabled('preventive_maintenance');
+        $ppmEnabled = Modules::enabled('facility');
 
         // Each card pre-applies the right filter AND sorts the offending
         // rows to the top, so clicking lands the operator on the work
@@ -251,7 +251,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.wo_sla_breached', $woSlaBreachedCount, ['count' => $woSlaBreachedCount]),
                 'body' => __('admin.widgets.action_required.wo_sla_breached_body'),
-                'url' => ResourceLink::indexWhere(MaintenanceWorkOrderResource::class, 'sla_breached', 'target_resolution_at:asc'),
+                'url' => ResourceLink::indexWhere(FacilityWorkOrderResource::class, 'sla_breached', 'target_resolution_at:asc'),
             ];
         }
 
@@ -262,7 +262,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.wo_response_breached', $woUnansweredCount, ['count' => $woUnansweredCount]),
                 'body' => __('admin.widgets.action_required.wo_response_breached_body'),
-                'url' => ResourceLink::indexWhere(MaintenanceWorkOrderResource::class, 'response_breached', 'target_response_at:asc'),
+                'url' => ResourceLink::indexWhere(FacilityWorkOrderResource::class, 'response_breached', 'target_response_at:asc'),
             ];
         }
 

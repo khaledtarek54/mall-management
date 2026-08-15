@@ -4,7 +4,7 @@ use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Filament\Admin\Resources\Areas\Schemas\AreaForm;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Area;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\Unit;
@@ -216,11 +216,11 @@ it('refuses to tag a unit with a zone from another property, even via a crafted 
 
 /* ---- work-order routing (module 30 → 11): the work-order half of the zone routing ------- */
 
-function makeZoneWorkOrder(int $assetId, array $attrs = []): MaintenanceWorkOrder
+function makeZoneWorkOrder(int $assetId, array $attrs = []): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create(array_merge([
+    return FacilityWorkOrder::create(array_merge([
         'asset_id' => $assetId,
-        'work_order_type' => MaintenanceWorkOrder::TYPE_PPM,
+        'work_order_type' => FacilityWorkOrder::TYPE_PPM,
         'title' => 'Filter swap',
         'category' => 'hvac',
         'scheduled_for' => '2026-07-01',

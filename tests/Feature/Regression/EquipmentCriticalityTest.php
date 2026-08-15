@@ -1,11 +1,11 @@
 <?php
 
 use App\Models\Equipment;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use App\Models\TenantRequest;
 use App\Services\GeneratePreventiveWorkOrdersService;
-use App\Services\RaiseCorrectiveMaintenanceService;
+use App\Services\RaiseCorrectiveWorkOrderService;
 
 /**
  * Asset criticality — how much it matters when this machine stops.
@@ -56,7 +56,7 @@ it('starts a fault raised from a tenant request on critical equipment at urgent'
         'category' => 'hvac',
     ]);
 
-    $order = app(RaiseCorrectiveMaintenanceService::class)->fromTenantRequest($request, [
+    $order = app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, [
         'execution_type' => 'internal',
         'equipment_id' => $equipment->id,
     ]);
@@ -80,7 +80,7 @@ it('takes the higher of the tenant\'s view and the machine\'s, never the lower',
         'priority' => 'low',
     ]);
 
-    $order = app(RaiseCorrectiveMaintenanceService::class)->fromTenantRequest($request, [
+    $order = app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, [
         'execution_type' => 'internal',
         'equipment_id' => $equipment->id,
     ]);
@@ -103,7 +103,7 @@ it('never overrides a priority the operator stated', function () {
         'title' => 'Scratched panel', 'description' => 'Cosmetic', 'category' => 'hvac',
     ]);
 
-    $order = app(RaiseCorrectiveMaintenanceService::class)->fromTenantRequest($request, [
+    $order = app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, [
         'execution_type' => 'internal',
         'equipment_id' => $equipment->id,
         'priority' => 'low',
@@ -125,7 +125,7 @@ it('falls back to medium for a job with no equipment attached', function () {
         'title' => 'Corridor light', 'description' => 'Flickering', 'category' => 'electrical',
     ]);
 
-    $order = app(RaiseCorrectiveMaintenanceService::class)->fromTenantRequest($request, [
+    $order = app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, [
         'execution_type' => 'internal',
     ]);
 
@@ -137,7 +137,7 @@ it('carries criticality into the preventive round too', function () {
     // priority at all, so every plan produced `medium` whatever it was servicing.
     $equipment = criticalEquipment(Equipment::CRITICAL);
 
-    MaintenancePlan::create([
+    ServicePlan::create([
         'asset_id' => $equipment->asset_id,
         'equipment_id' => $equipment->id,
         'title' => 'Quarterly service',
@@ -150,7 +150,7 @@ it('carries criticality into the preventive round too', function () {
 
     app(GeneratePreventiveWorkOrdersService::class)->run();
 
-    expect(MaintenanceWorkOrder::where('equipment_id', $equipment->id)->value('priority'))->toBe('urgent');
+    expect(FacilityWorkOrder::where('equipment_id', $equipment->id)->value('priority'))->toBe('urgent');
 });
 
 it('falls back to routine rather than guessing critical', function () {

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
@@ -21,14 +21,14 @@ class FacilityWorkLogPdfService
      * the report can never show more than the list.
      *
      * @param  array<int>|null  $assetIds
-     * @return \Illuminate\Support\Collection<int, MaintenanceWorkOrder>
+     * @return \Illuminate\Support\Collection<int, FacilityWorkOrder>
      */
     public function orders(string $from, string $to, ?array $assetIds): \Illuminate\Support\Collection
     {
         $fromDate = CarbonImmutable::parse($from)->startOfDay();
         $toDate = CarbonImmutable::parse($to)->endOfDay();
 
-        return MaintenanceWorkOrder::query()
+        return FacilityWorkOrder::query()
             ->with(['asset', 'unit'])
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->whereBetween('scheduled_for', [$fromDate->toDateString(), $toDate->toDateString()])

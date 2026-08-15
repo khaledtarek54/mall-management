@@ -15,7 +15,7 @@ use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
-use App\Models\MaintenancePenalty;
+use App\Models\SlaPenalty;
 use App\Models\MarketingSpend;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
@@ -111,7 +111,7 @@ class PostingDateGuards
             'operator-reachable inputs are the scheduler and the admin button (both now()) and '.
             'PostDepreciationCommand --month, which is guarded there.',
 
-        MaintenancePenalty::class => self::SYSTEM_PREFIX.
+        SlaPenalty::class => self::SYSTEM_PREFIX.
             'applied_at is stamped now() at the moment the penalty is applied — a penalty cannot '.
             'be applied into the past.',
 

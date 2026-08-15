@@ -459,7 +459,7 @@ The project's defining strength is that a convention with a gate does not drift.
    > bank, `paid_from = 'bank'` cannot say which.
    >
    > Converting all 62 also surfaced three test files that had been green over values MySQL would
-   > have refused (`maintenance_penalties.basis = 'fixed'`, `tenant_sales_declarations.status =
+   > have refused (`sla_penalties.basis = 'fixed'`, `tenant_sales_declarations.status =
    > 'declared'`, `leases.percentage_rent_calculation_type = 'simple'`) — none of which appears
    > anywhere in `app/`. That is the false green, found by closing it.
 2. **Concurrency** (§4.1) — 110 lock sites, untestable by construction.

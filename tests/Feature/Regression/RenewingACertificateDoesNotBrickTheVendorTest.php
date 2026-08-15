@@ -10,7 +10,7 @@ use App\Models\VendorDocument;
  * ANY lapsed insurance row?"*. A compliance file keeps its history — you upload the new certificate
  * and leave last year's on file as the record of what was in force then — so the lapsed row never
  * stops existing and the answer is yes forever. The vendor disappears from every picker,
- * `MaintenanceWorkOrder::saving()` refuses it, and the only escape is deleting the evidence.
+ * `FacilityWorkOrder::saving()` refuses it, and the only escape is deleting the evidence.
  *
  * It also stopped the vendor's preventive-maintenance plans generating at all: `generateFor()`
  * wraps everything in one transaction, so the throw rolled back `advanceDue()` too and the plan

@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Per-property SLA durations for corrective maintenance (FR-CM-05) — "set once per mall".
- * Part of module 26, so it rides the `preventive_maintenance` flag + permissions.
+ * Part of module 26, so it rides the `facility` flag + permissions.
  */
 class SlaPolicyResource extends Resource
 {
@@ -52,7 +52,7 @@ class SlaPolicyResource extends Resource
 
     protected static function permissionModule(): string
     {
-        return 'preventive_maintenance';
+        return 'facility';
     }
 
     /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
@@ -72,17 +72,17 @@ class SlaPolicyResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return __('admin.preventive_maintenance.sla.plural');
+        return __('admin.facility.sla.plural');
     }
 
     public static function getModelLabel(): string
     {
-        return __('admin.preventive_maintenance.sla.singular');
+        return __('admin.facility.sla.singular');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('admin.preventive_maintenance.sla.plural');
+        return __('admin.facility.sla.plural');
     }
 
     public static function getNavigationGroup(): ?string

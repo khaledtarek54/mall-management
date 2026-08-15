@@ -330,7 +330,7 @@ property that does not hold is worse than a missing entry — the gate reports c
 
 `VendorBill::ledgerChildRelations()` ([:139-142](../../app/Models/VendorBill.php#L139-L142)) returns
 `[$this->payments()]`; `penalties()` exists at `:188-189` and is omitted — yet
-`MaintenancePenaltyJournalizer` derives its **entire** payload from the parent bill.
+`SlaPenaltyJournalizer` derives its **entire** payload from the parent bill.
 
 Re-home a bill from one property to another (`asset_id` is DERIVED and editable): `VendorBill::updated`
 bumps the payments only, the penalty's `updated_at` never moves, and the 2-day sweep window never
@@ -553,7 +553,7 @@ invoices · a raw join ignores `payments.deleted_at` in `InvoiceItemSettlement`.
 `DepositTransaction.lease_id`/`tenant_id` and `Payment.tenant_id` — all classified **DERIVED** — can
 never actually re-derive, and `ChangeImpactConformanceTest`'s four checks include **none that proves a
 DERIVED field re-derives** · close-gate off-by-one on a DATETIME (`PeriodService.php:101`) hides a
-`MaintenancePenalty` applied late on the last day · close gate (b) is blind to post-month overrides ·
+`SlaPenalty` applied late on the last day · close gate (b) is blind to post-month overrides ·
 period close is neither transactional nor locked and never checks that the period balances ·
 `YearEndCloseService::reopen()` silently unlocks December and never re-closes it · no unique index on
 `(source_type, source_id)`, no CHECK constraint on one-sided or negative amounts ·

@@ -1,9 +1,9 @@
 <?php
 
 use App\Filament\Admin\Widgets\ActionRequired;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -21,13 +21,13 @@ use Livewire\Livewire;
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
-    $this->svc = app(MaintenanceWorkOrderService::class);
+    $this->svc = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'GAP']);
 });
 
-function breachedCm(): MaintenanceWorkOrder
+function breachedCm(): FacilityWorkOrder
 {
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => test()->asset->id,
         'work_order_type' => 'cm',
         'execution_type' => 'internal',
@@ -38,7 +38,7 @@ function breachedCm(): MaintenanceWorkOrder
         'scheduled_for' => '2026-07-01',
     ]);
 
-    app(MaintenanceWorkOrderService::class)->transition($order, 'in_progress');
+    app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(100)->hours();
 
     return $order->fresh();
@@ -108,7 +108,7 @@ it('shows a breached corrective job on the action-required dashboard', function 
 it('does not show the card when nothing is breached', function () {
     // An accepted job still inside its SLA.
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 500]);
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'description' => 'Fault', 'title' => 'Fix', 'category' => 'hvac', 'priority' => 'urgent',
         'scheduled_for' => '2026-07-01',

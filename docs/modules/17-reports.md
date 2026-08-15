@@ -691,7 +691,7 @@ whether the mall is busy or not — a security/cleaning contract, admin salaries
 
 **Workflow visualization (FR-FIN-04)** — the `Workflows` page (Settings group) renders each state
 machine's transitions read-only, driven straight off the `TRANSITIONS` matrices that *enforce* the
-flows (`PurchaseRequest`, `MaintenanceWorkOrder`, `TenantRequest`), so it can never document a
+flows (`PurchaseRequest`, `FacilityWorkOrder`, `TenantRequest`), so it can never document a
 transition the services don't allow. No domain change — a rendering of the single source of truth.
 
 ## 9. UI architecture — native Filament, no hand-written report markup

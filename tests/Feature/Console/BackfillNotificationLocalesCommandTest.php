@@ -20,7 +20,7 @@
 | captured values are data and which are tokens.
 */
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\User;
 use App\Notifications\OwnerRequestNotification;
 use App\Notifications\WorkOrderRaisedNotification;
@@ -120,7 +120,7 @@ it('translates a status token inside the sentence but quotes operator data as ty
 it('gives an old row the deep link it never had', function () {
     // Those rows predate the links as well as the languages, and they are the same rows the
     // operator is looking at — backfilling one without the other leaves half the work invisible.
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id,
         'work_order_type' => 'cm',
         'execution_type' => 'internal',

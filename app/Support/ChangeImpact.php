@@ -16,7 +16,7 @@ use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
-use App\Models\MaintenancePenalty;
+use App\Models\SlaPenalty;
 use App\Models\MarketingSpend;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
@@ -325,7 +325,7 @@ class ChangeImpact
             self::DESCRIPTIVE => ['number' => 'names the entry'],
         ],
 
-        MaintenancePenalty::class => [
+        SlaPenalty::class => [
             'committed' => 'applied — an assessed (`final`) penalty is owed but not yet deducted, and posts nothing',
             self::DERIVED => [
                 'status' => 'only `applied` posts; waiving or detaching reverses',
@@ -335,7 +335,7 @@ class ChangeImpact
                 'applied_at' => 'the entry date. Applying always stamps it, so the created_at fallback never decides a real entry\'s period',
             ],
             self::NEUTRAL => [
-                'maintenance_work_order_id', 'vendor_id', 'vendor_contract_id', 'currency',
+                'facility_work_order_id', 'vendor_id', 'vendor_contract_id', 'currency',
                 'finalised_at', 'waived_at', 'waived_by_user_id', 'waive_reason',
                 // The inputs the service computes `amount` from, not the posted figure itself.
                 'basis', 'rate', 'hours_over_sla',

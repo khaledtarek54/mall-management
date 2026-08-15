@@ -50,11 +50,11 @@ use App\Models\LeaseOption;
 use App\Models\LeasePercentageRentTier;
 use App\Models\LedgerAccount;
 use App\Models\LowStockAlert;
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderItem;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\SlaPenalty;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderItem;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
@@ -161,7 +161,7 @@ class DeletionPolicy
         DepreciationEntry::class => 'reverse the depreciation run',
         VendorBillPayment::class => 'void the payment — money left the bank',
         FixedAssetDisposal::class => 'reverse the disposal',
-        MaintenancePenalty::class => 'waive or release the penalty — it feeds the vendor bill',
+        SlaPenalty::class => 'waive or release the penalty — it feeds the vendor bill',
         LeaseEvent::class => 'record the correcting event — a lease event is an assertion about something that happened, and the model refuses updates and deletes outright (no deletion call site exists in app/, so guarding it removes nothing that works)',
     ];
 
@@ -257,7 +257,7 @@ class DeletionPolicy
             // The property is the ROOT of the GL isolation dimension, so it carries the widest
             // history — and the financial/HR children's asset_id FKs are cascadeOnDelete, so a
             // MISSING blocker doesn't just orphan on delete, a force-delete DESTROYS them outright,
-            // incl. a NEVER-deletable MaintenancePenalty, bypassing every model guard. journalEntries
+            // incl. a NEVER-deletable SlaPenalty, bypassing every model guard. journalEntries
             // is the GL catch-all (every posting stamps asset_id); the direct money records are
             // listed too so an UN-posted one still blocks. (Pre-go-live review — the original list of
             // 4 physical relations left the whole money/HR/GL dimension un-guarded.)
@@ -360,8 +360,8 @@ class DeletionPolicy
         OwnerStatement::class => 'parent-managed: force-deleted when its run is rebuilt',
         EmployeeAdvanceRepayment::class => 'parent-managed: deleted to reverse a repayment',
         CustodyTransaction::class => 'parent-managed: removed on settlement',
-        MaintenanceWorkOrderItem::class => 'parent-managed: edited as part of the work order',
-        MaintenanceWorkOrderPart::class => 'parent-managed: edited as part of the work order',
+        FacilityWorkOrderItem::class => 'parent-managed: edited as part of the work order',
+        FacilityWorkOrderPart::class => 'parent-managed: edited as part of the work order',
         PurchaseRequestLine::class => 'parent-managed: edited while the request is still a draft',
         VendorContractAmendment::class => 'parent-managed: append-only in practice, removable while unsent',
         OwnerRequestReply::class => 'parent-managed: belongs to its thread',
@@ -407,7 +407,7 @@ class DeletionPolicy
         SystemSetting::class => 'configuration',
         Area::class => 'configuration: a zone used for routing',
         Equipment::class => 'configuration: an asset register entry with no ledger of its own',
-        MaintenancePlan::class => 'configuration: a PPM schedule',
+        ServicePlan::class => 'configuration: a PPM schedule',
         MarketingBudget::class => 'configuration: a spend envelope',
         FiscalYear::class => 'configuration: its periods carry the entries, and they are guarded',
         Charge::class => 'configuration: a recurring billing line; issued invoices keep their own copy',
@@ -415,7 +415,7 @@ class DeletionPolicy
         Announcement::class => 'configuration: a notice board post',
 
         // operational records (work, not money)
-        MaintenanceWorkOrder::class => 'operational: a job record',
+        FacilityWorkOrder::class => 'operational: a job record',
         TenantRequest::class => 'operational: terminal states are already immutable',
         OwnerRequest::class => 'operational: responded requests are already immutable',
         PurchaseRequest::class => 'operational: its GRNI posting lives on the vendor bill',

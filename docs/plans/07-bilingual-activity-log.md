@@ -88,7 +88,7 @@ module gets correct formatting for free, and a column that changes type can't dr
 | class missing (history) | sniff the raw value's PHP type |
 
 One small registry, `VALUE_VOCABULARY`, holds only the **exceptions** — `'{log_name}.{field}' =>
-'admin.enums.{group}'`, e.g. `maintenance_work_order.priority => admin.enums.maintenance_priority`.
+'admin.enums.{group}'`, e.g. `facility_work_order.priority => admin.enums.maintenance_priority`.
 The convention `field === 'status'` → `admin.statuses.{log_name}` covers the common case with no
 entry, because `useLogName()` values and `admin.statuses` keys already agree (invoice, lease,
 payment, tenant, credit_note, vendor_bill, payroll…). Foreign keys stay as raw ids — resolving them

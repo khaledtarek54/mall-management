@@ -48,7 +48,7 @@ class PurchaseRequest extends Model
     ];
 
     /**
-     * FR-PROC-05's ladder, as a matrix (mirrors MaintenanceWorkOrderService::TRANSITIONS).
+     * FR-PROC-05's ladder, as a matrix (mirrors FacilityWorkOrderService::TRANSITIONS).
      *
      * **`requested` cannot jump to `ordered`.** That single omission is FR-PROC-02 — "route
      * procurement requests through an approval workflow **before order placement**" — expressed as

@@ -111,7 +111,7 @@ class DumpSystemCensus extends Command
                 'gl_sources' => count(LedgerPoster::sources()),
                 // Concrete journalizer classes on disk. Should equal gl_sources — a surplus
                 // means a journalizer exists but is registered nowhere, which is exactly how
-                // the MaintenancePenalty posting bug hid. GlRegistryConformanceTest gates it.
+                // the SlaPenalty posting bug hid. GlRegistryConformanceTest gates it.
                 'gl_journalizer_files' => count(array_filter(
                     self::files('app/Services/Accounting/Journalizers', '*Journalizer.php'),
                     fn ($f) => basename($f) !== 'Journalizer.php',

@@ -21,7 +21,7 @@ use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
-use App\Models\MaintenancePenalty;
+use App\Models\SlaPenalty;
 use App\Models\MarketingSpend;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
@@ -47,7 +47,7 @@ use App\Services\Accounting\Journalizers\FixedAssetDisposalJournalizer;
 use App\Services\Accounting\Journalizers\InventoryMovementJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
-use App\Services\Accounting\Journalizers\MaintenancePenaltyJournalizer;
+use App\Services\Accounting\Journalizers\SlaPenaltyJournalizer;
 use App\Services\Accounting\Journalizers\MarketingSpendJournalizer;
 use App\Services\Accounting\Journalizers\OwnerStatementRunJournalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
@@ -85,7 +85,7 @@ class LedgerPoster
      *   4. `BooksReconciliationService`      — the GL-drift check behind `billing:reconcile`
      *
      * Why it is a const and not a match(): those five lists were hand-maintained copies, and
-     * they drifted — `MaintenancePenalty` had a correct journalizer here while being absent
+     * they drifted — `SlaPenalty` had a correct journalizer here while being absent
      * from all of the others, so an applied SLA penalty cut the vendor bill's AP balance and
      * posted nothing, and neither the sweep nor the drift check could see it (fixed 2026-07-16).
      * A registry that can be enumerated can be conformance-gated; a match() cannot.
@@ -98,7 +98,7 @@ class LedgerPoster
         CreditNote::class => CreditNoteJournalizer::class,
         VendorBill::class => VendorBillJournalizer::class,
         VendorBillPayment::class => VendorBillPaymentJournalizer::class,
-        MaintenancePenalty::class => MaintenancePenaltyJournalizer::class,
+        SlaPenalty::class => SlaPenaltyJournalizer::class,
         Expense::class => ExpenseJournalizer::class,
         Payroll::class => PayrollJournalizer::class,
         DepositTransaction::class => DepositTransactionJournalizer::class,

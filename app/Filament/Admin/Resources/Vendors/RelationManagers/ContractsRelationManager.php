@@ -122,16 +122,16 @@ class ContractsRelationManager extends RelationManager
                 // The FRD never says on what basis, so it is agreed per contract rather
                 // than guessed in code. `none` (the default) = no penalty negotiated.
                 Select::make('sla_penalty_basis')
-                    ->label(__('admin.preventive_maintenance.penalty.basis'))
-                    ->helperText(__('admin.preventive_maintenance.penalty.basis_hint'))
-                    ->options(fn () => __('admin.preventive_maintenance.penalty.bases'))
+                    ->label(__('admin.facility.penalty.basis'))
+                    ->helperText(__('admin.facility.penalty.basis_hint'))
+                    ->options(fn () => __('admin.facility.penalty.bases'))
                     ->default('none')
                     ->required()
                     ->live()
                     ->native(false),
                 TextInput::make('sla_penalty_rate')
-                    ->label(__('admin.preventive_maintenance.penalty.rate'))
-                    ->helperText(__('admin.preventive_maintenance.penalty.rate_hint'))
+                    ->label(__('admin.facility.penalty.rate'))
+                    ->helperText(__('admin.facility.penalty.rate_hint'))
                     ->numeric()
                     ->minValue(0)
                     ->default(0)

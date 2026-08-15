@@ -37,7 +37,7 @@ stated safety argument ("edits fully reconcile via the GL cascade") was the fals
 **Fix:** `matches()` now compares a normalised `entry_date` (journalizers emit Carbon *or* string).
 Guard: `tests/Feature/Regression/GapAnalysisRound2FixesTest.php`, verified to fail without it.
 
-> This is the **sibling of the MaintenancePenalty bug** (`4f01a93`) that survived the registry fix:
+> This is the **sibling of the SlaPenalty bug** (`4f01a93`) that survived the registry fix:
 > not a missing *source*, but a source **field the reconciler never compared**.
 
 ### ✅ F-80 — FIXED (2026-07-19). Year-end close now posts per property
@@ -91,7 +91,7 @@ Recoverable by reopening June, so bounded.
   then sums, to match `incomeStatement()` exactly.
 - **The registry work held.** `SyncLedgerCommand:67`, `LedgerRealtimeSync:65` and
   `glDriftDiscrepancies:305` all iterate `LedgerPoster::sources()`. A new journalizer **cannot**
-  repeat MaintenancePenalty's disappearance.
+  repeat SlaPenalty's disappearance.
 
 ---
 
@@ -107,7 +107,7 @@ Recoverable by reopening June, so bounded.
 - Custody/CustodyTransaction/EmployeeAdvance/EmployeeAdvanceRepayment/DepreciationEntry/
   FixedAssetDisposal have post-direction proof only via direct `poster->sync()`. Mitigating: their
   *void* tests run the real sweep, and `syncOne()` calls `sync()` uniformly — so proving enumeration
-  for void implies it for post. Weaker than MaintenancePenalty's hole, not identical.
+  for void implies it for post. Weaker than SlaPenalty's hole, not identical.
 - **No test asserted `entry_date` reconciliation at all** — which is why F-79 shipped green. A
   regression test must assert `entry_date`/`accounting_period_id` after a date-only edit + sweep;
   asserting amounts alone passes either way.

@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderPart;
 use App\Services\AttributeWorkOrderFaultService;
 use Database\Seeders\RolesPermissionsSeeder;
 
@@ -22,9 +22,9 @@ beforeEach(function () {
     $this->manager = makeUser('manager', [$this->asset->id]);
 });
 
-function faultOrder(array $attrs = []): MaintenanceWorkOrder
+function faultOrder(array $attrs = []): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create(array_merge([
+    return FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id,
         'unit_id' => test()->unit->id,
         'work_order_type' => 'cm',
@@ -40,23 +40,23 @@ function faultOrder(array $attrs = []): MaintenanceWorkOrder
 
 it('makes the tenant responsible only when the tenant caused it', function () {
     // "based on who caused the damage" — the whole of FR-CM-13 in one assertion.
-    $order = $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT, 'Staff put grease down it.', null, $this->manager);
+    $order = $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_TENANT, 'Staff put grease down it.', null, $this->manager);
 
     expect($order->fault_party)->toBe('tenant');
-    expect($order->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_TENANT);
+    expect($order->cost_bearer)->toBe(FacilityWorkOrder::BEARER_TENANT);
     expect($order->tenantBearsCost())->toBeTrue();
 });
 
 it('leaves every other cause with the mall', function () {
     foreach ([
-        MaintenanceWorkOrder::FAULT_WEAR,
-        MaintenanceWorkOrder::FAULT_VENDOR,
-        MaintenanceWorkOrder::FAULT_THIRD_PARTY,
-        MaintenanceWorkOrder::FAULT_FORCE_MAJEURE,
-        MaintenanceWorkOrder::FAULT_UNDETERMINED,
+        FacilityWorkOrder::FAULT_WEAR,
+        FacilityWorkOrder::FAULT_VENDOR,
+        FacilityWorkOrder::FAULT_THIRD_PARTY,
+        FacilityWorkOrder::FAULT_FORCE_MAJEURE,
+        FacilityWorkOrder::FAULT_UNDETERMINED,
     ] as $cause) {
         $order = $this->svc->attribute(faultOrder(), $cause, null, null, $this->manager);
-        expect($order->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_MALL, "cause '{$cause}' must not land on the tenant");
+        expect($order->cost_bearer)->toBe(FacilityWorkOrder::BEARER_MALL, "cause '{$cause}' must not land on the tenant");
     }
 });
 
@@ -64,14 +64,14 @@ it('does not bill the vendor through this field', function () {
     // Tempting to read "the vendor broke it" as "the vendor pays". FR-CM-13 offers only
     // mall|tenant; recovering from a contractor is the SLA penalty (FR-CM-08), a different
     // mechanism. Between these two parties, the vendor's mistake is the mall's problem.
-    $order = $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_VENDOR, null, null, $this->manager);
+    $order = $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_VENDOR, null, null, $this->manager);
 
-    expect($order->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_MALL);
+    expect($order->cost_bearer)->toBe(FacilityWorkOrder::BEARER_MALL);
 });
 
 it('records who ruled and when', function () {
     // This record will one day be waved at a tenant. It needs a name and a date on it.
-    $order = $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT, 'Grease in the condensate line.', null, $this->manager);
+    $order = $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_TENANT, 'Grease in the condensate line.', null, $this->manager);
 
     expect($order->fault_recorded_by_user_id)->toBe($this->manager->id);
     expect($order->fault_recorded_at)->not->toBeNull();
@@ -85,14 +85,14 @@ it('refuses an engineer ruling that a tenant is liable', function () {
     $engineer = makeUser('operations', [$this->asset->id]);
     expect($engineer->can(AttributeWorkOrderFaultService::PERMISSION))->toBeFalse();
 
-    expect(fn () => $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT, null, null, $engineer))
+    expect(fn () => $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_TENANT, null, null, $engineer))
         ->toThrow(DomainException::class);
 });
 
 it('refuses a viewer and an unauthenticated actor', function () {
-    expect(fn () => $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT, null, null, makeUser('viewer', [$this->asset->id])))
+    expect(fn () => $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_TENANT, null, null, makeUser('viewer', [$this->asset->id])))
         ->toThrow(DomainException::class);
-    expect(fn () => $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT))
+    expect(fn () => $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_TENANT))
         ->toThrow(DomainException::class);
 });
 
@@ -103,7 +103,7 @@ it('refuses to hold a tenant responsible for a common-area job', function () {
     // case that would otherwise produce a claim against nobody.
     $common = faultOrder(['unit_id' => null, 'title' => 'Lobby chiller']);
 
-    expect(fn () => $this->svc->attribute($common, MaintenanceWorkOrder::FAULT_TENANT, null, null, $this->manager))
+    expect(fn () => $this->svc->attribute($common, FacilityWorkOrder::FAULT_TENANT, null, null, $this->manager))
         ->toThrow(DomainException::class);
     expect($common->fresh()->fault_party)->toBeNull(); // and nothing was half-written
 });
@@ -114,16 +114,16 @@ it('refuses to hold a tenant responsible for a vacant unit', function () {
     $order = faultOrder(['unit_id' => $vacant->id]);
 
     expect($order->bearingTenant())->toBeNull();
-    expect(fn () => $this->svc->attribute($order, MaintenanceWorkOrder::FAULT_TENANT, null, null, $this->manager))
+    expect(fn () => $this->svc->attribute($order, FacilityWorkOrder::FAULT_TENANT, null, null, $this->manager))
         ->toThrow(DomainException::class);
 });
 
 it('still records a mall-borne cause on a common-area job', function () {
     // No tenant is needed to say "this one is ours" — the guard must not block the normal case.
     $common = faultOrder(['unit_id' => null, 'title' => 'Lobby chiller']);
-    $order = $this->svc->attribute($common, MaintenanceWorkOrder::FAULT_WEAR, null, null, $this->manager);
+    $order = $this->svc->attribute($common, FacilityWorkOrder::FAULT_WEAR, null, null, $this->manager);
 
-    expect($order->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_MALL);
+    expect($order->cost_bearer)->toBe(FacilityWorkOrder::BEARER_MALL);
 });
 
 /* ---- lifecycle ---------------------------------------------------------- */
@@ -135,8 +135,8 @@ it('records the cause on a completed job', function () {
     $order = faultOrder();
     $order->update(['status' => 'done', 'completed_at' => now()]);
 
-    expect($this->svc->attribute($order, MaintenanceWorkOrder::FAULT_TENANT, 'Found on closing.', null, $this->manager)->cost_bearer)
-        ->toBe(MaintenanceWorkOrder::BEARER_TENANT);
+    expect($this->svc->attribute($order, FacilityWorkOrder::FAULT_TENANT, 'Found on closing.', null, $this->manager)->cost_bearer)
+        ->toBe(FacilityWorkOrder::BEARER_TENANT);
 });
 
 it('refuses to apportion the cost of a cancelled job', function () {
@@ -144,7 +144,7 @@ it('refuses to apportion the cost of a cancelled job', function () {
     $order = faultOrder();
     $order->update(['status' => 'cancelled']);
 
-    expect(fn () => $this->svc->attribute($order, MaintenanceWorkOrder::FAULT_TENANT, null, null, $this->manager))
+    expect(fn () => $this->svc->attribute($order, FacilityWorkOrder::FAULT_TENANT, null, null, $this->manager))
         ->toThrow(DomainException::class);
 });
 
@@ -157,14 +157,14 @@ it('lets a manager revise a cause, and re-stamps who ruled', function () {
     // log independently records the before/after diff in its `attribute_changes` column (spatie v5
     // moved it there; `properties` is now only the custom-properties bucket, so it reads `[]` on
     // every row and that is CORRECT, not a broken audit trail — I misread it once).
-    $order = $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT, 'Looks like misuse.', null, $this->manager);
-    expect($order->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_TENANT);
+    $order = $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_TENANT, 'Looks like misuse.', null, $this->manager);
+    expect($order->cost_bearer)->toBe(FacilityWorkOrder::BEARER_TENANT);
     $firstRuling = $order->fault_recorded_at;
 
     $senior = makeUser('super_admin', [$this->asset->id]);
-    $revised = $this->svc->attribute($order, MaintenanceWorkOrder::FAULT_WEAR, 'Opened it up — the seal had perished.', null, $senior);
+    $revised = $this->svc->attribute($order, FacilityWorkOrder::FAULT_WEAR, 'Opened it up — the seal had perished.', null, $senior);
 
-    expect($revised->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_MALL); // the claim is dropped
+    expect($revised->cost_bearer)->toBe(FacilityWorkOrder::BEARER_MALL); // the claim is dropped
     expect($revised->fault_notes)->toBe('Opened it up — the seal had perished.');
     expect($revised->fault_recorded_by_user_id)->toBe($senior->id); // …and it says who overturned it
     expect($revised->fault_recorded_at->greaterThanOrEqualTo($firstRuling))->toBeTrue();
@@ -182,22 +182,22 @@ it('allows an override only with a reason on the record', function () {
     // overruling the FRD's derivation, so it must be argued for rather than clicked.
     $order = faultOrder();
 
-    expect(fn () => $this->svc->attribute($order, MaintenanceWorkOrder::FAULT_WEAR, null, MaintenanceWorkOrder::BEARER_TENANT, $this->manager))
+    expect(fn () => $this->svc->attribute($order, FacilityWorkOrder::FAULT_WEAR, null, FacilityWorkOrder::BEARER_TENANT, $this->manager))
         ->toThrow(DomainException::class);
 
     $overridden = $this->svc->attribute(
-        $order, MaintenanceWorkOrder::FAULT_WEAR, 'Clause 8.2 — tenant maintains their own fit-out.',
-        MaintenanceWorkOrder::BEARER_TENANT, $this->manager
+        $order, FacilityWorkOrder::FAULT_WEAR, 'Clause 8.2 — tenant maintains their own fit-out.',
+        FacilityWorkOrder::BEARER_TENANT, $this->manager
     );
 
-    expect($overridden->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_TENANT);
-    expect($overridden->fault_party)->toBe(MaintenanceWorkOrder::FAULT_WEAR); // the cause is unchanged
+    expect($overridden->cost_bearer)->toBe(FacilityWorkOrder::BEARER_TENANT);
+    expect($overridden->fault_party)->toBe(FacilityWorkOrder::FAULT_WEAR); // the cause is unchanged
 });
 
 it('still refuses an override that names a tenant who does not exist', function () {
     $common = faultOrder(['unit_id' => null]);
 
-    expect(fn () => $this->svc->attribute($common, MaintenanceWorkOrder::FAULT_WEAR, 'Lease says so.', MaintenanceWorkOrder::BEARER_TENANT, $this->manager))
+    expect(fn () => $this->svc->attribute($common, FacilityWorkOrder::FAULT_WEAR, 'Lease says so.', FacilityWorkOrder::BEARER_TENANT, $this->manager))
         ->toThrow(DomainException::class);
 });
 
@@ -206,18 +206,18 @@ it('still refuses an override that names a tenant who does not exist', function 
 it('reads an external part\'s cost responsibility from the job, and leaves internal draws alone', function () {
     // FR-CM-12 is scoped to parts "sourced from outside" and says the cause is read from the work
     // order — so the part must not carry its own copy that could disagree.
-    $order = $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT, 'Tenant staff broke it.', null, $this->manager);
+    $order = $this->svc->attribute(faultOrder(), FacilityWorkOrder::FAULT_TENANT, 'Tenant staff broke it.', null, $this->manager);
 
-    $external = MaintenanceWorkOrderPart::create([
-        'maintenance_work_order_id' => $order->id, 'source' => 'external',
+    $external = FacilityWorkOrderPart::create([
+        'facility_work_order_id' => $order->id, 'source' => 'external',
         'description' => 'Bespoke gasket', 'quantity' => 1, 'unit_cost' => 750, 'status' => 'recorded',
     ]);
 
-    expect($external->costBearer())->toBe(MaintenanceWorkOrder::BEARER_TENANT);
+    expect($external->costBearer())->toBe(FacilityWorkOrder::BEARER_TENANT);
 
     // Revising the finding moves the part's answer with it — one source of truth.
-    $this->svc->attribute($order, MaintenanceWorkOrder::FAULT_WEAR, 'Actually perished.', null, $this->manager);
-    expect($external->fresh()->costBearer())->toBe(MaintenanceWorkOrder::BEARER_MALL);
+    $this->svc->attribute($order, FacilityWorkOrder::FAULT_WEAR, 'Actually perished.', null, $this->manager);
+    expect($external->fresh()->costBearer())->toBe(FacilityWorkOrder::BEARER_MALL);
 });
 
 it('gives an unattributed job no cost bearer at all', function () {

@@ -56,7 +56,7 @@ Three tables. Money is `decimal(14,2)`; quantities are `decimal(14,3)` (fraction
 | `quantity` | **SIGNED** — positive adds stock, negative removes it |
 | `unit_cost` | cost per unit at movement time (drives GL costing) |
 | `reference` | PO / ticket ref |
-| `source_type` / `source_id` | nullable polymorphic — the origin (a maintenance ticket or a `MaintenanceWorkOrder` for consumption; a vendor bill for a receipt, Phase 3) |
+| `source_type` / `source_id` | nullable polymorphic — the origin (a maintenance ticket or a `FacilityWorkOrder` for consumption; a vendor bill for a receipt, Phase 3) |
 | `moved_by_user_id` · `moved_on` · `notes` | audit |
 
 ---
@@ -206,7 +206,7 @@ changing this API.
 | **1a — Data foundation** | warehouses + item catalog + stock ledger + `StockMovementService` (receipts/adjustments, derived on-hand) + tests | ✅ shipped |
 | **1b — Admin surfaces** | Filament resources (Warehouses, Items, Stock Movements) property-scoped + `inventory.*` RBAC + `inventory` module flag (`Modules::KEYS` / `ModulesSettings`) + receive/adjust actions | ✅ shipped |
 | **2 — Consumption on tickets** | "Consumed materials" relation manager on the maintenance request: **Log consumed item** → `consumption` movement linked via `source`, decrements stock, costs at item standard cost, captures who/what. Property-tamper-guarded + gated on the inventory module. | ✅ shipped |
-| **2b — Draws on a work order (FR-CM-09/10/11)** | a spare part on a maintenance work order is **requested** and only becomes a `consumption` movement once approved — the approver set by the part's value ([module 26](26-preventive-maintenance.md), [module 28](28-approvals.md)). The pending request lives on `maintenance_work_order_parts`, **not** here: a pending row in this ledger would understate on-hand everywhere (reorder colour, low-stock scan, GL) for stock that never left the shelf. | ✅ shipped |
+| **2b — Draws on a work order (FR-CM-09/10/11)** | a spare part on a maintenance work order is **requested** and only becomes a `consumption` movement once approved — the approver set by the part's value ([module 26](26-preventive-maintenance.md), [module 28](28-approvals.md)). The pending request lives on `facility_work_order_parts`, **not** here: a pending row in this ledger would understate on-hand everywhere (reorder colour, low-stock scan, GL) for stock that never left the shelf. | ✅ shipped |
 | **2c — Draws reach the ledger** | an approved draw's `consumption` movement posts through the normal `InventoryMovementJournalizer` path (Dr R&M / Cr inventory), proven through the real `accounting:sync-ledger` sweep rather than a direct `LedgerPoster::post()` — the trap that let the SLA penalty ship posting nothing. A part **bought outside** posts nothing here: it never touched our stock, and its accounting document is the vendor bill ([module 26](26-preventive-maintenance.md) documents that seam). | ✅ shipped |
 | **3 — GL costing** | `InventoryMovementJournalizer`: receipt → Dr Inventory (11301001) / Cr **GRNI (21701001)** — a dedicated clearing liability, NOT the AP control (keeps the AP tie-out intact); consumption → Dr Repairs&Maintenance / Cr Inventory; adjustment ↔ `inventory_adjustment` (51108001) per sign; transfers post nothing. Value = \|qty\| × unit_cost, dimensioned to the warehouse's property; swept by `accounting:sync-ledger`; soft-delete voids. Recognises cost as materials are used (COST-1). See [module 21](21-general-ledger.md). | ✅ shipped |
 

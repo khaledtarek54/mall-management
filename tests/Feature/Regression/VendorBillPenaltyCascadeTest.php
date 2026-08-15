@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\JournalEntry;
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Services\Accounting\FiscalCalendar;
@@ -16,7 +16,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
  * `VendorBill::ledgerChildRelations()` returned `[$this->payments()]` and omitted `penalties()` —
  * the third instance of the child-source cascade class this project has already fixed twice.
  *
- * `MaintenancePenaltyJournalizer` derives its ENTIRE payload from the parent bill, `asset_id`
+ * `SlaPenaltyJournalizer` derives its ENTIRE payload from the parent bill, `asset_id`
  * included, so a penalty is exactly as dependent on the bill as a payment is. Move a bill between
  * properties and only the payments were bumped: the penalty's `updated_at` never moved, the
  * two-day windowed sweep never looked at it, and the FIRST property kept an expense credit and an
@@ -50,7 +50,7 @@ beforeEach(function () {
     // A penalty hangs off a work order and reaches `applied` through its own service — the state
     // is not settable by hand, and a fixture that wrote it directly would be green over a path
     // no operator can take.
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->from->id,
         'work_order_type' => 'cm',
         'execution_type' => 'external',
@@ -62,15 +62,15 @@ beforeEach(function () {
         'scheduled_for' => now()->toDateString(),
     ]);
 
-    $this->penalty = MaintenancePenalty::create([
-        'maintenance_work_order_id' => $order->id,
+    $this->penalty = SlaPenalty::create([
+        'facility_work_order_id' => $order->id,
         'asset_id' => $this->from->id,
         'vendor_id' => $vendor->id,
-        'basis' => MaintenancePenalty::BASIS_FLAT,
+        'basis' => SlaPenalty::BASIS_FLAT,
         'rate' => 8000,
         'hours_over_sla' => 0,
         'amount' => 8000,
-        'status' => MaintenancePenalty::STATUS_FINAL,
+        'status' => SlaPenalty::STATUS_FINAL,
         'finalised_at' => now(),
     ]);
 
@@ -88,7 +88,7 @@ beforeEach(function () {
 });
 
 /** The asset the penalty's live posted entry sits on, or null when it has none. */
-function penaltyEntryAssetId(MaintenancePenalty $penalty): ?int
+function penaltyEntryAssetId(SlaPenalty $penalty): ?int
 {
     return JournalEntry::query()
         ->where('source_type', $penalty->getMorphClass())

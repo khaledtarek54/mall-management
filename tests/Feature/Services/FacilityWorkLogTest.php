@@ -1,7 +1,7 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\ListMaintenanceWorkOrders;
-use App\Models\MaintenanceWorkOrder;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
+use App\Models\FacilityWorkOrder;
 use App\Services\FacilityWorkLogPdfService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
@@ -11,9 +11,9 @@ beforeEach(function () {
     ensureAllPropertiesAsset();
 });
 
-function wo(int $assetId, array $attrs = []): MaintenanceWorkOrder
+function wo(int $assetId, array $attrs = []): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create(array_merge([
+    return FacilityWorkOrder::create(array_merge([
         'asset_id' => $assetId, 'title' => 'Job', 'category' => 'hvac',
         'status' => 'open', 'scheduled_for' => '2026-07-02',
     ], $attrs));
@@ -65,7 +65,7 @@ it('offers the work-log export action to operations and streams a PDF', function
     $this->actingAs(makeUser('operations', [$asset->id]));
 
     asTenant($asset, function () {
-        Livewire::test(ListMaintenanceWorkOrders::class)
+        Livewire::test(ListFacilityWorkOrders::class)
             ->callAction('work_log', data: ['from' => '2026-07-01', 'to' => '2026-07-31'])
             ->assertHasNoActionErrors();
     });

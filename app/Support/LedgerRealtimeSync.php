@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * The source list itself lives on {@see LedgerPoster::JOURNALIZERS} — this class derives it
  * rather than re-declaring it, because the hand-copied version drifted and stranded
- * MaintenancePenalty's postings (2026-07-16).
+ * SlaPenalty's postings (2026-07-16).
  */
 class LedgerRealtimeSync
 {
@@ -54,10 +54,10 @@ class LedgerRealtimeSync
         \App\Models\OwnerStatementRun::class => 'posting_date',
         // The owner payout posts on the day it was paid; scheduled/approved don't post.
         \App\Models\Disbursement::class => 'paid_on',
-        // Mirrors MaintenancePenaltyJournalizer's `applied_at ?? created_at`. It only posts
+        // Mirrors SlaPenaltyJournalizer's `applied_at ?? created_at`. It only posts
         // once APPLIED, and applying always stamps applied_at, so the fallback never decides
         // the period of a real entry.
-        \App\Models\MaintenancePenalty::class => 'applied_at',
+        \App\Models\SlaPenalty::class => 'applied_at',
         // Applied at application time (an open period), never the source receipt's date — that
         // decoupling is what lets an old overpayment settle a current invoice without stranding the GL.
         \App\Models\TenantCreditApplication::class => 'entry_date',
@@ -82,7 +82,7 @@ class LedgerRealtimeSync
 
             // `restored` is declared by the SoftDeletes trait, so registering it on a
             // hard-deleting source is a BadMethodCallException. Most sources soft-delete
-            // (restore must re-post); MaintenancePenalty does not.
+            // (restore must re-post); SlaPenalty does not.
             if (in_array(SoftDeletes::class, class_uses_recursive($source), true)) {
                 $source::restored($dispatch);
             }

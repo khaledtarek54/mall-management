@@ -72,8 +72,8 @@ These four decisions steer the FRs below:
 |---|---|---|---|
 | **DEPT-1** | Model Eltizam's departments & how each operates | 🟡 | 5 fixed departments (HR, Accounting, Marketing, Leasing, Operations) + membership→role |
 | **DEPT-2** | Department **org hierarchy** (Leasing Mgr→Mgr→Head; Ops Financial/Admin/Operations; Head over facility checklist) | ❌ | Only a free-form role label on membership; no reporting hierarchy/titles |
-| **MNT-1** | Shared facility **checkup checklist** co-owned with facilities (cleaning, soft/hard services, toilets) | ✅ | Module 26 PPM checklist: `maintenance_plans.checklist` → `maintenance_work_order_items` (pass/fail) + the FR-PPM-07 close gate; plan `category` covers cleaning / soft-service |
-| **MNT-2** | Scheduled-service notifications generated from facilities input | 🟡 | **Generator BUILT** (module 26 `maintenance:generate-preventive` raises a work order per due plan); the **notification** on generation is still missing (2026-07-26) |
+| **MNT-1** | Shared facility **checkup checklist** co-owned with facilities (cleaning, soft/hard services, toilets) | ✅ | Module 26 PPM checklist: `service_plans.checklist` → `facility_work_order_items` (pass/fail) + the FR-PPM-07 close gate; plan `category` covers cleaning / soft-service |
+| **MNT-2** | Scheduled-service notifications generated from facilities input | 🟡 | **Generator BUILT** (module 26 `facility:generate-preventive` raises a work order per due plan); the **notification** on generation is still missing (2026-07-26) |
 | **MNT-3** | Ad-hoc urgent tickets on top of scheduled | ✅ | Reactive requests (module 11) |
 | **MNT-4** | PM supervises facility; ticket handed off Operations → Eltizam | 🟡 | Department routing + `redirectToDepartment()`; no explicit PM approval checkpoint |
 | **INV-2** | Daily-consumables tickets: whoever enters item raises ticket; engineer logs what was used + work done | ❌→build | **Approved (D-3)** |

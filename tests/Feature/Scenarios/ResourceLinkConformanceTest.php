@@ -7,7 +7,7 @@ use App\Filament\Admin\Widgets\LeasingPipeline;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\LeaseOption;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\PostDatedCheque;
 use App\Models\TenantRequest;
 use App\Models\Vendor;
@@ -105,9 +105,9 @@ beforeEach(function () {
     ]);
 
     // wo_sla_breached — a corrective job past its resolution deadline, still open.
-    MaintenanceWorkOrder::create([
-        'work_order_type' => MaintenanceWorkOrder::TYPE_CM,
-        'execution_type' => MaintenanceWorkOrder::EXECUTION_INTERNAL,
+    FacilityWorkOrder::create([
+        'work_order_type' => FacilityWorkOrder::TYPE_CM,
+        'execution_type' => FacilityWorkOrder::EXECUTION_INTERNAL,
         'asset_id' => $this->asset->id,
         'reference' => 'WO-'.uniqid(),
         'title' => 'Breached', 'category' => 'hvac',
@@ -120,9 +120,9 @@ beforeEach(function () {
 
     // wo_response_breached — nobody has ACCEPTED it, so it has no resolution clock at all.
     // This is the card the partial fixture missed; without it the sort-column gate is blind.
-    MaintenanceWorkOrder::create([
-        'work_order_type' => MaintenanceWorkOrder::TYPE_CM,
-        'execution_type' => MaintenanceWorkOrder::EXECUTION_INTERNAL,
+    FacilityWorkOrder::create([
+        'work_order_type' => FacilityWorkOrder::TYPE_CM,
+        'execution_type' => FacilityWorkOrder::EXECUTION_INTERNAL,
         'asset_id' => $this->asset->id,
         'reference' => 'WO-'.uniqid(),
         'title' => 'Unanswered', 'category' => 'hvac',

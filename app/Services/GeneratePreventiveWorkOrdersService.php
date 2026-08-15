@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Equipment;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use App\Notifications\PreventiveGenerationFailedNotification;
 use App\Notifications\WorkOrderRaisedNotification;
@@ -41,7 +41,7 @@ class GeneratePreventiveWorkOrdersService
         $this->failures = [];
         $this->raisedOrderIds = [];
 
-        MaintenancePlan::due($due)->select('id')->get()->each(function ($row) use ($due, &$created) {
+        ServicePlan::due($due)->select('id')->get()->each(function ($row) use ($due, &$created) {
             // Per-plan containment, mirroring ScanTenantRequestSlaBreachesCommand's per-row
             // catch. Without it one corrupt plan aborts the nightly run and every property
             // silently stops getting work orders.
@@ -51,7 +51,7 @@ class GeneratePreventiveWorkOrdersService
                 $this->failures[(int) $row->id] = $e->getMessage();
 
                 Log::warning('Preventive generation failed for a plan', [
-                    'maintenance_plan_id' => $row->id,
+                    'service_plan_id' => $row->id,
                     'error' => $e->getMessage(),
                 ]);
 
@@ -88,8 +88,8 @@ class GeneratePreventiveWorkOrdersService
     private function recordFailure(int $planId, string $reason): void
     {
         try {
-            /** @var MaintenancePlan|null $plan */
-            $plan = MaintenancePlan::find($planId);
+            /** @var ServicePlan|null $plan */
+            $plan = ServicePlan::find($planId);
             if ($plan === null) {
                 return;
             }
@@ -111,7 +111,7 @@ class GeneratePreventiveWorkOrdersService
             }
         } catch (\Throwable $e) {
             Log::warning('Preventive generation failure could not be recorded', [
-                'maintenance_plan_id' => $planId,
+                'service_plan_id' => $planId,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -126,7 +126,7 @@ class GeneratePreventiveWorkOrdersService
             }
 
             $staff = app(AssetStaffRecipients::class);
-            MaintenanceWorkOrder::whereKey($this->raisedOrderIds)->get()->each(function (MaintenanceWorkOrder $order) use ($staff) {
+            FacilityWorkOrder::whereKey($this->raisedOrderIds)->get()->each(function (FacilityWorkOrder $order) use ($staff) {
                 $recipients = $staff->for($order->asset_id, ['manager', 'operations']);
                 if ($recipients->isNotEmpty()) {
                     Notification::send($recipients, new WorkOrderRaisedNotification($order));
@@ -140,8 +140,8 @@ class GeneratePreventiveWorkOrdersService
     private function generateFor(int $planId, string $due, int &$created): void
     {
         DB::transaction(function () use ($planId, $due, &$created) {
-            /** @var MaintenancePlan|null $plan */
-            $plan = MaintenancePlan::whereKey($planId)->lockForUpdate()->first();
+            /** @var ServicePlan|null $plan */
+            $plan = ServicePlan::whereKey($planId)->lockForUpdate()->first();
 
             if (! $plan || ! $plan->is_active) {
                 return;
@@ -165,7 +165,7 @@ class GeneratePreventiveWorkOrdersService
 
             // A contractor who cannot be dispatched must not stop the round HAPPENING.
             //
-            // `MaintenanceWorkOrder::saving()` refuses a non-dispatchable vendor, which is right —
+            // `FacilityWorkOrder::saving()` refuses a non-dispatchable vendor, which is right —
             // an uninsured contractor on the mall floor is the operator's liability. But that throw
             // rolled back the whole cycle, so a lapsed COI silently cancelled the plan's statutory
             // inspection rather than merely its assignment. The compliance gate governs who is sent,
@@ -175,12 +175,12 @@ class GeneratePreventiveWorkOrdersService
             $complianceNote = null;
             if ($vendorId !== null && ! Vendor::query()->whereKey($vendorId)->assignable()->exists()) {
                 $vendorId = null;
-                $complianceNote = __('admin.maintenance_plans.vendor_not_dispatchable', [
+                $complianceNote = __('admin.service_plans.vendor_not_dispatchable', [
                     'vendor' => (string) Vendor::withTrashed()->whereKey($plan->vendor_id)->value('name'),
                 ]);
             }
 
-            /** @var MaintenanceWorkOrder $order */
+            /** @var FacilityWorkOrder $order */
             $order = $plan->workOrders()->create([
                 'asset_id' => $plan->asset_id,
                 'unit_id' => $plan->unit_id,

@@ -2,7 +2,7 @@
 
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\ListMaintenanceWorkOrders;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
 use App\Filament\Admin\Resources\Payments\Pages\ListPayments;
 use App\Filament\Admin\Resources\TenantRequests\Pages\ListTenantRequests;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
@@ -209,5 +209,5 @@ it('renders every list page that carries saved views', function (string $page) {
     ListTenantRequests::class,
     ListUnits::class,
     ListTenants::class,
-    ListMaintenanceWorkOrders::class,
+    ListFacilityWorkOrders::class,
 ]);

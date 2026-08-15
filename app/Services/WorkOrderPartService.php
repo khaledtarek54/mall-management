@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Support\ApprovalPolicy;
@@ -45,13 +45,13 @@ class WorkOrderPartService
      *
      * @throws DomainException if the order is terminal
      */
-    public function requestInternal(MaintenanceWorkOrder $order, array $data, ?int $actorId = null): MaintenanceWorkOrderPart
+    public function requestInternal(FacilityWorkOrder $order, array $data, ?int $actorId = null): FacilityWorkOrderPart
     {
         $actorId ??= auth()->id();
 
         return DB::transaction(function () use ($order, $data, $actorId) {
-            /** @var MaintenanceWorkOrder $locked */
-            $locked = MaintenanceWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            /** @var FacilityWorkOrder $locked */
+            $locked = FacilityWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertOrderOpen($locked);
             $this->assertWarehouseServesOrder($locked, (int) $data['warehouse_id']);
@@ -87,15 +87,15 @@ class WorkOrderPartService
                 ), 2);
             $value = round($quantity * $unitCost, 2);
 
-            return MaintenanceWorkOrderPart::create([
-                'maintenance_work_order_id' => $locked->getKey(),
-                'source' => MaintenanceWorkOrderPart::SOURCE_INTERNAL,
+            return FacilityWorkOrderPart::create([
+                'facility_work_order_id' => $locked->getKey(),
+                'source' => FacilityWorkOrderPart::SOURCE_INTERNAL,
                 'inventory_item_id' => $data['inventory_item_id'],
                 'warehouse_id' => $data['warehouse_id'],
                 'quantity' => $quantity,
                 'unit_cost' => $unitCost,
                 'value' => $value,
-                'status' => MaintenanceWorkOrderPart::STATUS_PENDING,
+                'status' => FacilityWorkOrderPart::STATUS_PENDING,
                 // Frozen too: the record must still say who was SUPPOSED to sign it off
                 // after someone edits the bands.
                 'required_permission' => ApprovalPolicy::permissionFor(ApprovalRule::MODULE_INVENTORY_DRAW, $value),
@@ -112,25 +112,25 @@ class WorkOrderPartService
      *
      * @throws DomainException if the order is terminal
      */
-    public function recordExternal(MaintenanceWorkOrder $order, array $data, ?int $actorId = null): MaintenanceWorkOrderPart
+    public function recordExternal(FacilityWorkOrder $order, array $data, ?int $actorId = null): FacilityWorkOrderPart
     {
         $actorId ??= auth()->id();
 
         return DB::transaction(function () use ($order, $data, $actorId) {
-            /** @var MaintenanceWorkOrder $locked */
-            $locked = MaintenanceWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            /** @var FacilityWorkOrder $locked */
+            $locked = FacilityWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertOrderOpen($locked);
 
-            return MaintenanceWorkOrderPart::create([
-                'maintenance_work_order_id' => $locked->getKey(),
-                'source' => MaintenanceWorkOrderPart::SOURCE_EXTERNAL,
+            return FacilityWorkOrderPart::create([
+                'facility_work_order_id' => $locked->getKey(),
+                'source' => FacilityWorkOrderPart::SOURCE_EXTERNAL,
                 'description' => $data['description'],
                 'vendor_id' => $data['vendor_id'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'quantity' => round((float) $data['quantity'], 3),
                 'unit_cost' => round((float) $data['unit_cost'], 2),
-                'status' => MaintenanceWorkOrderPart::STATUS_RECORDED,
+                'status' => FacilityWorkOrderPart::STATUS_RECORDED,
                 'requested_by_user_id' => $actorId,
             ]);
         });
@@ -144,19 +144,19 @@ class WorkOrderPartService
      *
      * @throws DomainException if not pending, or the approver lacks the tier
      */
-    public function approve(MaintenanceWorkOrderPart $part, ?User $approver = null): MaintenanceWorkOrderPart
+    public function approve(FacilityWorkOrderPart $part, ?User $approver = null): FacilityWorkOrderPart
     {
         $approver ??= auth()->user();
 
         return DB::transaction(function () use ($part, $approver) {
-            /** @var MaintenanceWorkOrderPart $locked */
-            $locked = MaintenanceWorkOrderPart::whereKey($part->getKey())->lockForUpdate()->firstOrFail();
+            /** @var FacilityWorkOrderPart $locked */
+            $locked = FacilityWorkOrderPart::whereKey($part->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertPending($locked);
             $this->assertMayDecide($approver);
 
             if (! ApprovalPolicy::canApprove($approver, ApprovalRule::MODULE_INVENTORY_DRAW, (float) $locked->value)) {
-                throw new DomainException(__('admin.preventive_maintenance.errors.part_approval_tier', [
+                throw new DomainException(__('admin.facility.errors.part_approval_tier', [
                     'value' => number_format((float) $locked->value, 2),
                 ]));
             }
@@ -165,7 +165,7 @@ class WorkOrderPartService
             // MANAGER's sign-off — the control is a second pair of eyes, and without this
             // an engineer with tier_1 could self-serve every low-value part.
             if ((int) $locked->requested_by_user_id === (int) $approver->id) {
-                throw new DomainException(__('admin.preventive_maintenance.errors.part_self_approval'));
+                throw new DomainException(__('admin.facility.errors.part_self_approval'));
             }
 
             // Now — and only now — the stock moves. record() re-checks on-hand under its own
@@ -176,14 +176,14 @@ class WorkOrderPartService
                 'type' => 'consumption',
                 'quantity' => (float) $locked->quantity,
                 'unit_cost' => (float) $locked->unit_cost,
-                'source_type' => MaintenanceWorkOrder::class,
-                'source_id' => $locked->maintenance_work_order_id,
+                'source_type' => FacilityWorkOrder::class,
+                'source_id' => $locked->facility_work_order_id,
                 'moved_by_user_id' => $approver->id,
                 'reference' => $locked->workOrder?->reference,
             ]);
 
             $locked->update([
-                'status' => MaintenanceWorkOrderPart::STATUS_APPROVED,
+                'status' => FacilityWorkOrderPart::STATUS_APPROVED,
                 'decided_by_user_id' => $approver->id,
                 'decided_at' => now(),
                 'stock_movement_id' => $movement->id,
@@ -199,13 +199,13 @@ class WorkOrderPartService
      *
      * @throws DomainException if not pending, or the decider lacks the tier
      */
-    public function reject(MaintenanceWorkOrderPart $part, string $reason, ?User $decider = null): MaintenanceWorkOrderPart
+    public function reject(FacilityWorkOrderPart $part, string $reason, ?User $decider = null): FacilityWorkOrderPart
     {
         $decider ??= auth()->user();
 
         return DB::transaction(function () use ($part, $reason, $decider) {
-            /** @var MaintenanceWorkOrderPart $locked */
-            $locked = MaintenanceWorkOrderPart::whereKey($part->getKey())->lockForUpdate()->firstOrFail();
+            /** @var FacilityWorkOrderPart $locked */
+            $locked = FacilityWorkOrderPart::whereKey($part->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertPending($locked);
             $this->assertMayDecide($decider);
@@ -213,13 +213,13 @@ class WorkOrderPartService
             // Refusing is as much an act of authority as approving: whoever can't approve a
             // 50,000 part shouldn't be able to block it either.
             if (! ApprovalPolicy::canApprove($decider, ApprovalRule::MODULE_INVENTORY_DRAW, (float) $locked->value)) {
-                throw new DomainException(__('admin.preventive_maintenance.errors.part_approval_tier', [
+                throw new DomainException(__('admin.facility.errors.part_approval_tier', [
                     'value' => number_format((float) $locked->value, 2),
                 ]));
             }
 
             $locked->update([
-                'status' => MaintenanceWorkOrderPart::STATUS_REJECTED,
+                'status' => FacilityWorkOrderPart::STATUS_REJECTED,
                 'decided_by_user_id' => $decider->id,
                 'decided_at' => now(),
                 'decision_notes' => $reason,
@@ -242,19 +242,19 @@ class WorkOrderPartService
      *
      * @throws DomainException if the part isn't an external record, or the order is terminal
      */
-    public function remove(MaintenanceWorkOrderPart $part, string $reason, ?User $actor = null): void
+    public function remove(FacilityWorkOrderPart $part, string $reason, ?User $actor = null): void
     {
         $actor ??= auth()->user();
 
         DB::transaction(function () use ($part, $reason, $actor) {
-            /** @var MaintenanceWorkOrderPart $locked */
-            $locked = MaintenanceWorkOrderPart::whereKey($part->getKey())->lockForUpdate()->firstOrFail();
+            /** @var FacilityWorkOrderPart $locked */
+            $locked = FacilityWorkOrderPart::whereKey($part->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertMayDecide($actor);
             $this->assertOrderOpen($locked->workOrder);
 
             if ($locked->isInternal()) {
-                throw new DomainException(__('admin.preventive_maintenance.errors.part_remove_internal'));
+                throw new DomainException(__('admin.facility.errors.part_remove_internal'));
             }
 
             $locked->update([
@@ -282,12 +282,12 @@ class WorkOrderPartService
      *
      * @throws DomainException
      */
-    private function assertWarehouseServesOrder(MaintenanceWorkOrder $order, int $warehouseId): void
+    private function assertWarehouseServesOrder(FacilityWorkOrder $order, int $warehouseId): void
     {
         $warehouse = Warehouse::find($warehouseId);
 
         if ($warehouse === null || (int) $warehouse->asset_id !== (int) $order->asset_id) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.part_warehouse_scope'));
+            throw new DomainException(__('admin.facility.errors.part_warehouse_scope'));
         }
     }
 
@@ -299,23 +299,23 @@ class WorkOrderPartService
     private function assertMayDecide(?User $user): void
     {
         if ($user === null || ! $user->can(self::DECIDE_PERMISSION)) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.part_decide_denied'));
+            throw new DomainException(__('admin.facility.errors.part_decide_denied'));
         }
     }
 
     /** @throws DomainException */
-    private function assertPending(MaintenanceWorkOrderPart $part): void
+    private function assertPending(FacilityWorkOrderPart $part): void
     {
         if (! $part->isPending()) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.part_already_decided'));
+            throw new DomainException(__('admin.facility.errors.part_already_decided'));
         }
     }
 
     /** @throws DomainException */
-    private function assertOrderOpen(MaintenanceWorkOrder $order): void
+    private function assertOrderOpen(FacilityWorkOrder $order): void
     {
         if ($order->isTerminal()) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.order_terminal'));
+            throw new DomainException(__('admin.facility.errors.order_terminal'));
         }
     }
 }

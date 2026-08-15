@@ -2,7 +2,7 @@
 
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
@@ -47,14 +47,14 @@ beforeEach(function () {
         'type' => 'receipt', 'quantity' => 100, 'unit_cost' => 100,
     ]);
 
-    $this->order = MaintenanceWorkOrder::create([
+    $this->order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'description' => 'Pump leaking', 'title' => 'Fix pump', 'category' => 'plumbing',
         'scheduled_for' => now()->toDateString(),
     ]);
 });
 
-function approvedDraw(float $qty = 5): App\Models\MaintenanceWorkOrderPart
+function approvedDraw(float $qty = 5): App\Models\FacilityWorkOrderPart
 {
     $part = test()->svc->requestInternal(test()->order, [
         'inventory_item_id' => test()->item->id, 'warehouse_id' => test()->wh->id, 'quantity' => $qty,

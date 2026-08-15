@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -20,7 +20,7 @@ class AreaWorkOrderRaisedNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(public MaintenanceWorkOrder $order) {}
+    public function __construct(public FacilityWorkOrder $order) {}
 
     public function via(object $notifiable): array
     {

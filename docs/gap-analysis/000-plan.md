@@ -98,7 +98,7 @@ Sequencing balances demo weight with dependency order — you can't audit Invoic
 | 06 | **Payments** | `Resources/Payments`, `RecentPayments` widget, `ArAging` page+widget | Collection metric; AR aging chart |
 | 07 | **CAM** | `Resources/CamExpensePools`, `CamReconciliationService`, `CamAnnualReconciliationCommand` | Egyptian retail wedge #1 |
 | 08 | **ETA e-invoicing** | `Services/Eta`, `SubmitInvoiceToEta` job, `EtaSettings`, `EtaCompliance` widget | Egyptian retail wedge #2; demo claim |
-| 09 | **Maintenance / CAFM** | `Resources/MaintenanceRequests`, `MaintenanceRequestService`, `MaintenanceSettings`, `OpenMaintenanceRequests` widget | Shipped sprint feature; portal flow |
+| 09 | **Maintenance / CAFM** | `Resources/MaintenanceRequests`, `MaintenanceRequestService`, `SlaSettings`, `OpenMaintenanceRequests` widget | Shipped sprint feature; portal flow |
 | 10 | **Owner Portal panel** | `Filament/Owner/*`, `OwnerStatementPdf` flow | Recent fix area; separate panel needs its own pass |
 | 11 | **Tenant Portal panel** | `Filament/Portal/*`, `TenantStatementPdfService` | Tenant-facing flows; mobile API mirror |
 | 12 | **Tenant Sales Declarations** | `Resources/TenantSalesDeclarations`, `PercentageRentCalculationService` | Egyptian retail wedge #3 |

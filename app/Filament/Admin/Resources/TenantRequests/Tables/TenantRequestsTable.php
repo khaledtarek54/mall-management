@@ -3,13 +3,13 @@
 namespace App\Filament\Admin\Resources\TenantRequests\Tables;
 
 use App\Enums\TenantRequestType;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\CorrectiveWorkOrderForm;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Exports\TenantRequestExporter;
 use App\Models\Department;
 use App\Models\TenantRequest;
 use App\Models\User;
-use App\Services\RaiseCorrectiveMaintenanceService;
+use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\TenantRequestService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -320,13 +320,13 @@ class TenantRequestsTable
                 // permissions: a coordinator triaging tickets and an engineer raising jobs are
                 // different rights.
                 Action::make('raise_work_order')
-                    ->label(__('admin.preventive_maintenance.cm.from_request'))
+                    ->label(__('admin.facility.cm.from_request'))
                     ->icon('heroicon-o-wrench-screwdriver')
                     ->color('primary')
-                    ->modalDescription(__('admin.preventive_maintenance.cm.from_request_hint'))
+                    ->modalDescription(__('admin.facility.cm.from_request_hint'))
                     ->visible(fn (TenantRequest $record) => $record->isOpen()
-                        && (auth()->user()?->can('preventive_maintenance.create') ?? false))
-                    ->authorize(fn () => auth()->user()?->can('preventive_maintenance.create') ?? false)
+                        && (auth()->user()?->can('facility.create') ?? false))
+                    ->authorize(fn () => auth()->user()?->can('facility.create') ?? false)
                     ->fillForm(fn (TenantRequest $record) => [
                         'title' => $record->title,
                         'description' => $record->description,
@@ -334,10 +334,10 @@ class TenantRequestsTable
                     ])
                     ->schema(fn (TenantRequest $record) => CorrectiveWorkOrderForm::fields($record->unit?->asset_id))
                     ->action(function (TenantRequest $record, array $data): void {
-                        abort_unless(auth()->user()?->can('preventive_maintenance.create') ?? false, 403);
+                        abort_unless(auth()->user()?->can('facility.create') ?? false, 403);
 
                         try {
-                            $wo = app(RaiseCorrectiveMaintenanceService::class)->fromTenantRequest($record, $data);
+                            $wo = app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($record, $data);
                         } catch (\DomainException $e) {
                             Notification::make()->title($e->getMessage())->danger()->send();
 
@@ -345,7 +345,7 @@ class TenantRequestsTable
                         }
 
                         Notification::make()
-                            ->title(__('admin.preventive_maintenance.cm.raised_notice'))
+                            ->title(__('admin.facility.cm.raised_notice'))
                             ->body($wo->reference)
                             ->success()
                             ->send();

@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Area;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\TenantRequest;
 use App\Notifications\AreaRequestRaisedNotification;
 use App\Notifications\AreaWorkOrderRaisedNotification;
@@ -40,7 +40,7 @@ class NotifyAreaSupervisorsService
      * Route a freshly-created WORK ORDER to its zone's supervisors — the work-order half of the
      * routing (module 30 → 11). Same channel + fail-safety as request routing; notify, not assign.
      */
-    public function notifyWorkOrder(MaintenanceWorkOrder $order): void
+    public function notifyWorkOrder(FacilityWorkOrder $order): void
     {
         $this->dispatch($order->area_id, new AreaWorkOrderRaisedNotification($order), [
             'work_order_id' => $order->id,

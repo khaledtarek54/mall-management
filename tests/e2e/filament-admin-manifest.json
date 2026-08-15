@@ -127,6 +127,13 @@
             "hasView": false
         },
         {
+            "class": "FacilityWorkOrderResource",
+            "slug": "facility-work-orders",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "FixedAssetResource",
             "slug": "fixed-assets",
             "hasCreate": true,
@@ -164,20 +171,6 @@
         {
             "class": "LedgerAccountResource",
             "slug": "ledger-accounts",
-            "hasCreate": true,
-            "hasEdit": true,
-            "hasView": false
-        },
-        {
-            "class": "MaintenancePlanResource",
-            "slug": "maintenance-plans",
-            "hasCreate": true,
-            "hasEdit": true,
-            "hasView": false
-        },
-        {
-            "class": "MaintenanceWorkOrderResource",
-            "slug": "maintenance-work-orders",
             "hasCreate": true,
             "hasEdit": true,
             "hasView": false
@@ -255,6 +248,13 @@
         {
             "class": "RoleResource",
             "slug": "roles",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "ServicePlanResource",
+            "slug": "service-plans",
             "hasCreate": true,
             "hasEdit": true,
             "hasView": false

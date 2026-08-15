@@ -1,14 +1,14 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\TenantRequest;
 use App\Models\Vendor;
-use App\Services\RaiseCorrectiveMaintenanceService;
+use App\Services\RaiseCorrectiveWorkOrderService;
 use Database\Seeders\RolesPermissionsSeeder;
 
 /**
  * The module 11 → 26 seam: a tenant reports a fault (TenantRequest); staff raise a corrective
- * work order (MaintenanceWorkOrder) to fix it, linked back to the request.
+ * work order (FacilityWorkOrder) to fix it, linked back to the request.
  *
  * This link did not exist in either direction — the closest was `source_item_id` (a CM off a
  * failed PPM check, a different origin). It is a real gap on its own, and the precondition for
@@ -16,7 +16,7 @@ use Database\Seeders\RolesPermissionsSeeder;
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
-    $this->svc = app(RaiseCorrectiveMaintenanceService::class);
+    $this->svc = app(RaiseCorrectiveWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'LNK']);
     $this->unit = makeUnit($this->asset, ['code' => 'U-1']);
     $this->tenant = makeTenant();
@@ -43,7 +43,7 @@ it('raises a work order that carries the fault\'s location and links back', func
         'assigned_to_user_id' => makeUser('technician', [$this->asset->id])->id,
     ]);
 
-    expect($wo->work_order_type)->toBe(MaintenanceWorkOrder::TYPE_CM);
+    expect($wo->work_order_type)->toBe(FacilityWorkOrder::TYPE_CM);
     expect($wo->tenant_request_id)->toBe($request->id);
     // WHERE the work is comes from the request — facts about the fault, not the engineer's choices.
     expect($wo->asset_id)->toBe($this->asset->id);

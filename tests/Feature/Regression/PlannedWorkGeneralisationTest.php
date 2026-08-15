@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Area;
-use App\Models\MaintenancePlan;
+use App\Models\ServicePlan;
 use App\Services\GeneratePreventiveWorkOrdersService;
 
 /**
@@ -12,11 +12,11 @@ use App\Services\GeneratePreventiveWorkOrdersService;
  * differ only in target + cadence. Plans/work orders could not target an AREA, so soft services — which
  * this operator schedules in-house — could not be planned at all. These pin the two new capabilities.
  */
-function plannedWorkPlan(array $overrides = []): MaintenancePlan
+function plannedWorkPlan(array $overrides = []): ServicePlan
 {
     $asset = makeAsset();
 
-    return MaintenancePlan::create(array_merge([
+    return ServicePlan::create(array_merge([
         'asset_id' => $asset->id,
         'title' => 'Food court cleaning round',
         'category' => 'cleaning',
@@ -65,7 +65,7 @@ it('leaves cadence unchanged when no weekdays are set (existing plans behave exa
 });
 
 it('offers the soft-service disciplines, not just maintenance trades', function () {
-    $categories = array_keys(__('admin.preventive_maintenance.categories'));
+    $categories = array_keys(__('admin.facility.categories'));
 
     expect($categories)->toContain('cleaning')->toContain('landscaping')
         ->toContain('pest_control')->toContain('waste')->toContain('security');

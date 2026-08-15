@@ -33,7 +33,7 @@
 | Settings class | Controls |
 |---|---|
 | [BillingSettings](../../app/Settings/BillingSettings.php) | Late fees (percent, grace_days, minimum), monthly billing day/time, CAM reconciliation month/day/time |
-| [MaintenanceSettings](../../app/Settings/MaintenanceSettings.php) | SLA hours per priority — **unused** by MaintenanceRequestService per [Module 09 F-36](09-maintenance.md) |
+| [SlaSettings](../../app/Settings/SlaSettings.php) | SLA hours per priority — **unused** by MaintenanceRequestService per [Module 09 F-36](09-maintenance.md) |
 | [IntegrationsSettings](../../app/Settings/IntegrationsSettings.php) | paymob_enabled, whatsapp_enabled toggles |
 | [EtaSettings](../../app/Settings/EtaSettings.php) | enabled, mock, issuer_name, issuer_TRN |
 | [ModulesSettings](../../app/Settings/ModulesSettings.php) | Per-module toggles read by `Modules::enabled(...)` everywhere |
@@ -90,7 +90,7 @@ Same `xbriyaz` (AR) / `dejavusans` (LTR) font setup as Invoice + Tenant Statemen
 
 ### 🟢 Settings page properly permission-gated
 
-`canAccess() = settings.view`, save handler enforces `settings.manage`. Tabs are well-organized; each settings class has a clear responsibility. F-36 (MaintenanceSettings vs. config) doesn't affect this page's correctness, just the downstream service.
+`canAccess() = settings.view`, save handler enforces `settings.manage`. Tabs are well-organized; each settings class has a clear responsibility. F-36 (SlaSettings vs. config) doesn't affect this page's correctness, just the downstream service.
 
 ## 4. Test sweep
 

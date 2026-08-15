@@ -18,7 +18,7 @@ class SlaPolicyForm
     {
         return $schema->columns(2)->components([
             Select::make('asset_id')
-                ->label(__('admin.preventive_maintenance.fields.property'))
+                ->label(__('admin.facility.fields.property'))
                 ->options(fn () => TenantScope::selectableAssetOptions())
                 ->default(fn () => TenantScope::currentAssetId())
                 ->disabled(fn () => TenantScope::currentAssetId() !== null)
@@ -28,9 +28,9 @@ class SlaPolicyForm
                 ->native(false),
 
             Select::make('priority')
-                ->label(__('admin.preventive_maintenance.fields.priority'))
-                ->helperText(__('admin.preventive_maintenance.sla.priority_hint'))
-                ->options(fn () => __('admin.preventive_maintenance.priorities'))
+                ->label(__('admin.facility.fields.priority'))
+                ->helperText(__('admin.facility.sla.priority_hint'))
+                ->options(fn () => __('admin.facility.priorities'))
                 ->required()
                 ->live()
                 // One row per property × priority, matching sla_policy_asset_priority_unique.
@@ -40,21 +40,21 @@ class SlaPolicyForm
                 ->native(false),
 
             TextInput::make('resolve_hours')
-                ->label(__('admin.preventive_maintenance.sla.hours'))
-                ->helperText(__('admin.preventive_maintenance.sla.hours_hint'))
+                ->label(__('admin.facility.sla.hours'))
+                ->helperText(__('admin.facility.sla.hours_hint'))
                 ->numeric()
                 ->minValue(1)
                 ->required()
                 // Show what this property gets today, so an operator overriding a value can
                 // see what they are changing away from rather than guessing.
                 ->placeholder(fn (Get $get) => filled($get('priority'))
-                    ? SlaResolver::globalHoursFor($get('priority')).' ('.__('admin.preventive_maintenance.sla.global_default').')'
+                    ? SlaResolver::globalHoursFor($get('priority')).' ('.__('admin.facility.sla.global_default').')'
                     : null)
                 ->default(fn (Get $get) => filled($get('priority')) ? SlaResolver::globalHoursFor($get('priority')) : null),
 
             Toggle::make('is_active')
-                ->label(__('admin.preventive_maintenance.fields.active'))
-                ->helperText(__('admin.preventive_maintenance.sla.active_hint'))
+                ->label(__('admin.facility.fields.active'))
+                ->helperText(__('admin.facility.sla.active_hint'))
                 ->default(true),
         ]);
     }

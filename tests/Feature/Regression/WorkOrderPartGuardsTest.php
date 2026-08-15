@@ -2,8 +2,8 @@
 
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
@@ -33,7 +33,7 @@ beforeEach(function () {
         ]);
     }
 
-    $this->order = MaintenanceWorkOrder::create([
+    $this->order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'description' => 'd', 'title' => 't', 'category' => 'plumbing', 'scheduled_for' => '2026-07-01',
     ]);
@@ -47,7 +47,7 @@ it('refuses a draw from another property\'s warehouse at the service, not just t
         'inventory_item_id' => $this->item->id, 'warehouse_id' => $this->foreignWh->id, 'quantity' => 5,
     ], makeUser('operations', [$this->asset->id])->id))->toThrow(DomainException::class);
 
-    expect(MaintenanceWorkOrderPart::count())->toBe(0);
+    expect(FacilityWorkOrderPart::count())->toBe(0);
     expect((float) StockMovement::where('warehouse_id', $this->foreignWh->id)->sum('quantity'))->toBe(50.0);
 });
 
@@ -109,7 +109,7 @@ it('lets a mistyped external purchase be removed, and keeps the record', functio
     $this->svc->remove($part, 'Typo — should have been 99.99.', makeUser('manager', [$this->asset->id]));
 
     expect($this->order->partsCost())->toBe(0.0);
-    expect(MaintenanceWorkOrderPart::withTrashed()->find($part->id)->decision_notes)
+    expect(FacilityWorkOrderPart::withTrashed()->find($part->id)->decision_notes)
         ->toBe('Typo — should have been 99.99.'); // soft-deleted, not erased
 });
 
@@ -129,19 +129,19 @@ it('refuses to remove an internal draw, and refuses a viewer', function () {
 
     expect(fn () => $this->svc->remove($external, 'no', makeUser('viewer', [$this->asset->id])))
         ->toThrow(DomainException::class);
-    expect(MaintenanceWorkOrderPart::whereKey($external->id)->exists())->toBeTrue();
+    expect(FacilityWorkOrderPart::whereKey($external->id)->exists())->toBeTrue();
 });
 
 it('names the tier in words rather than leaking a translation key', function () {
     // Proven before the fix: __() reads dots as nesting, so a 'approvals.tier_1' array key
-    // could never resolve — every pending row read "Needs admin.preventive_maintenance.
+    // could never resolve — every pending row read "Needs admin.facility.
     // parts.tiers.approvals.tier_1", as did the notification after every request.
     $part = $this->svc->requestInternal($this->order, [
         'inventory_item_id' => $this->item->id, 'warehouse_id' => $this->wh->id, 'quantity' => 2,
     ], makeUser('operations', [$this->asset->id])->id);
 
     expect($part->awaitingTierLabel())->toBe('a supervisor')
-        ->not->toContain('admin.preventive_maintenance');
+        ->not->toContain('admin.facility');
 
     // Arabic resolves too — the same dotted-key bug hit both files.
     app()->setLocale('ar');
@@ -184,5 +184,5 @@ it('refuses a read-only viewer even when no ladder is configured', function () {
 
     // ...and the module still works for someone who legitimately holds the right.
     expect($this->svc->approve($part->fresh(), makeUser('manager', [$this->asset->id]))->status)
-        ->toBe(MaintenanceWorkOrderPart::STATUS_APPROVED);
+        ->toBe(FacilityWorkOrderPart::STATUS_APPROVED);
 });

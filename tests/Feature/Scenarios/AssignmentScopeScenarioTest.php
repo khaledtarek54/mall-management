@@ -1,8 +1,8 @@
 <?php
 
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
-use App\Models\MaintenanceWorkOrder;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
+use App\Models\FacilityWorkOrder;
 use App\Support\AssignmentScope;
 use Database\Seeders\RolesPermissionsSeeder;
 
@@ -27,9 +27,9 @@ beforeEach(function () {
     $this->coordinator = makeUser('operations', [$this->asset->id]);
 });
 
-function assignableWorkOrder(array $attrs = []): MaintenanceWorkOrder
+function assignableWorkOrder(array $attrs = []): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create(array_merge([
+    return FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'description' => 'd', 'title' => 'Fix it', 'category' => 'plumbing', 'scheduled_for' => '2026-07-01',
     ], $attrs));
@@ -37,7 +37,7 @@ function assignableWorkOrder(array $attrs = []): MaintenanceWorkOrder
 
 function visibleWorkOrderIds(): array
 {
-    return MaintenanceWorkOrderResource::getEloquentQuery()->pluck('id')->sort()->values()->all();
+    return FacilityWorkOrderResource::getEloquentQuery()->pluck('id')->sort()->values()->all();
 }
 
 /* ---- the requirement ---------------------------------------------------- */
@@ -96,7 +96,7 @@ it('hides another technician\'s work order from the record page, not just the li
     $theirs = assignableWorkOrder(['assigned_to_user_id' => $this->otherTech->id]);
     $this->actingAs($this->tech);
 
-    expect(MaintenanceWorkOrderResource::getEloquentQuery()->find($theirs->id))->toBeNull();
+    expect(FacilityWorkOrderResource::getEloquentQuery()->find($theirs->id))->toBeNull();
 });
 
 /* ---- it composes with property scoping ---------------------------------- */
@@ -109,7 +109,7 @@ it('still hides a job in a property the technician cannot see', function () {
     // scoping lives in `scopeEloquentQueryToTenant()`, which Filament only calls when a tenant is
     // set. Asserting it off the bare query would have proved nothing about the composition.
     $otherAsset = makeAsset(['code' => 'OTH']);
-    $foreign = MaintenanceWorkOrder::create([
+    $foreign = FacilityWorkOrder::create([
         'asset_id' => $otherAsset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'description' => 'd', 'title' => 'Other mall', 'category' => 'plumbing',
         'scheduled_for' => '2026-07-01', 'assigned_to_user_id' => $this->tech->id, // assigned to them!
@@ -118,7 +118,7 @@ it('still hides a job in a property the technician cannot see', function () {
 
     $this->actingAs($this->tech); // scoped to $this->asset only
 
-    $visible = asTenant($this->asset, fn () => scopedResourceQuery(MaintenanceWorkOrderResource::class)->pluck('id')->all());
+    $visible = asTenant($this->asset, fn () => scopedResourceQuery(FacilityWorkOrderResource::class)->pluck('id')->all());
 
     expect($visible)->toContain($mine->id);          // their own job, in their own mall
     expect($visible)->not->toContain($foreign->id);  // their own job, in a mall they cannot see
@@ -128,7 +128,7 @@ it('still hides a job in a property the technician cannot see', function () {
 
 it('applies to tenant requests too, on their differently-named column', function () {
     // FR-USR-04 says "requests/work orders". tenant_requests uses `assigned_to`;
-    // maintenance_work_orders uses `assigned_to_user_id`. One primitive, two columns — which is
+    // facility_work_orders uses `assigned_to_user_id`. One primitive, two columns — which is
     // why the rule is not copied into each resource.
     // On the technician's OWN property — makeTenantRequest() otherwise builds its own asset,
     // and property scoping would then hide the request for the right reason but the wrong one,
@@ -150,16 +150,16 @@ it('applies to tenant requests too, on their differently-named column', function
 it('fails closed for a user with nothing, and for nobody at all', function () {
     // A user with no permissions, or an unauthenticated request, must see their own work (nothing)
     // rather than everyone's.
-    expect(AssignmentScope::isRestricted(null, 'preventive_maintenance'))->toBeTrue();
+    expect(AssignmentScope::isRestricted(null, 'facility'))->toBeTrue();
 
     $nobody = makeUser('technician', [$this->asset->id]);
     $nobody->syncPermissions([]);
-    expect(AssignmentScope::isRestricted($nobody->fresh(), 'preventive_maintenance'))->toBeTrue();
+    expect(AssignmentScope::isRestricted($nobody->fresh(), 'facility'))->toBeTrue();
 });
 
 it('leaves the query untouched for someone who oversees the module', function () {
-    expect(AssignmentScope::isRestricted($this->coordinator, 'preventive_maintenance'))->toBeFalse();
-    expect(AssignmentScope::isRestricted($this->tech, 'preventive_maintenance'))->toBeTrue();
+    expect(AssignmentScope::isRestricted($this->coordinator, 'facility'))->toBeFalse();
+    expect(AssignmentScope::isRestricted($this->tech, 'facility'))->toBeTrue();
 });
 
 /* ---- the FRD's named roles: coordinator + customer service -------------- */
@@ -171,7 +171,7 @@ it('the coordinator role oversees the whole board and may assign', function () {
     $coordinator = makeUser('coordinator', [$this->asset->id]);
 
     expect(AssignmentScope::isRestricted($coordinator, 'maintenance'))->toBeFalse()
-        ->and(AssignmentScope::isRestricted($coordinator, 'preventive_maintenance'))->toBeFalse()
+        ->and(AssignmentScope::isRestricted($coordinator, 'facility'))->toBeFalse()
         ->and($coordinator->can('requests.assign'))->toBeTrue()
         ->and($coordinator->can('requests.change_status'))->toBeTrue();
 
@@ -191,5 +191,5 @@ it('customer service fields any call but has no work authority', function () {
         ->and($cs->can('requests.create'))->toBeTrue()
         ->and($cs->can('requests.assign'))->toBeFalse()
         ->and($cs->can('requests.change_status'))->toBeFalse()
-        ->and($cs->can('preventive_maintenance.complete'))->toBeFalse();
+        ->and($cs->can('facility.complete'))->toBeFalse();
 });

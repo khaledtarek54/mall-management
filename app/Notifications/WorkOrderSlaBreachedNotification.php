@@ -2,14 +2,14 @@
 
 namespace App\Notifications;
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
 /**
  * Operator-side bell entry for a corrective job whose SLA target has passed (FR-CM-08).
- * Fired once per order by `maintenance:scan-wo-sla-breaches`.
+ * Fired once per order by `facility:scan-sla-breaches`.
  *
  * Mirrors TenantRequestSlaBreachedNotification (module 11's tenant requests) — same shape,
  * different subject: this one is about the facility's own work orders.
@@ -19,7 +19,7 @@ class WorkOrderSlaBreachedNotification extends Notification
     use AlsoSendsByMail;
     use Queueable;
 
-    public function __construct(public MaintenanceWorkOrder $order) {}
+    public function __construct(public FacilityWorkOrder $order) {}
 
     /**
      * Mail as well as the bell. Same clock as the tenant-request breach — a corrective job past its target is a commitment
@@ -44,7 +44,7 @@ class WorkOrderSlaBreachedNotification extends Notification
             'body' => __('admin.notifications.wo_sla_breached_body', [
                 'reference' => $this->order->reference,
                 'equipment' => $this->order->equipment?->code ?? $this->order->title,
-                'priority' => __("admin.preventive_maintenance.priorities.{$this->order->priority}"),
+                'priority' => __("admin.facility.priorities.{$this->order->priority}"),
                 'hours' => $hoursOver,
             ]),
             'icon' => 'heroicon-o-clock',

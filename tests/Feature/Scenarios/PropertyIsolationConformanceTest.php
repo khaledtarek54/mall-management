@@ -17,9 +17,9 @@ use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
+use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
@@ -142,8 +142,8 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'FixedAsset' => FixedAssetResource::class,
             'Warehouse' => WarehouseResource::class,
             'BankAccount' => \App\Filament\Admin\Resources\BankAccounts\BankAccountResource::class,
-            'MaintenanceWorkOrder' => MaintenanceWorkOrderResource::class,
-            'MaintenancePlan' => MaintenancePlanResource::class,
+            'FacilityWorkOrder' => FacilityWorkOrderResource::class,
+            'ServicePlan' => ServicePlanResource::class,
             'PurchaseRequest' => PurchaseRequestResource::class,
             // Still auto-stamped (isScopedToTenant=true): no asset_id form field — Custody derives
             // its property from the chosen employee, so the create page guards employee->asset_id.

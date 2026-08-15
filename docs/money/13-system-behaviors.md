@@ -83,7 +83,7 @@ When a request is created (`create()`, `TenantRequestService.php:40-78`), the **
 `targetResolutionFor(type, priority)` (`TenantRequestService.php:106-119`) is **public** so the `/admin` create page shares the exact logic (otherwise a Complaint made in admin would wrongly get the maintenance window):
 
 1. If the type has no SLA (`inquiry`, `billing`, `document`, `other`) → **`null`** (no deadline).
-2. If the type is **Maintenance** → `defaultTargetResolution(priority)` (`:344-362`), which reads the **operator-tunable** `MaintenanceSettings` (`/admin/settings → Maintenance`), falling back to `config('maintenance.sla.{priority}.resolve_hours')` then a hard default of **168 h** if Settings aren't seeded.
+2. If the type is **Maintenance** → `defaultTargetResolution(priority)` (`:344-362`), which reads the **operator-tunable** `SlaSettings` (`/admin/settings → Maintenance`), falling back to `config('maintenance.sla.{priority}.resolve_hours')` then a hard default of **168 h** if Settings aren't seeded.
 3. Otherwise (Complaint, Access) → `type->slaHours()[$priority]` hours from `now()`.
 
 **Per-priority SLA hours** (`TenantRequestType::slaHours()`, `:103-108`):
@@ -94,7 +94,7 @@ When a request is created (`create()`, `TenantRequestService.php:40-78`), the **
 | Complaint | 8 | 48 | 96 | 168 |
 | Access | 4 | 24 | 48 | 96 |
 
-> Note: the Maintenance row above is the *enum* fallback. At runtime the maintenance target comes from `MaintenanceSettings` first; the `config/maintenance.php` defaults are urgent 24 / high 72 / medium 168 / low 336 (`config/maintenance.php:14-19`). The enum constants are the per-type *code* defaults used only if you route a maintenance request through the generic enum path.
+> Note: the Maintenance row above is the *enum* fallback. At runtime the maintenance target comes from `SlaSettings` first; the `config/sla.php` defaults are urgent 24 / high 72 / medium 168 / low 336 (`config/sla.php:14-19`). The enum constants are the per-type *code* defaults used only if you route a maintenance request through the generic enum path.
 
 A request is **overdue** when it is open AND `target_resolution_at` is in the past (`isOverdue()`, `TenantRequest.php:153-158`). This is what the hourly SLA scan keys on (§4.6).
 
@@ -104,7 +104,7 @@ A tenant submits a **maintenance** request, priority **high**, on a unit in asse
 - `reference` = `MR-AW-2026-00NN`, `status` = `submitted`, `submitted_at` = now.
 - `category` = whatever sub-category they chose (e.g. `electrical`), or null.
 - `department_id` = the `operations` department's id.
-- `target_resolution_at` = now + 72 h (from `MaintenanceSettings.sla_high_hours`, default 72).
+- `target_resolution_at` = now + 72 h (from `SlaSettings.sla_high_hours`, default 72).
 - A `PortalMaintenanceSubmittedNotification` fires to the operations + manager staff on `AW`, plus every super_admin (bell only, §5).
 
 Staff assign it → auto `acknowledged` (sets `acknowledged_at`). They progress it `in_progress`, then `resolved` with notes (sets `resolved_at`, `resolution_notes`); the tenant is emailed + belled + pushed. The tenant rates it 5/5. Seven days later the auto-close job moves it to `closed` (§4.5).
@@ -295,7 +295,7 @@ All schedules are registered in `routes/console.php`. **Every** schedule carries
 
 - **Fires:** `dailyAt('03:00')` (`routes/console.php:66-69`).
 - **What it does:** transitions `resolved` requests whose `resolved_at ≤ now − auto_close_after_days` to `closed` (`AutoCloseMaintenanceRequestsCommand.php`).
-- **Config:** `maintenance.auto_close_after_days` (default **7**, `config/maintenance.php:31`); `--days` overrides (must be ≥ 1, `:22-26`).
+- **Config:** `maintenance.auto_close_after_days` (default **7**, `config/sla.php:31`); `--days` overrides (must be ≥ 1, `:22-26`).
 - **Lock-safety:** each candidate is `lockForUpdate`-loaded inside a transaction and **re-checked `status === 'resolved'`** before closing (`:64-74`) — so an overlapping run or a manual close between query and write is skipped cleanly rather than double-transitioning. Closing goes through `TenantRequestService::transition()`, so it sets `closed_at` and notifies the tenant via the normal path.
 - **`--dry-run`** prints what would close without writing.
 
@@ -432,7 +432,7 @@ Each notification declares which channels it uses in `via()`, and **who** receiv
 | Tenant fan-out (`notifyPortal`, `deviceTokens`) | `app/Models/Tenant.php:92-99`, `:131-134` |
 | Push channel + binding | `app/Notifications/Channels/PushChannel.php`, `app/Providers/AppServiceProvider.php:42-50`, `:74` |
 | Notifications | `app/Notifications/*.php` |
-| Config keys | `config/billing.php`, `config/maintenance.php`, `config/activitylog.php`, `config/integrations.php` |
+| Config keys | `config/billing.php`, `config/sla.php`, `config/activitylog.php`, `config/integrations.php` |
 
 ---
 

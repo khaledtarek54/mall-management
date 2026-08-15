@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\MaintenancePenalty;
+use App\Models\SlaPenalty;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Support\PostingDate;
@@ -110,9 +110,9 @@ class VendorBillService
             // nothing, so an applied penalty pointing at it would be silently dropped — still owed by
             // the vendor, but no longer chargeable or collectable. Un-applying returns it to the pool
             // to be re-charged to another bill (the canonical un-apply, which also re-derives the bill).
-            $applied = $bill->penalties()->where('status', MaintenancePenalty::STATUS_APPLIED)->get();
+            $applied = $bill->penalties()->where('status', SlaPenalty::STATUS_APPLIED)->get();
             foreach ($applied as $penalty) {
-                /** @var MaintenancePenalty $penalty */
+                /** @var SlaPenalty $penalty */
                 app(ApplySlaPenaltyService::class)->detach($penalty);
             }
 

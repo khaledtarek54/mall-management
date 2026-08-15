@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Notifications\WorkOrderResponseSlaBreachedNotification;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use Illuminate\Support\Facades\Notification;
@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Notification;
  * moment it should have been — whichever came first.**
  */
 beforeEach(function () {
-    $this->svc = app(MaintenanceWorkOrderService::class);
+    $this->svc = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'MALL']);
 
     $settings = app(SlaSettings::class);
@@ -37,11 +37,11 @@ beforeEach(function () {
     $settings->save();
 });
 
-function correctiveOrder(array $attrs = []): MaintenanceWorkOrder
+function correctiveOrder(array $attrs = []): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create(array_merge([
+    return FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id,
-        'work_order_type' => MaintenanceWorkOrder::TYPE_CM,
+        'work_order_type' => FacilityWorkOrder::TYPE_CM,
         'execution_type' => 'internal',
         'title' => 'Chiller down',
         'description' => 'No cooling on level 2.',
@@ -110,7 +110,7 @@ it('breaches the response clock when nobody takes the job on', function () {
     $this->travel(2)->hours();      // 5h total, past the 4h target
     expect($order->fresh()->isResponseBreached())->toBeTrue()
         ->and($order->fresh()->hoursOverResponseSla())->toBe(1)
-        ->and(MaintenanceWorkOrder::responseBreached()->pluck('id')->all())->toContain($order->id);
+        ->and(FacilityWorkOrder::responseBreached()->pluck('id')->all())->toContain($order->id);
 });
 
 it('stops the response clock at acceptance, not at now — the paired control', function () {
@@ -124,16 +124,16 @@ it('stops the response clock at acceptance, not at now — the paired control', 
     $this->travel(10)->days();
 
     expect($order->fresh()->isResponseBreached())->toBeFalse()
-        ->and(MaintenanceWorkOrder::responseBreached()->count())->toBe(0);
+        ->and(FacilityWorkOrder::responseBreached()->count())->toBe(0);
 });
 
 it('leaves preventive rounds out of both clocks', function () {
     // A PPM round is scheduled work with a `scheduled_for`, not a response-and-repair obligation,
     // and every SLA surface in the module filters ->corrective(). Stamping it would put routine
     // filter changes on the breach dashboard.
-    $ppm = MaintenanceWorkOrder::create([
+    $ppm = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id,
-        'work_order_type' => MaintenanceWorkOrder::TYPE_PPM,
+        'work_order_type' => FacilityWorkOrder::TYPE_PPM,
         'title' => 'Quarterly filter change',
         'category' => 'hvac',
         'status' => 'open',
@@ -170,14 +170,14 @@ it('alerts once on an unanswered job, off its own stamp', function () {
     $this->travel(6)->hours();
 
     Notification::fake();
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches')->assertSuccessful();
 
     Notification::assertSentTo($manager, WorkOrderResponseSlaBreachedNotification::class);
     expect($order->fresh()->response_breach_notified_at)->not->toBeNull();
 
     // Once. The hourly scan must not re-nag about a job somebody is already chasing.
     Notification::fake();
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches')->assertSuccessful();
     Notification::assertNothingSent();
 
     // NOT covered, and stated rather than faked: `alertResponseBreach()` re-checks the stamp a
@@ -198,13 +198,13 @@ it('keeps the two stamps apart, so one breach cannot silence the other', functio
 
     $order = correctiveOrder();
     $this->travel(6)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches')->assertSuccessful();
 
     expect($order->fresh()->response_breach_notified_at)->not->toBeNull()
         ->and($order->fresh()->sla_breach_notified_at)->toBeNull();
 
     $this->travel(40)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches')->assertSuccessful();
 
     expect($order->fresh()->sla_breach_notified_at)->not->toBeNull();
 });
@@ -213,10 +213,10 @@ it('stamps the clocks on orders that predate the response clock', function () {
     // Every job that slipped through the original defect is sitting in the database with two null
     // columns. Without the heal they stay invisible forever — which is the bug, not the fix.
     $order = correctiveOrder();
-    MaintenanceWorkOrder::whereKey($order->id)
+    FacilityWorkOrder::whereKey($order->id)
         ->update(['target_response_at' => null, 'target_resolution_at' => null]);
 
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches')->assertSuccessful();
 
     expect($order->fresh()->target_response_at)->not->toBeNull()
         ->and($order->fresh()->target_resolution_at)->not->toBeNull();
@@ -226,13 +226,13 @@ it('writes nothing on --dry-run, backfill included', function () {
     // The option is documented as "print what would be alerted WITHOUT writing", and stamping a
     // deadline is a write. Same reasoning that already keeps penalty assessment out of the preview.
     $order = correctiveOrder();
-    MaintenanceWorkOrder::whereKey($order->id)
+    FacilityWorkOrder::whereKey($order->id)
         ->update(['target_response_at' => null, 'target_resolution_at' => null]);
 
     $this->travel(6)->hours();
 
     Notification::fake();
-    $this->artisan('maintenance:scan-wo-sla-breaches', ['--dry-run' => true])->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches', ['--dry-run' => true])->assertSuccessful();
 
     Notification::assertNothingSent();
     expect($order->fresh()->target_response_at)->toBeNull()

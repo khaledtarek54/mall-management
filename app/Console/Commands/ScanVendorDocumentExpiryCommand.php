@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Notification;
 /**
  * Chase vendor compliance documents before — and after — they lapse (module 12).
  *
- * The dispatch gate (`Vendor::assignable()` / `MaintenanceWorkOrder::saving()`) already refuses to
+ * The dispatch gate (`Vendor::assignable()` / `FacilityWorkOrder::saving()`) already refuses to
  * send a vendor to site on a lapsed insurance certificate. But it did so SILENTLY: the contractor
  * simply stopped appearing in every picker, with no warning beforehand and no explanation after.
  * The statutory documents (بطاقة ضريبية, سجل تجاري, شهادة تأمينات اجتماعية) had no chase at all —

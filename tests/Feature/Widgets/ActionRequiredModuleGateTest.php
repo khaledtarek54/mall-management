@@ -42,9 +42,9 @@ function actionItems(): array
     return $ref->invoke($widget)['items'];
 }
 
-it('surfaces an urgent_requests card when the maintenance module is enabled', function () {
+it('surfaces an urgent_requests card when the requests module is enabled', function () {
     $settings = app(ModulesSettings::class);
-    $settings->maintenance = true;
+    $settings->requests = true;
     $settings->save();
 
     asTenant($this->asset, function () {
@@ -53,9 +53,9 @@ it('surfaces an urgent_requests card when the maintenance module is enabled', fu
     });
 });
 
-it('omits maintenance cards entirely when the module is disabled', function () {
+it('omits request cards entirely when the module is disabled', function () {
     $settings = app(ModulesSettings::class);
-    $settings->maintenance = false;
+    $settings->requests = false;
     $settings->save();
 
     asTenant($this->asset, function () {

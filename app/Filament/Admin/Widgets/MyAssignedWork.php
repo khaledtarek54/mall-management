@@ -3,9 +3,9 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\TenantRequest;
 use App\Support\AssignmentScope;
 use App\Support\Modules;
@@ -63,10 +63,10 @@ class MyAssignedWork extends StatsOverviewWidget
                 ->url(TenantRequestResource::getUrl('index'));
         }
 
-        if (Modules::enabled('preventive_maintenance')) {
+        if (Modules::enabled('facility')) {
             $workOrders = AssignmentScope::apply(
-                TenantScope::applyTo(MaintenanceWorkOrder::query()),
-                'preventive_maintenance',
+                TenantScope::applyTo(FacilityWorkOrder::query()),
+                'facility',
                 'assigned_to_user_id',
                 $user,
             )->whereNotIn('status', ['done', 'cancelled']);
@@ -83,7 +83,7 @@ class MyAssignedWork extends StatsOverviewWidget
                     : __('admin.widgets.my_work.nothing_due'))
                 ->descriptionIcon($dueToday > 0 ? 'heroicon-m-calendar-days' : 'heroicon-m-check-circle')
                 ->color($dueToday > 0 ? 'warning' : ($openWorkOrders > 0 ? 'info' : 'success'))
-                ->url(MaintenanceWorkOrderResource::getUrl('index'));
+                ->url(FacilityWorkOrderResource::getUrl('index'));
         }
 
         // Both modules off is a legitimate configuration, and a stats widget that returns an

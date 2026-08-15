@@ -210,12 +210,6 @@
         "guide": "ledger_accounts"
     },
     {
-        "screen": "MaintenancePlanResource",
-        "panel": "admin",
-        "kind": "resource",
-        "guide": "maintenance_plans"
-    },
-    {
         "screen": "MarketingBudgetResource",
         "panel": "admin",
         "kind": "resource",
@@ -396,6 +390,12 @@
         "guide": "sales_declarations"
     },
     {
+        "screen": "ServicePlanResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "service_plans"
+    },
+    {
         "screen": "Settings",
         "panel": "admin",
         "kind": "page",
@@ -498,7 +498,7 @@
         "guide": "weekly_spend"
     },
     {
-        "screen": "MaintenanceWorkOrderResource",
+        "screen": "FacilityWorkOrderResource",
         "panel": "admin",
         "kind": "resource",
         "guide": "work_orders"

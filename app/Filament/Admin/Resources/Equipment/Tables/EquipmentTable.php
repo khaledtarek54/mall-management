@@ -23,7 +23,7 @@ class EquipmentTable
             ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'parent'])->withCount('children'))
             ->columns([
                 TextColumn::make('code')
-                    ->label(__('admin.preventive_maintenance.fields.code'))
+                    ->label(__('admin.facility.fields.code'))
                     ->fontFamily('mono')
                     ->weight('bold')
                     // A sub-code is shown indented under its parent's code so the tree reads
@@ -33,21 +33,21 @@ class EquipmentTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('name_en')
-                    ->label(__('admin.preventive_maintenance.fields.name'))
+                    ->label(__('admin.facility.fields.name'))
                     ->description(fn (Equipment $record) => $record->name_ar)
                     ->searchable(),
                 TextColumn::make('asset.name')
-                    ->label(__('admin.preventive_maintenance.fields.property'))
+                    ->label(__('admin.facility.fields.property'))
                     ->badge()->color('gray')->toggleable(),
                 TextColumn::make('category')
-                    ->label(__('admin.preventive_maintenance.fields.category'))
+                    ->label(__('admin.facility.fields.category'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.preventive_maintenance.categories.{$state}") : '—')
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.facility.categories.{$state}") : '—')
                     ->toggleable(),
                 TextColumn::make('criticality')
-                    ->label(__('admin.preventive_maintenance.fields.criticality'))
+                    ->label(__('admin.facility.fields.criticality'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => __('admin.preventive_maintenance.criticalities.'.($state ?: 'routine')))
+                    ->formatStateUsing(fn (?string $state) => __('admin.facility.criticalities.'.($state ?: 'routine')))
                     ->color(fn (?string $state) => match ($state) {
                         \App\Models\Equipment::CRITICAL => 'danger',
                         \App\Models\Equipment::IMPORTANT => 'warning',
@@ -55,38 +55,38 @@ class EquipmentTable
                     })
                     ->sortable(),
                 TextColumn::make('unit.code')
-                    ->label(__('admin.preventive_maintenance.fields.unit'))
-                    ->placeholder(__('admin.preventive_maintenance.equipment.common_area'))
+                    ->label(__('admin.facility.fields.unit'))
+                    ->placeholder(__('admin.facility.equipment.common_area'))
                     ->toggleable(),
                 TextColumn::make('location')
-                    ->label(__('admin.preventive_maintenance.fields.location'))
+                    ->label(__('admin.facility.fields.location'))
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('children_count')
-                    ->label(__('admin.preventive_maintenance.fields.sub_codes'))
+                    ->label(__('admin.facility.fields.sub_codes'))
                     ->badge()
                     ->color(fn (int $state) => $state > 0 ? 'info' : 'gray')
                     ->toggleable(),
                 IconColumn::make('is_active')
-                    ->label(__('admin.preventive_maintenance.fields.active'))
+                    ->label(__('admin.facility.fields.active'))
                     ->boolean()
                     ->toggleable(),
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('criticality')
-                    ->label(__('admin.preventive_maintenance.fields.criticality'))
+                    ->label(__('admin.facility.fields.criticality'))
                     ->options(fn () => collect(\App\Models\Equipment::CRITICALITIES)
-                        ->mapWithKeys(fn (string $c) => [$c => __("admin.preventive_maintenance.criticalities.{$c}")])
+                        ->mapWithKeys(fn (string $c) => [$c => __("admin.facility.criticalities.{$c}")])
                         ->all()),
                 SelectFilter::make('category')
-                    ->label(__('admin.preventive_maintenance.fields.category'))
+                    ->label(__('admin.facility.fields.category'))
                     ->options(fn () => collect(['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'elevator', 'fire-safety', 'generator', 'other'])
-                        ->mapWithKeys(fn (string $c) => [$c => __("admin.preventive_maintenance.categories.{$c}")])
+                        ->mapWithKeys(fn (string $c) => [$c => __("admin.facility.categories.{$c}")])
                         ->all()),
                 TernaryFilter::make('is_active')
-                    ->label(__('admin.preventive_maintenance.fields.active')),
+                    ->label(__('admin.facility.fields.active')),
                 Filter::make('roots')
-                    ->label(__('admin.preventive_maintenance.equipment.roots_only'))
+                    ->label(__('admin.facility.equipment.roots_only'))
                     ->query(fn ($query) => $query->roots()),
                 TrashedFilter::make(),
             ])

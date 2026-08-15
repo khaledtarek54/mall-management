@@ -1,10 +1,10 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenancePlans\Pages\EditMaintenancePlan;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\EditMaintenanceWorkOrder;
+use App\Filament\Admin\Resources\ServicePlans\Pages\EditServicePlan;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\EditFacilityWorkOrder;
 use App\Models\Equipment;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -32,13 +32,13 @@ beforeEach(function () {
     ]);
 });
 
-function retiredPlan(array $attrs = []): MaintenancePlan
+function retiredPlan(array $attrs = []): ServicePlan
 {
-    return MaintenancePlan::create(array_merge([
+    return ServicePlan::create(array_merge([
         'asset_id' => test()->asset->id,
         'title' => 'Chiller service',
         'category' => 'hvac',
-        'maintenance_type' => 'fixed',
+        'plan_type' => 'fixed',
         'equipment_id' => test()->machine->id,
         'frequency_unit' => 'months',
         'frequency_value' => 1,
@@ -55,7 +55,7 @@ it('can still edit a fixed plan after its machine is deactivated', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($plan) {
-        Livewire::test(EditMaintenancePlan::class, ['record' => $plan->id])
+        Livewire::test(EditServicePlan::class, ['record' => $plan->id])
             ->fillForm(['title' => 'Renamed'])
             ->call('save')
             ->assertHasNoFormErrors();
@@ -72,7 +72,7 @@ it('can still retire a plan whose machine was deactivated', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($plan) {
-        Livewire::test(EditMaintenancePlan::class, ['record' => $plan->id])
+        Livewire::test(EditServicePlan::class, ['record' => $plan->id])
             ->fillForm(['is_active' => false])
             ->call('save')
             ->assertHasNoFormErrors();
@@ -87,7 +87,7 @@ it('can still edit a plan after its machine is soft-deleted', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($plan) {
-        Livewire::test(EditMaintenancePlan::class, ['record' => $plan->id])
+        Livewire::test(EditServicePlan::class, ['record' => $plan->id])
             ->fillForm(['title' => 'Still editable'])
             ->call('save')
             ->assertHasNoFormErrors();
@@ -99,7 +99,7 @@ it('can still edit a plan after its machine is soft-deleted', function () {
 /* ---- the work order must stay editable ---------------------------------- */
 
 it('can still edit an open work order after its machine is deactivated', function () {
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'equipment_id' => $this->machine->id,
         'title' => 'Legit', 'category' => 'hvac', 'status' => 'open', 'scheduled_for' => '2026-07-01',
     ]);
@@ -107,7 +107,7 @@ it('can still edit an open work order after its machine is deactivated', functio
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($order) {
-        Livewire::test(EditMaintenanceWorkOrder::class, ['record' => $order->id])
+        Livewire::test(EditFacilityWorkOrder::class, ['record' => $order->id])
             ->fillForm(['title' => 'Rescheduled'])
             ->call('save')
             ->assertHasNoFormErrors();
@@ -132,7 +132,7 @@ it('does not offer a retired machine when creating a new plan', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($live) {
-        Livewire::test(\App\Filament\Admin\Resources\MaintenancePlans\Pages\CreateMaintenancePlan::class)
+        Livewire::test(\App\Filament\Admin\Resources\ServicePlans\Pages\CreateServicePlan::class)
             ->fillForm(['asset_id' => $this->asset->id])
             ->assertFormFieldExists('equipment_id', fn ($f) => array_keys($f->getOptions()) === [$live->id]);
     });

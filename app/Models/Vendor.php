@@ -161,7 +161,7 @@ class Vendor extends Model
     /**
      * `[id => name]` of dispatchable vendors for a work-order/plan picker, plus `$keepId` (flagged
      * ⚠) when it is no longer assignable — so an EDIT form still shows the currently-assigned
-     * vendor rather than a blank select. Server-side, `MaintenanceWorkOrder::saving()` is the gate.
+     * vendor rather than a blank select. Server-side, `FacilityWorkOrder::saving()` is the gate.
      *
      * @return array<int, string>
      */

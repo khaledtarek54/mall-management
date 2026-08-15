@@ -10,7 +10,7 @@
         "console_commands": 45,
         "jobs": 6,
         "notifications": 35,
-        "migrations": 219
+        "migrations": 220
     },
     "modules": {
         "documented": 37,
@@ -309,9 +309,9 @@
                 "vendors:scan-contract-renewals",
                 "activitylog:clean",
                 "requests:auto-close",
-                "maintenance:generate-preventive",
+                "facility:generate-preventive",
                 "requests:scan-sla-breaches",
-                "maintenance:scan-wo-sla-breaches",
+                "facility:scan-sla-breaches",
                 "billing:scan-overdue-invoices",
                 "sales:scan-missing-declarations",
                 "sales:estimate-missing",

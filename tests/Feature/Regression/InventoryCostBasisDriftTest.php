@@ -164,7 +164,7 @@ it('prices a work-order part draw from the stock on hand, not a stale catalogue 
     $this->svc->receive($this->store, $this->item, 10, 400);   // really worth 400 each
     $this->item->update(['unit_cost' => 100]);                 // catalogue drifted low
 
-    $order = \App\Models\MaintenanceWorkOrder::create([
+    $order = \App\Models\FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'title' => 'Chiller service', 'description' => 'Replace filters',
         'category' => 'hvac', 'scheduled_for' => '2026-08-01',
@@ -185,7 +185,7 @@ it('still lets the caller state a cost on a part draw', function () {
     // The control: an operator who knows the part cost something else must still be able to say so.
     $this->svc->receive($this->store, $this->item, 10, 400);
 
-    $order = \App\Models\MaintenanceWorkOrder::create([
+    $order = \App\Models\FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'title' => 'Chiller service', 'description' => 'Replace filters',
         'category' => 'hvac', 'scheduled_for' => '2026-08-01',

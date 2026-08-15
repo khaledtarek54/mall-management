@@ -144,7 +144,7 @@ Schedule::command('requests:auto-close')
 
 // Daily scan raising preventive-maintenance work orders for plans that are due.
 // Idempotent + lock-safe (advances next_due_date), so a re-run is harmless.
-Schedule::command('maintenance:generate-preventive')
+Schedule::command('facility:generate-preventive')
     ->dailyAt('02:30')
     ->name('atriom-generate-preventive-maintenance')
     ->withoutOverlapping();
@@ -160,7 +160,7 @@ Schedule::command('requests:scan-sla-breaches')
 
 // Corrective work orders past their SLA (FR-CM-08). Separate from the tenant-request scan
 // above: different subject, different table, its own idempotency stamp.
-Schedule::command('maintenance:scan-wo-sla-breaches')
+Schedule::command('facility:scan-sla-breaches')
     ->hourly()
     ->name('atriom-scan-wo-sla-breaches')
     ->withoutOverlapping();

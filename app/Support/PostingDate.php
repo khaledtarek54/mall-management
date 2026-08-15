@@ -21,7 +21,7 @@ use Illuminate\Support\Carbon;
  *      and LOGS the failure rather than retrying
  *
  * So business state moved, the GL didn't, and the operator was told it worked — the exact
- * shape of the MaintenancePenalty bug. The sweep does eventually surface it, but only as an
+ * shape of the SlaPenalty bug. The sweep does eventually surface it, but only as an
  * opaque `ledger_last_sync_failures` count, to a different role, later. (Found 2026-07-16 as
  * gap-analysis F-93/F-89; module 25 rated 🔴 because for a عهدة, receipts arriving after a
  * month-end close is the NORMAL workflow, not an edge case.)

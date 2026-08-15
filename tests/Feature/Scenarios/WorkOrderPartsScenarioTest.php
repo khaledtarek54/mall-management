@@ -2,11 +2,11 @@
 
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\StockMovementService;
 use App\Services\WorkOrderPartService;
 use Database\Seeders\ApprovalRulesSeeder;
@@ -21,7 +21,7 @@ beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     $this->seed(ApprovalRulesSeeder::class);
     $this->svc = app(WorkOrderPartService::class);
-    $this->wos = app(MaintenanceWorkOrderService::class);
+    $this->wos = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'PRT']);
     $this->warehouse = Warehouse::create(['asset_id' => $this->asset->id, 'name' => 'Main', 'code' => 'W1']);
     $this->item = InventoryItem::create(['sku' => 'PMP-SEAL', 'name' => 'Pump seal', 'unit' => 'each', 'unit_cost' => 100]);
@@ -33,9 +33,9 @@ beforeEach(function () {
     ]);
 });
 
-function partOrder(): MaintenanceWorkOrder
+function partOrder(): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create([
+    return FacilityWorkOrder::create([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'description' => 'Pump leaking', 'title' => 'Fix pump', 'category' => 'plumbing',
         'scheduled_for' => '2026-07-01',
@@ -55,7 +55,7 @@ it('does not move stock when a part is requested', function () {
         'inventory_item_id' => $this->item->id, 'warehouse_id' => $this->warehouse->id, 'quantity' => 2,
     ], makeUser('operations', [$this->asset->id])->id);
 
-    expect($part->status)->toBe(MaintenanceWorkOrderPart::STATUS_PENDING);
+    expect($part->status)->toBe(FacilityWorkOrderPart::STATUS_PENDING);
     expect($part->stock_movement_id)->toBeNull();
     expect(onHand())->toBe(100.0); // untouched
 });
@@ -68,12 +68,12 @@ it('moves the stock only once the draw is approved', function () {
 
     $approved = $this->svc->approve($part, makeUser('manager', [$this->asset->id]));
 
-    expect($approved->status)->toBe(MaintenanceWorkOrderPart::STATUS_APPROVED);
+    expect($approved->status)->toBe(FacilityWorkOrderPart::STATUS_APPROVED);
     expect($approved->stock_movement_id)->not->toBeNull();
     expect(onHand())->toBe(98.0);
     // The movement points back at the job — the ledger says what the stock was for.
-    expect($approved->movement->source_id)->toBe($approved->maintenance_work_order_id);
-    expect($approved->movement->source_type)->toBe(MaintenanceWorkOrder::class);
+    expect($approved->movement->source_id)->toBe($approved->facility_work_order_id);
+    expect($approved->movement->source_type)->toBe(FacilityWorkOrder::class);
 });
 
 it('moves no stock when a draw is rejected', function () {
@@ -83,7 +83,7 @@ it('moves no stock when a draw is rejected', function () {
 
     $rejected = $this->svc->reject($part, 'Use the refurbished one first.', makeUser('manager', [$this->asset->id]));
 
-    expect($rejected->status)->toBe(MaintenanceWorkOrderPart::STATUS_REJECTED);
+    expect($rejected->status)->toBe(FacilityWorkOrderPart::STATUS_REJECTED);
     expect($rejected->decision_notes)->toBe('Use the refurbished one first.');
     expect(onHand())->toBe(100.0);
 });
@@ -97,7 +97,7 @@ it('lets a supervisor approve a low-value draw', function () {
 
     expect($part->required_permission)->toBe('approvals.tier_1');
     expect($this->svc->approve($part, makeUser('operations', [$this->asset->id]))->status)
-        ->toBe(MaintenanceWorkOrderPart::STATUS_APPROVED);
+        ->toBe(FacilityWorkOrderPart::STATUS_APPROVED);
 });
 
 it('refuses a supervisor on a high-value draw', function () {
@@ -113,7 +113,7 @@ it('refuses a supervisor on a high-value draw', function () {
 
     // A manager can.
     expect($this->svc->approve($part->fresh(), makeUser('manager', [$this->asset->id]))->status)
-        ->toBe(MaintenanceWorkOrderPart::STATUS_APPROVED);
+        ->toBe(FacilityWorkOrderPart::STATUS_APPROVED);
 });
 
 it('escalates a very high-value draw past the manager', function () {
@@ -194,8 +194,8 @@ it('records an outside purchase without approval or a stock movement', function 
         'reference' => 'INV-8891',
     ], makeUser('operations', [$this->asset->id])->id);
 
-    expect($part->status)->toBe(MaintenanceWorkOrderPart::STATUS_RECORDED);
-    expect($part->source)->toBe(MaintenanceWorkOrderPart::SOURCE_EXTERNAL);
+    expect($part->status)->toBe(FacilityWorkOrderPart::STATUS_RECORDED);
+    expect($part->source)->toBe(FacilityWorkOrderPart::SOURCE_EXTERNAL);
     expect($part->stock_movement_id)->toBeNull();
     expect(onHand())->toBe(100.0);
     expect((float) $part->value)->toBe(750.0);
@@ -208,8 +208,8 @@ it('answers "what did we buy outside?" — the question that was previously unan
     $this->svc->recordExternal($order, ['description' => 'Bespoke gasket', 'quantity' => 1, 'unit_cost' => 750], makeUser('operations')->id);
     $this->svc->requestInternal($order, ['inventory_item_id' => $this->item->id, 'warehouse_id' => $this->warehouse->id, 'quantity' => 2], makeUser('operations')->id);
 
-    expect(MaintenanceWorkOrderPart::where('source', 'external')->sum('value'))->toEqual(750);
-    expect(MaintenanceWorkOrderPart::where('source', 'internal')->count())->toBe(1);
+    expect(FacilityWorkOrderPart::where('source', 'external')->sum('value'))->toEqual(750);
+    expect(FacilityWorkOrderPart::where('source', 'internal')->count())->toBe(1);
 });
 
 it('counts only parts that actually cost the job something', function () {
@@ -226,7 +226,7 @@ it('counts only parts that actually cost the job something', function () {
 
     // 200 approved + 750 external. The rejected 500 and the pending 100 cost nothing.
     expect($order->fresh()->partsCost())->toBe(950.0);
-    expect($pending->status)->toBe(MaintenanceWorkOrderPart::STATUS_PENDING);
+    expect($pending->status)->toBe(FacilityWorkOrderPart::STATUS_PENDING);
 });
 
 /* ---- integrity ---------------------------------------------------------- */
@@ -253,7 +253,7 @@ it('will not draw more than is on the shelf', function () {
     expect(fn () => $this->svc->approve($part, makeUser('super_admin')))
         ->toThrow(HttpException::class);
     expect(onHand())->toBe(100.0);
-    expect($part->fresh()->status)->toBe(MaintenanceWorkOrderPart::STATUS_PENDING);
+    expect($part->fresh()->status)->toBe(FacilityWorkOrderPart::STATUS_PENDING);
 });
 
 it('refuses to add parts to a closed job', function () {
@@ -266,16 +266,16 @@ it('refuses to add parts to a closed job', function () {
 });
 
 it('refuses an internal part with no item or warehouse', function () {
-    expect(fn () => MaintenanceWorkOrderPart::create([
-        'maintenance_work_order_id' => partOrder()->id, 'source' => 'internal', 'quantity' => 1,
+    expect(fn () => FacilityWorkOrderPart::create([
+        'facility_work_order_id' => partOrder()->id, 'source' => 'internal', 'quantity' => 1,
     ]))->toThrow(InvalidArgumentException::class);
 });
 
 it('refuses an external part with nothing describing what was bought', function () {
     // It has no SKU in our catalog — that is what makes it external — so the description is
     // the only record of what it was.
-    expect(fn () => MaintenanceWorkOrderPart::create([
-        'maintenance_work_order_id' => partOrder()->id, 'source' => 'external', 'quantity' => 1, 'unit_cost' => 10,
+    expect(fn () => FacilityWorkOrderPart::create([
+        'facility_work_order_id' => partOrder()->id, 'source' => 'external', 'quantity' => 1, 'unit_cost' => 10,
     ]))->toThrow(InvalidArgumentException::class);
 });
 

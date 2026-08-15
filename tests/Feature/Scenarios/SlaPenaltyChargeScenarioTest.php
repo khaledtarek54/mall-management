@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\JournalLine;
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorBill;
@@ -10,7 +10,7 @@ use App\Models\VendorContract;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\AssessSlaPenaltyService;
 use App\Services\ApplySlaPenaltyService;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -33,7 +33,7 @@ beforeEach(function () {
     app(FiscalCalendar::class)->ensureYear((int) now()->year);
     $this->assess = app(AssessSlaPenaltyService::class);
     $this->apply = app(ApplySlaPenaltyService::class);
-    $this->wos = app(MaintenanceWorkOrderService::class);
+    $this->wos = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'CHG']);
     $this->vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
@@ -47,18 +47,18 @@ beforeEach(function () {
 });
 
 /** A closed, late external CM with a final penalty ready to charge. */
-function finalPenalty(): MaintenancePenalty
+function finalPenalty(): SlaPenalty
 {
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => test()->vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
         'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
-    app(MaintenanceWorkOrderService::class)->transition($order, 'in_progress');
+    app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(6)->hours();
-    app(MaintenanceWorkOrderService::class)->transition($order->fresh(), 'done');
+    app(FacilityWorkOrderService::class)->transition($order->fresh(), 'done');
 
-    return MaintenancePenalty::firstOrFail();
+    return SlaPenalty::firstOrFail();
 }
 
 function payableBill(float $subtotal = 5000, string $status = 'approved'): VendorBill
@@ -84,7 +84,7 @@ it('reduces what the vendor is owed', function () {
 
     expect((float) $bill->penalty_applied_amount)->toBe(500.0);
     expect((float) $bill->balance)->toBe(4500.0);
-    expect($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_APPLIED);
+    expect($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_APPLIED);
     expect($penalty->fresh()->vendor_bill_id)->toBe($bill->id);
 });
 
@@ -151,7 +151,7 @@ it('refuses a draft bill', function () {
 
 it('refuses a penalty that is still accruing', function () {
     // Charging it would deduct a figure that is about to change.
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => $this->vendor->id, 'description' => 'x', 'title' => 'Fix',
         'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
@@ -160,7 +160,7 @@ it('refuses a penalty that is still accruing', function () {
     $this->travel(6)->hours();
     $pending = $this->assess->assess($order->fresh());
 
-    expect($pending->status)->toBe(MaintenancePenalty::STATUS_PENDING);
+    expect($pending->status)->toBe(SlaPenalty::STATUS_PENDING);
     expect(fn () => $this->apply->toBill($pending, payableBill(5000)))->toThrow(DomainException::class);
 });
 
@@ -193,7 +193,7 @@ it('restores the bill balance when the deduction is detached', function () {
     expect((float) $bill->penalty_applied_amount)->toBe(0.0);
     expect((float) $bill->balance)->toBe(5000.0);
     // Still owed — it returns to chargeable rather than disappearing.
-    expect($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_FINAL);
+    expect($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_FINAL);
     expect($penalty->fresh()->vendor_bill_id)->toBeNull();
 });
 
@@ -204,11 +204,11 @@ it('releases an applied penalty back to final when the bill is cancelled (never 
     $bill = payableBill(5000);
     $penalty = finalPenalty();
     $this->apply->toBill($penalty, $bill);
-    expect($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_APPLIED);
+    expect($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_APPLIED);
 
     app(\App\Services\VendorBillService::class)->cancel($bill->fresh());
 
-    expect($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_FINAL)
+    expect($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_FINAL)
         ->and($penalty->fresh()->vendor_bill_id)->toBeNull()
         ->and($bill->fresh()->status)->toBe('cancelled');
 });
@@ -222,10 +222,10 @@ it('posts the penalty as Dr Accounts Payable / Cr the expense the bill charged',
     $bill = payableBill(5000);
     $this->apply->toBill(finalPenalty(), $bill);
 
-    $entry = MaintenancePenalty::first()->refresh();
+    $entry = SlaPenalty::first()->refresh();
     app(\App\Services\Accounting\LedgerPoster::class)->post($entry);
 
-    $lines = JournalLine::whereHas('entry', fn ($q) => $q->where('source_type', MaintenancePenalty::class))
+    $lines = JournalLine::whereHas('entry', fn ($q) => $q->where('source_type', SlaPenalty::class))
         ->with('account')->get();
 
     expect($lines)->toHaveCount(2);
@@ -249,7 +249,7 @@ it('keeps the AP tie-out balanced — the ledger and the bills agree', function 
     $poster->post($bill->fresh());
 
     $this->apply->toBill(finalPenalty(), $bill);
-    $poster->post(MaintenancePenalty::first()->refresh());
+    $poster->post(SlaPenalty::first()->refresh());
 
     $tie = app(\App\Services\Reconciliation\BooksReconciliationService::class)->glTieOut();
 
@@ -261,7 +261,7 @@ it('posts nothing for a penalty that is only assessed, never charged', function 
     // `final` is an estimate of what is owed; an estimate has no place in the ledger.
     $penalty = finalPenalty();
 
-    expect(app(\App\Services\Accounting\Journalizers\MaintenancePenaltyJournalizer::class)
+    expect(app(\App\Services\Accounting\Journalizers\SlaPenaltyJournalizer::class)
         ->payload($penalty))->toBeNull();
 });
 
@@ -269,6 +269,6 @@ it('posts nothing for a waived penalty', function () {
     $penalty = finalPenalty();
     $this->assess->waive($penalty, 'goodwill');
 
-    expect(app(\App\Services\Accounting\Journalizers\MaintenancePenaltyJournalizer::class)
+    expect(app(\App\Services\Accounting\Journalizers\SlaPenaltyJournalizer::class)
         ->payload($penalty->fresh()))->toBeNull();
 });

@@ -14,7 +14,7 @@ it('makes the vendor role view-only on the maintenance surface', function () {
     // View-only on the work a contractor does (view_all so it sees the board of its malls).
     expect($vendor->can('requests.view'))->toBeTrue()
         ->and($vendor->can('requests.view_all'))->toBeTrue()
-        ->and($vendor->can('preventive_maintenance.view'))->toBeTrue()
+        ->and($vendor->can('facility.view'))->toBeTrue()
         ->and($vendor->can('notes.view'))->toBeTrue()
         // FR-USR-03's "CSV upload" exception is DEFERRED — deliberately NOT the blanket admin
         // `imports.execute` (that is tenants/leases/units import, which widens the import-admins-only
@@ -28,7 +28,7 @@ it('gives the vendor role no write authority of any kind', function () {
     foreach ([
         'requests.create', 'requests.edit', 'requests.delete',
         'requests.assign', 'requests.change_status',
-        'preventive_maintenance.create', 'preventive_maintenance.edit', 'preventive_maintenance.complete',
+        'facility.create', 'facility.edit', 'facility.complete',
         'notes.create',
     ] as $perm) {
         expect($vendor->can($perm))->toBeFalse("vendor must not hold {$perm}");

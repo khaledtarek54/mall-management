@@ -10,10 +10,10 @@ use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Filament\Admin\Resources\Equipment\Pages\CreateEquipment;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\FixedAssets\Pages\CreateFixedAsset;
-use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
-use App\Filament\Admin\Resources\MaintenancePlans\Pages\CreateMaintenancePlan;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\CreateMaintenanceWorkOrder;
+use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
+use App\Filament\Admin\Resources\ServicePlans\Pages\CreateServicePlan;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\CreateFacilityWorkOrder;
 use App\Filament\Admin\Resources\PurchaseRequests\Pages\CreatePurchaseRequest;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\SlaPolicies\Pages\CreateSlaPolicy;
@@ -32,8 +32,8 @@ use App\Models\CamExpensePool;
 use App\Models\Employee;
 use App\Models\Equipment;
 use App\Models\FixedAsset;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use App\Models\PurchaseRequest;
 use App\Models\SlaPolicy;
 use App\Models\Unit;
@@ -90,7 +90,7 @@ dataset('all_mode_pickable_asset_resources', [
         fn (int $mall) => ['asset_id' => $mall, 'code' => 'EQ-01', 'name_en' => 'Chiller', 'name_ar' => 'مبرد']],
     'FixedAsset' => [FixedAssetResource::class, CreateFixedAsset::class, FixedAsset::class,
         fn (int $mall) => ['asset_id' => $mall, 'name' => 'Generator', 'tag' => 'FA-01', 'acquisition_cost' => 100000, 'useful_life_months' => 60, 'funded_from' => 'cash']],
-    'MaintenancePlan' => [MaintenancePlanResource::class, CreateMaintenancePlan::class, MaintenancePlan::class,
+    'ServicePlan' => [ServicePlanResource::class, CreateServicePlan::class, ServicePlan::class,
         fn (int $mall) => ['asset_id' => $mall, 'title' => 'Monthly HVAC service']],
     'SlaPolicy' => [SlaPolicyResource::class, CreateSlaPolicy::class, SlaPolicy::class,
         fn (int $mall) => ['asset_id' => $mall, 'priority' => 'high', 'resolve_hours' => 8]],
@@ -100,7 +100,7 @@ dataset('all_mode_pickable_asset_resources', [
         fn (int $mall) => ['asset_id' => $mall, 'period_year' => 2026, 'status' => 'draft', 'total_actual_expense' => 500, 'total_estimated_collected' => 500]],
     'PurchaseRequest' => [PurchaseRequestResource::class, CreatePurchaseRequest::class, PurchaseRequest::class,
         fn (int $mall) => ['asset_id' => $mall, 'justification' => 'Restock cleaning supplies']],
-    'MaintenanceWorkOrder' => [MaintenanceWorkOrderResource::class, CreateMaintenanceWorkOrder::class, MaintenanceWorkOrder::class,
+    'FacilityWorkOrder' => [FacilityWorkOrderResource::class, CreateFacilityWorkOrder::class, FacilityWorkOrder::class,
         fn (int $mall) => ['asset_id' => $mall, 'title' => 'Fix escalator', 'category' => 'hvac', 'priority' => 'medium', 'scheduled_for' => now()->toDateString()]],
     // Already-fixed reference resources — kept here so the (now hook-registering) guard covers them too.
     'Violation' => [ViolationResource::class, CreateViolation::class, Violation::class,

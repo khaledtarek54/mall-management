@@ -17,7 +17,7 @@ failure was missing `admin.procurement.*` keys from untracked WIP, unrelated).
 ## 1. Findings
 
 ### 🔴 F-77. A penalty could be charged to **another property's** vendor bill · **FIXED**
-`MaintenanceWorkOrdersTable.php:315` · `app/Services/ApplySlaPenaltyService.php:100`
+`FacilityWorkOrdersTable.php:315` · `app/Services/ApplySlaPenaltyService.php:100`
 
 The picker ran `VendorBill::query()->where('vendor_id', …)` with **no asset scoping**, and
 `assertBillEligible()` checked vendor + postable + balance, **never `asset_id`**. There are no global
@@ -26,7 +26,7 @@ scopes on any model, so nothing else scoped it.
 **Scenario:** vendor CoolAir serves malls AAA + BBB. A CM at AAA breaches → penalty 5,000, `final`.
 The operator clicks *Charge to a bill*; the dropdown lists **BBB's** bill (number + balance — a
 cross-property **read leak** to a user scoped to AAA only). Picking it passed every guard → BBB's
-balance 20,000→15,000, and `MaintenancePenaltyJournalizer:64` dimensions the entry to
+balance 20,000→15,000, and `SlaPenaltyJournalizer:64` dimensions the entry to
 `$bill->asset_id` = **BBB**. **Mall BBB absorbs a penalty earned at AAA; AAA never sees the
 recovery.**
 
@@ -45,7 +45,7 @@ scoped to the work order's own property (UX — the service is the gate). Guard:
 
 `waive()` guarded only `isWaived()` — never `isApplied()` — and **never called `recompute()`**. The
 action is visible for any non-waived penalty (and `visible()` isn't a dispatch gate anyway).
-`MaintenancePenalty` has no observer and no `booted()` hook, and the only `VendorBill::recompute()`
+`SlaPenalty` has no observer and no `booted()` hook, and the only `VendorBill::recompute()`
 callers are `VendorBillPayment` saved/deleted, `VendorBillService` and `ApplySlaPenaltyService` — so
 nothing repaired it.
 
@@ -67,8 +67,8 @@ Guard: `GapAnalysisRound2FixesTest`, verified to fail without it.
 `app/Console/Commands/ScanWorkOrderSlaBreachesCommand.php:53`
 
 `assessPenalties($overdue)` runs **before** the dry-run check. So
-`php artisan maintenance:scan-wo-sla-breaches --dry-run` — documented *"Print what would be alerted
-**without writing**"* — creates/updates real `maintenance_penalties` rows. Impact is bounded (the
+`php artisan facility:scan-sla-breaches --dry-run` — documented *"Print what would be alerted
+**without writing**"* — creates/updates real `sla_penalties` rows. Impact is bounded (the
 hourly run would create them anyway), but an operator previewing impact on a fresh install gets live
 financial records.
 
@@ -80,17 +80,17 @@ assesses on every pass, so accrual is unchanged. Guard: `WorkOrderSlaDryRunTest`
 
 ## 2. Verified-correct — don't re-audit
 
-- **The FR-PPM-07 checklist gate is enforced in `MaintenanceWorkOrderService::transition()` under
+- **The FR-PPM-07 checklist gate is enforced in `FacilityWorkOrderService::transition()` under
   the parent-row lock, not the UI.** (`open→done` skipping `in_progress` is legal **by design** —
   the doc is explicit.)
-- **The `execution_type` XOR throws from both directions** in `MaintenanceWorkOrder::booted()`, with
+- **The `execution_type` XOR throws from both directions** in `FacilityWorkOrder::booted()`, with
   the service nulling the unused side.
 - **The SLA clock stamps once on acceptance**, and `hoursOverSla()` stops at `completed_at`.
-- **`MaintenanceWorkOrderPart::booted():243` derives `value` on every write path** (`recordExternal`
+- **`FacilityWorkOrderPart::booted():243` derives `value` on every write path** (`recordExternal`
   omits it deliberately — checked before assuming a bug).
 - **`StockMovementService` re-checks on-hand under `lockForUpdate`**, so approval cannot drive stock
   negative.
-- **`MaintenancePenalty` is now in `JOURNALIZERS` *and* `SOURCE_DATE_COLUMNS`** — the `4f01a93` fix
+- **`SlaPenalty` is now in `JOURNALIZERS` *and* `SOURCE_DATE_COLUMNS`** — the `4f01a93` fix
   held.
 
 ---

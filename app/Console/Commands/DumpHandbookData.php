@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\PurchaseRequest;
 use App\Services\Accounting\LedgerPoster;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\TenantRequestService;
 use App\Support\ChangeImpact;
 use App\Support\DeletionPolicy;
@@ -181,7 +181,7 @@ class DumpHandbookData extends Command
     {
         return [
             'tenant_request' => TenantRequestService::TRANSITIONS,
-            'work_order' => MaintenanceWorkOrderService::TRANSITIONS,
+            'work_order' => FacilityWorkOrderService::TRANSITIONS,
             'purchase_request' => PurchaseRequest::TRANSITIONS,
         ];
     }

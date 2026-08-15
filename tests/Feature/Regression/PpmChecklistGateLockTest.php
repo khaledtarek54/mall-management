@@ -1,15 +1,15 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderItem;
-use App\Services\MaintenanceWorkOrderService;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderItem;
+use App\Services\FacilityWorkOrderService;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Regression guard — the FR-PPM-07 completion gate must be lock-safe.
  *
  * Found by the adversarial review of the gate's first cut: transition() took
- * `SELECT ... FOR UPDATE` on maintenance_work_orders but then evaluated the gate with an
+ * `SELECT ... FOR UPDATE` on facility_work_orders but then evaluated the gate with an
  * UNLOCKED `items()->pending()->count()`. Because markItem()/addItem() never touched the
  * order row, InnoDB had no conflicting lock and never blocked them. Reproduced on real
  * MySQL with two connections: T1 locks the order and sees pending=0; T2 un-marks an item
@@ -29,13 +29,13 @@ use Illuminate\Support\Facades\DB;
  * The FOR-UPDATE emission itself is asserted only when run against MySQL.
  */
 beforeEach(function () {
-    $this->svc = app(MaintenanceWorkOrderService::class);
+    $this->svc = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset();
 });
 
-function lockOrder(array $attrs = [], int $items = 0): MaintenanceWorkOrder
+function lockOrder(array $attrs = [], int $items = 0): FacilityWorkOrder
 {
-    $order = MaintenanceWorkOrder::create(array_merge([
+    $order = FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id,
         'title' => 'Chiller service',
         'category' => 'hvac',
@@ -52,7 +52,7 @@ function lockOrder(array $attrs = [], int $items = 0): MaintenanceWorkOrder
 
 function methodSource(string $method): string
 {
-    $r = new ReflectionMethod(MaintenanceWorkOrderService::class, $method);
+    $r = new ReflectionMethod(FacilityWorkOrderService::class, $method);
     $lines = file($r->getFileName());
 
     return implode('', array_slice($lines, $r->getStartLine() - 1, $r->getEndLine() - $r->getStartLine() + 1));
@@ -67,7 +67,7 @@ it('locks the work-order row inside a transaction in the locking helper', functi
     expect($src)->toContain('DB::transaction');
     // The lock must be on the PARENT row: a count can't lock items that don't exist yet,
     // so locking the item range would still let addItem() insert past the gate.
-    expect($src)->toContain('MaintenanceWorkOrder::whereKey');
+    expect($src)->toContain('FacilityWorkOrder::whereKey');
 });
 
 it('routes every public mutator through the locking helper', function () {
@@ -81,8 +81,8 @@ it('routes every public mutator through the locking helper', function () {
 it('has no public mutator that bypasses the locking helper', function () {
     $skip = ['withOrderLock', 'assertNotTerminal', 'assertChecklistComplete'];
 
-    $mutators = collect((new ReflectionClass(MaintenanceWorkOrderService::class))->getMethods(ReflectionMethod::IS_PUBLIC))
-        ->filter(fn (ReflectionMethod $m) => $m->class === MaintenanceWorkOrderService::class)
+    $mutators = collect((new ReflectionClass(FacilityWorkOrderService::class))->getMethods(ReflectionMethod::IS_PUBLIC))
+        ->filter(fn (ReflectionMethod $m) => $m->class === FacilityWorkOrderService::class)
         ->reject(fn (ReflectionMethod $m) => in_array($m->name, $skip, true))
         ->map(fn (ReflectionMethod $m) => $m->name);
 
@@ -102,25 +102,25 @@ it('wraps every checklist mutation in a transaction', function () {
 
     $depth = null;
     DB::listen(function ($q) use (&$depth) {
-        if (str_contains($q->sql, 'maintenance_work_order_items') && str_starts_with(strtolower($q->sql), 'update')) {
+        if (str_contains($q->sql, 'facility_work_order_items') && str_starts_with(strtolower($q->sql), 'update')) {
             $depth = DB::transactionLevel();
         }
     });
 
-    $this->svc->markItem($item, MaintenanceWorkOrderItem::RESULT_PASS);
+    $this->svc->markItem($item, FacilityWorkOrderItem::RESULT_PASS);
 
     expect($depth)->toBeGreaterThan(0);
 });
 
 it('emits FOR UPDATE on the work-order row when the driver supports it', function () {
     $order = lockOrder(items: 1);
-    $this->svc->markItem($order->items()->first(), MaintenanceWorkOrderItem::RESULT_PASS);
+    $this->svc->markItem($order->items()->first(), FacilityWorkOrderItem::RESULT_PASS);
 
     DB::enableQueryLog();
     $this->svc->transition($order, 'done');
 
     expect(collect(DB::getQueryLog())->pluck('query')->filter(
-        fn ($q) => str_contains(strtolower($q), 'for update') && str_contains($q, 'maintenance_work_orders')
+        fn ($q) => str_contains(strtolower($q), 'for update') && str_contains($q, 'facility_work_orders')
     ))->not->toBeEmpty();
 })->skip(
     fn () => DB::connection()->getDriverName() !== 'mysql',
@@ -133,7 +133,7 @@ it('never lets a terminal order be reached with a pending item', function () {
     $order = lockOrder(items: 3);
 
     foreach ($order->items as $item) {
-        $this->svc->markItem($item, MaintenanceWorkOrderItem::RESULT_PASS);
+        $this->svc->markItem($item, FacilityWorkOrderItem::RESULT_PASS);
     }
     $this->svc->transition($order, 'done');
 
@@ -148,7 +148,7 @@ it('refuses to add, mark or remove an item once the order is terminal', function
     $item = $order->items()->first();
     $this->svc->transition($order, 'cancelled');
 
-    expect(fn () => $this->svc->markItem($item->fresh(), MaintenanceWorkOrderItem::RESULT_PASS))
+    expect(fn () => $this->svc->markItem($item->fresh(), FacilityWorkOrderItem::RESULT_PASS))
         ->toThrow(DomainException::class);
     expect(fn () => $this->svc->addItem($order->fresh(), 'Sneaky'))
         ->toThrow(DomainException::class);
@@ -156,5 +156,5 @@ it('refuses to add, mark or remove an item once the order is terminal', function
         ->toThrow(DomainException::class);
 
     expect($order->fresh()->items()->count())->toBe(1); // nothing added, nothing removed
-    expect($item->fresh()->result)->toBe(MaintenanceWorkOrderItem::RESULT_PENDING);
+    expect($item->fresh()->result)->toBe(FacilityWorkOrderItem::RESULT_PENDING);
 });

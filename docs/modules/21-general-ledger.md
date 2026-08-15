@@ -411,7 +411,7 @@ guarantee.
 > journalizer without a date column fails CI, as does a date column for a model that can't
 > post, or a sweep that stops deriving from the registry.
 >
-> This gate exists because the lists drifted and cost real money. `MaintenancePenalty`
+> This gate exists because the lists drifted and cost real money. `SlaPenalty`
 > (module 26) had a correct, tested journalizer while being absent from *every* dispatch
 > list, so applying an SLA penalty **cut the vendor bill's AP balance and posted nothing** —
 > the GL overstated the payable, the sweep couldn't self-heal a source it had never heard
@@ -660,9 +660,9 @@ the right row so the *daily* sweep re-derives them:
   bug: `ledgerChildRelations()` is *rows that follow the parent into the bin* (so the cascade
   writes `deleted_at` and needs `withTrashed()`), while `ledgerDerivedRelations()` is *rows
   with their own lifecycle whose ENTRY the parent determines* (so they get a `touch`, nothing
-  more). `MaintenancePenaltyJournalizer` reads the bill for its `asset_id`, its postability and
+  more). `SlaPenaltyJournalizer` reads the bill for its `asset_id`, its postability and
   its expense category — but a penalty records that a vendor missed an SLA, which stays true
-  whether or not the bill survives, and `maintenance_penalties` has no `deleted_at` to cascade
+  whether or not the bill survives, and `sla_penalties` has no `deleted_at` to cascade
   into. Adding it to the owned list is fatal (`HasMany::withTrashed()` does not exist).
   The derived touch fires on **`asset_id`, `status` OR `category`**, not `asset_id` alone —
   cancelling a bill must void the penalty deducted from it, and until the wider condition
@@ -1065,7 +1065,7 @@ the posting-date guard checks against a closed period.
 | `CreditNote` | `CreditNoteJournalizer` | `issue_date` | `CreditNoteService` |
 | `VendorBill` | `VendorBillJournalizer` | `bill_date` | `VendorBillService` |
 | `VendorBillPayment` | `VendorBillPaymentJournalizer` | `payment_date` | `VendorBillService` |
-| `MaintenancePenalty` | `MaintenancePenaltyJournalizer` | `applied_at` | _system — applied_at is stamped now() at the moment the penalty is applied — a penalty cannot be applied into the past._ |
+| `SlaPenalty` | `SlaPenaltyJournalizer` | `applied_at` | _system — applied_at is stamped now() at the moment the penalty is applied — a penalty cannot be applied into the past._ |
 | `Expense` | `ExpenseJournalizer` | `expense_date` | on the model (`GuardsPostingDate`) |
 | `Payroll` | `PayrollJournalizer` | `period_month` | `PayrollService` |
 | `DepositTransaction` | `DepositTransactionJournalizer` | `transaction_date` | on the model (`GuardsPostingDate`) |

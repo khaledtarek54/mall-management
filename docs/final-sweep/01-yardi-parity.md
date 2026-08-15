@@ -276,11 +276,11 @@ rule that a test using inputs no real path produces is green over dead code.
 
 `target_resolution_at` on a work order is written in **exactly one place**: the manual
 `open → in_progress` transition, conditioned on `isCorrective()` and `acknowledged_at === null`
-([MaintenanceWorkOrderService.php:79-84](../../app/Services/MaintenanceWorkOrderService.php#L79-L84)).
+([FacilityWorkOrderService.php:79-84](../../app/Services/FacilityWorkOrderService.php#L79-L84)).
 I grepped every occurrence — the rest are fillable/casts/log declarations and readers.
 
 An external corrective order that nobody starts therefore has `target_resolution_at = null` forever,
-and `isSlaBreached()` requires it to be non-null ([MaintenanceWorkOrder.php:381](../../app/Models/MaintenanceWorkOrder.php#L381)).
+and `isSlaBreached()` requires it to be non-null ([FacilityWorkOrder.php:381](../../app/Models/FacilityWorkOrder.php#L381)).
 So the hourly scan, the penalty gate, the table filter and the dashboard card **all skip it
 permanently** — and *not clicking Start* becomes a silent discretion to waive a vendor penalty, with
 no record that it happened.
@@ -292,7 +292,7 @@ and run two clocks (response and resolution). Atriom starts one clock at *accept
 The irony is that the code comment at that line shows careful thought about not *resetting* a
 deadline. The gap is the opposite: never *setting* one.
 
-**Also fixed:** `sla_policies.respond_hours` + four `MaintenanceSettings` keys resolve through the
+**Also fixed:** `sla_policies.respond_hours` + four `SlaSettings` keys resolve through the
 identical three-tier chain, so a property overrides both halves of its SLA in one place. What was
 deliberately left out is a monetary penalty for an unanswered job — FR-CM-08 is about a job that ran
 late, and whether an unanswered one is separately chargeable is a contract question for the
@@ -315,7 +315,7 @@ correctly *bricked* the contractor · **the
 compliance gate covers dispatch only** — a blacklisted vendor can still be awarded a PO
 (`PurchaseRequestsTable.php:153` uses a bare `Vendor::query()`), and `docs/modules/12-vendors.md:72`
 claims otherwise · **no technician surface** — `/api/v1` is 100% `auth:tenant-api`, `User` has no
-`HasApiTokens`, `MaintenanceWorkOrder` is not `HasMedia` so **there is no completion photo anywhere**,
+`HasApiTokens`, `FacilityWorkOrder` is not `HasMedia` so **there is no completion photo anywhere**,
 and no labour-time concept exists.
 
 A full field app is a fair L-sized deferral. **The completion-photo collection and staff device

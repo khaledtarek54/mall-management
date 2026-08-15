@@ -38,7 +38,7 @@ class ModulesSettings extends Settings
     public bool $fixed_assets = true;
     public bool $employees = true;
     public bool $custodies = true;
-    public bool $preventive_maintenance = true;
+    public bool $facility = true;
 
     public bool $procurement = true;
 

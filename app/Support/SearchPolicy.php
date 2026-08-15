@@ -25,8 +25,8 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
-use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
@@ -181,8 +181,8 @@ class SearchPolicy
         Models\OwnerRequest::class,
 
         // ---- Facility ----
-        Models\MaintenanceWorkOrder::class,
-        Models\MaintenancePlan::class,
+        Models\FacilityWorkOrder::class,
+        Models\ServicePlan::class,
         Models\Equipment::class,
         Models\UtilityMeter::class,
 
@@ -251,7 +251,7 @@ class SearchPolicy
         InvoiceResource::class,
         PaymentResource::class,
         TenantRequestResource::class,
-        MaintenanceWorkOrderResource::class,
+        FacilityWorkOrderResource::class,
         CreditNoteResource::class,
         VendorResource::class,
         VendorBillResource::class,
@@ -277,7 +277,7 @@ class SearchPolicy
         DisbursementResource::class,
         OwnerStatementRunResource::class,
         LedgerAccountResource::class,
-        MaintenancePlanResource::class,
+        ServicePlanResource::class,
         DepartmentResource::class,
         UserResource::class,
     ];

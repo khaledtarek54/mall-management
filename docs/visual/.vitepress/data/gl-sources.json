@@ -234,22 +234,6 @@
         }
     },
     {
-        "model": "MaintenancePenalty",
-        "label": "Maintenance Penalty",
-        "journalizer": "MaintenancePenaltyJournalizer",
-        "date_column": "applied_at",
-        "posting_date_guard": null,
-        "posting_date_note": "applied_at is stamped now() at the moment the penalty is applied — a penalty cannot be applied into the past.",
-        "deletable": {
-            "tier": "never",
-            "instead": "waive or release the penalty — it feeds the vendor bill"
-        },
-        "change_impact": {
-            "derived": 5,
-            "neutral": 11
-        }
-    },
-    {
         "model": "MarketingSpend",
         "label": "Marketing Spend",
         "journalizer": "MarketingSpendJournalizer",
@@ -315,6 +299,22 @@
             "derived": 11,
             "descriptive": 1,
             "neutral": 5
+        }
+    },
+    {
+        "model": "SlaPenalty",
+        "label": "Sla Penalty",
+        "journalizer": "SlaPenaltyJournalizer",
+        "date_column": "applied_at",
+        "posting_date_guard": null,
+        "posting_date_note": "applied_at is stamped now() at the moment the penalty is applied — a penalty cannot be applied into the past.",
+        "deletable": {
+            "tier": "never",
+            "instead": "waive or release the penalty — it feeds the vendor bill"
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 11
         }
     },
     {

@@ -71,7 +71,7 @@ routing target once routing lands.
 **`App\Services\NotifyAreaSupervisorsService`** — the routing dispatch (added with the
 routing slice). Two entry points over one shared, fail-safe fan-out (`dispatch()`):
 - `notify(TenantRequest)` — notifies a freshly-created request's zone supervisors.
-- `notifyWorkOrder(MaintenanceWorkOrder)` — notifies a freshly-created work order's zone
+- `notifyWorkOrder(FacilityWorkOrder)` — notifies a freshly-created work order's zone
   supervisors (`AreaWorkOrderRaisedNotification`).
 
 Idempotent + fail-safe: no zone, a trashed zone, or no supervisors is a no-op, and every
@@ -130,12 +130,12 @@ notification (`TenantRequestService::notifyOperators`), the zone's supervisors g
 The `created` model event is the single hook every create path passes through (admin
 Filament never touches `TenantRequestService`), so no channel can skip the routing.
 
-**Work orders route the same way.** `maintenance_work_orders.area_id` is derived in
-`MaintenanceWorkOrder::creating` when null — first from the linked `tenant_request`'s zone
+**Work orders route the same way.** `facility_work_orders.area_id` is derived in
+`FacilityWorkOrder::creating` when null — first from the linked `tenant_request`'s zone
 (it already resolved one from its unit), then from the order's own `unit`. A PPM order arrives
 carrying the plan's zone, so the derivation only **fills a null, never overrides** an explicit
 zone; and because it's model-level, every path (the PPM sweep, `RaiseCorrectiveMaintenanceService`,
-the Filament form, the factory) inherits it. `MaintenanceWorkOrder::created` then calls
+the Filament form, the factory) inherits it. `FacilityWorkOrder::created` then calls
 `NotifyAreaSupervisorsService::notifyWorkOrder`, sending `AreaWorkOrderRaisedNotification`
 (database + push) to the zone's supervisors — **notify, not assign** (work-order ownership
 follows the plan or the CM internal-vs-external XOR, not the zone). This fires for both PPM and
@@ -145,7 +145,7 @@ CM orders; a PPM order therefore reaches its zone supervisors *and* the manager/
 ## 8. Extension points (how to change safely)
 
 - **Request + work-order routing are both wired** (§7): `units.area_id`,
-  `tenant_requests.area_id` and `maintenance_work_orders.area_id`, model-level derivation, and
+  `tenant_requests.area_id` and `facility_work_orders.area_id`, model-level derivation, and
   `NotifyAreaSupervisorsService` (`notify` / `notifyWorkOrder`). **Extending to a new record
   type**: give it a nullable `area_id` FK (`nullOnDelete`, so a retired zone never strands a
   historical record), derive it in that model's `creating` when null (from a related record's

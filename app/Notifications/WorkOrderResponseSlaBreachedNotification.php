@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
@@ -29,7 +29,7 @@ class WorkOrderResponseSlaBreachedNotification extends Notification
     use AlsoSendsByMail;
     use Queueable;
 
-    public function __construct(public MaintenanceWorkOrder $order) {}
+    public function __construct(public FacilityWorkOrder $order) {}
 
     public function via(object $notifiable): array
     {
@@ -50,7 +50,7 @@ class WorkOrderResponseSlaBreachedNotification extends Notification
             'body' => __('admin.notifications.wo_response_sla_breached_body', [
                 'reference' => $this->order->reference,
                 'equipment' => $this->order->equipment?->code ?? $this->order->title,
-                'priority' => __("admin.preventive_maintenance.priorities.{$this->order->priority}"),
+                'priority' => __("admin.facility.priorities.{$this->order->priority}"),
                 'hours' => $hoursOver,
             ]),
             'icon' => 'heroicon-o-bell-alert',

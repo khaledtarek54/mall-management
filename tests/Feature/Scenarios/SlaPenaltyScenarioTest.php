@@ -1,12 +1,12 @@
 <?php
 
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorContract;
 use App\Services\AssessSlaPenaltyService;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use Database\Seeders\RolesPermissionsSeeder;
 
 /**
@@ -19,7 +19,7 @@ use Database\Seeders\RolesPermissionsSeeder;
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     $this->svc = app(AssessSlaPenaltyService::class);
-    $this->wos = app(MaintenanceWorkOrderService::class);
+    $this->wos = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'PEN']);
     $this->vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
@@ -40,9 +40,9 @@ function contract(string $basis, float $rate): VendorContract
     ]);
 }
 
-function externalCm(array $attrs = []): MaintenanceWorkOrder
+function externalCm(array $attrs = []): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create(array_merge([
+    return FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id,
         'work_order_type' => 'cm',
         'execution_type' => 'external',
@@ -56,9 +56,9 @@ function externalCm(array $attrs = []): MaintenanceWorkOrder
 }
 
 /** Accept the job, then let it run late by $hours past its 1h SLA. */
-function breachBy(MaintenanceWorkOrder $order, int $hours): MaintenanceWorkOrder
+function breachBy(FacilityWorkOrder $order, int $hours): FacilityWorkOrder
 {
-    app(MaintenanceWorkOrderService::class)->transition($order, 'in_progress');
+    app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel($hours + 1)->hours();
 
     return $order->fresh();
@@ -140,7 +140,7 @@ it('assesses nothing on a percent contract when the job has no value captured', 
     $order = breachBy(externalCm(['job_value' => null]), 5);
 
     expect($this->svc->assess($order))->toBeNull();
-    expect(MaintenancePenalty::count())->toBe(0);
+    expect(SlaPenalty::count())->toBe(0);
 });
 
 /* ---- who is penalised --------------------------------------------------- */
@@ -209,7 +209,7 @@ it('levies nothing under a draft or terminated contract', function () {
     expect($this->svc->assess(breachBy(externalCm(), 5)))->toBeNull();
 
     $draft->update(['status' => 'terminated']);
-    MaintenanceWorkOrder::query()->delete();
+    FacilityWorkOrder::query()->delete();
 
     expect($this->svc->assess(breachBy(externalCm(), 5)))->toBeNull();
 });
@@ -252,7 +252,7 @@ it('keeps exactly one penalty per job however often the scan runs', function () 
     $this->svc->assess($order->fresh());
     $this->svc->assess($order->fresh());
 
-    expect(MaintenancePenalty::where('maintenance_work_order_id', $order->id)->count())->toBe(1);
+    expect(SlaPenalty::where('facility_work_order_id', $order->id)->count())->toBe(1);
 });
 
 it('freezes the amount when the job closes', function () {
@@ -261,9 +261,9 @@ it('freezes the amount when the job closes', function () {
     $this->svc->assess($order);
 
     $this->wos->transition($order->fresh(), 'done');
-    $frozen = MaintenancePenalty::first();
+    $frozen = SlaPenalty::first();
 
-    expect($frozen->status)->toBe(MaintenancePenalty::STATUS_FINAL);
+    expect($frozen->status)->toBe(SlaPenalty::STATUS_FINAL);
     expect($frozen->finalised_at)->not->toBeNull();
 
     // A closed job's overrun must not keep growing in the archive.
@@ -271,7 +271,7 @@ it('freezes the amount when the job closes', function () {
     $this->travel(10)->days();
     $this->svc->assess($order->fresh());
 
-    expect((float) MaintenancePenalty::first()->amount)->toBe($amount);
+    expect((float) SlaPenalty::first()->amount)->toBe($amount);
 });
 
 it('assesses a penalty on closure even if the scan never saw the job', function () {
@@ -282,9 +282,9 @@ it('assesses a penalty on closure even if the scan never saw the job', function 
 
     $this->wos->transition($order, 'done');
 
-    expect(MaintenancePenalty::count())->toBe(1);
-    expect((float) MaintenancePenalty::first()->amount)->toBe(500.0);
-    expect(MaintenancePenalty::first()->status)->toBe(MaintenancePenalty::STATUS_FINAL);
+    expect(SlaPenalty::count())->toBe(1);
+    expect((float) SlaPenalty::first()->amount)->toBe(500.0);
+    expect(SlaPenalty::first()->status)->toBe(SlaPenalty::STATUS_FINAL);
 });
 
 /* ---- waiving ------------------------------------------------------------ */
@@ -297,15 +297,15 @@ it('waives a penalty with a reason, and the scan never revives it', function () 
 
     $this->svc->waive($penalty, 'Part was on back-order; delay was the mall\'s fault.', $actor->id);
 
-    expect($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_WAIVED);
+    expect($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_WAIVED);
     expect($penalty->fresh()->waived_by_user_id)->toBe($actor->id);
 
     // The scan runs hourly — it must not silently undo the decision on the next tick.
     $this->travel(48)->hours();
     $this->svc->assess($order->fresh());
 
-    expect(MaintenancePenalty::first()->status)->toBe(MaintenancePenalty::STATUS_WAIVED);
-    expect((float) MaintenancePenalty::first()->amount)->toBe(200.0);
+    expect(SlaPenalty::first()->status)->toBe(SlaPenalty::STATUS_WAIVED);
+    expect((float) SlaPenalty::first()->amount)->toBe(200.0);
 });
 
 it('refuses to waive a penalty twice', function () {
@@ -324,7 +324,7 @@ it('does not freeze a waived penalty back to final when the job closes', functio
 
     $this->wos->transition($order->fresh(), 'done');
 
-    expect(MaintenancePenalty::first()->status)->toBe(MaintenancePenalty::STATUS_WAIVED);
+    expect(SlaPenalty::first()->status)->toBe(SlaPenalty::STATUS_WAIVED);
 });
 
 /* ---- the terms are frozen onto the row ---------------------------------- */

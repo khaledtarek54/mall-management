@@ -2,7 +2,7 @@
 
 > Date: 2026-05-31
 > Status: 🟡 Yellow — feature-complete; 1 inline fix (F-17 carryover, both methods); 3 Yellow extensibility (settings drift, notifications, auto-close).
-> Surface: [MaintenanceRequest model](../../app/Models/MaintenanceRequest.php), [MaintenanceRequestComment model](../../app/Models/MaintenanceRequestComment.php), [Admin resource](../../app/Filament/Admin/Resources/MaintenanceRequests/), [Portal resource](../../app/Filament/Portal/Resources/MaintenanceRequests/), [Owner resource](../../app/Filament/Owner/Resources/MaintenanceRequests/), [MaintenanceRequestService](../../app/Services/MaintenanceRequestService.php), [MaintenanceSettings](../../app/Settings/MaintenanceSettings.php), [config/maintenance.php](../../config/maintenance.php), [OpenMaintenanceRequests widget](../../app/Filament/Admin/Widgets/OpenMaintenanceRequests.php).
+> Surface: [MaintenanceRequest model](../../app/Models/MaintenanceRequest.php), [MaintenanceRequestComment model](../../app/Models/MaintenanceRequestComment.php), [Admin resource](../../app/Filament/Admin/Resources/MaintenanceRequests/), [Portal resource](../../app/Filament/Portal/Resources/MaintenanceRequests/), [Owner resource](../../app/Filament/Owner/Resources/MaintenanceRequests/), [MaintenanceRequestService](../../app/Services/MaintenanceRequestService.php), [SlaSettings](../../app/Settings/SlaSettings.php), [config/sla.php](../../config/sla.php), [OpenMaintenanceRequests widget](../../app/Filament/Admin/Widgets/OpenMaintenanceRequests.php).
 
 ## 1. Inventory
 
@@ -68,14 +68,14 @@ Methods:
 - `transition($request, $next, $extra=[])` — validates legal transition, updates timestamps conditionally (`acknowledged_at` on first transition out of submitted, `resolved_at` when reaching resolved, `closed_at` when closing). Throws `InvalidArgumentException` on illegal.
 - `assign($request, $userId)` — auto-transitions `submitted → acknowledged` if assignee added from submitted state.
 - `comment($request, Model $author, $body, $isInternal=false)` — polymorphic comment, uses `$author->getMorphClass()`.
-- `defaultTargetResolution($priority)` — reads `config("maintenance.sla.{$priority}.resolve_hours", 168)`. **Does NOT read from `MaintenanceSettings`** — see F-36.
+- `defaultTargetResolution($priority)` — reads `config("maintenance.sla.{$priority}.resolve_hours", 168)`. **Does NOT read from `SlaSettings`** — see F-36.
 
 ### 1.8 Settings + Config split
 
 | Source | What it has |
 |---|---|
-| [config/maintenance.php](../../config/maintenance.php) | `'sla' => ['urgent' => ['resolve_hours' => 24], 'high' => ['resolve_hours' => 72], 'medium' => ['resolve_hours' => 168], 'low' => ['resolve_hours' => 336]]` plus `auto_close_after_days`. **This is what the service reads.** |
-| [MaintenanceSettings.php](../../app/Settings/MaintenanceSettings.php) | `$sla_urgent_hours = 4, $sla_high_hours = 24, $sla_medium_hours = 72, $sla_low_hours = 168` (different numbers, default 4h urgent vs config 24h urgent). **The service ignores this entirely.** |
+| [config/sla.php](../../config/sla.php) | `'sla' => ['urgent' => ['resolve_hours' => 24], 'high' => ['resolve_hours' => 72], 'medium' => ['resolve_hours' => 168], 'low' => ['resolve_hours' => 336]]` plus `auto_close_after_days`. **This is what the service reads.** |
+| [SlaSettings.php](../../app/Settings/SlaSettings.php) | `$sla_urgent_hours = 4, $sla_high_hours = 24, $sla_medium_hours = 72, $sla_low_hours = 168` (different numbers, default 4h urgent vs config 24h urgent). **The service ignores this entirely.** |
 
 ### 1.9 OpenMaintenanceRequests widget
 
@@ -85,9 +85,9 @@ Confirmed scoped via `TenantScope::applyTo(MaintenanceRequest::query(), 'unit')`
 
 | Source | Verbatim | Verified |
 |---|---|---|
-| MASTER-PLAN.md V2.2 §1 | "**Maintenance / CAFM module** — model, admin + portal resources, polymorphic comments, SLA config in `config/maintenance.php`, seeded data, `MaintenanceRequestService`." | ✅ all present |
+| MASTER-PLAN.md V2.2 §1 | "**Maintenance / CAFM module** — model, admin + portal resources, polymorphic comments, SLA config in `config/sla.php`, seeded data, `MaintenanceRequestService`." | ✅ all present |
 | FEATURES.md | "Vendor · VendorContact · VendorContract (FK from `maintenance_requests.assigned_to_vendor_id` for external assignment)" | ✅ verified, see Module 15 |
-| FEATURES.md | "SLA targets live in `config/maintenance.php` (urgent 24h, high 72h, medium 7d, low 14d) + `auto_close_after_days` window — tunable per deployment without a migration." | ✅ config exists; **auto-close not wired** — see F-38 |
+| FEATURES.md | "SLA targets live in `config/sla.php` (urgent 24h, high 72h, medium 7d, low 14d) + `auto_close_after_days` window — tunable per deployment without a migration." | ✅ config exists; **auto-close not wired** — see F-38 |
 | FEATURES.md | "Channel attribution on Maintenance Requests — new `channel` enum column (portal/whatsapp/phone/email/walk_in/admin)" | ✅ added 2026-05-25 |
 | FEATURES.md | "OpenMaintenanceRequests (admin), OpenMaintenance (portal) widgets, gated by `Modules::enabled('maintenance')`" | ✅ |
 
@@ -111,13 +111,13 @@ Both `getNavigationBadge()` and `getNavigationBadgeColor()` now respect Filament
 
 Cross-cutting progress: ✅ Units · ✅ Invoices · ✅ Maintenance · ⏳ TenantSales · ⏳ Vendors.
 
-### 🟡 F-36. MaintenanceSettings SLA properties are unused
+### 🟡 F-36. SlaSettings SLA properties are unused
 
-`MaintenanceSettings` declares 4 typed properties (`sla_urgent_hours = 4`, etc.) but `MaintenanceRequestService::defaultTargetResolution` reads `config("maintenance.sla.{$priority}.resolve_hours")` — never touches the Settings instance. Worse: the two sources have **different numbers** (Settings says 4h urgent, config says 24h urgent), so a future maintainer who edits Settings expecting to change SLAs would be silently ignored.
+`SlaSettings` declares 4 typed properties (`sla_urgent_hours = 4`, etc.) but `MaintenanceRequestService::defaultTargetResolution` reads `config("maintenance.sla.{$priority}.resolve_hours")` — never touches the Settings instance. Worse: the two sources have **different numbers** (Settings says 4h urgent, config says 24h urgent), so a future maintainer who edits Settings expecting to change SLAs would be silently ignored.
 
 **Two valid fixes (deferred D-28):**
 - **A**: Delete the unused Settings properties + corresponding migration. The config file is the single source.
-- **B**: Update the service to prefer Settings over config (`app(MaintenanceSettings::class)->{"sla_{$priority}_hours"} ?? config(...)`). Then expose Settings on the admin Settings page so operators can tune SLAs via UI. Bigger, more useful.
+- **B**: Update the service to prefer Settings over config (`app(SlaSettings::class)->{"sla_{$priority}_hours"} ?? config(...)`). Then expose Settings on the admin Settings page so operators can tune SLAs via UI. Bigger, more useful.
 
 Recommend B for production maturity; A for cleanliness if SLAs are intentionally hardcoded.
 
@@ -138,7 +138,7 @@ Defer D-29 — bundle with broader notification design at Module 20.
 
 ### 🟡 F-38. `auto_close_after_days` config is read but never acted on
 
-`config/maintenance.php` has `auto_close_after_days` but no job/command scans `status='resolved' && resolved_at < now - days` and transitions to `closed`. So `resolved` is effectively the terminal state in practice.
+`config/sla.php` has `auto_close_after_days` but no job/command scans `status='resolved' && resolved_at < now - days` and transitions to `closed`. So `resolved` is effectively the terminal state in practice.
 
 **Fix scope (deferred D-30):** add `MaintenanceAutoCloseCommand` (similar to `cam:reconcile`) + schedule daily entry in the Module 20 cron commit.
 
@@ -170,7 +170,7 @@ F-17 carryover — 12 LOC, two badge methods. Pest 287/287 + maintenance e2e 3/3
 
 | # | Decision | Default |
 |---|---|---|
-| D-28 | F-36: delete unused MaintenanceSettings SLA props (A) or wire service to use Settings (B) | **B** — operator-tunable SLAs are real value; do the bigger change post-pilot |
+| D-28 | F-36: delete unused SlaSettings SLA props (A) or wire service to use Settings (B) | **B** — operator-tunable SLAs are real value; do the bigger change post-pilot |
 | D-29 | F-37: design notification stack (status-changed, SLA-breach, vendor-assigned) | Bundle with Module 20 broader notification design |
 | D-30 | F-38: add `MaintenanceAutoCloseCommand` + schedule | Apply in Module 20 cross-cutting cron commit (alongside F-22, F-30) |
 

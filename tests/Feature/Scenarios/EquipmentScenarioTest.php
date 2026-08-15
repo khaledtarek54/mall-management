@@ -164,7 +164,7 @@ it('defaults is_active to true so a NOT-NULL column never receives null', functi
 
 /* ---- RBAC + property scoping ------------------------------------------- */
 
-it('gates the register on preventive_maintenance permissions', function () {
+it('gates the register on facility permissions', function () {
     $this->actingAs(makeUser('operations'));
     expect(EquipmentResource::canViewAny())->toBeTrue();
     expect(EquipmentResource::canCreate())->toBeTrue();

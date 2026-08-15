@@ -1,15 +1,15 @@
 <?php
 
 use App\Models\JournalEntry;
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\ApplySlaPenaltyService;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -19,8 +19,8 @@ use Database\Seeders\RolesPermissionsSeeder;
  * Regression — an applied SLA penalty must reach the ledger through the paths PRODUCTION
  * uses, not just when a test hands it to LedgerPoster.
  *
- * THE BUG (fixed 2026-07-16). MaintenancePenaltyJournalizer was correctly registered on
- * LedgerPoster, but MaintenancePenalty was absent from LedgerRealtimeSync::SOURCES, from
+ * THE BUG (fixed 2026-07-16). SlaPenaltyJournalizer was correctly registered on
+ * LedgerPoster, but SlaPenalty was absent from LedgerRealtimeSync::SOURCES, from
  * SOURCE_DATE_COLUMNS, and from SyncLedgerCommand's sweep. ApplySlaPenaltyService only set
  * the status and called VendorBill::recompute(). So applying a penalty CUT THE BILL'S AP
  * BALANCE AND POSTED NOTHING: the GL overstated the payable, the sweep couldn't self-heal
@@ -54,16 +54,16 @@ beforeEach(function () {
 /** A closed, late external CM whose penalty has been assessed and applied to a payable bill. */
 function dispatchAppliedPenalty(float $subtotal = 5000): array
 {
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => test()->vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
         'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
     // Completing a late external CM assesses the penalty as a side effect — the same path
     // the operator drives from the work-order screen.
-    app(MaintenanceWorkOrderService::class)->transition($order, 'in_progress');
+    app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(6)->hours();
-    app(MaintenanceWorkOrderService::class)->transition($order->fresh(), 'done');
+    app(FacilityWorkOrderService::class)->transition($order->fresh(), 'done');
 
     $bill = VendorBill::create([
         'vendor_id' => test()->vendor->id, 'asset_id' => test()->asset->id,
@@ -72,22 +72,22 @@ function dispatchAppliedPenalty(float $subtotal = 5000): array
     ]);
     $bill->recompute();
 
-    $penalty = app(ApplySlaPenaltyService::class)->toBill(MaintenancePenalty::firstOrFail(), $bill->fresh());
+    $penalty = app(ApplySlaPenaltyService::class)->toBill(SlaPenalty::firstOrFail(), $bill->fresh());
 
     return [$penalty->fresh(), $bill->fresh()];
 }
 
 it('posts an applied penalty through the real accounting:sync-ledger sweep', function () {
     // The sweep is the self-healing backstop. Before the fix it never visited
-    // MaintenancePenalty, so this entry was never created by any production path.
+    // SlaPenalty, so this entry was never created by any production path.
     [$penalty] = dispatchAppliedPenalty();
 
-    expect(JournalEntry::where('source_type', MaintenancePenalty::class)->exists())
+    expect(JournalEntry::where('source_type', SlaPenalty::class)->exists())
         ->toBeFalse('precondition: nothing has posted the penalty yet');
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $entry = JournalEntry::where('source_type', MaintenancePenalty::class)
+    $entry = JournalEntry::where('source_type', SlaPenalty::class)
         ->where('source_id', $penalty->id)->where('status', 'posted')->first();
 
     expect($entry)->not->toBeNull('the sweep did not post the applied penalty')
@@ -118,7 +118,7 @@ it('sees an unposted applied penalty as GL drift', function () {
     $drift = app(BooksReconciliationService::class)->glDriftDiscrepancies();
 
     expect($drift)->not->toBeEmpty('an applied-but-unposted penalty must surface as drift')
-        ->and(collect($drift)->pluck('ref')->implode(' '))->toContain('MaintenancePenalty');
+        ->and(collect($drift)->pluck('ref')->implode(' '))->toContain('SlaPenalty');
 });
 
 it('re-posts a penalty that is detached and re-applied', function () {
@@ -130,7 +130,7 @@ it('re-posts a penalty that is detached and re-applied', function () {
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
     // Detached = still owed, not yet deducted — an estimate, so it must not sit in the books.
-    expect(JournalEntry::where('source_type', MaintenancePenalty::class)->where('status', 'posted')->exists())
+    expect(JournalEntry::where('source_type', SlaPenalty::class)->where('status', 'posted')->exists())
         ->toBeFalse('a detached penalty must not keep a live journal entry');
 
     expect((float) $bill->fresh()->balance)->toBe(5000.0)

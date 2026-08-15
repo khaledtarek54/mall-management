@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
 use App\Models\SlaPolicy;
@@ -11,7 +11,7 @@ use App\Models\VendorContract;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\ApplySlaPenaltyService;
 use App\Services\AssessSlaPenaltyService;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -39,7 +39,7 @@ beforeEach(function () {
  * balance, never `asset_id`, and the picker ran `VendorBill::query()->where('vendor_id',…)`
  * with no asset scope (there are no global scopes on any model). A vendor commonly serves
  * several malls, so vendor_id and asset_id are simply not the same question — which is how
- * it was missed. MaintenancePenaltyJournalizer dimensions the entry to `$bill->asset_id`,
+ * it was missed. SlaPenaltyJournalizer dimensions the entry to `$bill->asset_id`,
  * so mall BBB absorbed a penalty earned at AAA and AAA never saw the recovery. Exact sibling
  * of the cross-property stock draw `WorkOrderPartService::assertWarehouseServesOrder()`
  * already blocks.
@@ -57,14 +57,14 @@ it('refuses to charge a penalty to a vendor bill belonging to another property',
     ]);
 
     // A late job at AAA → a chargeable penalty.
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $aaa->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => $vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
         'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
-    app(MaintenanceWorkOrderService::class)->transition($order, 'in_progress');
+    app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(6)->hours();
-    app(MaintenanceWorkOrderService::class)->transition($order->fresh(), 'done');
+    app(FacilityWorkOrderService::class)->transition($order->fresh(), 'done');
 
     // ...and the SAME vendor's bill at a DIFFERENT mall.
     $otherBill = VendorBill::create([
@@ -73,14 +73,14 @@ it('refuses to charge a penalty to a vendor bill belonging to another property',
     ]);
     $otherBill->recompute();
 
-    $penalty = MaintenancePenalty::firstOrFail();
+    $penalty = SlaPenalty::firstOrFail();
 
     expect(fn () => app(ApplySlaPenaltyService::class)->toBill($penalty, $otherBill->fresh()))
         ->toThrow(DomainException::class);
 
     // BBB's payable is untouched — it never earned this penalty.
     expect((float) $otherBill->fresh()->balance)->toBe(20000.0)
-        ->and($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_FINAL);
+        ->and($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_FINAL);
 });
 
 /* ---- F-78 · waiving an applied penalty must give the money back -------------- */
@@ -102,14 +102,14 @@ it('gives the money back when an applied penalty is waived', function () {
         'value' => 100000, 'sla_penalty_basis' => 'flat', 'sla_penalty_rate' => 500,
     ]);
 
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => $vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
         'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
-    app(MaintenanceWorkOrderService::class)->transition($order, 'in_progress');
+    app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(6)->hours();
-    app(MaintenanceWorkOrderService::class)->transition($order->fresh(), 'done');
+    app(FacilityWorkOrderService::class)->transition($order->fresh(), 'done');
 
     $bill = VendorBill::create([
         'vendor_id' => $vendor->id, 'asset_id' => $asset->id, 'category' => 'maintenance',
@@ -117,14 +117,14 @@ it('gives the money back when an applied penalty is waived', function () {
     ]);
     $bill->recompute();
 
-    app(ApplySlaPenaltyService::class)->toBill(MaintenancePenalty::firstOrFail(), $bill->fresh());
+    app(ApplySlaPenaltyService::class)->toBill(SlaPenalty::firstOrFail(), $bill->fresh());
     expect((float) $bill->fresh()->balance)->toBe(9500.0); // precondition: deducted
 
-    app(AssessSlaPenaltyService::class)->waive(MaintenancePenalty::firstOrFail(), 'Mall caused the delay.');
+    app(AssessSlaPenaltyService::class)->waive(SlaPenalty::firstOrFail(), 'Mall caused the delay.');
 
-    $penalty = MaintenancePenalty::firstOrFail();
+    $penalty = SlaPenalty::firstOrFail();
 
-    expect($penalty->status)->toBe(MaintenancePenalty::STATUS_WAIVED)
+    expect($penalty->status)->toBe(SlaPenalty::STATUS_WAIVED)
         ->and($penalty->vendor_bill_id)->toBeNull('a waived penalty is deducted from nothing')
         ->and((float) $bill->fresh()->balance)->toBe(10000.0, 'the vendor is owed the full amount again')
         ->and((float) $bill->fresh()->penalty_applied_amount)->toBe(0.0);

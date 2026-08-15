@@ -67,7 +67,7 @@ final class ConcurrencyPolicy
             'protects' => 'The plan row, re-checked under the lock before `advanceDue()`. Two overlapping '.
                 'sweeps would raise two work orders for the same cycle.',
         ],
-        'app/Services/MaintenanceWorkOrderService.php' => [
+        'app/Services/FacilityWorkOrderService.php' => [
             'locks' => 1,
             'protects' => 'The work order as the aggregate root for itself AND its checklist — every '.
                 'mutation of either goes through the same lock, which is why the items table is never '.
@@ -165,7 +165,7 @@ final class ConcurrencyPolicy
         'app/Services/ApplySlaPenaltyService.php' => 3,
         'app/Services/AssessSlaPenaltyService.php' => 2,
         'app/Services/AttributeWorkOrderFaultService.php' => 1,
-        'app/Services/RaiseCorrectiveMaintenanceService.php' => 3,
+        'app/Services/RaiseCorrectiveWorkOrderService.php' => 3,
         'app/Services/StockMovementService.php' => 1,
         'app/Services/WorkOrderPartService.php' => 5,
 

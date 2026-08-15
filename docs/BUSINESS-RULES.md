@@ -393,7 +393,7 @@ These are confirmed facts about the current deployment. **Each one must be resol
 | **Auto-close** | Resolved requests auto-close after **7 days**. | Config / CLI flag. | Housekeeping. | 🟡 LOW | |
 | **Breach scan** | Hourly; alerts once per breach. | Fixed schedule. | Operational. | 🟡 LOW | |
 
-*Code references: `MaintenanceSettings.php`; `config/maintenance.php`; `MaintenanceRequestService.php`; `MaintenanceRequest.php`.*
+*Code references: `SlaSettings.php`; `config/sla.php`; `MaintenanceRequestService.php`; `MaintenanceRequest.php`.*
 
 ---
 

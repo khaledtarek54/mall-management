@@ -1,11 +1,32 @@
-# Module 26 — Preventive Maintenance (الصيانة الوقائية)
+# Module 26 — Facility (الصيانة الوقائية)
+
+> **Renamed 2026-08-15 — this module no longer uses "maintenance" as an identifier.** It does
+> maintenance, but so does module 11's request board, and by name alone the two were
+> indistinguishable while being different modules with different RBAC, screens and tables. It is
+> now **Facility** — the nav group these screens already lived under.
+>
+> | was | is |
+> |---|---|
+> | MaintenanceWorkOrder / …Item / …Part | **`FacilityWorkOrder`** / `…Item` / `…Part` (`facility_work_orders`) |
+> | MaintenancePlan | **`ServicePlan`** (`service_plans`) — they schedule any facility service, not only maintenance, since 2026_07_22 |
+> | MaintenancePenalty | **`SlaPenalty`** (`sla_penalties`) — matching `AssessSlaPenaltyService` / `ApplySlaPenaltyService`, which already used that word |
+> | preventive_maintenance.* permissions | **`facility.*`** |
+> | Modules::enabled('preventive_maintenance') | **`Modules::enabled('facility')`** |
+> | maintenance:generate-preventive · maintenance:scan-wo-sla-breaches | **`facility:generate-preventive`** · **`facility:scan-sla-breaches`** |
+> | maintenance_plans.maintenance_type | `service_plans.plan_type` |
+>
+> Migration `2026_08_15_150000` renames 5 tables + 5 columns, moves the 7 permission rows, and
+> backfills 7 polymorphic columns — there is no morph map, so `journal_entries.source_type` and
+> `stock_movements.source_type` both stored FQCNs. It asserts no stale class remains and throws if
+> one does, because `LedgerPoster::sync()` responds to an unresolvable source by voiding and
+> re-posting rather than erroring.
 
 > **Status: Phase 7 shipped — CM SLA + penalty assessment + charging it to the vendor's bill.** Recurring
-> facility-maintenance **plans** that auto-raise **work orders** (with checklists) when
-> due, via the daily `maintenance:generate-preventive` scan; two property-scoped Filament
+> facility **plans** that auto-raise **work orders** (with checklists) when
+> due, via the daily `facility:generate-preventive` scan; two property-scoped Filament
 > resources (plans + work orders), a checklist relation manager (**mark each item pass/fail**),
-> status transitions (start / complete / cancel) owned by `MaintenanceWorkOrderService`, the
-> `preventive_maintenance.*` RBAC (operations) + module flag, the **equipment register**
+> status transitions (start / complete / cancel) owned by `FacilityWorkOrderService`, the
+> `facility.*` RBAC (operations) + module flag, the **equipment register**
 > (maintainable-asset codes + sub-codes) with plans and work orders anchored to the machine,
 > **corrective maintenance** raised from a failed check (or as a follow-up on a closed job),
 > and a **bilingual facility work-log PDF report** (RPT-1). Delivers discovery backlog items
@@ -26,7 +47,7 @@
 > (an AP offset that posts Dr Accounts Payable / Cr the expense the bill charged). Still to
 > come: parts + fault attribution + tenant recharge.
 >
-> **Gotcha, learned the hard way (2026-07-16).** `MaintenancePenalty` posts to the GL, so it
+> **Gotcha, learned the hard way (2026-07-16).** `SlaPenalty` posts to the GL, so it
 > must be registered in `LedgerPoster::JOURNALIZERS` **and** carry an entry-date column — the
 > journalizer alone does nothing. It originally had the journalizer but no registration in any
 > dispatch path, so an applied penalty reduced the bill's AP balance while posting no entry,
@@ -81,7 +102,7 @@ maintenance keep separate registers, separate permissions, and no double data en
 **A row is an override, not a requirement.** Absent, the operator-wide default applies, so an
 operator records only the malls that genuinely differ instead of restating four numbers per
 property. Deleting a row returns that property to the default. Resolution is
-`App\Support\SlaResolver`: **property policy → `MaintenanceSettings` → `config/maintenance.php`**.
+`App\Support\SlaResolver`: **property policy → `SlaSettings` → `config/sla.php`**.
 
 > ⚠️ Tiers 2 and 3 **disagree** and did so long before this table existed: settings say
 > urgent=4h/medium=72h, config says urgent=24h/medium=168h. Harmless only because nothing read
@@ -89,10 +110,10 @@ property. Deleting a row returns that property to the default. Resolution is
 > true cold-start default. Don't "fix" config to match: it is what a fresh install with no settings
 > row gets, and changing it would silently re-time every such install.
 
-### `maintenance_penalties` — what a vendor owes for missing an SLA (FR-CM-08)
+### `sla_penalties` — what a vendor owes for missing an SLA (FR-CM-08)
 | Column | Meaning |
 |--------|---------|
-| `maintenance_work_order_id` | **unique** — one penalty per job |
+| `facility_work_order_id` | **unique** — one penalty per job |
 | `vendor_id` · `vendor_contract_id` | who owes it, and under which contract |
 | `basis` · `rate` · `hours_over_sla` · `amount` | the terms **as applied**, frozen onto the row |
 | `status` | `pending` (accruing) \| `final` (frozen, chargeable) \| `waived` |
@@ -102,7 +123,7 @@ Terms live on `vendor_contracts.sla_penalty_basis` + `sla_penalty_rate` (`none` 
 penalties are opt-in per contract, since most won't have one negotiated), and `job_value` on the
 work order carries the vendor's quote for the `percent_of_value` basis.
 
-### `maintenance_plans` — the recurring schedule (per property)
+### `service_plans` — the recurring schedule (per property)
 | Column | Meaning |
 |--------|---------|
 | `asset_id` · `unit_id` | property + optional unit (null = common / asset-wide) |
@@ -120,10 +141,10 @@ discriminator, and that a `fixed` plan must name its equipment. **Both types sti
 one-time plan means deactivating it after its first run. Whether one-time needs first-class support
 is an **open client question** — don't guess it into the schema.
 
-### `maintenance_work_orders` — a raised job (preventive or corrective)
+### `facility_work_orders` — a raised job (preventive or corrective)
 | Column | Meaning |
 |--------|---------|
-| `maintenance_plan_id` | the source plan (null = ad-hoc or corrective) |
+| `service_plan_id` | the source plan (null = ad-hoc or corrective) |
 | `work_order_type` | `ppm` (planned) \| `cm` (**corrective** — FR-CM-01) |
 | `execution_type` | **FR-CM-02** — `internal` (in-house) \| `external` (vendor). **CM only**; null on PPM |
 | `asset_id` · `unit_id` · `equipment_id` · `reference` | scope + auto `WO-{asset}-{YYYYMM}-{n}`, or **`CM-…`** for corrective |
@@ -145,26 +166,26 @@ Module 11 stays tenant-facing. A CM is a work order with a discriminator rather 
 so it inherits the state machine, the checklist, the FR-PPM-07 gate and the equipment link already
 built here.
 
-### `maintenance_work_order_items` — the checklist (child of a work order)
+### `facility_work_order_items` — the checklist (child of a work order)
 | Column | Meaning |
 |--------|---------|
-| `maintenance_work_order_id` · `label` | the item |
+| `facility_work_order_id` · `label` | the item |
 | `result` (`pending`\|`pass`\|`fail`) | the outcome — **the single source of truth** for item state |
 | `marked_at` · `marked_by_user_id` | who recorded the outcome, when |
 
 `result` **replaced** an `is_done` boolean (migration `2026_07_16_100001`), which could not express
 a failed inspection — the state a PPM visit exists to find (FR-PPM-07), and the trigger for
 corrective maintenance (FR-CM-01). One column, not a boolean *and* an enum: two columns encoding the
-same fact drift. `MaintenanceWorkOrderItem::getIsDoneAttribute()` survives as a **read-only**
+same fact drift. `FacilityWorkOrderItem::getIsDoneAttribute()` survives as a **read-only**
 back-compat accessor (`result !== 'pending'`); write `result`. `done_at`/`done_by_user_id` became
 `marked_at`/`marked_by_user_id` — "done" read wrong beside `result = fail` and collided with the
-work order's own `completed_at`. Indexed `(maintenance_work_order_id, result)` for the gate + the
+work order's own `completed_at`. Indexed `(facility_work_order_id, result)` for the gate + the
 progress badge.
 
-### `maintenance_work_order_parts` — spare parts on a job (FR-CM-09/10/11, FR-INV-04)
+### `facility_work_order_parts` — spare parts on a job (FR-CM-09/10/11, FR-INV-04)
 | Column | Meaning |
 |--------|---------|
-| `maintenance_work_order_id` · `source` (`internal`\|`external`) | the job, and where the part came from |
+| `facility_work_order_id` · `source` (`internal`\|`external`) | the job, and where the part came from |
 | `inventory_item_id` · `warehouse_id` | **internal only** — the SKU and the shelf it leaves |
 | `description` · `vendor_id` · `reference` | **external only** — what was bought, from whom, on which supplier invoice |
 | `quantity` · `unit_cost` · `value` | `value` is always derived (`qty × cost`) on every write path |
@@ -263,7 +284,7 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    `TrashedFilter`, so without them the filter could never match a row and a typo'd code would be
    burned forever — `equipment_asset_code_unique` counts trashed rows, so only a **force**-delete
    frees a code.
-2. **`maintenance:generate-preventive`** (daily 02:30) raises a work order for every **due**
+2. **`facility:generate-preventive`** (daily 02:30) raises a work order for every **due**
    active plan (`next_due_date ≤ today`), copies the checklist template into items, then
    advances `next_due_date` by the plan's frequency. **Idempotent + lock-safe**: the plan row
    is locked + re-checked inside its transaction, and advancing `next_due` is the idempotency
@@ -290,16 +311,16 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
 4. **A done/cancelled work order is terminal** — read-only (edit + start/complete/cancel
    hidden, edit page aborts 403); its checklist is frozen (enforced in the service, not only
    the UI).
-5. **Marking checklist items** is gated on `preventive_maintenance.complete` and captures
-   who/when; **editing the checklist / plan / work order** on `preventive_maintenance.edit`.
+5. **Marking checklist items** is gated on `facility.complete` and captures
+   who/when; **editing the checklist / plan / work order** on `facility.edit`.
 6. **A work order cannot close while any checklist item is `pending`** (FR-PPM-07). Enforced by
-   `MaintenanceWorkOrderService::transition()` — not by the UI. Three deliberate carve-outs:
+   `FacilityWorkOrderService::transition()` — not by the UI. Three deliberate carve-outs:
    - **A `fail` does not block closure.** Finding a fault *is* the visit succeeding; the fault
      becomes corrective maintenance (FR-CM-01). Only an item nobody looked at blocks.
    - **An order with no checklist is vacuously complete** — the gate must not strand ad-hoc
      orders that never had items.
    - **Cancelling ignores the gate** — that's abandoning the visit, not completing it.
-7. **The state machine lives in `MaintenanceWorkOrderService::TRANSITIONS`**, mirroring
+7. **The state machine lives in `FacilityWorkOrderService::TRANSITIONS`**, mirroring
    `TenantRequestService` (module 11): illegal hops throw `InvalidArgumentException`;
    business-rule refusals throw `DomainException`, which the Filament action catches and shows
    as a danger notification. `open → done` **is** legal (a short job done in one go); the
@@ -332,9 +353,9 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    scheduled visit's date is the plan's, not a response deadline.
 
    The resolution rule in one sentence: **a job has `resolve_hours` from the moment it was accepted,
-   or from the moment it should have been — whichever came first.** So `MaintenanceWorkOrder::
+   or from the moment it should have been — whichever came first.** So `FacilityWorkOrder::
    stampSlaClocks()` writes both at creation (the resolution one measured from the response
-   deadline), and `MaintenanceWorkOrderService` pulls the resolution deadline IN when the job is
+   deadline), and `FacilityWorkOrderService` pulls the resolution deadline IN when the job is
    accepted early. Accepting **late cannot push it out** — `min()`, not assignment — because
    ignoring a job must not buy more time to finish it.
 
@@ -356,7 +377,7 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    `AssessSlaPenaltyService` implements FR-CM-08, which is about a job that ran late, and whether an
    unanswered job is separately chargeable is a contract question for the operator — not one to
    invent in code. It is alerted, filtered and counted; it is not billed.
-7d. **Breaches are detected hourly** by `maintenance:scan-wo-sla-breaches` (separate from module
+7d. **Breaches are detected hourly** by `facility:scan-sla-breaches` (separate from module
    11's `maintenance:scan-sla-breaches` — different subject, different table, its own stamp).
    Idempotent via `sla_breach_notified_at`, re-checked under a row lock inside the transaction, and
    contained per row. The stamp is written **even when the property has no staff to alert**, or a
@@ -422,7 +443,7 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    - **Waiving is terminal** — the hourly scan must never revive an operator's decision.
 8. **The work order is the aggregate root for its checklist.** *Every* mutation of the order **or**
    its items (`transition` · `markItem` · `addItem` · `removeItem`) goes through
-   `MaintenanceWorkOrderService::withOrderLock()`, which row-locks the `maintenance_work_orders`
+   `FacilityWorkOrderService::withOrderLock()`, which row-locks the `facility_work_orders`
    row inside a transaction. **Don't add a mutator that writes items directly** —
    `PpmChecklistGateLockTest` fails CI if you do.
 
@@ -441,13 +462,13 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
 
 ### Assignment is an XOR on a CORRECTIVE order, and deliberately not on a plan
 
-`MaintenanceWorkOrder` enforces a real either/or through `execution_type` (FR-CM-02/03): an
+`FacilityWorkOrder` enforces a real either/or through `execution_type` (FR-CM-02/03): an
 `internal` order cannot also name a vendor, an `external` one cannot also name an in-house
 technician. Module 11 lets a tenant REQUEST carry both at once, which is exactly why assignment
 could not serve as the internal-vs-external discriminator and why `execution_type` exists.
 
 **That guard is scoped to `TYPE_CM` on purpose, and a preventive plan is exempt.** A
-`maintenance_plans` row may name a `department_id` AND a `vendor_id`, and
+`service_plans` row may name a `department_id` AND a `vendor_id`, and
 `GeneratePreventiveWorkOrdersService` copies both onto the generated order without classifying it.
 
 The asymmetry is intentional, not an oversight: a corrective job is dispatched to ONE party now,
@@ -475,7 +496,7 @@ Three changes, 2026-08-12:
 | | |
 |---|---|
 | **The round still happens** | A contractor who cannot be dispatched no longer cancels the WORK — only the assignment. The order is raised with `vendor_id = null` and a note on it naming the vendor and the reason, for a coordinator to reassign. The compliance gate governs *who is sent to site*, not whether the inspection exists; ServiceChannel and Corrigo behave the same way. |
-| **Being stuck is visible** | `maintenance_plans.last_generation_failed_at` + `last_generation_error`, written **outside** the rolled-back transaction (the stamp is the only surviving trace of an attempt that undid everything else it did) and cleared inside the transaction that finally succeeds. Surfaced on the row: an icon and the reason under the due date, plus a **"Not generating (stuck)"** filter — because a stuck plan and an overdue plan look identical, a date in the past, which sends somebody chasing a technician for a round the system never asked anybody to do. |
+| **Being stuck is visible** | `service_plans.last_generation_failed_at` + `last_generation_error`, written **outside** the rolled-back transaction (the stamp is the only surviving trace of an attempt that undid everything else it did) and cleared inside the transaction that finally succeeds. Surfaced on the row: an icon and the reason under the due date, plus a **"Not generating (stuck)"** filter — because a stuck plan and an overdue plan look identical, a date in the past, which sends somebody chasing a technician for a round the system never asked anybody to do. |
 | **Somebody is told** | `PreventiveGenerationFailedNotification`, mail + bell, to the property's managers and operations staff (`AssetStaffRecipients`), on the transition into failure only — a nightly repeat of a known problem is a message people filter. |
 
 **The plan still does not skip the cycle.** A missed statutory round is a backlog item, not something
@@ -533,7 +554,7 @@ Everything goes through `WorkOrderPartService`; the relation manager is a thin c
   `remove()` soft-deletes it with a reason. An internal draw has its own undo paths (reject while
   pending, void the movement once issued); deleting one would strand the movement it made.
 - **No parts on a terminal order** — consistent with the module's other writers.
-- `MaintenanceWorkOrder::partsCost()` sums `approved` + `recorded` only: a rejected request cost
+- `FacilityWorkOrder::partsCost()` sums `approved` + `recorded` only: a rejected request cost
   the job nothing.
 
 ### What reaches the general ledger (and what deliberately doesn't)
@@ -544,9 +565,9 @@ Everything goes through `WorkOrderPartService`; the relation manager is a thin c
 | A **voided** draw's movement | the entry is voided and `counted()` stops charging the job — the cost comes back out with the stock. |
 | A **pending** or **rejected** draw | nothing. No stock moved, so there is nothing to recognise. |
 | A **recorded external purchase** | **nothing** — see below. |
-| An **applied SLA penalty** | posts via `MaintenancePenaltyJournalizer` (**Dr** AP / **Cr** the expense the bill charged). |
+| An **applied SLA penalty** | posts via `SlaPenaltyJournalizer` (**Dr** AP / **Cr** the expense the bill charged). |
 
-`MaintenanceWorkOrderPart` is deliberately **not** a GL source: the `StockMovement` is the
+`FacilityWorkOrderPart` is deliberately **not** a GL source: the `StockMovement` is the
 accounting event, and giving the part its own journalizer would post the same cost twice.
 
 > ⚠️ **The external-purchase seam — a known reporting gap.** A part bought outside never touched
@@ -565,7 +586,7 @@ accounting event, and giving the part its own journalizer would post the same co
 
 A tenant reports a fault (a `TenantRequest`, module 11); staff raise a corrective work order to fix
 it. `RaiseCorrectiveMaintenanceService::fromTenantRequest()` builds the work order and links it back
-via `maintenance_work_orders.tenant_request_id`.
+via `facility_work_orders.tenant_request_id`.
 
 - **The link did not exist in either direction.** The closest was `source_item_id` — a CM off a
   *failed PPM check*, a different origin. A tenant-reported fault had no path to a work order at all.
@@ -576,7 +597,7 @@ via `maintenance_work_orders.tenant_request_id`.
   at most one request, so the FK is on the work order.
 - **`nullOnDelete`, never cascade.** The facility work is a real event with its own cost and GL
   trail; deleting the tenant's ticket must not erase it. The link is provenance, not ownership.
-- Gated on `preventive_maintenance.create` (the action creates a work order), not on the request's
+- Gated on `facility.create` (the action creates a work order), not on the request's
   own permissions — triaging a ticket and raising facility work are different rights.
 - **This is what FR-USR-06's evidence clause stands on:** a request may later be completed with "an
   uploaded image **or a linked work order**". The gate itself is a separate change.
@@ -597,7 +618,7 @@ finding and derives the bearer — and stops. Khaled confirmed record-only (2026
 seam is documented-but-unbuilt in `AttributeWorkOrderFaultService`'s footer, with the questions that
 must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26 can bill anyone.**
 
-- **The bearer is derived, not typed in** (`MaintenanceWorkOrder::bearerFor()`), because FR-CM-13
+- **The bearer is derived, not typed in** (`FacilityWorkOrder::bearerFor()`), because FR-CM-13
   says "based on who caused the damage". Only `fault_party = tenant` lands on the tenant.
 - **Vendor fault maps to the mall on purpose.** Reading "the vendor broke it" as "the vendor pays"
   is the obvious mistake: FR-CM-13 offers only mall|tenant, and recovering from a contractor is a
@@ -605,7 +626,7 @@ must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26
   would quietly answer a question the FRD never asked.
 - **`undetermined` lands on the mall** — you cannot bill someone on a shrug. The burden of proof is
   on the party making the claim.
-- **A manager rules, not the engineer** (`preventive_maintenance.attribute_fault`, withheld from
+- **A manager rules, not the engineer** (`facility.attribute_fault`, withheld from
   `operations`). Recording what you found is engineering; asserting that a *tenant* is financially
   responsible is a commercial claim — the same second-pair-of-eyes principle as FR-CM-10.
 - **You cannot blame a tenant who does not exist.** A work order carries a NULLABLE `unit_id` — a
@@ -623,7 +644,7 @@ must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26
   freezing the first guess would make the record *less* true. `fault_recorded_by_user_id` /
   `fault_recorded_at` / `fault_notes` are the control, rather than immutability. The activity log
   additionally records the before/after diff of `fault_party` / `cost_bearer` / `fault_notes`.
-- **FR-CM-12's external-part scoping** — `MaintenanceWorkOrderPart::costBearer()` *reads* the job's
+- **FR-CM-12's external-part scoping** — `FacilityWorkOrderPart::costBearer()` *reads* the job's
   attribution rather than storing its own copy, exactly as the FRD says ("as recorded on the work
   order"); a copy could disagree the moment someone revises the finding. Internal draws return null:
   FR-CM-12 is scoped to parts "sourced from outside", and our own stock is our own cost.
@@ -632,15 +653,15 @@ must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26
 
 ## 3. RBAC & module flag
 
-- Permissions `preventive_maintenance.view/create/edit/delete` (delete = super_admin only) +
-  `preventive_maintenance.complete` (tick items, mark done). Granted to the **operations**
+- Permissions `facility.view/create/edit/delete` (delete = super_admin only) +
+  `facility.complete` (tick items, mark done). Granted to the **operations**
   role (maintenance/dispatch); **manager** (all non-delete) + **viewer** (all `.view`) inherit
   via the flat list.
-- `preventive_maintenance.attribute_fault` (FR-CM-12/13) is **deliberately withheld from
+- `facility.attribute_fault` (FR-CM-12/13) is **deliberately withheld from
   `operations`** — it is the one permission in this module that is a commercial judgement rather
   than an operational one. manager + super_admin only.
-- Module flag **`preventive_maintenance`** (`Modules::KEYS` + `ModulesSettings`), on by default.
-- Both the plan + work-order resources share `permissionModule()='preventive_maintenance'`.
+- Module flag **`facility`** (`Modules::KEYS` + `ModulesSettings`), on by default.
+- Both the plan + work-order resources share `permissionModule()='facility'`.
 
 ---
 
@@ -648,16 +669,16 @@ must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **1 — Plans + work orders + checklists** | `MaintenancePlan` + `MaintenanceWorkOrder` + items, the daily generation scan (idempotent/lock-safe), two property-scoped resources, checklist relation manager, status transitions, RBAC + module flag, tests | ✅ shipped |
+| **1 — Plans + work orders + checklists** | `ServicePlan` + `FacilityWorkOrder` + items, the daily generation scan (idempotent/lock-safe), two property-scoped resources, checklist relation manager, status transitions, RBAC + module flag, tests | ✅ shipped |
 | **2 — Facility work-log report (RPT-1)** | `FacilityWorkLogPdfService` — a bilingual PDF of work orders for a property over a date range (summary by status + category + the detail list), launched from a **"Work log (PDF)"** action on the work-order list, scoped to the user's visible properties | ✅ shipped |
-| **3 — Pass/fail checklist + completion gate (FR-PPM-07)** | `result` enum replaces `is_done`; `MaintenanceWorkOrderService` (the module's first service) owns the TRANSITIONS matrix, the row-locked completion gate, and `markItem()`; the Filament actions became thin callers; progress badge counts *marked* and warns amber on any fail | ✅ shipped |
-| **4 — Equipment register (FR-PPM-03/04/05)** | `Equipment`: per-property-unique `code` + `parent_id` sub-code tree (same-property + acyclicity guards), nullable `fixed_asset_id` link to the accounting register, `equipment_inventory_item` pivot for compatible spare parts, property-scoped resource under `preventive_maintenance.*` | ✅ shipped |
-| **5 — Equipment ↔ plans/work orders (FR-PPM-01/02/03)** | `equipment_id` on `maintenance_plans` + `maintenance_work_orders` (PPM per machine, carried onto the order so history survives the plan), `maintenance_type` routine/fixed, `years` frequency + `advanceDue()` throwing instead of silently meaning months, per-plan failure containment in the scan | ✅ shipped |
+| **3 — Pass/fail checklist + completion gate (FR-PPM-07)** | `result` enum replaces `is_done`; `FacilityWorkOrderService` (the module's first service) owns the TRANSITIONS matrix, the row-locked completion gate, and `markItem()`; the Filament actions became thin callers; progress badge counts *marked* and warns amber on any fail | ✅ shipped |
+| **4 — Equipment register (FR-PPM-03/04/05)** | `Equipment`: per-property-unique `code` + `parent_id` sub-code tree (same-property + acyclicity guards), nullable `fixed_asset_id` link to the accounting register, `equipment_inventory_item` pivot for compatible spare parts, property-scoped resource under `facility.*` | ✅ shipped |
+| **5 — Equipment ↔ plans/work orders (FR-PPM-01/02/03)** | `equipment_id` on `service_plans` + `facility_work_orders` (PPM per machine, carried onto the order so history survives the plan), `maintenance_type` routine/fixed, `years` frequency + `advanceDue()` throwing instead of silently meaning months, per-plan failure containment in the scan | ✅ shipped |
 | **6 — Corrective maintenance core (FR-CM-01/02/03/04/14/15)** | `work_order_type` ppm\|cm, CM raised from a failed check (one per check), internal/external as a real XOR, technician-or-vendor assignment, required description, `CM-` references, follow-up chains that never reopen the original | ✅ shipped |
 | **7 — CM SLA + breach detection (FR-CM-05/06/07 + FR-CM-08 detection)** | `sla_policies` per property × priority with a settings/config fallback chain, 4 priority tiers, the clock starting on **acceptance**, the hourly breach scan + bell alert, an SLA-target column and breached filter on the list | ✅ shipped |
 | **7b — SLA penalty assessment (FR-CM-08)** | penalty terms per vendor contract (**all three bases** — flat, per-day accrual, %-of-job-value — so the client's answer is configuration rather than a rewrite), one re-assessed penalty row per job, freeze on closure, waive with a reason, `job_value` for the percent basis, penalty column + waive action | ✅ shipped |
-| **7c — Charging the penalty to the vendor (FR-CM-08 money)** | `vendor_bills.penalty_applied_amount` folded into `VendorBill::recompute()` (the AP single-source-of-truth, exactly as `credit_applied_amount` works on the tenant side), an apply/detach service with a cap so AP never goes negative, `MaintenancePenaltyJournalizer` posting **Dr AP / Cr the same expense the bill charged**, and a "charge to a bill" action that only offers bills able to absorb it. AP tie-out proven to stay balanced. ⚠️ The **treatment** (cost reduction, no VAT) and the **CAM consequence** are recorded in `docs/BUSINESS-RULES.md` and still need accountant sign-off | ✅ shipped, pending sign-off |
-| **8 — CM parts + approval (FR-CM-09/10/11, FR-INV-04)** | `maintenance_work_order_parts`: an internal draw is **requested** and moves stock only on approval (its own table, *not* a pending StockMovement — see the domain model), the approver resolved by part value through the generic `ApprovalPolicy` ladder and frozen onto the row, self-approval refused, external purchases recorded with vendor + invoice ref, parts relation manager on the work order | ✅ shipped |
+| **7c — Charging the penalty to the vendor (FR-CM-08 money)** | `vendor_bills.penalty_applied_amount` folded into `VendorBill::recompute()` (the AP single-source-of-truth, exactly as `credit_applied_amount` works on the tenant side), an apply/detach service with a cap so AP never goes negative, `SlaPenaltyJournalizer` posting **Dr AP / Cr the same expense the bill charged**, and a "charge to a bill" action that only offers bills able to absorb it. AP tie-out proven to stay balanced. ⚠️ The **treatment** (cost reduction, no VAT) and the **CAM consequence** are recorded in `docs/BUSINESS-RULES.md` and still need accountant sign-off | ✅ shipped, pending sign-off |
+| **8 — CM parts + approval (FR-CM-09/10/11, FR-INV-04)** | `facility_work_order_parts`: an internal draw is **requested** and moves stock only on approval (its own table, *not* a pending StockMovement — see the domain model), the approver resolved by part value through the generic `ApprovalPolicy` ladder and frozen onto the row, self-approval refused, external purchases recorded with vendor + invoice ref, parts relation manager on the work order | ✅ shipped |
 | **9 — Fault attribution + cost bearer (FR-CM-12/13)** | `fault_party` + derived `cost_bearer` on the work order with provenance, a manager-only ruling, a guard against blaming a tenant who doesn't exist, and `costBearer()` on outside-sourced parts reading the job's finding. **Record-only — the FRD says *determine* and *record*, never *bill*** (scope corrected 2026-07-16 by reading the source .docx; the earlier roadmap entry here promised a recharge the FRD never asked for). The recharge seam is designed, documented, and deliberately unbuilt. | ✅ shipped |
 | **10 — Close-out sweep (2026-07-26)** | **[HIGH · money] SLA-penalty sub-hour fix** — `hoursOverSla()` truncated a sub-hour overrun to 0, so a job minutes late escaped the penalty forever (and per-day mis-counted at the day boundary); now gated on `isSlaBreached()` + `daysOverSla()` (see §7g). **Notifications** — a raised work order (`WorkOrderRaisedNotification`, FRD MNT-2) and an assigned technician (`WorkOrderAssignedNotification`, sharp because `AssignmentScope` hides the rest) are no longer silent; owner Jawad now gets the CM-breach alert too (FR MNT-5 / NOT-2). | ✅ shipped |
 
@@ -669,16 +690,16 @@ must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26
 copies the checklist + advances `next_due`), idempotency (no double-generate), not-due /
 inactive skipped, frequency advance (weeks), blank-checklist-entry skipping, and the command.
 
-`tests/Feature/Resources/MaintenanceWorkOrderResourceTest.php` — `preventive_maintenance.*`
+`tests/Feature/Resources/FacilityWorkOrderResourceTest.php` — `facility.*`
 RBAC gating, module-off hiding, property scoping, the complete/cancel actions (+ read-only
 role guard), terminal-order immutability (actions hidden), and the checklist add-item action
-(+ frozen on a terminal order). `tests/Feature/Resources/MaintenancePlanResourceTest.php` —
+(+ frozen on a terminal order). `tests/Feature/Resources/ServicePlanResourceTest.php` —
 plan RBAC + scoping + `assertAssetInScope` guard + the `frequency_value ≥ 1` coercion.
 
 `tests/Feature/Services/FacilityWorkLogTest.php` — the work-log PDF renders (with + without
 orders in range) and the export action streams a PDF for an authorised user.
 
-`tests/Feature/Services/MaintenanceWorkOrderServiceTest.php` — the FR-PPM-07 gate and the state
+`tests/Feature/Services/FacilityWorkOrderServiceTest.php` — the FR-PPM-07 gate and the state
 machine: completion refused while any item is `pending` (and the order left untouched, not
 half-completed), the message names the outstanding count, completion stamps who/when, a **failed**
 item still closes, a checklist-less order closes vacuously, un-marking an item **re**-blocks
@@ -696,7 +717,7 @@ sub-code, and a row with every optional column null — an empty table hides `$s
 create/edit through the form, duplicate-code + required-field validation, the out-of-scope create
 **and** edit guards, RBAC, and module-off hiding.
 
-`tests/Feature/Scenarios/MaintenancePlanEquipmentScenarioTest.php` — FR-PPM-01/02/03: a yearly plan
+`tests/Feature/Scenarios/ServicePlanEquipmentScenarioTest.php` — FR-PPM-01/02/03: a yearly plan
 advancing by a **year** (verified to fail if the old `default => addMonths` arm returns), the other
 units still correct, an unknown unit refused on write and throwing on corrupt stored data, **one
 corrupt plan not stopping every other property's work orders**, routine-by-default, fixed requiring

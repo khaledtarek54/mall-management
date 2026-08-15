@@ -142,18 +142,18 @@ it('refuses to move equipment to a property outside the user\'s set on edit', fu
 
 /* ---- RBAC + module flag ------------------------------------------------- */
 
-it('hides the register from a role without preventive_maintenance.view', function () {
+it('hides the register from a role without facility.view', function () {
     $this->actingAs(makeUser('leasing', [$this->asset->id]));
 
     expect(\App\Filament\Admin\Resources\Equipment\EquipmentResource::canViewAny())->toBeFalse();
 });
 
-it('hides the register when the preventive_maintenance module is off', function () {
+it('hides the register when the facility module is off', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
     expect(\App\Filament\Admin\Resources\Equipment\EquipmentResource::canViewAny())->toBeTrue();
 
     $settings = app(\App\Settings\ModulesSettings::class);
-    $settings->preventive_maintenance = false;
+    $settings->facility = false;
     $settings->save();
 
     expect(\App\Filament\Admin\Resources\Equipment\EquipmentResource::canViewAny())->toBeFalse();

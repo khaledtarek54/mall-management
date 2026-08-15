@@ -4,8 +4,8 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\Vendor;
 use App\Models\Warehouse;
 use App\Services\WorkOrderPartService;
@@ -35,17 +35,17 @@ class WorkOrderPartsRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('admin.preventive_maintenance.parts.title');
+        return __('admin.facility.parts.title');
     }
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
-        return Modules::enabled('preventive_maintenance')
+        return Modules::enabled('facility')
             && Modules::enabled('inventory')
-            && (auth()->user()?->can('preventive_maintenance.view') ?? false);
+            && (auth()->user()?->can('facility.view') ?? false);
     }
 
-    private function order(): MaintenanceWorkOrder
+    private function order(): FacilityWorkOrder
     {
         return $this->getOwnerRecord();
     }
@@ -65,7 +65,7 @@ class WorkOrderPartsRelationManager extends RelationManager
      * inventory right (ApprovalPolicy alone says "yes" to everyone when no bands are
      * configured), and then the tier the value demands.
      */
-    private function canDecide(MaintenanceWorkOrderPart $part): bool
+    private function canDecide(FacilityWorkOrderPart $part): bool
     {
         return auth()->user()?->can(WorkOrderPartService::DECIDE_PERMISSION)
             && ApprovalPolicy::canApprove(auth()->user(), ApprovalRule::MODULE_INVENTORY_DRAW, (float) $part->value);
@@ -77,26 +77,26 @@ class WorkOrderPartsRelationManager extends RelationManager
             ->modifyQueryUsing(fn ($query) => $query->with(['item', 'warehouse', 'vendor', 'requestedBy', 'decidedBy']))
             ->columns([
                 TextColumn::make('source')
-                    ->label(__('admin.preventive_maintenance.parts.source'))
+                    ->label(__('admin.facility.parts.source'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.preventive_maintenance.parts.sources.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.facility.parts.sources.{$state}"))
                     ->color(fn (string $state) => $state === 'internal' ? 'info' : 'warning'),
                 TextColumn::make('part')
-                    ->label(__('admin.preventive_maintenance.parts.part'))
-                    ->state(fn (MaintenanceWorkOrderPart $record) => $record->label())
-                    ->description(fn (MaintenanceWorkOrderPart $record) => $record->isInternal()
+                    ->label(__('admin.facility.parts.part'))
+                    ->state(fn (FacilityWorkOrderPart $record) => $record->label())
+                    ->description(fn (FacilityWorkOrderPart $record) => $record->isInternal()
                         ? $record->warehouse?->name
                         : $record->vendor?->name),
-                TextColumn::make('quantity')->label(__('admin.preventive_maintenance.parts.quantity')),
+                TextColumn::make('quantity')->label(__('admin.facility.parts.quantity')),
                 TextColumn::make('value')
-                    ->label(__('admin.preventive_maintenance.parts.value'))
+                    ->label(__('admin.facility.parts.value'))
                     ->money('EGP')
                     ->alignRight(),
                 TextColumn::make('status')
-                    ->label(__('admin.preventive_maintenance.fields.status'))
+                    ->label(__('admin.facility.fields.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.preventive_maintenance.parts.statuses.{$state}"))
-                    ->color(fn (string $state, MaintenanceWorkOrderPart $record) => match (true) {
+                    ->formatStateUsing(fn (string $state) => __("admin.facility.parts.statuses.{$state}"))
+                    ->color(fn (string $state, FacilityWorkOrderPart $record) => match (true) {
                         $record->movementWasVoided() => 'gray',
                         in_array($state, ['approved', 'recorded'], true) => 'success',
                         $state === 'rejected' => 'danger',
@@ -104,12 +104,12 @@ class WorkOrderPartsRelationManager extends RelationManager
                     })
                     // Says WHO is needed while it waits, so the request doesn't sit unseen
                     // because nobody knew it was theirs to action (FR-CM-11).
-                    ->description(fn (MaintenanceWorkOrderPart $record) => match (true) {
-                        $record->awaitingTierLabel() !== null => __('admin.preventive_maintenance.parts.awaiting', [
+                    ->description(fn (FacilityWorkOrderPart $record) => match (true) {
+                        $record->awaitingTierLabel() !== null => __('admin.facility.parts.awaiting', [
                             'tier' => $record->awaitingTierLabel(),
                         ]),
                         // The stock came back; saying "Issued" and nothing else would be a lie.
-                        $record->movementWasVoided() => __('admin.preventive_maintenance.parts.movement_voided'),
+                        $record->movementWasVoided() => __('admin.facility.parts.movement_voided'),
                         $record->decidedBy !== null => $record->decidedBy->name,
                         default => null,
                     }),
@@ -117,14 +117,14 @@ class WorkOrderPartsRelationManager extends RelationManager
             ->headerActions([
                 // FR-CM-09 internal — a request, not a draw.
                 Action::make('request_internal')
-                    ->label(__('admin.preventive_maintenance.parts.request_internal'))
+                    ->label(__('admin.facility.parts.request_internal'))
                     ->icon('heroicon-o-archive-box')
-                    ->modalDescription(__('admin.preventive_maintenance.parts.request_internal_hint'))
+                    ->modalDescription(__('admin.facility.parts.request_internal_hint'))
                     ->visible(fn () => $this->orderOpen() && $this->canRequest())
                     ->authorize(fn () => $this->canRequest())
                     ->schema([
                         Select::make('warehouse_id')
-                            ->label(__('admin.preventive_maintenance.parts.warehouse'))
+                            ->label(__('admin.facility.parts.warehouse'))
                             // The job's own property only — you cannot draw from another
                             // mall's shelf, and its warehouses are none of your business.
                             ->options(fn () => Warehouse::query()
@@ -136,7 +136,7 @@ class WorkOrderPartsRelationManager extends RelationManager
                             ->required()
                             ->native(false),
                         Select::make('inventory_item_id')
-                            ->label(__('admin.preventive_maintenance.parts.item'))
+                            ->label(__('admin.facility.parts.item'))
                             // The catalog is deliberately SHARED ("a pump seal is the same
                             // item everywhere"), so it is not property-filtered.
                             // Only the three columns the label needs — hydrating whole models
@@ -152,7 +152,7 @@ class WorkOrderPartsRelationManager extends RelationManager
                             ->preload()
                             ->native(false),
                         TextInput::make('quantity')
-                            ->label(__('admin.preventive_maintenance.parts.quantity'))
+                            ->label(__('admin.facility.parts.quantity'))
                             ->numeric()
                             ->minValue(0.001)
                             ->required(),
@@ -169,8 +169,8 @@ class WorkOrderPartsRelationManager extends RelationManager
                         }
 
                         Notification::make()
-                            ->title(__('admin.preventive_maintenance.parts.requested_notice'))
-                            ->body($part->awaitingTierLabel() === null ? null : __('admin.preventive_maintenance.parts.awaiting', [
+                            ->title(__('admin.facility.parts.requested_notice'))
+                            ->body($part->awaitingTierLabel() === null ? null : __('admin.facility.parts.awaiting', [
                                 'tier' => $part->awaitingTierLabel(),
                             ]))
                             ->success()
@@ -179,30 +179,30 @@ class WorkOrderPartsRelationManager extends RelationManager
 
                 // FR-CM-09 external — recorded, not approved.
                 Action::make('record_external')
-                    ->label(__('admin.preventive_maintenance.parts.record_external'))
+                    ->label(__('admin.facility.parts.record_external'))
                     ->icon('heroicon-o-shopping-cart')
                     ->color('gray')
-                    ->modalDescription(__('admin.preventive_maintenance.parts.record_external_hint'))
+                    ->modalDescription(__('admin.facility.parts.record_external_hint'))
                     ->visible(fn () => $this->orderOpen() && $this->canRequest())
                     ->authorize(fn () => $this->canRequest())
                     ->schema([
                         TextInput::make('description')
-                            ->label(__('admin.preventive_maintenance.parts.description'))
+                            ->label(__('admin.facility.parts.description'))
                             ->required()
                             ->maxLength(255),
                         Select::make('vendor_id')
-                            ->label(__('admin.preventive_maintenance.fields.vendor'))
+                            ->label(__('admin.facility.fields.vendor'))
                             ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id')->all())
                             ->searchable()
                             ->native(false),
                         TextInput::make('reference')
-                            ->label(__('admin.preventive_maintenance.parts.reference'))
+                            ->label(__('admin.facility.parts.reference'))
                             ->maxLength(100),
                         TextInput::make('quantity')
-                            ->label(__('admin.preventive_maintenance.parts.quantity'))
+                            ->label(__('admin.facility.parts.quantity'))
                             ->numeric()->minValue(0.001)->required(),
                         TextInput::make('unit_cost')
-                            ->label(__('admin.preventive_maintenance.parts.unit_cost'))
+                            ->label(__('admin.facility.parts.unit_cost'))
                             ->prefix('EGP')
                             ->numeric()->minValue(0)->required(),
                     ])
@@ -217,22 +217,22 @@ class WorkOrderPartsRelationManager extends RelationManager
                             return;
                         }
 
-                        Notification::make()->title(__('admin.preventive_maintenance.parts.recorded_notice'))->success()->send();
+                        Notification::make()->title(__('admin.facility.parts.recorded_notice'))->success()->send();
                     }),
             ])
             ->recordActions([
                 // FR-CM-10/11 — shown only to someone whose authority actually covers this
                 // part's value, so the button isn't an invitation to be refused.
                 Action::make('approve')
-                    ->label(__('admin.preventive_maintenance.parts.approve'))
+                    ->label(__('admin.facility.parts.approve'))
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (MaintenanceWorkOrderPart $record) => $record->isPending()
+                    ->visible(fn (FacilityWorkOrderPart $record) => $record->isPending()
                         && $this->canDecide($record)
                         && (int) $record->requested_by_user_id !== (int) auth()->id())
-                    ->authorize(fn (MaintenanceWorkOrderPart $record) => $this->canDecide($record))
-                    ->action(function (MaintenanceWorkOrderPart $record): void {
+                    ->authorize(fn (FacilityWorkOrderPart $record) => $this->canDecide($record))
+                    ->action(function (FacilityWorkOrderPart $record): void {
                         try {
                             app(WorkOrderPartService::class)->approve($record);
                         } catch (\DomainException $e) {
@@ -241,25 +241,25 @@ class WorkOrderPartsRelationManager extends RelationManager
                             return;
                         }
 
-                        Notification::make()->title(__('admin.preventive_maintenance.parts.approved_notice'))->success()->send();
+                        Notification::make()->title(__('admin.facility.parts.approved_notice'))->success()->send();
                     }),
                 // A typo correction on an external record — see WorkOrderPartService::remove().
                 Action::make('remove')
-                    ->label(__('admin.preventive_maintenance.parts.remove'))
+                    ->label(__('admin.facility.parts.remove'))
                     ->icon('heroicon-o-trash')
                     ->color('danger')
-                    ->modalDescription(__('admin.preventive_maintenance.parts.remove_hint'))
-                    ->visible(fn (MaintenanceWorkOrderPart $record) => ! $record->isInternal()
+                    ->modalDescription(__('admin.facility.parts.remove_hint'))
+                    ->visible(fn (FacilityWorkOrderPart $record) => ! $record->isInternal()
                         && $this->orderOpen()
                         && (auth()->user()?->can(WorkOrderPartService::DECIDE_PERMISSION) ?? false))
                     ->authorize(fn () => auth()->user()?->can(WorkOrderPartService::DECIDE_PERMISSION) ?? false)
                     ->schema([
                         Textarea::make('reason')
-                            ->label(__('admin.preventive_maintenance.parts.remove_reason'))
+                            ->label(__('admin.facility.parts.remove_reason'))
                             ->required()
                             ->rows(2),
                     ])
-                    ->action(function (MaintenanceWorkOrderPart $record, array $data): void {
+                    ->action(function (FacilityWorkOrderPart $record, array $data): void {
                         try {
                             app(WorkOrderPartService::class)->remove($record, $data['reason']);
                         } catch (\DomainException $e) {
@@ -268,21 +268,21 @@ class WorkOrderPartsRelationManager extends RelationManager
                             return;
                         }
 
-                        Notification::make()->title(__('admin.preventive_maintenance.parts.removed_notice'))->success()->send();
+                        Notification::make()->title(__('admin.facility.parts.removed_notice'))->success()->send();
                     }),
                 Action::make('reject')
-                    ->label(__('admin.preventive_maintenance.parts.reject'))
+                    ->label(__('admin.facility.parts.reject'))
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (MaintenanceWorkOrderPart $record) => $record->isPending() && $this->canDecide($record))
-                    ->authorize(fn (MaintenanceWorkOrderPart $record) => $this->canDecide($record))
+                    ->visible(fn (FacilityWorkOrderPart $record) => $record->isPending() && $this->canDecide($record))
+                    ->authorize(fn (FacilityWorkOrderPart $record) => $this->canDecide($record))
                     ->schema([
                         Textarea::make('reason')
-                            ->label(__('admin.preventive_maintenance.parts.reject_reason'))
+                            ->label(__('admin.facility.parts.reject_reason'))
                             ->required()
                             ->rows(2),
                     ])
-                    ->action(function (MaintenanceWorkOrderPart $record, array $data): void {
+                    ->action(function (FacilityWorkOrderPart $record, array $data): void {
                         try {
                             app(WorkOrderPartService::class)->reject($record, $data['reason']);
                         } catch (\DomainException $e) {
@@ -291,7 +291,7 @@ class WorkOrderPartsRelationManager extends RelationManager
                             return;
                         }
 
-                        Notification::make()->title(__('admin.preventive_maintenance.parts.rejected_notice'))->success()->send();
+                        Notification::make()->title(__('admin.facility.parts.rejected_notice'))->success()->send();
                     }),
             ])
             ->defaultSort('id');

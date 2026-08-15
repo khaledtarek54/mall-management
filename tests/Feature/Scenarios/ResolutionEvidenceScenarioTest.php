@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\TenantRequest;
-use App\Services\RaiseCorrectiveMaintenanceService;
+use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 
@@ -57,7 +57,7 @@ it('resolves once a work order is raised for it, with no photo', function () {
     $request = inProgressRequest();
     expect($request->hasMedia('attachments'))->toBeFalse(); // no photo…
 
-    app(RaiseCorrectiveMaintenanceService::class)->fromTenantRequest($request, ['execution_type' => 'internal']);
+    app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, ['execution_type' => 'internal']);
 
     expect($this->svc->transition($request->fresh(), 'resolved')->status)->toBe('resolved'); // …but a linked WO
 });
@@ -86,7 +86,7 @@ it('applies the same gate whether the linked work order is open or done', functi
     // The evidence is that facility work exists on record — its status is irrelevant to whether the
     // tenant's request may be called resolved.
     $request = inProgressRequest();
-    $wo = app(RaiseCorrectiveMaintenanceService::class)->fromTenantRequest($request, ['execution_type' => 'internal']);
+    $wo = app(RaiseCorrectiveWorkOrderService::class)->fromTenantRequest($request, ['execution_type' => 'internal']);
     $wo->update(['status' => 'done', 'completed_at' => now()]);
 
     expect($this->svc->transition($request->fresh(), 'resolved')->status)->toBe('resolved');

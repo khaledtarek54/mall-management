@@ -962,12 +962,12 @@ return [
             'description' => 'Chillers, lifts, generators, pumps. Register them to run preventive maintenance plans against them.',
             'cta' => 'Add equipment',
         ],
-        'maintenance_plans' => [
+        'service_plans' => [
             'heading' => 'No preventive plans yet',
             'description' => 'A plan raises work orders on a schedule — quarterly chiller service, monthly lift inspection — so nothing waits for a breakdown.',
             'cta' => 'Create a plan',
         ],
-        'maintenance_work_orders' => [
+        'facility_work_orders' => [
             'heading' => 'No work orders yet',
             'description' => 'Corrective and preventive jobs for the facility team. They arrive from tenant requests, plans, or are raised directly.',
             'cta' => 'Raise a work order',
@@ -2666,8 +2666,8 @@ return [
         'level' => 'Level',
         'location' => 'Location',
         'locked_at' => 'Locked at',
-        'maintenance_plan_id' => 'Maintenance plan',
-        'maintenance_type' => 'Maintenance type',
+        'service_plan_id' => 'Maintenance plan',
+        'plan_type' => 'Maintenance type',
         'marketing_budget_id' => 'Marketing budget',
         'matched_at' => 'Matched at',
         'max_amount' => 'Maximum amount',
@@ -3392,7 +3392,7 @@ return [
         'employees' => 'Employees',
         'custodies' => 'Custodies',
         'imports' => 'Data Import',
-        'preventive_maintenance' => 'Preventive Maintenance',
+        'facility' => 'Preventive Maintenance',
         'areas' => 'Areas',
         'rentable_items' => 'Parking & rentable items',
         'violations' => 'Violations',
@@ -4067,16 +4067,16 @@ return [
             'warehouse' => 'Warehouse',
             'inventory_item' => 'Inventory Item',
             'stock_movement' => 'Stock Movement',
-            'maintenance_plan' => 'Maintenance Plan',
+            'service_plan' => 'Maintenance Plan',
             'work_order_part' => 'Work Order Part',
             'purchase_request' => 'Procurement Request',
-            'maintenance_work_order' => 'Work Order',
+            'facility_work_order' => 'Work Order',
             'equipment' => 'Equipment',
             'area' => 'Area',
             'violation' => 'Violation',
             'approval_rule' => 'Approval Rule',
             'disbursement' => 'Owner Disbursement',
-            'maintenance_penalty' => 'SLA Penalty',
+            'sla_penalty' => 'SLA Penalty',
             'owner_statement' => 'Owner Statement',
             'owner_statement_run' => 'Owner Statement Run',
             'post_dated_cheque' => 'Post-dated Cheque',
@@ -4170,7 +4170,7 @@ return [
         'footer' => 'This statement is computer-generated. For queries: billing@:slug.test',
     ],
 
-    'maintenance_plans' => [
+    'service_plans' => [
         // Written onto the generated work order when the plan's contractor cannot be dispatched.
         // The round still happens; only the assignment is withheld, and the order says why so a
         // coordinator is not left guessing at a blank vendor field.
@@ -5097,7 +5097,7 @@ return [
             'bill_fine' => 'Bill fine',
         ],
     ],
-    'preventive_maintenance' => [
+    'facility' => [
         'helpers' => [
             'priority_from_criticality' => 'Pre-filled from the machine\'s criticality when you pick one — change it if you disagree.',
             'criticality' => 'How much it matters when this machine stops. A fault raised on CRITICAL equipment starts at urgent, IMPORTANT at high — a starting point, not a rule: whoever raises the job can still set it themselves.',
@@ -5136,7 +5136,7 @@ return [
             'code' => 'Code', 'parent' => 'Parent equipment', 'name' => 'Name', 'name_en' => 'Name (EN)',
             'name_ar' => 'Name (AR)', 'location' => 'Location', 'fixed_asset' => 'Fixed asset',
             'spare_parts' => 'Compatible spare parts', 'sub_codes' => 'Sub-codes',
-            'maintenance_type' => 'Maintenance type', 'work_order_type' => 'Type', 'execution_type' => 'Handled by',
+            'plan_type' => 'Maintenance type', 'work_order_type' => 'Type', 'execution_type' => 'Handled by',
             'priority' => 'Priority',
             'description' => 'Description', 'frequency' => 'Every', 'frequency_unit' => 'Unit',
             'frequency_value' => 'Interval', 'checklist' => 'Checklist', 'department' => 'Department',
@@ -5283,8 +5283,8 @@ return [
         'weekdays' => [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'],
         'area_hint' => 'The location the work is performed on (food court, parking level 2). Use it for cleaning, landscaping, pest control and other area-based services; leave blank for equipment or unit work.',
         'days_of_week_hint' => 'Restrict the round to these weekdays (e.g. Mon/Wed/Fri). Leave all unticked for any day. For several rounds in one day keep ONE daily schedule and list the rounds as checklist items.',
-        'maintenance_types' => ['routine' => 'Routine (recurring schedule)', 'fixed' => 'Fixed (per machine)'],
-        'maintenance_type_hint' => 'Routine recurs on a schedule for the property or unit. Fixed targets one specific machine.',
+        'plan_types' => ['routine' => 'Routine (recurring schedule)', 'fixed' => 'Fixed (per machine)'],
+        'plan_type_hint' => 'Routine recurs on a schedule for the property or unit. Fixed targets one specific machine.',
         'equipment_hint' => 'The machine this plan services. Required for fixed maintenance.',
         'equipment_wo_hint' => 'The machine this job is against. Filled in automatically for orders raised from a plan.',
         'categories' => [

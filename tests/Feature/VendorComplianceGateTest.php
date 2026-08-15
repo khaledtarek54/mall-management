@@ -1,13 +1,13 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use App\Models\VendorDocument;
 
 /**
  * Vendor compliance gate (strengthen item #5): a mall must not dispatch a blacklisted / inactive
  * vendor, or one whose insurance has lapsed, to maintenance work. The gate is the
- * MaintenanceWorkOrder saving hook (the single server-side choke point); the pickers filter to
+ * FacilityWorkOrder saving hook (the single server-side choke point); the pickers filter to
  * Vendor::assignable() too.
  *
  * Module 12b moved the certificate off `vendors.coi_expires_at` into `vendor_documents`, so the
@@ -32,16 +32,16 @@ function complianceVendor(array $attrs = [], ?string $coiExpiresOn = null): Vend
     return $vendor;
 }
 
-function externalCmWorkOrder(int $assetId, int $vendorId): MaintenanceWorkOrder
+function externalCmWorkOrder(int $assetId, int $vendorId): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create([
+    return FacilityWorkOrder::create([
         'asset_id' => $assetId,
         'title' => 'Fix the lift',
         'category' => 'elevator',
         'status' => 'open',
         'scheduled_for' => now()->toDateString(),
-        'work_order_type' => MaintenanceWorkOrder::TYPE_CM,
-        'execution_type' => MaintenanceWorkOrder::EXECUTION_EXTERNAL,
+        'work_order_type' => FacilityWorkOrder::TYPE_CM,
+        'execution_type' => FacilityWorkOrder::EXECUTION_EXTERNAL,
         'description' => 'Lift is stuck between floors',
         'vendor_id' => $vendorId,
     ]);

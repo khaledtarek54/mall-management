@@ -32,9 +32,9 @@ use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\TenantDocument;
 use App\Models\LeaseCamTerm;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderItem;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderItem;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
@@ -71,7 +71,7 @@ use App\Services\Eta\EtaSubmissionService;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
 use App\Services\OwnerRequestService;
@@ -79,7 +79,7 @@ use App\Services\PayrollService;
 use App\Services\PercentageRentCalculationService;
 use App\Services\PostDatedChequeService;
 use App\Services\PurchaseRequestService;
-use App\Services\RaiseCorrectiveMaintenanceService;
+use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\RecordAdvanceRepaymentService;
 use App\Services\SettleCustodyService;
 use App\Services\StockMovementService;
@@ -2965,15 +2965,15 @@ class DemoSeeder extends Seeder
         foreach ($plans as $p) {
             $equipmentId = $p['equip'] ? ($equipmentIds[$p['equip']] ?? null) : null;
 
-            MaintenancePlan::create([
+            ServicePlan::create([
                 'asset_id' => $asset->id,
                 'unit_id' => null,
                 'equipment_id' => $equipmentId,
                 'title' => $p['title'],
                 'category' => $p['category'],
-                'maintenance_type' => $equipmentId
-                    ? MaintenancePlan::MAINTENANCE_TYPE_FIXED
-                    : MaintenancePlan::MAINTENANCE_TYPE_ROUTINE,
+                'plan_type' => $equipmentId
+                    ? ServicePlan::MAINTENANCE_TYPE_FIXED
+                    : ServicePlan::MAINTENANCE_TYPE_ROUTINE,
                 'description' => $p['title'].' — preventive schedule.',
                 'frequency_unit' => $p['unit'],
                 'frequency_value' => $p['freq'],
@@ -2991,9 +2991,9 @@ class DemoSeeder extends Seeder
         // Complete the oldest open work order to show a full lifecycle. Driven through
         // the real service so the demo data can't encode a state the app would refuse.
         $engineer = User::where('email', 'operations@mall.test')->first();
-        $wo = MaintenanceWorkOrder::where('status', 'open')->orderBy('scheduled_for')->first();
+        $wo = FacilityWorkOrder::where('status', 'open')->orderBy('scheduled_for')->first();
         if ($wo && $engineer) {
-            $svc = app(MaintenanceWorkOrderService::class);
+            $svc = app(FacilityWorkOrderService::class);
             $svc->transition($wo, 'in_progress', $engineer->id);
 
             // The last item fails — a PPM visit that finds a fault is the normal case,
@@ -3004,8 +3004,8 @@ class DemoSeeder extends Seeder
                 $svc->markItem(
                     $item,
                     $items->count() > 1 && $i === $items->count() - 1
-                        ? MaintenanceWorkOrderItem::RESULT_FAIL
-                        : MaintenanceWorkOrderItem::RESULT_PASS,
+                        ? FacilityWorkOrderItem::RESULT_FAIL
+                        : FacilityWorkOrderItem::RESULT_PASS,
                     $engineer->id,
                 );
             }
@@ -3015,8 +3015,8 @@ class DemoSeeder extends Seeder
             $failed = $wo->items()->failed()->first();
 
             if ($failed) {
-                app(RaiseCorrectiveMaintenanceService::class)->fromFailedCheck($failed, [
-                    'execution_type' => MaintenanceWorkOrder::EXECUTION_EXTERNAL,
+                app(RaiseCorrectiveWorkOrderService::class)->fromFailedCheck($failed, [
+                    'execution_type' => FacilityWorkOrder::EXECUTION_EXTERNAL,
                     'vendor_id' => $coolAir,
                     'priority' => 'urgent',
                     'description' => 'Found during the scheduled visit: '.$failed->label.' failed inspection and needs corrective work.',
@@ -3030,8 +3030,8 @@ class DemoSeeder extends Seeder
         // A follow-up on the closed order (FR-CM-14/15) — the external company signed it off
         // but the work wasn't finished. A NEW linked job, not a reopen.
         if ($wo && $engineer) {
-            app(RaiseCorrectiveMaintenanceService::class)->asFollowUp($wo->fresh(), [
-                'execution_type' => MaintenanceWorkOrder::EXECUTION_INTERNAL,
+            app(RaiseCorrectiveWorkOrderService::class)->asFollowUp($wo->fresh(), [
+                'execution_type' => FacilityWorkOrder::EXECUTION_INTERNAL,
                 'assigned_to_user_id' => $engineer->id,
                 'description' => 'Vendor closed the job but the fault recurred within a week — re-inspect and finish the fix.',
                 'scheduled_for' => Carbon::now()->addDays(3)->toDateString(),

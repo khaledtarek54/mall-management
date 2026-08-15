@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Notifications\WorkOrderResponseSlaBreachedNotification;
 use App\Notifications\WorkOrderSlaBreachedNotification;
 use App\Services\AssessSlaPenaltyService;
@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Notification;
  */
 class ScanWorkOrderSlaBreachesCommand extends Command
 {
-    protected $signature = 'maintenance:scan-wo-sla-breaches {--dry-run : Print what would be alerted without writing}';
+    protected $signature = 'facility:scan-sla-breaches {--dry-run : Print what would be alerted without writing}';
 
     protected $description = 'Notify operators about open corrective work orders whose SLA target has passed (idempotent via sla_breach_notified_at).';
 
@@ -49,7 +49,7 @@ class ScanWorkOrderSlaBreachesCommand extends Command
         // job stays late. Driving both off the alert stamp would either charge a per-day
         // penalty once, or re-charge it hourly. AssessSlaPenaltyService keeps one row per
         // order and updates it, so re-running is free.
-        $overdue = MaintenanceWorkOrder::query()
+        $overdue = FacilityWorkOrder::query()
             ->corrective()
             ->open()
             ->whereNotNull('target_resolution_at')
@@ -59,7 +59,7 @@ class ScanWorkOrderSlaBreachesCommand extends Command
 
         // --dry-run is documented as "print what would be alerted WITHOUT writing", so it must
         // return before BOTH writes — the alerts AND the penalty assessment. assessPenalties()
-        // creates/updates real maintenance_penalties (financial) rows, so it cannot run in a
+        // creates/updates real sla_penalties (financial) rows, so it cannot run in a
         // preview (gap-analysis F-96). Preview first, then return.
         if ($this->option('dry-run')) {
             $breached = $overdue->whereNull('sla_breach_notified_at');
@@ -67,7 +67,7 @@ class ScanWorkOrderSlaBreachesCommand extends Command
                 $this->line("  would alert: {$order->reference} ({$order->hoursOverSla()}h over)");
             }
 
-            $unanswered = MaintenanceWorkOrder::query()
+            $unanswered = FacilityWorkOrder::query()
                 ->responseBreached()->whereNull('response_breach_notified_at')->get();
             foreach ($unanswered as $order) {
                 $this->line("  would alert (unanswered): {$order->reference} ({$order->hoursOverResponseSla()}h over)");
@@ -124,7 +124,7 @@ class ScanWorkOrderSlaBreachesCommand extends Command
     /**
      * Heal corrective orders that predate the response clock (2026-08-12).
      *
-     * The deadlines are stamped by `MaintenanceWorkOrder::creating`, so every new order has them.
+     * The deadlines are stamped by `FacilityWorkOrder::creating`, so every new order has them.
      * Rows created BEFORE that — including every job that slipped through the original defect —
      * would otherwise stay invisible forever, which is the exact failure this fixes. Done here
      * rather than in the migration on purpose: the targets resolve through the three-tier
@@ -140,13 +140,13 @@ class ScanWorkOrderSlaBreachesCommand extends Command
         return $this->missingClocksQuery()->count();
     }
 
-    /** @return \Illuminate\Database\Eloquent\Builder<MaintenanceWorkOrder> */
+    /** @return \Illuminate\Database\Eloquent\Builder<FacilityWorkOrder> */
     private function missingClocksQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return MaintenanceWorkOrder::query()
+        return FacilityWorkOrder::query()
             ->corrective()
             ->whereNull('target_response_at')
-            ->whereNotIn('status', MaintenanceWorkOrder::TERMINAL);
+            ->whereNotIn('status', FacilityWorkOrder::TERMINAL);
     }
 
     private function stampMissingClocks(): int
@@ -192,7 +192,7 @@ class ScanWorkOrderSlaBreachesCommand extends Command
      */
     private function alertResponseBreaches(): array
     {
-        $rows = MaintenanceWorkOrder::query()
+        $rows = FacilityWorkOrder::query()
             ->responseBreached()
             ->whereNull('response_breach_notified_at')
             ->get();
@@ -221,8 +221,8 @@ class ScanWorkOrderSlaBreachesCommand extends Command
     private function alertResponseBreach(int $orderId): bool
     {
         return DB::transaction(function () use ($orderId) {
-            /** @var MaintenanceWorkOrder|null $order */
-            $order = MaintenanceWorkOrder::whereKey($orderId)->with('equipment')->lockForUpdate()->first();
+            /** @var FacilityWorkOrder|null $order */
+            $order = FacilityWorkOrder::whereKey($orderId)->with('equipment')->lockForUpdate()->first();
 
             // Re-checked inside the lock, same as the resolution alert: two overlapping runs would
             // otherwise both read null and alert twice. Acceptance between the query and the lock
@@ -280,7 +280,7 @@ class ScanWorkOrderSlaBreachesCommand extends Command
      * A failure here is MONEY: the vendor is not charged for missing its SLA. Containment
      * makes that silent, so each one is logged individually and counted into the summary.
      *
-     * @param  \Illuminate\Support\Collection<int, MaintenanceWorkOrder>  $overdue
+     * @param  \Illuminate\Support\Collection<int, FacilityWorkOrder>  $overdue
      * @return int the number of orders whose penalty could not be assessed
      */
     private function assessPenalties($overdue): int
@@ -313,8 +313,8 @@ class ScanWorkOrderSlaBreachesCommand extends Command
         return DB::transaction(function () use ($orderId) {
             // Re-fetched under the lock, so the eager loads from the outer query are gone —
             // reload them here or the notification lazy-loads equipment per breach.
-            /** @var MaintenanceWorkOrder|null $order */
-            $order = MaintenanceWorkOrder::whereKey($orderId)->with('equipment')->lockForUpdate()->first();
+            /** @var FacilityWorkOrder|null $order */
+            $order = FacilityWorkOrder::whereKey($orderId)->with('equipment')->lockForUpdate()->first();
 
             // Re-check the stamp INSIDE the transaction: two overlapping runs (a slow scan
             // still going when the next fires) would otherwise both read null and alert twice.

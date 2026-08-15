@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\VendorContract;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -32,13 +32,13 @@ class AssessSlaPenaltyService
      * Create or update the penalty for a breaching order. Returns null when no penalty
      * applies — which is the common case, not an error.
      */
-    public function assess(MaintenanceWorkOrder $order): ?MaintenancePenalty
+    public function assess(FacilityWorkOrder $order): ?SlaPenalty
     {
         return DB::transaction(function () use ($order) {
-            /** @var MaintenanceWorkOrder $locked */
-            $locked = MaintenanceWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            /** @var FacilityWorkOrder $locked */
+            $locked = FacilityWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
-            $existing = MaintenancePenalty::where('maintenance_work_order_id', $locked->getKey())->first();
+            $existing = SlaPenalty::where('facility_work_order_id', $locked->getKey())->first();
 
             // A waived penalty is an operator's decision. Never resurrect it — the scan runs
             // hourly and would otherwise silently undo the waiver on the next tick.
@@ -81,7 +81,7 @@ class AssessSlaPenaltyService
                 'amount' => $amount,
                 // Frozen the moment the job stops running late — after that the elapsed
                 // time is history, and an accruing penalty must stop growing.
-                'status' => $locked->isTerminal() ? MaintenancePenalty::STATUS_FINAL : MaintenancePenalty::STATUS_PENDING,
+                'status' => $locked->isTerminal() ? SlaPenalty::STATUS_FINAL : SlaPenalty::STATUS_PENDING,
                 'finalised_at' => $locked->isTerminal() ? now() : null,
             ];
 
@@ -91,8 +91,8 @@ class AssessSlaPenaltyService
                 return $existing->refresh();
             }
 
-            return MaintenancePenalty::create(array_merge(
-                ['maintenance_work_order_id' => $locked->getKey()],
+            return SlaPenalty::create(array_merge(
+                ['facility_work_order_id' => $locked->getKey()],
                 $attributes,
             ));
         });
@@ -113,21 +113,21 @@ class AssessSlaPenaltyService
      *
      * @throws DomainException if already waived
      */
-    public function waive(MaintenancePenalty $penalty, string $reason, ?int $actorId = null): MaintenancePenalty
+    public function waive(SlaPenalty $penalty, string $reason, ?int $actorId = null): SlaPenalty
     {
         return DB::transaction(function () use ($penalty, $reason, $actorId) {
-            /** @var MaintenancePenalty $locked */
-            $locked = MaintenancePenalty::whereKey($penalty->getKey())->lockForUpdate()->firstOrFail();
+            /** @var SlaPenalty $locked */
+            $locked = SlaPenalty::whereKey($penalty->getKey())->lockForUpdate()->firstOrFail();
 
             if ($locked->isWaived()) {
-                throw new DomainException(__('admin.preventive_maintenance.errors.penalty_already_waived'));
+                throw new DomainException(__('admin.facility.errors.penalty_already_waived'));
             }
 
             // Captured before the update, because clearing vendor_bill_id loses the link.
             $bill = $locked->isApplied() ? $locked->bill : null;
 
             $locked->update([
-                'status' => MaintenancePenalty::STATUS_WAIVED,
+                'status' => SlaPenalty::STATUS_WAIVED,
                 // Release the bill: a waived penalty is not deducted from anything, and
                 // leaving the FK set would keep it in VendorBill::recompute()'s sum.
                 'vendor_bill_id' => null,
@@ -164,7 +164,7 @@ class AssessSlaPenaltyService
      *    the penalty on a job that ran while the contract was live. The **date window** is
      *    what judges history; the status only rules out agreements that never applied.
      */
-    private function contractFor(MaintenanceWorkOrder $order): ?VendorContract
+    private function contractFor(FacilityWorkOrder $order): ?VendorContract
     {
         if ($order->vendor_id === null) {
             return null;
@@ -185,35 +185,35 @@ class AssessSlaPenaltyService
             ->first();
     }
 
-    private function isPenalisable(MaintenanceWorkOrder $order, ?VendorContract $contract): bool
+    private function isPenalisable(FacilityWorkOrder $order, ?VendorContract $contract): bool
     {
         return $contract !== null
             && $order->isCorrective()
             // FR-CM-08 is a remedy against the company that missed its SLA. An in-house job
             // running late is a management problem, not a billable one.
-            && $order->execution_type === MaintenanceWorkOrder::EXECUTION_EXTERNAL
+            && $order->execution_type === FacilityWorkOrder::EXECUTION_EXTERNAL
             && $order->vendor_id !== null
             && $order->target_resolution_at !== null
             && (float) $contract->sla_penalty_rate > 0;
     }
 
     /** Null when the basis cannot be computed for this job — see percent_of_value. */
-    private function amountFor(MaintenanceWorkOrder $order, VendorContract $contract): ?float
+    private function amountFor(FacilityWorkOrder $order, VendorContract $contract): ?float
     {
         $rate = (float) $contract->sla_penalty_rate;
 
         return match ($contract->sla_penalty_basis) {
             // Flat fires on ANY breach (the gate already proved lateness) — never gated on hours.
-            MaintenancePenalty::BASIS_FLAT => round($rate, 2),
+            SlaPenalty::BASIS_FLAT => round($rate, 2),
 
             // Part of a day counts as a day (from the TRUE elapsed time via daysOverSla — at least
             // 1 for any breach): charging 0.4 of a day for a nine-hour overrun invites an argument.
-            MaintenancePenalty::BASIS_PER_DAY => round((float) $order->daysOverSla() * $rate, 2),
+            SlaPenalty::BASIS_PER_DAY => round((float) $order->daysOverSla() * $rate, 2),
 
             // Needs the job's value. Null (no quote captured) means it cannot be computed —
             // return null rather than silently charge 0, which would look like "assessed and
             // owed nothing" instead of "we don't know yet".
-            MaintenancePenalty::BASIS_PERCENT_OF_VALUE => $order->job_value === null
+            SlaPenalty::BASIS_PERCENT_OF_VALUE => $order->job_value === null
                 ? null
                 : round((float) $order->job_value * $rate / 100, 2),
 

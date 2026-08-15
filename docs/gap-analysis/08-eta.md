@@ -178,4 +178,4 @@ Module ratings: 00 🟢 · 01 🟡 · 02 🟢 · 03 🟡 · 04 🟡 · 05 🟡 �
 
 ## Next
 
-Module 09 — Maintenance / CAFM. Surface: [MaintenanceRequest model](../../app/Models/MaintenanceRequest.php), [MaintenanceRequestComment model](../../app/Models/MaintenanceRequestComment.php), Admin + Portal resources, [MaintenanceRequestService](../../app/Services/MaintenanceRequestService.php), [MaintenanceSettings](../../app/Settings/MaintenanceSettings.php), [OpenMaintenanceRequests widget](../../app/Filament/Admin/Widgets/OpenMaintenanceRequests.php), and the F-17 nav badge carryover fix on MaintenanceRequestResource.
+Module 09 — Maintenance / CAFM. Surface: [MaintenanceRequest model](../../app/Models/MaintenanceRequest.php), [MaintenanceRequestComment model](../../app/Models/MaintenanceRequestComment.php), Admin + Portal resources, [MaintenanceRequestService](../../app/Services/MaintenanceRequestService.php), [SlaSettings](../../app/Settings/SlaSettings.php), [OpenMaintenanceRequests widget](../../app/Filament/Admin/Widgets/OpenMaintenanceRequests.php), and the F-17 nav badge carryover fix on MaintenanceRequestResource.

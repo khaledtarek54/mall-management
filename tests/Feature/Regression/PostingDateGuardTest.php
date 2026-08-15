@@ -34,7 +34,7 @@ use Illuminate\Support\Carbon;
  *      LOGS rather than retries
  *
  * Business state moved, the GL didn't, the operator was told it worked — the exact shape of
- * the MaintenancePenalty bug. Rated 🔴 for custody because for a عهدة, receipts arriving
+ * the SlaPenalty bug. Rated 🔴 for custody because for a عهدة, receipts arriving
  * after a month-end close is the NORMAL workflow, not an edge case: a custody exists
  * *because* the money is spent before the paperwork lands.
  *

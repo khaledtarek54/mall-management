@@ -8,8 +8,8 @@ use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
@@ -23,8 +23,8 @@ use App\Models\Announcement;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use App\Models\MarketingPost;
 use App\Models\OwnerRequest;
 use App\Models\OwnerStatement;
@@ -211,35 +211,35 @@ final class NotificationTargets
 
         // ---- Facility / work orders --------------------------------------------------------
         WorkOrderRaisedNotification::class => [
-            'record' => [MaintenanceWorkOrder::class, 'work_order_id'],
-            'admin' => MaintenanceWorkOrderResource::class,
+            'record' => [FacilityWorkOrder::class, 'work_order_id'],
+            'admin' => FacilityWorkOrderResource::class,
             'portal' => null,
         ],
         WorkOrderAssignedNotification::class => [
-            'record' => [MaintenanceWorkOrder::class, 'work_order_id'],
-            'admin' => MaintenanceWorkOrderResource::class,
+            'record' => [FacilityWorkOrder::class, 'work_order_id'],
+            'admin' => FacilityWorkOrderResource::class,
             'portal' => null,
         ],
         WorkOrderSlaBreachedNotification::class => [
-            'record' => [MaintenanceWorkOrder::class, 'work_order_id'],
-            'admin' => MaintenanceWorkOrderResource::class,
+            'record' => [FacilityWorkOrder::class, 'work_order_id'],
+            'admin' => FacilityWorkOrderResource::class,
             'portal' => null,
         ],
         WorkOrderResponseSlaBreachedNotification::class => [
-            'record' => [MaintenanceWorkOrder::class, 'work_order_id'],
-            'admin' => MaintenanceWorkOrderResource::class,
+            'record' => [FacilityWorkOrder::class, 'work_order_id'],
+            'admin' => FacilityWorkOrderResource::class,
             'portal' => null,
         ],
         AreaWorkOrderRaisedNotification::class => [
-            'record' => [MaintenanceWorkOrder::class, 'work_order_id'],
-            'admin' => MaintenanceWorkOrderResource::class,
+            'record' => [FacilityWorkOrder::class, 'work_order_id'],
+            'admin' => FacilityWorkOrderResource::class,
             'portal' => null,
         ],
         // The generation FAILED, so there is no work order to open — the plan is what needs
         // fixing (a missing asset, a bad schedule, a closed period).
         PreventiveGenerationFailedNotification::class => [
-            'record' => [MaintenancePlan::class, 'maintenance_plan_id'],
-            'admin' => MaintenancePlanResource::class,
+            'record' => [ServicePlan::class, 'service_plan_id'],
+            'admin' => ServicePlanResource::class,
             'portal' => null,
         ],
 

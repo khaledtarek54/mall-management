@@ -384,7 +384,7 @@ return [
         ],
     ],
 
-    'maintenance_plans' => [
+    'service_plans' => [
         'purpose' => 'Recurring preventive maintenance — the schedule that raises work orders before something breaks.',
         'steps' => [
             'Create the plan against the equipment or zone it covers.',

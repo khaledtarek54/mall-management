@@ -149,7 +149,7 @@ class PurchaseRequestsTable
                         Select::make('vendor_id')
                             ->label(__('admin.procurement.fields.vendor'))
                             // Vendors are a SHARED catalog (PropertyIsolation), so unscoped —
-                            // matching MaintenanceWorkOrderForm.
+                            // matching FacilityWorkOrderForm.
                             ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id')->all())
                             ->searchable()->native(false),
                         TextInput::make('order_reference')

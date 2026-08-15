@@ -28,7 +28,7 @@ to the ledger via two journalizers.
 catches `\Throwable` and only `Log::warning`s). The accountant sees "Expense recorded ✓".
 **Outstanding reads 5,000; the GL still shows Custodies 10,000 and zero expense.**
 
-This is the exact shape of the MaintenancePenalty bug: **business state moved, the GL didn't, and
+This is the exact shape of the SlaPenalty bug: **business state moved, the GL didn't, and
 the operator was told it succeeded.**
 
 **The open-period variant is worse because it's silent even to the sweep:** a settlement dated

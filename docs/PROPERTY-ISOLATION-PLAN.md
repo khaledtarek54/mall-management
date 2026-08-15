@@ -99,7 +99,7 @@ tested, not just documented.
 Leasing & money: **Unit, Lease, Invoice(+items), Charge, Payment, CreditNote(+items),
 DepositTransaction, TenantSalesDeclaration** · CAM: **CamExpensePool(+allocations)** · Marketing:
 **MarketingBudget(+spend)** · Utilities: **UtilityMeter(+readings)** · Requests/maintenance:
-**TenantRequest(+comments), MaintenancePlan, MaintenanceWorkOrder(+items)** · Vendor engagement:
+**TenantRequest(+comments), ServicePlan, FacilityWorkOrder(+items)** · Vendor engagement:
 **VendorContract, VendorBill(+payments)** · HR: **Employee(+advances/repayments), Payroll(+lines),
 Custody(+transactions)** · Fixed assets: **FixedAsset(+depreciation/disposal)** · Inventory:
 **Warehouse, StockMovement** · GL & direct spend: **JournalEntry(+lines carry the `asset_id` dimension),
@@ -130,7 +130,7 @@ which already carry `asset_id`.
 ## 5. The verified write-side gaps (P0)
 
 `assertAssetInScope()` exists and is used correctly on **Employee, FixedAsset, Warehouse, Custody,
-MaintenanceWorkOrder, MaintenancePlan**. It is **missing** on these 5 (all direct `asset_id`, all
+FacilityWorkOrder, ServicePlan**. It is **missing** on these 5 (all direct `asset_id`, all
 GL-posting):
 
 | Resource | Missing guard | Leak in All-Properties mode |

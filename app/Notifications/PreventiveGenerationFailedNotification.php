@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\MaintenancePlan;
+use App\Models\ServicePlan;
 use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
@@ -28,7 +28,7 @@ class PreventiveGenerationFailedNotification extends Notification
     use AlsoSendsByMail;
     use Queueable;
 
-    public function __construct(public MaintenancePlan $plan, public string $reason) {}
+    public function __construct(public ServicePlan $plan, public string $reason) {}
 
     public function via(object $notifiable): array
     {
@@ -39,7 +39,7 @@ class PreventiveGenerationFailedNotification extends Notification
     {
         return [
             'type' => 'preventive_generation_failed',
-            'maintenance_plan_id' => $this->plan->id,
+            'service_plan_id' => $this->plan->id,
             'title' => __('admin.notifications.ppm_generation_failed_title'),
             'body' => __('admin.notifications.ppm_generation_failed_body', [
                 'plan' => (string) $this->plan->title,

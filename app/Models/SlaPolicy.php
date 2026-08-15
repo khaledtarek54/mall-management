@@ -22,7 +22,7 @@ class SlaPolicy extends Model
 
     protected $table = 'sla_policies';
 
-    /** Mirrors MaintenanceWorkOrder::PRIORITIES — the tiers must not drift apart. */
+    /** Mirrors FacilityWorkOrder::PRIORITIES — the tiers must not drift apart. */
     public const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 
     protected $fillable = [

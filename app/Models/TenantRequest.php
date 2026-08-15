@@ -283,7 +283,7 @@ class TenantRequest extends Model implements HasMedia
      */
     public function workOrders(): HasMany
     {
-        return $this->hasMany(MaintenanceWorkOrder::class, 'tenant_request_id');
+        return $this->hasMany(FacilityWorkOrder::class, 'tenant_request_id');
     }
 
     /** Is there facility work on record for this request? (FR-USR-06 evidence.) */

@@ -50,11 +50,11 @@ use App\Models\LeaseOption;
 use App\Models\LeasePercentageRentTier;
 use App\Models\LedgerAccount;
 use App\Models\LowStockAlert;
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderItem;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\SlaPenalty;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderItem;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
@@ -196,9 +196,9 @@ class PropertyIsolation
         DepositTransaction::class => null,     // asset_id derived from the lease in the model's saving hook
         VendorBill::class => null,             // asset_id nullable = property the expense belongs to
         VendorContract::class => null,
-        MaintenancePlan::class => null,
-        MaintenanceWorkOrder::class => null,
-        MaintenancePenalty::class => null,   // asset_id copied from the breaching work order
+        ServicePlan::class => null,
+        FacilityWorkOrder::class => null,
+        SlaPenalty::class => null,   // asset_id copied from the breaching work order
         OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
         OwnerRequestReply::class => 'ownerRequest', // a reply reaches its property through its request; no resource of its own (posted via the Reply action)
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
@@ -243,8 +243,8 @@ class PropertyIsolation
         CamAllocation::class => 'pool',
         JournalLine::class => 'entry',
         PayrollLine::class => 'payroll',
-        MaintenanceWorkOrderItem::class => 'workOrder',
-        MaintenanceWorkOrderPart::class => 'workOrder',
+        FacilityWorkOrderItem::class => 'workOrder',
+        FacilityWorkOrderPart::class => 'workOrder',
         // A change order reaches its property through the contract it varies. No Filament
         // resource of its own — recorded via the "Add change order" action on the vendor's
         // contracts list, which is already property-scoped.

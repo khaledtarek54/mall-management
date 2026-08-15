@@ -2,7 +2,7 @@
 
 use App\Filament\Admin\Resources\Expenses\Pages\ListExpenses;
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\ListMaintenanceWorkOrders;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
 use App\Filament\Admin\Resources\Payments\Pages\ListPayments;
 use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Filament\Admin\Resources\VendorBills\Pages\ListVendorBills;
@@ -63,7 +63,7 @@ it('offers the grouping and still returns rows when it is selected', function (s
     // How a leasing manager physically walks the mall.
     [ListUnits::class, 'floor.name'],
     // The dispatcher's board.
-    [ListMaintenanceWorkOrders::class, 'status'],
+    [ListFacilityWorkOrders::class, 'status'],
     // The axis the owner's cost report is built on.
     [ListExpenses::class, 'category'],
     // The AP conversation: what we owe this vendor across all its bills.
@@ -78,7 +78,7 @@ it('never applies a grouping the operator did not choose', function () {
             ListInvoices::class,
             ListPayments::class,
             ListUnits::class,
-            ListMaintenanceWorkOrders::class,
+            ListFacilityWorkOrders::class,
             ListExpenses::class,
             ListVendorBills::class,
         ] as $page) {

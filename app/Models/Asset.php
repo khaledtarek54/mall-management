@@ -199,7 +199,7 @@ class Asset extends Model implements HasMedia
     // REFUSE deleting a property that carries money / GL / HR history. Without them, a property with
     // financial history but no units was deletable, and a force-delete cascade-destroyed the money
     // and statutory records outright (their asset_id FK is cascadeOnDelete — including a
-    // NEVER-deletable MaintenancePenalty — bypassing every model guard). journalEntries is the GL
+    // NEVER-deletable SlaPenalty — bypassing every model guard). journalEntries is the GL
     // catch-all (every posting stamps asset_id); the direct money records are listed too so an
     // UNposted one still blocks. Pre-go-live deletion-policy review.
 
@@ -230,7 +230,7 @@ class Asset extends Model implements HasMedia
 
     public function maintenancePenalties(): HasMany
     {
-        return $this->hasMany(MaintenancePenalty::class);
+        return $this->hasMany(SlaPenalty::class);
     }
 
     public function depositTransactions(): HasMany

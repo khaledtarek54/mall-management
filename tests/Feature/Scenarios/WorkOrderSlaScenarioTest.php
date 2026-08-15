@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\MaintenanceWorkOrder;
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Notifications\WorkOrderSlaBreachedNotification;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -14,13 +14,13 @@ use Illuminate\Support\Facades\Notification;
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
-    $this->svc = app(MaintenanceWorkOrderService::class);
+    $this->svc = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'SLA']);
 });
 
-function cm(array $attrs = []): MaintenanceWorkOrder
+function cm(array $attrs = []): FacilityWorkOrder
 {
-    return MaintenanceWorkOrder::create(array_merge([
+    return FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id,
         'work_order_type' => 'cm',
         'execution_type' => 'internal',
@@ -150,7 +150,7 @@ it('uses the property override, not the global default, when starting the clock'
 
 it('does not put a preventive order on an SLA clock', function () {
     // PPM is scheduled work — its date is the plan's, not a response deadline.
-    $ppm = MaintenanceWorkOrder::create([
+    $ppm = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'title' => 'Scheduled visit', 'category' => 'hvac',
         'scheduled_for' => '2026-07-01',
     ]);
@@ -171,7 +171,7 @@ it('alerts operators once when an accepted job runs past its SLA', function () {
     $this->svc->transition($order, 'in_progress');
 
     $this->travel(3)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches')->assertSuccessful();
 
     Notification::assertSentTimes(WorkOrderSlaBreachedNotification::class, 1);
     expect($order->fresh()->sla_breach_notified_at)->not->toBeNull();
@@ -189,7 +189,7 @@ it('alerts owner Jawad on a late facility job too (FR MNT-5 / NOT-2), like the t
     $this->svc->transition($order, 'in_progress');
 
     $this->travel(3)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+    $this->artisan('facility:scan-sla-breaches')->assertSuccessful();
 
     Notification::assertSentTo($owner, WorkOrderSlaBreachedNotification::class); // was silently omitted
 });
@@ -202,8 +202,8 @@ it('does not alert twice for the same breach', function () {
     $this->svc->transition(cm(['priority' => 'urgent']), 'in_progress');
 
     $this->travel(3)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches');
-    $this->artisan('maintenance:scan-wo-sla-breaches');
+    $this->artisan('facility:scan-sla-breaches');
+    $this->artisan('facility:scan-sla-breaches');
 
     Notification::assertSentTimes(WorkOrderSlaBreachedNotification::class, 1);
 });
@@ -215,7 +215,7 @@ it('does not alert on a job that is still within its SLA', function () {
     $this->svc->transition(cm(['priority' => 'urgent']), 'in_progress');
 
     $this->travel(2)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches');
+    $this->artisan('facility:scan-sla-breaches');
 
     Notification::assertNothingSent();
 });
@@ -229,7 +229,7 @@ it('does not alert on a job that was finished before its deadline passed', funct
     $this->svc->transition($order->fresh(), 'done');
 
     $this->travel(5)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches');
+    $this->artisan('facility:scan-sla-breaches');
 
     Notification::assertNothingSent();
 });
@@ -242,7 +242,7 @@ it('stamps a breach even when the property has no staff to alert', function () {
     $this->svc->transition($order, 'in_progress');
 
     $this->travel(3)->hours();
-    $this->artisan('maintenance:scan-wo-sla-breaches');
+    $this->artisan('facility:scan-sla-breaches');
 
     Notification::assertNothingSent();
     expect($order->fresh()->sla_breach_notified_at)->not->toBeNull();
@@ -253,12 +253,12 @@ it('never alerts on a preventive order', function () {
     makeUser('operations', [$this->asset->id]);
     // Hand-set a target on a PPM order — the scan must still ignore it, because SLA is a
     // corrective concept and a scheduled visit is not "late".
-    $ppm = MaintenanceWorkOrder::create([
+    $ppm = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'title' => 'Visit', 'category' => 'hvac',
         'scheduled_for' => '2026-07-01', 'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-wo-sla-breaches');
+    $this->artisan('facility:scan-sla-breaches');
 
     Notification::assertNothingSent();
     expect($ppm->fresh()->sla_breach_notified_at)->toBeNull();

@@ -27,13 +27,13 @@ class SlaPoliciesTable
             ->modifyQueryUsing(fn ($query) => $query->with('asset'))
             ->columns([
                 TextColumn::make('asset.name')
-                    ->label(__('admin.preventive_maintenance.fields.property'))
+                    ->label(__('admin.facility.fields.property'))
                     ->badge()->color('gray')
                     ->sortable(),
                 TextColumn::make('priority')
-                    ->label(__('admin.preventive_maintenance.fields.priority'))
+                    ->label(__('admin.facility.fields.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.preventive_maintenance.priorities.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.facility.priorities.{$state}"))
                     ->color(fn (string $state) => match ($state) {
                         'urgent' => 'danger',
                         'high' => 'warning',
@@ -42,21 +42,21 @@ class SlaPoliciesTable
                     })
                     ->sortable(),
                 TextColumn::make('resolve_hours')
-                    ->label(__('admin.preventive_maintenance.sla.hours'))
+                    ->label(__('admin.facility.sla.hours'))
                     // Against the operator-wide default, so the point of the override reads
                     // at a glance instead of needing the settings page open alongside.
                     ->description(fn (SlaPolicy $record) => $record->is_active
-                        ? __('admin.preventive_maintenance.sla.global_default').': '.SlaResolver::globalHoursFor($record->priority).'h'
-                        : __('admin.preventive_maintenance.sla.inactive_note'))
+                        ? __('admin.facility.sla.global_default').': '.SlaResolver::globalHoursFor($record->priority).'h'
+                        : __('admin.facility.sla.inactive_note'))
                     ->color(fn (SlaPolicy $record) => $record->is_active ? null : 'gray')
                     ->sortable(),
                 IconColumn::make('is_active')
-                    ->label(__('admin.preventive_maintenance.fields.active'))
+                    ->label(__('admin.facility.fields.active'))
                     ->boolean(),
             ])
             ->filters([
                 TernaryFilter::make('is_active')
-                    ->label(__('admin.preventive_maintenance.fields.active')),
+                    ->label(__('admin.facility.fields.active')),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

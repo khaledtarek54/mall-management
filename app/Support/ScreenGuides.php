@@ -53,8 +53,8 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
-use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
@@ -157,8 +157,8 @@ class ScreenGuides
 
         // ── Operations ────────────────────────────────────────────────────────────────────────
         TenantRequestResource::class => 'tenant_requests',
-        MaintenanceWorkOrderResource::class => 'work_orders',
-        MaintenancePlanResource::class => 'maintenance_plans',
+        FacilityWorkOrderResource::class => 'work_orders',
+        ServicePlanResource::class => 'service_plans',
         EquipmentResource::class => 'equipment',
         SlaPolicyResource::class => 'sla_policies',
         ViolationResource::class => 'violations',

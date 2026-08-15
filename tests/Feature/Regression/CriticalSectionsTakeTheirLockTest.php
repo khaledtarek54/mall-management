@@ -1,13 +1,13 @@
 <?php
 
 use App\Models\Invoice;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use App\Services\ApplyTenantCreditService;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use App\Services\LateFeeService;
 use App\Services\LeaseCreationService;
-use App\Services\MaintenanceWorkOrderService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\VoidInvoiceService;
 use App\Support\ConcurrencyPolicy;
 use Carbon\CarbonImmutable;
@@ -136,7 +136,7 @@ it('locks the invoice and the tenant before spending on-account credit', functio
 
 it('locks the plan before advancing its next due date', function () {
     // Re-checked under the lock, so two overlapping sweeps cannot raise two orders for one cycle.
-    MaintenancePlan::create([
+    ServicePlan::create([
         'asset_id' => $this->asset->id, 'title' => 'Lift inspection', 'category' => 'safety',
         'frequency_unit' => 'months', 'frequency_value' => 1,
         'next_due_date' => '2026-05-01', 'is_active' => true,
@@ -144,27 +144,27 @@ it('locks the plan before advancing its next due date', function () {
 
     $spy = LockSpy::watch(fn () => app(GeneratePreventiveWorkOrdersService::class)->run('2026-05-02'));
 
-    expect($spy->locked('maintenance_plans'))->toBeTrue(
-        'GeneratePreventiveWorkOrdersService took no lock on `maintenance_plans`. Locked: '
+    expect($spy->locked('service_plans'))->toBeTrue(
+        'GeneratePreventiveWorkOrdersService took no lock on `service_plans`. Locked: '
         .implode(', ', $spy->lockedTables()));
 });
 
 it('locks the work order as the aggregate root for its checklist', function () {
     // Every mutation of the order OR its items goes through this one lock, which is why the items
     // table is deliberately never locked directly.
-    $order = MaintenanceWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id,
-        'work_order_type' => MaintenanceWorkOrder::TYPE_CM,
+        'work_order_type' => FacilityWorkOrder::TYPE_CM,
         'execution_type' => 'internal',
         'title' => 'Chiller', 'description' => 'Down', 'category' => 'hvac',
         'status' => 'open', 'priority' => 'high', 'scheduled_for' => now()->toDateString(),
     ]);
 
-    $spy = LockSpy::watch(fn () => app(MaintenanceWorkOrderService::class)
+    $spy = LockSpy::watch(fn () => app(FacilityWorkOrderService::class)
         ->transition($order->fresh(), 'in_progress'));
 
-    expect($spy->locked('maintenance_work_orders'))->toBeTrue(
-        'MaintenanceWorkOrderService took no lock on `maintenance_work_orders`. Locked: '
+    expect($spy->locked('facility_work_orders'))->toBeTrue(
+        'FacilityWorkOrderService took no lock on `facility_work_orders`. Locked: '
         .implode(', ', $spy->lockedTables()));
 });
 
@@ -190,7 +190,7 @@ it('names a real service for every PROVEN entry', function () {
     // The registry's PROVEN tier claims these are driven through a LockSpy test. If an entry is
     // added without one, the tier means nothing — it becomes a second REGISTERED with a nicer name.
     $covered = ['LeaseCreationService', 'LateFeeService', 'VoidInvoiceService',
-        'ApplyTenantCreditService', 'GeneratePreventiveWorkOrdersService', 'MaintenanceWorkOrderService'];
+        'ApplyTenantCreditService', 'GeneratePreventiveWorkOrdersService', 'FacilityWorkOrderService'];
 
     $claimed = collect(array_keys(ConcurrencyPolicy::PROVEN))
         ->map(fn (string $p): string => basename($p, '.php'))

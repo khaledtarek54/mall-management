@@ -186,6 +186,24 @@
         "note": null
     },
     {
+        "model": "FacilityWorkOrder",
+        "label": "Facility Work Order",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "FacilityWorkOrderItem",
+        "label": "Facility Work Order Item",
+        "classification": "owned",
+        "note": "workOrder"
+    },
+    {
+        "model": "FacilityWorkOrderPart",
+        "label": "Facility Work Order Part",
+        "classification": "owned",
+        "note": "workOrder"
+    },
+    {
         "model": "FiscalYear",
         "label": "Fiscal Year",
         "classification": "shared",
@@ -286,36 +304,6 @@
         "label": "Low Stock Alert",
         "classification": "owned",
         "note": null
-    },
-    {
-        "model": "MaintenancePenalty",
-        "label": "Maintenance Penalty",
-        "classification": "owned",
-        "note": null
-    },
-    {
-        "model": "MaintenancePlan",
-        "label": "Maintenance Plan",
-        "classification": "owned",
-        "note": null
-    },
-    {
-        "model": "MaintenanceWorkOrder",
-        "label": "Maintenance Work Order",
-        "classification": "owned",
-        "note": null
-    },
-    {
-        "model": "MaintenanceWorkOrderItem",
-        "label": "Maintenance Work Order Item",
-        "classification": "owned",
-        "note": "workOrder"
-    },
-    {
-        "model": "MaintenanceWorkOrderPart",
-        "label": "Maintenance Work Order Part",
-        "classification": "owned",
-        "note": "workOrder"
     },
     {
         "model": "MarketingBudget",
@@ -429,6 +417,18 @@
         "model": "SavedReport",
         "label": "Saved Report",
         "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "ServicePlan",
+        "label": "Service Plan",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "SlaPenalty",
+        "label": "Sla Penalty",
+        "classification": "owned",
         "note": null
     },
     {

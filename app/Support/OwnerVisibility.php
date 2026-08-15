@@ -88,7 +88,7 @@ class OwnerVisibility
 
         // ---- Their property being looked after ----
         'requests' => 'The request board for their property.',
-        'preventive_maintenance' => 'The plans that keep their plant running.',
+        'facility' => 'The plans that keep their plant running.',
     ];
 
     /**

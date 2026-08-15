@@ -147,13 +147,13 @@ class Equipment extends Model
     /** Preventive schedules servicing this machine (FR-PPM-01/03). */
     public function maintenancePlans(): HasMany
     {
-        return $this->hasMany(MaintenancePlan::class);
+        return $this->hasMany(ServicePlan::class);
     }
 
     /** Jobs raised against this machine — its maintenance history. */
     public function workOrders(): HasMany
     {
-        return $this->hasMany(MaintenanceWorkOrder::class);
+        return $this->hasMany(FacilityWorkOrder::class);
     }
 
     public function scopeRoots(Builder $query): Builder

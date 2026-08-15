@@ -35,7 +35,7 @@ class Modules
         'fixed_assets',
         'employees',
         'custodies',
-        'preventive_maintenance',
+        'facility',
         'procurement',
         // The shopper-facing feed (module 36). Toggleable because it is the one module whose value
         // depends on something outside this system existing — a mall with no visitor app has

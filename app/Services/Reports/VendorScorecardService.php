@@ -2,8 +2,8 @@
 
 namespace App\Services\Reports;
 
-use App\Models\MaintenancePenalty;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\SlaPenalty;
+use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -35,15 +35,15 @@ class VendorScorecardService
      */
     public function for(CarbonImmutable $start, CarbonImmutable $end, ?int $assetId = null): Collection
     {
-        $orders = MaintenanceWorkOrder::query()
+        $orders = FacilityWorkOrder::query()
             ->whereNotNull('vendor_id')
             ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
             ->whereBetween('created_at', [$start->startOfDay(), $end->endOfDay()])
             ->get()
             ->groupBy('vendor_id');
 
-        $penalties = MaintenancePenalty::query()
-            ->where('status', MaintenancePenalty::STATUS_APPLIED)
+        $penalties = SlaPenalty::query()
+            ->where('status', SlaPenalty::STATUS_APPLIED)
             ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
             ->whereBetween('applied_at', [$start->startOfDay(), $end->endOfDay()])
             ->get()
@@ -65,11 +65,11 @@ class VendorScorecardService
                 continue;
             }
 
-            /** @var Collection<int, MaintenanceWorkOrder> $vendorOrders */
+            /** @var Collection<int, FacilityWorkOrder> $vendorOrders */
             $vendorOrders = $orders->get($vendorId, collect());
             $vendorPenalties = $penalties->get($vendorId, collect());
 
-            $completed = $vendorOrders->filter(fn (MaintenanceWorkOrder $o) => $o->completed_at !== null);
+            $completed = $vendorOrders->filter(fn (FacilityWorkOrder $o) => $o->completed_at !== null);
 
             $rows->push([
                 'vendor' => $vendor,
@@ -83,7 +83,7 @@ class VendorScorecardService
                 'avg_resolution_hours' => self::averageHours($vendorOrders, 'created_at', 'completed_at'),
                 // Breached its target, whether or not anyone penalised it — the two are
                 // different facts and a vendor is not owed the benefit of an un-chased breach.
-                'sla_breaches' => $vendorOrders->filter(fn (MaintenanceWorkOrder $o) => self::breached($o))->count(),
+                'sla_breaches' => $vendorOrders->filter(fn (FacilityWorkOrder $o) => self::breached($o))->count(),
                 'penalties_applied' => $vendorPenalties->count(),
                 'penalty_total' => round((float) $vendorPenalties->sum('amount'), 2),
                 'expired_documents' => $vendor->documents()
@@ -100,7 +100,7 @@ class VendorScorecardService
     }
 
     /** Did this order miss its target? Unresolved past its target counts — it is still late. */
-    private static function breached(MaintenanceWorkOrder $order): bool
+    private static function breached(FacilityWorkOrder $order): bool
     {
         if ($order->target_resolution_at === null) {
             return false;
@@ -120,13 +120,13 @@ class VendorScorecardService
      * and appear instant — the absence of a stamp is the finding, and it shows in the count columns
      * beside this one.
      *
-     * @param  Collection<int, MaintenanceWorkOrder>  $orders
+     * @param  Collection<int, FacilityWorkOrder>  $orders
      */
     private static function averageHours(Collection $orders, string $from, string $to): ?float
     {
         $spans = $orders
-            ->filter(fn (MaintenanceWorkOrder $o) => $o->{$from} !== null && $o->{$to} !== null)
-            ->map(fn (MaintenanceWorkOrder $o) => $o->{$from}->diffInMinutes($o->{$to}) / 60);
+            ->filter(fn (FacilityWorkOrder $o) => $o->{$from} !== null && $o->{$to} !== null)
+            ->map(fn (FacilityWorkOrder $o) => $o->{$from}->diffInMinutes($o->{$to}) / 60);
 
         return $spans->isEmpty() ? null : round((float) $spans->avg(), 1);
     }

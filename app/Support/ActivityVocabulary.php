@@ -17,8 +17,8 @@ use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\LedgerAccount;
-use App\Models\MaintenancePlan;
-use App\Models\MaintenanceWorkOrder;
+use App\Models\ServicePlan;
+use App\Models\FacilityWorkOrder;
 use App\Models\MarketingBudget;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
@@ -79,7 +79,7 @@ class ActivityVocabulary
         'employee.status' => 'admin.employees.statuses',
         'fixed_asset.status' => 'admin.fixed_assets.statuses',
         'lease_option.status' => 'admin.lease_options.statuses',
-        'maintenance_work_order.status' => 'admin.preventive_maintenance.statuses',
+        'facility_work_order.status' => 'admin.facility.statuses',
         'marketing_budget.status' => 'admin.enums.marketing_budget_status',
         'marketing_post.status' => 'admin.marketing_posts.statuses',
         'owner_request.status' => 'admin.owner_requests.statuses',
@@ -116,18 +116,18 @@ class ActivityVocabulary
         'employee_advance.paid_from' => 'admin.enums.expense_paid_from',
         'employee_advance.type' => 'admin.employees.types',
         'employee_advance_repayment.method' => 'admin.employees.methods',
-        'equipment.category' => 'admin.preventive_maintenance.categories',
+        'equipment.category' => 'admin.facility.categories',
         'expense.category' => 'admin.enums.vendor_bill_category',
         'expense.paid_from' => 'admin.enums.expense_paid_from',
         'fixed_asset_disposal.proceeds_account' => 'admin.enums.cash_or_bank',
         'inventory_item.unit' => 'admin.enums.inventory_unit',
         'ledger_account.type' => 'admin.enums.ledger_account_type',
         'lease_option.type' => 'admin.lease_options.types',
-        'maintenance_plan.category' => 'admin.preventive_maintenance.categories',
-        'maintenance_plan.frequency_unit' => 'admin.preventive_maintenance.frequency_units',
-        'maintenance_plan.maintenance_type' => 'admin.preventive_maintenance.maintenance_types',
-        'maintenance_work_order.category' => 'admin.enums.work_category',
-        'maintenance_work_order.priority' => 'admin.enums.work_priority',
+        'service_plan.category' => 'admin.facility.categories',
+        'service_plan.frequency_unit' => 'admin.facility.frequency_units',
+        'service_plan.plan_type' => 'admin.facility.plan_types',
+        'facility_work_order.category' => 'admin.enums.work_category',
+        'facility_work_order.priority' => 'admin.enums.work_priority',
         'marketing_spend.category' => 'admin.enums.marketing_spend_category',
         'marketing_spend.paid_from' => 'admin.enums.expense_paid_from',
         'note.channel' => 'admin.enums.note_channel',
@@ -198,11 +198,11 @@ class ActivityVocabulary
         'invoice_id' => Invoice::class,
         'lease_id' => Lease::class,
         'ledger_account_id' => LedgerAccount::class,
-        'maintenance_plan_id' => MaintenancePlan::class,
+        'service_plan_id' => ServicePlan::class,
         'marketing_budget_id' => MarketingBudget::class,
         'owner_statement_id' => OwnerStatement::class,
         'owner_statement_run_id' => OwnerStatementRun::class,
-        'parent_work_order_id' => MaintenanceWorkOrder::class,
+        'parent_work_order_id' => FacilityWorkOrder::class,
         'tax_code_id' => TaxCode::class,
         'tenant_id' => Tenant::class,
         'tenant_request_id' => TenantRequest::class,

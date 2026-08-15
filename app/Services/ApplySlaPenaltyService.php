@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\MaintenancePenalty;
+use App\Models\SlaPenalty;
 use App\Models\VendorBill;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -23,11 +23,11 @@ class ApplySlaPenaltyService
      *
      * @throws DomainException when the penalty or bill isn't eligible
      */
-    public function toBill(MaintenancePenalty $penalty, VendorBill $bill): MaintenancePenalty
+    public function toBill(SlaPenalty $penalty, VendorBill $bill): SlaPenalty
     {
         return DB::transaction(function () use ($penalty, $bill) {
-            /** @var MaintenancePenalty $lockedPenalty */
-            $lockedPenalty = MaintenancePenalty::whereKey($penalty->getKey())->lockForUpdate()->firstOrFail();
+            /** @var SlaPenalty $lockedPenalty */
+            $lockedPenalty = SlaPenalty::whereKey($penalty->getKey())->lockForUpdate()->firstOrFail();
             /** @var VendorBill $lockedBill */
             $lockedBill = VendorBill::whereKey($bill->getKey())->lockForUpdate()->firstOrFail();
 
@@ -35,7 +35,7 @@ class ApplySlaPenaltyService
             $this->assertBillEligible($lockedPenalty, $lockedBill);
 
             $lockedPenalty->update([
-                'status' => MaintenancePenalty::STATUS_APPLIED,
+                'status' => SlaPenalty::STATUS_APPLIED,
                 'vendor_bill_id' => $lockedBill->getKey(),
                 'applied_at' => now(),
             ]);
@@ -54,20 +54,20 @@ class ApplySlaPenaltyService
      *
      * @throws DomainException if it isn't currently applied
      */
-    public function detach(MaintenancePenalty $penalty): MaintenancePenalty
+    public function detach(SlaPenalty $penalty): SlaPenalty
     {
         return DB::transaction(function () use ($penalty) {
-            /** @var MaintenancePenalty $locked */
-            $locked = MaintenancePenalty::whereKey($penalty->getKey())->lockForUpdate()->firstOrFail();
+            /** @var SlaPenalty $locked */
+            $locked = SlaPenalty::whereKey($penalty->getKey())->lockForUpdate()->firstOrFail();
 
             if (! $locked->isApplied()) {
-                throw new DomainException(__('admin.preventive_maintenance.errors.penalty_not_applied'));
+                throw new DomainException(__('admin.facility.errors.penalty_not_applied'));
             }
 
             $bill = $locked->bill;
 
             $locked->update([
-                'status' => MaintenancePenalty::STATUS_FINAL,
+                'status' => SlaPenalty::STATUS_FINAL,
                 'vendor_bill_id' => null,
                 'applied_at' => null,
             ]);
@@ -79,46 +79,46 @@ class ApplySlaPenaltyService
     }
 
     /** @throws DomainException */
-    private function assertChargeable(MaintenancePenalty $penalty): void
+    private function assertChargeable(SlaPenalty $penalty): void
     {
         if ($penalty->isApplied()) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_already_applied'));
+            throw new DomainException(__('admin.facility.errors.penalty_already_applied'));
         }
 
         if ($penalty->isWaived()) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_is_waived'));
+            throw new DomainException(__('admin.facility.errors.penalty_is_waived'));
         }
 
         // `pending` means the job is still open and the amount can still move — charging it
         // would deduct a figure that is about to change.
         if (! $penalty->isChargeable()) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_still_accruing'));
+            throw new DomainException(__('admin.facility.errors.penalty_still_accruing'));
         }
     }
 
     /** @throws DomainException */
-    private function assertBillEligible(MaintenancePenalty $penalty, VendorBill $bill): void
+    private function assertBillEligible(SlaPenalty $penalty, VendorBill $bill): void
     {
         // You cannot deduct one vendor's penalty from another vendor's bill.
         if ((int) $bill->vendor_id !== (int) $penalty->vendor_id) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_wrong_vendor'));
+            throw new DomainException(__('admin.facility.errors.penalty_wrong_vendor'));
         }
 
         // ...nor from another PROPERTY's bill. A vendor commonly serves several malls, so
         // vendor_id alone is not the same question as asset_id — that is exactly why this
-        // was missed. MaintenancePenaltyJournalizer dimensions the entry to `$bill->asset_id`
+        // was missed. SlaPenaltyJournalizer dimensions the entry to `$bill->asset_id`
         // ("the two must land in the same books to net off"), which is only true when the two
         // properties agree: charging AAA's penalty to BBB's bill makes BBB absorb a recovery
         // it never earned, and AAA never sees it. The exact sibling of the cross-property
         // stock draw that WorkOrderPartService::assertWarehouseServesOrder() already blocks.
         if ((int) $bill->asset_id !== (int) $penalty->asset_id) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_wrong_property'));
+            throw new DomainException(__('admin.facility.errors.penalty_wrong_property'));
         }
 
         // A draft bill isn't on the books yet and a cancelled one owes nothing — deducting
         // from either would post a GL entry against a payable that does not exist.
         if (! $bill->isPostable()) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_bill_not_postable'));
+            throw new DomainException(__('admin.facility.errors.penalty_bill_not_postable'));
         }
 
         // Never let a deduction exceed what is still payable: AP would go negative, which
@@ -126,7 +126,7 @@ class ApplySlaPenaltyService
         $available = round((float) $bill->balance, 2);
 
         if (round((float) $penalty->amount, 2) > $available) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_exceeds_bill', [
+            throw new DomainException(__('admin.facility.errors.penalty_exceeds_bill', [
                 'amount' => number_format((float) $penalty->amount, 2),
                 'balance' => number_format($available, 2),
             ]));

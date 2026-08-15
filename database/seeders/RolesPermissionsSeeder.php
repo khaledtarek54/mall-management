@@ -324,17 +324,17 @@ class RolesPermissionsSeeder extends Seeder
             'violations.delete' => 'Delete tenant violations',
             'violations.notify' => 'Send a violation notice to the tenant (FR-REQ-17)',
         ],
-        'preventive_maintenance' => [
-            'preventive_maintenance.view' => 'View preventive-maintenance plans & work orders',
-            'preventive_maintenance.create' => 'Create preventive-maintenance plans / work orders',
-            'preventive_maintenance.edit' => 'Edit preventive-maintenance plans / work orders',
-            'preventive_maintenance.delete' => 'Delete preventive-maintenance plans / work orders',
-            'preventive_maintenance.complete' => 'Complete a work order (tick checklist items, mark done)',
+        'facility' => [
+            'facility.view' => 'View preventive-maintenance plans & work orders',
+            'facility.create' => 'Create preventive-maintenance plans / work orders',
+            'facility.edit' => 'Edit preventive-maintenance plans / work orders',
+            'facility.delete' => 'Delete preventive-maintenance plans / work orders',
+            'facility.complete' => 'Complete a work order (tick checklist items, mark done)',
             // FR-CM-12/13. Deliberately NOT granted to operations: recording what you found is
             // engineering, but ruling that a TENANT is financially responsible is a commercial
             // claim. Manager inherits it via the blanket non-delete grant.
-            'preventive_maintenance.view_all' => 'See every work order, not only your own assignments (FR-USR-04)',
-            'preventive_maintenance.attribute_fault' => 'Rule on who caused a failure and who bears the cost (FR-CM-12/13)',
+            'facility.view_all' => 'See every work order, not only your own assignments (FR-USR-04)',
+            'facility.attribute_fault' => 'Rule on who caused a failure and who bears the cost (FR-CM-12/13)',
         ],
         'deposit_transactions' => [
             'deposit_transactions.view' => 'View security-deposit transactions',
@@ -592,10 +592,10 @@ class RolesPermissionsSeeder extends Seeder
         $grants['operations'] = [
             'requests.view', 'requests.create', 'requests.edit',
             // Dispatch IS oversight — you cannot assign work you cannot see (FR-USR-04).
-            'requests.view_all', 'preventive_maintenance.view_all',
+            'requests.view_all', 'facility.view_all',
             'requests.assign', 'requests.change_status',
-            'preventive_maintenance.view', 'preventive_maintenance.create',
-            'preventive_maintenance.edit', 'preventive_maintenance.complete',
+            'facility.view', 'facility.create',
+            'facility.edit', 'facility.complete',
             // Facility zones — operations owns the mall's operational layout.
             'areas.view', 'areas.create', 'areas.edit',
             // Tenant violations (FR-REQ-15/16/17) — operations records + notices them.
@@ -613,13 +613,13 @@ class RolesPermissionsSeeder extends Seeder
 
         // FR-USR-04 — the technician: does the work, sees only their own.
         //
-        // Note what is ABSENT: `requests.view_all` and `preventive_maintenance.view_all`. That
+        // Note what is ABSENT: `requests.view_all` and `facility.view_all`. That
         // absence is the entire feature — AssignmentScope restricts anyone lacking them. They can
         // complete the job they are holding and nothing else; assigning work is a coordinator's
         // job, and `.assign` is withheld for the same reason.
         $grants['technician'] = [
             'requests.view', 'requests.change_status',
-            'preventive_maintenance.view', 'preventive_maintenance.complete',
+            'facility.view', 'facility.complete',
             'notes.view', 'notes.create',
         ];
 
@@ -630,8 +630,8 @@ class RolesPermissionsSeeder extends Seeder
         $grants['coordinator'] = [
             'requests.view', 'requests.create', 'requests.edit',
             'requests.view_all', 'requests.assign', 'requests.change_status',
-            'preventive_maintenance.view', 'preventive_maintenance.view_all',
-            'preventive_maintenance.create', 'preventive_maintenance.edit', 'preventive_maintenance.complete',
+            'facility.view', 'facility.view_all',
+            'facility.create', 'facility.edit', 'facility.complete',
             // Facility zones — the coordinator routes work by zone (FR routing, later slice).
             'areas.view', 'areas.create', 'areas.edit',
             // Tenant violations (FR-REQ-15/16/17) — the coordinator records + notices them.
@@ -664,7 +664,7 @@ class RolesPermissionsSeeder extends Seeder
         // follow-up, not the admin import right.
         $grants['vendor'] = [
             'requests.view', 'requests.view_all',
-            'preventive_maintenance.view', 'preventive_maintenance.view_all',
+            'facility.view', 'facility.view_all',
             'notes.view',
         ];
 

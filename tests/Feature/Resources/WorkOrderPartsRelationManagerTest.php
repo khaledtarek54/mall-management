@@ -1,11 +1,11 @@
 <?php
 
 use App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager;
-use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\EditMaintenanceWorkOrder;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\EditFacilityWorkOrder;
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
-use App\Models\MaintenanceWorkOrder;
-use App\Models\MaintenanceWorkOrderPart;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
@@ -31,22 +31,22 @@ beforeEach(function () {
         'warehouse_id' => $this->warehouse->id, 'inventory_item_id' => $this->item->id,
         'type' => 'receipt', 'quantity' => 500, 'unit_cost' => 100,
     ]);
-    $this->order = MaintenanceWorkOrder::create([
+    $this->order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'description' => 'Pump leaking', 'title' => 'Fix pump', 'category' => 'plumbing',
         'scheduled_for' => '2026-07-01',
     ]);
 });
 
-function partsRM(MaintenanceWorkOrder $order)
+function partsRM(FacilityWorkOrder $order)
 {
     return Livewire::test(WorkOrderPartsRelationManager::class, [
         'ownerRecord' => $order,
-        'pageClass' => EditMaintenanceWorkOrder::class,
+        'pageClass' => EditFacilityWorkOrder::class,
     ]);
 }
 
-function requestPart(float $qty = 2): MaintenanceWorkOrderPart
+function requestPart(float $qty = 2): FacilityWorkOrderPart
 {
     return app(WorkOrderPartService::class)->requestInternal(test()->order, [
         'inventory_item_id' => test()->item->id, 'warehouse_id' => test()->warehouse->id, 'quantity' => $qty,
@@ -68,7 +68,7 @@ it('renders both sources and every status with rows', function () {
 
     partsRM($this->order)
         ->assertSuccessful()
-        ->assertCanSeeTableRecords(MaintenanceWorkOrderPart::where('maintenance_work_order_id', $this->order->id)->get())
+        ->assertCanSeeTableRecords(FacilityWorkOrderPart::where('facility_work_order_id', $this->order->id)->get())
         ->assertSee('Pump seal')
         ->assertSee('Bespoke gasket');
 });
@@ -83,8 +83,8 @@ it('requests an internal part without moving stock', function () {
         ])
         ->assertHasNoTableActionErrors();
 
-    $part = MaintenanceWorkOrderPart::where('maintenance_work_order_id', $this->order->id)->sole();
-    expect($part->status)->toBe(MaintenanceWorkOrderPart::STATUS_PENDING);
+    $part = FacilityWorkOrderPart::where('facility_work_order_id', $this->order->id)->sole();
+    expect($part->status)->toBe(FacilityWorkOrderPart::STATUS_PENDING);
     expect((float) StockMovement::where('inventory_item_id', $this->item->id)->sum('quantity'))->toBe($before);
 });
 
@@ -97,8 +97,8 @@ it('records an external purchase with no approval', function () {
         ])
         ->assertHasNoTableActionErrors();
 
-    expect(MaintenanceWorkOrderPart::where('maintenance_work_order_id', $this->order->id)->sole()->status)
-        ->toBe(MaintenanceWorkOrderPart::STATUS_RECORDED);
+    expect(FacilityWorkOrderPart::where('facility_work_order_id', $this->order->id)->sole()->status)
+        ->toBe(FacilityWorkOrderPart::STATUS_RECORDED);
 });
 
 it('approves through the table action and moves the stock', function () {
@@ -108,7 +108,7 @@ it('approves through the table action and moves the stock', function () {
 
     partsRM($this->order)->callTableAction('approve', $part)->assertHasNoTableActionErrors();
 
-    expect($part->fresh()->status)->toBe(MaintenanceWorkOrderPart::STATUS_APPROVED);
+    expect($part->fresh()->status)->toBe(FacilityWorkOrderPart::STATUS_APPROVED);
     expect((float) StockMovement::where('inventory_item_id', $this->item->id)->sum('quantity'))->toBe($before - 2);
 });
 
@@ -178,5 +178,5 @@ it('refuses a draw from another mall\'s warehouse', function () {
         ])
         ->assertHasTableActionErrors(['warehouse_id']);
 
-    expect(MaintenanceWorkOrderPart::where('maintenance_work_order_id', $this->order->id)->count())->toBe(0);
+    expect(FacilityWorkOrderPart::where('facility_work_order_id', $this->order->id)->count())->toBe(0);
 });

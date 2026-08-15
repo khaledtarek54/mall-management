@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * WHY THIS EXISTS. "Which models post to the GL" was once hand-copied into five places:
  * LedgerPoster's journalizer match, LedgerRealtimeSync::SOURCES, its SOURCE_DATE_COLUMNS,
  * SyncLedgerCommand's sweep, and BooksReconciliationService's drift check. They drifted:
- * MaintenancePenalty had a correct, tested journalizer but appeared in NONE of the others,
+ * SlaPenalty had a correct, tested journalizer but appeared in NONE of the others,
  * so applying an SLA penalty cut the vendor bill's AP balance and posted no journal entry —
  * and neither the sweep nor `billing:reconcile` could see it, because both walked a list
  * the penalty wasn't on. Every dispatch path now derives from LedgerPoster::JOURNALIZERS;
@@ -50,7 +50,7 @@ it('points every entry-date column at a real column on its source table', functi
 
 it('registers every journalizer that exists on disk', function () {
     // An orphan journalizer — a class that builds correct entries but is wired to nothing —
-    // is the exact shape of the MaintenancePenalty bug, one step earlier. It looks done in a
+    // is the exact shape of the SlaPenalty bug, one step earlier. It looks done in a
     // code review and posts nothing in production.
     $onDisk = collect(glob(app_path('Services/Accounting/Journalizers/*Journalizer.php')))
         ->map(fn ($f) => 'App\\Services\\Accounting\\Journalizers\\'.basename($f, '.php'))
