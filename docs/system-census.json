@@ -6,11 +6,11 @@
         "admin_resources": 51,
         "portal_resources": 8,
         "admin_widgets": 17,
-        "api_controllers": 51,
+        "api_controllers": 52,
         "console_commands": 46,
         "jobs": 6,
         "notifications": 35,
-        "migrations": 226
+        "migrations": 227
     },
     "modules": {
         "documented": 37,
@@ -338,9 +338,9 @@
         }
     },
     "tests": {
-        "files": 720,
+        "files": 723,
         "e2e_specs": 22,
         "scenarios": 122,
-        "regressions": 350
+        "regressions": 352
     }
 }
