@@ -339,7 +339,65 @@ on Create *and* Edit), `ActionAuthzConformanceTest`, `ScreenGuideConformanceTest
 
 ---
 
-## Phase 4 — Decompose `Lease` and `Invoice`
+## Phase 4 — Decompose `Lease` and `Invoice` — **DONE**
+
+`Lease.php` **1,389 → 642** across six concern traits; `Invoice.php` **811 → 704** across two.
+Verified by reflection against the booted app — all 42 moved methods, all 7 constants and the
+`BillableAgreement` interface still resolve on the class.
+
+**The groupings came from an analysis pass, not from this plan, and it corrected four things:**
+`HasLeaseTermState` keeps the four hand-maintained `holdover_from` readers together (the plan split
+a pair the code calls "kept in lockstep by hand"); `DeterminesFitOutGrace` takes all nine members
+(the plan stranded three callers of `firstBillableMonth()`); `camCapCarriesForward()` joins the CAM
+trait; `deriveBaseRentFromRate()` stays with the area methods.
+
+**Left intact deliberately.** `Invoice`'s AR money core is indivisible — `recomputeTotals()` and
+friends share one truth across four settlement channels and are welded by the `saveQuietly()`/guard
+pact plus two ordering dependencies (`VoidInvoiceService` needs `updated` before the re-sum). And no
+observer migration: observers register last and are order-preserving *except* against
+`LedgerRealtimeSync`, which a provider registers by class-string without booting the model — and
+that is where GL posting lives. So `booted()` is no shorter, which is the correct outcome.
+
+**THE TRAP, because it is not obvious and cost a full red suite (94 failures, 1,105 errors).**
+Moving code from `namespace App\Models` into `App\Models\Concerns\*` silently rebinds every
+UNQUALIFIED class name: `Carbon` had resolved through the model's import, `Lease`/`Unit` as
+same-namespace siblings. In the new namespace they became `App\Models\Concerns\Invoice\Carbon` and
+`App\Models\Concerns\Lease\Lease`, which do not exist. **It parses. `php -l` is clean. It fails only
+when the line runs.** Reflecting over the class to confirm the methods still resolve does NOT catch
+it — method presence says nothing about whether the code inside can resolve its dependencies.
+Run a tokeniser over each new trait and resolve every class reference *before* trusting the move;
+the failing tests exposed two of three, and the third would have failed later on the billing path.
+
+---
+
+## Phase 5 — measured, and NOT worth doing
+
+Two remaining candidates were measured and both fail the cost/benefit test. Recorded so nobody
+re-proposes them from line counts alone.
+
+**Page write-guards (55 call sites) — do not extract.** The apparent case is "forgetting the guard
+is a silent property leak", and that is **false**: `PropertyIsolationConformanceTest` globs each
+resource's Create/Edit pages and asserts the guard is invoked, so a miss turns the build red today.
+It is therefore ~380 lines of tidiness, against: 11 distinct shapes (only 47 of 61 are the plain
+case — `CreditNote` allows a null `lease_id` deliberately, `Lease` guards two FKs, several hooks do
+unrelated work), and the gate greps the page file for `'AssetInScope'`, so a trait-based guard makes
+it fail. **Weakening a security gate to enable a cosmetic refactor is the wrong trade.**
+
+**Label/nav methods (200 across 50 resources) — do not consolidate.** All 200 are trivial
+`return __('…')` one-liners, which makes them look like pure convention. They are not: the keys span
+**12 namespaces** — `admin.resources.*` (67), `admin.groups.*` (50), `admin.navigation.*` (26), plus
+~57 module-specific. There is no convention to derive from, so a default needs either a large
+translation-key migration (immediately after Phase 1 reorganised those files) or a fallback chain
+that can silently resolve to the WRONG existing key — which `TranslationKeyConformanceTest` will not
+catch, because it only fails on a *raw* key, not a wrong one.
+
+**The rule both cases illustrate:** a line count is a reason to look, never a reason to act. Three of
+this refactor's four biggest wins came from *not* doing what the plan said, once the code was
+measured.
+
+---
+
+## Phase 4 — original design notes
 
 Extract cohesive domain concerns as traits. Traits preserve the public method surface exactly, so
 **no call site and none of the 325 service-touching tests change** — that is the whole reason to
