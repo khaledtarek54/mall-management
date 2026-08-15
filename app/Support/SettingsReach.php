@@ -89,7 +89,10 @@ class SettingsReach
         //
         // It is kept rather than deleted because an UNSAVED model genuinely has no attribute yet,
         // and `(int) null` would silently mean same-day terms.
-        'app/Models/Lease.php:payment_terms_days' => 'NOT NULL with a database default; the fallback is defensive for an unsaved model, and the real default applies at lease origination',
+        // Re-keyed 2026-08-15 when paymentTermsDays() moved into ActsAsBillableAgreement. THIS
+        // REGISTRY IS KEYED BY FILE PATH, so relocating a method breaks its entry and nothing in the
+        // method or its callers says so — grep here before moving anything out of a model.
+        'app/Models/Concerns/Lease/ActsAsBillableAgreement.php:payment_terms_days' => 'NOT NULL with a database default; the fallback is defensive for an unsaved model, and the real default applies at lease origination',
     ];
 
     /** The settings-reading expressions half two looks for on the right of a `??`. */

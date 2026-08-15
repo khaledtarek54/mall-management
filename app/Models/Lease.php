@@ -5,8 +5,12 @@ namespace App\Models;
 use App\Contracts\BillableAgreement;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\Lease\ActsAsBillableAgreement;
+use App\Models\Concerns\Lease\DeterminesFitOutGrace;
 use App\Models\Concerns\Lease\HasCamTerms;
 use App\Models\Concerns\Lease\HasLeasePremises;
+use App\Models\Concerns\Lease\HasLeaseTermState;
+use App\Models\Concerns\Lease\HasRenewalLineage;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
@@ -31,33 +35,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PropertyOwned(via: 'unit')]
 class Lease extends Model implements BillableAgreement, HasMedia
 {
-    use AllocatesDocumentNumber, HasCamTerms, HasFactory, HasLeasePremises, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
+    use ActsAsBillableAgreement, AllocatesDocumentNumber, DeterminesFitOutGrace, HasCamTerms, HasFactory, HasLeasePremises, HasLeaseTermState, HasRenewalLineage, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
-
-    /** Fit-out grace suppresses the ENTIRE invoice — rent, service charge, CAM, levy. */
-    public const FIT_OUT_GROSS = 'gross';
-
-    /**
-     * Fit-out grace abates **base rent only**; the tenant still pays the service charge and every
-     * other reimbursement, because the landlord is still incurring those costs while the unit is
-     * fitted out. This is the industry standard ("net abatement") and the default for new leases.
-     */
-    public const FIT_OUT_RENT_ONLY = 'rent_only';
-
-    /** Terminal lease states — immutable once reached (CLAUDE.md invariant). */
-    public const TERMINAL_STATUSES = ['terminated', 'expired', 'cancelled', 'renewed'];
-
-    /**
-     * The lease TYPE axis — how the lease came about, which is separate from its status.
-     *
-     * Derived from `previous_lease_id` rather than stored; see {@see leaseType()} for why a column
-     * would be a second source of truth for a fact the database already holds.
-     */
-    public const TYPE_NEW = 'new';
-
-    public const TYPE_RENEWAL = 'renewal';
 
     /**
      * A lease is found by its reference. Tenant and unit are reached through relation
@@ -427,40 +408,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         return $this->belongsTo(Tenant::class);
     }
 
-    public function previousLease(): BelongsTo
-    {
-        return $this->belongsTo(Lease::class, 'previous_lease_id');
-    }
-
-    /**
-     * How this lease came about — Yardi's lease TYPE axis, which is separate from its status.
-     *
-     * **Derived, never stored.** Yardi keeps type as its own column, and the gap analysis originally
-     * called for one here (row 42). It is not needed: `previous_lease_id` is already written by
-     * `LeaseRenewalService` and read by two relations, so "is this a renewal" is a fact the database
-     * already holds. A `lease_type` column would be a second source of truth for it, and the two
-     * would disagree the first time a renewal was created by any path that forgot to set it.
-     *
-     * Only two values, deliberately. Yardi also types a lease as an *expansion*, but that is a shape
-     * Atriom does not have: taking extra space here adds units to the SAME lease and records a
-     * `LeaseEvent::TYPE_EXPANSION`, rather than originating a second lease. Holdover is likewise a
-     * state the lease enters, not the way it began.
-     */
-    public function leaseType(): string
-    {
-        return $this->previous_lease_id !== null ? self::TYPE_RENEWAL : self::TYPE_NEW;
-    }
-
-    public function isRenewal(): bool
-    {
-        return $this->leaseType() === self::TYPE_RENEWAL;
-    }
-
-    public function renewals(): HasMany
-    {
-        return $this->hasMany(Lease::class, 'previous_lease_id');
-    }
-
     public function charges(): HasMany
     {
         return $this->hasMany(Charge::class);
@@ -569,294 +516,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
     // ============ Derived ============
 
-    public function totalMonthlyAmount(): float
-    {
-        return (float) ($this->base_rent_monthly + $this->service_charge_monthly);
-    }
-
-    public function annualValue(): float
-    {
-        return $this->totalMonthlyAmount() * 12;
-    }
-
-    public function isActive(): bool
-    {
-        return $this->status === 'active';
-    }
-
-    /** Terminal = terminated/expired/cancelled/renewed — the lease is immutable in this state. */
-    public function isTerminal(): bool
-    {
-        return in_array($this->status, self::TERMINAL_STATUSES, true);
-    }
-
-    public function isExpiringSoon(int $days = 90): bool
-    {
-        if (! $this->expiry_date) {
-            return false;
-        }
-
-        return $this->expiry_date->isBetween(now(), now()->addDays($days));
-    }
-
-    /**
-     * Holdover = an active lease PAST its end date. It still occupies the unit + projects it as
-     * occupied, but the monthly billing engine excludes it (period past expiry) — so a held-over
-     * tenant trades rent-free until someone renews or terminates. Surfaced on the ActionRequired
-     * dashboard so it can never go silent. (Automatic holdover *billing* is a deferred decision.)
-     */
-    public function scopeHoldover($query)
-    {
-        return $query->where('status', 'active')
-            ->whereNotNull('expiry_date')
-            ->whereDate('expiry_date', '<', now()->toDateString());
-    }
-
-    /**
-     * Holdovers nobody has dealt with yet — the dashboard's question, which is not the same as the
-     * table filter's.
-     *
-     * `holdover()` is a STATE: past expiry, still active, still occupied. That state persists after
-     * an operator converts the lease to holdover billing, and the filter should keep showing it.
-     * The ActionRequired card asks something narrower — "what still needs a decision" — and a
-     * converted holdover has had its decision. Leaving it on the card would train operators to
-     * ignore a card that never empties.
-     *
-     * @param  Builder  $query
-     */
-    public function scopeHoldoverNeedingAction($query)
-    {
-        return $this->scopeHoldover($query)->whereNull('holdover_from');
-    }
-
-    public function isHoldover(): bool
-    {
-        return $this->status === 'active'
-            && $this->expiry_date !== null
-            && $this->expiry_date->startOfDay()->lt(now()->startOfDay());
-    }
-
-    public function daysUntilExpiry(): int
-    {
-        return (int) now()->diffInDays($this->expiry_date, false);
-    }
-
-    /**
-     * Fit-out / rent-free grace: the first period for which ANY charge bills.
-     *
-     * Keyed on `rent_commencement_date`, which replaced the old `fit_out_months` count — a real
-     * lease says "rent commences 1 April", not "three months of fit-out", and a month count could
-     * not express a mid-month start at all. Null rent-commencement means no grace: the lease bills
-     * from its commencement month (operator decision 2026-07-19, OPEN-QUESTIONS C1.5).
-     *
-     * Null when no commencement date.
-     */
-    public function firstBillableMonth(): ?CarbonImmutable
-    {
-        if (! $this->commencement_date) {
-            return null;
-        }
-
-        $commencement = CarbonImmutable::instance($this->commencement_date)->startOfMonth();
-
-        // Under NET abatement only the rent is free — the service charge still bills — so the
-        // lease's first billable month is its commencement, not the end of the fit-out window.
-        // Deriving it here means `periodInFitOut()` (nothing bills), the quarterly cycle anchor
-        // and the ActionRequired "unbilled leases" card all follow automatically, instead of each
-        // growing its own copy of the rule.
-        if ($this->fit_out_scope === self::FIT_OUT_RENT_ONLY) {
-            return $commencement;
-        }
-
-        $rentStart = $this->rentCommencesOn();
-
-        // A rent-commencement on or before the commencement month is not a grace period; it bills
-        // from the start. Guarded rather than trusted so a mis-keyed earlier date cannot pull the
-        // first billable month BACKWARDS and mint invoices for months before the lease existed.
-        return $rentStart !== null && $rentStart->greaterThan($commencement)
-            ? $rentStart
-            : $commencement;
-    }
-
-    /**
-     * The month rent starts billing, normalized to the first of that month, or null when no grace
-     * is recorded. Billing periods are whole months, so a rent-commencement of 15 April means April
-     * is the first billed month — the half-month is a proration question, not a period question.
-     */
-    public function rentCommencesOn(): ?CarbonImmutable
-    {
-        return $this->rent_commencement_date
-            ? CarbonImmutable::instance($this->rent_commencement_date)->startOfMonth()
-            : null;
-    }
-
-    /**
-     * Is this period inside the rent-free fit-out window at all — regardless of what that grace
-     * abates?
-     *
-     * Distinct from {@see periodInFitOut()}, which asks the narrower question "does NOTHING bill".
-     * Under net abatement the answer to that is no while this is still yes, and it is this one the
-     * per-charge abatement filter needs.
-     */
-    public function inFitOutWindow(CarbonImmutable $periodEnd): bool
-    {
-        if (blank($this->commencement_date)) {
-            return false;
-        }
-
-        $graceEnds = $this->rentCommencesOn();
-        $commencement = CarbonImmutable::instance($this->commencement_date)->startOfMonth();
-
-        // No recorded rent-commencement, or one that is not actually later than commencement, is no
-        // grace at all — the same reading the old `fit_out_months <= 0` gave.
-        if ($graceEnds === null || ! $graceEnds->greaterThan($commencement)) {
-            return false;
-        }
-
-        return $periodEnd->lessThan($graceEnds);
-    }
-
-    /**
-     * Charge types abated for this period — free to the tenant, so they produce no invoice line.
-     *
-     * Empty for every lease outside its fit-out window, and for `gross` leases (whose grace
-     * suppresses the whole invoice before this is ever consulted).
-     *
-     * **Base rent only, deliberately.** "Net abatement" in the market means the tenant keeps paying
-     * the operating-cost reimbursements; the service charge, CAM and the marketing levy are all
-     * costs the landlord is genuinely incurring while the unit is fitted out.
-     *
-     * @return array<int, string>
-     */
-    public function abatedChargeTypesFor(CarbonImmutable $periodEnd): array
-    {
-        if ($this->fit_out_scope !== self::FIT_OUT_RENT_ONLY || ! $this->inFitOutWindow($periodEnd)) {
-            return [];
-        }
-
-        return ['base_rent'];
-    }
-
-    /**
-     * Is this lease eligible to be billed for the given period at all?
-     *
-     * **One definition, two callers.** The scheduled run filters eligibility in its query
-     * (`scopeBillableForPeriod`); the manual "Generate Invoice" action operates on a lease the
-     * operator already picked, so it had no query to filter — and therefore applied NONE of these
-     * rules. Measured before this existed: the manual path happily created a real AR invoice (which
-     * posts to the GL) for a **terminated** lease, a **draft** lease, and a lease **two months past
-     * its expiry**, each of which the batch run correctly refused.
-     *
-     * Keeping the predicate here and the scope below in lockstep is the point: two copies of
-     * "which leases bill" is exactly how the two paths drifted apart in the first place.
-     */
-    public function isBillableForPeriod(CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
-    {
-        if ($this->status !== 'active') {
-            return false;
-        }
-
-        // Not yet started: a lease commencing after the period ends bills nothing.
-        // blank(), not `=== null`: the column is NOT NULL today, so an explicit null comparison
-        // reads as always-true to static analysis — while still being the behaviour we want if the
-        // column is ever relaxed.
-        if (blank($this->commencement_date)
-            || CarbonImmutable::instance($this->commencement_date)->greaterThan($periodEnd)) {
-            return false;
-        }
-
-        // Already over: an open-ended lease (null expiry) never expires. A lease whose expiry falls
-        // before the period starts is finished and bills nothing.
-        //
-        // …UNLESS an operator has converted it to holdover (story LE-04). Then the parties have
-        // continued past expiry, the tenant is in the space, and the mall bills for it from the
-        // conversion date. Before this, a held-over tenant traded rent-free and the only response
-        // was a dashboard card.
-        if (filled($this->expiry_date)
-            && CarbonImmutable::instance($this->expiry_date)->lessThan($periodStart)
-            && ! $this->isBillableHoldoverFor($periodEnd)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /** Has this lease been converted to holdover, effective on or before the given period? */
-    public function isBillableHoldoverFor(CarbonImmutable $periodEnd): bool
-    {
-        return filled($this->holdover_from)
-            && CarbonImmutable::instance($this->holdover_from)->lessThanOrEqualTo($periodEnd);
-    }
-
-    /**
-     * The late-fee terms that govern this lease (story MF-08).
-     *
-     * **Lease first, portfolio default second.** Real leases do not agree on the rate, the minimum
-     * or the grace period — an anchor negotiates 30 days, a kiosk gets 5 — and until this existed
-     * the sweep applied one global number to all of them.
-     *
-     * The default comes from `BillingSettings`, **not** `config('billing.*')`. That distinction was
-     * a live bug: the admin Settings page writes the settings record while `LateFeeService` read the
-     * config file (populated from `env`), so every late-fee value an operator saved on that screen
-     * was silently ignored. Reading one source here is what makes the screen mean something.
-     *
-     * @return array{percent: float, grace_days: int, minimum: float}
-     */
-    public function lateFeeTerms(): array
-    {
-        // THREE tiers, not two. The lease's negotiated figure still wins; what changed is the
-        // fallback, which used to jump straight to the portfolio and now asks the PROPERTY first.
-        // Eltizam runs several malls and a late-fee rate is a per-building term — the lease tier
-        // above this already assumed the number varies, so a single portfolio answer underneath it
-        // was the odd one out. See `App\Support\PropertySettings`.
-        $assetId = $this->assetId();
-
-        return [
-            'percent' => $this->late_fee_percent !== null
-                ? (float) $this->late_fee_percent
-                : (float) PropertySettings::get('billing.late_fee_percent', $assetId),
-            'grace_days' => $this->late_fee_grace_days !== null
-                ? (int) $this->late_fee_grace_days
-                : (int) PropertySettings::get('billing.late_fee_grace_days', $assetId),
-            'minimum' => $this->late_fee_minimum !== null
-                ? (float) $this->late_fee_minimum
-                : (float) PropertySettings::get('billing.late_fee_minimum', $assetId),
-        ];
-    }
-
-    /**
-     * The property this lease belongs to.
-     *
-     * Derived through the MASTER unit (`leases.unit_id`), because there is no `leases.asset_id` —
-     * a lease's mall is a fact about its premises. `units()` is date-ranged and can be empty outside
-     * the lease's own term, so the master unit is the stable answer and the one every other
-     * property-scoped query here already uses.
-     *
-     * Null only for a lease whose unit has been force-deleted, which `DeletionPolicy` refuses; the
-     * callers treat null as "no property tier", falling through to the portfolio.
-     */
-    public function assetId(): ?int
-    {
-        return $this->unit?->asset_id
-            ?? Unit::withTrashed()->whereKey($this->unit_id)->value('asset_id');
-    }
-
-    /**
-     * How many days this lease's tenant has to pay.
-     *
-     * `payment_terms_days` is NOT NULL with a database default of 7, so the `?? defaults` that used
-     * to sit at eight billing call sites could never fire — the portfolio setting was unreachable
-     * for any real lease. The default belongs at ORIGINATION instead: a new lease is pre-filled from
-     * its property's convention (see `LeaseForm`), and from then on the lease carries its own number.
-     *
-     * That is also the correct semantics, and what Yardi does. Changing a property's default must
-     * not retroactively move the due date on receivables that have already been raised.
-     */
-    public function paymentTermsDays(): int
-    {
-        return (int) ($this->payment_terms_days ?? PropertySettings::paymentTermsDays($this->assetId()));
-    }
-
     // ============ BillableAgreement ============
     //
     // The part of a lease that is true of ANY agreement raising AR — who owes, in what currency,
@@ -864,51 +523,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
     // same three (plan 08) and the billing machinery downstream never learns the difference.
     // Everything else the interface asks for (assetId, paymentTermsDays, billingCycleMonths,
     // isBillableForPeriod, charges) this model already had, which is why the seam sits here.
-
-    /** @see BillableAgreement::billingTenantId() */
-    public function billingTenantId(): int
-    {
-        return (int) $this->tenant_id;
-    }
-
-    /** @see BillableAgreement::billingCurrency() */
-    public function billingCurrency(): string
-    {
-        return $this->currency ?? 'EGP';
-    }
-
-    /** @see BillableAgreement::invoiceLinkAttributes() */
-    public function invoiceLinkAttributes(): array
-    {
-        return ['lease_id' => $this->id];
-    }
-
-    /** Converted to holdover and still running — the state the dashboard should stop nagging about. */
-    public function isConvertedHoldover(): bool
-    {
-        return filled($this->holdover_from);
-    }
-
-    /**
-     * The query form of {@see isBillableForPeriod()} — used by the scheduled run.
-     *
-     * @param  Builder  $query
-     */
-    public function scopeBillableForPeriod($query, CarbonImmutable $periodStart, CarbonImmutable $periodEnd)
-    {
-        return $query
-            ->where('status', 'active')
-            ->where('commencement_date', '<=', $periodEnd)
-            ->where(function ($q) use ($periodStart, $periodEnd) {
-                $q->whereNull('expiry_date')
-                    ->orWhere('expiry_date', '>=', $periodStart)
-                    // The query half of the holdover exemption above. Kept in lockstep by hand
-                    // because that is what this pair is: two copies of "which leases bill", which
-                    // is exactly how the manual and scheduled paths drifted apart before.
-                    ->orWhere(fn ($h) => $h->whereNotNull('holdover_from')
-                        ->where('holdover_from', '<=', $periodEnd));
-            });
-    }
 
     /**
      * The SQL half of "owes a sales declaration for this period and hasn't filed one".
@@ -963,53 +577,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
             // billable, so it is not yet chaseable either.
             ->reject(fn (self $lease) => $lease->periodInFitOut($periodEnd))
             ->values();
-    }
-
-    /**
-     * True when the given billing period falls entirely inside the fit-out grace, so NOTHING bills.
-     * fit_out_months = 0 → always false (today's behaviour). Shared by the monthly billing engine
-     * and the ActionRequired "unbilled leases" card, so a lease in fit-out is neither billed nor nagged.
-     */
-    public function periodInFitOut(CarbonImmutable $periodEnd): bool
-    {
-        $first = $this->firstBillableMonth();
-
-        return $first !== null && $periodEnd->lessThan($first);
-    }
-
-    /** Months in one billing cycle: monthly=1, quarterly=3, semiannual=6, annual=12. */
-    public function billingCycleMonths(): int
-    {
-        return match ($this->billing_frequency) {
-            'quarterly' => 3,
-            'semiannual' => 6,
-            'annual' => 12,
-            default => 1,
-        };
-    }
-
-    /**
-     * Is the given month the START of a billing cycle for this lease? Cycles are anchored to the
-     * lease's first billable month (commencement + fit-out) and run in full N-month steps
-     * (operator decision 2026-07-19 — commencement-anchored, no partial cycles). A month before the
-     * first billable month (still in fit-out / not started) is never a cycle start. For a monthly
-     * lease every billable month is a cycle start, so this is true from the first billable month on.
-     */
-    public function isBillingCycleStart(CarbonImmutable $period): bool
-    {
-        $first = $this->firstBillableMonth();
-        if ($first === null) {
-            return false;
-        }
-
-        $month = $period->startOfMonth();
-        if ($month->lessThan($first)) {
-            return false;
-        }
-
-        $monthsSince = ($month->year - $first->year) * 12 + ($month->month - $first->month);
-
-        return $monthsSince % $this->billingCycleMonths() === 0;
     }
 
     // ============ Generation helpers ============

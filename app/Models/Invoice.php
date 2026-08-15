@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\AllocatesDocumentNumber;
+use App\Models\Concerns\Invoice\AllocatesInvoiceNumber;
+use App\Models\Concerns\Invoice\HasPaymentLink;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -12,12 +14,7 @@ use App\Settings\BillingSettings;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
-use App\Support\DocumentNumbering;
 use App\Support\OpsLog;
-use BaconQrCode\Renderer\Image\SvgImageBackEnd;
-use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\RendererStyle\RendererStyle;
-use BaconQrCode\Writer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -39,7 +36,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: \App\Models\Invoice::class)]
 class Invoice extends Model
 {
-    use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
+    use AllocatesDocumentNumber, AllocatesInvoiceNumber, HasPaymentLink, RefusesDeletionOfCommittedRecords;
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
@@ -273,74 +270,6 @@ class Invoice extends Model
 
     // ============ Online payment link ============
 
-    /**
-     * Stable, unguessable token behind the public pay link. Lazily generated +
-     * persisted on first access, so existing invoices get one on demand.
-     */
-    public function paymentLinkToken(): string
-    {
-        if (blank($this->payment_link_token)) {
-            $this->forceFill(['payment_link_token' => Str::random(48)])->save();
-        }
-
-        return $this->payment_link_token;
-    }
-
-    /**
-     * Mint a NEW pay token, killing every URL previously issued for this invoice.
-     *
-     * The pay link is a bearer credential: whoever holds the URL can read the
-     * tenant's name, the line items and the amounts, with no login and no expiry.
-     * That is fine while it sits in the addressee's inbox and useless afterwards —
-     * except links leak. They get forwarded, land in shared or wrong inboxes, sit
-     * in browser history on a shop-floor PC, and survive in screenshots.
-     *
-     * Without this there is no remedy for that: the operator cannot take the link
-     * back. Rotation is the remedy — and the reason it is not an expiry is that an
-     * expiry would silently kill legitimate links in already-sent emails, turning
-     * every late payer into a support call. Rotation is deliberate and per-invoice.
-     *
-     * Safe mid-payment: an in-flight Paymob session is keyed by the gateway's
-     * order id, not by this token, so rotating never strands a payment that is
-     * already at the gateway — the browser return resolves the CURRENT token.
-     */
-    public function rotatePaymentLinkToken(): string
-    {
-        // forceFill + save, matching paymentLinkToken(): the column is guarded, and
-        // this must persist even on an issued invoice (the immutability guard covers
-        // GL-identity fields, not the pay token).
-        $this->forceFill(['payment_link_token' => Str::random(48)])->save();
-
-        return $this->payment_link_token;
-    }
-
-    /** Public, no-login URL a client can open to pay this invoice. */
-    public function paymentLinkUrl(): string
-    {
-        return route('pay.show', ['token' => $this->paymentLinkToken()]);
-    }
-
-    /** Inline SVG QR code of the pay link, for scan-to-pay (no GD/imagick needed). */
-    public function paymentLinkQrSvg(int $size = 170): string
-    {
-        $renderer = new ImageRenderer(
-            new RendererStyle($size, 2),
-            new SvgImageBackEnd,
-        );
-
-        $svg = (new Writer($renderer))->writeString($this->paymentLinkUrl());
-
-        // Strip the XML prolog so the SVG embeds cleanly inside HTML.
-        return (string) preg_replace('/^<\?xml.*?\?>\s*/s', '', $svg);
-    }
-
-    /** Whether there is still a balance that can be collected online. */
-    public function isPayable(): bool
-    {
-        return ! in_array($this->status, ['cancelled', 'credited', 'written_off'], true)
-            && round((float) $this->balance, 2) > 0;
-    }
-
     // ============ Status helpers ============
 
     public function isOverdue(): bool
@@ -356,53 +285,6 @@ class Invoice extends Model
         }
 
         return (int) $this->due_date->diffInDays(now());
-    }
-
-    /**
-     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
-     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
-     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
-     */
-    public static function numberPrefix(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
-    {
-        $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
-
-        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('invoice'), $assetCode, $issueDate->format('Ym'));
-    }
-
-    public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
-    {
-        $prefix = static::numberPrefix($assetCode, $issueDate);
-
-        $last = static::withTrashed()
-            ->where('number', 'like', $prefix.'%')
-            ->orderByDesc('number')
-            ->value('number');
-
-        $next = $last
-            ? ((int) substr($last, strlen($prefix))) + 1
-            : 1;
-
-        return sprintf('%s%04d', $prefix, $next);
-    }
-
-    protected static function generateUniqueNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
-    {
-        $candidate = static::generateNumber($assetCode, $issueDate);
-
-        $attempts = 0;
-        while (static::withTrashed()->where('number', $candidate)->exists()) {
-            $attempts++;
-            if ($attempts > 100) {
-                throw new \RuntimeException('Unable to allocate a unique invoice number after 100 attempts.');
-            }
-            $issue = $issueDate ? Carbon::instance($issueDate) : now();
-            $prefix = sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('invoice'), $assetCode, $issue->format('Ym'));
-            $n = ((int) substr($candidate, strlen($prefix))) + 1;
-            $candidate = sprintf('%s%04d', $prefix, $n);
-        }
-
-        return $candidate;
     }
 
     /**
