@@ -3204,6 +3204,9 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'unit_owner_party' => 'A unit owner is a party record, like a retailer — that is what lets us invoice them, take their payments and give them the portal.',
+        'tenure_type' => 'Freehold is a sale; usufruct is a long right to use. Both are billed identically here — only how the right ends differs.',
+        'fee_basis' => 'Collected is the safer default: charging a fee on rent that was billed but never paid means clawing it back later.',
         'tax_code_code' => 'Upper-case letters, digits and underscores. Fixed once saved — charge codes reference this string, so renaming it would silently un-classify every supply pointed at it.',
         'tax_family' => 'Which Egyptian tax this is. It decides the account the tax lands in, and — for withholding — that the rate is deducted from a payment rather than added to it.',
         'tax_direction' => 'Sales: tax charged to a tenant. Purchases: tax a supplier charged us, recoverable on the return. Every rate exists in both directions because the two post to different accounts and land on opposite sides of the return.',
@@ -3344,6 +3347,7 @@ return [
     ],
 
     'permission_modules' => [
+        'unit_ownerships' => 'Unit owners',
         'bank_accounts' => 'Bank accounts',
         'charge_codes' => 'Charge codes',
         'tax_codes' => 'Tax codes',
@@ -3558,6 +3562,37 @@ return [
         'bank_account_name' => 'CIB — current',
         'checklist_item' => 'Add a check item…',
         'stock_adjust_sign' => '+ found / − shrinkage',
+    ],
+
+    'unit_ownerships' => [
+        'singular' => 'Unit ownership',
+        'plural' => 'Unit owners',
+        'sections' => [
+            'the_sale' => 'The sale',
+            'the_holding' => 'The holding',
+            'what_they_pay' => 'What they pay',
+        ],
+        'fields' => [
+            'owner' => 'Owner',
+            'purchase_contract_number' => 'Purchase contract no.',
+            'purchase_date' => 'Purchase date',
+            'purchase_price' => 'Purchase price',
+            'handover_date' => 'Handover date',
+        ],
+        'filters' => [
+            'current' => 'Current owners only',
+        ],
+        'help' => [
+            'unit' => 'A unit can be sold and resold — pick it even if it already has a past owner.',
+            'handover_date' => 'When the keys changed hands. The service charge runs from here.',
+            'status' => 'Only a handed-over unit is billed. Contracted means we still hold it.',
+            'management_mode' => 'Decides who collects the rent, and whether we owe the owner a net.',
+            'ended_at' => 'Set this on a resale. Leave empty while the owner still holds the unit.',
+            'ownership_share_pct' => 'Split between co-owners. All shares of one unit sum to 100.',
+            'assessment_basis' => 'How this unit is apportioned its share of the common cost.',
+            'participation_pct' => 'The interest stated in the deed. Sums to 100 across the building.',
+            'management_fee_pct' => 'Our cut of what we collect for this owner.',
+        ],
     ],
 
     'enums' => [

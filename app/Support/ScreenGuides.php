@@ -71,6 +71,7 @@ use App\Filament\Admin\Resources\TaxCodes\TaxCodeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
+use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
@@ -140,6 +141,7 @@ class ScreenGuides
         RentableItemResource::class => 'rentable_items',
         TenantResource::class => 'tenants',
         LeaseResource::class => 'leases',
+        UnitOwnershipResource::class => 'unit_ownerships',
 
         // ── Billing & accounts receivable ─────────────────────────────────────────────────────
         InvoiceResource::class => 'invoices',

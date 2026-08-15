@@ -131,6 +131,10 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'UtilityMeter' => UtilityMeterResource::class,
             'Equipment' => EquipmentResource::class,
             'Area' => AreaResource::class,
+            // A unit sale is recorded against a mall the operator picks, and the unit Select reads
+            // that FORM value rather than the panel's current property — so both the asset and the
+            // unit under it are client-supplied and re-validated on create + edit.
+            'UnitOwnership' => \App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource::class,
             'RentableItem' => \App\Filament\Admin\Resources\RentableItems\RentableItemResource::class,
             'Violation' => ViolationResource::class,
             'SlaPolicy' => SlaPolicyResource::class,

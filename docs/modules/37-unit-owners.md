@@ -3,8 +3,8 @@
 > The buyer who bought a shop instead of renting one. A peer of the lease, not a variant of it —
 > and **not** the mall owner ([module 32](32-owner-statements.md)), who is the opposite money direction.
 >
-> **Status: phase 1 of [plan 08](../plans/08-unit-owners.md) — the register.** The record, the party
-> type and the registries exist. Billing an owner is phase 2; there is no admin screen yet.
+> **Status: phase 1 of [plan 08](../plans/08-unit-owners.md) — the register, COMPLETE.** The record,
+> the party type, the registries and the admin screen exist. Billing an owner is phase 2.
 
 ## 1. Purpose & business context
 
@@ -101,14 +101,42 @@ row is the N+1 the CAM path already had to fix) · `DeletionPolicy::WHEN_UNUSED`
 `DocumentNumbering::TYPES` (`UO-{property}-{year}-0001`) · `ActivityVocabulary` (log name
 `unit_ownership`, EN + AR).
 
-## 6. What phase 1 does NOT do
+## 6. The screen
 
-Stated so nobody looks for it: no admin screen, no assessment billing, no CAM participation, no owner
-portal, no transfer workflow, no GL posting. `invoices.lease_id` is still NOT NULL, so an owner with
-no lease **cannot yet be invoiced** — that is the phase-2 schema change. See
+`UnitOwnershipResource`, in the **Leasing** group beside Units and Leases — because an operator asking
+"what is the position of A-102" gets either a lease or an ownership, and should not have to know which
+before choosing a menu.
+
+- **Property-scoped both ways.** Reads via `getEloquentQuery()`; writes re-validated by
+  `assertAssetInScope()` on create AND edit, because Filament stamps `asset_id` on create only. The
+  unit picker reads the FORM's `asset_id`, not the panel's current property — otherwise it offers
+  nothing when the panel is not pinned to one mall.
+- **RBAC** on `unit_ownerships.*`, granted to **leasing** (a unit is either let or sold, and the same
+  team answers for both). Delete stays super_admin-only project-wide.
+- **"Current owners only" is the default filter.** The register accumulates former owners by design,
+  so "who owns this today" has to be the default view rather than a filter the operator remembers.
+- **Conditional fields, driven by the enums**: `participation_pct` appears exactly when the chosen
+  basis reads it (`AssessmentBasis::requiredColumn()`), the fee fields only when the operator manages
+  the unit. A basis that needs a number nobody typed is the inert-configuration bug again.
+
+## 7. What phase 1 does NOT do
+
+Stated so nobody looks for it: no assessment billing, no CAM participation, no owner portal, no
+transfer workflow, no GL posting. `invoices.lease_id` is still NOT NULL, so an owner with no lease
+**cannot yet be invoiced** — that is the phase-2 schema change. See
 [plan 08 §7](../plans/08-unit-owners.md).
 
-## 7. Tests
+There is also deliberately **no `sold` unit status**. Occupancy and ownership are different axes: a
+sold unit can be occupied, let or empty, and collapsing them into one column would make
+`units.status` answer two questions badly. `Unit::isOwned()` answers the ownership one. (This departs
+from the plan's own phase-1 line, which listed a "sold" state.)
 
-`tests/Feature/UnitOwnershipTest.php` — the party decision, the defaults, both refusal layers, the
-handover trigger, resale-as-tenure-end, and the reference series.
+## 8. Tests
+
+`tests/Feature/UnitOwnershipTest.php` — the party decision, the defaults, which layer refuses, the
+handover trigger, resale-as-tenure-end, the reference series, and the audit trail rendered in **both
+languages** with no stored value or raw key leaking through.
+
+`tests/Feature/Resources/UnitOwnershipResourceTest.php` — property isolation through the real scoped
+query, the RBAC grants, the write guard (with an authorised control beside the refusal), and a sale
+recorded end-to-end through the create page.

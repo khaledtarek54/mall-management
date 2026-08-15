@@ -9,6 +9,7 @@ use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
 use App\Models\Concerns\AllocatesDocumentNumber;
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\DocumentNumbering;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,7 +45,26 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class UnitOwnership extends Model
 {
-    use AllocatesDocumentNumber, HasFactory, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
+    use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
+
+    /**
+     * An ownership is found by its reference and its purchase contract — the two numbers that exist
+     * on paper.
+     *
+     * The unit code and the owner's name are deliberately NOT copied in: the blob is a pure function
+     * of this row's own attributes, and quoting a name here would strand every ownership blob the
+     * day that owner is renamed. Both are reached through their own blobs, which is what
+     * `UnitOwnershipResource::getGloballySearchableAttributes()` does.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->purchase_contract_number,
+        ];
+    }
 
     protected $fillable = [
         'reference',

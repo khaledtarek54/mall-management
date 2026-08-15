@@ -4,11 +4,13 @@ namespace App\Support;
 
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Filament\Admin\Resources\AccountMappings\AccountMappingResource;
-use App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
+use App\Filament\Admin\Resources\ApprovalRules\ApprovalRuleResource;
 use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Filament\Admin\Resources\Assets\AssetResource;
+use App\Filament\Admin\Resources\BankStatements\BankStatementResource;
 use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
+use App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource;
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Custodies\CustodyResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
@@ -35,6 +37,7 @@ use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
+use App\Filament\Admin\Resources\TaxCodes\TaxCodeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
@@ -49,6 +52,7 @@ use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource as Portal
 use App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource as PortalMarketingPostResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource as PortalTenantSalesDeclarationResource;
 use App\Models;
+use App\Models\BankAccount;
 
 /**
  * The authoritative register of what is searchable, how, and — where something
@@ -141,13 +145,14 @@ class SearchPolicy
      * @var array<int, class-string>
      */
     public const INDEXED = [
-        \App\Models\BankAccount::class,
+        BankAccount::class,
         // ---- Leasing & tenancy ----
         Models\Tenant::class,
         Models\Unit::class,
         Models\Lease::class,
         Models\Asset::class,
         Models\Area::class,
+        Models\UnitOwnership::class,
 
         // ---- Receivables ----
         Models\Invoice::class,
@@ -213,9 +218,9 @@ class SearchPolicy
         MarketingBudgetResource::class => 'Identified by property + year. Its only key is `period_year`, an integer, so every budget for 2026 is one indistinguishable match.',
         SlaPolicyResource::class => 'Operator configuration reached from Settings. Its only key is a priority enum, so searching "high" would return SLA policies alongside real records.',
         RoleResource::class => 'RBAC configuration reached from Settings. Role names are typed by administrators into a permission matrix, never searched for as records.',
-        \App\Filament\Admin\Resources\BankStatements\BankStatementResource::class => 'A statement is found by its account and period, both of which are the whole table — nobody types a statement\'s name because it does not have one. Reached from the account, or from the reconciliation work itself.',
-        \App\Filament\Admin\Resources\ApprovalRules\ApprovalRuleResource::class => 'The approval ladder — a dozen rows of amount bands under Settings, maintained by scrolling rather than searching. Nothing on it has a name or a number anyone would type: the identity of a band IS its module and its range, both of which are on screen.',
-        \App\Filament\Admin\Resources\TaxCodes\TaxCodeResource::class => 'The tax catalogue, reached from the General Ledger group. Rows an accountant maintains — found by scrolling, not by searching. Nobody types "VAT_14" to find a record; they go to the screen to change a rate.',
+        BankStatementResource::class => 'A statement is found by its account and period, both of which are the whole table — nobody types a statement\'s name because it does not have one. Reached from the account, or from the reconciliation work itself.',
+        ApprovalRuleResource::class => 'The approval ladder — a dozen rows of amount bands under Settings, maintained by scrolling rather than searching. Nothing on it has a name or a number anyone would type: the identity of a band IS its module and its range, both of which are on screen.',
+        TaxCodeResource::class => 'The tax catalogue, reached from the General Ledger group. Rows an accountant maintains — found by scrolling, not by searching. Nobody types "VAT_14" to find a record; they go to the screen to change a rate.',
         ChargeCodeResource::class => 'The billing vocabulary, reached from the General Ledger group. A dozen rows an accountant maintains — found by scrolling, not by searching, and its codes are already searchable where they are billed.',
         AccountMappingResource::class => 'The posting map, reached from the General Ledger group. A row has no identifier of its own — it is a role picked from a fixed list against an account, and both are already searchable where they live.',
 

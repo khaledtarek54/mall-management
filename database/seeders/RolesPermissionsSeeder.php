@@ -300,6 +300,13 @@ class RolesPermissionsSeeder extends Seeder
             'rentable_items.delete' => 'Delete a rentable item that was never let',
         ],
 
+        'unit_ownerships' => [
+            'unit_ownerships.view' => 'View the unit-ownership register (unit buyers)',
+            'unit_ownerships.create' => 'Record a unit sale',
+            'unit_ownerships.edit' => 'Edit a unit ownership',
+            'unit_ownerships.delete' => 'Delete a unit ownership that never billed',
+        ],
+
         'areas' => [
             'areas.view' => 'View facility zones (areas)',
             'areas.create' => 'Create facility zones',
@@ -574,6 +581,9 @@ class RolesPermissionsSeeder extends Seeder
             'tenants.view', 'tenants.create', 'tenants.edit',
             'leases.view', 'leases.create', 'leases.edit',
             'leases.terminate', 'leases.renew', 'leases.generate_invoice',
+            // A unit is either LET or SOLD, and the same team answers "what is the position of
+            // A-102" either way — so the sale register sits with leasing, beside the lease register.
+            'unit_ownerships.view', 'unit_ownerships.create', 'unit_ownerships.edit',
             'tenant_sales.view', 'tenant_sales.lock', 'tenant_sales.dispute',
             'notes.view', 'notes.create',
         ];

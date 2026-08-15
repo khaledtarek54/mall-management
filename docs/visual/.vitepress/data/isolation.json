@@ -528,6 +528,12 @@
         "note": "unit"
     },
     {
+        "model": "UnitOwnership",
+        "label": "Unit Ownership",
+        "classification": "owned",
+        "note": null
+    },
+    {
         "model": "User",
         "label": "User",
         "classification": "shared",

@@ -69,6 +69,27 @@ return [
         ],
     ],
 
+    'unit_ownerships' => [
+        'purpose' => 'The register of units that were SOLD rather than let — who bought which shop, on what terms, and how it is being used.',
+        'steps' => [
+            'Record the buyer as a party first, set as a unit owner, then come here.',
+            'Pick the unit, the tenure, and the date the owner took it on.',
+            'Set how it is managed: the owner trades from it, lets it himself, we let it for him, or it stands empty.',
+            'On a resale, END the existing ownership with a date and record a new one. Never delete the old row.',
+        ],
+        'affects' => [
+            'A sold unit still owes the service charge — from HANDOVER, not from the contract date.',
+            'A former owner keeps every invoice and statement that quoted them, which is why a resale ends a tenure instead of removing it.',
+            'Where we manage the unit, the rent we collect becomes money owed back to the owner, less our fee.',
+            'The service-charge basis you pick here decides how this unit is apportioned its share of the common cost.',
+        ],
+        'rules' => [
+            'The owner is a party record, the same kind a retailer uses — that is what lets them be invoiced, take payments and see the portal.',
+            'This is NOT the mall owner. A mall owner receives the property\'s net; a unit owner pays the service charge.',
+            'An ownership cannot end before it starts. Equal dates are allowed — a sale can collapse on handover day.',
+            'An ownership that has billed anything can no longer be deleted. Transfer it instead.',
+        ],
+    ],
     'leases' => [
         'purpose' => 'The contract between a tenant and a unit: what they occupy, for how long, and what they pay.',
         'steps' => [

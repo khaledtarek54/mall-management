@@ -295,6 +295,13 @@
             "hasView": true
         },
         {
+            "class": "UnitOwnershipResource",
+            "slug": "unit-ownerships",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "UnitResource",
             "slug": "units",
             "hasCreate": true,

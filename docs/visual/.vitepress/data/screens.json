@@ -438,6 +438,12 @@
         "guide": "trial_balance"
     },
     {
+        "screen": "UnitOwnershipResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "unit_ownerships"
+    },
+    {
         "screen": "UnitResource",
         "panel": "admin",
         "kind": "resource",
