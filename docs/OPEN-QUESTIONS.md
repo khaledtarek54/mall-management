@@ -195,10 +195,32 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | B.3 | On the %-split contract, are **"owner" and "Jawad" two different parties**, or the same owner? *(Q-G — affects the future owner-money data model.)* | Treated as one owner | 🟠 | |
 | B.4 | How is **Eltizam compensated** — % of collected rent, % of gross, fixed fee, or a mix? On rent only or all charges? Before/after VAT? Is the fee **VATable** and invoiced to the owner? | No management-fee engine | 🟠 | |
 | B.5 | Where do **tenant payments land** — Eltizam's account, the owner's, or a **trust/escrow per property**? | Not modelled | 🟠 | |
-| B.6 | Does Eltizam **remit net funds to the owner** (how often), and what is **deducted first** (fee, paid expenses, CAM, taxes, reserve)? | ✅ **Owner Statements + Disbursements are BUILT (module 32).** Per-property, per-period statement runs (opening → collections → expenses → net) with a three-tier accrual GL spine, finalise/send lifecycle and PDF. **What is still missing is the management FEE** — deferred in v1 pending B.4 — so a statement shows net-before-fee. Answer B.4 and the fee line can be switched on. | 🟠 | |
+| B.6 | Does Eltizam **remit net funds to the owner** (how often), and what is **deducted first** (fee, paid expenses, CAM, taxes, reserve)? *(Now also applies at UNIT level — see section B2.)* | ✅ **Owner Statements + Disbursements are BUILT (module 32).** Per-property, per-period statement runs (opening → collections → expenses → net) with a three-tier accrual GL spine, finalise/send lifecycle and PDF. **What is still missing is the management FEE** — deferred in v1 pending B.4 — so a statement shows net-before-fee. Answer B.4 and the fee line can be switched on. | 🟠 | |
 | B.7 | Does Eltizam hold a **reserve/float per property** (starting amount + replenishment)? | Not tracked | 🟠 | |
 | B.8 | Is each mall a **separate legal entity / set of books**, or all **consolidated** under Eltizam? Any **inter-company** transactions to record? | Single-company GL, property-dimensioned | 🟠 | |
 | B.9 | Should the owner **see financial statements/disbursements** or stay **oversight-only** (current)? Does the owner **approve** anything before Eltizam acts (budgets, big expenses, new leases)? | Oversight + requests only | 🟠 | |
+
+---
+
+## B2 · Unit owners (مُلّاك الوحدات) — module 37
+
+> **These three are the ONLY thing left in the unit-owners feature.** Everything else is built and
+> tested: an owner is recorded, billed his صيانة monthly, aged, dunned, posted to the GL, carries his
+> CAM share, can let his own unit, sees his account in the portal, and can be transferred out with a
+> resale certificate. Phase 5 — the operator's management fee and the cash-basis owner statement —
+> **cannot be finished until B2.1 and B2.2 are answered**, because the posting would otherwise go to
+> an account somebody guessed.
+>
+> Related: B.4 asks the same fee question at PROPERTY level. If the answers differ (a % of the
+> property's net vs a % of one unit's collected rent) say so — they are two different agreements and
+> the system can hold both.
+
+| # | Question | What we do today | | Answer |
+|---|---|---|---|---|
+| B2.1 | When Eltizam lets a **sold unit on its owner's behalf** and keeps a fee — **which GL account does that fee income post to?** It is the operator's revenue, not the property's, so it may not belong with rent. | ⛔ **Blocks phase 5.** The fee % and its basis (collected vs billed rent) are already configurable per ownership; only the posting account is missing. | 🔴 | |
+| B2.2 | Is there a **sinking / reserve fund (صندوق صيانة)** collected from unit owners for future capital works? If yes, **which liability account** — it is money held for a future obligation, **not revenue**. | ⛔ Not collected. The system can bill it as a charge code the moment it has an account; shipping it as revenue would overstate income and understate a liability. | 🔴 | |
+| B2.3 | The **صيانة an owner pays** — is it Eltizam's revenue for running the common areas, or **cost recovery** that should NOT appear as income on the property owner's statement? | Treated as property revenue, like a tenant's service charge (it posts through the same charge code). | 🟠 | |
+| B2.4 | On a **resale**, does Eltizam approve the buyer or hold a right of first refusal? | No approval step; the transfer is recorded when the operator records it. Arrears are refused unless transferring over them deliberately, and the resale certificate states the figure. | 🟡 | |
 
 ---
 

@@ -247,7 +247,25 @@ the buyer's, keeps the unit's history, and returns the **resale (estoppel) certi
 - The seller's row is closed, **never deleted**: his assessments, CAM shares and statements all point
   at it.
 
-## 8. Still outstanding
+## 8. Still outstanding — and it is not code
+
+**Phase 5 (the management fee, the cash-basis unit-owner statement and remittance) is BLOCKED on two
+answers, not on engineering.** Both are logged where they will be seen:
+
+| Question | Where | Why it blocks |
+|---|---|---|
+| Which GL account does **management-fee income** post to? | [OPEN-QUESTIONS §B2.1](../OPEN-QUESTIONS.md) · [ACCOUNTANT-BRIEFING ٤.٧ Q-OWN-1](../accounting/ACCOUNTANT-BRIEFING.md) | It is the OPERATOR's revenue, not the property's. Posting it to a guessed account puts Eltizam's income in Jawad's P&L |
+| Is there a **sinking fund**, and which **liability** account? | §B2.2 · Q-OWN-2 | Money held for a future obligation is not revenue. Shipping it as income would overstate the P&L and hide a liability |
+
+Two more that change numbers rather than block: whether an owner's صيانة is property revenue or cost
+recovery (§B2.3 — it currently posts as revenue), and whether Eltizam approves a resale buyer
+(§B2.4 — no approval step today).
+
+The fee **percentage and its basis are already configurable per ownership** (`management_fee_pct`,
+`fee_basis`), so the day those accounts exist the remaining work is the statement and the posting,
+not a redesign.
+
+## 9. Everything else is done
 
 the management fee, cash-basis
 owner statement and remittance (5), 

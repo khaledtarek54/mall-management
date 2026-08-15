@@ -381,7 +381,21 @@
 | Q-POL-6 | **التأمين** التزام صافي بدون ضريبة، يُرَد عند الخروج بعد الخصومات (إيجار متأخر/تلفيات/ترميم)؟<br>Deposit = pure liability, refundable minus deductions? | التزام، قابل للرد | 🟡 | |
 | Q-POL-7 | **الشيكات الآجلة (PDCs)** — تتحمّل على **أوراق القبض (11205001)** لحد التحصيل؟ نربطها بترحيل آلي؟<br>Post-dated cheques → Notes Receivable until cleared; wire to auto-posting? | سجل شيكات موجود؛ الترحيل الآلي وقت التحصيل كـ Payment | 🟡 | |
 
-## ٤.٧ · الهجرة والتكامل / Migration & integration
+## ٤.٧ · مُلّاك الوحدات / Unit owners (module 37)
+
+> الوحدات المُباعة بقت مسجّلة والصيانة بتتفوتر لملّاكها وبتترحّل زي أي فاتورة. الحاجتين دول بس اللي
+> **موقفين** آخر جزء (أتعاب الإدارة وكشف حساب المالك) — محتاجين حساب في الشجرة، مش كود.
+> Sold units are recorded and their صيانة is billed and posted like any invoice. These two are the
+> ONLY thing blocking the last piece (management fee + owner statement) — each needs an account, not code.
+
+| # | السؤال / Question | دلوقتي / Today | أهمية | الإجابة |
+|---|---|---|---|---|
+| Q-OWN-1 | لما التزام تأجّر وحدة **مملوكة** لحساب صاحبها وتاخد **أتعاب إدارة** — الأتعاب دي تترحّل على أنهي حساب إيراد؟ دي إيراد التزام مش إيراد العقار.<br>Management-fee income when Eltizam lets a SOLD unit for its owner — which revenue account? It is the operator's income, not the property's. | ⛔ مفيش حساب متحدّد — ده اللي واقف قدام الميزة<br>No account assigned — this is the blocker | 🔴 | |
+| Q-OWN-2 | فيه **صندوق صيانة (احتياطي)** بيتجمّع من الملّاك للأعمال الرأسمالية؟ لو أيوه، أنهي حساب **التزامات**؟ دي فلوس محتجزة لالتزام مستقبلي **مش إيراد**.<br>Is a sinking/reserve fund collected from owners? If yes, which LIABILITY account? It is money held for a future obligation, not revenue. | ⛔ مش بيتجمّع. لو اترحّل كإيراد هيضخّم الدخل ويخفي التزام.<br>Not collected. Posting it as revenue would overstate income and hide a liability. | 🔴 | |
+| Q-OWN-3 | **صيانة المالك** — إيراد للعقار زي رسوم خدمة المستأجر، ولا **استرداد تكلفة** المفروض ما يظهرش كدخل في كشف حساب مالك العقار؟<br>Owner's صيانة — property revenue like a tenant's service charge, or cost recovery that should not show as income on the property owner's statement? | بتترحّل زي رسوم الخدمة (نفس كود الرسم)<br>Posts like a service charge, same charge code | 🟠 | |
+| Q-OWN-4 | **ض.ق.م على صيانة المالك** — خدمة خاضعة 14% زي رسوم الخدمة، صح؟<br>VAT on an owner's صيانة — a taxable supply at 14% like a service charge, correct? | أيوه، من كتالوج الضرائب (بيتغيّر بصف مش بنشر)<br>Yes, from the tax catalogue — a row, not a deploy | 🟡 | |
+
+## ٤.٨ · الهجرة والتكامل / Migration & integration
 
 | # | السؤال / Question | دلوقتي / Today | أهمية | الإجابة |
 |---|---|---|---|---|
@@ -389,7 +403,7 @@
 | Q-MIG-2 | أصحاب المصلحة بيستخدموا **Oracle/SAP/Odoo** — محتاج **صيغة تصدير** معيّنة؟<br>Export format needed (Excel/Odoo-importable)? | Excel/PDF | 🟡 | |
 | Q-INV-1 | **e-invoicing (ETA)** — النظام دلوقتي **Mock** (مفيش حاجة راحت للمصلحة). محتاجين بيانات الدخول والشهادة والأكواد الحقيقية للتفعيل.<br>ETA e-invoicing runs in mock; need live credentials/cert/codes. | Mock (`ETA_MOCK=true`) | 🔴 | |
 
-## ٤.٨ · الموازنة (مقارنة الفعلي بالموازنة) / Budget vs actual
+## ٤.٩ · الموازنة (مقارنة الفعلي بالموازنة) / Budget vs actual
 
 > **ليه بنسأل قبل ما نبني:** قايمة الدخل بقت بتقارن بـ **الفترة السابقة** و**نفس الفترة من السنة اللي فاتت** (شُحنت 2026-08-12). المقارنة بالموازنة هي الطلب التالي، وهي **مش عمود زيادة** — هي جدول جديد وشاشة إدخال، وشكلها بيتحدّد بإجابتك. لو بنينا الشكل الغلط، هتبقى شاشة محدش يقدر يستخدمها.
 >
@@ -414,7 +428,8 @@
 | القسم / Section | المسؤول / Owner | التاريخ / Date |
 |---|---|---|
 | شجرة الحسابات + الربط + الضرائب + الرواتب + الأصول / COA, mapping, tax, payroll, assets | *المحاسب / accountant* | |
-| الموازنة (٤.٧) + ترقيم المستندات (Q-COA-5) + الدمغة وضريبة الجدول (Q-TAX-7) / Budget, numbering, stamp & schedule tax | *المحاسب / accountant* | |
+| مُلّاك الوحدات (٤.٧): حساب أتعاب الإدارة + حساب صندوق الصيانة / Unit owners (4.7): management-fee income account + sinking-fund liability account — **دول بس اللي واقفين قدام آخر جزء من الميزة / the only blockers on the last piece** | *المحاسب / accountant* | |
+| الموازنة (٤.٩) + ترقيم المستندات (Q-COA-5) + الدمغة وضريبة الجدول (Q-TAX-7) / Budget, numbering, stamp & schedule tax | *المحاسب / accountant* | |
 
 **مرتبط بـ / Related:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) (سجل كل الأسئلة الداخلي) · [BUSINESS-RULES.md](../BUSINESS-RULES.md) (كل قاعدة + مستوى المخاطرة) · [21-general-ledger.md](../modules/21-general-ledger.md) (تفاصيل موديول الأستاذ العام).
 
