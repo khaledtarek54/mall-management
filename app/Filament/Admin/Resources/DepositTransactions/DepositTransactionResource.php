@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\DepositTransactions;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\DepositTransactions\Pages\CreateDepositTransaction;
 use App\Filament\Admin\Resources\DepositTransactions\Pages\EditDepositTransaction;
 use App\Filament\Admin\Resources\DepositTransactions\Pages\ListDepositTransactions;
@@ -17,7 +17,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * حركة تأمين — security-deposit transactions (receipt / refund / forfeit). Each is a
@@ -27,9 +26,9 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class DepositTransactionResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = DepositTransaction::class;
@@ -84,20 +83,6 @@ class DepositTransactionResource extends Resource
             'create' => CreateDepositTransaction::route('/create'),
             'edit' => EditDepositTransaction::route('/{record}/edit'),
         ];
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            // Property-level transactions for this asset OR consolidated company-level.
-            $query->where(fn ($q) => $q->where('asset_id', $assetId)->orWhereNull('asset_id'));
-        } elseif (($ids = \App\Support\TenantScope::visibleAssetIds()) !== null) {
-            $query->where(fn ($q) => $q->whereIn('asset_id', $ids)->orWhereNull('asset_id'));
-        }
-
-        return $query;
     }
 
     /**

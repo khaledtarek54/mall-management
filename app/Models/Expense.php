@@ -24,7 +24,10 @@ use Spatie\Activitylog\Support\LogOptions;
  * write path so no path can persist total=0 (silent GL skip) or vat>total.
  */
 #[NeverDeletable(correction: 'cancel the expense')]
-#[PropertyOwned]
+// A NULLABLE asset_id, and a null is portfolio-level overhead every property must still see
+// — an operator-wide bill is not hidden because someone picked a mall. Declared, not implied:
+// scoping this strictly would hide those rows from every screen and nothing would fail loudly.
+#[PropertyOwned(portfolioRowsWhenNull: true)]
 // Their Filament resource writes the model directly, so the model's save is the only
 // choke point every path shares.
 #[PostingDateGuardedBy(guard: \App\Models\Expense::class)]

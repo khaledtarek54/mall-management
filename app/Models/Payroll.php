@@ -23,7 +23,10 @@ use Spatie\Activitylog\Support\LogOptions;
  * inconsistent net or a zero the journalizer would mis-handle).
  */
 #[NeverDeletable(correction: 'cancel the run — payslips and their GL entries follow it')]
-#[PropertyOwned]
+// A NULLABLE asset_id, and a null is portfolio-level overhead every property must still see
+// — an operator-wide bill is not hidden because someone picked a mall. Declared, not implied:
+// scoping this strictly would hide those rows from every screen and nothing would fail loudly.
+#[PropertyOwned(portfolioRowsWhenNull: true)]
 #[PostingDateGuardedBy(guard: \App\Services\PayrollService::class)]
 class Payroll extends Model
 {

@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\VendorBills;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\VendorBills\Pages\CreateVendorBill;
 use App\Filament\Admin\Resources\VendorBills\Pages\EditVendorBill;
 use App\Filament\Admin\Resources\VendorBills\Pages\ListVendorBills;
@@ -28,9 +28,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 class VendorBillResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = VendorBill::class;
@@ -86,20 +86,6 @@ class VendorBillResource extends Resource
             'create' => CreateVendorBill::route('/create'),
             'edit' => EditVendorBill::route('/{record}/edit'),
         ];
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            // Property-level bills for this asset OR consolidated company bills.
-            $query->where(fn ($q) => $q->where('asset_id', $assetId)->orWhereNull('asset_id'));
-        } elseif (($ids = \App\Support\TenantScope::visibleAssetIds()) !== null) {
-            $query->where(fn ($q) => $q->whereIn('asset_id', $ids)->orWhereNull('asset_id'));
-        }
-
-        return $query;
     }
 
     /**

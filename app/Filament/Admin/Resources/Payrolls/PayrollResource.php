@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Payrolls;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Payrolls\Pages\CreatePayroll;
 use App\Filament\Admin\Resources\Payrolls\Pages\EditPayroll;
 use App\Filament\Admin\Resources\Payrolls\Pages\ListPayrolls;
@@ -18,7 +18,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * مسير رواتب — monthly payroll runs. Each approved run recognises the salary
@@ -27,9 +26,9 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class PayrollResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = Payroll::class;
@@ -85,20 +84,6 @@ class PayrollResource extends Resource
             'create' => CreatePayroll::route('/create'),
             'edit' => EditPayroll::route('/{record}/edit'),
         ];
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            // Property-level runs for this asset OR consolidated company runs.
-            $query->where(fn ($q) => $q->where('asset_id', $assetId)->orWhereNull('asset_id'));
-        } elseif (($ids = \App\Support\TenantScope::visibleAssetIds()) !== null) {
-            $query->where(fn ($q) => $q->whereIn('asset_id', $ids)->orWhereNull('asset_id'));
-        }
-
-        return $query;
     }
 
     /**

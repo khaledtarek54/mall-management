@@ -24,7 +24,10 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[NeverDeletable(correction: 'post a reversing entry; a posted entry is never removed')]
 // asset_id nullable = the books dimension (null = consolidated)
-#[PropertyOwned]
+// A NULLABLE asset_id, and a null is portfolio-level overhead every property must still see
+// — an operator-wide bill is not hidden because someone picked a mall. Declared, not implied:
+// scoping this strictly would hide those rows from every screen and nothing would fail loudly.
+#[PropertyOwned(portfolioRowsWhenNull: true)]
 class JournalEntry extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
