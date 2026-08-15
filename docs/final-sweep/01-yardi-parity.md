@@ -272,7 +272,7 @@ rule that a test using inputs no real path produces is green over dead code.
 
 ### 2.2 ~~HIGH — the SLA moat has a trapdoor: the clock only starts if someone clicks Start~~ ✅ FIXED 2026-08-12
 
-- **Remedy class:** EDIT · **Effort:** S · **Verified:** yes · **Shipped:** a second clock. Response runs from creation; resolution runs from acceptance *or from when acceptance was due, whichever came first*, so a job can no longer complete without a deadline and a late acceptance cannot buy extra time. See [module 26 §7c](../modules/26-preventive-maintenance.md). The finding understated it: `open → done` is legal, so the escape was not merely "nobody starts it" but a whole job closing with no clock.
+- **Remedy class:** EDIT · **Effort:** S · **Verified:** yes · **Shipped:** a second clock. Response runs from creation; resolution runs from acceptance *or from when acceptance was due, whichever came first*, so a job can no longer complete without a deadline and a late acceptance cannot buy extra time. See [module 26 §7c](../modules/26-facility.md). The finding understated it: `open → done` is legal, so the escape was not merely "nobody starts it" but a whole job closing with no clock.
 
 `target_resolution_at` on a work order is written in **exactly one place**: the manual
 `open → in_progress` transition, conditioned on `isCorrective()` and `acknowledged_at === null`
@@ -304,7 +304,7 @@ Verified as reported. ~~**PPM can silently stop generating for a plan, forever**
 2026-08-12**, all three links in the chain: a renewed COI no longer counts as lapsed
 (`HasSupersededDocuments`), a genuinely lapsed one withholds the *assignment* rather than cancelling
 the round, and a stuck plan is stamped on its own row and alerts once. The cycle is still not
-skipped. See [module 26](../modules/26-preventive-maintenance.md#a-plan-that-cannot-generate-says-so).
+skipped. See [module 26](../modules/26-facility.md#a-plan-that-cannot-generate-says-so).
 The original finding: a throw in `generateFor()` rolls back without advancing `next_due_date`, is
 contained per-plan into a `Log::warning` (not `OpsLog`), and the command's non-zero exit goes nowhere
 because no `onFailure`/`emailOutput` hook exists anywhere in `routes/console.php` · **PPM work orders have no overdue detection at all** — every scan and widget
@@ -487,7 +487,7 @@ Beyond the money-side list in [03-money-gl §7](03-money-gl.md#7-stale-documenta
   open. **All three shipped** (`ExerciseLeaseOptionService`, `ConvertLeaseToHoldoverService`,
   `monthsCovered()` driving `CreditUnearnedBillingService`). Reading it would send someone to rebuild
   three finished features.
-- `docs/modules/11-maintenance.md` — ~10 false statements: wrong command signatures, "not scheduled"
+- `docs/modules/11-tenant-requests.md` — ~10 false statements: wrong command signatures, "not scheduled"
   claims for scheduled commands, a renamed Filament directory.
 - `docs/modules/12-vendors.md:72` — claims the blacklist blocks award; it blocks dispatch only.
 - `docs/modules/28-approvals.md:3` — says one consumer; there are three.

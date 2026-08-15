@@ -223,7 +223,7 @@ and delete the coercion in the home mapper. Your instinct there was right; the s
 ## B3 · backend docs described removed endpoints — ✅ fixed
 
 `docs/api/MOBILE-API.md` (9 places), `docs/api/v1.md`, `docs/modules/20-mobile-api.md`,
-`docs/modules/11-maintenance.md`, `docs/qa/test-cases/11-tenant-requests.md` and `docs/PROJECT-MAP.md`
+`docs/modules/11-tenant-requests.md`, `docs/qa/test-cases/11-tenant-requests.md` and `docs/PROJECT-MAP.md`
 now say `/me/requests`. The false *"still under `/me/maintenance-requests` for back-compat"* claim is
 replaced with an explicit breaking-change notice.
 

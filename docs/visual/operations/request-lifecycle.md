@@ -26,4 +26,4 @@ Assigning a submitted request to someone **auto-acknowledges** it. Only the move
 
 <div class="plain">The <b>type</b> is a plain field, not a rigid database enum — so adding a new kind of request needs <em>no</em> migration. Each type carries its own SLA target, default department, and reference prefix. A maintenance request gets a <b>resolution deadline</b> (the SLA); the breach scan flags it if it slips, and the tenant can leave a 1–5 <b>satisfaction rating</b> once it's resolved.</div>
 
-_Source of truth: `app/Services/TenantRequestService.php` (the TRANSITIONS map) and `docs/modules/11-maintenance.md`._
+_Source of truth: `app/Services/TenantRequestService.php` (the TRANSITIONS map) and `docs/modules/11-tenant-requests.md`._

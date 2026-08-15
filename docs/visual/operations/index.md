@@ -29,4 +29,4 @@ Leasing brings the money in; **operations spends to keep the building worth rent
 - **[Inventory in the books →](/operations/inventory-and-books)** — the stock ledger and what it posts
 - **[Preventive maintenance &amp; vendors →](/operations/preventive-and-vendors)** — plans, work orders, contracts
 
-_Full written rules: `docs/modules/08-cam.md`, `10-utility-meters.md`, `11-maintenance.md`, `12-vendors.md`, `22-inventory.md`, `26-preventive-maintenance.md`._
+_Full written rules: `docs/modules/08-cam.md`, `10-utility-meters.md`, `11-tenant-requests.md`, `12-vendors.md`, `22-inventory.md`, `26-facility.md`._

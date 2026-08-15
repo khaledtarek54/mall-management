@@ -29,4 +29,4 @@
 - **[المخزون في الدفاتر ←](/ar/operations/inventory-and-books)** — دفتر المخزون وما يُرحِّله
 - **[الصيانة الوقائية والموردون ←](/ar/operations/preventive-and-vendors)** — الخطط وأوامر الشغل والعقود
 
-_القواعد المكتوبة كاملة: `docs/modules/08-cam.md`، `10-utility-meters.md`، `11-maintenance.md`، `12-vendors.md`، `22-inventory.md`، `26-preventive-maintenance.md`._
+_القواعد المكتوبة كاملة: `docs/modules/08-cam.md`، `10-utility-meters.md`، `11-tenant-requests.md`، `12-vendors.md`، `22-inventory.md`، `26-facility.md`._

@@ -446,4 +446,4 @@ Each notification declares which channels it uses in `via()`, and **who** receiv
 - [`docs/money/07-credit-notes.md`](07-credit-notes.md) — credit-note locking/apply/void/reverse referenced by the CAM negative-true-up path.
 - [`docs/modules/18-rbac-scoping.md`](../modules/18-rbac-scoping.md) — the RBAC + property-scoping module reference (sidebar grouping, custom roles, test index).
 - [`docs/modules/19-notifications-scans.md`](../modules/19-notifications-scans.md) — the notifications + scheduled-scan module reference.
-- [`docs/modules/11-maintenance.md`](../modules/11-maintenance.md) — the tenant-request module reference (Filament resources, lifecycle, full test index).
+- [`docs/modules/11-tenant-requests.md`](../modules/11-tenant-requests.md) — the tenant-request module reference (Filament resources, lifecycle, full test index).

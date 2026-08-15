@@ -233,5 +233,5 @@ Every phase adds tests in lockstep (CLAUDE.md convention): the state machine per
 - Settings: `SlaSettings` → `RequestSettings` (per-type SLA).
 - Seeders: `RolesPermissionsSeeder` (`maintenance.*`→`requests.*`), `DemoSeeder` (seed types + sample requests).
 - Translations: `lang/{en,ar}/admin.php` (`admin.requests.*`, type names, statuses, notification copy).
-- Docs: rename `docs/modules/11-maintenance.md`→`11-tenant-requests.md`; update `docs/OVERVIEW.md`, `docs/api/MOBILE-API.md`, `MOBILE-APP-BRIEF.md`, `CLAUDE.md` (commands list).
+- Docs: rename `docs/modules/11-tenant-requests.md`→`11-tenant-requests.md`; update `docs/OVERVIEW.md`, `docs/api/MOBILE-API.md`, `MOBILE-APP-BRIEF.md`, `CLAUDE.md` (commands list).
 - Tests: update the ~15 maintenance test files + add the migration/backfill regression.

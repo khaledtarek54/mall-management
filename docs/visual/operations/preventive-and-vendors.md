@@ -28,4 +28,4 @@ The best request is the one that never happens. **Preventive maintenance** servi
 
 <div class="rule"><span class="lbl">Rule · contracts expire themselves</span>The <code>vendors:expire-contracts</code> scan flips an <b>Active</b> contract to <b>Expired</b> the moment its end date passes — locking the row and re-checking the date first, and using a real update so the change lands in the activity log. No one has to remember to do it.</div>
 
-_Source of truth: `app/Services/GeneratePreventiveWorkOrdersService.php`, `app/Models/ServicePlan.php`, `app/Models/VendorContract.php`, and `docs/modules/12-vendors.md`, `26-preventive-maintenance.md`._
+_Source of truth: `app/Services/GeneratePreventiveWorkOrdersService.php`, `app/Models/ServicePlan.php`, `app/Models/VendorContract.php`, and `docs/modules/12-vendors.md`, `26-facility.md`._

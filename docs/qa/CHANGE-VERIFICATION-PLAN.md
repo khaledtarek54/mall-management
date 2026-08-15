@@ -7,7 +7,7 @@
 | WS | Workstream | Risk | Primary docs |
 |----|-----------|------|--------------|
 | A | **Money-path hardening** (review passes 1–6): proration, CAM ± true-ups, credit notes, billing lock, payment over-allocation, late fees, AR widgets, marketing levy | **Highest** | [docs/MONEY-PATHS.md](../MONEY-PATHS.md) |
-| B | **Tenant-request generalization**: MaintenanceRequest→TenantRequest, typed requests, CSAT, per-type SLA/routing/notifications | Medium | [docs/modules/11-maintenance.md](../modules/11-maintenance.md) |
+| B | **Tenant-request generalization**: MaintenanceRequest→TenantRequest, typed requests, CSAT, per-type SLA/routing/notifications | Medium | [docs/modules/11-tenant-requests.md](../modules/11-tenant-requests.md) |
 | C | **RBAC / security / scoping**: access-control audit, authz gating, cross-tenant leak, attachment private disk, security headers | High | [docs/modules/18-rbac-scoping.md](../modules/18-rbac-scoping.md) |
 | D | **Payments / Paymob / pay-link**: public payment link, QR, callback HMAC, channels | High | [docs/money/06-payments.md](../money/06-payments.md) |
 | E | **ETA e-invoicing**: preflight, pluggable signing seam, EGS codes | Medium (mock) | [docs/money/11-eta-einvoicing.md](../money/11-eta-einvoicing.md) |

@@ -2,7 +2,7 @@
 
 > Worked example covering the generalized tenant-request system (maintenance +
 > complaint / inquiry / access / billing / document). **Module doc:**
-> [docs/modules/11-maintenance.md](../../modules/11-maintenance.md).
+> [docs/modules/11-tenant-requests.md](../../modules/11-tenant-requests.md).
 
 **Last full run:** `____` by `____`
 

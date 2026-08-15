@@ -98,9 +98,9 @@
             },
             {
                 "number": 11,
-                "slug": "maintenance",
-                "title": "Maintenance",
-                "doc": "docs/modules/11-maintenance.md",
+                "slug": "tenant-requests",
+                "title": "Tenant Requests",
+                "doc": "docs/modules/11-tenant-requests.md",
                 "gap_analysed": true
             },
             {
@@ -203,9 +203,9 @@
             },
             {
                 "number": 26,
-                "slug": "preventive-maintenance",
-                "title": "Preventive Maintenance",
-                "doc": "docs/modules/26-preventive-maintenance.md",
+                "slug": "facility",
+                "title": "Facility",
+                "doc": "docs/modules/26-facility.md",
                 "gap_analysed": true
             },
             {

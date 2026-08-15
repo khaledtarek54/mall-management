@@ -168,7 +168,7 @@ Each module has a doc in [docs/modules/](modules/) with *Business rules*,
 | 08 | CAM reconciliation | `08-cam.md` | `Services/CamReconciliationService.php` |
 | 09 | Tenant sales / % rent | `09-tenant-sales-percentage-rent.md` | `Services/PercentageRentCalculationService.php` |
 | 10 | Utility meters | `10-utility-meters.md` | `Models/UtilityMeter.php`, `MeterReading.php` |
-| 11 | **Tenant requests** (incl. maintenance) | `11-maintenance.md` | `Services/TenantRequestService.php`, `Enums/TenantRequestType.php` |
+| 11 | **Tenant requests** (incl. maintenance) | `11-tenant-requests.md` | `Services/TenantRequestService.php`, `Enums/TenantRequestType.php` |
 | 12 | Vendors | `12-vendors.md` | `Models/Vendor*.php` |
 | 13 | Marketing | `13-marketing.md` | `Models/MarketingBudget.php`, `Services/MarketingLevyService.php` |
 | 14 | Departments | `14-departments.md` | `Models/Department.php` |
@@ -183,7 +183,7 @@ Each module has a doc in [docs/modules/](modules/) with *Business rules*,
 | 23 | Fixed assets & depreciation | `23-fixed-assets.md` | `Services/DepreciationService.php`, `DisposeFixedAssetService.php` |
 | 24 | HR / employees | `24-hr-employees.md` | `Services/PayrollService.php`, `PayslipPdfService.php` |
 | 25 | Treasury / custody (عهدة) | `25-treasury-custody.md` | `Services/GrantCustodyService.php`, `SettleCustodyService.php` |
-| 26 | **Facility maintenance (PPM + CM)** | `26-preventive-maintenance.md` | `Services/FacilityWorkOrderService.php`, `AssessSlaPenaltyService.php`, `ApplySlaPenaltyService.php` |
+| 26 | **Facility maintenance (PPM + CM)** | `26-facility.md` | `Services/FacilityWorkOrderService.php`, `AssessSlaPenaltyService.php`, `ApplySlaPenaltyService.php` |
 | 27 | Announcements | `27-announcements.md` | `Services/SendAnnouncementAction.php` |
 | 28 | Approvals (amount ladder) | `28-approvals.md` | `Support/ApprovalPolicy.php` |
 

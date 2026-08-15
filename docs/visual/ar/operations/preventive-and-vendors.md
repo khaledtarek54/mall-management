@@ -28,4 +28,4 @@
 
 <div class="rule"><span class="lbl">قاعدة · العقود تنتهي من تلقاء نفسها</span>مسح <code>vendors:expire-contracts</code> يقلب العقد <b>النشط</b> إلى <b>منتهٍ</b> لحظة انقضاء تاريخ نهايته — بعد أن يقفل الصف ويعيد التحقق من التاريخ أولًا، وباستخدام تحديث حقيقي ليصل التغيير إلى سجل النشاط. فلا يحتاج أحد أن يتذكّر فعل ذلك.</div>
 
-_مصدر الحقيقة: `app/Services/GeneratePreventiveWorkOrdersService.php` و`app/Models/ServicePlan.php` و`app/Models/VendorContract.php` و`docs/modules/12-vendors.md` و`26-preventive-maintenance.md`._
+_مصدر الحقيقة: `app/Services/GeneratePreventiveWorkOrdersService.php` و`app/Models/ServicePlan.php` و`app/Models/VendorContract.php` و`docs/modules/12-vendors.md` و`26-facility.md`._

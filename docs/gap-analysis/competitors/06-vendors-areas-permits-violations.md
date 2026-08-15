@@ -2,7 +2,7 @@
 
 > Domain deep-dive benchmarking Atriom against **ServiceChannel** (multi-site vendor/contractor management, compliance/insurance, dispatch, scorecards) and **Facilio** (zones/spaces, tenant + vendor management, tenant experience). Produced 2026-07-18.
 >
-> Atriom cells are grounded in `docs/modules/12-vendors.md`, `30-areas.md`, `31-violations.md`, `11-maintenance.md` and the source they cite. Competitor cells are from product knowledge (cutoff ~Jan 2026); version/pricing-sensitive claims are marked **(verify)**.
+> Atriom cells are grounded in `docs/modules/12-vendors.md`, `30-areas.md`, `31-violations.md`, `11-tenant-requests.md` and the source they cite. Competitor cells are from product knowledge (cutoff ~Jan 2026); version/pricing-sensitive claims are marked **(verify)**.
 >
 > **Legend:** ✅ full · 🟡 partial · ❌ absent · ⏭️ N/A or deferred
 

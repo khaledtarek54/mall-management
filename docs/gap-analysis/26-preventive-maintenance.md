@@ -2,7 +2,7 @@
 
 > **Round 2**, audited 2026-07-16 — first ever gap analysis, on the newest and largest module (the
 > Eltizam FRD expansion, under active development). Spec:
-> [../modules/26-preventive-maintenance.md](../modules/26-preventive-maintenance.md) ·
+> [../modules/26-facility.md](../modules/26-facility.md) ·
 > methodology: [000-plan.md](000-plan.md).
 
 **Status: 🔴 Red → 🟡 after fixes.** The core state machine, XOR, SLA clock and parts handling are

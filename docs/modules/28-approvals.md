@@ -126,7 +126,7 @@ active. Four things about it are deliberate:
 
 | Module | What it approves | Where |
 |--------|------------------|-------|
-| [26 Preventive maintenance](26-preventive-maintenance.md) | an internal spare-part draw (FR-CM-10/11) — stock moves only on approval | `WorkOrderPartService` |
+| [26 Preventive maintenance](26-facility.md) | an internal spare-part draw (FR-CM-10/11) — stock moves only on approval | `WorkOrderPartService` |
 | Procurement (FR-PROC-02) | purchase requests | ⬜ planned |
 | Permits (FR-REQ-*) | fit-out permits | ⬜ planned |
 

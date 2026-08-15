@@ -3,9 +3,9 @@
 > Benchmarks the mall/retail-specialist FM tools: **Facilio** (purpose-built mall/REIT FM — the closest
 > analog), **ServiceChannel** (retail multi-site vendor dispatch + SLA compliance), **IBM Maximo**
 > (enterprise PPM/EAM), and **MaintainX / Limble** (modern mobile CMMS). Atriom side grounded in
-> [`docs/modules/26`](../../modules/26-preventive-maintenance.md) (`FacilityWorkOrderService`,
+> [`docs/modules/26`](../../modules/26-facility.md) (`FacilityWorkOrderService`,
 > `ServicePlan`/`FacilityWorkOrder`, `Equipment`, `SlaResolver`, `sla_policies`,
-> `SlaPenalty`, `WorkOrderPartService`) and [`docs/modules/11`](../../modules/11-maintenance.md)
+> `SlaPenalty`, `WorkOrderPartService`) and [`docs/modules/11`](../../modules/11-tenant-requests.md)
 > (`TenantRequest`, area→supervisor routing). Competitor cells marked *(verify)* are version-/edition-sensitive.
 
 Legend: ✅ full · 🟡 partial · ❌ absent · ⏭️ N/A or deferred

@@ -26,4 +26,4 @@
 
 <div class="plain"><b>النوع</b> حقل نصّي عادي لا قيد قاعدة بيانات جامد — فإضافة نوع جديد من الطلبات لا تحتاج <em>أي</em> ترحيل. ويحمل كل نوع هدف مستوى الخدمة الخاص به وإدارته الافتراضية وبادئة مرجعه. وطلب الصيانة يحصل على <b>موعد حل مستهدف</b> (مستوى الخدمة)؛ ويرصده مسح المخالفات إن تأخر، وللمستأجر أن يترك <b>تقييمًا</b> من ١ إلى ٥ بعد حلّه.</div>
 
-_مصدر الحقيقة: `app/Services/TenantRequestService.php` (خريطة TRANSITIONS) و`docs/modules/11-maintenance.md`._
+_مصدر الحقيقة: `app/Services/TenantRequestService.php` (خريطة TRANSITIONS) و`docs/modules/11-tenant-requests.md`._

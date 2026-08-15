@@ -4,7 +4,7 @@
 > inventory, and procure-to-stock flow against **IBM Maximo** (enterprise EAM), **Facilio**
 > (connected CMMS + inventory + vendor), and **Fiix** (CMMS parts/inventory). Atriom side grounded
 > in [`docs/modules/22`](../../modules/22-inventory.md) (inventory), [`29`](../../modules/29-procurement.md)
-> (procurement), [`26`](../../modules/26-preventive-maintenance.md) (equipment register + PM + parts),
+> (procurement), [`26`](../../modules/26-facility.md) (equipment register + PM + parts),
 > [`23`](../../modules/23-fixed-assets.md) (fixed assets), and the `StockMovementService` /
 > `PurchaseRequestService` / `InventoryMovementJournalizer` / `Equipment` source. *(verify)* = a
 > competitor claim that is version- or edition-sensitive.
