@@ -22,7 +22,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * and re-made, so the trail shows both decisions.
  */
 #[DeletionAllowed(reason: 'parent-managed: soft-deleted to reverse a bad-debt write-off (WriteOffInvoiceService::reverse), which voids the GL entry and re-opens the invoice. NEVER_DELETABLE would have broken that recovery path — the exact trap CLAUDE.md warns about before adding a model to NEVER')]
-#[PropertyOwned(via: 'asset')]
+// Corrected 2026-08-16: this said `via: 'asset'`, but `invoice_write_offs` carries its own
+// `asset_id`, and that chain TERMINATES at Asset — which has no asset_id of its own, so anything
+// walking it dead-ends. NotificationLink::assetOf() does exactly that walk and would resolve null,
+// falling back to the reader's home property. Harmless so far only because no resource scopes this
+// model; the day one exists, ScopesToProperty would emit `whereHas('asset', asset_id = ?)` against
+// a table with no such column. The declaration now matches the schema.
+#[PropertyOwned]
 #[PostingDateGuardedBy(guard: \App\Services\WriteOffInvoiceService::class)]
 class InvoiceWriteOff extends Model
 {

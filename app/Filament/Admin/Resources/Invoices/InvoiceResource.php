@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Resources\Invoices;
 
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
-use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Admin\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
@@ -25,13 +25,8 @@ class InvoiceResource extends Resource
 {
     use GuardsAssetInScope;
     use RoleGatedActions;
-    use ScopesViaProperty;
+    use ScopesToProperty;
     use SearchesNormalizedText;
-
-    protected static function tenantScopeRelation(): string
-    {
-        return 'lease.unit';
-    }
 
     protected static ?string $model = Invoice::class;
 

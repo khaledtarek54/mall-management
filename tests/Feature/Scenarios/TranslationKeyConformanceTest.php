@@ -282,19 +282,53 @@ it('E: no language file declares the same key twice', function () {
         }
     };
 
-    $files = array_merge(glob(lang_path('en/*.php')), glob(lang_path('ar/*.php')));
+    // Sub-directories too. When `admin.php` was split into `admin/*.php` (2026-08-15) this glob
+    // stopped reaching 4,711 keys per locale — the largest catalogue in the project, and the one
+    // the seven original duplicates were found in.
+    $files = array_merge(
+        glob(lang_path('en/*.php')), glob(lang_path('en/*/*.php')),
+        glob(lang_path('ar/*.php')), glob(lang_path('ar/*/*.php')),
+    );
+
+    $walked = 0;
+    $unwalkable = [];
 
     foreach ($files as $file) {
+        $relative = str_replace(base_path().'/', '', $file);
         $statements = $parser->parse(file_get_contents($file));
         $return = end($statements);
 
         if ($return instanceof Node\Stmt\Return_ && $return->expr instanceof Node\Expr\Array_) {
-            $walk($return->expr, '', str_replace(base_path().'/', '', $file));
+            $walk($return->expr, '', $relative);
+            $walked++;
+
+            continue;
         }
+
+        // An AGGREGATOR (`return $merged;`) is legitimate, but it is opaque to this AST walk — its
+        // keys must be reachable as partials, or a whole catalogue leaves the sweep silently.
+        $unwalkable[] = $relative;
     }
 
     expect($duplicates)->toBe([], "Duplicate translation keys — the earlier value never loads:\n  ".implode("\n  ", $duplicates));
-    expect(count($files))->toBeGreaterThan(10);
+
+    // GUARD THE GUARD, and count what was actually WALKED rather than what was listed. The previous
+    // floor counted FILES: after the split it was satisfied by the sixteen non-admin files while
+    // this check covered zero admin keys and still passed — a dead gate that looked alive, which is
+    // the exact failure this whole file exists to prevent.
+    expect($walked)->toBeGreaterThan(40, "Only {$walked} language files were actually walked — a catalogue has dropped out of this sweep.");
+
+    // Every aggregator must be accounted for: its partials have to be globbed above, or its keys
+    // are unchecked. Naming them keeps the omission visible instead of silent.
+    $aggregatorsWithoutPartials = array_values(array_filter(
+        $unwalkable,
+        fn (string $f): bool => glob(base_path(dirname($f).'/'.basename($f, '.php').'/*.php')) === [],
+    ));
+
+    expect($aggregatorsWithoutPartials)->toBe([], implode('', [
+        'These language files return something other than an array literal and have no partial ',
+        'directory, so their keys are in NO sweep: '.implode(', ', $aggregatorsWithoutPartials),
+    ]));
 })->group('conformance');
 
 it('F: no Filament component renders an auto-generated English label', function () {

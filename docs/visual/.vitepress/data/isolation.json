@@ -255,7 +255,7 @@
         "model": "InvoiceWriteOff",
         "label": "Invoice Write Off",
         "classification": "owned",
-        "note": "asset"
+        "note": null
     },
     {
         "model": "JournalEntry",

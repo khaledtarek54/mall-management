@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Resources\Payments;
 
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
-use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
 use App\Filament\Admin\Resources\Payments\Pages\EditPayment;
 use App\Filament\Admin\Resources\Payments\Pages\ListPayments;
@@ -25,7 +25,7 @@ class PaymentResource extends Resource
 {
     use GuardsAssetInScope;
     use RoleGatedActions;
-    use ScopesViaProperty;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     /**
@@ -44,10 +44,6 @@ class PaymentResource extends Resource
         ];
     }
 
-    protected static function tenantScopeRelation(): string
-    {
-        return 'invoices.lease.unit';
-    }
 
     protected static ?string $model = Payment::class;
 
