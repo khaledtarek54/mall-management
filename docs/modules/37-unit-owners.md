@@ -164,7 +164,26 @@ sold unit can be occupied, let or empty, and collapsing them into one column wou
 `units.status` answer two questions badly. `Unit::isOwned()` answers the ownership one. (This departs
 from the plan's own phase-1 line, which listed a "sold" state.)
 
-## 9. Tests
+## 9. Demo data
+
+`DemoSeeder` seeds **7 ownerships over 5 units** on Atriom Walk, with 42 assessments billed through
+`BillUnitOwnershipsService` — not inserted, per the seeder's own rule that demo data an operator
+could not have produced hides the bugs a seeder exists to surface.
+
+All four owner states appear, plus the two shapes that cannot be pictured from a single row: a
+**co-owned** unit (60/40, and the two owners together pay exactly one unit's assessment) and a
+**resold** unit whose register carries the former owner and the current one.
+
+> **Order matters, and the first cut got it wrong.** Applying the resale *before* the back-billing
+> marked the seller `transferred`, and only a HANDED-OVER ownership bills — so he ended with a closed
+> tenure and not one assessment against it. That is data no operator could produce, and it quietly
+> defeated the reason the seller's row is kept at all: there was no history left for it to be the
+> basis of. The seeder now bills the months he owned it, transfers, then bills the buyer's months.
+
+`LearningSeeder` deliberately seeds **no** ownerships — it is the empty-mall variant, and its whole
+point is that an experiment's own numbers are the only numbers on screen.
+
+## 10. Tests
 
 `tests/Feature/UnitOwnershipTest.php` — the party decision, the defaults, which layer refuses, the
 handover trigger, resale-as-tenure-end, the reference series, and the audit trail rendered in **both

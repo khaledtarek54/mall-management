@@ -2,17 +2,15 @@
 
 namespace Database\Seeders;
 
-use App\Support\MorphMap;
-use App\Models\Area;
-use App\Models\LeaseOption;
-use App\Services\LeaseSpaceChangeService;
-use App\Services\LeaseReliefService;
-use App\Services\AllocatePaymentToInvoiceItemsService;
-use App\Services\DisputeInvoiceItemService;
-use App\Services\Accounting\SetPostMonthService;
-use App\Support\Vat;
+use App\Enums\ManagementFeeBasis;
+use App\Enums\PartyType;
 use App\Enums\TenantRequestType;
+use App\Enums\UnitManagementMode;
+use App\Enums\UnitOwnershipStatus;
+use App\Enums\UnitTenureType;
 use App\Models\AccountingPeriod;
+use App\Models\Announcement;
+use App\Models\Area;
 use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
@@ -23,19 +21,17 @@ use App\Models\DepositTransaction;
 use App\Models\Employee;
 use App\Models\Equipment;
 use App\Models\Expense;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderItem;
 use App\Models\FixedAsset;
-use App\Models\InventoryItem;
 use App\Models\Floor;
+use App\Models\InventoryItem;
 use App\Models\Invoice;
-use App\Models\RentableItem;
 use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
 use App\Models\Lease;
-use App\Models\TenantDocument;
 use App\Models\LeaseCamTerm;
-use App\Models\ServicePlan;
-use App\Models\FacilityWorkOrder;
-use App\Models\FacilityWorkOrderItem;
+use App\Models\LeaseOption;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
@@ -46,13 +42,17 @@ use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Models\PostDatedCheque;
+use App\Models\RentableItem;
+use App\Models\ServicePlan;
 use App\Models\SlaPolicy;
 use App\Models\Tenant;
+use App\Models\TenantDocument;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
 use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Models\Unit;
+use App\Models\UnitOwnership;
 use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Models\Vendor;
@@ -63,16 +63,22 @@ use App\Models\VendorContractAmendment;
 use App\Models\VendorDocument;
 use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\SetPostMonthService;
+use App\Services\AllocatePaymentToInvoiceItemsService;
 use App\Services\AssignRentableItemService;
+use App\Services\BillUnitOwnershipsService;
 use App\Services\CamReconciliationService;
 use App\Services\CreditNoteService;
 use App\Services\DepreciationService;
 use App\Services\DisposeFixedAssetService;
+use App\Services\DisputeInvoiceItemService;
 use App\Services\Eta\EtaSubmissionService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
-use App\Services\FacilityWorkOrderService;
+use App\Services\LeaseReliefService;
+use App\Services\LeaseSpaceChangeService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
 use App\Services\OwnerRequestService;
@@ -82,9 +88,13 @@ use App\Services\PostDatedChequeService;
 use App\Services\PurchaseRequestService;
 use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\RecordAdvanceRepaymentService;
+use App\Services\SendAnnouncementAction;
 use App\Services\SettleCustodyService;
 use App\Services\StockMovementService;
 use App\Services\VendorBillService;
+use App\Support\MorphMap;
+use App\Support\Vat;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -441,6 +451,9 @@ class DemoSeeder extends Seeder
         $this->seedMarketingPosts($atriomWalk);
         $this->command->info('   Shopper feed: store directory + live offers, one awaiting review');
 
+        $this->seedAnnouncements($atriomWalk);
+        $this->command->info('   Mall news: sent notices with read receipts, one scheduled, one draft');
+
         // --- Operational + financial modules (22–26 + AP / expenses / deposits) ---
         $employees = $this->seedHrEmployees($atriomWalk);
         $this->seedTreasuryCustody($employees);
@@ -471,6 +484,10 @@ class DemoSeeder extends Seeder
         // vendors it builds on, and BEFORE the GL sync so everything it creates gets posted.
         $this->seedLeasingCycle($atriomWalk);
 
+        // Units that were SOLD rather than let (module 37). Runs after the leasing cycle so it can
+        // take units nobody leased, and BEFORE the GL sync so its assessments post like any invoice.
+        $this->seedUnitOwnerships($atriomWalk);
+
         // LAST — after invoices, payments, credit notes, vendor bills, expenses,
         // deposits, payroll, advances, custody, stock movements, and fixed-asset
         // depreciation/disposals have all been seeded.
@@ -482,7 +499,6 @@ class DemoSeeder extends Seeder
         // Owner statements read the posted GL for the period, so they must run AFTER the sync.
         $this->seedOwnerStatements($atriomWalk);
     }
-
 
     /**
      * The leasing cycle, as an operating mall actually looks (the 43 Yardi-benchmark stories).
@@ -789,9 +805,9 @@ class DemoSeeder extends Seeder
             return;
         }
 
-        /** @var \App\Models\InvoiceItem|null $rent */
+        /** @var InvoiceItem|null $rent */
         $rent = $invoice->items->firstWhere('type', 'base_rent');
-        /** @var \App\Models\InvoiceItem|null $cam */
+        /** @var InvoiceItem|null $cam */
         $cam = $invoice->items->firstWhere('type', 'service_charge');
 
         if (! $rent || ! $cam || (float) $rent->total <= 0) {
@@ -2613,6 +2629,97 @@ class DemoSeeder extends Seeder
     }
 
     /**
+     * Mall news (module 27): the operator's notice board, in all three of its states.
+     *
+     * Every notice is written in BOTH languages, because a demo where the Arabic column is empty
+     * teaches the operator that it is optional — and the one thing this module changed for a
+     * market whose tenants read Arabic is that it no longer is.
+     *
+     * The sent ones go through {@see SendAnnouncementAction} rather than being hand-stamped, so
+     * the recipient rows, the `notified_at` stamps and the bell/push fan-out are the real ones.
+     * A few read receipts are then stamped so the admin table's read rate shows something other
+     * than "0 / n" — which is what the screen looks like the day it ships and reads like a bug.
+     */
+    private function seedAnnouncements(Asset $asset): void
+    {
+        $marketingLead = User::where('email', 'marketing@mall.test')->first();
+        $sender = app(SendAnnouncementAction::class);
+
+        $send = function (array $attrs, float $readShare = 0.0) use ($asset, $marketingLead, $sender): Announcement {
+            $announcement = Announcement::create(array_merge([
+                'asset_id' => $asset->id,
+                'created_by' => $marketingLead?->id,
+            ], $attrs));
+
+            $sender->handle($announcement);
+
+            if ($readShare > 0) {
+                // The first N recipients opened it. Spread over the hours after the send so the
+                // receipts read like people rather than like a fixture.
+                $recipients = $announcement->recipients()->orderBy('id')->get();
+                $opened = (int) ceil($recipients->count() * $readShare);
+
+                $recipients->take($opened)->each(fn ($recipient, $i) => $recipient->forceFill([
+                    'read_at' => $announcement->sent_at?->copy()->addHours($i + 1),
+                ])->save());
+            }
+
+            return $announcement;
+        };
+
+        $send([
+            'title' => 'Loading bay closed this Friday',
+            'title_ar' => 'إغلاق منطقة التحميل يوم الجمعة',
+            'body' => 'The service corridor and loading bay are closed all day Friday for lift maintenance. Please schedule deliveries for Thursday or Saturday.',
+            'body_ar' => 'ممر الخدمة ومنطقة التحميل مغلقان طوال يوم الجمعة لأعمال صيانة المصاعد. يُرجى جدولة التوريدات يوم الخميس أو السبت.',
+            'category' => Announcement::CATEGORY_OPERATIONS,
+            'expires_at' => now()->addDays(6),
+        ], readShare: 0.6);
+
+        $send([
+            'title' => 'Fire drill — Thursday 3pm',
+            'title_ar' => 'تجربة إخلاء — الخميس ٣ مساءً',
+            'body' => 'A full evacuation drill runs at 3pm on Thursday. Staff should follow the marshals to the assembly point in the north car park.',
+            'body_ar' => 'تجرى تجربة إخلاء كاملة الساعة الثالثة مساء الخميس. على الموظفين اتباع المنظمين إلى نقطة التجمع في الموقف الشمالي.',
+            'category' => Announcement::CATEGORY_EMERGENCY,
+            'is_pinned' => true,
+        ], readShare: 0.35);
+
+        $send([
+            'title' => 'Summer trading hours start Monday',
+            'title_ar' => 'مواعيد العمل الصيفية تبدأ الاثنين',
+            'body' => 'From Monday the mall opens 10:00–01:00 daily. Please update your own signage and staffing rotas.',
+            'body_ar' => 'اعتبارًا من الاثنين يفتح المول يوميًا من ١٠:٠٠ إلى ٠١:٠٠. يُرجى تحديث لافتاتكم وجداول العمل.',
+            'category' => Announcement::CATEGORY_HOURS,
+        ], readShare: 1.0);
+
+        // Written a fortnight early — the case that could not exist while composing WAS sending.
+        Announcement::create([
+            'asset_id' => $asset->id,
+            'created_by' => $marketingLead?->id,
+            'title' => 'Eid decorations go up on the 20th',
+            'title_ar' => 'تركيب زينة العيد يوم ٢٠',
+            'body' => 'Contractors will be working in the atrium overnight from the 20th. Shopfronts stay accessible throughout.',
+            'body_ar' => 'سيعمل المقاولون في البهو ليلًا اعتبارًا من يوم ٢٠. تبقى واجهات المحال متاحة طوال الوقت.',
+            'category' => Announcement::CATEGORY_EVENT,
+            'status' => Announcement::STATUS_SCHEDULED,
+            'publish_at' => now()->addDays(9),
+        ]);
+
+        // Half-written. Nobody is notified; it sits in the Draft tab until someone finishes it.
+        Announcement::create([
+            'asset_id' => $asset->id,
+            'created_by' => $marketingLead?->id,
+            'title' => 'Car park resurfacing — dates TBC',
+            'title_ar' => 'إعادة رصف الموقف — المواعيد لم تُحدد',
+            'body' => 'Draft: awaiting the contractor\'s programme before this goes out.',
+            'body_ar' => 'مسودة: بانتظار برنامج المقاول قبل الإرسال.',
+            'category' => Announcement::CATEGORY_OPERATIONS,
+            'status' => Announcement::STATUS_DRAFT,
+        ]);
+    }
+
+    /**
      * HR / Employees (module 24): a small operator payroll for Atriom Walk —
      * staff across departments, two advances (one part-repaid, one part-repaid),
      * and two monthly payroll runs (last month approved + GL-postable, this month
@@ -3428,5 +3535,175 @@ class DemoSeeder extends Seeder
         $svc->reply($request->refresh(), $operator, 'Confirmed: 60/40 as proposed. Work order raised.', 'resolved');
 
         $this->command->info('   Seeded 1 owner request with a 3-message conversation');
+    }
+
+    /**
+     * Units that were SOLD rather than let — مُلّاك الوحدات (module 37).
+     *
+     * The demo had no unit owners at all, so the whole module opened onto an empty state: the
+     * register, the assessment run, and every figure that now counts an owner's arrears had nothing
+     * to show. A feature that only exists in the test suite is a feature nobody looks at.
+     *
+     * **All four owner states are represented**, because each is a different money flow and the
+     * screens read differently for each — an owner-occupier with no lease at all, one who let the
+     * unit himself, one in the operator's rental pool, and one sitting empty and still owing صيانة.
+     * Plus the two shapes that are easy to get wrong and impossible to picture from a single row: a
+     * CO-OWNED unit whose 60/40 split must sum to one assessment, and a RESOLD unit whose register
+     * carries both the former owner and the current one.
+     *
+     * The assessments are billed by `BillUnitOwnershipsService`, not inserted — same rule as the
+     * leasing cycle above. Demo data an operator could not have produced hides the bugs a seeder
+     * exists to surface.
+     */
+    private function seedUnitOwnerships(Asset $asset): void
+    {
+        $this->command->info('🔑 Seeding unit owners — sold units, assessments, a co-ownership and a resale…');
+
+        // Units nobody leased. Taken from the tail of the vacant set so the occupancy figures above
+        // stay exactly as they were — a sold unit is not vacant space, but it is not leased either.
+        $units = Unit::where('asset_id', $asset->id)
+            ->whereDoesntHave('allLeases')
+            ->orderBy('code')
+            ->take(5)
+            ->get();
+
+        if ($units->count() < 5) {
+            $this->command->warn('   Not enough unleased units to seed unit owners — skipped.');
+
+            return;
+        }
+
+        // Buyers are PEOPLE here, not companies: an Egyptian mall sells to individual investors, and
+        // `tenants.party_type` is what lets one table hold both them and the retailers.
+        $buyers = collect([
+            ['name' => 'Ashraf El-Gindy', 'national_id' => '27801152300123'],
+            ['name' => 'Hoda Serageldin', 'national_id' => '28203094500456'],
+            ['name' => 'Yassin Abdel Rahman', 'national_id' => '27509281100789'],
+            ['name' => 'Nagwa Fahmy', 'national_id' => '28810170200321'],
+            ['name' => 'Sherif Mansour', 'national_id' => '27412030700654'],
+            ['name' => 'Dalia Hafez', 'national_id' => '29006221300987'],
+        ])->map(fn (array $b) => Tenant::updateOrCreate(
+            ['email' => Str::slug($b['name']).'@owners.test'],
+            [
+                'name' => $b['name'],
+                'legal_name' => $b['name'],
+                'type' => 'individual',
+                'party_type' => PartyType::UnitOwner->value,
+                'national_id' => $b['national_id'],
+                'status' => 'active',
+                'phone' => '+2010'.mt_rand(10000000, 99999999),
+                'address' => 'Cairo',
+                'address_governorate' => 'Cairo',
+            ],
+        ));
+
+        $soldOn = Carbon::now()->startOfMonth()->subMonths(8);
+
+        // ── The four states, one unit each ────────────────────────────────────────────────────
+        $states = [
+            [UnitManagementMode::SelfOccupied,    'he trades from it himself', null],
+            [UnitManagementMode::SelfLet,         'he found his own tenant',   null],
+            [UnitManagementMode::OperatorManaged, 'we let it for him',         7.5],
+            [UnitManagementMode::Vacant,          'bought and standing empty', null],
+        ];
+
+        foreach ($states as $i => [$mode, $note, $feePct]) {
+            $this->makeOwnership($asset, $units[$i], $buyers[$i], $soldOn, [
+                'management_mode' => $mode->value,
+                'notes' => "Sold {$soldOn->format('M Y')} — {$note}.",
+                'management_fee_pct' => $feePct,
+                'fee_basis' => $feePct === null ? null : ManagementFeeBasis::Collected->value,
+            ]);
+        }
+
+        // ── A CO-OWNED unit: two owners, 60/40 ────────────────────────────────────────────────
+        // Between them they pay for the unit exactly once. Worth having in the demo because a
+        // reviewer cannot tell from one row whether the shares are applied or ignored.
+        $shared = $units[4];
+        $this->makeOwnership($asset, $shared, $buyers[4], $soldOn, [
+            'ownership_share_pct' => 60,
+            'notes' => 'Co-owned 60/40 with Dalia Hafez.',
+        ]);
+        $this->makeOwnership($asset, $shared, $buyers[5], $soldOn, [
+            'ownership_share_pct' => 40,
+            'notes' => 'Co-owned 40/60 with Sherif Mansour.',
+        ]);
+
+        // ── Six months of assessments, then the resale, then the rest ────────────────────────
+        // ORDER IS THE POINT and the first cut got it wrong. Applying the resale BEFORE the
+        // back-billing marked the seller `transferred`, and `isBillableForPeriod` only bills a
+        // HANDED-OVER ownership — so he ended up with a closed tenure and NOT ONE assessment
+        // against it. That is data no operator could have produced: in life he is billed monthly
+        // while he owns the unit, and only then does he sell. It also quietly defeated the reason
+        // the seller's row is kept at all — there was no history left for it to be the basis of.
+        //
+        // So: bill the months he owned it, transfer, bill the months the buyer owns it.
+        $run = app(BillUnitOwnershipsService::class);
+
+        for ($m = 6; $m >= 3; $m--) {
+            $run->runForPeriod(CarbonImmutable::now()->startOfMonth()->subMonths($m), $asset->id);
+        }
+
+        // ── The RESALE ────────────────────────────────────────────────────────────────────────
+        // The register keeps BOTH rows: the seller's tenure is CLOSED with a date, never deleted,
+        // or every assessment he was billed loses its basis. This is what makes the "Current owners
+        // only" filter on the list screen mean something.
+        $resoldOn = CarbonImmutable::now()->startOfMonth()->subMonths(2);
+        UnitOwnership::where('unit_id', $units[0]->id)
+            ->whereNull('ended_at')
+            ->first()
+            ?->update([
+                'ended_at' => $resoldOn->subDay()->toDateString(),
+                'status' => UnitOwnershipStatus::Transferred->value,
+            ]);
+
+        $this->makeOwnership($asset, $units[0], $buyers[3], Carbon::parse($resoldOn->toDateString()), [
+            'management_mode' => UnitManagementMode::SelfOccupied->value,
+            'notes' => 'Bought from Ashraf El-Gindy — resale, second owner of this unit.',
+        ]);
+
+        for ($m = 2; $m >= 0; $m--) {
+            $run->runForPeriod(CarbonImmutable::now()->startOfMonth()->subMonths($m), $asset->id);
+        }
+
+        $owned = UnitOwnership::where('asset_id', $asset->id)->count();
+        $assessments = Invoice::whereNotNull('unit_ownership_id')->count();
+        $this->command->info("   {$owned} ownerships over 5 units (incl. a co-ownership and a resale), {$assessments} assessments billed");
+    }
+
+    /** One ownership plus its صيانة schedule — the shape the admin form produces. */
+    private function makeOwnership(Asset $asset, Unit $unit, Tenant $owner, Carbon $from, array $attrs = []): UnitOwnership
+    {
+        $ownership = UnitOwnership::create(array_merge([
+            'asset_id' => $asset->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $owner->id,
+            'status' => UnitOwnershipStatus::HandedOver->value,
+            'tenure_type' => UnitTenureType::Freehold->value,
+            'started_at' => $from->toDateString(),
+            'handover_date' => $from->toDateString(),
+            'purchase_date' => $from->copy()->subMonths(2)->toDateString(),
+            'purchase_contract_number' => 'SALE-'.strtoupper(Str::random(6)),
+            // Roughly EGP 45k/m² — a plausible Cairo strip-mall number, and it makes the
+            // purchase-value assessment basis show a sane figure if anyone switches to it.
+            'purchase_price' => round((float) $unit->area_sqm * 45000, 2),
+            'payment_terms_days' => 14,
+        ], $attrs));
+
+        // The صيانة itself. Per m² per month — the basis the register defaults to, so the demo
+        // shows the default working rather than a hand-picked number.
+        Charge::create([
+            'unit_ownership_id' => $ownership->id,
+            'name' => 'Service charge',
+            'type' => 'service_charge',
+            'amount' => round((float) $unit->area_sqm * 55, 2),
+            'currency' => 'EGP',
+            'frequency' => 'monthly',
+            'vat_applicable' => true,
+            'is_active' => true,
+            'start_date' => $from->toDateString(),
+        ]);
+
+        return $ownership;
     }
 }
