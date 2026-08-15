@@ -45,12 +45,7 @@ class MarketingPostsController extends ApiController
 
         return response()->json([
             'data' => MarketingPostResource::collection($posts)->resolve(),
-            'meta' => [
-                'current_page' => $posts->currentPage(),
-                'last_page' => $posts->lastPage(),
-                'per_page' => $posts->perPage(),
-                'total' => $posts->total(),
-            ],
+            'meta' => $this->paginationMeta($posts),
         ]);
     }
 
@@ -159,12 +154,7 @@ class MarketingPostsController extends ApiController
 
         return response()->json([
             'data' => PublicMarketingPostResource::collection($posts)->resolve(),
-            'meta' => [
-                'current_page' => $posts->currentPage(),
-                'last_page' => $posts->lastPage(),
-                'per_page' => $posts->perPage(),
-                'total' => $posts->total(),
-            ],
+            'meta' => $this->paginationMeta($posts),
         ]);
     }
 

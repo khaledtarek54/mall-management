@@ -8,10 +8,10 @@ use App\Http\Controllers\Api\V1\Auth\ChangePasswordController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
-use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\V1\CreditNotes\ListCreditNotesController;
 use App\Http\Controllers\Api\V1\CreditNotes\ShowCreditNoteController;
+use App\Http\Controllers\Api\V1\Devices\ListDevicesController;
 use App\Http\Controllers\Api\V1\Devices\RegisterDeviceController;
 use App\Http\Controllers\Api\V1\Devices\UnregisterDeviceController;
 use App\Http\Controllers\Api\V1\Invoices\InvoicePdfController;
@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\Notifications\MarkAllNotificationsReadController
 use App\Http\Controllers\Api\V1\Notifications\MarkNotificationReadController;
 use App\Http\Controllers\Api\V1\Notifications\UnreadCountController;
 use App\Http\Controllers\Api\V1\Payments\ListPaymentsController;
+use App\Http\Controllers\Api\V1\Payments\PaymentReceiptController;
 use App\Http\Controllers\Api\V1\Payments\ShowPaymentController;
 use App\Http\Controllers\Api\V1\Profile\BalanceController;
 use App\Http\Controllers\Api\V1\Profile\LeasesController;
@@ -132,7 +133,11 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:tenant-api', EnsureTenantActive::class, 'throttle:60,1'])->group(function () {
 
         // --- Auth / session ---
-        Route::get('auth/me', MeController::class)->name('api.v1.auth.me');
+        // Same controller as `GET /me` — deliberately, because they are the same answer. Two
+        // identical invokables had been maintained side by side, which is two chances for the
+        // tenant identity to start differing by which URL you asked. The route stays for the
+        // released clients that call it.
+        Route::get('auth/me', ShowProfileController::class)->name('api.v1.auth.me');
         Route::post('auth/logout', LogoutController::class)->name('api.v1.auth.logout');
         Route::post('auth/change-password', ChangePasswordController::class)->name('api.v1.auth.change-password');
 
@@ -168,6 +173,10 @@ Route::prefix('v1')->group(function () {
         // --- Payments ---
         Route::get('me/payments', ListPaymentsController::class)->name('api.v1.me.payments.index');
         Route::get('me/payments/{id}', ShowPaymentController::class)->whereNumber('id')->name('api.v1.me.payments.show');
+        // The receipt voucher (سند قبض) — the same PDF the admin table and the portal hand out.
+        // Only for a payment whose money actually arrived; see the controller.
+        Route::get('me/payments/{id}/receipt', PaymentReceiptController::class)
+            ->whereNumber('id')->name('api.v1.me.payments.receipt');
 
         // --- Credit notes (read-only — issued by the operator) ---
         Route::get('me/credit-notes', ListCreditNotesController::class)->name('api.v1.me.credit-notes.index');
@@ -234,6 +243,10 @@ Route::prefix('v1')->group(function () {
         });
 
         // --- Push device tokens ---
+        // The list is what makes the DELETE reachable by a client that did not register the
+        // device — a tenant who lost a phone otherwise had no id to revoke. The raw token is
+        // never echoed back; see DeviceTokenResource.
+        Route::get('me/devices', ListDevicesController::class)->name('api.v1.me.devices.index');
         Route::post('me/devices', RegisterDeviceController::class)->name('api.v1.me.devices.store');
         Route::delete('me/devices/{id}', UnregisterDeviceController::class)->whereNumber('id')->name('api.v1.me.devices.destroy');
     });

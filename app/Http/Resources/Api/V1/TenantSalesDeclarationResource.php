@@ -23,7 +23,19 @@ class TenantSalesDeclarationResource extends JsonResource
             // Null until staff review the attached report and enter the figure;
             // the app should show "Pending review" rather than 0.
             'declared_sales' => $this->declared_sales !== null ? (float) $this->declared_sales : null,
-            'calculated_percentage_rent' => (float) $this->calculated_percentage_rent,
+            // **Null while `declared_sales` is null, for the same reason.** The column itself is
+            // NOT NULL default 0, so casting it unconditionally shipped a pre-review declaration
+            // as `0` — indistinguishable on the wire from a REVIEWED period that came in below the
+            // threshold and genuinely owes 0.00. Those are opposite facts ("nobody has looked at
+            // this yet" vs "we looked, and nothing is due"), and the client rendered them the same.
+            //
+            // Keyed off `declared_sales` rather than `isLocked()` because that is the input this
+            // figure is derived FROM: a rent computed over a turnover nobody has entered is not a
+            // small number, it is not an answer yet. Nothing else reads this resource, and the
+            // column is untouched — every internal consumer still gets its `(float)` 0.
+            'calculated_percentage_rent' => $this->declared_sales !== null
+                ? (float) $this->calculated_percentage_rent
+                : null,
             'status' => $this->status,
             'is_locked' => $this->isLocked(),
             'declared_at' => optional($this->declared_at)->toIso8601String(),

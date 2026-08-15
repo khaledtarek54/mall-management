@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\MobileNotificationLink;
 use App\Support\NotificationLocale;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -39,6 +40,15 @@ class NotificationResource extends JsonResource
             'data' => collect(NotificationLocale::forDisplay($this->data))
                 ->except(['format', 'duration', 'icon', 'color', 'actions'])
                 ->all(),
+            // WHERE this opens in the app, stated by the same registry the web panels' URLs come
+            // from. Sent at the TOP level rather than inside `data` because it is not part of the
+            // alert — it is how to act on it, and `data` is a per-notification bag whose keys the
+            // client is not supposed to have to learn. Null when the record has no mobile screen
+            // (a work order, a vendor document): the row renders, unclickable.
+            //
+            // A push carries the identical key (PushChannel::wireData), which is the point — the
+            // app routes both taps through one path and they cannot disagree.
+            'link' => MobileNotificationLink::for($this->type, $this->data ?? []),
             'read' => $this->read_at !== null,
             'read_at' => optional($this->read_at)->toIso8601String(),
             'created_at' => optional($this->created_at)->toIso8601String(),

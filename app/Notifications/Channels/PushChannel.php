@@ -4,6 +4,7 @@ namespace App\Notifications\Channels;
 
 use App\Jobs\SendPushNotification;
 use App\Support\KeyCase;
+use App\Support\MobileNotificationLink;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -90,6 +91,17 @@ class PushChannel
         // `type` must speak the inbox's vocabulary — NotificationResource::type,
         // i.e. the short class name — not toDatabase()'s internal bell slug.
         $data['type'] = class_basename($notification);
+
+        // WHERE it opens, stated rather than inferred. Without this the client was left matching
+        // substrings of `type` against its own table — which is how two of the most frequent
+        // tenant pushes came to deep-link nowhere. Null (no mobile screen for this record) is
+        // shipped as an absent key, so the client's "no link" branch is the same one it already
+        // takes for a staff-only alert. See MobileNotificationLink.
+        $link = MobileNotificationLink::for($notification::class, $data);
+
+        if ($link !== null) {
+            $data['link'] = $link;
+        }
 
         return KeyCase::camelKeys($data);
     }

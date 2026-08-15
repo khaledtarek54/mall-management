@@ -989,6 +989,89 @@
                 }
             }
         },
+        "/v1/me/devices": {
+            "get": {
+                "operationId": "v1.me.devices.index",
+                "tags": [
+                    "ListDevices"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": []
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1.me.devices.store",
+                "tags": [
+                    "RegisterDevice"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterDeviceRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DeviceTokenResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Device registered for push notifications."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
         "/v1/me/invoices": {
             "get": {
                 "operationId": "v1.me.invoices.index",
@@ -1317,13 +1400,27 @@
                                                 },
                                                 "total": {
                                                     "type": "integer"
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
                                                 }
                                             },
                                             "required": [
                                                 "currentPage",
                                                 "lastPage",
                                                 "perPage",
-                                                "total"
+                                                "total",
+                                                "from",
+                                                "to"
                                             ]
                                         }
                                     },
@@ -1658,13 +1755,27 @@
                                                 },
                                                 "total": {
                                                     "type": "integer"
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
                                                 }
                                             },
                                             "required": [
                                                 "currentPage",
                                                 "lastPage",
                                                 "perPage",
-                                                "total"
+                                                "total",
+                                                "from",
+                                                "to"
                                             ]
                                         }
                                     },
@@ -1704,23 +1815,37 @@
                                             "type": "object",
                                             "properties": {
                                                 "currentPage": {
-                                                    "type": "string"
+                                                    "type": "integer"
                                                 },
                                                 "lastPage": {
-                                                    "type": "string"
+                                                    "type": "integer"
                                                 },
                                                 "perPage": {
-                                                    "type": "string"
+                                                    "type": "integer"
                                                 },
                                                 "total": {
-                                                    "type": "string"
+                                                    "type": "integer"
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
                                                 }
                                             },
                                             "required": [
                                                 "currentPage",
                                                 "lastPage",
                                                 "perPage",
-                                                "total"
+                                                "total",
+                                                "from",
+                                                "to"
                                             ]
                                         }
                                     },
@@ -2046,26 +2171,55 @@
                 }
             }
         },
-        "/v1/auth/me": {
+        "/v1/me/payments/{id}/receipt": {
             "get": {
-                "operationId": "v1.auth.me",
+                "operationId": "v1.me.payments.receipt",
                 "tags": [
-                    "Me"
+                    "PaymentReceipt"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
                 ],
                 "responses": {
                     "200": {
-                        "description": "`TenantResource`",
+                        "description": "",
+                        "content": {
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Content-Disposition": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "An error",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/TenantResource"
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "A receipt is issued once the payment has been received. This one has not cleared yet."
                                         }
                                     },
                                     "required": [
-                                        "data"
+                                        "message"
                                     ]
                                 }
                             }
@@ -2185,55 +2339,6 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
-                    }
-                }
-            }
-        },
-        "/v1/me/devices": {
-            "post": {
-                "operationId": "v1.me.devices.store",
-                "tags": [
-                    "RegisterDevice"
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/RegisterDeviceRequest"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/DeviceTokenResource"
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "const": "Device registered for push notifications."
-                                        }
-                                    },
-                                    "required": [
-                                        "data",
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -2485,6 +2590,37 @@
                                     "properties": {
                                         "data": {
                                             "$ref": "#/components/schemas/PaymentResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/auth/me": {
+            "get": {
+                "operationId": "v1.auth.me",
+                "tags": [
+                    "ShowProfile"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`TenantResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantResource"
                                         }
                                     },
                                     "required": [
@@ -3096,13 +3232,19 @@
                         "type": "string"
                     },
                     "titleAr": {
-                        "type": "string"
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "body": {
                         "type": "string"
                     },
                     "bodyAr": {
-                        "type": "string"
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "heroUrl": {
                         "type": [
@@ -3981,6 +4123,28 @@
                         "description": "Notification payload, minus the Filament bell render hints \u2014 those\nare server-side presentation cruft the mobile app shouldn't see (and\nstripping them keeps this from silently shipping internal keys). `actions` is stripped for a stronger reason than tidiness: it holds an absolute\n/admin or /portal URL built for a WEB panel the app has no session in. Shipping it\nwould invite the client to open a link that lands on a login screen. The app already\ndeep-links from the id fields below, which is the contract it was written against.\n\n`NotificationLocale::forDisplay` resolves `title`/`body` into the language THIS\nrequest asked for (SetApiLocale reads Accept-Language) and drops the `i18n` block\nthat made that possible. Without it the app would render whatever language the alert\nwas raised in \u2014 for the nightly sweeps, always the app default \u2014 and a retailer whose\nphone is in Arabic would read English push history in an Arabic app.",
                         "additionalProperties": []
                     },
+                    "link": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "WHERE this opens in the app, stated by the same registry the web panels' URLs come\nfrom. Sent at the TOP level rather than inside `data` because it is not part of the\nalert \u2014 it is how to act on it, and `data` is a per-notification bag whose keys the\nclient is not supposed to have to learn. Null when the record has no mobile screen\n(a work order, a vendor document): the row renders, unclickable. A push carries the identical key (PushChannel::wireData), which is the point \u2014 the\napp routes both taps through one path and they cannot disagree.",
+                        "properties": {
+                            "target": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "id": {
+                                "type": "integer"
+                            }
+                        },
+                        "required": [
+                            "target",
+                            "id"
+                        ]
+                    },
                     "read": {
                         "type": "boolean"
                     },
@@ -3995,6 +4159,7 @@
                     "id",
                     "type",
                     "data",
+                    "link",
                     "read",
                     "readAt",
                     "createdAt"
@@ -4816,6 +4981,19 @@
                             "null"
                         ]
                     },
+                    "contactPersonPhone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Both of these are ACCEPTED and stored by UpdateProfileRequest, so\nwithholding them here made them write-only: a tenant edited their\naddress, saved, reopened the screen and it was gone. The standing\nrule for this resource is that whatever `PATCH /me` takes, `GET /me`\ngives back \u2014 otherwise the app cannot render its own edit form."
+                    },
+                    "address": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "status": {
                         "type": "string"
                     },
@@ -4825,6 +5003,13 @@
                             "null"
                         ],
                         "description": "Deliberately re-exposed despite Tenant::$hidden. Mobile invoice\ndisplays + ETA submissions need it; national_id stays hidden\n(more sensitive PII). Confirmed at audit M02 F-7 / D-5."
+                    },
+                    "logoUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The store's brand mark, for the app's avatar. Safe to send as a\nplain URL: `logo` is the one PUBLIC-disk collection on this model\n(the shopper directory renders it unauthenticated), unlike\n`documents`, which shares the model and stays private. Null \u2192 the\nclient falls back to initials."
                     }
                 },
                 "required": [
@@ -4836,8 +5021,11 @@
                     "phone",
                     "whatsapp",
                     "contactPerson",
+                    "contactPersonPhone",
+                    "address",
                     "status",
-                    "taxId"
+                    "taxId",
+                    "logoUrl"
                 ],
                 "title": "TenantResource"
             },
@@ -4864,7 +5052,11 @@
                         "description": "Null until staff review the attached report and enter the figure;\nthe app should show \"Pending review\" rather than 0."
                     },
                     "calculatedPercentageRent": {
-                        "type": "number"
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "description": "**Null while `declared_sales` is null, for the same reason.** The column itself is\nNOT NULL default 0, so casting it unconditionally shipped a pre-review declaration\nas `0` \u2014 indistinguishable on the wire from a REVIEWED period that came in below the\nthreshold and genuinely owes 0.00. Those are opposite facts (\"nobody has looked at\n this yet\" vs \"we looked, and nothing is due\"), and the client rendered them the same. Keyed off `declared_sales` rather than `isLocked()` because that is the input this\nfigure is derived FROM: a rent computed over a turnover nobody has entered is not a\nsmall number, it is not an answer yet. Nothing else reads this resource, and the\ncolumn is untouched \u2014 every internal consumer still gets its `(float)` 0."
                     },
                     "status": {
                         "type": "string"
