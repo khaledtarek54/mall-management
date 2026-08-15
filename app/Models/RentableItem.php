@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Attributes\DeletableWhenUnused;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * lease gets a `parking` charge row on its schedule, which the monthly run, VAT and the GL already
  * understand. Nothing here is a second billing engine.
  */
+#[DeletableWhenUnused(blockedBy: ['leases'], instead: 'set the item out of service — an item that has been let is part of the property record')]
 class RentableItem extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;

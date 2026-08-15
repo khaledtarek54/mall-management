@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\GuardsPostingDate;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,6 +14,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * A marketing spend item (FR MKT-1/4). Belongs to a MarketingBudget; any
  * change keeps the budget's spent_amount in sync via recomputeSpent() (MKT-5).
  */
+#[DeletionAllowed(reason: 'operational: a spend line')]
 class MarketingSpend extends Model
 {
     use GuardsPostingDate, LogsActivity, SoftDeletes;

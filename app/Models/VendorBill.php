@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * payable; settled by VendorBillPayments. `paid_amount`/`balance` are DERIVED via
  * recompute() — never set directly (mirrors the Invoice AR invariant).
  */
+#[NeverDeletable(correction: 'cancel the bill')]
 class VendorBill extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

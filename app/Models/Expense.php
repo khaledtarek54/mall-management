@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * (no vendor-payable stage). total is DERIVED = amount + VAT, enforced on every
  * write path so no path can persist total=0 (silent GL skip) or vat>total.
  */
+#[NeverDeletable(correction: 'cancel the expense')]
 class Expense extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

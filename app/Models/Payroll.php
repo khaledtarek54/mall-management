@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -19,6 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * social insurance, enforced on every write path (so no path persists an
  * inconsistent net or a zero the journalizer would mis-handle).
  */
+#[NeverDeletable(correction: 'cancel the run — payslips and their GL entries follow it')]
 class Payroll extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

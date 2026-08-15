@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -19,6 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * standalone GL posting; the tenant/asset are derived from the lease. amount is
  * coerced from blank on save (NOT-NULL). isPostable → status 'recorded'.
  */
+#[NeverDeletable(correction: 'reverse the deposit transaction')]
 class DepositTransaction extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

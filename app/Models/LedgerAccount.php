@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Attributes\DeletableWhenUnused;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * lines; parents are summary/rollup accounts. `normal_balance` is derived from
  * `type` (asset/expense → debit, liability/equity/revenue → credit).
  */
+#[DeletableWhenUnused(blockedBy: ['lines', 'children', 'accountMappings'], instead: 'deactivate the account — removing one that has been posted to breaks every prior statement')]
 class LedgerAccount extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

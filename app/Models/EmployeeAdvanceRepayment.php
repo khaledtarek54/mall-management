@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * source of the advance — its GL follows the advance's lifecycle (EmployeeAdvance's
  * booted() cascade). `asset_id` is denormalised from the advance for the GL dimension.
  */
+#[DeletionAllowed(reason: 'parent-managed: deleted to reverse a repayment')]
 class EmployeeAdvanceRepayment extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

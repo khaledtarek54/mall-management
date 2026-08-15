@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * An owner (Jawad) request (FR OWN-1/2) — raised to the operator team or to
  * another owner user. Closed/cancelled requests are immutable (REQ-3).
  */
+#[DeletionAllowed(reason: 'operational: responded requests are already immutable')]
 class OwnerRequest extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

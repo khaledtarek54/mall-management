@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ use InvalidArgumentException;
  * something we do not stock — the module's own preamble covers "spare parts, consumables, and
  * services", and a service is not stock. Never both: the two would disagree about what was bought.
  */
+#[DeletionAllowed(reason: 'parent-managed: edited while the request is still a draft')]
 class PurchaseRequestLine extends Model
 {
     use HasFactory;

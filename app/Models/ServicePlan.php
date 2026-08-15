@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * where". When due, the `facility:generate-preventive` scan raises a work order with
  * this plan's checklist, then advances `next_due_date` by the frequency.
  */
+#[DeletionAllowed(reason: 'configuration: a PPM schedule')]
 class ServicePlan extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

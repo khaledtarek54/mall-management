@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\Attributes\NeverDeletable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Soft-deletes so a deleted payment self-heals its GL: the sync-ledger sweep voids
  * a trashed source's journal entry, whereas a hard delete would orphan it (F7).
  */
+#[NeverDeletable(correction: 'void the payment — money left the bank')]
 class VendorBillPayment extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, SoftDeletes;

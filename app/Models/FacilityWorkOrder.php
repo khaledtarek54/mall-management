@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use App\Support\SlaResolver;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,6 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * a plan or ad-hoc. Carries a checklist (its items); once the work is done the order is
  * marked `done` (a terminal, immutable state, like closed maintenance requests).
  */
+#[DeletionAllowed(reason: 'operational: a job record')]
 class FacilityWorkOrder extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\Attributes\NeverDeletable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * the sign by type. A direct StockMovement::create() bypasses that and can store
  * a wrong-signed quantity, corrupting on-hand.
  */
+#[NeverDeletable(correction: 'post a correcting movement; the original is what the GL was built from')]
 class StockMovement extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

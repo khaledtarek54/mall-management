@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * طرف القيد — one debit (مدين) or credit (دائن) line of a journal entry.
  * Exactly one of debit/credit is > 0. Carries optional analytical dimensions.
  */
+#[DeletionAllowed(reason: 'parent-managed: rebuilt when its entry is re-posted')]
 class JournalLine extends Model
 {
     use HasFactory;

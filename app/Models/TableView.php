@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * navigates to a URL, and the list re-scopes every filter it is handed exactly as it does for a
  * hand-typed one. Nothing about saving or sharing a view widens what anyone may see.
  */
+#[DeletionAllowed(reason: 'preference: a saved filter/sort state for a resource list, owned by the operator who saved it — same reasoning as SavedReport above')]
 class TableView extends Model
 {
     protected $fillable = ['resource', 'name', 'state', 'user_id', 'is_shared'];

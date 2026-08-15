@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * the reorder level, and resolves when the stock comes back. Not one row per firing — that would
  * make "is this mall still short of filters?" a question about the newest of N rows.
  */
+#[DeletionAllowed(reason: 'operational: a transient alert')]
 class LowStockAlert extends Model
 {
     use HasFactory;

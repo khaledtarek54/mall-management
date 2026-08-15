@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * and TenantCreditApplicationJournalizer). Reversal = soft-delete. Created only by
  * ApplyTenantCreditService (there is no direct Filament resource).
  */
+#[DeletionAllowed(reason: 'parent-managed: soft-deleted to reverse an applied tenant credit')]
 class TenantCreditApplication extends Model
 {
     use HasFactory, SoftDeletes;

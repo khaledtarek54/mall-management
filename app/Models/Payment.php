@@ -6,6 +6,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Notifications\PaymentReceivedNotification;
+use App\Support\Attributes\NeverDeletable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+#[NeverDeletable(correction: 'void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice')]
 class Payment extends Model
 {
     use RefusesDeletionOfCommittedRecords, GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

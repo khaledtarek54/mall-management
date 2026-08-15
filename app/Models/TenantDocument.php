@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSupersededDocuments;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,6 +27,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * So this chases and surfaces, and the operator acts on it. An automatic consequence here would be
  * a business rule nobody agreed, which is why there is no `BLOCKING_TYPES` constant to copy.
  */
+#[DeletionAllowed(reason: 'operational: superseded by a newer certificate')]
 class TenantDocument extends Model implements HasMedia
 {
     use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * are the per-owner deliverable. v1 has one owner per mall who gets 100% of the net, so
  * `net_distributable = net_operating_income` (no management fee, no co-owner split).
  */
+#[DeletionAllowed(reason: 'operational: superseded by a new version rather than removed')]
 class OwnerStatementRun extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

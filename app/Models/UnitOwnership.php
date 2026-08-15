@@ -11,6 +11,7 @@ use App\Enums\UnitTenureType;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\DocumentNumbering;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +45,7 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * @see docs/plans/08-unit-owners.md
  */
+#[DeletableWhenUnused(blockedBy: ['invoices', 'charges'], instead: 'transfer the ownership — that is the documented end of a holding, and it keeps the assessment history and the arrears at handover')]
 class UnitOwnership extends Model implements BillableAgreement
 {
     use AllocatesDocumentNumber, HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;

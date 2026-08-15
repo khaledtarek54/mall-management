@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * can't corrupt the past. Hard-delete keeps the unique(lease_id, effective_year) slot re-usable
  * (a soft-deleted row would collide with the index and block ever re-adding that year's cap).
  */
+#[DeletionAllowed(reason: 'parent-managed: effective-dated terms on a lease')]
 class LeaseCamTerm extends Model
 {
     use HasFactory;

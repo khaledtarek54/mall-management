@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * pass, and the work order's completion gate counts marked items, not passing ones
  * (a visit that finds a fault is still a completed visit; the fault becomes a CM).
  */
+#[DeletionAllowed(reason: 'parent-managed: edited as part of the work order')]
 class FacilityWorkOrderItem extends Model
 {
     use HasFactory;

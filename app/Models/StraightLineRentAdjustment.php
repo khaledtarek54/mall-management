@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Soft-deleted to reverse, the same shape as every other adjustment document here — the poster sees
  * a trashed source and voids its entry.
  */
+#[DeletionAllowed(reason: 'parent-managed: soft-deleted to reverse a month\'s rent-recognition adjustment (PostStraightLineRentService::reverseFrom), which voids its journal entry — the path a forward-only re-derivation uses after an amendment')]
 class StraightLineRentAdjustment extends Model
 {
     use HasFactory, SoftDeletes;

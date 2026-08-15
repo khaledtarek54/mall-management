@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Auth\Passwords\CanResetPassword;
@@ -20,6 +21,7 @@ use Laravel\Sanctum\HasApiTokens;
  * rest are read-only. The portal guard authenticates this model; the company
  * record is reached via ->tenant.
  */
+#[DeletionAllowed(reason: 'identity: a portal login')]
 class TenantUser extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference
 {
     use CanResetPassword, HasApiTokens, HasFactory, Notifiable, SoftDeletes;

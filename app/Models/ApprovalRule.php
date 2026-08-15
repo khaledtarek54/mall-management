@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * Operator-wide, with no property dimension — unlike SLA, which the FRD explicitly wants
  * set per mall, approval authority is a company policy. Don't add `asset_id` speculatively.
  */
+#[DeletionAllowed(reason: 'configuration: approval bands')]
 class ApprovalRule extends Model
 {
     use HasFactory, LogsActivity;

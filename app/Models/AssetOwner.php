@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Carbon;
 
@@ -16,6 +17,7 @@ use Illuminate\Support\Carbon;
  * `ended_at`; a mid-period *percentage change* (a future refinement) would need separate
  * segments, which the current `unique(user_id, asset_id)` intentionally does not yet allow.
  */
+#[DeletionAllowed(reason: 'parent-managed: the ownership pivot, edited from the property')]
 class AssetOwner extends Pivot
 {
     protected $table = 'asset_owner';

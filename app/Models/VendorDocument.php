@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSupersededDocuments;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * renewal chase, because in practice they lapse independently and only some of them should stop
  * work being dispatched.
  */
+#[DeletionAllowed(reason: 'operational: superseded by a newer certificate')]
 class VendorDocument extends Model implements HasMedia
 {
     use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;

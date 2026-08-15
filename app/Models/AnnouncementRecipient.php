@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\Announcements\MarkAnnouncementReadAction;
 use App\Services\SendAnnouncementAction;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * `announcement.asset_id`. Nothing here carries an asset_id of its own, so there is nothing to
  * guard on write — the parent decides, once.
  */
+#[DeletionAllowed(reason: 'operational: a delivery + read receipt, cascaded from its announcement')]
 class AnnouncementRecipient extends Model
 {
     protected $fillable = [

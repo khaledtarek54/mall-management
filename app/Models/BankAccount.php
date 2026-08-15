@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * @see docs/accounting/BANK-RECONCILIATION-PLAN.md
  */
+#[DeletionAllowed(reason: 'configuration: the operator\'s bank accounts (revisit when statements exist)')]
 class BankAccount extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

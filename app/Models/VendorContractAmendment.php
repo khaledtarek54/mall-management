@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -14,6 +15,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * an uncontrolled over-run — both simply showed red, which trains the operator to ignore the flag.
  * A signed `value_delta` moves the commitment with a dated, attributed, stated reason behind it.
  */
+#[DeletionAllowed(reason: 'parent-managed: append-only in practice, removable while unsent')]
 class VendorContractAmendment extends Model
 {
     use LogsActivity;

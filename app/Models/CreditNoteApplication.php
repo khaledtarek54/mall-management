@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * reversible (see the migration). Created only by CreditNoteService::applyToInvoice(); un-applied
  * (soft-deleted) by reverseApplication() / the invoice-cancel un-apply. Not a GL source.
  */
+#[DeletionAllowed(reason: 'parent-managed: deleted to UN-APPLY a credit note')]
 class CreditNoteApplication extends Model
 {
     use HasFactory, SoftDeletes;

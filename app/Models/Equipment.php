@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * chosen explicitly rather than derived from the code string: equipment codes are free-form
  * operator conventions with no reliable delimiter, unlike a numeric chart of accounts.
  */
+#[DeletionAllowed(reason: 'configuration: an asset register entry with no ledger of its own')]
 class Equipment extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\AccessControlAudit;
+use App\Support\Attributes\DeletableWhenUnused;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * A null asset_id means the department is operator-wide (global); a set
  * asset_id scopes it to one property. See docs/FUNCTIONAL-REQUIREMENTS.md §5.
  */
+#[DeletableWhenUnused(blockedBy: ['members', 'employees'], instead: 'move its members first, then delete the empty department')]
 class Department extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

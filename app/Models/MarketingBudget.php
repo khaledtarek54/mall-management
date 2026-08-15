@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * 5% marketing levy from leases; spent_amount is derived from the budget's
  * spends. balance() is always computed — never hand-edited.
  */
+#[DeletionAllowed(reason: 'configuration: a spend envelope')]
 class MarketingBudget extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

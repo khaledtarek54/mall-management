@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Attributes\DeletableWhenUnused;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Illuminate\Support\Carbon;
  * الفترة المحاسبية — a single month within a fiscal year. Posting into a `closed`
  * period is refused by JournalPostingService.
  */
+#[DeletableWhenUnused(blockedBy: ['entries'], instead: 'a period that has been posted to is part of the books; close it rather than remove it')]
 class AccountingPeriod extends Model
 {
     use HasFactory, RefusesDeletionWhenReferenced;

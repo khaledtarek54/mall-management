@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,7 @@ use Illuminate\Support\Collection;
 /**
  * One band of a percentage-rent breakpoint ladder. See the migration for why a ladder exists.
  */
+#[DeletionAllowed(reason: 'parent-managed: one band of a lease\'s breakpoint ladder, edited from the lease')]
 class LeasePercentageRentTier extends Model
 {
     use HasFactory;

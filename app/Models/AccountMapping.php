@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use App\Support\PostingRoles;
 use DomainException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,6 +16,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * Resolved by AccountResolver. A null asset_id row is the global default;
  * a row with asset_id overrides it for that property.
  */
+#[DeletionAllowed(reason: 'configuration: which account a source posts to')]
 class AccountMapping extends Model
 {
     use HasFactory, LogsActivity;

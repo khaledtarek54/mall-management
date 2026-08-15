@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\Attributes\NeverDeletable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * payouts are allowed; the running total is capped at the owner's share in the service.
  * A paid or cancelled disbursement is terminal-immutable.
  */
+#[NeverDeletable(correction: 'cancel the disbursement — it is a GL source and an owner payout')]
 class Disbursement extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

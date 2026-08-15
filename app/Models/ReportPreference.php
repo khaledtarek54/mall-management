@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * See `App\Support\ReportPreferences` for what is stored and — more importantly — what is not.
  */
+#[DeletionAllowed(reason: 'preference: one operator\'s remembered report filters')]
 class ReportPreference extends Model
 {
     protected $fillable = ['user_id', 'report', 'parameters'];

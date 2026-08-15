@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * therefore records only the malls that genuinely differ, instead of restating the same
  * four numbers for every property.
  */
+#[DeletionAllowed(reason: 'configuration: SLA targets')]
 class SlaPolicy extends Model
 {
     use HasFactory, LogsActivity;

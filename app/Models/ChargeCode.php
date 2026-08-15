@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InvoiceItemType;
+use App\Support\Attributes\DeletionAllowed;
 use App\Support\PostingRoles;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * every enum case has a row here, so an operator cannot delete a code the engine has opinions about
  * and the two lists cannot drift.
  */
+#[DeletionAllowed(reason: 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup')]
 class ChargeCode extends Model
 {
     use LogsActivity;

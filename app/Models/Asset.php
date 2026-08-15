@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Occupancy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
+#[DeletableWhenUnused(blockedBy: ['units', 'leases', 'camPools', 'utilityMeters', 'journalEntries', 'expenses', 'vendorBills', 'payrolls', 'disbursements', 'maintenancePenalties', 'depositTransactions', 'postDatedCheques', 'employees', 'fixedAssets', 'marketingBudgets', 'violations'], instead: 'deactivate the property — deleting one would orphan (or cascade-destroy) every book, payroll, register and penalty that reports on it')]
 class Asset extends Model implements HasMedia
 {
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;

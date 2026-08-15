@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * (Σ debit = Σ credit). Posted entries are immutable; to undo one you `void`
  * it (which posts a balanced reversing entry).
  */
+#[NeverDeletable(correction: 'post a reversing entry; a posted entry is never removed')]
 class JournalEntry extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

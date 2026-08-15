@@ -9,6 +9,7 @@ use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
 use App\Settings\BillingSettings;
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use App\Support\OpsLog;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -26,6 +27,7 @@ use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+#[NeverDeletable(correction: 'cancel the invoice, or issue a credit note')]
 class Invoice extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;

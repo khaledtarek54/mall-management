@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * amount − Σ(repayments); never a cached column. `asset_id` is denormalised from the
  * employee at creation so the GL dimension survives the employee being archived.
  */
+#[DeletionAllowed(reason: 'operational: reversed rather than removed')]
 class EmployeeAdvance extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

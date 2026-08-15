@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[DeletionAllowed(reason: 'operational: a contact person')]
 class VendorContact extends Model
 {
     protected $fillable = [

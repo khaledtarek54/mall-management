@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use App\Support\PostingDate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * useful_life_months. Accumulated depreciation is DERIVED from depreciation_entries
  * (DepreciationService), never a cached column.
  */
+#[DeletionAllowed(reason: 'operational: soft-delete IS the retirement path — the sweep voids the asset\'s entire GL footprint, which a scenario test pins')]
 class FixedAsset extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

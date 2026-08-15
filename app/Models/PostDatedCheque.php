@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * cheque CLEARS, at which point a normal cheque Payment is recorded (so AR stays correct). A
  * cleared or cancelled cheque is terminal-immutable.
  */
+#[NeverDeletable(correction: 'cancel or bounce the cheque')]
 class PostDatedCheque extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;

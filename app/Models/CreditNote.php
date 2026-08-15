@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\Attributes\NeverDeletable;
 use App\Support\DocumentNumbering;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+#[NeverDeletable(correction: 'cancel the note — it un-applies against the original invoice')]
 class CreditNote extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Occupancy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * **`level` is the ordinal, and it lives here once.** Basement negative, ground 0, upwards positive
  * — so B1 sorts before G, and 2 before 10, without raw SQL in any screen.
  */
+#[DeletableWhenUnused(blockedBy: ['units', 'rentableItems'], instead: 'rename or re-order the floor — a floor that holds space is part of the property record')]
 class Floor extends Model
 {
     use HasFactory, LogsActivity, RefusesDeletionWhenReferenced;

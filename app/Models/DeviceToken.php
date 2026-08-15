@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * tenant-facing notification to the tenant's tokens via the bound
  * {@see \App\Services\Push\PushSender} (NullPushSender until FCM creds land).
  */
+#[DeletionAllowed(reason: 'parent-managed: pruned automatically when a push token goes dead')]
 class DeviceToken extends Model
 {
     protected $fillable = [

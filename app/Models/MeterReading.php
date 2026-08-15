@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[DeletionAllowed(reason: 'operational: already refuses deletion once billed')]
 class MeterReading extends Model
 {
     use HasFactory;

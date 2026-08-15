@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * GL source (the run posts the accrual); `paid_to_date` is recomputed from disbursements,
  * never set by hand.
  */
+#[DeletionAllowed(reason: 'parent-managed: force-deleted when its run is rebuilt')]
 class OwnerStatement extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

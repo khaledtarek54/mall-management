@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use App\Support\MarketingFeedCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,6 +40,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * The predicate deliberately keys on the DISPLAY window, falling back to the validity window when
  * display is unset — see the migration docblock for why those are two different things.
  */
+#[DeletionAllowed(reason: 'operational: shopper-facing content, not a record of anything that happened. `archived` is the retirement path an operator should use (it keeps the campaign in the register with its engagement counters), but a post typed by mistake — wrong mall, duplicated draft, artwork that never ran — is genuinely a row that should not exist, and refusing it would leave the register full of things the marketing team has to mentally skip. Soft-deletes, so a mis-delete is recoverable')]
 class MarketingPost extends Model implements HasMedia
 {
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;

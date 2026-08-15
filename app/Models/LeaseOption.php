@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * fired 90 days before EXPIRY, which is months after a typical notice window has closed, so the
  * system reliably spoke too late to act.
  */
+#[DeletionAllowed(reason: 'parent-managed: the optionality recorded on a lease, edited from it. An option that was never really in the contract is removed; one that WAS is resolved (exercised/lapsed/waived), which keeps the history')]
 class LeaseOption extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

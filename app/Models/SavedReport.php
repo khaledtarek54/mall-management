@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use App\Support\ReportCatalogue;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * asks the report page's own `canAccess()`, and the report re-scopes every parameter it is handed.
  * Nothing about saving a view widens what its owner — or anyone they share it with — may see.
  */
+#[DeletionAllowed(reason: 'preference: a saved set of report filters, owned by the operator who saved it')]
 class SavedReport extends Model
 {
     public const MONTHLY = 'monthly';

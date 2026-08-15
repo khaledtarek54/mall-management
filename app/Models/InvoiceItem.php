@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[DeletionAllowed(reason: 'parent-managed: rebuilt whenever the invoice is recomputed')]
 class InvoiceItem extends Model
 {
     use HasFactory;

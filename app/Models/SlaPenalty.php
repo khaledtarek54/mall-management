@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\Attributes\NeverDeletable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * The terms are copied onto the row as applied. Re-deriving them from the contract at read
  * time would silently restate history the moment someone renegotiates the rate.
  */
+#[NeverDeletable(correction: 'waive or release the penalty — it feeds the vendor bill')]
 class SlaPenalty extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity;

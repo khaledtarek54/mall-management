@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -23,6 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * question an auditor asks about a tax figure, and until this table existed the answer was that
  * nobody recorded it.
  */
+#[DeletionAllowed(reason: 'parent-managed: effective-dated rates on a tax code, edited from the code')]
 class TaxRate extends Model
 {
     use LogsActivity;

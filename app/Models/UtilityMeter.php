@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+#[DeletionAllowed(reason: 'operational: soft-delete IS the retirement path, and the energy trend already excludes retired meters')]
 class UtilityMeter extends Model
 {
     use HasFactory, HasSearchText, SoftDeletes;

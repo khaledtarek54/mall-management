@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * `amount` is SIGNED — positive in, negative out — rather than an amount plus a direction flag,
  * because two columns can contradict each other and a signed number cannot.
  */
+#[DeletionAllowed(reason: 'evidence: parent-managed, rebuilt on re-import')]
 class BankStatementLine extends Model
 {
     use HasFactory;

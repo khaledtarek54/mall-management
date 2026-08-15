@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * implied by a StockMovement existing, and an externally bought part was simply absent.
  * Now both are recorded, so "what did we buy outside this month?" has an answer.
  */
+#[DeletionAllowed(reason: 'parent-managed: edited as part of the work order')]
 class FacilityWorkOrderPart extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * data). First use: `ledger_last_synced_at` — when accounting:sync-ledger last ran,
  * powering the "Ledger last synced" indicator on the accounting screens.
  */
+#[DeletionAllowed(reason: 'configuration')]
 class SystemSetting extends Model
 {
     protected $fillable = ['key', 'value'];

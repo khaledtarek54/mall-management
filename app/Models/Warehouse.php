@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Attributes\DeletableWhenUnused;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * operator can model spare-parts stores, machine stores, daily-consumable stores,
  * or whatever structure they run. On-hand quantity is derived from stock_movements.
  */
+#[DeletableWhenUnused(blockedBy: ['movements'], instead: 'a warehouse with stock history is part of the inventory record')]
 class Warehouse extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

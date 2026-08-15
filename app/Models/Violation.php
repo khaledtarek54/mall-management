@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * tenant a notice (FR-REQ-17), also an explicit action ({@see \App\Services\SendViolationNoticeAction}).
  * The lifecycle is intentionally minimal: `open` → `resolved`.
  */
+#[DeletionAllowed(reason: 'operational: force-delete is already blocked once a fine is billed')]
 class Violation extends Model implements HasMedia
 {
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;

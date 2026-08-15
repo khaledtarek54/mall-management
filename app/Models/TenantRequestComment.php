@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
+#[DeletionAllowed(reason: 'parent-managed: belongs to its request')]
 class TenantRequestComment extends Model
 {
     protected $fillable = [

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\Attributes\NeverDeletable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * Its GL follows the parent asset's lifecycle (soft-delete / restore / re-home) via
  * FixedAsset::booted() — the child-source windowed-sweep cascade.
  */
+#[NeverDeletable(correction: 'reverse the disposal')]
 class FixedAssetDisposal extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;

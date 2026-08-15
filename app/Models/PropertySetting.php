@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -18,6 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * fee, a payment term — and "who changed this, for which mall, and from what" is the first question
  * asked about one.
  */
+#[DeletionAllowed(reason: 'configuration: a per-property override; deleting restores the portfolio default')]
 class PropertySetting extends Model
 {
     use LogsActivity;

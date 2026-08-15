@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Attributes\DeletionAllowed;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One message in an owner-request conversation (module 15) — the reply thread that turns a one-shot
  * ticket into a real back-and-forth. Immutable once posted (a conversation log), so no update path.
  */
+#[DeletionAllowed(reason: 'parent-managed: belongs to its thread')]
 class OwnerRequestReply extends Model
 {
     protected $fillable = [
