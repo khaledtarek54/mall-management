@@ -76,7 +76,7 @@ class BillViolationFineService
             $total = round($fine + $vat, 2);
 
             $invoice = app(IssueInvoiceService::class)->issue(
-                lease: $lease,
+                agreement: $lease,
                 items: [[
                     'description' => __('admin.violations.fine_line', [
                         'reference' => $locked->reference,

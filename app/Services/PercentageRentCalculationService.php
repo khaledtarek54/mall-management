@@ -530,7 +530,7 @@ class PercentageRentCalculationService
         // percentage-rent overage invoices (whereDoesntHave items type=percentage_rent) —
         // otherwise a back-filled monthly run for this month would skip the base rent.
         $invoice = app(IssueInvoiceService::class)->issue(
-            lease: $lease,
+            agreement: $lease,
             items: [[
                 'charge_id' => $charge->id,
                 'description' => $label,

@@ -182,7 +182,7 @@ class LateFeeService
             $dueInDays = $locked->lease->paymentTermsDays();
 
             $feeInvoice = app(IssueInvoiceService::class)->issue(
-                lease: $locked->lease,
+                agreement: $locked->lease,
                 items: [[
                     // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
                     // the charge instead of seeing a bare "Late Fee" amount. It now also names the

@@ -256,7 +256,7 @@ class MonthlyBillingService
         // them from the same lines by the same rule, so passing them would be two statements of one
         // number. The preview still reads them off the plan — it renders without writing anything.
         $invoice = app(IssueInvoiceService::class)->issue(
-            lease: $lease,
+            agreement: $lease,
             items: $plan['items'],
             issueDate: $plan['issue_date'],
             periodStart: $plan['period_start'],

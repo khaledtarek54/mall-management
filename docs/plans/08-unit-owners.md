@@ -128,6 +128,53 @@ The one honest cost: the word "tenant" in the code now means "AR counterparty", 
 recorded as a one-line invariant in `CLAUDE.md` and in [modules/02](../modules/02-tenants.md), and the UI
 never shows the word for an owner.
 
+### 4.1 Configurable the way Yardi is configurable
+
+The operator cannot yet answer §8's questions, so the module is built to take them as **data** rather
+than waiting on them. That decision needs a precise definition, because "make it configurable" is also
+the most reliable way to overengineer a system.
+
+**Yardi is not configurable because it is meta-programmed.** It has no rules engine, no EAV
+custom-attribute bag, no workflow designer. Its flexibility comes from *a rich fixed schema plus many
+lookup tables*: the party is a customer record, what you bill is a charge code, how you apportion is a
+named method stored on the pool, what tax applies is a dated catalogue row, which account it hits is a
+posting role. **You configure by adding rows, not by branching code** — and that is why a Yardi install
+can still answer "why was this billed?".
+
+**Atriom already has that spine.** This is the finding that makes the whole approach cheap — the work is
+not to invent configurability, it is to make the new module plug into what exists instead of hardcoding
+answers nobody has:
+
+| Mechanism | What it already configures with no deploy |
+|---|---|
+| `PropertySettings::OVERRIDABLE` — lease → property → portfolio, allow-listed, and conformance-tested that every entry is actually *wired* | late-fee %, grace days, payment terms, billing day, per property |
+| `ChargeCode` + `PostingRoles::ROLES` | what is billed, and which account it lands in |
+| `tax_codes` + `tax_rates` — dated rungs resolved for the DOCUMENT's date | whether a supply is taxed, and at what rate, including a rise entered in advance |
+| `CamExpensePool::{expense,estimate,denominator}_basis` | the apportionment METHOD, stored on the pool row |
+| `ValueSets` | every string set, refused out-of-set on save |
+
+The last one is the pattern to copy most directly: CAM already stores *how to allocate* as a field on the
+row rather than as a branch in the service. An assessment basis is the same shape, so §5.7 does not invent
+a mechanism — it reuses a proven one.
+
+**What stays fixed, on purpose.** Making any of these configurable would not be flexibility, it would be
+a system that cannot explain itself:
+
+- the party holds the ledger — one AR, never a parallel owner-AR;
+- the invoice header follows its lines;
+- the four settlement channels, and `recomputeTotals()` as their single source of truth;
+- double entry, dispatched from `LedgerPoster::JOURNALIZERS`;
+- property isolation;
+- the closed-period posting guard.
+
+**And what will not be built:** a rules engine, EAV custom fields, strategy classes resolved from a config
+string, or a workflow designer. Every one of them trades an answerable audit trail for a flexibility the
+operator has not asked for.
+
+**The one unknown configuration cannot defer** is whether a party can be billed with *no lease at all*.
+That is `invoices.lease_id` becoming nullable — a schema decision, not a setting, and it is made in
+Phase 2 regardless of how §8 is answered.
+
 ---
 
 ## 5. The design
@@ -139,8 +186,10 @@ The ownership record. Modelled on `Lease` deliberately: same shape, same lifecyc
 | Column | Notes |
 |---|---|
 | `asset_id`, `unit_id`, `tenant_id` | property isolation · the unit · the owner party |
+| `tenure_type` | `freehold` · `usufruct` · `leasehold_sale` — §8 Q1 as a row. Billing is identical across all three; only the tenure bounds differ, which `started_at`/`ended_at` already carry |
+| `assessment_basis` | `area` · `participation` · `purchase_value` · `stated` — §8 Q2 as a row, the same shape as `CamExpensePool::denominator_basis`. Defaults to `area`, i.e. today's behaviour |
 | `ownership_share_pct` | co-owners (spouses, partners); sums to 100 per unit per date |
-| `participation_pct` *(nullable)* | Yardi's **participation interest** — the assessment/CAM basis when the deed states one; null = fall back to area |
+| `participation_pct` *(nullable)* | Yardi's **participation interest** — read when `assessment_basis = participation`; null falls back to area |
 | `management_mode` | `self_occupied` · `self_let` · `operator_managed` · `vacant` — the four states of §6 |
 | `status` | `reserved` · `contracted` · `handed_over` · `transferred` |
 | `purchase_contract_number`, `purchase_date`, `purchase_price`, `handover_date` | the sale paperwork |
@@ -295,12 +344,28 @@ assertions, all green. One real difference, in the CAM fee-only invoice: it used
 and corrected a moment later by the item hook, and is now raised from its line, so its first persisted
 state is already the true one. Same final state, one fewer momentarily-wrong row.
 
-**0.2 · `BillableAgreement` contract.** `MonthlyBillingService` and `ChargeScheduleService` are typed to
-the concrete `Lease` in every signature, so they can serve nothing else. Extract a **narrow** interface —
-`billingTenantId()`, `assetId()`, `currency()`, `paymentTermsDays()`, `activeChargesOn()`,
-`isBillableForPeriod()`, `billingCycleMonths()` — implemented by `Lease` now and `UnitOwnership` in
-Phase 2. Lease-only concepts (fit-out abatement, holdover, percentage rent, straight-line rent) stay
-behind `Lease` and are **not** dragged into the interface.
+**0.2 · `BillableAgreement` contract. ✅ SHIPPED 2026-08-15.** The billing engine was typed to the
+concrete `Lease` in every signature, so it could serve nothing else. `App\Contracts\BillableAgreement`
+is the narrow cut — `billingTenantId()`, `assetId()`, `billingCurrency()`, `paymentTermsDays()`,
+`billingCycleMonths()`, `isBillableForPeriod()`, `charges()`, `invoiceLinkAttributes()`. Lease-only
+concepts (fit-out abatement, holdover, percentage rent, straight-line rent, CAM ceilings, escalations)
+stay behind `Lease` and are **not** dragged into the interface — widening `Lease` to mean "or an
+ownership" would make every one of those rules answer *not applicable* at runtime instead of at the type
+level.
+
+*Outcome.* `Lease implements BillableAgreement` and `IssueInvoiceService` takes the interface, so the
+seam Phase 2 needs is already in place: an ownership stamps `unit_ownership_id` from
+`invoiceLinkAttributes()` and nothing in the service, or downstream of it, changes.
+
+**`Lease` already satisfied five of the eight methods before the interface existed** — `assetId`,
+`paymentTermsDays`, `billingCycleMonths`, `isBillableForPeriod`, `charges`, with identical signatures.
+That is the evidence the seam was found rather than invented; only three had to be written.
+
+*Deliberately deferred:* `MonthlyBillingService` stays typed to `Lease`. It is soaked in the lease-only
+concepts above, and the honest way to learn which of them an ownership genuinely needs is to have one —
+generalizing it now, against no second implementer, would be guessing. Phase 2 does it with the
+implementer in hand. Verified: 254 tests green across the engine, the lease lifecycle and eight
+conformance gates.
 
 **0.3 · Split `Lease`.** 1,360 lines and ~60 public methods spanning eight responsibilities. Pure moves
 into `Models\Concerns`: `HasLeaseUnits` (units/area/remeasure), `HasRentTerms` (flat vs rate, escalation),
@@ -334,9 +399,35 @@ House rules that apply to every phase: docs updated in the **same commit**; a re
 
 ---
 
-## 8. Open questions for Eltizam / Jawad
+## 8. The open questions, and where each one becomes a row
 
-Phase 1 can start on assumptions; **phases 2, 3 and 5 cannot finish without answers.**
+**Revised 2026-08-15 — the operator cannot answer these yet, and per §4.1 the module takes them as data.**
+The build is therefore *not blocked* on any of them. Each becomes configuration on a mechanism that
+already exists, and each has a default that is safe to ship and cheap to change:
+
+| # | Question | Becomes | Default shipped |
+|---|---|---|---|
+| 1 | Freehold (تمليك) or usufruct (حق انتفاع)? | `unit_ownerships.tenure_type` ∈ `freehold` · `usufruct` · `leasehold_sale` (`ValueSets`) | `freehold` — and usufruct behaves identically for billing, differing only in tenure bounds |
+| 2 | Assessment basis — per m², % of purchase price, deed %? | `assessment_basis` on the ownership, mirroring `CamExpensePool::denominator_basis` | `area` — today's CAM behaviour, so a mixed building reconciles the way it already does |
+| 3 | Sinking fund (صندوق صيانة)? | a `ChargeCode` whose posting role is a **liability**, not revenue | absent — no row, no fund; adding one is a row + an account |
+| 4 | Management fee %, on collected or billed rent? | `management_fee_pct` + `fee_basis` on the ownership, mirroring `estimate_basis` | `collected` (Yardi's default — billing on billed rent pays the operator for money it has not got) |
+| 5 | Does an owner-let tenant sign with the owner or Eltizam? | `leases.revenue_mode` ∈ `operator_collects` · `owner_collects` | `operator_collects` — today's only behaviour |
+| 6 | VAT on assessments? | `charge_codes.tax_code` → the dated `tax_rates` catalogue | **already built; zero new work.** The accountant changes a row |
+| 7 | Non-payment lever against an owner? | the existing `PropertySettings` late-fee tier already applies | late fee + ageing, exactly as for a tenant |
+| 8 | Operator approval on resale? | a `PropertySettings::OVERRIDABLE` flag on the transfer workflow | off |
+
+Six of the eight need no new mechanism at all, and #6 needs no new *anything*. What remains genuinely
+outstanding is not a code question:
+
+- **The GL accounts** for a sinking-fund liability and management-fee income — the accountant's, and the
+  same blocker as [the chart of accounts](../accounting/ACCOUNTANT-BRIEFING.md), not this module's.
+- **Whether units are being sold at all**, which decides the *priority* of phases 1–6, not their design.
+  Note §2's live consequence stands either way.
+
+### The original questions, for the record
+
+Phase 1 can start on assumptions; **phases 2, 3 and 5 previously could not finish without answers** —
+which is precisely why they were converted above rather than waited on.
 
 1. **Does this mall actually sell units, and which?** Is the sale freehold (تمليك) or usufruct / long lease
    (حق انتفاع)? The second is legally a lease and might not need any of this.

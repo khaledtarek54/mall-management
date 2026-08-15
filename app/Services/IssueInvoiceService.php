@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Contracts\BillableAgreement;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
-use App\Models\Lease;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
@@ -38,15 +38,18 @@ class IssueInvoiceService
      * `$items` are `InvoiceItem` attribute arrays without `invoice_id` — this stamps it. The line's
      * `tax_code` is defaulted at the model layer from the charge code, so callers do not pass it.
      *
-     * `$dueDate` defaults to the issue date plus the lease's payment terms, which is what seven of
-     * the eight callers computed by hand; the monthly run passes its own (it anchors the due date to
-     * the later of the issue date and today, so a back-filled run cannot be born overdue).
+     * `$agreement` is a `Lease` today and a unit ownership in phase 2 — this service never asks
+     * which, and `invoiceLinkAttributes()` is how the agreement stamps its own FK on the invoice.
      *
-     * `$tenantId` defaults to the lease's tenant. The three callers that bill from a source document
-     * — a violation, a bounced cheque, an overdue invoice — pass that document's tenant explicitly,
-     * because the debtor is stated on the document rather than inferred from the lease.
+     * `$dueDate` defaults to the issue date plus the agreement's payment terms, which is what seven
+     * of the eight callers computed by hand; the monthly run passes its own (it anchors the due date
+     * to the later of the issue date and today, so a back-filled run cannot be born overdue).
      *
-     * `$currency` defaults to the lease's. `LateFeeService` passes the OVERDUE INVOICE's instead:
+     * `$tenantId` defaults to the agreement's party. The three callers that bill from a source
+     * document — a violation, a bounced cheque, an overdue invoice — pass that document's tenant
+     * explicitly, because the debtor is stated on the document rather than inferred from the lease.
+     *
+     * `$currency` defaults to the agreement's. `LateFeeService` passes the OVERDUE INVOICE's instead:
      * a penalty is denominated in the currency of the debt it penalises, and the two can only differ
      * if the lease was re-denominated after that invoice was issued — in which case the invoice is
      * right and the lease is not.
@@ -54,7 +57,7 @@ class IssueInvoiceService
      * @param  array<int, array<string, mixed>>  $items  at least one; an invoice with no lines is a bug, not a document
      */
     public function issue(
-        Lease $lease,
+        BillableAgreement $agreement,
         array $items,
         \DateTimeInterface|string $issueDate,
         \DateTimeInterface|string $periodStart,
@@ -74,12 +77,11 @@ class IssueInvoiceService
         $vatAmount = round(array_sum(array_map(static fn (array $i): float => (float) ($i['vat_amount'] ?? 0), $items)), 2);
         $total = round($subtotal + $vatAmount, 2);
 
-        $invoice = Invoice::create([
-            'lease_id' => $lease->id,
-            'tenant_id' => $tenantId ?? $lease->tenant_id,
+        $invoice = Invoice::create($agreement->invoiceLinkAttributes() + [
+            'tenant_id' => $tenantId ?? $agreement->billingTenantId(),
             'status' => $status,
             'issue_date' => $issueDate,
-            'due_date' => $dueDate ?? $this->defaultDueDate($lease, $issueDate),
+            'due_date' => $dueDate ?? $this->defaultDueDate($agreement, $issueDate),
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
             'subtotal' => $subtotal,
@@ -87,7 +89,7 @@ class IssueInvoiceService
             'total' => $total,
             'paid_amount' => 0,
             'balance' => $total,
-            'currency' => $currency ?? $lease->currency ?? 'EGP',
+            'currency' => $currency ?? $agreement->billingCurrency(),
         ]);
 
         foreach ($items as $item) {
@@ -104,10 +106,10 @@ class IssueInvoiceService
      * mutable `now()` and used `->copy()->addDays()` precisely so the shared instance would not
      * shift under them. Parsing here makes that impossible to get wrong.
      */
-    private function defaultDueDate(Lease $lease, \DateTimeInterface|string $issueDate): CarbonImmutable
+    private function defaultDueDate(BillableAgreement $agreement, \DateTimeInterface|string $issueDate): CarbonImmutable
     {
         return CarbonImmutable::parse(
             $issueDate instanceof \DateTimeInterface ? Carbon::instance($issueDate) : $issueDate
-        )->addDays($lease->paymentTermsDays());
+        )->addDays($agreement->paymentTermsDays());
     }
 }

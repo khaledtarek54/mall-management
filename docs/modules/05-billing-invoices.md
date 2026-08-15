@@ -435,6 +435,10 @@ in module 25. Tests: `DepositReceiptFrozenOnceUsedTest`.
 Every service that raises an invoice goes through `issue()`. It derives `subtotal` / `vat_amount` /
 `total` from the lines it is given and seeds `paid_amount = 0`, `balance = total`.
 
+It takes an **`App\Contracts\BillableAgreement`**, not a `Lease` — a `Lease` today, a unit ownership in
+[plan 08](../plans/08-unit-owners.md) phase 2. The service never asks which: the agreement stamps its own
+foreign key via `invoiceLinkAttributes()`, and supplies the party, the currency and the payment terms.
+
 **Why it exists.** Eight services hand-built the identical header — `MonthlyBilling`,
 `BillMeterReading`, `BillViolationFine`, `LateFee`, `PercentageRentCalculation`,
 `CamReconciliation` (×2) and `BillBouncedChequeFee`. Each re-derived the totals from lines it was

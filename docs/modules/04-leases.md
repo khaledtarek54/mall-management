@@ -327,6 +327,22 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 - `Lease::camAllocations()` → `hasMany(CamAllocation::class)` (CAM expense allocations)
 - `Lease::salesDeclarations()` → `hasMany(TenantSalesDeclaration::class)` (sales-based rent triggers)
 
+### `Lease implements BillableAgreement`
+
+A lease is one kind of agreement that raises AR; a **unit ownership** ([plan 08](../plans/08-unit-owners.md))
+is the other. `App\Contracts\BillableAgreement` is the narrow part that is true of both — who owes
+(`billingTenantId()`), in what currency (`billingCurrency()`), on what terms (`paymentTermsDays()`,
+`billingCycleMonths()`), for which property (`assetId()`), over what schedule (`charges()`,
+`isBillableForPeriod()`), and which column records that this agreement raised the invoice
+(`invoiceLinkAttributes()` → `['lease_id' => …]`).
+
+**Lease law is deliberately NOT in that interface** — fit-out abatement, holdover, escalation ladders,
+percentage rent, straight-line rent, CAM ceilings. Those stay here, and the services that need them keep
+asking a `Lease`. Widening `Lease` to also mean "an ownership" would make every one of those rules answer
+*not applicable* at runtime instead of at the type level, which is how a nullable column becomes a bug
+report. Five of the eight interface methods already existed on this model with identical signatures,
+which is why the seam sits where it does.
+
 ## 3. Business rules & invariants
 
 | Rule | Enforcement | Test(s) |

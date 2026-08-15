@@ -2,27 +2,30 @@
 
 namespace App\Models;
 
+use App\Contracts\BillableAgreement;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\DocumentNumbering;
 use App\Support\PropertySettings;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Lease extends Model implements HasMedia
+class Lease extends Model implements BillableAgreement, HasMedia
 {
-    use AllocatesDocumentNumber, RefusesDeletionWhenReferenced, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use AllocatesDocumentNumber, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
@@ -407,13 +410,13 @@ class Lease extends Model implements HasMedia
     /**
      * The units this lease held on a given day.
      *
-     * @return \Illuminate\Support\Collection<int, Unit>
+     * @return Collection<int, Unit>
      */
-    public function unitsOn(CarbonImmutable $on): \Illuminate\Support\Collection
+    public function unitsOn(CarbonImmutable $on): Collection
     {
         $this->loadMissing('units');
 
-        /** @var \Illuminate\Support\Collection<int, Unit> $units */
+        /** @var Collection<int, Unit> $units */
         $units = collect($this->units->all());
 
         return $units->filter(fn (Unit $unit): bool => self::pivotCovers($unit, $on))->values();
@@ -461,7 +464,7 @@ class Lease extends Model implements HasMedia
      *
      * Every pivot row that exists today has NULL on both sides, so this matches all of them.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\BelongsToMany  $query
+     * @param  Builder|BelongsToMany  $query
      */
     public static function constrainToCurrentlyHeld($query)
     {
@@ -483,7 +486,7 @@ class Lease extends Model implements HasMedia
      * collide with the expansion on 1 November. Only a row whose `effective_to` has PASSED — space
      * genuinely handed back — frees a unit.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\BelongsToMany  $query
+     * @param  Builder|BelongsToMany  $query
      */
     public static function constrainToNotYetReleased($query)
     {
@@ -737,9 +740,9 @@ class Lease extends Model implements HasMedia
      * relations apart is what stops one being summed into the other. See
      * [docs/benchmarks/yardi/09-yardi-space-and-parking.md](../../docs/benchmarks/yardi/09-yardi-space-and-parking.md).
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<RentableItem, $this>
+     * @return BelongsToMany<RentableItem, $this>
      */
-    public function rentableItems(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function rentableItems(): BelongsToMany
     {
         return $this->belongsToMany(RentableItem::class, 'lease_rentable_item')
             ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
@@ -749,9 +752,9 @@ class Lease extends Model implements HasMedia
     /**
      * The history as it stood on a past date — the auditor's view.
      *
-     * @return \Illuminate\Support\Collection<int, LeaseEvent>
+     * @return Collection<int, LeaseEvent>
      */
-    public function eventsAsOf(CarbonImmutable $on): \Illuminate\Support\Collection
+    public function eventsAsOf(CarbonImmutable $on): Collection
     {
         return $this->events
             ->filter(fn (LeaseEvent $e) => $e->effectiveOn()->lte($on))
@@ -933,7 +936,7 @@ class Lease extends Model implements HasMedia
      * converted holdover has had its decision. Leaving it on the card would train operators to
      * ignore a card that never empties.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  Builder  $query
      */
     public function scopeHoldoverNeedingAction($query)
     {
@@ -1168,6 +1171,32 @@ class Lease extends Model implements HasMedia
         return (int) ($this->payment_terms_days ?? PropertySettings::paymentTermsDays($this->assetId()));
     }
 
+    // ============ BillableAgreement ============
+    //
+    // The part of a lease that is true of ANY agreement raising AR — who owes, in what currency,
+    // and which column records that this agreement raised the invoice. A unit ownership answers the
+    // same three (plan 08) and the billing machinery downstream never learns the difference.
+    // Everything else the interface asks for (assetId, paymentTermsDays, billingCycleMonths,
+    // isBillableForPeriod, charges) this model already had, which is why the seam sits here.
+
+    /** @see BillableAgreement::billingTenantId() */
+    public function billingTenantId(): int
+    {
+        return (int) $this->tenant_id;
+    }
+
+    /** @see BillableAgreement::billingCurrency() */
+    public function billingCurrency(): string
+    {
+        return $this->currency ?? 'EGP';
+    }
+
+    /** @see BillableAgreement::invoiceLinkAttributes() */
+    public function invoiceLinkAttributes(): array
+    {
+        return ['lease_id' => $this->id];
+    }
+
     /** Converted to holdover and still running — the state the dashboard should stop nagging about. */
     public function isConvertedHoldover(): bool
     {
@@ -1177,7 +1206,7 @@ class Lease extends Model implements HasMedia
     /**
      * The query form of {@see isBillableForPeriod()} — used by the scheduled run.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  Builder  $query
      */
     public function scopeBillableForPeriod($query, CarbonImmutable $periodStart, CarbonImmutable $periodEnd)
     {
@@ -1228,13 +1257,13 @@ class Lease extends Model implements HasMedia
      * it silently disagreed. Same reasoning as `isBillableForPeriod()`/`scopeBillableForPeriod()`
      * above.
      *
-     * @return \Illuminate\Support\Collection<int, static>
+     * @return Collection<int, static>
      */
     public static function missingSalesDeclarationsFor(
         CarbonImmutable $periodStart,
         CarbonImmutable $periodEnd,
         ?int $assetId = null,
-    ): \Illuminate\Support\Collection {
+    ): Collection {
         return static::query()
             ->where('status', 'active')
             ->where('has_percentage_rent', true)

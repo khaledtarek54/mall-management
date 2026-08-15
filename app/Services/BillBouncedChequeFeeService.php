@@ -82,7 +82,7 @@ class BillBouncedChequeFeeService
             $total = round($fee + $vat, 2);
 
             $invoice = app(IssueInvoiceService::class)->issue(
-                lease: $lease,
+                agreement: $lease,
                 items: [[
                     'description' => __('admin.post_dated_cheques.nsf_fee_line', [
                         'cheque' => $locked->cheque_number,

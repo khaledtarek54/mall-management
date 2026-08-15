@@ -94,7 +94,7 @@ class BillMeterReadingService
             $periodEnd = $locked->reading_date->copy()->endOfMonth();
 
             $invoice = app(IssueInvoiceService::class)->issue(
-                lease: $lease,
+                agreement: $lease,
                 items: [[
                     'description' => __('admin.utility.recharge_line', [
                         'type' => __('admin.enums.meter_type')[$meter->type] ?? $meter->type,

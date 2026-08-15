@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\BillableAgreement;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\IssueInvoiceService;
@@ -25,7 +26,7 @@ function issueWith(
     ?string $currency = null,
 ): Invoice {
     return app(IssueInvoiceService::class)->issue(
-        lease: $lease,
+        agreement: $lease,
         items: $items,
         issueDate: '2026-03-01',
         periodStart: '2026-03-01',
@@ -111,6 +112,19 @@ it('refuses to raise an invoice with no lines', function () {
 
     // Paired with a control: the refusal must be about the empty line set, not about the fixture.
     expect(issueWith($this->lease, [issueLine(1.00, 0.14)])->exists)->toBeTrue();
+});
+
+it('lets the agreement stamp its own foreign key, so the service never asks what kind it is', function () {
+    // The seam phase 2 stands on: a unit ownership returns `unit_ownership_id` from the same method
+    // and nothing in this service, or downstream of it, changes.
+    expect($this->lease)->toBeInstanceOf(BillableAgreement::class)
+        ->and($this->lease->invoiceLinkAttributes())->toBe(['lease_id' => $this->lease->id])
+        ->and($this->lease->billingTenantId())->toBe($this->lease->tenant_id)
+        ->and($this->lease->billingCurrency())->toBe('EGP');
+
+    $invoice = issueWith($this->lease, [issueLine(100.00, 14.00)]);
+
+    expect($invoice->lease_id)->toBe($this->lease->id);
 });
 
 it('is the only place in app/ that hand-builds an invoice', function () {

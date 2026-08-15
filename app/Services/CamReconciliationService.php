@@ -694,7 +694,7 @@ class CamReconciliationService
         ]);
 
         $invoice = app(IssueInvoiceService::class)->issue(
-            lease: $lease,
+            agreement: $lease,
             items: [[
                 'charge_id' => $charge->id,
                 'description' => $name,
@@ -773,7 +773,7 @@ class CamReconciliationService
             // It used to be created at 0/0/0 and left for the item hook to correct a moment later;
             // raising it from its line means its first persisted state is already the true one.
             $invoice = app(IssueInvoiceService::class)->issue(
-                lease: $lease,
+                agreement: $lease,
                 items: [$feeLine],
                 issueDate: $now,
                 periodStart: CarbonImmutable::create($year, 1, 1),
