@@ -64,15 +64,27 @@ journal entries, expenses, and their children.
   (Filament auto-tenancy via `$tenantOwnershipRelationshipName = 'asset'`, plus the All-Properties
   escape hatch).
 - Direct-`asset_id` models whose **form exposes an editable `asset_id`** (the operator picks the mall;
-  the Select is enabled in All-Properties mode) → **`BypassesFilamentTenantAutoScope`** + a manual
-  `getEloquentQuery()` (the `currentAssetId()` / `visibleAssetIds()` block, as `AnnouncementResource`
-  does). **Do NOT use `BypassesScopingOnAll` here** — it keeps `isScopedToTenant() === true`, so
+  the Select is enabled in All-Properties mode) → **`ScopesToProperty`** (2026-08-15). It turns
+  Filament's auto-tenancy hook off *and* supplies the whole read scope from the model's own
+  `#[PropertyOwned]`, so the resource writes no query at all. **Do NOT use `BypassesScopingOnAll`
+  here** — it keeps `isScopedToTenant() === true`, so
   Filament's `creating` hook force-associates `asset_id` with the current tenant, and in All-Properties
   mode (tenant = ALL pseudo-asset) that silently clobbers the chosen mall (the "Announcements tenancy
   trap"; `Test D` of the conformance gate + `AllPropertiesCreatePinsAssetTest` guard against it). Keep
   the `assertAssetInScope` write guard on create **and** edit.
-- Indirect models → **`ScopesViaProperty`** (declare `tenantScopeRelation()`, e.g. `'lease.unit'`).
-- Other special cases → **`BypassesFilamentTenantAutoScope`** + a custom `getEloquentQuery()`.
+- Indirect models → **`ScopesToProperty`** as well; the relation chain is declared once on the model
+  as `#[PropertyOwned(via: 'lease.unit')]`, not restated in the resource. (`ScopesViaProperty`, which
+  required each resource to declare `tenantScopeRelation()`, is the older form of the same idea.)
+- Models with a **nullable** `asset_id` where a null row is portfolio-level overhead every property
+  must still see (`Expense`, `VendorBill`, `JournalEntry`, `Payroll`, `DepositTransaction`) →
+  `#[PropertyOwned(portfolioRowsWhenNull: true)]`. Scoping one of these strictly hides those rows
+  from every screen, and nothing fails loudly — which is why it is declared on the model.
+- **Needs an eager-load or aggregate as well?** Write `getEloquentQuery()` and compose:
+  `return static::scopeToProperty(parent::getEloquentQuery()->withCount([...]));` — a method on the
+  class wins over the trait's, and the scoping rule is reused rather than copied.
+- Other special cases → **`BypassesFilamentTenantAutoScope`** + a custom `getEloquentQuery()`. Five
+  resources genuinely need this (`Asset`, `CreditNote`, `Department`, `InventoryItem`,
+  `OwnerRequest`); say at the call site why the standard rule does not fit.
 - Widgets / services / reports → **`App\Support\TenantScope`** (`applyTo`, `visibleAssetIds`,
   `reportAssetIds`, `selectable*`). **Always** derive the constraint from `visibleAssetIds()` (null only
   for portfolio users), never `currentAssetId()` alone — the latter is null in All-mode and leaks.

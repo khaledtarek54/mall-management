@@ -219,7 +219,7 @@ applied (terminal if fully drained, but can re-issue or re-apply manually via Fi
 
 ### To add a new credit reason enum:
 1. Update the migration and the `reason` enum in the `credit_notes` table.
-2. Add the new reason to `admin.enums.credit_note_reason` in translation files (e.g., `resources/lang/en/admin.php`).
+2. Add the new reason to `admin.enums.credit_note_reason` in translation files (e.g., `lang/en/admin/statuses.php` (`enums.*`)).
 3. It will automatically appear in the form and table filters (both use `__('admin.enums.credit_note_reason')`).
 4. No service logic change needed.
 

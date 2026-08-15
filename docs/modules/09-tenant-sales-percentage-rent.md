@@ -452,7 +452,7 @@ File: `app/Notifications/SalesDeclarationLockedNotification.php`
    public const STATUSES = ['submitted', 'locked', 'disputed', 'auditing'];
    ```
 
-3. **Add translations** for the new status badge in `resources/lang/en/admin.php`:
+3. **Add translations** for the new status badge in `lang/en/admin/statuses.php`:
    ```php
    'statuses' => [
        'tenant_sales' => [

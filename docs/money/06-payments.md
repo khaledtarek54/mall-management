@@ -572,7 +572,7 @@ payment flips to `captured`, `recomputeTotals` sets INV-0012 to `paid`
 - `tests/Feature/Api/V1/Tenant/InitiatePaymobSessionTest.php`
 
 **Lang keys**: `admin.payment.allocation_exceeds_balance`,
-`admin.payment.cross_tenant_allocation` (`lang/en/admin.php:1504-1505`);
+`admin.payment.cross_tenant_allocation` (`lang/en/admin/billing.php` (`payment.*`));
 `admin.actions.allocation_exceeds_title/body`,
 `admin.notifications.pay_now_failed*`, `payment_received_title`,
 `payment_return_success/failed`.

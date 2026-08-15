@@ -82,7 +82,7 @@ return round( max(0.0, owed), 2 )
 
 | Input | Source | Notes |
 |-------|--------|-------|
-| `declared_sales` | `tenant_sales_declarations.declared_sales` `decimal(14,2)` (`migration 2026_05_23_160330:16`) | The tenant's reported monthly trading sales, **VAT-exclusive** (the portal helper text instructs "exclusive of VAT" — `lang/en/admin.php:959`) |
+| `declared_sales` | `tenant_sales_declarations.declared_sales` `decimal(14,2)` (`migration 2026_05_23_160330:16`) | The tenant's reported monthly trading sales, **VAT-exclusive** (the portal helper text instructs "exclusive of VAT" — `lang/en/admin/help.php` (`helpers.*`)) |
 | `rate` | `leases.percentage_rent_rate` | Divided by 100 |
 | `threshold` | `leases.percentage_rent_threshold` | Artificial only; `?? 0` |
 | `base_rent_monthly` | `leases.base_rent_monthly` | Natural breakpoint only |
@@ -205,7 +205,7 @@ Continue Example A (charge of 2,500 was active). Operator voids it (wrong number
 - **Charge period matching uses `whereDate('start_date', period_start)`** — a same-day match, not a range — both for the lock-time de-dupe and for void (`Service.php:84`, `:134`). That is why two periods on one lease stay independent.
 - **Audit trail is real.** `TenantSalesDeclaration` logs `status, declared_sales, calculated_percentage_rent, locked_at, audit_notes` via Spatie activity log under log name `tenant_sales` (`TenantSalesDeclaration.php:43-50`); `locked_by_user_id` records the operator; `voidLocked` appends a human-readable, dated note.
 - **Soft deletes.** Both `TenantSalesDeclaration` and `Lease` use `SoftDeletes`; declarations are never hard-deleted in normal flow.
-- **Gotcha — declared sales are VAT-exclusive.** Tenants are instructed to enter trading sales *exclusive of VAT* (`lang/en/admin.php:959`). If a tenant enters VAT-inclusive sales the percentage rent over-states. This is a data-entry contract, not a code guard.
+- **Gotcha — declared sales are VAT-exclusive.** Tenants are instructed to enter trading sales *exclusive of VAT* (`lang/en/admin/help.php` (`helpers.*`)). If a tenant enters VAT-inclusive sales the percentage rent over-states. This is a data-entry contract, not a code guard.
 - **Gotcha — the module doc once claimed the API action notifies staff; it does not.** `CreateSalesDeclarationAction` only recalculates; the submitted-notification fan-out lives in the portal `CreateTenantSalesDeclaration` page (`:44-48`). An API-only submission produces no staff bell entry today.
 
 ---

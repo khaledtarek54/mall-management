@@ -174,7 +174,7 @@ Departments are **reference data**, not workflows. They have no lifecycle transi
 1. **Add a row to `DepartmentSeeder::CORE`** with `name`, `code`.
 2. **Create a matching spatie role** with the department's slug as the name (e.g., `services` → role `services`). Add it to `RolesPermissionsSeeder`.
 3. **Grant permissions to the new role** in `RolesPermissionsSeeder` (e.g., `$services->givePermissionTo([...]))`).
-4. **Add i18n keys** in `resources/lang/{locale}/admin.php`:
+4. **Add i18n keys** in `lang/{locale}/admin/navigation.php`:
    - `admin.resources.department.singular/plural` (if using a unique label).
    - `admin.groups.{slug}` (e.g., `admin.groups.services`).
 5. **Re-seed** the database or run migrations if needed.
@@ -239,7 +239,7 @@ Only a **hard-delete** (`forceDelete()`) cascades the pivot. Soft-delete does no
 The `department_user` pivot does **not** have an `asset_id` column. A user's membership in a property-scoped department (e.g., a Operations department for property HW) is stored globally; the property scoping is implicit via the department's `asset_id`. If a user belongs to an Operations department scoped to property HW, they have access to all Operations resources at property HW, but not at other properties. This design assumes a user is not in the "same" department at multiple properties (e.g., not in both HW/Operations and DFC/Operations as separate memberships).
 
 ### Navigation grouping and translation keys
-The sidebar groups resources by `getNavigationGroup()` → `__('admin.groups.{slug}')`. Every seeded department's slug **must** have a matching translation key in `resources/lang/en/admin.php`. If you add a department and forget the translation key, the group label will echo the untranslated key (e.g., "admin.groups.services").
+The sidebar groups resources by `getNavigationGroup()` → `__('admin.groups.{slug}')`. Every seeded department's slug **must** have a matching translation key in `lang/en/admin/navigation.php` (`groups.*`). If you add a department and forget the translation key, the group label will echo the untranslated key (e.g., "admin.groups.services").
 
 ### Circular dependency with RoleGatedActions
 The `RoleGatedActions` trait checks `Auth::user()->can()` based on the resource's role-name. If the Department role isn't assigned (because `registerMember()` was skipped), the user sees "Not authorized" even if they are in the pivot. Always use `registerMember()` to ensure both the pivot and the role are in sync.

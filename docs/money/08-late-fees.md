@@ -128,7 +128,7 @@ fee is always whole-piastre. The `max()` with the floor is applied *after* round
 | Field | Value | Note |
 | --- | --- | --- |
 | `invoice_id` | the invoice | |
-| `description` | `__('admin.enums.invoice_item_type.late_fee')` → "Late Fee" | Translated; Arabic "غرامة تأخير" (`lang/en/admin.php:1229`, `lang/ar/admin.php:1229`). |
+| `description` | `__('admin.enums.invoice_item_type.late_fee')` → "Late Fee" | Translated; Arabic "غرامة تأخير" (`lang/{en,ar}/admin/statuses.php` (`enums.invoice_item_type`)). |
 | `type` | `late_fee` | A valid enum value on the column (`database/migrations/2026_06_28_000002_add_marketing_to_invoice_items_type.php:30`). |
 | `amount` | `$fee` | The computed fee. |
 | `vat_rate` | `0` | **Late fees carry no VAT.** |
@@ -324,7 +324,7 @@ late fees. Treat aligning these two as a known follow-up.
 | Daily schedule (04:00, no overlap) | `routes/console.php:32-35` |
 | Owner-overdue alert (separate, idempotent) | `app/Console/Commands/ScanOverdueInvoicesCommand.php` |
 | Batch logging (`ops` channel) | `app/Services/LateFeeService.php:44-51`, `app/Support/OpsLog.php:30-47` |
-| Translations ("Late Fee" / "غرامة تأخير") | `lang/en/admin.php:1229`, `lang/ar/admin.php:1229` |
+| Translations ("Late Fee" / "غرامة تأخير") | `lang/{en,ar}/admin/statuses.php` (`enums.invoice_item_type`) |
 
 ### How it is triggered
 

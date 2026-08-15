@@ -84,14 +84,14 @@ total    = subtotal + vat
 ### 3. Security DEPOSIT (× months)
 
 - **Default value:** **3× monthly base rent.** Set in `LeaseCreationService.php:60` — `'security_deposit' => (float) ($payload['lease']['security_deposit'] ?? $rent * 3)` — and mirrored in the demo data (`DemoSeeder.php:235`, `security_deposit => $rent * 3`).
-- **Where the "3×" is configured:** it is a **code constant**, not a settings row. The "× months" lives in two places only: the service fallback above, and the form helper text (`lang/en/admin.php:887` "Defaults to 3× rent if blank.", `:1003` "typically 3× monthly rent. Refundable at lease termination if no damages."). The **wizard / form do not impute it** — they offer a plain `security_deposit` input defaulting to `0` (`LeaseForm.php:203-210`, wizard `LeasesTable.php:300-305`); the `$rent * 3` fallback only fires through `LeaseCreationService::create()` when the field is left blank/null.
+- **Where the "3×" is configured:** it is a **code constant**, not a settings row. The "× months" lives in two places only: the service fallback above, and the form helper text (`lang/en/admin/help.php` (`helpers.*`) "Defaults to 3× rent if blank.", `lang/en/admin/help.php` "typically 3× monthly rent. Refundable at lease termination if no damages."). The **wizard / form do not impute it** — they offer a plain `security_deposit` input defaulting to `0` (`LeaseForm.php:203-210`, wizard `LeasesTable.php:300-305`); the `$rent * 3` fallback only fires through `LeaseCreationService::create()` when the field is left blank/null.
 - **It is NOT an invoiced charge.** No `deposit`-type `Charge` is ever seeded, and the billing engine has no deposit handling. The deposit is a *held balance* recorded on the lease, tracked by the boolean `security_deposit_received` (default `false`; the Quick-Lease wizard always leaves it `false`, the demo seeder sets it `true`).
 - **At termination it is NOT auto-refunded** (see edge cases) — refund is a manual operator step, by design.
 
 ### 4. Annual ESCALATION %
 
 - **Default rate:** **7%** (`escalation_rate`), set in `LeaseCreationService.php:62` (`?? 7`), the form default (`LeaseForm.php:217`), the wizard fill (`LeasesTable.php:190`), and the demo seeder (`DemoSeeder.php:237` `7.00`).
-- **Default type:** `fixed_percent` — same % every year (`LeaseCreationService.php:63`, `LeaseForm.php:223`). Enum options: `none`, `fixed_percent`, `cpi` (migration `:34`). The form exposes Fixed/CPI/Step labels (`lang/en/admin.php:1005`).
+- **Default type:** `fixed_percent` — same % every year (`LeaseCreationService.php:63`, `LeaseForm.php:223`). Enum options: `none`, `fixed_percent`, `cpi` (migration `:34`). The form exposes Fixed/CPI/Step labels (`lang/en/admin/leasing.php`).
 - **`next_escalation_date`** is the recorded anniversary the rise is *due* (demo: `commencement + 1 year`, `DemoSeeder.php:239`).
 - **CRITICAL behavioural fact — there is NO automatic escalation.** There is **no scheduled command, job, or observer** that reads `escalation_rate` / `next_escalation_date` and raises rent. (Confirmed: no escalation logic anywhere in `app/`, `routes/console.php`, or `app/Console/Commands`. The only "escalation" references outside the column names are an unrelated security-probe comment and a renewal-discussion seed string.) These fields are **stored intentions / reporting metadata**. The rise becomes real only when an operator **renews** the lease (typing the escalated rent) or uses **"Change rent."** On renewal, `next_escalation_date` is deliberately reset to `null` (`LeaseRenewalService.php:56`).
 - **The arithmetic an operator performs by hand** (the system does not): escalated rent = `round(current_rent × (1 + escalation_rate/100), 2)`. The renewal modal pre-fills `new_rent` with the **current** rent (`LeasesTable.php:343`), so the operator must apply the escalation themselves before submitting.
@@ -245,7 +245,7 @@ Lease commences **16 March** in a 31-day month, rent 50,000, billed with `prorat
 | Quick-Lease wizard + Renew / Change rent / Terminate actions | `app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php:174-462` |
 | Create page — seed charges + attach additional units | `app/Filament/Admin/Resources/Leases/Pages/CreateLease.php:20-37` |
 | Demo lease data (deposit `×3`, escalation 7%, % rent) | `database/seeders/DemoSeeder.php:223-244` |
-| Helper strings (deposit "3× rent", escalation labels) | `lang/en/admin.php:876-1005` |
+| Helper strings (deposit "3× rent", escalation labels) | `lang/en/admin/help.php` + `lang/en/admin/leasing.php` |
 
 ---
 

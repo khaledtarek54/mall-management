@@ -356,7 +356,7 @@ The `push` channel delivers tenant-facing notifications to the tenant mobile app
    $lease->tenant->notifyPortal(new LeaseExpiryApproachingNotification($lease));
    ```
 
-3. **Add the translation** in `resources/lang/en/admin/notifications.php`:
+3. **Add the translation** in `lang/en/admin/system.php` (`notifications.*`):
    ```php
    'lease_expiry_approaching_title' => 'Lease expiry notice',
    'lease_expiry_approaching_body' => 'Your lease {unit} expires on {date}.',

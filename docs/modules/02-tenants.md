@@ -264,7 +264,7 @@ file"), not the vaguer "any document at all".
 
 ### Adding a new tenant status
 1. **Extend the `status` enum** in migration (or create a new migration that alters the column).
-2. **Add the label** to language file (e.g., `resources/lang/en/admin.php` under `statuses.tenant.*`).
+2. **Add the label** to language file (e.g., `lang/en/admin/statuses.php` under `statuses.tenant.*`).
 3. **Update TenantsTable** badge color logic: add new case to the `color()` closure.
 4. **Update login gate** if the new status should block access: edit `Tenant::canAccessPanel()`.
 5. **Add filter** to TenantsTable if operators should filter by the new status.
