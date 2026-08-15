@@ -51,21 +51,34 @@ class TenantRequestStatusChangedNotification extends Notification
                 'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
             ]),
-            'body' => __('admin.notifications.request_status_short', [
-                'title' => $this->request->title,
-                'status' => __("admin.statuses.tenant_request.{$this->request->status}"),
-            ]),
+            // A request that asked for something announces its ANSWER, not its lifecycle. "…is now
+            // Resolved" is technically true of a refusal and reads as a yes, which is the same
+            // mistake the permit card was making in a different place.
+            'body' => $this->request->decision !== null
+                ? __('admin.notifications.request_decision_short', [
+                    'title' => $this->request->title,
+                    'decision' => __("admin.statuses.tenant_request_decision.{$this->request->decision}"),
+                ])
+                : __('admin.notifications.request_status_short', [
+                    'title' => $this->request->title,
+                    'status' => __("admin.statuses.tenant_request.{$this->request->status}"),
+                ]),
             'status' => $this->request->status,
-            'icon' => match ($this->request->status) {
-                'resolved', 'closed' => 'heroicon-o-check-circle',
-                'in_progress' => 'heroicon-o-wrench-screwdriver',
-                'cancelled' => 'heroicon-o-x-circle',
+            // Shipped so the app can badge the row without re-fetching the request.
+            'decision' => $this->request->decision,
+            'icon' => match (true) {
+                $this->request->wasRejected() => 'heroicon-o-x-circle',
+                in_array($this->request->status, ['resolved', 'closed'], true) => 'heroicon-o-check-circle',
+                $this->request->status === 'in_progress' => 'heroicon-o-wrench-screwdriver',
+                $this->request->status === 'cancelled' => 'heroicon-o-x-circle',
                 default => 'heroicon-o-wrench',
             },
-            'color' => match ($this->request->status) {
-                'resolved', 'closed' => 'success',
-                'cancelled' => 'gray',
-                'in_progress' => 'warning',
+            'color' => match (true) {
+                // A refusal is not a success, whatever the status says.
+                $this->request->wasRejected() => 'danger',
+                in_array($this->request->status, ['resolved', 'closed'], true) => 'success',
+                $this->request->status === 'cancelled' => 'gray',
+                $this->request->status === 'in_progress' => 'warning',
                 default => 'primary',
             },
             'format' => 'filament', // Filament's bell only renders notifications tagged with this

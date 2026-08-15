@@ -156,6 +156,7 @@ class ActivityVocabulary
         'tenant.type' => 'admin.enums.tenant_type',
         'tenant_document.type' => 'admin.enums.tenant_document_type',
         'tenant_request.category' => 'admin.enums.tenant_request_subcategory',
+        'tenant_request.decision' => 'admin.statuses.tenant_request_decision',
         'tenant_request.priority' => 'admin.enums.work_priority',
         'tenant_request.request_type' => 'admin.enums.tenant_request_type',
         'vendor.type' => 'admin.enums.vendor_type',

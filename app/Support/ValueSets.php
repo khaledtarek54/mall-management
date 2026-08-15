@@ -134,6 +134,10 @@ class ValueSets
         'sla_policies.priority' => ['low', 'medium', 'high', 'urgent'],
         'stock_movements.type' => ['receipt', 'consumption', 'adjustment', 'transfer_in', 'transfer_out'],
         'tenant_requests.channel' => ['portal', 'whatsapp', 'phone', 'email', 'walk_in', 'admin'],
+        // The answer a request that ASKED for something was given. Null is the third state and
+        // deliberately not a member: it means nobody has answered (or the row predates the
+        // column), which readers must not render as either outcome.
+        'tenant_requests.decision' => ['approved', 'rejected'],
         'tenant_requests.priority' => ['low', 'medium', 'high', 'urgent'],
         'tenant_requests.status' => [
             'submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled',

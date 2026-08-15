@@ -2465,6 +2465,7 @@ return [
         'request_status_title' => ':type update · :reference',
         'request_status_body' => ':type ":title" moved from :from to :to.',
         'request_status_short' => '":title" is now :status.',
+        'request_decision_short' => '":title" — :decision.',
         'request_status_resolution' => 'Resolution notes: :notes',
         'request_comment_subject' => 'New update on :type :reference',
         'request_comment_title' => ':type update · :reference',
@@ -3019,6 +3020,10 @@ return [
         'valid_to' => 'Valid to',
         'resolved_at' => 'Resolved At',
         'resolution_notes' => 'Resolution Notes',
+        'decision' => 'Decision',
+        'decision_help' => 'The tenant sees this as the outcome of their request.',
+        'decision_reason' => 'Reason for rejection',
+        'decision_reason_help' => 'Sent to the tenant. Say what would need to change.',
         'new_status' => 'New Status',
         'attachments' => 'Attachments',
         'sales_report' => 'Sales Report',
@@ -3497,6 +3502,10 @@ return [
             'resolved' => 'Resolved',
             'closed' => 'Closed',
             'cancelled' => 'Cancelled',
+        ],
+        'tenant_request_decision' => [
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
         ],
         'tenant_sales' => [
             'submitted' => 'Submitted',
@@ -4218,6 +4227,8 @@ return [
             'portal_needs_tenant' => 'A portal request must have a tenant. For a walk-in or phone call from someone who is not a registered tenant, pick a staff channel instead.',
             'caller_or_tenant_required' => 'Select the tenant, or record the caller\'s name — a request must say who reported it.',
             'permit_validity_order' => 'The permit\'s valid-to date cannot be earlier than its valid-from date.',
+            'decision_required' => 'Say whether this is approved or rejected before resolving it. The tenant is asking for something, and "resolved" on its own does not tell them the answer.',
+            'rejection_needs_reason' => 'Give a reason for the rejection. A tenant told only "rejected" will resubmit the same request.',
             'terminal_immutable' => 'A closed or cancelled request is immutable — reopen it first if it needs changes.',
         ],
         'caller' => [
