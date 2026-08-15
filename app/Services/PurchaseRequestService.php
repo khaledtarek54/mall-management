@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\MorphMap;
 use App\Models\ApprovalRule;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestLine;
@@ -239,7 +240,7 @@ class PurchaseRequestService
                     'quantity' => (float) $line->quantity,
                     'unit_cost' => (float) $line->unit_cost,
                     // FR-WH-02. This is the line that makes GRNI clearable.
-                    'source_type' => PurchaseRequest::class,
+                    'source_type' => MorphMap::alias(PurchaseRequest::class),
                     'source_id' => $locked->getKey(),
                     'moved_by_user_id' => $actor->id,
                     'reference' => $locked->reference,

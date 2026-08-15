@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
@@ -163,7 +164,7 @@ it('posts Dr Deferred Rent / Cr Rental Income through the real sweep, and balanc
         // Dated in the month it RECOGNISES, not the day the job ran.
         ->and($adjustment->entry_date->toDateString())->toBe('2028-06-30');
 
-    $entry = JournalEntry::where('source_type', StraightLineRentAdjustment::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(StraightLineRentAdjustment::class))
         ->where('source_id', $adjustment->id)->where('status', 'posted')->sole();
 
     $lines = JournalLine::where('journal_entry_id', $entry->id)->get();
@@ -186,7 +187,7 @@ it('flips the entry the other way once the ladder overtakes the average', functi
     \Illuminate\Support\Facades\Artisan::call('accounting:sync-ledger', ['--all' => true]);
 
     $adjustment = StraightLineRentAdjustment::where('lease_id', $lease->id)->sole();
-    $entry = JournalEntry::where('source_id', $adjustment->id)->where('source_type', StraightLineRentAdjustment::class)->sole();
+    $entry = JournalEntry::where('source_id', $adjustment->id)->where('source_type', MorphMap::alias(StraightLineRentAdjustment::class))->sole();
     $lines = JournalLine::where('journal_entry_id', $entry->id)->get();
     $resolver = app(\App\Services\Accounting\AccountResolver::class);
     $assetId = $lease->unit->asset_id;

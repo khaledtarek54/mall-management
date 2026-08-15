@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
@@ -71,13 +72,13 @@ it('restores outstanding when a repayment is reversed', function () {
 it('voids the repayment\'s ledger entry through the real sweep', function () {
     $r = advRepay(5000);
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
-    expect(JournalEntry::where('source_type', EmployeeAdvanceRepayment::class)->where('source_id', $r->id)
+    expect(JournalEntry::where('source_type', MorphMap::alias(EmployeeAdvanceRepayment::class))->where('source_id', $r->id)
         ->where('status', 'posted')->exists())->toBeTrue('precondition: it posted');
 
     app(RecordAdvanceRepaymentService::class)->reverse($r, 'Wrong amount');
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    expect(JournalEntry::where('source_type', EmployeeAdvanceRepayment::class)->where('source_id', $r->id)
+    expect(JournalEntry::where('source_type', MorphMap::alias(EmployeeAdvanceRepayment::class))->where('source_id', $r->id)
         ->where('status', 'posted')->exists())->toBeFalse('the entry is voided — no live GL effect');
 });
 

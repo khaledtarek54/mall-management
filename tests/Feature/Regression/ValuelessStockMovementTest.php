@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
@@ -150,7 +151,7 @@ it('still consumes normally when the item carries a real cost', function () {
 
     // ...and it genuinely reaches the ledger through the real sweep.
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
-    expect(\App\Models\JournalEntry::where('source_type', StockMovement::class)
+    expect(\App\Models\JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))
         ->where('source_id', $consumption->id)->where('status', 'posted')->exists())->toBeTrue();
 });
 

@@ -18,6 +18,7 @@ use App\Support\ActivityVocabulary;
 use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\LedgerRealtimeSync;
+use App\Support\MorphMap;
 use App\Support\TableDefaults;
 use App\Support\ValueSets;
 use Filament\Actions\Action as FilamentAction;
@@ -27,6 +28,7 @@ use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
@@ -98,6 +100,14 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Polymorphic columns store a short alias, never a class name — otherwise a class name is
+        // part of the database schema and renaming a model strands every row that quoted it.
+        // `enforceMorphMap` also turns on `requireMorphMap`, so a model missing from the registry
+        // throws on its first morph write instead of silently reintroducing the class name.
+        // Registered here rather than in a dedicated provider so it is installed before any model
+        // boots. See App\Support\MorphMap; MorphMapConformanceTest fails on an unmapped model.
+        Relation::enforceMorphMap(MorphMap::MAP);
+
         // Numbers are ALWAYS in Western/Latin digits (0-9), even in the Arabic
         // UI — the Laravel Number helper (and Filament ->money(), which uses it)
         // otherwise emits Arabic-Indic digits under the 'ar' locale. Carbon's

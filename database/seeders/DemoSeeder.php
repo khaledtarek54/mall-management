@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\MorphMap;
 use App\Models\Area;
 use App\Models\LeaseOption;
 use App\Services\LeaseSpaceChangeService;
@@ -1360,7 +1361,7 @@ class DemoSeeder extends Seeder
                     'period_end' => $periodEnd,
                     'declared_sales' => $isPending ? null : $sales,
                     'declared_at' => $periodEnd->copy()->addDays(3),
-                    'declared_by_type' => Tenant::class,
+                    'declared_by_type' => MorphMap::alias(Tenant::class),
                     'declared_by_id' => $lease->tenant_id,
                     'status' => 'submitted', // start as submitted; lock below if status === 'locked'
                 ]);
@@ -1569,7 +1570,7 @@ class DemoSeeder extends Seeder
             for ($n = 0; $n < $count; $n++) {
                 $tpl = $templates[($i * 7 + $n) % count($templates)];
                 Note::create([
-                    'noteable_type' => Tenant::class,
+                    'noteable_type' => MorphMap::alias(Tenant::class),
                     'noteable_id' => $tenant->id,
                     'author_id' => ($i + $n) % 2 === 0 ? $admin->id : $manager->id,
                     'channel' => $tpl['channel'],

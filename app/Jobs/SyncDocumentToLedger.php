@@ -3,9 +3,11 @@
 namespace App\Jobs;
 
 use App\Services\Accounting\LedgerPoster;
+use App\Support\MorphMap;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
@@ -26,7 +28,7 @@ use Illuminate\Support\Facades\Log;
  * sync() then serialises them). Carries the source's class + key (not the model) so a
  * soft-deleted source still resolves (withTrashed) and voids its entry.
  */
-class SyncDocumentToLedger implements ShouldQueue, ShouldBeUniqueUntilProcessing
+class SyncDocumentToLedger implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -42,9 +44,12 @@ class SyncDocumentToLedger implements ShouldQueue, ShouldBeUniqueUntilProcessing
 
     public function handle(LedgerPoster $poster): void
     {
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $class */
-        $class = $this->sourceType;
-        if (! class_exists($class)) {
+        // The payload carries a morph alias, so this must resolve rather than test `class_exists`.
+        // A queued job dispatched before the map landed still carries an FQCN, which resolve()
+        // also accepts — the queue can hold work written by the previous deploy.
+        /** @var class-string<Model>|null $class */
+        $class = MorphMap::resolve($this->sourceType);
+        if ($class === null) {
             return;
         }
 

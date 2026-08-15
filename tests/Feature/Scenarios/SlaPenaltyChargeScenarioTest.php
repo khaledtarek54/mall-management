@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\JournalLine;
 use App\Models\SlaPenalty;
 use App\Models\FacilityWorkOrder;
@@ -225,7 +226,7 @@ it('posts the penalty as Dr Accounts Payable / Cr the expense the bill charged',
     $entry = SlaPenalty::first()->refresh();
     app(\App\Services\Accounting\LedgerPoster::class)->post($entry);
 
-    $lines = JournalLine::whereHas('entry', fn ($q) => $q->where('source_type', SlaPenalty::class))
+    $lines = JournalLine::whereHas('entry', fn ($q) => $q->where('source_type', MorphMap::alias(SlaPenalty::class)))
         ->with('account')->get();
 
     expect($lines)->toHaveCount(2);

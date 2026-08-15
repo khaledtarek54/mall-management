@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\DeviceToken;
 use App\Models\Lease;
 use App\Models\Note;
@@ -133,7 +134,7 @@ it('Note mass-assigns its fillable columns', function () {
     $author = makeUser('manager');
 
     $note = Note::create([
-        'noteable_type' => Tenant::class,
+        'noteable_type' => MorphMap::alias(Tenant::class),
         'noteable_id' => $tenant->id,
         'author_id' => $author->id,
         'channel' => 'whatsapp',
@@ -144,7 +145,7 @@ it('Note mass-assigns its fillable columns', function () {
 
     $fresh = $note->fresh();
 
-    expect($fresh->noteable_type)->toBe(Tenant::class)
+    expect($fresh->noteable_type)->toBe(MorphMap::alias(Tenant::class))
         ->and($fresh->noteable_id)->toBe($tenant->id)
         ->and($fresh->author_id)->toBe($author->id)
         ->and($fresh->channel)->toBe('whatsapp')
@@ -157,7 +158,7 @@ it('Note casts contacted_at to a Carbon datetime', function () {
     $author = makeUser('manager');
 
     $note = Note::create([
-        'noteable_type' => Tenant::class,
+        'noteable_type' => MorphMap::alias(Tenant::class),
         'noteable_id' => $tenant->id,
         'author_id' => $author->id,
         'channel' => 'call',
@@ -174,7 +175,7 @@ it('Note.contacted_at is nullable and subject is optional', function () {
     $author = makeUser('manager');
 
     $note = Note::create([
-        'noteable_type' => Tenant::class,
+        'noteable_type' => MorphMap::alias(Tenant::class),
         'noteable_id' => $tenant->id,
         'author_id' => $author->id,
         'channel' => 'other',
@@ -190,7 +191,7 @@ it('Note belongs to its author (User on author_id)', function () {
     $author = makeUser('leasing');
 
     $note = Note::create([
-        'noteable_type' => Tenant::class,
+        'noteable_type' => MorphMap::alias(Tenant::class),
         'noteable_id' => $tenant->id,
         'author_id' => $author->id,
         'channel' => 'email',
@@ -207,7 +208,7 @@ it('Note morphs to its subject (noteable) — polymorphic to a Tenant', function
     $author = makeUser('manager');
 
     $note = Note::create([
-        'noteable_type' => Tenant::class,
+        'noteable_type' => MorphMap::alias(Tenant::class),
         'noteable_id' => $tenant->id,
         'author_id' => $author->id,
         'channel' => 'meeting',
@@ -227,7 +228,7 @@ it('Note morphs to a different subject type (a Lease) on the same relation', fun
     $author = makeUser('manager');
 
     $note = Note::create([
-        'noteable_type' => Lease::class,
+        'noteable_type' => MorphMap::alias(Lease::class),
         'noteable_id' => $lease->id,
         'author_id' => $author->id,
         'channel' => 'site_visit',
@@ -247,7 +248,7 @@ it('Note writes a spatie activity-log entry on the "note" log', function () {
     $author = makeUser('manager');
 
     $note = Note::create([
-        'noteable_type' => Tenant::class,
+        'noteable_type' => MorphMap::alias(Tenant::class),
         'noteable_id' => $tenant->id,
         'author_id' => $author->id,
         'channel' => 'call',
@@ -257,7 +258,7 @@ it('Note writes a spatie activity-log entry on the "note" log', function () {
 
     $logged = \Spatie\Activitylog\Models\Activity::query()
         ->where('log_name', 'note')
-        ->where('subject_type', Note::class)
+        ->where('subject_type', MorphMap::alias(Note::class))
         ->where('subject_id', $note->id)
         ->exists();
 

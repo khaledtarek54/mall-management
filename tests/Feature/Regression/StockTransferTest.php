@@ -21,6 +21,7 @@
  * within one property's books).
  */
 
+use App\Support\MorphMap;
 use App\Filament\Admin\Resources\StockMovements\Pages\ListStockMovements;
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
@@ -134,7 +135,7 @@ it('posts NOTHING to the general ledger — driven through the real sweep', func
 
     expect($transferIds)->toHaveCount(2);
 
-    $entries = JournalEntry::where('source_type', StockMovement::class)
+    $entries = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))
         ->whereIn('source_id', $transferIds)
         ->count();
 

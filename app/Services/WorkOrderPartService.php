@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\MorphMap;
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
 use App\Models\FacilityWorkOrder;
@@ -176,7 +177,7 @@ class WorkOrderPartService
                 'type' => 'consumption',
                 'quantity' => (float) $locked->quantity,
                 'unit_cost' => (float) $locked->unit_cost,
-                'source_type' => FacilityWorkOrder::class,
+                'source_type' => MorphMap::alias(FacilityWorkOrder::class),
                 'source_id' => $locked->facility_work_order_id,
                 'moved_by_user_id' => $approver->id,
                 'reference' => $locked->workOrder?->reference,

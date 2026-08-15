@@ -6,6 +6,7 @@ use App\Models\AccountingPeriod;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Support\LedgerRealtimeSync;
+use App\Support\MorphMap;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -120,7 +121,14 @@ class PeriodService
     /** Re-fetch a journal entry's source model (withTrashed, since a deleted source still needs voiding). */
     private function resolveSource(string $type, int|string $id): ?Model
     {
-        if (! class_exists($type)) {
+        // `journal_entries.source_type` stores a morph ALIAS, so `class_exists('invoice')` is false.
+        // Resolving it matters more here than almost anywhere: this gate refuses to close a period
+        // holding a document that has drifted from its posted entry, and an unresolvable source
+        // means it finds no drift and closes anyway — stranding the correcting post in a closed
+        // period, silently, because posting into a closed period throws.
+        $type = MorphMap::resolve($type);
+
+        if ($type === null) {
             return null;
         }
         $query = $type::query();

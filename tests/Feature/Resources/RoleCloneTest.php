@@ -13,6 +13,7 @@
 | else's whole permission set), so it goes into the same access-control trail as an edit.
 */
 
+use App\Support\MorphMap;
 use App\Filament\Admin\Resources\Roles\Pages\ListRoles;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
@@ -55,7 +56,7 @@ it('audits the clone as a permission grant', function () {
 
         $audited = Activity::query()
             ->where('log_name', 'access_control')
-            ->where('subject_type', Role::class)
+            ->where('subject_type', MorphMap::alias(Role::class))
             ->where('subject_id', $clone->id)
             ->exists();
 

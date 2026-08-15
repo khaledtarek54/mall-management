@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
 use App\Models\PurchaseRequest;
@@ -171,7 +172,7 @@ it('stocks the goods on receipt and links the movement to the request', function
     expect(onHandPrc())->toBe(10.0);
 
     $movement = StockMovement::where('inventory_item_id', $this->item->id)->sole();
-    expect($movement->source_type)->toBe(PurchaseRequest::class);
+    expect($movement->source_type)->toBe(MorphMap::alias(PurchaseRequest::class));
     expect($movement->source_id)->toBe($received->id);
     expect($movement->reference)->toBe($received->reference);
     expect((float) $movement->unit_cost)->toBe(50.0);

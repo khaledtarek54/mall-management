@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\SlaPenalty;
 use App\Models\FacilityWorkOrder;
 use App\Models\MarketingBudget;
@@ -164,7 +165,7 @@ it('re-derives the ledger entry when only the document date changes', function (
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $entry = \App\Models\JournalEntry::where('source_type', MarketingSpend::class)
+    $entry = \App\Models\JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
         ->where('source_id', $spend->id)->where('status', 'posted')->firstOrFail();
     expect($entry->entry_date->toDateString())->toBe(now()->startOfMonth()->toDateString());
 
@@ -174,7 +175,7 @@ it('re-derives the ledger entry when only the document date changes', function (
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $live = \App\Models\JournalEntry::where('source_type', MarketingSpend::class)
+    $live = \App\Models\JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
         ->where('source_id', $spend->id)->where('status', 'posted')->firstOrFail();
 
     expect($live->entry_date->toDateString())

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\Vendor;
 use App\Support\ActivityLogChangeRenderer;
 use Spatie\Activitylog\Models\Activity;
@@ -22,7 +23,7 @@ it('records the before and after of a change, in attribute_changes', function ()
     $vendor = Vendor::create(['name' => 'ProbeCo', 'category' => 'hvac', 'status' => 'active']);
     $vendor->update(['name' => 'ProbeCo Renamed']);
 
-    $updated = Activity::where('subject_type', Vendor::class)
+    $updated = Activity::where('subject_type', MorphMap::alias(Vendor::class))
         ->where('subject_id', $vendor->id)->where('event', 'updated')->sole();
 
     // The diff lives here...
@@ -38,7 +39,7 @@ it('renders a change into something a human can read', function () {
     $vendor = Vendor::create(['name' => 'ProbeCo', 'category' => 'hvac', 'status' => 'active']);
     $vendor->update(['status' => 'inactive']);
 
-    $updated = Activity::where('subject_type', Vendor::class)
+    $updated = Activity::where('subject_type', MorphMap::alias(Vendor::class))
         ->where('subject_id', $vendor->id)->where('event', 'updated')->sole();
 
     $rendered = strip_tags((string) app(ActivityLogChangeRenderer::class)->render($updated));

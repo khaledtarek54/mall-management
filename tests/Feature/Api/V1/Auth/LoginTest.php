@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\V1\Auth;
 
+use App\Support\MorphMap;
 use App\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -48,7 +49,7 @@ class LoginTest extends TestCase
 
         $this->assertNotEmpty($response->json('accessToken'));
         $this->assertDatabaseHas('personal_access_tokens', [
-            'tokenable_type' => Tenant::class,
+            'tokenable_type' => MorphMap::alias(Tenant::class),
             'tokenable_id' => $tenant->id,
         ]);
     }

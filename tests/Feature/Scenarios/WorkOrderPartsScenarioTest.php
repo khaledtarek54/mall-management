@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
 use App\Models\FacilityWorkOrder;
@@ -73,7 +74,7 @@ it('moves the stock only once the draw is approved', function () {
     expect(onHand())->toBe(98.0);
     // The movement points back at the job — the ledger says what the stock was for.
     expect($approved->movement->source_id)->toBe($approved->facility_work_order_id);
-    expect($approved->movement->source_type)->toBe(FacilityWorkOrder::class);
+    expect($approved->movement->source_type)->toBe(MorphMap::alias(FacilityWorkOrder::class));
 });
 
 it('moves no stock when a draw is rejected', function () {

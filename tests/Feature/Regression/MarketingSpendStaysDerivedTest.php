@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
 use App\Models\JournalEntry;
@@ -72,7 +73,7 @@ it('re-derives the ledger when a posted spend is edited, rather than leaving the
     // The claim that makes the no-freeze decision safe: the books follow the row.
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $entry = JournalEntry::where('source_type', MarketingSpend::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
         ->where('source_id', $this->spend->id)->whereNull('voided_at')->first();
 
     expect($entry)->not->toBeNull()
@@ -81,7 +82,7 @@ it('re-derives the ledger when a posted spend is edited, rather than leaving the
     $this->spend->update(['amount' => 25000]);
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $live = JournalEntry::where('source_type', MarketingSpend::class)
+    $live = JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
         ->where('source_id', $this->spend->id)->whereNull('voided_at')->get();
 
     // Exactly one live entry, at the corrected figure — not two, and not the stale 40,000.
@@ -95,7 +96,7 @@ it('voids the entry when the spend is deleted', function () {
     $this->spend->delete();
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    expect(JournalEntry::where('source_type', MarketingSpend::class)
+    expect(JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
         ->where('source_id', $this->spend->id)
         ->whereNull('voided_at')
         ->count())->toBe(0);

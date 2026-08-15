@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
 use App\Models\FacilityWorkOrder;
@@ -69,7 +70,7 @@ it('posts an approved draw to the ledger through the real sweep', function () {
     // Deliberately NOT LedgerPoster::post() — the command production runs.
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    $entry = JournalEntry::where('source_type', StockMovement::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))
         ->where('source_id', $part->stock_movement_id)
         ->first();
 
@@ -85,7 +86,7 @@ it('recognises the cost as an expense and takes it out of inventory', function (
     approvedDraw(5);
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    $lines = JournalEntry::where('source_type', StockMovement::class)
+    $lines = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))
         ->latest('id')->first()->lines()->with('account')->get();
 
     $debit = $lines->firstWhere(fn ($l) => (float) $l->debit > 0);
@@ -109,11 +110,11 @@ it('keeps the books tying out after a draw', function () {
 it('does not post twice when the sweep runs again', function () {
     approvedDraw(5);
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
-    $after = JournalEntry::where('source_type', StockMovement::class)->count();
+    $after = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))->count();
 
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    expect(JournalEntry::where('source_type', StockMovement::class)->count())->toBe($after);
+    expect(JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))->count())->toBe($after);
 });
 
 it('reverses the ledger when an issued draw is voided', function () {
@@ -125,7 +126,7 @@ it('reverses the ledger when an issued draw is voided', function () {
     trashBypassingDeletionPolicy(StockMovement::find($part->stock_movement_id)); // void
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    $entry = JournalEntry::where('source_type', StockMovement::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))
         ->where('source_id', $part->stock_movement_id)->first();
 
     expect($entry?->status ?? 'gone')->not->toBe('posted');

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Pages;
 
+use App\Support\MorphMap;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Tenant;
 use App\Notifications\SalesDeclarationSubmittedNotification;
@@ -27,7 +28,7 @@ class CreateTenantSalesDeclaration extends CreateRecord
         abort_if($data['lease_id'] === null, 403);
 
         $data['declared_at'] ??= now();
-        $data['declared_by_type'] = Tenant::class;
+        $data['declared_by_type'] = MorphMap::alias(Tenant::class);
         $data['declared_by_id'] = \App\Support\Portal::tenantId();
         $data['status'] = 'submitted';
 

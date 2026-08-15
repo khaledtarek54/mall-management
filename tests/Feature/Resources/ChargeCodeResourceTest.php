@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource;
 use App\Filament\Admin\Resources\ChargeCodes\Pages\EditChargeCode;
 use App\Filament\Admin\Resources\ChargeCodes\Pages\ListChargeCodes;
@@ -80,7 +81,7 @@ it('bills and POSTS a code the accountant added, with no deploy', function () {
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
 
     $entry = JournalEntry::query()
-        ->where('source_type', Invoice::class)
+        ->where('source_type', MorphMap::alias(Invoice::class))
         ->where('source_id', $invoice->id)
         ->with('lines.account')
         ->first();

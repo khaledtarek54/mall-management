@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\AccountingPeriod;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
@@ -84,7 +85,7 @@ it('applies credit, reduces the invoice, and ties the GL out to AR through the r
     }
 
     $app = TenantCreditApplication::where('invoice_id', $invB->id)->first();
-    $entry = JournalEntry::where('source_type', TenantCreditApplication::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(TenantCreditApplication::class))
         ->where('source_id', $app->id)->where('status', 'posted')->with('lines')->first();
 
     expect($entry)->not->toBeNull()                                   // it posted its own entry …
@@ -113,12 +114,12 @@ it('posts the applied credit through the real accounting:sync-ledger sweep — n
     $app = TenantCreditApplication::where('invoice_id', $invB->id)->firstOrFail();
 
     // Nothing has posted the application yet — the sweep is the only production path exercised here.
-    expect(JournalEntry::where('source_type', TenantCreditApplication::class)->exists())
+    expect(JournalEntry::where('source_type', MorphMap::alias(TenantCreditApplication::class))->exists())
         ->toBeFalse('precondition: the credit application has not been posted yet');
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $entry = JournalEntry::where('source_type', TenantCreditApplication::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(TenantCreditApplication::class))
         ->where('source_id', $app->id)->where('status', 'posted')->with('lines')->first();
 
     expect($entry)->not->toBeNull('the sweep did not post the applied credit')
@@ -149,7 +150,7 @@ it('applies a credit from a CLOSED-period overpayment without stranding the GL (
     expect($applied)->toBe(5000.0)
         ->and($app->entry_date->isSameMonth(now()))->toBeTrue()      // dated TODAY, not the closed month
         ->and((float) $invB->fresh()->balance)->toBe(0.0)            // AR relieved …
-        ->and(JournalEntry::where('source_type', TenantCreditApplication::class)
+        ->and(JournalEntry::where('source_type', MorphMap::alias(TenantCreditApplication::class))
             ->where('source_id', $app->id)->where('status', 'posted')->exists())->toBeTrue(); // … and the GL followed
 });
 

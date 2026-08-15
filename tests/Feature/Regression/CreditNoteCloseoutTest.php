@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\AccountingPeriod;
 use App\Models\CreditNote;
 use App\Models\CreditNoteApplication;
@@ -116,7 +117,7 @@ it('C — binds a standalone note to the invoice property on apply, then refuses
     // The note adopted property A (so its sales-return posts to A's books, not the null bucket).
     expect($note->fresh()->lease_id)->toBe($leaseA->id);
     app(LedgerPoster::class)->sync($note->fresh());
-    $entry = JournalEntry::where('source_type', CreditNote::class)->where('source_id', $note->id)->where('status', 'posted')->with('lines')->first();
+    $entry = JournalEntry::where('source_type', MorphMap::alias(CreditNote::class))->where('source_id', $note->id)->where('status', 'posted')->with('lines')->first();
     expect($entry)->not->toBeNull()
         ->and($entry->lines->pluck('asset_id')->unique()->all())->toBe([$leaseA->unit->asset_id]);
 
@@ -176,7 +177,7 @@ it('reverses output VAT on the GL through the real sweep (Dr VAT Payable + Dr Sa
     app(CreditNoteService::class)->applyToInvoice($note, $invoice->fresh(), 1140);
     app(LedgerPoster::class)->sync($note->fresh());
 
-    $entry = JournalEntry::where('source_type', CreditNote::class)->where('source_id', $note->id)->where('status', 'posted')->with('lines')->first();
+    $entry = JournalEntry::where('source_type', MorphMap::alias(CreditNote::class))->where('source_id', $note->id)->where('status', 'posted')->with('lines')->first();
     expect($entry)->not->toBeNull()
         ->and((float) $entry->lines->sum('debit'))->toBe(1140.0)   // 1000 sales-return + 140 VAT
         ->and((float) $entry->lines->sum('credit'))->toBe(1140.0); // AR (balanced)

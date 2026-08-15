@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\JournalEntry;
 use App\Models\SlaPenalty;
 use App\Models\FacilityWorkOrder;
@@ -82,12 +83,12 @@ it('posts an applied penalty through the real accounting:sync-ledger sweep', fun
     // SlaPenalty, so this entry was never created by any production path.
     [$penalty] = dispatchAppliedPenalty();
 
-    expect(JournalEntry::where('source_type', SlaPenalty::class)->exists())
+    expect(JournalEntry::where('source_type', MorphMap::alias(SlaPenalty::class))->exists())
         ->toBeFalse('precondition: nothing has posted the penalty yet');
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $entry = JournalEntry::where('source_type', SlaPenalty::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(SlaPenalty::class))
         ->where('source_id', $penalty->id)->where('status', 'posted')->first();
 
     expect($entry)->not->toBeNull('the sweep did not post the applied penalty')
@@ -130,7 +131,7 @@ it('re-posts a penalty that is detached and re-applied', function () {
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
     // Detached = still owed, not yet deducted — an estimate, so it must not sit in the books.
-    expect(JournalEntry::where('source_type', SlaPenalty::class)->where('status', 'posted')->exists())
+    expect(JournalEntry::where('source_type', MorphMap::alias(SlaPenalty::class))->where('status', 'posted')->exists())
         ->toBeFalse('a detached penalty must not keep a live journal entry');
 
     expect((float) $bill->fresh()->balance)->toBe(5000.0)

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\Invoice;
@@ -182,7 +183,7 @@ it('posts Dr Deposits Held / Cr AR and ties out through the real sweep', functio
 
     $application = DepositApplication::where('invoice_id', $invoice->id)->sole();
 
-    $entry = JournalEntry::where('source_type', DepositApplication::class)
+    $entry = JournalEntry::where('source_type', MorphMap::alias(DepositApplication::class))
         ->where('source_id', $application->id)
         ->where('status', 'posted')
         ->sole();
@@ -229,7 +230,7 @@ it('voids the entry when the application is reversed', function () {
     app(ApplyDepositToInvoiceService::class)->reverse(DepositApplication::where('invoice_id', $invoice->id)->sole());
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertSuccessful();
 
-    expect(JournalEntry::where('source_type', DepositApplication::class)->where('status', 'posted')->count())
+    expect(JournalEntry::where('source_type', MorphMap::alias(DepositApplication::class))->where('status', 'posted')->count())
         ->toBe(0);
 });
 

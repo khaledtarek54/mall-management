@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Models\TenantRequest;
@@ -133,7 +134,7 @@ it('TenantRequestComment relates to request + polymorphic author', function () {
     ]);
     $c = TenantRequestComment::create([
         'tenant_request_id' => $mr->id,
-        'author_type' => User::class, 'author_id' => $user->id,
+        'author_type' => MorphMap::alias(User::class), 'author_id' => $user->id,
         'body' => 'Looking into it.',
         'is_internal' => true,
     ]);

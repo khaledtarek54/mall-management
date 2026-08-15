@@ -19,6 +19,7 @@
 |      which takes their name off every record and every activity-log row they caused.
 */
 
+use App\Support\MorphMap;
 use App\Filament\Admin\Pages\Auth\Login;
 use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
 use App\Filament\Admin\Resources\Users\UserResource;
@@ -183,7 +184,7 @@ it('records the suspension in the activity log', function () {
     $user->forceFill(['status' => User::STATUS_SUSPENDED, 'suspended_at' => now()])->save();
 
     $logged = Activity::query()
-        ->where('subject_type', User::class)
+        ->where('subject_type', MorphMap::alias(User::class))
         ->where('subject_id', $user->id)
         ->get()
         ->contains(fn ($a) => str_contains(json_encode($a->attribute_changes), 'suspended'));

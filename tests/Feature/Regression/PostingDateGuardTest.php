@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\AccountingPeriod;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
@@ -151,7 +152,7 @@ it('still accepts a settlement dated in an open period', function () {
 
     // And it genuinely reaches the ledger through the real path.
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
-    expect(JournalEntry::where('source_type', CustodyTransaction::class)
+    expect(JournalEntry::where('source_type', MorphMap::alias(CustodyTransaction::class))
         ->where('status', 'posted')->exists())->toBeTrue();
 });
 

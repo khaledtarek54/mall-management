@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use App\Models\Employee;
@@ -71,13 +72,13 @@ it('restores outstanding when a settlement is reversed', function () {
 it('voids the settlement\'s ledger entry through the real sweep', function () {
     $txn = revSettle(5000);
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
-    expect(JournalEntry::where('source_type', CustodyTransaction::class)->where('source_id', $txn->id)
+    expect(JournalEntry::where('source_type', MorphMap::alias(CustodyTransaction::class))->where('source_id', $txn->id)
         ->where('status', 'posted')->exists())->toBeTrue('precondition: it posted');
 
     app(SettleCustodyService::class)->reverse($txn, 'Wrong amount');
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    expect(JournalEntry::where('source_type', CustodyTransaction::class)->where('source_id', $txn->id)
+    expect(JournalEntry::where('source_type', MorphMap::alias(CustodyTransaction::class))->where('source_id', $txn->id)
         ->where('status', 'posted')->exists())->toBeFalse('the entry is voided — no live GL effect');
 });
 

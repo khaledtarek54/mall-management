@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\MorphMap;
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
@@ -67,8 +68,8 @@ it('posts a purchase receipt to the ledger through the real sweep', function () 
 
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    $movement = StockMovement::where('source_type', PurchaseRequest::class)->where('source_id', $pr->id)->sole();
-    $entry = JournalEntry::where('source_type', StockMovement::class)->where('source_id', $movement->id)->first();
+    $movement = StockMovement::where('source_type', MorphMap::alias(PurchaseRequest::class))->where('source_id', $pr->id)->sole();
+    $entry = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))->where('source_id', $movement->id)->first();
 
     expect($entry)->not->toBeNull('a receipt must reach the GL through the real sweep');
     expect((float) $entry->lines->sum('debit'))->toBe(500.0);
@@ -82,7 +83,7 @@ it('debits inventory and credits GRNI, not accounts payable', function () {
     receivedPr();
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    $lines = JournalEntry::where('source_type', StockMovement::class)->latest('id')->first()->lines()->with('account')->get();
+    $lines = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))->latest('id')->first()->lines()->with('account')->get();
     $debit = $lines->firstWhere(fn ($l) => (float) $l->debit > 0);
     $credit = $lines->firstWhere(fn ($l) => (float) $l->credit > 0);
 
@@ -108,7 +109,7 @@ it('leaves every GRNI credit traceable back to the purchase that made it', funct
 
     foreach ($lines as $line) {
         $movement = StockMovement::find($line->entry->source_id);
-        expect($movement->source_type)->toBe(PurchaseRequest::class);
+        expect($movement->source_type)->toBe(MorphMap::alias(PurchaseRequest::class));
         expect(PurchaseRequest::find($movement->source_id))->not->toBeNull(
             'every GRNI credit must trace to a purchase request, or it can never be cleared'
         );
@@ -128,11 +129,11 @@ it('keeps the books tying out after a receipt', function () {
 it('does not post twice when the sweep runs again', function () {
     receivedPr();
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
-    $after = JournalEntry::where('source_type', StockMovement::class)->count();
+    $after = JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))->count();
 
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    expect(JournalEntry::where('source_type', StockMovement::class)->count())->toBe($after);
+    expect(JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))->count())->toBe($after);
 });
 
 it('posts nothing for a service-only purchase', function () {
@@ -149,6 +150,6 @@ it('posts nothing for a service-only purchase', function () {
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
     expect(StockMovement::count())->toBe(0);
-    expect(JournalEntry::where('source_type', StockMovement::class)->count())->toBe(0);
+    expect(JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))->count())->toBe(0);
     expect(app(BooksReconciliationService::class)->run(deep: true)['ok'])->toBeTrue();
 });

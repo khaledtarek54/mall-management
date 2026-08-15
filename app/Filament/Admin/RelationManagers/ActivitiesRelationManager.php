@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Support\MorphMap;
 use App\Models\User;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
@@ -76,7 +77,7 @@ class ActivitiesRelationManager extends RelationManager
                     ->options(fn () => User::orderBy('name')->pluck('name', 'id'))
                     ->searchable()
                     ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['value'] ?? null, fn (Builder $q, $userId) => $q->where('causer_id', $userId)->where('causer_type', User::class))),
+                        ->when($data['value'] ?? null, fn (Builder $q, $userId) => $q->where('causer_id', $userId)->where('causer_type', MorphMap::alias(User::class)))),
                 Filter::make('created_range')
                     ->label(__('admin.activity.when'))
                     ->schema([
