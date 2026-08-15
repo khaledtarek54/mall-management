@@ -117,9 +117,9 @@ class DumpSystemCensus extends Command
                     fn ($f) => basename($f) !== 'Journalizer.php',
                 )),
                 'property_isolation' => [
-                    'owned' => count(PropertyIsolation::OWNED),
-                    'shared' => count(PropertyIsolation::SHARED),
-                    'self' => count(PropertyIsolation::SELF),
+                    'owned' => count(PropertyIsolation::ownedModels()),
+                    'shared' => count(PropertyIsolation::sharedModels()),
+                    'self' => count(PropertyIsolation::selfModels()),
                 ],
                 'module_flags' => count(Modules::KEYS),
                 'scheduled_commands' => self::scheduled(),

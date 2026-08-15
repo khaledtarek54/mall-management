@@ -79,7 +79,11 @@ it('accrues a marketing levy against the invoice property', function () {
 it('is isolated by its own column rather than by a chain', function () {
     // The registry entry is the guard: a chain through `lease.unit` would drop an ownership invoice
     // out of every scoped query the moment lease_id is nullable.
-    expect(PropertyIsolation::OWNED[Invoice::class])->toBeNull();
+    //
+    // `isDirect()` rather than a null linkage read: it also fails if Invoice leaves the owned
+    // register entirely, where reading the raw key returned null for "absent" and "direct" alike
+    // — the same answer for the safe case and the one this test exists to catch.
+    expect(PropertyIsolation::isDirect(Invoice::class))->toBeTrue();
 });
 
 it('refuses to create or clear an invoice with no property', function () {

@@ -165,6 +165,6 @@ it('clamps payment terms so a due date can never precede its issue date', functi
 it('classifies the model in the registries that gate every model', function () {
     // A new model that ships unclassified is what these gates exist to catch; asserting it here
     // keeps the failure attached to this feature rather than surfacing as a mystery elsewhere.
-    expect(\App\Support\PropertyIsolation::OWNED)->toHaveKey(PropertySetting::class);
-    expect(\App\Support\DeletionPolicy::ALLOWED)->toHaveKey(PropertySetting::class);
+    expect(\App\Support\PropertyIsolation::isOwned(PropertySetting::class))->toBeTrue();
+    expect(\App\Support\DeletionPolicy::allowed())->toHaveKey(PropertySetting::class);
 });

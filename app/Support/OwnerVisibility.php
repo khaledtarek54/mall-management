@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
  * **every `.view` permission in the catalogue** on the reasoning that property isolation would keep
  * it honest. It does not, for two independent reasons:
  *
- *  - **Sixteen models are SHARED, not property-scoped** ({@see PropertyIsolation::SHARED}) — the
+ *  - **Sixteen models are SHARED, not property-scoped** ({@see PropertyIsolation::sharedModels()}) — the
  *    vendor catalogue, the staff accounts, the SKU catalogue, the chart of accounts, the settings.
  *    "Scoped to the properties they own" simply does not apply to a row with no `asset_id`, so an
  *    owner browsing `/admin/vendors` saw Eltizam's entire supplier register **across every mall it

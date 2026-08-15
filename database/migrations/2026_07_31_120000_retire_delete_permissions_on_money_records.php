@@ -26,7 +26,7 @@ return new class extends Migration
     public function up(): void
     {
         DB::table('permissions')
-            ->whereIn('name', DeletionPolicy::RETIRED_PERMISSIONS)
+            ->whereIn('name', DeletionPolicy::retiredPermissions())
             ->delete();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -36,7 +36,7 @@ return new class extends Migration
     {
         $now = now();
 
-        foreach (DeletionPolicy::RETIRED_PERMISSIONS as $name) {
+        foreach (DeletionPolicy::retiredPermissions() as $name) {
             DB::table('permissions')->updateOrInsert(
                 ['name' => $name, 'guard_name' => 'web'],
                 ['created_at' => $now, 'updated_at' => $now],

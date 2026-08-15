@@ -19,7 +19,7 @@ use Illuminate\Validation\Rule;
  * (asset, code), `LeaseImporter` on `reference`), enum-backed columns validated against the DB's own
  * set, and the queue connection read from config instead of hard-coded `sync`.
  *
- * **`Vendor` is SHARED, not property-scoped** ({@see PropertyIsolation::SHARED}) — a
+ * **`Vendor` is SHARED, not property-scoped** ({@see PropertyIsolation::sharedModels()}) — a
  * supplier serves the whole portfolio and the per-property engagement lives on `VendorContract` /
  * `VendorBill`. So unlike `LeaseImporter` there is no asset column here and nothing to clamp, which
  * is a real simplification and not an omission.

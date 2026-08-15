@@ -33,7 +33,7 @@ use Throwable;
  *     that actually owns it.
  *  2. **The property must be passed, never inferred.** `/admin` is tenanted, so its routes need a
  *     property slug and `Filament::getTenant()` is null out here. We derive it from the record
- *     itself, through {@see PropertyIsolation::OWNED} — the registry that already knows every
+ *     itself, through {@see PropertyIsolation::owned()} — the registry that already knows every
  *     model's route to its `asset_id`, whether direct or via `lease.unit`. Nothing is guessed.
  *  3. **Authorization is checked against the READER, not the session.** `Resource::canView()` is
  *     no use here: it reads `Auth::user()`, which is null, so it would answer "no" for everyone

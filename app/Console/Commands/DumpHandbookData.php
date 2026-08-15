@@ -139,29 +139,36 @@ class DumpHandbookData extends Command
     /**
      * Which models are property-owned, which are shared, and how each is scoped.
      *
-     * @return array<int, array<string, string>>
+     * @return array<int, array<string, string|null>>
      */
     private function isolation(): array
     {
         $rows = [];
 
-        foreach (['shared' => PropertyIsolation::SHARED, 'owned' => PropertyIsolation::OWNED, 'self' => PropertyIsolation::SELF] as $classification => $models) {
-            foreach ($models as $key => $value) {
-                // The registers mix shapes: some entries are `Model::class => 'reason'`, others are
-                // a bare list. Take whichever side is the class name.
-                $model = is_string($key) && class_exists($key) ? $key : (is_string($value) ? $value : null);
+        $add = function (string $model, string $classification, ?string $note) use (&$rows): void {
+            $rows[] = [
+                'model' => class_basename($model),
+                'label' => Str::headline(class_basename($model)),
+                'classification' => $classification,
+                'note' => $note,
+            ];
+        };
 
-                if ($model === null || ! class_exists($model)) {
-                    continue;
-                }
+        // Each register is read through its own accessor rather than sniffed for shape. The old
+        // single loop had to guess which side of the pair was the class name, because it walked a
+        // map and two lists as if they were one thing — and a guess that reads a register wrong
+        // classifies a model wrong, silently, in the handbook the operator is told to trust.
+        foreach (PropertyIsolation::sharedModels() as $model) {
+            $add($model, 'shared', null);
+        }
 
-                $rows[] = [
-                    'model' => class_basename($model),
-                    'label' => Str::headline(class_basename($model)),
-                    'classification' => $classification,
-                    'note' => is_string($key) && class_exists($key) && is_string($value) ? $value : null,
-                ];
-            }
+        // Only the owned register carries a note: the relation chain, or null for a direct asset_id.
+        foreach (PropertyIsolation::owned() as $model => $linkage) {
+            $add($model, 'owned', $linkage);
+        }
+
+        foreach (PropertyIsolation::selfModels() as $model) {
+            $add($model, 'self', null);
         }
 
         usort($rows, fn (array $a, array $b): int => strcmp($a['label'], $b['label']));
@@ -226,14 +233,14 @@ class DumpHandbookData extends Command
      */
     private function deletionTier(string $model): array
     {
-        if (array_key_exists($model, DeletionPolicy::NEVER_DELETABLE)) {
-            return ['tier' => 'never', 'instead' => DeletionPolicy::NEVER_DELETABLE[$model]];
+        if (DeletionPolicy::isNeverDeletable($model)) {
+            return ['tier' => 'never', 'instead' => DeletionPolicy::correctionFor($model)];
         }
 
-        if (array_key_exists($model, DeletionPolicy::WHEN_UNUSED)) {
+        if (DeletionPolicy::isDeletableWhenUnused($model)) {
             return [
                 'tier' => 'when_unused',
-                'instead' => DeletionPolicy::WHEN_UNUSED[$model]['instead'] ?? null,
+                'instead' => DeletionPolicy::insteadFor($model),
             ];
         }
 

@@ -29,7 +29,7 @@ it('guards every never-deletable model at the model layer', function () {
     // or a relation manager someone adds next year.
     $unguarded = [];
 
-    foreach (array_keys(DeletionPolicy::NEVER_DELETABLE) as $model) {
+    foreach (array_keys(DeletionPolicy::neverDeletable()) as $model) {
         if (! in_array(App\Models\Concerns\RefusesDeletionOfCommittedRecords::class, class_uses_recursive($model), true)) {
             $unguarded[] = class_basename($model);
         }
@@ -45,7 +45,7 @@ it('names a correction path for every never-deletable model', function () {
     // "You cannot delete this" without "do X instead" just moves the operator's problem.
     $missing = [];
 
-    foreach (DeletionPolicy::NEVER_DELETABLE as $model => $correction) {
+    foreach (DeletionPolicy::neverDeletable() as $model => $correction) {
         if (trim($correction) === '') {
             $missing[] = class_basename($model);
         }
@@ -121,7 +121,7 @@ it('has retired the delete permissions rather than leaving them grantable', func
     $this->seed(Database\Seeders\RolesPermissionsSeeder::class);
 
     $surviving = DB::table('permissions')
-        ->whereIn('name', DeletionPolicy::RETIRED_PERMISSIONS)
+        ->whereIn('name', DeletionPolicy::retiredPermissions())
         ->pluck('name')
         ->all();
 
@@ -139,7 +139,7 @@ it('seeds no grantable delete permission for any never-deletable model', functio
     $seeded = DB::table('permissions')->pluck('name')->all();
     $live = [];
 
-    foreach (array_keys(DeletionPolicy::NEVER_DELETABLE) as $model) {
+    foreach (array_keys(DeletionPolicy::neverDeletable()) as $model) {
         $permission = str(class_basename($model))->plural()->snake()->toString().'.delete';
 
         if (in_array($permission, $seeded, true)) {
@@ -216,7 +216,7 @@ it('still allows discarding a draft journal entry but refuses a posted one', fun
 it('guards every when-unused model at the model layer', function () {
     $unguarded = [];
 
-    foreach (array_keys(DeletionPolicy::WHEN_UNUSED) as $model) {
+    foreach (array_keys(DeletionPolicy::whenUnused()) as $model) {
         if (! in_array(App\Models\Concerns\RefusesDeletionWhenReferenced::class, class_uses_recursive($model), true)) {
             $unguarded[] = class_basename($model);
         }
@@ -231,7 +231,7 @@ it('declares only relations that actually exist', function () {
     // silently skipped them. Same class of silent failure as everything else corrected this week.
     $bogus = [];
 
-    foreach (DeletionPolicy::WHEN_UNUSED as $model => $config) {
+    foreach (DeletionPolicy::whenUnused() as $model => $config) {
         $instance = new $model;
 
         foreach ($config['blocked_by'] as $relation) {
@@ -254,7 +254,7 @@ it('declares only relations that actually exist', function () {
 it('states what to do instead for every when-unused model', function () {
     $missing = [];
 
-    foreach (DeletionPolicy::WHEN_UNUSED as $model => $config) {
+    foreach (DeletionPolicy::whenUnused() as $model => $config) {
         if (trim($config['instead'] ?? '') === '') {
             $missing[] = class_basename($model);
         }
@@ -325,11 +325,7 @@ it('classifies every model', function () {
     //
     // "Nobody classified this yet" and "we decided this is fine" look identical from outside.
     // Only one of them is a money record waiting to be deletable by accident.
-    $classified = array_merge(
-        array_keys(DeletionPolicy::NEVER_DELETABLE),
-        array_keys(DeletionPolicy::WHEN_UNUSED),
-        array_keys(DeletionPolicy::ALLOWED),
-    );
+    $classified = DeletionPolicy::classifiedModels();
 
     $unclassified = [];
 
@@ -368,11 +364,7 @@ it('classifies every model', function () {
 it('classifies each model exactly once', function () {
     // A model in two registers is an unresolved disagreement, and which one wins depends on
     // lookup order — i.e. on nothing anybody decided.
-    $all = array_merge(
-        array_keys(DeletionPolicy::NEVER_DELETABLE),
-        array_keys(DeletionPolicy::WHEN_UNUSED),
-        array_keys(DeletionPolicy::ALLOWED),
-    );
+    $all = DeletionPolicy::classifiedModels();
 
     $duplicates = array_keys(array_filter(array_count_values($all), fn (int $n): bool => $n > 1));
 
@@ -383,7 +375,7 @@ it('states a reason for every allowed model', function () {
     // "ALLOWED => ''" is an unclassified model wearing a badge.
     $blank = [];
 
-    foreach (DeletionPolicy::ALLOWED as $model => $reason) {
+    foreach (DeletionPolicy::allowed() as $model => $reason) {
         if (trim($reason) === '') {
             $blank[] = class_basename($model);
         }

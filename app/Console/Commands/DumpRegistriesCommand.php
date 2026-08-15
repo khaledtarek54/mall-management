@@ -97,9 +97,9 @@ class DumpRegistriesCommand extends Command
             return implode(' · ', $names);
         };
 
-        $owned = array_keys(PropertyIsolation::OWNED);
-        $shared = PropertyIsolation::SHARED;
-        $self = PropertyIsolation::SELF;
+        $owned = PropertyIsolation::ownedModels();
+        $shared = PropertyIsolation::sharedModels();
+        $self = PropertyIsolation::selfModels();
 
         return "## Model classification\n\n"
             ."Generated from `App\\Support\\PropertyIsolation`. `PropertyIsolationConformanceTest` fails the\n"

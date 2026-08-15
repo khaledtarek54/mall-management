@@ -143,7 +143,7 @@ class DeletionPolicy
      *
      * @var array<class-string, string>
      */
-    public const NEVER_DELETABLE = [
+    private const NEVER_DELETABLE = [
         Invoice::class => 'cancel the invoice, or issue a credit note',
         Payment::class => 'void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice',
         JournalEntry::class => 'post a reversing entry; a posted entry is never removed',
@@ -186,7 +186,7 @@ class DeletionPolicy
      *
      * @var array<class-string, array{blocked_by: array<int, string>, instead: string}>
      */
-    public const WHEN_UNUSED = [
+    private const WHEN_UNUSED = [
         Tenant::class => [
             // + postDatedCheques: a NEVER-deletable money record a tenant can hold before any invoice
             // (a year of PDCs lodged up front) — omitting it left a tenant with only lodged cheques
@@ -347,7 +347,7 @@ class DeletionPolicy
      *
      * @var array<class-string, string>
      */
-    public const ALLOWED = [
+    private const ALLOWED = [
         // parent-managed children (deleting these IS the workflow)
         InvoiceItem::class => 'parent-managed: rebuilt whenever the invoice is recomputed',
         CreditNoteItem::class => 'parent-managed: rebuilt with its credit note',
@@ -446,6 +446,49 @@ class DeletionPolicy
         TenantUser::class => 'identity: a portal login',
     ];
 
+    /**
+     * The three tiers, as maps. These are the READ API for the whole registry — the backing
+     * consts are private so that the storage can change (a per-model declaration, rather than
+     * one central array) without touching a single caller. Nothing outside this class may
+     * depend on the tiers being arrays that happen to live here.
+     *
+     * @return array<class-string, string>
+     */
+    public static function neverDeletable(): array
+    {
+        return self::NEVER_DELETABLE;
+    }
+
+    /** @return array<class-string, array{blocked_by: array<int, string>, instead: string}> */
+    public static function whenUnused(): array
+    {
+        return self::WHEN_UNUSED;
+    }
+
+    /** @return array<class-string, string> */
+    public static function allowed(): array
+    {
+        return self::ALLOWED;
+    }
+
+    /**
+     * Every model that carries a deliberate classification, in tier order.
+     *
+     * The gate asserts each model on disk appears here — so this must stay the union of the
+     * three tiers and never grow a fallback. A model missing from all three is the unclassified
+     * case the registry exists to catch.
+     *
+     * @return array<int, class-string>
+     */
+    public static function classifiedModels(): array
+    {
+        return array_merge(
+            array_keys(self::NEVER_DELETABLE),
+            array_keys(self::WHEN_UNUSED),
+            array_keys(self::ALLOWED),
+        );
+    }
+
     /** Is this model deletable only while unreferenced? */
     public static function isDeletableWhenUnused(string $model): bool
     {
@@ -485,7 +528,7 @@ class DeletionPolicy
      *
      * @var array<int, string>
      */
-    public const RETIRED_PERMISSIONS = [
+    private const RETIRED_PERMISSIONS = [
         'invoices.delete',
         'payments.delete',
         'journal_entries.delete',
@@ -496,4 +539,10 @@ class DeletionPolicy
         'payrolls.delete',
         'post_dated_cheques.delete',
     ];
+
+    /** @return array<int, string> */
+    public static function retiredPermissions(): array
+    {
+        return self::RETIRED_PERMISSIONS;
+    }
 }

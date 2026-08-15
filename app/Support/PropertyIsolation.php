@@ -124,7 +124,7 @@ class PropertyIsolation
      *
      * @var array<int, class-string>
      */
-    public const SHARED = [
+    private const SHARED = [
         User::class,                // operator staff (assigned to properties via asset_user)
         // One operator's remembered report filters. Belongs to the USER, not a property: the
         // stored assetId IS the preference, not an ownership claim, and scoping the row itself
@@ -161,7 +161,7 @@ class PropertyIsolation
      *
      * @var array<class-string, string|null>
      */
-    public const OWNED = [
+    private const OWNED = [
         // ---- Direct asset_id column ----
         Unit::class => null,
         Announcement::class => null,           // broadcast targeted at one property
@@ -273,7 +273,7 @@ class PropertyIsolation
      *
      * @var array<int, class-string>
      */
-    public const SELF = [
+    private const SELF = [
         Asset::class,
     ];
 
@@ -317,5 +317,27 @@ class PropertyIsolation
     public static function sharedModels(): array
     {
         return self::SHARED;
+    }
+
+    /**
+     * The property-owned register as a map of model => linkage (null = direct `asset_id`).
+     *
+     * This is the READ API for the register itself — the backing consts are private so the
+     * storage can change (a per-model declaration rather than one central array) without
+     * touching a caller. Prefer `linkageFor()` / `isDirect()` when asking about ONE model;
+     * this is for the callers that legitimately enumerate the whole register (the census, the
+     * registry dump, the handbook data).
+     *
+     * @return array<class-string, string|null>
+     */
+    public static function owned(): array
+    {
+        return self::OWNED;
+    }
+
+    /** The property itself — scoped by identity, in neither bucket. @return array<int, class-string> */
+    public static function selfModels(): array
+    {
+        return self::SELF;
     }
 }
