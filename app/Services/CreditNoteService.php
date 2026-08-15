@@ -98,8 +98,19 @@ class CreditNoteService
                 return 0.0;
             }
 
-            // Adopt the invoice's lease/property if the note is still unscoped (standalone).
-            // (An invoice always has a lease — lease_id is NOT NULL.)
+            // Adopt the invoice's property (and its lease, when it has one) if the note is still
+            // unscoped — a standalone note is raised before anyone knows what it will credit.
+            //
+            // The property is copied SEPARATELY from the lease, and that is the whole correction
+            // here: this used to copy only `lease_id`, justified by "an invoice always has a lease —
+            // lease_id is NOT NULL". That stopped being true when unit owners became billable, so a
+            // note against an owner assessment inherited a NULL lease and, through it, no property
+            // at all. `asset_id` is populated on every invoice by construction, so it is the answer
+            // that always exists.
+            if ($note->asset_id === null) {
+                $note->asset_id = $invoice->asset_id;
+            }
+
             if ($note->lease_id === null) {
                 $note->lease_id = $invoice->lease_id;
             }

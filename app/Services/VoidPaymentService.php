@@ -46,8 +46,15 @@ class VoidPaymentService
             );
             $tenant = $payment->tenant;
             if ($remainder > 0.005 && $tenant instanceof Tenant) {
-                $assetIds = $payment->invoices()->with('lease.unit')->get()
-                    ->map(fn ($inv) => $inv->lease?->unit?->asset_id)
+                // The invoices' own column. Through the lease chain this produced an EMPTY array
+                // for a receipt allocated only to owner invoices, and the empty array fell through
+                // to `creditBalance(null)` — the GLOBAL balance that the comment four lines above
+                // explicitly forbids. A fail-open on a refund guard.
+                //
+                // ATOMIC with `Tenant::creditBalance()`, which scopes the same way: migrating only
+                // one of the two turns this fail-open into a false REFUSAL of every owner-invoice
+                // refund that carries an unallocated surplus.
+                $assetIds = $payment->invoices()->pluck('invoices.asset_id')
                     ->filter()->unique()->values()->all();
                 $available = (float) $tenant->creditBalance($assetIds !== [] ? $assetIds : null);
                 if (round($available - $remainder, 2) < -0.005) {

@@ -33,6 +33,9 @@ use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Equipment;
 use App\Models\Expense;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderItem;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\FiscalYear;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
@@ -50,11 +53,6 @@ use App\Models\LeaseOption;
 use App\Models\LeasePercentageRentTier;
 use App\Models\LedgerAccount;
 use App\Models\LowStockAlert;
-use App\Models\SlaPenalty;
-use App\Models\ServicePlan;
-use App\Models\FacilityWorkOrder;
-use App\Models\FacilityWorkOrderItem;
-use App\Models\FacilityWorkOrderPart;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
@@ -74,6 +72,8 @@ use App\Models\PurchaseRequestLine;
 use App\Models\RentableItem;
 use App\Models\ReportPreference;
 use App\Models\SavedReport;
+use App\Models\ServicePlan;
+use App\Models\SlaPenalty;
 use App\Models\SlaPolicy;
 use App\Models\StockMovement;
 use App\Models\StraightLineRentAdjustment;
@@ -230,7 +230,9 @@ class PropertyIsolation
         LeaseEvent::class => 'lease.unit',
         InvoiceWriteOff::class => 'asset',
         Payment::class => 'invoices',               // ditto, one hop shorter than it used to be
-        CreditNote::class => 'lease.unit',
+        // Denormalized asset_id, like Invoice. The `lease.unit` chain answered NULL for a note
+        // against a unit-owner invoice, dropping it from every property-scoped read.
+        CreditNote::class => null,
         CreditNoteItem::class => 'creditNote.lease.unit',
         CreditNoteApplication::class => 'creditNote.lease.unit', // one application of a note; asset = the note's (invoice's) property; service-created, no Filament resource
         TenantRequest::class => 'unit',

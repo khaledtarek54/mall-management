@@ -16,11 +16,11 @@ use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
-use App\Models\SlaPenalty;
 use App\Models\MarketingSpend;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
+use App\Models\SlaPenalty;
 use App\Models\StockMovement;
 use App\Models\StraightLineRentAdjustment;
 use App\Models\TenantCreditApplication;
@@ -161,7 +161,8 @@ class ChangeImpact
                 'issue_date' => 'it IS the entry date',
                 'tenant_id' => 'the AR dimension of the credit leg',
                 'invoice_id' => 'the receivable being reversed',
-                'lease_id' => 'the property dimension. May be bound ONCE from null — a standalone note adopting the property of the first invoice it settles — but re-homing a scoped note stays refused',
+                'asset_id' => 'THE property dimension of the credit leg (denormalized 2026-08-15). Bound ONCE from null when a standalone note adopts the property of the invoice it settles; re-homing a scoped note books the reversal into another mall\'s P&L',
+                'lease_id' => 'which lease the note relates to. It no longer carries the property (see asset_id above) and is NULL for a note against a unit-owner assessment, but re-homing a scoped note stays refused',
             ],
             self::DERIVED => [
                 'status' => 'draft and void have no GL effect',

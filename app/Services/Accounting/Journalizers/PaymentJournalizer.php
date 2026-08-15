@@ -32,7 +32,7 @@ class PaymentJournalizer implements Journalizer
             return null;
         }
 
-        $payment->loadMissing('invoices.lease.unit');
+        $payment->loadMissing('invoices');
 
         // A payment can pay invoices across DIFFERENT properties (the form scopes by
         // tenant, not asset). Reduce each property's receivables on its own asset so
@@ -43,7 +43,11 @@ class PaymentJournalizer implements Journalizer
             if ($alloc <= 0) {
                 continue;
             }
-            $assetId = $invoice->lease?->unit?->asset_id; // null = no-asset bucket
+            // The invoice's own column. InvoiceJournalizer already debits THIS property's AR at
+            // issue, so deriving the credit through the lease chain sent an owner invoice's payment
+            // to portfolio-level AR — a permanent per-property drift that a portfolio-wide tie-out
+            // cannot see, because it nets to zero across the malls.
+            $assetId = $invoice->asset_id; // null = no-asset bucket
             $key = $assetId ?? 0;
             $allocByAsset[$key] = round(($allocByAsset[$key] ?? 0) + $alloc, 2);
         }

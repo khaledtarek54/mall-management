@@ -5,6 +5,7 @@ namespace App\Services\Accounting\Journalizers;
 use App\Models\CreditNote;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Credit note (إشعار خصم):
@@ -26,8 +27,10 @@ class CreditNoteJournalizer implements Journalizer
             return null;
         }
 
-        $note->loadMissing('lease.unit');
-        $assetId = $note->lease?->unit?->asset_id;
+        // The note's own column. It used to walk `lease -> unit -> asset`, which answers NULL for a
+        // note against a unit-OWNER invoice — the note posted with no property dimension, balanced
+        // and tied out and invisible to that mall's P&L.
+        $assetId = $note->asset_id;
 
         $vat = round((float) $note->vat_amount, 2);
         $total = round((float) $note->total, 2);
@@ -44,7 +47,7 @@ class CreditNoteJournalizer implements Journalizer
         // CreditNote has no total = net + VAT model invariant (it's item-derived), so
         // skip + flag rather than emit an unbalanced entry.
         if ($netReturn < 0) {
-            \Illuminate\Support\Facades\Log::warning(
+            Log::warning(
                 "CreditNoteJournalizer: note {$note->number} has VAT ({$vat}) exceeding total ({$total}); skipping ledger post."
             );
 

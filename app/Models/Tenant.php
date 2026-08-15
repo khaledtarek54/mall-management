@@ -481,7 +481,10 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         $payments = $this->payments()->received()
             ->when(
                 $assetIds !== null,
-                fn ($q) => $q->whereHas('invoices.lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)),
+                // `invoices`, not `invoices.lease.unit` — an invoice carries its own asset_id, and
+                // the old chain matched nothing for a unit-owner invoice. Atomic with
+                // `VoidPaymentService`, which computes the ids this is scoped by.
+                fn ($q) => $q->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $assetIds)),
             )
             ->with('invoices')
             ->get();

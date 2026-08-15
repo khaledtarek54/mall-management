@@ -94,12 +94,13 @@ class WriteOffInvoiceService
             // would be refused inside the best-effort sync job that only logs.
             PostingDate::assertOpen($entryDate);
 
-            $locked->loadMissing('lease.unit');
-
             $writeOff = InvoiceWriteOff::create([
                 'invoice_id' => $locked->id,
                 'tenant_id' => $locked->tenant_id,
-                'asset_id' => $locked->lease?->unit?->asset_id,
+                // The invoice's own column. Via the lease chain this stored NULL for an
+                // owner invoice, which drops the row from every property-scoped read AND makes
+                // InvoiceWriteOffJournalizer resolve bad_debt_expense against no property.
+                'asset_id' => $locked->asset_id,
                 'amount' => $amount,
                 'entry_date' => $entryDate->toDateString(),
                 'reason' => $data['reason'],

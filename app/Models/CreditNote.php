@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use App\Support\DocumentNumbering;
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\DocumentNumbering;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,8 +17,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class CreditNote extends Model
 {
-    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
-
+    use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
@@ -43,6 +43,7 @@ class CreditNote extends Model
 
     protected $fillable = [
         'number',
+        'asset_id',
         'tenant_id',
         'invoice_id',
         'lease_id',
@@ -76,6 +77,41 @@ class CreditNote extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * The property whose books this credit belongs to — denormalized, never inferred.
+     *
+     * @return BelongsTo<Asset, $this>
+     */
+    public function asset(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class);
+    }
+
+    /**
+     * The property, from the invoice being credited or (for a standalone note) its lease.
+     *
+     * The invoice wins: its `asset_id` is populated by construction and is the ONLY answer for an
+     * owner note, whose lease is null. `withTrashed()` on the lease fallback for the same reason the
+     * invoice migration used raw SQL — a note against a terminated lease is a real credit in a real
+     * mall, and the relation would scope exactly those rows out.
+     */
+    protected function deriveAssetId(): ?int
+    {
+        if ($this->invoice_id !== null) {
+            $fromInvoice = Invoice::withTrashed()->whereKey($this->invoice_id)->value('asset_id');
+
+            if ($fromInvoice !== null) {
+                return (int) $fromInvoice;
+            }
+        }
+
+        if ($this->lease_id === null) {
+            return null;
+        }
+
+        return Lease::withTrashed()->whereKey($this->lease_id)->first()?->assetId();
     }
 
     public function invoice(): BelongsTo
@@ -156,8 +192,21 @@ class CreditNote extends Model
     protected static function booted(): void
     {
         static::creating(function (self $note) {
+            // The note's own property, settled once. Everything that used to walk
+            // `lease -> unit -> asset` reads this column instead — that chain answers NULL for a
+            // note against a unit-OWNER invoice, and a note with no property posts to the ledger
+            // with no dimension: balanced, tied out, and invisible to that mall's P&L.
+            //
+            // A note raised with neither an invoice nor a lease is legitimately unscoped; it adopts
+            // the property when `CreditNoteService::applyToInvoice()` binds it. So this derives when
+            // it can and stays quiet when it cannot — unlike Invoice, which always has an agreement
+            // and therefore always refuses a null.
+            if ($note->asset_id === null) {
+                $note->asset_id = $note->deriveAssetId();
+            }
+
             if (empty($note->number)) {
-                $assetCode = $note->lease?->unit?->asset?->code ?: 'AW';
+                $assetCode = $note->asset?->code ?: 'AW';
                 $note->number = $note->allocateDocumentNumber(
                     static::numberPrefix($assetCode, $note->issue_date),
                     fn (): string => static::generateNumber($assetCode, $note->issue_date),
@@ -191,11 +240,15 @@ class CreditNote extends Model
                     throw new \DomainException("A finalized credit note's {$field} is immutable — void it and issue a new one.");
                 }
             }
-            // lease_id may be bound ONCE from null — a standalone note adopting the property of the
-            // first invoice it settles (CreditNoteService::applyToInvoice, so the sales-return posts
-            // to that property). Re-homing an already-scoped note stays refused.
-            if ($note->isDirty('lease_id') && $note->getOriginal('lease_id') !== null) {
-                throw new \DomainException("A finalized credit note's lease_id is immutable — void it and issue a new one.");
+            // `asset_id` and `lease_id` may each be bound ONCE from null — a standalone note
+            // adopting the property of the first invoice it settles (CreditNoteService::
+            // applyToInvoice, so the sales-return posts to that property). Re-homing an
+            // already-scoped note stays refused: `asset_id` IS the entry's property dimension, so
+            // moving it books the reversal into another mall's P&L and another owner's statement.
+            foreach (['asset_id', 'lease_id'] as $bindOnce) {
+                if ($note->isDirty($bindOnce) && $note->getOriginal($bindOnce) !== null) {
+                    throw new \DomainException("A finalized credit note's {$bindOnce} is immutable — void it and issue a new one.");
+                }
             }
         });
 

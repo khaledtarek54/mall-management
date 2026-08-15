@@ -93,7 +93,7 @@
         "model": "CreditNote",
         "label": "Credit Note",
         "classification": "owned",
-        "note": "lease.unit"
+        "note": null
     },
     {
         "model": "CreditNoteApplication",
