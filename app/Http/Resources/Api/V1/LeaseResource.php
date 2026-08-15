@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Models\RentableItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,6 +27,16 @@ class LeaseResource extends JsonResource
             'service_charge_monthly' => (float) $this->service_charge_monthly,
             'total_monthly_amount' => $this->totalMonthlyAmount(),
             'currency' => $this->currency,
+            // Parking bays let alongside the premises. Already modelled as `rentableItems` (a
+            // bay is not lettable AREA, which is why the two relations are kept apart) — it was
+            // simply never published, so the app omitted its parking-allocation card rather than
+            // invent a number.
+            'parking_spots' => $this->whenLoaded(
+                'rentableItems',
+                fn () => $this->rentableItems
+                    ->where('type', RentableItem::TYPE_PARKING)
+                    ->count(),
+            ),
             'has_percentage_rent' => (bool) $this->has_percentage_rent,
             'percentage_rent_rate' => $this->has_percentage_rent ? (float) $this->percentage_rent_rate : null,
             'unit' => $this->whenLoaded('unit', fn () => [

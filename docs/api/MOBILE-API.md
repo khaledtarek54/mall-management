@@ -308,11 +308,14 @@ doesn't fan out to balance + maintenance + declarations + notifications.
 tenant has not opened, which is a different question from the bell's unread count.
 
 #### 🔒 `GET /me/leases` — active leases (usually one)
+`parkingSpots` is the count of parking bays let alongside the premises. It is modelled separately
+from the unit (a bay is not lettable *area*), which is why it is its own field rather than part of
+`unit`. Absent/`0` when the lease has none.
 ```json
 { "data": [ { "id": 9, "reference": "LSE-HW-2026-0007", "status": "active",
   "commencementDate": "2026-01-01", "expiryDate": "2027-12-31",
   "baseRentMonthly": 10000.00, "serviceChargeMonthly": 2000.00,
-  "totalMonthlyAmount": 12000.00, "currency": "EGP",
+  "totalMonthlyAmount": 12000.00, "currency": "EGP", "parkingSpots": 2,
   "hasPercentageRent": true, "percentageRentRate": 5.00,
   "unit": { "id": 4, "code": "A-01", "floor": "G", "category": "retail",
     "areaSqm": 120.00, "asset": { "id": 1, "name": "Atriom Walk", "code": "AW" } } } ] }
@@ -331,6 +334,7 @@ Query: `status`, `period_from`, `period_until` (YYYY-MM-DD, against `issue_date`
   "periodStart": "2026-05-01", "periodEnd": "2026-05-31",
   "subtotal": 12000.00, "vatAmount": 1680.00, "total": 13680.00,
   "paidAmount": 0.00, "creditAppliedAmount": 0.00, "balance": 13680.00, "currency": "EGP",
+  "paidAt": null,
   "isOverdue": true, "daysOverdue": 22,
   "paymentLinkUrl": "https://app.../pay/abc123",
   "etaStatus": "valid", "etaSubmissionId": "...", "etaLongId": "...",
@@ -354,7 +358,11 @@ nothing is owed) — the app can share it or open it in a WebView.
 Bilingual (follows `Accept-Language`), `Content-Disposition: attachment`.
 Ideal for the native share sheet / WhatsApp share.
 
-#### 🔒 `GET /me/statement` — Statement of Account PDF
+#### 🔒 `GET /me/statement`
+Query: **`from`**, **`to`** (YYYY-MM-DD). Omit both for the documented **12-month trailing**
+window. State the window if you intend to print it: the endpoint used to hard-code the period and
+report nothing about what it covered, so a client printing a range beside the PDF was printing a
+device-clock guess. — Statement of Account PDF
 12-month trailing window of invoices + payments + summary. Streams
 `application/pdf`.
 
@@ -363,7 +371,12 @@ Ideal for the native share sheet / WhatsApp share.
 ### 4.4 Payments
 
 #### 🔒 `GET /me/payments` — paginated, newest first
-Query: `method`, `status`, `page`, `per_page`.
+Query: `method`, `status`, **`from`**, **`to`** (YYYY-MM-DD, against `payment_date`), `page`,
+`per_page`.
+
+`from`/`to` exist so "cleared this period" can be a real period. Without them the query set was
+`method`/`status`/`page` only — there was no date to pass, so a client either invented one from the
+device clock or softened the label.
 ```json
 { "data": [ { "id": 31, "reference": "PAY-202605-0004", "amount": 13680.00,
   "currency": "EGP", "method": "instapay", "status": "captured",

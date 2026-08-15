@@ -17,7 +17,7 @@ class LeasesController extends ApiController
     {
         $leases = $request->user()
             ->activeLeases()
-            ->with('unit.asset')
+            ->with(['unit.asset', 'rentableItems'])
             ->get();
 
         return LeaseResource::collection($leases);

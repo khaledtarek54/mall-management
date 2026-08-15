@@ -3639,6 +3639,10 @@
                     "balance": {
                         "type": "number"
                     },
+                    "paidAt": {
+                        "type": "string",
+                        "description": "**When the money arrived.** The payment-confirmation screen used to stamp the\nDEVICE clock next to a server-polled amount and balance \u2014 on the screen tenants\nscreenshot as proof of payment \u2014 so the app dropped the line rather than print a\nguess. This is the server's own answer: the date of the latest RECEIVED payment\nallocated to this invoice (`receivedPayments`, the same predicate the AR uses), or\nnull while nothing has been captured."
+                    },
                     "currency": {
                         "type": "string"
                     },
@@ -3734,6 +3738,7 @@
                     "paidAmount",
                     "creditAppliedAmount",
                     "balance",
+                    "paidAt",
                     "currency",
                     "isOverdue",
                     "daysOverdue",
@@ -3776,6 +3781,11 @@
                     },
                     "currency": {
                         "type": "string"
+                    },
+                    "parkingSpots": {
+                        "type": "integer",
+                        "description": "Parking bays let alongside the premises. Already modelled as `rentableItems` (a\nbay is not lettable AREA, which is why the two relations are kept apart) \u2014 it was\nsimply never published, so the app omitted its parking-allocation card rather than\ninvent a number.",
+                        "minimum": 0
                     },
                     "hasPercentageRent": {
                         "type": "boolean"

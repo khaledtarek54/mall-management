@@ -30,6 +30,15 @@ class InvoiceResource extends JsonResource
             // Portion of paid_amount covered by applied credit notes (vs cash).
             'credit_applied_amount' => (float) $this->credit_applied_amount,
             'balance' => (float) $this->balance,
+            // **When the money arrived.** The payment-confirmation screen used to stamp the
+            // DEVICE clock next to a server-polled amount and balance — on the screen tenants
+            // screenshot as proof of payment — so the app dropped the line rather than print a
+            // guess. This is the server's own answer: the date of the latest RECEIVED payment
+            // allocated to this invoice (`receivedPayments`, the same predicate the AR uses), or
+            // null while nothing has been captured.
+            'paid_at' => optional(
+                $this->receivedPayments->max('payment_date')
+            )?->toIso8601String(),
             'currency' => $this->currency,
             'is_overdue' => $this->isOverdue(),
             'days_overdue' => $this->daysOverdue(),

@@ -17,13 +17,27 @@ class TenantStatementPdfService
      *                                            read a shared tenant's AR in a mall they can't see. Pass null (the default) for the tenant's
      *                                            OWN statement (portal / mobile API) — the tenant is entitled to their whole-company view.
      *                                            Note: null also means "unrestricted" (super_admin), matching visibleAssetIds()'s null.
+     * @param  \Carbon\CarbonInterface|null  $from  Start of the window. Defaults to 12 months back.
+     * @param  \Carbon\CarbonInterface|null  $to    End of the window. Defaults to today.
+     *
+     * The window is a PARAMETER because the statement used to hard-code a trailing 12 months and
+     * report nothing about what it covered — so a client printed a period computed from the DEVICE
+     * clock beside a PDF the server built. Either the caller states the window or it gets the
+     * documented default; nobody has to guess.
      */
-    public function build(Tenant $tenant, ?array $visibleAssetIds = null): string
+    public function build(
+        Tenant $tenant,
+        ?array $visibleAssetIds = null,
+        $from = null,
+        $to = null,
+    ): string
     {
         $tenant->loadMissing(['leases.unit.asset']);
 
-        $asOf = CarbonImmutable::now();
-        $since = $asOf->subMonths(12)->startOfMonth();
+        $asOf = $to !== null ? CarbonImmutable::parse($to) : CarbonImmutable::now();
+        $since = $from !== null
+            ? CarbonImmutable::parse($from)->startOfDay()
+            : $asOf->subMonths(12)->startOfMonth();
 
         $invoicesAll = $tenant->invoices()
             ->with('lease.unit')
