@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'parent-managed: removed on settlement')]
 #[PropertyOwned]
+#[PostingDateGuardedBy(guard: \App\Services\SettleCustodyService::class)]
 class CustodyTransaction extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

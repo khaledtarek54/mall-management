@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\PostingDate;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,6 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: soft-delete IS the retirement path — the sweep voids the asset\'s entire GL footprint, which a scenario test pins')]
 #[PropertyOwned]
+#[PostingDateGuardedBy(guard: \App\Models\FixedAsset::class)]
 class FixedAsset extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

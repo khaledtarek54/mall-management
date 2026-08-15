@@ -50,7 +50,7 @@ class DumpRegistriesCommand extends Command
     public function glSources(): string
     {
         $dates = LedgerRealtimeSync::SOURCE_DATE_COLUMNS;
-        $guards = PostingDateGuards::GUARDS;
+        $guards = PostingDateGuards::guards();
         $rows = [];
 
         // Every JOURNALIZERS source is guaranteed a GUARDS entry and a SOURCE_DATE_COLUMNS entry —

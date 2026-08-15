@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[DeletionAllowed(reason: 'operational: superseded by a new version rather than removed')]
 // owner statement run — one property's period statement (module 32)
 #[PropertyOwned]
+#[PostingDateGuardedBy(guard: \App\Services\OwnerAccounting\FinaliseOwnerStatementRunService::class)]
 class OwnerStatementRun extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
@@ -24,6 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[NeverDeletable(correction: 'reverse the deposit transaction')]
 // asset_id derived from the lease in the model's saving hook
 #[PropertyOwned]
+#[PostingDateGuardedBy(guard: \App\Models\DepositTransaction::class)]
 class DepositTransaction extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

@@ -152,6 +152,6 @@ it('rolls the settled arrears back when the DEDUCTIONS are refused', function ()
 
 it('registers a real guard class rather than a system exemption', function () {
     // The registry itself was the defect. Pinned so it cannot quietly revert to `system:`.
-    expect(\App\Support\PostingDateGuards::GUARDS[DepositApplication::class])
+    expect(\App\Support\PostingDateGuards::guards()[DepositApplication::class])
         ->toBe(ApplyDepositToInvoiceService::class);
 });

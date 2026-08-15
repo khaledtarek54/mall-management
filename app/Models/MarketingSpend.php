@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\GuardsPostingDate;
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: a spend line')]
 #[PropertyOwned(via: 'budget')]
+#[PostingDateGuardedBy(guard: \App\Models\MarketingSpend::class)]
 class MarketingSpend extends Model
 {
     use GuardsPostingDate, LogsActivity, SoftDeletes;

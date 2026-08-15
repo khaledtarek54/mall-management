@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PostingDateNotOperatorTyped;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[DeletionAllowed(reason: 'parent-managed: soft-deleted to reverse an applied tenant credit')]
 // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
 #[PropertyOwned]
+#[PostingDateNotOperatorTyped(reason: 'entry_date is deliberately stamped at application time, never the source receipt\'s date. That decoupling is the whole point: it lets an old overpayment settle a current invoice without ever posting into the closed period the overpayment came from.')]
 class TenantCreditApplication extends Model
 {
     use HasFactory, SoftDeletes;
