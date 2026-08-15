@@ -53,7 +53,7 @@ varies is the rent.
 
 - **A resale is a tenure end, never a delete.** `ended_at` closes the seller's row and a new row opens
   the buyer's. Deleting would strand every assessment invoice and statement that quoted it.
-  `DeletionPolicy::WHEN_UNUSED` blocks on `invoices` and `charges`; the FK columns ship in phase 1
+  `#[DeletableWhenUnused]` blocks on `invoices` and `charges`; the FK columns ship in phase 1
   precisely so that guard runs a real query rather than a latent one.
 - **Handover is what starts the money**, not contract signature — the operator carries the unit's cost
   until the keys change hands. `UnitOwnershipStatus::HandedOver` is the billable state, and
@@ -98,8 +98,8 @@ The registry declares these sets **as the enum class**, not as a copied list, so
 
 ## 5. Registries this module is in
 
-`PropertyIsolation::OWNED` (direct `asset_id` — the assessment sweep asks per property, and a join per
-row is the N+1 the CAM path already had to fix) · `DeletionPolicy::WHEN_UNUSED` · `ValueSets` ·
+`#[PropertyOwned]` (direct `asset_id` — the assessment sweep asks per property, and a join per
+row is the N+1 the CAM path already had to fix) · `#[DeletableWhenUnused]` · `ValueSets` ·
 `DocumentNumbering::TYPES` (`UO-{property}-{year}-0001`) · `ActivityVocabulary` (log name
 `unit_ownership`, EN + AR).
 

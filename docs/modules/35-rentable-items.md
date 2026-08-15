@@ -68,7 +68,7 @@ would let both through. Same rule and same reasoning as the premises guard.
 `available` → **assign** → `assigned` → **release** (dated) → `available` the next day.
 `out_of_service` is a manual withdrawal that the assign picker excludes; it is how a bay leaves
 letting without being deleted. Deletion is refused once anything has held it
-(`DeletionPolicy::WHEN_UNUSED`, blocked by `leases`).
+(`#[DeletableWhenUnused]`, blocked by `leases`).
 
 ## 5. Services
 

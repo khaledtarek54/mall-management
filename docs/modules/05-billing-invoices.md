@@ -1395,7 +1395,7 @@ with nothing to post and no date to post it on.
 | The date is guarded in the **service** | it is operator-typed and becomes a journal `entry_date`; without the guard the row commits, the operator sees "Saved", and the entry is refused inside the best-effort sync job that only logs |
 
 Registered as a GL source (`LedgerPoster::JOURNALIZERS` + `LedgerRealtimeSync::SOURCE_DATE_COLUMNS`
-+ `PostingDateGuards::GUARDS`), and its tie-out test drives the **real service and the real
++ `PostingDateGuards::guards()`), and its tie-out test drives the **real service and the real
 `accounting:sync-ledger` sweep** — a test that calls `LedgerPoster::post()` directly would prove
 only the journalizer's arithmetic.
 

@@ -52,7 +52,7 @@ AccountingPeriod · AccountMapping (global default + optional per-property overr
 | Tenant | → | Lease, Invoice, Payment |
 | AccountMapping | → | per-property override row |
 
-**ISOLATED per-property**: everything in `PropertyIsolation::OWNED` — leases, invoices, payments, credit
+**ISOLATED per-property**: every model carrying `#[PropertyOwned]` — leases, invoices, payments, credit
 notes, deposits, CAM, marketing, meters, maintenance, HR/payroll/custody, fixed assets, warehouses,
 journal entries, expenses, and their children.
 
@@ -125,7 +125,13 @@ fails CI when a new model/resource ships unclassified, unscoped, or unguarded:
 ## How to add a new property-owned module safely
 
 1. Give the model an `asset_id` column (or a clean relation chain to one).
-2. Register it in **`PropertyIsolation::OWNED`** (`null` for direct-FK, or the chain string).
+2. Classify the model **on the class itself** (2026-08-15) — `#[PropertyOwned]` for a direct
+   `asset_id` column, or `#[PropertyOwned(via: 'lease.unit')]` for a relation chain. A model that is
+   NOT property-owned still has to say so: `#[PortfolioShared]` (an operator-wide catalogue, config
+   or person) or `#[PropertyItself]` (only `Asset`). The attributes live in
+   `App\Support\Attributes`; `PropertyIsolation` derives its registers from them, so there is no
+   array to append to. Put the reason it is shared/owned in a comment above the attribute — that is
+   where the next person will look for it.
 3. Scope the resource table: `BypassesScopingOnAll` (direct) or `ScopesViaProperty` (indirect).
 4. Scope every cross-property form select via `TenantScope::selectable*` / `visibleAssetIds()`.
 5. If the form exposes/derives an editable `asset_id`: `use GuardsAssetInScope`, call

@@ -538,7 +538,7 @@ roles were seeded from the same "every `.view`" filter — but `viewer` is an in
 `owner` is the counterparty on the other side of the management contract. Property isolation was
 assumed to keep the difference honest. It does not, for two independent reasons:
 
-- **Sixteen models are SHARED** (`PropertyIsolation::SHARED`) and carry no `asset_id`, so "scoped to
+- **Sixteen models are SHARED** (`#[PortfolioShared]`) and carry no `asset_id`, so "scoped to
   the properties they own" simply does not apply to them. Jawad could read Eltizam's whole supplier
   register — rates and contracts across every mall it operates, including a competing owner's —
   plus every staff account, the SKU catalogue, the chart of accounts and the settings.

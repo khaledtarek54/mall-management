@@ -86,7 +86,7 @@ The module enforces **idempotency** through two mechanisms:
    - **Almost every notification is raised in a scheduled command or a queued job**, where there is
      no current panel, no current property and no `Auth::user()`. So all three are passed
      explicitly: the panel from the notifiable's class, the property from the record via
-     `PropertyIsolation::OWNED` (Invoice reaches its property through `lease.unit`), and
+     `#[PropertyOwned]` (Invoice reaches its property through `lease.unit`), and
      authorization asked of the *recipient* rather than of the absent session.
    - A link that cannot be opened is **withheld, not embedded** — a property the operator is not
      assigned to would 404 at `IdentifyTenant`, another tenant's invoice would fall outside the

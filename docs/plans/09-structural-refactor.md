@@ -147,7 +147,7 @@ Status, one merge each:
 | `PropertyIsolation` | **DONE** — 343 → 173 |
 | `PostingDateGuards` | **DONE** — 155 → 93 |
 | `SearchPolicy` | **deliberately NOT migrated** — see below (but a live bug it hid is fixed) |
-| `ChangeImpact` | to do — 596, per-COLUMN, the most intricate; last |
+| `ChangeImpact` | **deliberately NOT migrated** — see below |
 | `MorphMap` | **deliberately NOT migrated** — see below |
 | `DerivedFields` | **deliberately NOT migrated** — see below |
 
@@ -182,8 +182,20 @@ every existing rentable item keeps its old blob while newly-saved rows get the n
 check there starts from `INDEXED` and validates what is in it, which passes happily while something
 is missing from it. Proven by deleting the fix and watching the new gate fail.
 
-**Only migrate a registry whose data is genuinely a per-model policy AND whose enumerating path is
-cold.** Moving the other two would have been motion rather than progress.
+**`ChangeImpact` has nowhere to attach.** Its policy is per-model *and per-COLUMN*, and Eloquent
+columns are not PHP properties — there is no member to hang a per-column attribute on. The only
+available shape is one class-level attribute carrying the whole nested map, which is the array
+relocated rather than knowledge co-located: same content, worse syntax, no maintainability gain.
+It is also the one register read **cross-sectionally** — "which fields anywhere may never change
+once posted" is a question you answer by reading all of `REFUSED` together, and scattering it across
+20+ models destroys exactly that. Its long argued reasons benefit from the grouped, comparable
+layout they already have.
+
+**The rule this converged on: migrate a registry only when its data is genuinely a per-model policy,
+its enumerating path is cold, and the model is the natural place to ASK the question.** Three of the
+seven candidates met all three; the other four are better where they are. The plan originally assumed
+all seven would move — that estimate was wrong, and forcing the remaining four would have been motion
+rather than progress.
 
 **Two techniques from the pilot, both of which cost a wasted attempt to learn:**
 
@@ -233,8 +245,27 @@ Introduce `App\Filament\Admin\Resources\AtriomResource`, composing the existing 
 already derives `permissionModule()` from the model name
 ([RoleGatedActions.php:52](../../app/Filament/Admin/Resources/Concerns/RoleGatedActions.php#L52)):
 
-- **Scoping** — one generic `getEloquentQuery()` driven by the model's attribute. Removes 31 copies.
-  Keep the `visibleAssetIds()` fallback exactly as written; never fall back to unscoped.
+- **Scoping** — one generic `getEloquentQuery()` driven by the model's attribute. Keep the
+  `visibleAssetIds()` fallback exactly as written; never fall back to unscoped.
+
+  **Measured, and the earlier "31 identical copies" in this plan was wrong.** Normalising every
+  `getEloquentQuery()` body in `app/Filament/Admin/Resources` gives **16 distinct shapes**:
+
+  | Shape | Count | What it is |
+  |---|---|---|
+  | strict direct column | **18** | `where('asset_id', …)` / `whereIn` — genuinely identical |
+  | hybrid nullable | **5** | adds `orWhereNull('asset_id')` — portfolio rows visible to all |
+  | bespoke | ~10 | one each |
+
+  So the base needs **two modes**, not one: strict and hybrid-nullable. The hybrid set
+  (`Expense`, `VendorBill`, `JournalEntry`, `Payroll`, `DepositTransaction`) is a real behavioural
+  difference, not drift — collapsing it into the strict form would hide portfolio-level rows.
+
+  Most of the bespoke ten still benefit: several differ *only* by an eager-load or aggregate
+  (`CustodyResource` adds `withSum`, `FacilityWorkOrderResource` adds `withCount`). Once the base
+  scopes, those become `return parent::getEloquentQuery()->withCount([…]);` — a one-line override
+  instead of a re-implementation. Genuinely different ones (`AssetResource` is the property itself;
+  `CreditNoteResource` ORs two chains) keep their own and should say why at the call site.
 - **Labels/nav** — derive `getNavigationLabel()`, `getModelLabel()`, `getPluralModelLabel()`,
   `getNavigationGroup()` from the permission module key. Removes ~200 methods; resources override
   only where they genuinely differ.

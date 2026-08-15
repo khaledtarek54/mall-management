@@ -938,7 +938,7 @@ large database) for pre-filing audits; the default `billing:reconcile` stays fas
 ## Posting-date gate (2026-07-29)
 
 `LedgerPoster::JOURNALIZERS` says *what* posts; `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` says *what
-date* each entry carries. **`App\Support\PostingDateGuards::GUARDS` says who refuses that date when
+date* each entry carries. **`App\Support\PostingDateGuards::guards()` says who refuses that date when
 its period is closed** — and `PostingDateGuardConformanceTest` holds all three in step, so a new
 money source cannot ship without the question being answered.
 
