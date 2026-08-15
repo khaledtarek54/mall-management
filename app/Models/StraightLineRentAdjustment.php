@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PostingDateNotOperatorTyped;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[DeletionAllowed(reason: 'parent-managed: soft-deleted to reverse a month\'s rent-recognition adjustment (PostStraightLineRentService::reverseFrom), which voids its journal entry — the path a forward-only re-derivation uses after an amendment')]
 // monthly rent-recognition adjustment; asset = the lease's property; service-created, no Filament resource
 #[PropertyOwned]
+#[PostingDateNotOperatorTyped(reason: 'entry_date is the last day of the month being recognised, derived by PostStraightLineRentService and never operator-typed. The sweep refuses to post into a closed period, which is also what makes an amendment forward-only: months already recognised are left exactly as they were.')]
 class StraightLineRentAdjustment extends Model
 {
     use HasFactory, SoftDeletes;

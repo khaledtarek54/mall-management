@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[NeverDeletable(correction: 'cancel the disbursement — it is a GL source and an owner payout')]
 // owner payout; asset_id denormalized (journalizer reads own row)
 #[PropertyOwned]
+#[PostingDateGuardedBy(guard: \App\Services\OwnerAccounting\DisbursementService::class)]
 class Disbursement extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

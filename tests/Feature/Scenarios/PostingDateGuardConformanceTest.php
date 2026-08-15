@@ -25,18 +25,18 @@ use Illuminate\Database\Eloquent\Model;
  * same list: **every source must also declare where that date is guarded, or why it needs no
  * guard.** A new money source cannot ship without someone answering the question.
  *
- * If you are here because a test failed: add your source to PostingDateGuards::GUARDS. Do not
+ * If you are here because a test failed: add your source to PostingDateGuards. Do not
  * weaken the assertion — the whole value is that the answer is forced.
  */
 it('makes every GL source declare where its posting date is guarded', function () {
     $undeclared = array_diff(
         array_keys(LedgerRealtimeSync::SOURCE_DATE_COLUMNS),
-        array_keys(PostingDateGuards::GUARDS),
+        array_keys(PostingDateGuards::guards()),
     );
 
     expect($undeclared)->toBe([], implode("\n", [
         'These post to the GL from a date nobody has classified: '.implode(', ', $undeclared),
-        'Add each to PostingDateGuards::GUARDS — either the class that runs PostingDate::assertOpen',
+        'Add each to PostingDateGuards — either the class that runs PostingDate::assertOpen',
         'on it, or a `system:` reason explaining why the date can never be operator-typed.',
     ]));
 });
@@ -44,7 +44,7 @@ it('makes every GL source declare where its posting date is guarded', function (
 it('does not declare a guard for anything that cannot post', function () {
     // A stale entry is worse than none: it reads as coverage for a source that no longer exists.
     $orphans = array_diff(
-        array_keys(PostingDateGuards::GUARDS),
+        array_keys(PostingDateGuards::guards()),
         array_keys(LedgerRealtimeSync::SOURCE_DATE_COLUMNS),
     );
 
@@ -55,7 +55,7 @@ it('points every declared guard at a class that actually runs the check', functi
     // Catches the declaration going stale — someone refactors the guard out of the service and
     // the registry keeps claiming it is covered. The registry has to track the code, not the
     // intent at the time it was written.
-    foreach (PostingDateGuards::GUARDS as $source => $guard) {
+    foreach (PostingDateGuards::guards() as $source => $guard) {
         if (PostingDateGuards::isSystemDated($guard)) {
             continue;
         }
@@ -115,7 +115,7 @@ it('never marks a date system-dated while a form lets an operator type it', func
         )
     )->unique()->map(fn ($f) => (string) file_get_contents($f))->implode("\n");
 
-    foreach (PostingDateGuards::GUARDS as $source => $guard) {
+    foreach (PostingDateGuards::guards() as $source => $guard) {
         if (! PostingDateGuards::isSystemDated($guard)) {
             continue;
         }

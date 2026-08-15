@@ -10,6 +10,7 @@ use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
 use App\Settings\BillingSettings;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Support\OpsLog;
@@ -33,6 +34,9 @@ use Spatie\Activitylog\Support\LogOptions;
 // `lease.unit`, which was only safe while `lease_id` was NOT NULL — a unit owner has no
 // lease, and an invoice that cannot name its property is invisible to every scoped query.
 #[PropertyOwned]
+// The finalisation guard already froze issue_date once an invoice is ISSUED; what
+// remained was a DRAFT back-dated and then issued, posting AR into a sealed month.
+#[PostingDateGuardedBy(guard: \App\Models\Invoice::class)]
 class Invoice extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;

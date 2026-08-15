@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
@@ -24,6 +25,9 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[NeverDeletable(correction: 'cancel the expense')]
 #[PropertyOwned]
+// Their Filament resource writes the model directly, so the model's save is the only
+// choke point every path shares.
+#[PostingDateGuardedBy(guard: \App\Models\Expense::class)]
 class Expense extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[NeverDeletable(correction: 'void the payment — money left the bank')]
 #[PropertyOwned(via: 'bill')]
+#[PostingDateGuardedBy(guard: \App\Services\VendorBillService::class)]
 class VendorBillPayment extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, SoftDeletes;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: reversed rather than removed')]
 #[PropertyOwned]
+#[PostingDateGuardedBy(guard: \App\Services\GrantEmployeeAdvanceService::class)]
 class EmployeeAdvance extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

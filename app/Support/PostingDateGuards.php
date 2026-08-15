@@ -3,41 +3,10 @@
 namespace App\Support;
 
 use App\Models\Concerns\GuardsPostingDate;
-use App\Models\CreditNote;
-use App\Models\Custody;
-use App\Models\CustodyTransaction;
-use App\Models\DepositTransaction;
-use App\Models\DepreciationEntry;
-use App\Models\Disbursement;
-use App\Models\EmployeeAdvance;
-use App\Models\EmployeeAdvanceRepayment;
-use App\Models\Expense;
-use App\Models\FixedAsset;
-use App\Models\FixedAssetDisposal;
-use App\Models\Invoice;
-use App\Models\SlaPenalty;
-use App\Models\MarketingSpend;
-use App\Models\OwnerStatementRun;
-use App\Models\Payment;
-use App\Models\Payroll;
-use App\Models\StockMovement;
-use App\Models\DepositApplication;
-use App\Models\StraightLineRentAdjustment;
-use App\Models\TenantCreditApplication;
-use App\Models\VendorBill;
-use App\Models\VendorBillPayment;
-use App\Services\ApplyDepositToInvoiceService;
-use App\Services\CreditNoteService;
-use App\Services\DisposeFixedAssetService;
-use App\Services\GrantCustodyService;
-use App\Services\GrantEmployeeAdvanceService;
-use App\Services\OwnerAccounting\DisbursementService;
-use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
-use App\Services\PayrollService;
-use App\Services\RecordAdvanceRepaymentService;
-use App\Services\SettleCustodyService;
-use App\Services\StockMovementService;
-use App\Services\VendorBillService;
+use App\Support\Attributes\PostingDateGuardedBy;
+use App\Support\Attributes\PostingDateNotOperatorTyped;
+use Illuminate\Database\Eloquent\Model;
+use ReflectionClass;
 
 /**
  * Where each GL source's entry date is checked against a closed accounting period.
@@ -72,80 +41,49 @@ class PostingDateGuards
     /** Marks a date the system sets; the text after the colon is the reason. */
     public const SYSTEM_PREFIX = 'system:';
 
+    /** @var array<class-string, string>|null */
+    private static ?array $guards = null;
+
     /**
      * Source model => the class that guards its posting date, or a `system:` reason.
      *
+     * DERIVED from the models themselves (2026-08-15): each GL source declares
+     * {@see PostingDateGuardedBy} or {@see PostingDateNotOperatorTyped}. The `system:` string
+     * encoding is preserved here because every consumer reads this shape — the two attributes are
+     * what removed the need for one array to carry two different kinds of answer.
+     *
      * Keep in step with LedgerRealtimeSync::SOURCE_DATE_COLUMNS — the gate enforces it.
+     *
+     * @return array<class-string, string>
      */
-    public const GUARDS = [
-        // --- guarded in a service (preferred) ---
-        CreditNote::class => CreditNoteService::class,
-        \App\Models\InvoiceWriteOff::class => \App\Services\WriteOffInvoiceService::class,
-        VendorBill::class => VendorBillService::class,
-        VendorBillPayment::class => VendorBillService::class,
-        Payroll::class => PayrollService::class,
-        FixedAssetDisposal::class => DisposeFixedAssetService::class,
-        EmployeeAdvance::class => GrantEmployeeAdvanceService::class,
-        EmployeeAdvanceRepayment::class => RecordAdvanceRepaymentService::class,
-        Custody::class => GrantCustodyService::class,
-        CustodyTransaction::class => SettleCustodyService::class,
-        StockMovement::class => StockMovementService::class,
-        OwnerStatementRun::class => FinaliseOwnerStatementRunService::class,
-        Disbursement::class => DisbursementService::class,
+    public static function guards(): array
+    {
+        if (self::$guards !== null) {
+            return self::$guards;
+        }
 
-        // --- guarded on the model, because there is no create/update service ---
-        // Their Filament resource writes the model directly, so the model's save is the only
-        // choke point every path shares.
-        Expense::class => Expense::class,
-        MarketingSpend::class => MarketingSpend::class,
-        DepositTransaction::class => DepositTransaction::class,
-        FixedAsset::class => FixedAsset::class,
-        // Payment was guarded only on the admin CREATE page, which left the edit form, the
-        // portal, the mobile API and the console uncovered — moving a captured payment's date
-        // into a closed month sailed through. On the model, every path is covered at once.
-        Payment::class => Payment::class,
+        $guards = [];
 
-        // --- the date is not operator-typed ---
-        DepreciationEntry::class => self::SYSTEM_PREFIX.
-            'period_month is set by DepreciationService::run from the month being posted; the '.
-            'operator-reachable inputs are the scheduler and the admin button (both now()) and '.
-            'PostDepreciationCommand --month, which is guarded there.',
+        foreach (glob(app_path('Models/*.php')) ?: [] as $file) {
+            $model = 'App\\Models\\'.basename($file, '.php');
 
-        SlaPenalty::class => self::SYSTEM_PREFIX.
-            'applied_at is stamped now() at the moment the penalty is applied — a penalty cannot '.
-            'be applied into the past.',
+            if (! class_exists($model) || ! is_subclass_of($model, Model::class)) {
+                continue;
+            }
 
-        TenantCreditApplication::class => self::SYSTEM_PREFIX.
-            'entry_date is deliberately stamped at application time, never the source receipt\'s '.
-            'date. That decoupling is the whole point: it lets an old overpayment settle a current '.
-            'invoice without ever posting into the closed period the overpayment came from.',
+            $reflection = new ReflectionClass($model);
 
-        StraightLineRentAdjustment::class => self::SYSTEM_PREFIX.
-            'entry_date is the last day of the month being recognised, derived by '.
-            'PostStraightLineRentService and never operator-typed. The sweep refuses to post into a '.
-            'closed period, which is also what makes an amendment forward-only: months already '.
-            'recognised are left exactly as they were.',
+            foreach ($reflection->getAttributes(PostingDateGuardedBy::class) as $attribute) {
+                $guards[$model] = $attribute->newInstance()->guard;
+            }
 
-        // CORRECTED 2026-08-11. This said `system:` — "entry_date is stamped at application time
-        // and is not operator-typable" — and it was factually false. `ApplyDepositToInvoiceService`
-        // stamps `$on`, a PARAMETER, and `SettleMoveOutService` passes the operator's
-        // `settlement_date` straight off an unconstrained DatePicker on the Lease resource.
-        //
-        // A `system:` exemption asserting a safety property that does not hold is worse than no
-        // entry at all: the gate reports coverage. The gate could not catch this either, because it
-        // checks the registry's own declarations, and the offending field lives on a different
-        // resource under a different name. Back-dating a settlement into a closed March netted
-        // 120,000 of arrears off the deposit, closed the AR, showed "Saved ✓" — and the post was
-        // refused inside the best-effort sync job, leaving a tie-out gap of exactly that much.
-        //
-        // Guarded in BOTH services now: the one that stamps the date onto the row, and the one that
-        // takes it from the operator (so a refusal arrives before the first side effect rather than
-        // half way through a final account).
-        DepositApplication::class => ApplyDepositToInvoiceService::class,
-        // The finalisation guard already froze issue_date once an invoice is ISSUED; what
-        // remained was a DRAFT back-dated and then issued, posting AR into a sealed month.
-        Invoice::class => Invoice::class,
-    ];
+            foreach ($reflection->getAttributes(PostingDateNotOperatorTyped::class) as $attribute) {
+                $guards[$model] = self::SYSTEM_PREFIX.$attribute->newInstance()->reason;
+            }
+        }
+
+        return self::$guards = $guards;
+    }
 
     /** True when the entry is a `system:` exemption rather than a guard class. */
     public static function isSystemDated(string $guard): bool

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateNotOperatorTyped;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[NeverDeletable(correction: 'reverse the depreciation run')]
 #[PropertyOwned(via: 'fixedAsset')]
+#[PostingDateNotOperatorTyped(reason: 'period_month is set by DepreciationService::run from the month being posted; the operator-reachable inputs are the scheduler and the admin button (both now()) and PostDepreciationCommand --month, which is guarded there.')]
 class DepreciationEntry extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;

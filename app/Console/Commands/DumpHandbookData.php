@@ -93,7 +93,7 @@ class DumpHandbookData extends Command
         $rows = [];
 
         foreach (LedgerPoster::JOURNALIZERS as $model => $journalizer) {
-            $guard = PostingDateGuards::GUARDS[$model] ?? null;
+            $guard = PostingDateGuards::guards()[$model] ?? null;
 
             $rows[] = [
                 'model' => class_basename($model),

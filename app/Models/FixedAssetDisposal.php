@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[NeverDeletable(correction: 'reverse the disposal')]
 #[PropertyOwned(via: 'fixedAsset')]
+#[PostingDateGuardedBy(guard: \App\Services\DisposeFixedAssetService::class)]
 class FixedAssetDisposal extends Model
 {
     use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;

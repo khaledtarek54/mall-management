@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
@@ -25,6 +26,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[NeverDeletable(correction: 'cancel the bill')]
 // asset_id nullable = property the expense belongs to
 #[PropertyOwned]
+#[PostingDateGuardedBy(guard: \App\Services\VendorBillService::class)]
 class VendorBill extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;

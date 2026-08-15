@@ -7,6 +7,7 @@ use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Notifications\PaymentReceivedNotification;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,10 @@ use Spatie\Activitylog\Support\LogOptions;
 #[NeverDeletable(correction: 'void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice')]
 // ditto, one hop shorter than it used to be
 #[PropertyOwned(via: 'invoices')]
+// Payment was guarded only on the admin CREATE page, which left the edit form, the
+// portal, the mobile API and the console uncovered — moving a captured payment's date
+// into a closed month sailed through. On the model, every path is covered at once.
+#[PostingDateGuardedBy(guard: \App\Models\Payment::class)]
 class Payment extends Model
 {
     use RefusesDeletionOfCommittedRecords, GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
