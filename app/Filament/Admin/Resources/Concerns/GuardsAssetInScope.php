@@ -80,11 +80,14 @@ trait GuardsAssetInScope
         }
     }
 
-    /** Guard a submitted `invoice_id` by its property (via lease → unit); used by Payment allocations. */
+    /** Guard a submitted `invoice_id` by its OWN property column; used by Payment allocations. */
     public static function assertInvoiceAssetInScope(mixed $invoiceId): void
     {
+        // Reads the invoice's column rather than walking lease -> unit. Through the chain an
+        // owner assessment resolved to null, and a null asset passes `assertAssetInScope` — so the
+        // guard waved through exactly the allocations it exists to stop.
         static::assertAssetInScope(
-            $invoiceId === null ? null : Invoice::query()->with('lease.unit:id,asset_id')->find($invoiceId)?->lease?->unit?->asset_id
+            $invoiceId === null ? null : Invoice::query()->whereKey($invoiceId)->value('asset_id')
         );
     }
 }

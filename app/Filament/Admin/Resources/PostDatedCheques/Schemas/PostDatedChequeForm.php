@@ -46,8 +46,8 @@ class PostDatedChequeForm
                                 // must NOT clear against Mall B's invoice (cross-property AR/GL leak).
                                 // Backstopped by visibleAssetIds so a restricted user never sees an
                                 // out-of-scope property's invoices even before a property is chosen.
-                                ->when($get('asset_id'), fn ($q, $assetId) => $q->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
-                                ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)))
+                                ->when($get('asset_id'), fn ($q, $assetId) => $q->where('asset_id', $assetId))
+                                ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
                                 ->orderByDesc('issue_date')
                                 // Invoices are keyed by `number` (there is no `reference` column) —
                                 // label with the balance so the operator picks the right one.

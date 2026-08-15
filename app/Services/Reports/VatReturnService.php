@@ -67,7 +67,7 @@ class VatReturnService
         $invoices = Invoice::query()
             ->whereNotIn('status', ['draft', 'cancelled'])
             ->whereBetween('issue_date', [$start->toDateString(), $end->toDateString()])
-            ->when($assetId, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
             ->with('items')
             ->get();
 
@@ -86,7 +86,7 @@ class VatReturnService
         $creditNotes = CreditNote::query()
             ->whereNotIn('status', ['draft', 'cancelled'])
             ->whereBetween('issue_date', [$start->toDateString(), $end->toDateString()])
-            ->when($assetId, fn ($q) => $q->whereHas('invoice.lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
             ->with('items')
             ->get();
 

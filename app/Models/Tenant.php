@@ -449,7 +449,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     {
         $invoiceBalance = (float) $this->invoices()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->when($assetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->sum('balance');
 
         // The CreditNote status enum is (draft, issued, applied, void) —
@@ -459,7 +459,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         // See audit M14 F-55 / D-41.
         $creditNoteBalance = (float) $this->creditNotes()
             ->where('status', 'issued')
-            ->when($assetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->sum('balance');
 
         return round($invoiceBalance - $creditNoteBalance, 2);
@@ -526,7 +526,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
             ->where('balance', '>', 0)
             ->where('due_date', '<', now())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->when($assetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->exists();
     }
 

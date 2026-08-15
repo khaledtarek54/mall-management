@@ -6,12 +6,13 @@ use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\TaxCode;
 use App\Support\CatalogueTaxRate;
+use App\Support\FormTab;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use App\Support\FormTab;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
@@ -43,212 +44,212 @@ class CreditNoteForm
                 ->tabs([
                     FormTab::make('admin.sections.credit_note_details', [
 
+                        TextInput::make('number')
+                            ->label(__('admin.fields.credit_note_number'))
+                            ->disabled()
+                            ->dehydrated()
+                            ->placeholder(__('admin.fields.auto_generated')),
 
-                    TextInput::make('number')
-                        ->label(__('admin.fields.credit_note_number'))
-                        ->disabled()
-                        ->dehydrated()
-                        ->placeholder(__('admin.fields.auto_generated')),
+                        Select::make('tenant_id')
+                            ->label(__('admin.resources.tenant.singular'))
+                            ->options(fn () => TenantScope::selectableTenantOptions())
+                            ->disabled($locked)
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live(),
 
-                    Select::make('tenant_id')
-                        ->label(__('admin.resources.tenant.singular'))
-                        ->options(fn () => \App\Support\TenantScope::selectableTenantOptions())
-                        ->disabled($locked)
-                        ->searchable()
-                        ->preload()
-                        ->required()
-                        ->live(),
-
-                    Select::make('invoice_id')
-                        ->label(__('admin.fields.invoice'))
-                        ->disabled($locked)
-                        ->options(function (Get $get) {
-                            $tenantId = $get('tenant_id');
-                            if (! $tenantId) {
-                                return [];
-                            }
-                            // Scope to the user's visible properties — in All-Properties
-                            // mode currentAssetId() is null, so fall back to the visible
-                            // set (a shared tenant may have invoices across properties).
-                            $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
-                            return Invoice::query()
-                                ->where('tenant_id', $tenantId)
-                                ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
-                                ->orderByDesc('issue_date')
-                                ->limit(50)
-                                ->get()
-                                ->mapWithKeys(fn ($i) => [$i->id => $i->number . ' — EGP ' . number_format((float) $i->total, 2)])
-                                ->all();
-                        })
-                        // The options are capped at the 50 most-recent invoices, so a stored invoice
-                        // that scrolled out of that window (or a disabled Select on a locked note)
-                        // would render its raw id; resolve any stored value to its number.
-                        ->getOptionLabelUsing(fn ($value): ?string => Invoice::find($value)?->number)
-                        ->searchable()
-                        ->live()
-                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                            if (! $state) {
-                                return;
-                            }
-                            $invoice = Invoice::with('items')->find($state);
-                            if (! $invoice) {
-                                return;
-                            }
-                            $set('lease_id', $invoice->lease_id);
-
-                            // Inherit the invoice's lines (and their VAT) so a 14%-service line
-                            // reverses 14% — defaulting vat_rate to 0 would silently under-reverse
-                            // output VAT. Only prefill when the operator hasn't entered lines yet,
-                            // so we never clobber their edits; they can then trim to a partial credit.
-                            $hasLines = collect($get('items') ?? [])
-                                ->contains(fn ($i) => (float) ($i['amount'] ?? 0) > 0);
-                            if (! $hasLines && $invoice->items->isNotEmpty()) {
-                                $rows = $invoice->items->map(fn ($it) => [
-                                    'description' => $it->description,
-                                    // The SOURCE line's tax code, carried across with its rate. A
-                                    // credit note reverses a supply at that supply's own treatment,
-                                    // so re-resolving from the catalogue here would classify the
-                                    // reversal differently from the thing being reversed the moment
-                                    // a rate or a ruling moved.
-                                    'tax_code' => $it->tax_code,
-                                    'amount' => (float) $it->amount,
-                                    'vat_rate' => (float) $it->vat_rate,
-                                    'vat_amount' => (float) $it->vat_amount,
-                                    'total' => (float) $it->total,
-                                ])->values()->all();
-                                $set('items', $rows);
-                                [$subtotal, $vat] = self::sumItems($rows);
-                                $set('subtotal', $subtotal);
-                                $set('vat_amount', $vat);
-                                $set('total', round($subtotal + $vat, 2));
-                                $set('balance', round($subtotal + $vat, 2));
-                            }
-                        }),
-
-                    Select::make('lease_id')
-                        ->label(__('admin.fields.lease'))
-                        ->disabled($locked)
-                        ->relationship(
-                            'lease',
-                            'reference',
-                            // Scope to the user's visible properties — in All-Properties
-                            // mode currentAssetId() is null, so without the visibleAssetIds()
-                            // fallback a restricted user could pick any property's lease and
-                            // credit another property's books (property isolation).
-                            modifyQueryUsing: function ($query) {
-                                $ids = \App\Support\TenantScope::visibleAssetIds();
-                                if ($ids !== null) {
-                                    $query->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids));
+                        Select::make('invoice_id')
+                            ->label(__('admin.fields.invoice'))
+                            ->disabled($locked)
+                            ->options(function (Get $get) {
+                                $tenantId = $get('tenant_id');
+                                if (! $tenantId) {
+                                    return [];
                                 }
-                            },
-                        )
-                        ->searchable()
-                        ->preload(),
+                                // Scope to the user's visible properties — in All-Properties
+                                // mode currentAssetId() is null, so fall back to the visible
+                                // set (a shared tenant may have invoices across properties).
+                                $visibleAssetIds = TenantScope::visibleAssetIds();
 
-                    Select::make('reason')
-                        ->label(__('admin.fields.credit_note_reason'))
-                        ->options(fn () => __('admin.enums.credit_note_reason'))
-                        ->required()
-                        ->default('adjustment')
-                        ->native(false),
+                                return Invoice::query()
+                                    ->where('tenant_id', $tenantId)
+                                    ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
+                                    ->orderByDesc('issue_date')
+                                    ->limit(50)
+                                    ->get()
+                                    ->mapWithKeys(fn ($i) => [$i->id => $i->number.' — EGP '.number_format((float) $i->total, 2)])
+                                    ->all();
+                            })
+                            // The options are capped at the 50 most-recent invoices, so a stored invoice
+                            // that scrolled out of that window (or a disabled Select on a locked note)
+                            // would render its raw id; resolve any stored value to its number.
+                            ->getOptionLabelUsing(fn ($value): ?string => Invoice::find($value)?->number)
+                            ->searchable()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (! $state) {
+                                    return;
+                                }
+                                $invoice = Invoice::with('items')->find($state);
+                                if (! $invoice) {
+                                    return;
+                                }
+                                $set('lease_id', $invoice->lease_id);
 
-                    DatePicker::make('issue_date')
-                        ->label(__('admin.fields.issue_date'))
-                        ->required()
-                        ->disabled($locked)
-                        ->default(now())
-                        ->native(false),
+                                // Inherit the invoice's lines (and their VAT) so a 14%-service line
+                                // reverses 14% — defaulting vat_rate to 0 would silently under-reverse
+                                // output VAT. Only prefill when the operator hasn't entered lines yet,
+                                // so we never clobber their edits; they can then trim to a partial credit.
+                                $hasLines = collect($get('items') ?? [])
+                                    ->contains(fn ($i) => (float) ($i['amount'] ?? 0) > 0);
+                                if (! $hasLines && $invoice->items->isNotEmpty()) {
+                                    $rows = $invoice->items->map(fn ($it) => [
+                                        'description' => $it->description,
+                                        // The SOURCE line's tax code, carried across with its rate. A
+                                        // credit note reverses a supply at that supply's own treatment,
+                                        // so re-resolving from the catalogue here would classify the
+                                        // reversal differently from the thing being reversed the moment
+                                        // a rate or a ruling moved.
+                                        'tax_code' => $it->tax_code,
+                                        'amount' => (float) $it->amount,
+                                        'vat_rate' => (float) $it->vat_rate,
+                                        'vat_amount' => (float) $it->vat_amount,
+                                        'total' => (float) $it->total,
+                                    ])->values()->all();
+                                    $set('items', $rows);
+                                    [$subtotal, $vat] = self::sumItems($rows);
+                                    $set('subtotal', $subtotal);
+                                    $set('vat_amount', $vat);
+                                    $set('total', round($subtotal + $vat, 2));
+                                    $set('balance', round($subtotal + $vat, 2));
+                                }
+                            }),
 
-                    Select::make('status')
-                        ->label(__('admin.tables.common.status'))
-                        // 'draft' is not a selectable target once the note is finalized —
-                        // reverting would re-open the locked money fields (see the model
-                        // guard in CreditNote::booted).
-                        ->options(function (?CreditNote $record) {
-                            $options = __('admin.statuses.credit_note');
-                            if ($record && $record->status !== 'draft') {
-                                unset($options['draft']);
-                            }
+                        Select::make('lease_id')
+                            ->label(__('admin.fields.lease'))
+                            ->disabled($locked)
+                            ->relationship(
+                                'lease',
+                                'reference',
+                                // Scope to the user's visible properties — in All-Properties
+                                // mode currentAssetId() is null, so without the visibleAssetIds()
+                                // fallback a restricted user could pick any property's lease and
+                                // credit another property's books (property isolation).
+                                modifyQueryUsing: function ($query) {
+                                    $ids = TenantScope::visibleAssetIds();
+                                    if ($ids !== null) {
+                                        $query->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids));
+                                    }
+                                },
+                            )
+                            ->searchable()
+                            ->preload(),
 
-                            return $options;
-                        })
-                        ->required()
-                        ->default('draft')
-                        ->native(false),
+                        Select::make('reason')
+                            ->label(__('admin.fields.credit_note_reason'))
+                            ->options(fn () => __('admin.enums.credit_note_reason'))
+                            ->required()
+                            ->default('adjustment')
+                            ->native(false),
+
+                        DatePicker::make('issue_date')
+                            ->label(__('admin.fields.issue_date'))
+                            ->required()
+                            ->disabled($locked)
+                            ->default(now())
+                            ->native(false),
+
+                        Select::make('status')
+                            ->label(__('admin.tables.common.status'))
+                            // 'draft' is not a selectable target once the note is finalized —
+                            // reverting would re-open the locked money fields (see the model
+                            // guard in CreditNote::booted).
+                            ->options(function (?CreditNote $record) {
+                                $options = __('admin.statuses.credit_note');
+                                if ($record && $record->status !== 'draft') {
+                                    unset($options['draft']);
+                                }
+
+                                return $options;
+                            })
+                            ->required()
+                            ->default('draft')
+                            ->native(false),
                     ])->columns(3),
 
                     FormTab::make('admin.sections.items', [
 
-                    Repeater::make('items')
-                        ->relationship()
-                        // THE server-side gate on the rate — see InvoiceForm. The repeater is
-                        // relationship-backed, so these hooks are the only place a line is seen
-                        // before it is written.
-                        ->mutateRelationshipDataBeforeCreateUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
-                        ->mutateRelationshipDataBeforeSaveUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
-                        ->label('')
-                        ->columns(12)
-                        ->defaultItems(1)
-                        ->minItems(1)
-                        ->addActionLabel(__('admin.actions.add_item'))
-                        ->reorderable(false)
-                        // Freeze the credit-note lines once issued (its sales-return
-                        // breakdown in the GL). A disabled repeater shows them read-only.
-                        ->disabled($locked)
-                        ->live()
-                        ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeTotals($set, $get))
-                        ->deleteAction(fn ($action) => $action->after(fn (Set $set, Get $get) => self::recomputeTotals($set, $get)))
-                        ->schema([
-                            TextInput::make('description')
-                                ->label(__('admin.fields.description'))
-                                ->required()
-                                ->maxLength(255)
-                                ->columnSpan(5),
-                            TextInput::make('amount')
-                                ->label(__('admin.fields.amount'))
-                                ->prefix('EGP')
-                                ->numeric()
-                                ->minValue(0)
-                                ->required()
-                                ->default(0)
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
-                                ->columnSpan(2),
-                            // Inherited from the invoice line being reversed, and shown so the
-                            // reversal is classified on the VAT return the same way the supply was.
-                            // Editable only with `tax_codes.override`, like the rate beside it: a
-                            // credit note that reverses a 14% service line at 0% understates the
-                            // output-VAT reduction, and nothing else would catch it.
-                            Select::make('tax_code')
-                                ->label(__('admin.fields.tax_code'))
-                                ->options(fn () => TaxCode::options(TaxCode::SALES))
-                                ->native(false)
-                                ->live()
-                                ->disabled(fn () => ! self::canOverrideTax())
-                                ->dehydrated()
-                                ->placeholder(__('admin.charge_codes.tax_unclassified'))
-                                ->columnSpan(2),
-                            TextInput::make('vat_rate')
-                                ->label(__('admin.fields.tax_percent'))
-                                ->suffix('%')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(100)
-                                ->default(0)
-                                ->required()
-                                ->readOnly(fn () => ! self::canOverrideTax())
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
-                                ->columnSpan(2),
-                            TextInput::make('total')
-                                ->label(__('admin.fields.total'))
-                                ->prefix('EGP')
-                                ->numeric()
-                                ->default(0)
-                                ->disabled()
-                                ->dehydrated()
-                                ->columnSpan(3),
-                        ]),
+                        Repeater::make('items')
+                            ->relationship()
+                            // THE server-side gate on the rate — see InvoiceForm. The repeater is
+                            // relationship-backed, so these hooks are the only place a line is seen
+                            // before it is written.
+                            ->mutateRelationshipDataBeforeCreateUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
+                            ->mutateRelationshipDataBeforeSaveUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
+                            ->label('')
+                            ->columns(12)
+                            ->defaultItems(1)
+                            ->minItems(1)
+                            ->addActionLabel(__('admin.actions.add_item'))
+                            ->reorderable(false)
+                            // Freeze the credit-note lines once issued (its sales-return
+                            // breakdown in the GL). A disabled repeater shows them read-only.
+                            ->disabled($locked)
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeTotals($set, $get))
+                            ->deleteAction(fn ($action) => $action->after(fn (Set $set, Get $get) => self::recomputeTotals($set, $get)))
+                            ->schema([
+                                TextInput::make('description')
+                                    ->label(__('admin.fields.description'))
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->columnSpan(5),
+                                TextInput::make('amount')
+                                    ->label(__('admin.fields.amount'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->required()
+                                    ->default(0)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
+                                    ->columnSpan(2),
+                                // Inherited from the invoice line being reversed, and shown so the
+                                // reversal is classified on the VAT return the same way the supply was.
+                                // Editable only with `tax_codes.override`, like the rate beside it: a
+                                // credit note that reverses a 14% service line at 0% understates the
+                                // output-VAT reduction, and nothing else would catch it.
+                                Select::make('tax_code')
+                                    ->label(__('admin.fields.tax_code'))
+                                    ->options(fn () => TaxCode::options(TaxCode::SALES))
+                                    ->native(false)
+                                    ->live()
+                                    ->disabled(fn () => ! self::canOverrideTax())
+                                    ->dehydrated()
+                                    ->placeholder(__('admin.charge_codes.tax_unclassified'))
+                                    ->columnSpan(2),
+                                TextInput::make('vat_rate')
+                                    ->label(__('admin.fields.tax_percent'))
+                                    ->suffix('%')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->default(0)
+                                    ->required()
+                                    ->readOnly(fn () => ! self::canOverrideTax())
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
+                                    ->columnSpan(2),
+                                TextInput::make('total')
+                                    ->label(__('admin.fields.total'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->disabled()
+                                    ->dehydrated()
+                                    ->columnSpan(3),
+                            ]),
 
                         // The totals sit at the FOOT OF THE LINES, not on a tab of their own — same
                         // reasoning as the invoice form: they are derived from the repeater directly
@@ -271,16 +272,14 @@ class CreditNoteForm
 
                     FormTab::make('admin.sections.notes', [
 
-
-
-                    Textarea::make('reason_notes')
-                        ->label(__('admin.fields.reason_notes'))
-                        ->rows(2)
-                        ->columnSpanFull(),
-                    Textarea::make('notes')
-                        ->label(__('admin.fields.notes'))
-                        ->rows(2)
-                        ->columnSpanFull(),
+                        Textarea::make('reason_notes')
+                            ->label(__('admin.fields.reason_notes'))
+                            ->rows(2)
+                            ->columnSpanFull(),
+                        Textarea::make('notes')
+                            ->label(__('admin.fields.notes'))
+                            ->rows(2)
+                            ->columnSpanFull(),
                     ]),
                 ]),
         ]);
@@ -345,6 +344,7 @@ class CreditNoteForm
             $subtotal += $amount;
             $vat += $itemVat;
         }
+
         return [round($subtotal, 2), round($vat, 2)];
     }
 }

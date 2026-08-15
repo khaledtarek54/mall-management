@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\DocumentNumbering;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -23,13 +23,18 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class PostDatedCheque extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     public const STATUS_HELD = 'held';           // received, awaiting maturity
+
     public const STATUS_DEPOSITED = 'deposited';  // presented to the bank
+
     public const STATUS_CLEARED = 'cleared';      // funds received → a Payment was recorded
+
     public const STATUS_BOUNCED = 'bounced';      // returned unpaid
+
     public const STATUS_CANCELLED = 'cancelled';  // voided before clearing
+
     public const STATUSES = [self::STATUS_HELD, self::STATUS_DEPOSITED, self::STATUS_CLEARED, self::STATUS_BOUNCED, self::STATUS_CANCELLED];
 
     protected $fillable = [
@@ -51,7 +56,7 @@ class PostDatedCheque extends Model
     ];
 
     /** The invoice carrying this bounce's returned-cheque fee, once one has been raised. */
-    public function nsfFeeInvoice(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function nsfFeeInvoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class, 'nsf_fee_invoice_id');
     }
@@ -149,10 +154,11 @@ class PostDatedCheque extends Model
             // asset_id / tenant_id change — the `tenant_id` trigger closes the edit-the-tenant path
             // the property-only check missed (audit M33 F-2).
             if ($cheque->invoice_id && ($cheque->isDirty('invoice_id') || $cheque->isDirty('asset_id') || $cheque->isDirty('tenant_id'))) {
-                $invoice = Invoice::whereKey($cheque->invoice_id)
-                    ->with('lease.unit:id,asset_id')
-                    ->first();
-                $invoiceAssetId = $invoice?->lease?->unit?->asset_id;
+                $invoice = Invoice::whereKey($cheque->invoice_id)->first();
+                // The invoice's own column. Via the lease chain an owner assessment answered null,
+                // and the check below skips a null — so a cheque could be linked across properties
+                // to exactly the invoices this guard was written to protect.
+                $invoiceAssetId = $invoice?->asset_id;
                 if ($invoiceAssetId !== null && (int) $invoiceAssetId !== (int) $cheque->asset_id) {
                     // Property leak: clearing would move another mall's AR + GL.
                     throw new \DomainException('The linked invoice belongs to a different property than the cheque.');

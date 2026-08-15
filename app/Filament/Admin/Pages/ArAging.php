@@ -10,7 +10,6 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\Unit;
 use App\Services\Reports\ReportCsvExporter;
 use App\Services\Reports\ReportService;
 use App\Support\AgingBuckets;
@@ -254,18 +253,14 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
             ])
             // Straight to the invoice — this page exists to start a chase, and
             // the old markup needed a bespoke "View →" anchor to do it.
-            // An invoice carries no asset_id — its property is reached through
-            // lease.unit (already eager-loaded by the report service, so no N+1).
-            // Reading $record->asset_id here silently produced NO link at all.
+            // An invoice carries its OWN asset_id (2026_08_15_110000). The comment that stood here
+            // said the opposite — "an invoice carries no asset_id … reading $record->asset_id
+            // silently produced NO link at all" — and by the time it was read it was an active
+            // instruction to the next person to do the wrong thing. Through the lease the row for
+            // an OWNER assessment rendered unclickable, with no explanation.
             ->recordUrl(function (Invoice $record): ?string {
-                /** @var Lease|null $lease */
-                $lease = $record->lease;
-
-                /** @var Unit|null $unit */
-                $unit = $lease?->unit;
-
                 /** @var Asset|null $asset */
-                $asset = $unit?->asset;
+                $asset = $record->asset;
 
                 return $asset
                     ? InvoiceResource::getUrl('edit', ['record' => $record], tenant: $asset)
