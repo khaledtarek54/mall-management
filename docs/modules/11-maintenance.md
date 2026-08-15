@@ -2,9 +2,29 @@
 
 > System for managing **tenant requests** — maintenance *and* every other thing a tenant may ask for (complaint, inquiry, access/security, billing query, document request, …) — routing to the right department, tracking SLA compliance, and achieving resolution within scheduled work windows and target deadlines.
 
-> **Generalisation status (Plan 1).** This module began life as "Maintenance Requests" and is being generalised into a typed **Tenant Request** system — see [docs/plans/01-tenant-requests-plan.md](../plans/01-tenant-requests-plan.md). **Done so far:** a `request_type` discriminator (`App\Enums\TenantRequestType` — 7 types, each with its own sub-categories, SLA, routing, scheduling and reference prefix), a type-aware create path (admin form, tenant portal, mobile API), CSAT capture columns, the admin nav/labels relabelled to "Requests", and — as of `2026_06_29_000001` — **the model, table and service rename: the live classes are `App\Models\TenantRequest` and `App\Services\TenantRequestService` over the `tenant_requests` table.** **Not yet done:** the **Filament** layer still carries the old names (`app/Filament/Admin/Resources/MaintenanceRequests/`, `MaintenanceRequestResource`, and the resource's slug), the **RBAC module is still `maintenance.*`** (`MaintenanceRequestResource::permissionModule()` returns `'maintenance'`), per-type notification copy, and CSAT reporting.
+> **Generalisation status (Plan 1) — COMPLETE as of 2026-08-15.** This module began life as
+> "Maintenance Requests" and is now a typed **Tenant Request** system throughout — see
+> [docs/plans/01-tenant-requests-plan.md](../plans/01-tenant-requests-plan.md). The rename landed in
+> three passes: the `request_type` discriminator and type-aware create paths first
+> (`App\Enums\TenantRequestType` — 8 types, each with its own sub-categories, SLA, routing,
+> scheduling and reference prefix); then the model, table and service on `2026_06_29_000001`; and
+> finally, on `2026_08_15_140000`, the four identifiers that had been left behind:
 >
-> ⚠️ **Reading this doc:** wherever the text below says `MaintenanceRequest` for the *model* or *service*, read `TenantRequest` / `TenantRequestService` — those classes no longer exist. `Maintenance*` **is** still correct for the Filament resource classes and the `maintenance.*` permissions. (This banner previously claimed the rename was "not yet done"; corrected 2026-07-16.)
+> | was | is |
+> |---|---|
+> | `maintenance.*` permissions | **`requests.*`** (`TenantRequestResource::permissionModule()`) |
+> | `Modules::enabled('maintenance')` | **`Modules::enabled('requests')`** |
+> | `MaintenanceSettings` (group `maintenance`) | **`SlaSettings`** (group `sla`) — shared with module 26, which is why it is named for neither |
+> | `config/maintenance.php` | **`config/sla.php`** + **`config/requests.php`** — it held two unrelated things |
+>
+> Also renamed: the `maintenanceRequests()` relation on Tenant/Lease/Unit/Vendor is now
+> `tenantRequests()`, `PortalMaintenanceSubmittedNotification` is `PortalRequestSubmittedNotification`,
+> and the demo login `maintenance@mall.test` is `operations@mall.test`.
+>
+> ⚠️ **Reading this doc:** wherever the text below says `MaintenanceRequest`, read `TenantRequest`.
+> No class, permission, setting or config key in this module carries the word "maintenance" any
+> more. It survives in exactly one place here and correctly so — `TenantRequestType::Maintenance`,
+> the request *type*, because a maintenance request is a kind of tenant request.
 
 
 ### Evidence before resolution (FR-USR-06)

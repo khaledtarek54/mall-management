@@ -21,13 +21,13 @@ class TenantRequestStatusChangedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('admin.notifications.maintenance_status_subject', [
+            ->subject(__('admin.notifications.request_status_subject', [
                 'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
                 'status' => __("admin.statuses.tenant_request.{$this->request->status}"),
             ]))
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->request->tenant?->name ?? '']))
-            ->line(__('admin.notifications.maintenance_status_body', [
+            ->line(__('admin.notifications.request_status_body', [
                 'type' => $this->request->typeLabel(),
                 'title' => $this->request->title,
                 'from' => __("admin.statuses.tenant_request.{$this->previousStatus}"),
@@ -35,7 +35,7 @@ class TenantRequestStatusChangedNotification extends Notification
             ]))
             ->when(
                 in_array($this->request->status, ['resolved', 'closed'], true) && $this->request->resolution_notes,
-                fn (MailMessage $m) => $m->line(__('admin.notifications.maintenance_status_resolution', [
+                fn (MailMessage $m) => $m->line(__('admin.notifications.request_status_resolution', [
                     'notes' => $this->request->resolution_notes,
                 ]))
             );
@@ -44,14 +44,14 @@ class TenantRequestStatusChangedNotification extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'type' => 'maintenance_status_changed',
+            'type' => 'request_status_changed',
             'request_id' => $this->request->id,
             'reference' => $this->request->reference,
-            'title' => __('admin.notifications.maintenance_status_title', [
+            'title' => __('admin.notifications.request_status_title', [
                 'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
             ]),
-            'body' => __('admin.notifications.maintenance_status_short', [
+            'body' => __('admin.notifications.request_status_short', [
                 'title' => $this->request->title,
                 'status' => __("admin.statuses.tenant_request.{$this->request->status}"),
             ]),

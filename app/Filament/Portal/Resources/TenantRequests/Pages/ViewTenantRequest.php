@@ -37,14 +37,14 @@ class ViewTenantRequest extends ViewRecord
     {
         return [
             Action::make('addComment')
-                ->label(__('admin.maintenance.add_comment'))
+                ->label(__('admin.tenant_requests.add_comment'))
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->color('primary')
                 ->visible(fn () => Portal::isAdmin() && $this->record->isOpen())
-                ->modalHeading(__('admin.maintenance.add_comment'))
+                ->modalHeading(__('admin.tenant_requests.add_comment'))
                 ->schema([
                     Textarea::make('body')
-                        ->label(__('admin.maintenance.body'))
+                        ->label(__('admin.tenant_requests.body'))
                         ->required()
                         ->rows(4)
                         ->columnSpanFull(),
@@ -65,19 +65,19 @@ class ViewTenantRequest extends ViewRecord
                     }
 
                     Notification::make()
-                        ->title(__('admin.maintenance.comment_sent'))
+                        ->title(__('admin.tenant_requests.comment_sent'))
                         ->success()
                         ->send();
                 }),
 
             Action::make('cancel')
-                ->label(__('admin.maintenance.cancel_request'))
+                ->label(__('admin.tenant_requests.cancel_request'))
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
                 ->visible(fn () => Portal::isAdmin() && $this->isCancellable())
                 ->requiresConfirmation()
-                ->modalHeading(fn () => __('admin.maintenance.cancel_modal_heading', ['ref' => $this->record->reference]))
-                ->modalDescription(__('admin.maintenance.cancel_modal_description'))
+                ->modalHeading(fn () => __('admin.tenant_requests.cancel_modal_heading', ['ref' => $this->record->reference]))
+                ->modalDescription(__('admin.tenant_requests.cancel_modal_description'))
                 ->action(function () {
                     // The real gate — see the note on getHeaderActions().
                     abort_unless(Portal::isAdmin() && $this->isCancellable(), 403);
@@ -86,7 +86,7 @@ class ViewTenantRequest extends ViewRecord
                         ->transition($this->record, 'cancelled');
 
                     Notification::make()
-                        ->title(__('admin.maintenance.cancelled'))
+                        ->title(__('admin.tenant_requests.cancelled'))
                         ->warning()
                         ->send();
                 }),

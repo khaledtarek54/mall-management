@@ -866,7 +866,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         return $this->hasMany(PostDatedCheque::class);
     }
 
-    public function maintenanceRequests(): HasMany
+    public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class);
     }

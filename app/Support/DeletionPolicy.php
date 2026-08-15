@@ -192,7 +192,7 @@ class DeletionPolicy
             // deletable, stranding them on the maturity dashboard (pre-go-live review).
             // + violations: directly tenant-scoped (no lease link), restrictOnDelete at the FK — so
             // a tenant with only violations was deletable-via-SQL-error rather than refused cleanly.
-            'blocked_by' => ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'maintenanceRequests', 'postDatedCheques', 'violations'],
+            'blocked_by' => ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'tenantRequests', 'postDatedCheques', 'violations'],
             'instead' => 'set the tenant to inactive — the history stays queryable and the AR still ties out',
         ],
         Vendor::class => [
@@ -200,7 +200,7 @@ class DeletionPolicy
             // vendor there is a pre-award suggestion, not a commitment, and PurchaseRequest is
             // classified operational-ALLOWED. The actual AP obligation is the VendorBill, which
             // blocks. A vendor with only PRs and no bills/contracts/documents never transacted.
-            'blocked_by' => ['bills', 'contracts', 'maintenanceRequests', 'documents'],
+            'blocked_by' => ['bills', 'contracts', 'tenantRequests', 'documents'],
             'instead' => 'set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills',
         ],
         Lease::class => [
@@ -211,7 +211,7 @@ class DeletionPolicy
             // 'events' because LeaseEvent is NEVER_DELETABLE: without it, force-deleting a lease
             // would cascade away the very audit records this registry promises to keep — the exact
             // shape of the Asset/financial-dimension omission found in the deletion-policy review.
-            'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'],
+            'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'tenantRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'],
             'instead' => 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history',
         ],
         UnitOwnership::class => [
@@ -250,7 +250,7 @@ class DeletionPolicy
         Unit::class => [
             // allLeases, NOT leases: a multi-unit lease keeps its extra units in the lease_unit
             // pivot, so the master-only relation would report a leased unit as never used.
-            'blocked_by' => ['allLeases', 'maintenanceRequests', 'utilityMeters'],
+            'blocked_by' => ['allLeases', 'tenantRequests', 'utilityMeters'],
             'instead' => 'set the unit to maintenance if it is out of service — a unit that has been leased is part of the property record',
         ],
         Asset::class => [

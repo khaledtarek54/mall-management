@@ -16,7 +16,7 @@ class ListTenantRequests extends ListRecords
         return [
             GuideAction::for(static::getResource()),
             CreateAction::make()
-                ->label(__('admin.maintenance.new_request'))
+                ->label(__('admin.tenant_requests.new_request'))
                 ->icon('heroicon-o-plus'),
         ];
     }

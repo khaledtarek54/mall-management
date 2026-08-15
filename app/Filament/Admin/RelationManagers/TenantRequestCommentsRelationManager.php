@@ -24,7 +24,7 @@ class TenantRequestCommentsRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('admin.maintenance.comments');
+        return __('admin.tenant_requests.comments');
     }
 
     public function table(Table $table): Table
@@ -47,20 +47,20 @@ class TenantRequestCommentsRelationManager extends RelationManager
                     ->state(function ($record): string {
                         $author = $record->author;
                         if ($author instanceof Tenant) {
-                            return $author->name . ' · ' . __('admin.maintenance.author_tenant');
+                            return $author->name . ' · ' . __('admin.tenant_requests.author_tenant');
                         }
                         if ($author instanceof User) {
-                            return $author->name . ' · ' . __('admin.maintenance.author_staff');
+                            return $author->name . ' · ' . __('admin.tenant_requests.author_staff');
                         }
                         return __('admin.activity.system');
                     })
                     ->weight('medium'),
                 TextColumn::make('body')
-                    ->label(__('admin.maintenance.body'))
+                    ->label(__('admin.tenant_requests.body'))
                     ->wrap()
                     ->limit(200),
                 IconColumn::make('is_internal')
-                    ->label(__('admin.maintenance.internal'))
+                    ->label(__('admin.tenant_requests.internal'))
                     ->boolean()
                     ->trueIcon('heroicon-o-lock-closed')
                     ->trueColor('warning')
@@ -69,21 +69,21 @@ class TenantRequestCommentsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label(__('admin.maintenance.add_comment'))
-                    ->modalHeading(__('admin.maintenance.add_comment'))
+                    ->label(__('admin.tenant_requests.add_comment'))
+                    ->modalHeading(__('admin.tenant_requests.add_comment'))
                     // Gate explicitly (Filament actions default to ALLOWED) — and
                     // canEdit() is false for terminal requests, so no comments are
                     // added to a closed/cancelled ticket from here.
                     ->visible(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->schema([
                         Textarea::make('body')
-                            ->label(__('admin.maintenance.body'))
+                            ->label(__('admin.tenant_requests.body'))
                             ->required()
                             ->rows(4)
                             ->columnSpanFull(),
                         Toggle::make('is_internal')
-                            ->label(__('admin.maintenance.is_internal'))
-                            ->helperText(__('admin.maintenance.is_internal_helper'))
+                            ->label(__('admin.tenant_requests.is_internal'))
+                            ->helperText(__('admin.tenant_requests.is_internal_helper'))
                             ->default(false),
                     ])
                     ->using(function (array $data, RelationManager $livewire) {
@@ -96,8 +96,8 @@ class TenantRequestCommentsRelationManager extends RelationManager
             ->recordActions([
                 Action::make('toggleVisibility')
                     ->label(fn ($record) => $record->is_internal
-                        ? __('admin.maintenance.make_public')
-                        : __('admin.maintenance.make_internal'))
+                        ? __('admin.tenant_requests.make_public')
+                        : __('admin.tenant_requests.make_internal'))
                     ->icon('heroicon-o-eye-slash')
                     ->color('gray')
                     ->visible(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))

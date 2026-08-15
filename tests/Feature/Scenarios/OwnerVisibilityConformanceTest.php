@@ -95,7 +95,7 @@ describe('the seeded owner role', function () {
             ->toContain('reports.download')
             // `.view_all` matters specifically: without it AssignmentScope narrows an oversight
             // role to the work assigned to them, which for an owner is nothing.
-            ->toContain('maintenance.view_all');
+            ->toContain('requests.view_all');
     });
 
     it('specifically cannot read payroll, staff accounts, the vendor register or settings', function () {

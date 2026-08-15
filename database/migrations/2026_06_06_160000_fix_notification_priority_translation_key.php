@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * The portal-maintenance-submitted and SLA-breach notifications rendered the
  * priority label from the wrong translation key (`admin.statuses.
- * maintenance_priority.*` instead of `admin.enums.maintenance_priority.*`), so
+ * work_priority.*` instead of `admin.enums.work_priority.*`), so
  * stored bodies contain the raw key text, e.g. "priority admin.statuses.
- * maintenance_priority.urgent". The classes now use the correct key; this
+ * work_priority.urgent". The classes now use the correct key; this
  * rewrites the already-stored bodies in place.
  *
  * Replacement labels resolve in the app's default locale (en); good enough for
@@ -20,7 +20,7 @@ return new class extends Migration
     {
         $replacements = [];
         foreach (['low', 'medium', 'high', 'urgent'] as $level) {
-            $replacements["admin.statuses.maintenance_priority.{$level}"] = __("admin.enums.maintenance_priority.{$level}");
+            $replacements["admin.statuses.work_priority.{$level}"] = __("admin.enums.work_priority.{$level}");
         }
 
         DB::table('notifications')->orderBy('id')->chunk(500, function ($rows) use ($replacements) {
@@ -28,7 +28,7 @@ return new class extends Migration
                 $data = json_decode($row->data, true) ?: [];
                 $body = $data['body'] ?? null;
 
-                if (! is_string($body) || ! str_contains($body, 'admin.statuses.maintenance_priority.')) {
+                if (! is_string($body) || ! str_contains($body, 'admin.statuses.work_priority.')) {
                     continue;
                 }
 

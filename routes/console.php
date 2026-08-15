@@ -134,12 +134,12 @@ Schedule::command('activitylog:clean')
     ->withoutOverlapping();
 
 // Daily auto-close pass on resolved maintenance requests older than
-// config('maintenance.auto_close_after_days') (default 7). Without this
+// config('requests.auto_close_after_days') (default 7). Without this
 // resolved tickets accumulate forever — operators occasionally need the
 // "open" filter to actually mean "current work" (audit M09 F-38 / D-30).
 Schedule::command('requests:auto-close')
     ->dailyAt('03:00')
-    ->name('atriom-auto-close-maintenance')
+    ->name('atriom-auto-close-requests')
     ->withoutOverlapping();
 
 // Daily scan raising preventive-maintenance work orders for plans that are due.

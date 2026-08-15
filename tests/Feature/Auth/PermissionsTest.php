@@ -47,15 +47,15 @@ it('leasing is scoped to leases + tenants modules', function () {
     expect($lm->can('leases.create'))->toBeTrue();
     expect($lm->can('tenants.create'))->toBeTrue();
     expect($lm->can('cam.create'))->toBeFalse();
-    expect($lm->can('maintenance.assign'))->toBeFalse();
+    expect($lm->can('requests.assign'))->toBeFalse();
 });
 
 it('operations is scoped to maintenance', function () {
     $mm = makeUser('operations');
     $mm->syncRoles(['operations']);
 
-    expect($mm->can('maintenance.create'))->toBeTrue();
-    expect($mm->can('maintenance.edit'))->toBeTrue();
-    expect($mm->can('maintenance.assign'))->toBeTrue();
+    expect($mm->can('requests.create'))->toBeTrue();
+    expect($mm->can('requests.edit'))->toBeTrue();
+    expect($mm->can('requests.assign'))->toBeTrue();
     expect($mm->can('invoices.create'))->toBeFalse();
 });

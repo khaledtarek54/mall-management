@@ -22,7 +22,7 @@ class Modules
     /** @var string[] */
     public const KEYS = [
         'credit_notes',
-        'maintenance',
+        'requests',
         'tenant_sales',
         'cam',
         'utility_meters',

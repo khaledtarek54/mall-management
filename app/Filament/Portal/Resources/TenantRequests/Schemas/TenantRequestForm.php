@@ -19,8 +19,8 @@ class TenantRequestForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.maintenance_request'))
-                ->description(__('admin.maintenance.portal_create_description'))
+            Section::make(__('admin.sections.request'))
+                ->description(__('admin.tenant_requests.portal_create_description'))
                 ->columns(2)
                 ->components([
                     Select::make('request_type')
@@ -33,7 +33,7 @@ class TenantRequestForm
                         ->afterStateUpdated(fn (Set $set) => $set('category', null))
                         ->columnSpanFull(),
                     TextInput::make('title')
-                        ->label(__('admin.fields.maintenance_title'))
+                        ->label(__('admin.fields.request_title'))
                         ->required()
                         ->maxLength(150)
                         ->columnSpanFull(),
@@ -48,11 +48,11 @@ class TenantRequestForm
                         ->native(false),
                     Select::make('priority')
                         ->label(__('admin.fields.priority'))
-                        ->options(fn () => __('admin.enums.maintenance_priority'))
+                        ->options(fn () => __('admin.enums.work_priority'))
                         ->default('medium')
                         ->required()
                         ->native(false)
-                        ->helperText(__('admin.maintenance.urgent_warning')),
+                        ->helperText(__('admin.tenant_requests.urgent_warning')),
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
                         ->options(function () {
@@ -91,7 +91,7 @@ class TenantRequestForm
                 ]),
 
             Section::make(__('admin.sections.attachments'))
-                ->description(__('admin.maintenance.attachments_helper'))
+                ->description(__('admin.tenant_requests.attachments_helper'))
                 ->collapsible()
                 ->components([
                     SpatieMediaLibraryFileUpload::make('attachments')

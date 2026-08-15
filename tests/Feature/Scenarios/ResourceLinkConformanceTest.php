@@ -101,7 +101,7 @@ beforeEach(function () {
         'title' => 'Urgent', 'description' => 'Now',
         'status' => 'in_progress', 'priority' => 'urgent', 'category' => 'hvac',
         'submitted_at' => now()->subHours(6),
-        'target_resolution_at' => now()->subHours(1),   // urgent_maintenance + sla_breached
+        'target_resolution_at' => now()->subHours(1),   // urgent_requests + sla_breached
     ]);
 
     // wo_sla_breached — a corrective job past its resolution deadline, still open.

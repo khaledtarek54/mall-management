@@ -264,7 +264,7 @@ it('the maintenance status toDatabase payload reflects the new status with the r
     $payload = (new TenantRequestStatusChangedNotification($request, 'submitted'))
         ->toDatabase($this->portalA);
 
-    expect($payload['type'])->toBe('maintenance_status_changed')
+    expect($payload['type'])->toBe('request_status_changed')
         ->and($payload['format'])->toBe('filament')
         ->and($payload['status'])->toBe('in_progress')
         ->and($payload['reference'])->toBe($request->reference)
@@ -335,7 +335,7 @@ it('the staff-comment toDatabase payload (tenant recipient) carries the tenant-f
     $payload = (new TenantRequestCommentAddedNotification($request, $comment))
         ->toDatabase($this->tenant);
 
-    expect($payload['type'])->toBe('maintenance_comment_added')
+    expect($payload['type'])->toBe('request_comment_added')
         ->and($payload['format'])->toBe('filament')
         ->and($payload['title'])->toBe("Maintenance update · {$request->reference}")
         ->and($payload['body'])->toBe('New comment on "AC not cooling".')
@@ -366,7 +366,7 @@ it('a TENANT comment notifies staff over database-only, with the staff-facing pa
     expect($notification->via($this->operator))->toBe(['database']);
 
     $payload = $notification->toDatabase($this->operator);
-    expect($payload['type'])->toBe('maintenance_comment_added')
+    expect($payload['type'])->toBe('request_comment_added')
         ->and($payload['format'])->toBe('filament')
         ->and($payload['title'])->toBe('New tenant comment')
         ->and($payload['color'])->toBe('info')

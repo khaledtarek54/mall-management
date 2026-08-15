@@ -14,7 +14,7 @@ use Livewire\Livewire;
  * check ONLY in visible() (via canEdit) — non-compliant with the project invariant that every write
  * action gate in BOTH visible() and action() (modules 08 CAM / 09 Sales follow it). This brings them
  * into compliance: the same canEdit predicate re-asserted in authorize() + abort_unless(action()), so
- * a read-only viewer / owner (who hold maintenance.view but not maintenance.edit) can never re-status,
+ * a read-only viewer / owner (who hold requests.view but not requests.edit) can never re-status,
  * reassign, or reroute a request.
  *
  * NOTE (empirically verified 2026-07-26): in the INSTALLED Filament version, mountAction()/TestAction
@@ -46,7 +46,7 @@ it('refuses a read-only VIEWER re-assigning a request via a crafted dispatch', f
     $req->update(['assigned_to' => $assignee->id]);
 
     trActAs('viewer', $assetId);
-    expect(TenantRequestResource::canEdit($req->fresh()))->toBeFalse(); // viewer lacks maintenance.edit
+    expect(TenantRequestResource::canEdit($req->fresh()))->toBeFalse(); // viewer lacks requests.edit
 
     Livewire::test(ListTenantRequests::class)
         ->mountAction(TestAction::make('assign')->table($req))
@@ -71,7 +71,7 @@ it('refuses a read-only OWNER re-routing a request via a crafted dispatch', func
     expect($req->fresh()->department_id)->toBe($dept->id); // unchanged — dispatch refused
 });
 
-it('still lets an OPERATIONS user (holds maintenance.edit) assign — the gate is authz, not a blanket block', function () {
+it('still lets an OPERATIONS user (holds requests.edit) assign — the gate is authz, not a blanket block', function () {
     $req = makeTenantRequest(['status' => 'submitted']);
     $assetId = $req->unit->asset_id;
     trActAs('operations', $assetId);

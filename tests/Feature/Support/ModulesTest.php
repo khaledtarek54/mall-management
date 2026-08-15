@@ -71,11 +71,11 @@ it('treats unknown / core keys as always-on (not driven by settings)', function 
 
 it('isolates module toggles from one another', function () {
     $settings = app(ModulesSettings::class);
-    $settings->maintenance = false;
+    $settings->requests = false;
     $settings->cam = true;
     $settings->save();
 
-    expect(Modules::enabled('maintenance'))->toBeFalse()
+    expect(Modules::enabled('requests'))->toBeFalse()
         ->and(Modules::enabled('cam'))->toBeTrue();
 });
 

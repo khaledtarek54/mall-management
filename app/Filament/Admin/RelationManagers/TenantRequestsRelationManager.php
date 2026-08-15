@@ -13,11 +13,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class TenantRequestsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'maintenanceRequests';
+    protected static string $relationship = 'tenantRequests';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('admin.navigation.maintenance');
+        return __('admin.navigation.requests');
     }
 
     public function table(Table $table): Table
@@ -33,20 +33,20 @@ class TenantRequestsRelationManager extends RelationManager
                 ))
             ->columns([
                 TextColumn::make('reference')
-                    ->label(__('admin.tables.maintenance.reference'))
+                    ->label(__('admin.tables.requests.reference'))
                     ->fontFamily('mono')
                     ->size('xs'),
                 TextColumn::make('title')
-                    ->label(__('admin.tables.maintenance.title'))
+                    ->label(__('admin.tables.requests.title'))
                     ->limit(40),
                 TextColumn::make('unit.code')
-                    ->label(__('admin.tables.maintenance.unit'))
+                    ->label(__('admin.tables.requests.unit'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('priority')
-                    ->label(__('admin.tables.maintenance.priority'))
+                    ->label(__('admin.tables.requests.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_priority.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'urgent' => 'danger',
                         'high' => 'warning',
@@ -66,7 +66,7 @@ class TenantRequestsRelationManager extends RelationManager
                         default => 'gray',
                     }),
                 TextColumn::make('submitted_at')
-                    ->label(__('admin.tables.maintenance.submitted'))
+                    ->label(__('admin.tables.requests.submitted'))
                     ->date('d/m/Y'),
             ])
             ->filters([

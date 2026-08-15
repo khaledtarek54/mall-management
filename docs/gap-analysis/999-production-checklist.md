@@ -131,7 +131,7 @@
   - Collected this month ~EGP 170 K
   - AR ~EGP 657 K · 11 overdue · ~EGP 588 K past due
 - [ ] DEMO.md §2 Step 0 followed: switch property to Haya Walk before showing KPIs
-- [ ] Login table verified: admin@mall.test / manager@mall.test / viewer@mall.test / leasing@mall.test / maintenance@mall.test all `password`
+- [ ] Login table verified: admin@mall.test / manager@mall.test / viewer@mall.test / leasing@mall.test / operations@mall.test all `password`
 - [ ] EN ↔ AR language switch works on every panel
 - [ ] Both PDFs (Invoice + Statement) downloadable in both locales
 

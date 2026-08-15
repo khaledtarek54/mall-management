@@ -189,7 +189,7 @@ class Vendor extends Model
         return $this->hasMany(VendorContract::class);
     }
 
-    public function maintenanceRequests(): HasMany
+    public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class, 'assigned_to_vendor_id');
     }

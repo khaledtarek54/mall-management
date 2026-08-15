@@ -4,7 +4,7 @@ use App\Filament\Admin\Widgets\ActionRequired;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\SlaPolicy;
 use App\Services\MaintenanceWorkOrderService;
-use App\Settings\MaintenanceSettings;
+use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
@@ -52,7 +52,7 @@ it('falls back to the default once an override is deactivated', function () {
 
     $policy->update(['is_active' => false]);
 
-    expect(SlaResolver::hoursFor($this->asset->id, 'urgent'))->toBe(app(MaintenanceSettings::class)->sla_urgent_hours);
+    expect(SlaResolver::hoursFor($this->asset->id, 'urgent'))->toBe(app(SlaSettings::class)->sla_urgent_hours);
 });
 
 it('lets a manager deactivate an override without needing delete rights', function () {

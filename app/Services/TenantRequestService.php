@@ -10,8 +10,8 @@ use App\Models\TenantRequestComment;
 use App\Models\User;
 use App\Notifications\TenantRequestCommentAddedNotification;
 use App\Notifications\TenantRequestStatusChangedNotification;
-use App\Notifications\PortalMaintenanceSubmittedNotification;
-use App\Settings\MaintenanceSettings;
+use App\Notifications\PortalRequestSubmittedNotification;
+use App\Settings\SlaSettings;
 use Carbon\Carbon;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
@@ -134,7 +134,7 @@ class TenantRequestService
     /**
      * SLA target for a request. Types without an SLA (inquiry, billing query,
      * document request) get no deadline. Maintenance keeps reading the operator-
-     * tunable MaintenanceSettings; other typed SLAs use the per-type code map.
+     * tunable SlaSettings; other typed SLAs use the per-type code map.
      *
      * Public so the admin create page shares this exact logic — otherwise a
      * Complaint/Access request created in /admin would wrongly get the
@@ -173,7 +173,7 @@ class TenantRequestService
             if ($recipients->isNotEmpty()) {
                 Notification::send(
                     $recipients,
-                    new PortalMaintenanceSubmittedNotification($request)
+                    new PortalRequestSubmittedNotification($request)
                 );
             }
         } catch (\Throwable $e) {
@@ -223,7 +223,7 @@ class TenantRequestService
         if ($next === 'resolved'
             && ! $request->hasLinkedWorkOrder()
             && ! $request->hasMedia('attachments')) {
-            throw new DomainException(__('admin.maintenance.errors.resolution_needs_evidence'));
+            throw new DomainException(__('admin.tenant_requests.errors.resolution_needs_evidence'));
         }
 
         $payload = ['status' => $next];
@@ -291,7 +291,7 @@ class TenantRequestService
     {
         if (! in_array($request->status, self::RATEABLE, true)) {
             throw ValidationException::withMessages([
-                'status' => [__('api.maintenance_cannot_rate')],
+                'status' => [__('api.request_cannot_rate')],
             ]);
         }
 
@@ -332,7 +332,7 @@ class TenantRequestService
         // to (re-open) a resolved request. Single guard for admin + portal + API.
         if ($request->isTerminal()) {
             throw ValidationException::withMessages([
-                'body' => [__('api.maintenance_cannot_comment')],
+                'body' => [__('api.request_cannot_comment')],
             ]);
         }
 
@@ -390,14 +390,14 @@ class TenantRequestService
 
     /**
      * SLA target for a request based on its priority. Reads from the
-     * MaintenanceSettings (operator-tunable via /admin/settings → Maintenance)
-     * first, then falls back to config/maintenance.php so a deploy without
+     * SlaSettings (operator-tunable via /admin/settings → Service levels)
+     * first, then falls back to config/sla.php so a deploy without
      * Settings rows still produces a sensible target (audit M09 F-36 / D-28).
      */
     public function defaultTargetResolution(string $priority): Carbon
     {
         try {
-            $settings = app(MaintenanceSettings::class);
+            $settings = app(SlaSettings::class);
             $hours = match ($priority) {
                 'urgent' => $settings->sla_urgent_hours,
                 'high' => $settings->sla_high_hours,
@@ -409,7 +409,7 @@ class TenantRequestService
             $hours = null;
         }
 
-        $hours ??= config("maintenance.sla.{$priority}.resolve_hours", 168);
+        $hours ??= config("sla.{$priority}.resolve_hours", 168);
 
         return now()->addHours((int) $hours);
     }

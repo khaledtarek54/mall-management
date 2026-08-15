@@ -87,7 +87,7 @@ class OwnerVisibility
         'owner_requests' => 'Their own requests to the operator — the one thing they may also create.',
 
         // ---- Their property being looked after ----
-        'maintenance' => 'The request board for their property.',
+        'requests' => 'The request board for their property.',
         'preventive_maintenance' => 'The plans that keep their plant running.',
     ];
 

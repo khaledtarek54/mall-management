@@ -11,7 +11,7 @@ class TenantRequestInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.maintenance_request'))
+            Section::make(__('admin.sections.request'))
                 ->columns(3)
                 ->components([
                     TextEntry::make('reference')
@@ -40,11 +40,11 @@ class TenantRequestInfolist
                         ->label(__('admin.fields.category'))
                         ->badge()
                         ->color('gray')
-                        ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_category.{$state}")),
+                        ->formatStateUsing(fn (string $state) => __("admin.enums.work_category.{$state}")),
                     TextEntry::make('priority')
                         ->label(__('admin.fields.priority'))
                         ->badge()
-                        ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_priority.{$state}"))
+                        ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
                         ->color(fn (string $state): string => match ($state) {
                             'urgent' => 'danger',
                             'high' => 'warning',
@@ -52,13 +52,13 @@ class TenantRequestInfolist
                             default => 'gray',
                         }),
                     TextEntry::make('submitted_at')
-                        ->label(__('admin.tables.maintenance.submitted'))
+                        ->label(__('admin.tables.requests.submitted'))
                         ->dateTime('d/m/Y H:i'),
                 ]),
-            Section::make(__('admin.sections.maintenance_details'))
+            Section::make(__('admin.sections.request_details'))
                 ->components([
                     TextEntry::make('title')
-                        ->label(__('admin.fields.maintenance_title'))
+                        ->label(__('admin.fields.request_title'))
                         ->weight('bold'),
                     TextEntry::make('description')
                         ->label(__('admin.fields.description'))

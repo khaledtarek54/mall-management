@@ -23,7 +23,7 @@ class ModulesSettings extends Settings
     // All optional modules default to ON — matches the seed migration and
     // means a fresh clone with no settings DB rows still behaves correctly.
     public bool $credit_notes = true;
-    public bool $maintenance = true;
+    public bool $requests = true;
     public bool $tenant_sales = true;
     public bool $cam = true;
     public bool $utility_meters = true;

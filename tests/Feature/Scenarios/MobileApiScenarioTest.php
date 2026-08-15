@@ -173,7 +173,7 @@ it('rejects a Sanctum token whose tokenable is an admin User, not a Tenant', fun
 // ===========================================================================
 
 it('returns 404 commenting on another tenant\'s maintenance request', function () {
-    // The controller resolves via $tenant->maintenanceRequests()->findOrFail,
+    // The controller resolves via $tenant->tenantRequests()->findOrFail,
     // so a foreign id is a 404 and writes nothing.
     $tenant = makeTenant();
     $foreign = makeTenantRequest(); // owned by a fresh, unrelated tenant

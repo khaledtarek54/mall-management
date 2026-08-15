@@ -122,7 +122,7 @@ class DemoSeeder extends Seeder
             ['email' => 'viewer@mall.test',      'name' => 'Property Auditor',     'role' => 'viewer'],
             ['email' => 'owner@atriom.test',     'name' => 'Property Owner',       'role' => 'owner'],
             ['email' => 'leasing@mall.test',     'name' => 'Leasing Manager',      'role' => 'leasing'],
-            ['email' => 'maintenance@mall.test', 'name' => 'Maintenance Manager',  'role' => 'operations'],
+            ['email' => 'operations@mall.test',  'name' => 'Operations Lead',      'role' => 'operations'],
             ['email' => 'accounting@mall.test',  'name' => 'Accounting Lead',      'role' => 'accounting'],
             ['email' => 'marketing@mall.test',   'name' => 'Marketing Lead',       'role' => 'marketing'],
             ['email' => 'hr@mall.test',          'name' => 'HR Lead',              'role' => 'hr'],
@@ -1228,7 +1228,7 @@ class DemoSeeder extends Seeder
             }
 
             $submittedAt = Carbon::now()->subDays($row['submitted_days_ago'])->subHours(rand(1, 6));
-            $slaHours = config("maintenance.sla.{$row['priority']}.resolve_hours", 168);
+            $slaHours = config("sla.{$row['priority']}.resolve_hours", 168);
             $type = TenantRequestType::tryFrom($row['request_type'] ?? 'maintenance') ?? TenantRequestType::default();
 
             $request = TenantRequest::create([
@@ -2340,7 +2340,7 @@ class DemoSeeder extends Seeder
         $emails = [
             'manager@mall.test',
             'leasing@mall.test',
-            'maintenance@mall.test',
+            'operations@mall.test',
             'accounting@mall.test',
             'marketing@mall.test',
             'hr@mall.test',
@@ -2825,7 +2825,7 @@ class DemoSeeder extends Seeder
     private function seedProcurement(Asset $asset, Warehouse $parts): void
     {
         $svc = app(PurchaseRequestService::class);
-        $buyer = User::where('email', 'maintenance@mall.test')->first();     // operations — raises
+        $buyer = User::where('email', 'operations@mall.test')->first();     // operations — raises
         $approver = User::where('email', 'manager@mall.test')->first();      // manager — signs off
         $vendor = Vendor::where('name', 'Cool-Air HVAC Services')->first() ?? Vendor::first();
         $filter = InventoryItem::where('sku', 'FLT-HVAC-STD')->first();
@@ -2990,7 +2990,7 @@ class DemoSeeder extends Seeder
 
         // Complete the oldest open work order to show a full lifecycle. Driven through
         // the real service so the demo data can't encode a state the app would refuse.
-        $engineer = User::where('email', 'maintenance@mall.test')->first();
+        $engineer = User::where('email', 'operations@mall.test')->first();
         $wo = MaintenanceWorkOrder::where('status', 'open')->orderBy('scheduled_for')->first();
         if ($wo && $engineer) {
             $svc = app(MaintenanceWorkOrderService::class);

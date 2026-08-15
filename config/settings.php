@@ -9,7 +9,7 @@ return [
     'settings' => [
         \App\Settings\AccountingSettings::class,
         \App\Settings\BillingSettings::class,
-        \App\Settings\MaintenanceSettings::class,
+        \App\Settings\SlaSettings::class,
         \App\Settings\IntegrationsSettings::class,
         \App\Settings\EtaSettings::class,
         \App\Settings\ModulesSettings::class,

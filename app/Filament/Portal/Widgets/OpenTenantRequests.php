@@ -18,7 +18,7 @@ class OpenTenantRequests extends TableWidget
 
     protected function getTableHeading(): ?string
     {
-        return __('admin.widgets.portal_open_maintenance.heading');
+        return __('admin.widgets.portal_open_requests.heading');
     }
 
     public function table(Table $table): Table
@@ -33,21 +33,21 @@ class OpenTenantRequests extends TableWidget
             )
             ->columns([
                 TextColumn::make('reference')
-                    ->label(__('admin.tables.maintenance.reference'))
+                    ->label(__('admin.tables.requests.reference'))
                     ->fontFamily('mono')
                     ->size('xs')
                     ->url(fn ($record) => TenantRequestResource::getUrl('view', ['record' => $record])),
                 TextColumn::make('title')
-                    ->label(__('admin.tables.maintenance.title'))
+                    ->label(__('admin.tables.requests.title'))
                     ->limit(40),
                 TextColumn::make('unit.code')
-                    ->label(__('admin.tables.maintenance.unit'))
+                    ->label(__('admin.tables.requests.unit'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('priority')
-                    ->label(__('admin.tables.maintenance.priority'))
+                    ->label(__('admin.tables.requests.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_priority.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'urgent' => 'danger',
                         'high' => 'warning',
@@ -65,10 +65,10 @@ class OpenTenantRequests extends TableWidget
                         default => 'gray',
                     }),
                 TextColumn::make('submitted_at')
-                    ->label(__('admin.tables.maintenance.submitted'))
+                    ->label(__('admin.tables.requests.submitted'))
                     ->date('d/m/Y'),
             ])
-            ->emptyStateHeading(__('admin.widgets.portal_open_maintenance.empty'))
+            ->emptyStateHeading(__('admin.widgets.portal_open_requests.empty'))
             ->emptyStateIcon('heroicon-o-wrench-screwdriver')
             ->paginated(false);
     }

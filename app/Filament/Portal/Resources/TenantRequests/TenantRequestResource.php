@@ -49,7 +49,7 @@ class TenantRequestResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return __('admin.navigation.maintenance');
+        return __('admin.navigation.requests');
     }
 
     public static function getModelLabel(): string

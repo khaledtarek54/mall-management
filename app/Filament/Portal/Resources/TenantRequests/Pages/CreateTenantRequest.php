@@ -37,8 +37,8 @@ class CreateTenantRequest extends CreateRecord
         $record = $this->record;
 
         return Notification::make()
-            ->title(__('admin.maintenance.created_title'))
-            ->body(__('admin.maintenance.created_body', ['ref' => $record->reference]))
+            ->title(__('admin.tenant_requests.created_title'))
+            ->body(__('admin.tenant_requests.created_body', ['ref' => $record->reference]))
             ->success();
     }
 

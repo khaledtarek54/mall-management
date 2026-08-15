@@ -8,7 +8,7 @@ use Livewire\Livewire;
 
 /**
  * FR-REQ-12 — the request/work-order queue is exportable, but export is an OVERSIGHT capability,
- * gated on `maintenance.view_all`. A technician who sees only their own work has no reason to
+ * gated on `requests.view_all`. A technician who sees only their own work has no reason to
  * bulk-export the board; a coordinator / customer_service / manager who oversees it does. The
  * export itself runs through the resource query, so property + AssignmentScope scoping already
  * apply — nobody exports rows they cannot see.

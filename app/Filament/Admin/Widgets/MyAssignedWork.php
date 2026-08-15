@@ -40,10 +40,10 @@ class MyAssignedWork extends StatsOverviewWidget
         $user = Auth::user();
         $stats = [];
 
-        if (Modules::enabled('maintenance')) {
+        if (Modules::enabled('requests')) {
             $requests = AssignmentScope::apply(
                 TenantScope::applyTo(TenantRequest::query(), 'unit'),
-                'maintenance',
+                'requests',
                 'assigned_to',
                 $user,
             )->whereNotIn('status', ['closed', 'cancelled', 'resolved']);

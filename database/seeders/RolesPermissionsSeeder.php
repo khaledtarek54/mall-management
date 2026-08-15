@@ -42,7 +42,7 @@ class RolesPermissionsSeeder extends Seeder
         'technician' => 'In-house technician — sees only the requests + work orders assigned to them.',
         // FR-USR — the FRD's "Coordinator: manages assignment and oversight of requests/work
         // orders". Holds `*.view_all` (sees the whole board, unlike the technician) plus
-        // `maintenance.assign` — you cannot hand out work you cannot see. The maintenance-queue
+        // `requests.assign` — you cannot hand out work you cannot see. The maintenance-queue
         // supervisor; deliberately narrower than `operations` (no meters/inventory/procurement).
         'coordinator' => 'Maintenance coordinator — sees the whole request/work-order board and assigns technicians.',
         // FR-USR — the FRD's front-desk "Customer Service": logs incoming requests (intake) and
@@ -124,18 +124,18 @@ class RolesPermissionsSeeder extends Seeder
             'credit_notes.apply' => 'Apply a credit note to an invoice',
             'credit_notes.void' => 'Void a credit note',
         ],
-        'maintenance' => [
-            'maintenance.view' => 'View maintenance requests',
-            'maintenance.create' => 'Create maintenance requests',
-            'maintenance.edit' => 'Edit maintenance requests',
-            'maintenance.delete' => 'Delete maintenance requests',
-            'maintenance.assign' => 'Assign maintenance requests to staff or vendors',
+        'requests' => [
+            'requests.view' => 'View tenant requests',
+            'requests.create' => 'Create tenant requests',
+            'requests.edit' => 'Edit tenant requests',
+            'requests.delete' => 'Delete tenant requests',
+            'requests.assign' => 'Assign tenant requests to staff or vendors',
             // FR-USR-04 — "sees only work assigned to them". Holding this means you OVERSEE the
             // module; lacking it means you see your own work. A permission rather than a role list
             // so the operator can invent a role without a deploy. Granted to every existing role,
             // so nothing that worked yesterday narrows today — only the new `technician` lacks it.
-            'maintenance.view_all' => 'See every request, not only your own assignments (FR-USR-04)',
-            'maintenance.change_status' => 'Move requests across status transitions',
+            'requests.view_all' => 'See every request, not only your own assignments (FR-USR-04)',
+            'requests.change_status' => 'Move requests across status transitions',
         ],
         'tenant_sales' => [
             'tenant_sales.view' => 'View tenant sales declarations',
@@ -590,10 +590,10 @@ class RolesPermissionsSeeder extends Seeder
 
         // operations: Maintenance, Vendors, Utility Meters, Inventory.
         $grants['operations'] = [
-            'maintenance.view', 'maintenance.create', 'maintenance.edit',
+            'requests.view', 'requests.create', 'requests.edit',
             // Dispatch IS oversight — you cannot assign work you cannot see (FR-USR-04).
-            'maintenance.view_all', 'preventive_maintenance.view_all',
-            'maintenance.assign', 'maintenance.change_status',
+            'requests.view_all', 'preventive_maintenance.view_all',
+            'requests.assign', 'requests.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.create',
             'preventive_maintenance.edit', 'preventive_maintenance.complete',
             // Facility zones — operations owns the mall's operational layout.
@@ -613,23 +613,23 @@ class RolesPermissionsSeeder extends Seeder
 
         // FR-USR-04 — the technician: does the work, sees only their own.
         //
-        // Note what is ABSENT: `maintenance.view_all` and `preventive_maintenance.view_all`. That
+        // Note what is ABSENT: `requests.view_all` and `preventive_maintenance.view_all`. That
         // absence is the entire feature — AssignmentScope restricts anyone lacking them. They can
         // complete the job they are holding and nothing else; assigning work is a coordinator's
         // job, and `.assign` is withheld for the same reason.
         $grants['technician'] = [
-            'maintenance.view', 'maintenance.change_status',
+            'requests.view', 'requests.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.complete',
             'notes.view', 'notes.create',
         ];
 
         // FR-USR — the coordinator: the maintenance-queue supervisor. Sees the whole board
         // (`*.view_all`, so AssignmentScope does NOT restrict them) and assigns technicians
-        // (`maintenance.assign`) — assignment IS oversight, you cannot hand out work you cannot
+        // (`requests.assign`) — assignment IS oversight, you cannot hand out work you cannot
         // see. Narrower than `operations`: no meters, inventory or procurement.
         $grants['coordinator'] = [
-            'maintenance.view', 'maintenance.create', 'maintenance.edit',
-            'maintenance.view_all', 'maintenance.assign', 'maintenance.change_status',
+            'requests.view', 'requests.create', 'requests.edit',
+            'requests.view_all', 'requests.assign', 'requests.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.view_all',
             'preventive_maintenance.create', 'preventive_maintenance.edit', 'preventive_maintenance.complete',
             // Facility zones — the coordinator routes work by zone (FR routing, later slice).
@@ -641,11 +641,11 @@ class RolesPermissionsSeeder extends Seeder
         ];
 
         // FR-USR — customer service (front desk / intake): logs requests and fields any tenant's
-        // call, so it sees EVERY request (`maintenance.view_all`) but has NO work authority — no
+        // call, so it sees EVERY request (`requests.view_all`) but has NO work authority — no
         // assign, no change_status, no complete, no edit. It captures the request and hands it to
         // a coordinator. `tenants.view` to identify the caller.
         $grants['customer_service'] = [
-            'maintenance.view', 'maintenance.create', 'maintenance.view_all',
+            'requests.view', 'requests.create', 'requests.view_all',
             'tenants.view',
             'notes.view', 'notes.create',
         ];
@@ -663,7 +663,7 @@ class RolesPermissionsSeeder extends Seeder
         // real vendor CSV upload needs its OWN vendor-facing import surface + permission — a
         // follow-up, not the admin import right.
         $grants['vendor'] = [
-            'maintenance.view', 'maintenance.view_all',
+            'requests.view', 'requests.view_all',
             'preventive_maintenance.view', 'preventive_maintenance.view_all',
             'notes.view',
         ];

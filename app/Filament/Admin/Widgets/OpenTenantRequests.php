@@ -18,7 +18,7 @@ class OpenTenantRequests extends TableWidget
 
     protected static function widgetModule(): ?string
     {
-        return 'maintenance';
+        return 'requests';
     }
 
     protected static ?int $sort = 10;
@@ -27,7 +27,7 @@ class OpenTenantRequests extends TableWidget
 
     protected function getTableHeading(): ?string
     {
-        return __('admin.widgets.open_maintenance.heading');
+        return __('admin.widgets.open_requests.heading');
     }
 
     public function table(Table $table): Table
@@ -42,18 +42,18 @@ class OpenTenantRequests extends TableWidget
             })
             ->columns([
                 TextColumn::make('reference')
-                    ->label(__('admin.widgets.open_maintenance.reference'))
+                    ->label(__('admin.widgets.open_requests.reference'))
                     ->fontFamily('mono')
                     ->size('xs')
                     ->url(fn ($record) => TenantRequestResource::getUrl('edit', ['record' => $record])),
                 TextColumn::make('title')
-                    ->label(__('admin.widgets.open_maintenance.title'))
+                    ->label(__('admin.widgets.open_requests.title'))
                     ->limit(40)
                     ->weight('medium'),
                 TextColumn::make('tenant.name')
-                    ->label(__('admin.widgets.open_maintenance.tenant')),
+                    ->label(__('admin.widgets.open_requests.tenant')),
                 TextColumn::make('unit.code')
-                    ->label(__('admin.widgets.open_maintenance.unit'))
+                    ->label(__('admin.widgets.open_requests.unit'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('request_type')
@@ -69,9 +69,9 @@ class OpenTenantRequests extends TableWidget
                         default => 'gray',
                     }),
                 TextColumn::make('priority')
-                    ->label(__('admin.widgets.open_maintenance.priority'))
+                    ->label(__('admin.widgets.open_requests.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_priority.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'urgent' => 'danger',
                         'high' => 'warning',
@@ -91,14 +91,14 @@ class OpenTenantRequests extends TableWidget
                         default => 'gray',
                     }),
                 TextColumn::make('target_resolution_at')
-                    ->label(__('admin.widgets.open_maintenance.target'))
+                    ->label(__('admin.widgets.open_requests.target'))
                     ->dateTime('d/m/Y H:i')
                     ->color(fn ($record): ?string => $record->isOverdue() ? 'danger' : null),
                 TextColumn::make('assignee.name')
-                    ->label(__('admin.widgets.open_maintenance.assigned_to'))
+                    ->label(__('admin.widgets.open_requests.assigned_to'))
                     ->placeholder(__('admin.fields.unassigned')),
             ])
-            ->emptyStateHeading(__('admin.widgets.open_maintenance.empty'))
+            ->emptyStateHeading(__('admin.widgets.open_requests.empty'))
             ->emptyStateIcon('heroicon-o-wrench-screwdriver')
             ->paginated([5, 10]);
     }

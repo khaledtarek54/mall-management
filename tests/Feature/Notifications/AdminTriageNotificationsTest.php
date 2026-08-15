@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Portal\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
-use App\Notifications\PortalMaintenanceSubmittedNotification;
+use App\Notifications\PortalRequestSubmittedNotification;
 use App\Notifications\SalesDeclarationSubmittedNotification;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -42,9 +42,9 @@ it('a portal maintenance submission notifies assigned managers + operationss, no
         'unit_id' => $this->unit->id,
     ], $this->tenant);
 
-    Notification::assertSentTo($this->managerOnAsset, PortalMaintenanceSubmittedNotification::class);
-    Notification::assertSentTo($this->maintOnAsset, PortalMaintenanceSubmittedNotification::class);
-    Notification::assertNotSentTo($this->managerOffAsset, PortalMaintenanceSubmittedNotification::class);
+    Notification::assertSentTo($this->managerOnAsset, PortalRequestSubmittedNotification::class);
+    Notification::assertSentTo($this->maintOnAsset, PortalRequestSubmittedNotification::class);
+    Notification::assertNotSentTo($this->managerOffAsset, PortalRequestSubmittedNotification::class);
 });
 
 it('a super_admin always receives operator-side notifications, even when not assigned to the asset', function () {
@@ -60,8 +60,8 @@ it('a super_admin always receives operator-side notifications, even when not ass
     ], $this->tenant);
 
     // Super_admin is in even though off-asset; assigned property staff still get it.
-    Notification::assertSentTo($superAdmin, PortalMaintenanceSubmittedNotification::class);
-    Notification::assertSentTo($this->managerOnAsset, PortalMaintenanceSubmittedNotification::class);
+    Notification::assertSentTo($superAdmin, PortalRequestSubmittedNotification::class);
+    Notification::assertSentTo($this->managerOnAsset, PortalRequestSubmittedNotification::class);
 });
 
 it('a portal sales declaration submission notifies assigned managers + leasings', function () {

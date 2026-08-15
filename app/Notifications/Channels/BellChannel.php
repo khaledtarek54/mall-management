@@ -92,7 +92,7 @@ class BellChannel extends DatabaseChannel
      * The whole `toDatabase()` is re-run under each locale rather than the translation KEY and its
      * parameters being stored. That is deliberate, and it is the part a key-plus-parameters design
      * gets wrong: bodies here interpolate values that are themselves translated —
-     * `__("admin.enums.maintenance_priority.{$priority}")`, a localized status, a formatted date —
+     * `__("admin.enums.work_priority.{$priority}")`, a localized status, a formatted date —
      * so storing the parameters would produce an Arabic sentence with an English word inside it.
      * Re-rendering the payload cannot interpolate across a language boundary, because there is no
      * boundary to cross.

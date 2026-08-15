@@ -10,14 +10,14 @@ use Illuminate\Support\Facades\DB;
 class AutoCloseTenantRequestsCommand extends Command
 {
     protected $signature = 'requests:auto-close
-        {--days= : Override config(maintenance.auto_close_after_days)}
+        {--days= : Override config(requests.auto_close_after_days)}
         {--dry-run : Print what would change without writing}';
 
     protected $description = 'Transition resolved TenantRequest rows older than auto_close_after_days to status=closed (audit M09 F-38 / D-30).';
 
     public function handle(TenantRequestService $service): int
     {
-        $days = (int) ($this->option('days') ?? config('maintenance.auto_close_after_days', 7));
+        $days = (int) ($this->option('days') ?? config('requests.auto_close_after_days', 7));
 
         if ($days < 1) {
             $this->error('--days must be ≥ 1.');

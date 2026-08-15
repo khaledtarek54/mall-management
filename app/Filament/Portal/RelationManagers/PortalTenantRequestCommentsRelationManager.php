@@ -15,7 +15,7 @@ class PortalTenantRequestCommentsRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('admin.maintenance.updates');
+        return __('admin.tenant_requests.updates');
     }
 
     public function table(Table $table): Table
@@ -43,13 +43,13 @@ class PortalTenantRequestCommentsRelationManager extends RelationManager
                             return $author->name;
                         }
                         if ($author instanceof User) {
-                            return __('admin.maintenance.author_property_team');
+                            return __('admin.tenant_requests.author_property_team');
                         }
                         return __('admin.activity.system');
                     })
                     ->weight('medium'),
                 TextColumn::make('body')
-                    ->label(__('admin.maintenance.body'))
+                    ->label(__('admin.tenant_requests.body'))
                     ->wrap(),
             ])
             ->headerActions([])

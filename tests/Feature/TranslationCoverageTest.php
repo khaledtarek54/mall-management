@@ -51,9 +51,9 @@ class TranslationCoverageTest extends TestCase
 
             // Type / category enums
             'enums.method' => ['card', 'bank_transfer', 'instapay', 'wallet', 'cash', 'cheque', 'other'],
-            'enums.maintenance_category' => ['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other'],
-            'enums.maintenance_channel' => ['portal', 'whatsapp', 'phone', 'email', 'walk_in', 'admin'],
-            'enums.maintenance_priority' => ['low', 'medium', 'high', 'urgent'],
+            'enums.work_category' => ['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other'],
+            'enums.request_channel' => ['portal', 'whatsapp', 'phone', 'email', 'walk_in', 'admin'],
+            'enums.work_priority' => ['low', 'medium', 'high', 'urgent'],
             'enums.category' => ['retail', 'food_beverage', 'wellness', 'service', 'kiosk', 'office', 'storage'],
             'enums.asset_type' => ['mall', 'retail_walk', 'mixed_use', 'office', 'residential'],
             'enums.meter_type' => ['electric', 'water', 'gas'],
@@ -68,7 +68,7 @@ class TranslationCoverageTest extends TestCase
             // Derived from `useLogName()` calls across app/Models/.
             'activity.subjects' => [
                 'lease', 'invoice', 'payment', 'tenant', 'charge', 'asset',
-                'maintenance_request', 'tenant_sales', 'cam_pool',
+                'tenant_request', 'tenant_sales', 'cam_pool',
                 'credit_note', 'vendor', 'vendor_contract', 'note',
                 'access_control',
             ],

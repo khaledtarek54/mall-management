@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
  * Per-property SLA for corrective maintenance (FR-CM-05/06/07) — module 26.
  *
  * FR-CM-05 wants SLA durations "set once per location/mall". Today they are a single
- * portfolio-wide spatie-settings singleton (`MaintenanceSettings`) with no `asset_id`
+ * portfolio-wide spatie-settings singleton (`SlaSettings`) with no `asset_id`
  * dimension at all, so this is a schema change rather than a settings tweak: a mall with a
  * 24/7 engineering team and a small strip centre cannot share one number.
  */

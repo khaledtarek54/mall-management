@@ -647,7 +647,7 @@ return [
             'modules' => 'الوحدات',
             'accounting' => 'المحاسبة',
             'billing' => 'الفوترة',
-            'maintenance' => 'الصيانة',
+            'sla' => 'مستويات الخدمة',
             'eta' => 'الفاتورة الإلكترونية',
             'tax' => 'الضرائب',
             'payroll' => 'الرواتب',
@@ -911,7 +911,7 @@ return [
             'description' => 'أضف المقاولين والموردين لتوجيه طلبات الصيانة الخارجية وتتبع عقود الخدمة.',
             'cta' => 'أضف مورداً',
         ],
-        'maintenance' => [
+        'requests' => [
             'heading' => 'لا توجد طلبات صيانة',
             'description' => 'حين يبلّغ المستأجر عن مشكلة من بوابته — أو تُسجلها أنت — تظهر هنا للمراجعة والتوزيع.',
             'cta' => 'سجّل طلبًا',
@@ -1454,7 +1454,7 @@ return [
         'vendors' => 'الموردون',
         'roles' => 'الأدوار والصلاحيات',
         'settings' => 'الإعدادات',
-        'maintenance' => 'الطلبات',
+        'requests' => 'الطلبات',
         'tenant_sales' => 'مبيعات المستأجرين',
         'cam' => 'تسوية المصروفات المشتركة',
         'cam_allocations' => 'مصاريف المناطق المشتركة',
@@ -1599,8 +1599,8 @@ return [
             'unbilled_leases_body' => 'شغّل الفوترة الشهرية لإصدار الفواتير',
             'missing_sales' => 'مستأجر بنسبة إيجار لم يُبلّغ عن مبيعات الشهر الماضي :count|:count مستأجرين بنسبة إيجار لم يُبلّغوا عن مبيعات الشهر الماضي',
             'missing_sales_body' => 'تابِع تقرير المبيعات ليتم احتساب الفرق',
-            'urgent_maintenance' => 'طلب عاجل :count|:count طلبات عاجلة',
-            'urgent_maintenance_body' => 'وضعها المستأجرون كحالات حرجة',
+            'urgent_requests' => 'طلب عاجل :count|:count طلبات عاجلة',
+            'urgent_requests_body' => 'وضعها المستأجرون كحالات حرجة',
             'sla_breached' => 'طلب تجاوز مهلة الاستجابة :count|:count طلبات تجاوزت مهلة الاستجابة',
             'sla_breached_body' => 'احسم الطلب أو حدّث المستأجر',
             'wo_sla_breached' => ':count أمر شغل تجاوز مستوى الخدمة|:count أوامر شغل تجاوزت مستوى الخدمة',
@@ -1704,7 +1704,7 @@ return [
             'empty' => 'لا توجد عقود تنتهي خلال 90 يومًا',
         ],
 
-        'open_maintenance' => [
+        'open_requests' => [
             'heading' => 'الطلبات المفتوحة',
             'reference' => 'المرجع',
             'title' => 'العنوان',
@@ -1716,7 +1716,7 @@ return [
             'empty' => 'لا توجد طلبات مفتوحة — كل شيء على ما يرام.',
         ],
 
-        'portal_open_maintenance' => [
+        'portal_open_requests' => [
             'heading' => 'طلباتي المفتوحة',
             'empty' => 'لا توجد طلبات صيانة مفتوحة.',
         ],
@@ -1880,7 +1880,7 @@ return [
             'amount' => 'المبلغ',
             'method' => 'الطريقة',
         ],
-        'maintenance' => [
+        'requests' => [
             'reference' => 'المرجع',
             'title' => 'العنوان',
             'tenant' => 'المستأجر',
@@ -2442,15 +2442,15 @@ return [
         'payment_received_thanks' => 'شكرًا لسداد الدفعة.',
         'payment_received_title' => 'تم استلام الدفعة',
         'payment_received_short' => 'تم تخصيص :amount للفواتير :invoices.',
-        'maintenance_status_subject' => ':type :reference أصبح :status',
-        'maintenance_status_title' => 'تحديث :type · :reference',
-        'maintenance_status_body' => 'انتقل :type ":title" من :from إلى :to.',
-        'maintenance_status_short' => '":title" أصبحت :status.',
-        'maintenance_status_resolution' => 'ملاحظات الحل: :notes',
-        'maintenance_comment_subject' => 'تحديث جديد على :type :reference',
-        'maintenance_comment_title' => 'تحديث :type · :reference',
-        'maintenance_comment_body' => 'أضاف فريق العقار تحديثاً على ":title": :comment',
-        'maintenance_comment_short' => 'تعليق جديد على ":title".',
+        'request_status_subject' => ':type :reference أصبح :status',
+        'request_status_title' => 'تحديث :type · :reference',
+        'request_status_body' => 'انتقل :type ":title" من :from إلى :to.',
+        'request_status_short' => '":title" أصبحت :status.',
+        'request_status_resolution' => 'ملاحظات الحل: :notes',
+        'request_comment_subject' => 'تحديث جديد على :type :reference',
+        'request_comment_title' => 'تحديث :type · :reference',
+        'request_comment_body' => 'أضاف فريق العقار تحديثاً على ":title": :comment',
+        'request_comment_short' => 'تعليق جديد على ":title".',
         'sales_locked_subject' => 'تم تثبيت إقرار مبيعات :period',
         'sales_locked_body' => 'تم تثبيت إقرار مبيعاتك لشهر :period من قبل المشغّل. نسبة الإيجار المستحقة: :amount.',
         'sales_locked_billing_hint' => 'تم إصدار هذا المبلغ على فاتورة منفصلة، وهي متاحة الآن في بوابتك.',
@@ -2478,14 +2478,14 @@ return [
         'violation_notice_title' => 'إشعار مخالفة',
         'violation_notice_body' => 'تم تسجيل مخالفة (:reference) على حسابك: :description',
         // Admin / operator-facing (incoming triage events)
-        'portal_maintenance_submitted_title' => 'طلب :type جديد',
-        'portal_maintenance_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',
+        'portal_request_submitted_title' => 'طلب :type جديد',
+        'portal_request_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',
         'area_request_raised_title' => 'طلب جديد في :area',
         'area_request_raised_body' => 'طلب :type في منطقتك: ":title" (وحدة :unit) · أولوية :priority',
         'area_work_order_raised_title' => 'أمر عمل جديد في :area',
         'area_work_order_raised_body' => 'أمر عمل في منطقتك: ":title" (وحدة :unit) · أولوية :priority',
-        'maintenance_comment_staff_title' => 'تعليق جديد من المستأجر',
-        'maintenance_comment_staff_body' => ':tenant علّق على :reference (":title"): :comment',
+        'request_comment_staff_title' => 'تعليق جديد من المستأجر',
+        'request_comment_staff_body' => ':tenant علّق على :reference (":title"): :comment',
         'sales_submitted_title' => 'إقرار مبيعات جديد',
         'sales_submitted_body' => ':tenant (وحدة :unit) قدّم إقرار :period · :sales',
         'sla_breached_title' => 'تجاوز اتفاقية مستوى الخدمة',
@@ -2551,7 +2551,7 @@ return [
         'payroll_approved' => 'تم اعتماد المسير',
         'payroll_cancelled' => 'تم إلغاء المسير',
         'vendor_created' => 'تم حفظ المورد',
-        'maintenance_assigned_vendor' => 'تم الإسناد إلى المورد :vendor.',
+        'request_assigned_vendor' => 'تم الإسناد إلى المورد :vendor.',
         // Paymob
         'pay_now_failed' => 'تعذر بدء الدفع',
         'pay_now_failed_body' => 'لم تقبل بوابة Paymob الطلب. حاول مرة أخرى بعد قليل.',
@@ -2988,7 +2988,7 @@ return [
         'csat_comment' => 'هل لديك ملاحظات؟ (اختياري)',
         'channel' => 'القناة',
         'channel_helper' => 'كيف أبلغ المستأجر عن المشكلة. يساعد على معرفة القنوات التي تحتاج إلى توظيف.',
-        'maintenance_title' => 'العنوان',
+        'request_title' => 'العنوان',
         'assigned_to' => 'المُسنَد إلى',
         'unassigned' => 'غير مُسنَد',
         'target_resolution_at' => 'مهلة الحل',
@@ -3301,8 +3301,8 @@ return [
         'payment' => 'الدفع',
         'gateway_cheque' => 'بوابة / شيك',
         'invoice' => 'الفاتورة',
-        'maintenance_request' => 'الطلب',
-        'maintenance_details' => 'التفاصيل',
+        'request' => 'الطلب',
+        'request_details' => 'التفاصيل',
         'permit_validity' => 'صلاحية التصريح',
         'permit_validity_description' => 'الفترة التي يسري فيها هذا التصريح (أعمال التجهيز أو تركيب مؤقت).',
         'assignment' => 'الإسناد',
@@ -3361,7 +3361,7 @@ return [
         'expenses' => 'المصروفات',
         'deposit_transactions' => 'التأمينات',
         'payrolls' => 'الرواتب',
-        'maintenance' => 'الطلبات',
+        'requests' => 'الطلبات',
         'tenant_sales' => 'مبيعات المستأجرين',
         'cam' => 'تسوية المصروفات المشتركة',
         'utility_meters' => 'العدادات',
@@ -3803,13 +3803,13 @@ return [
             'refund' => 'استرداد',
             'forfeit' => 'مصادرة',
         ],
-        'maintenance_priority' => [
+        'work_priority' => [
             'low' => 'منخفضة',
             'medium' => 'متوسطة',
             'high' => 'عالية',
             'urgent' => 'عاجلة',
         ],
-        'maintenance_category' => [
+        'work_category' => [
             'electrical' => 'كهرباء',
             'plumbing' => 'سباكة',
             'hvac' => 'تكييف وتهوية',
@@ -3818,7 +3818,7 @@ return [
             'safety' => 'سلامة / حريق',
             'other' => 'أخرى',
         ],
-        'maintenance_channel' => [
+        'request_channel' => [
             'portal' => 'بوابة المستأجر',
             'whatsapp' => 'واتساب',
             'phone' => 'مكالمة هاتفية',
@@ -4020,7 +4020,6 @@ return [
             'tenant' => 'مستأجر',
             'charge' => 'بند مالي',
             'asset' => 'عقار',
-            'maintenance_request' => 'طلب',
             'tenant_sales' => 'إقرار مبيعات',
             'cam_pool' => 'مجمع مصروفات',
             'credit_note' => 'إشعار خصم',
@@ -4159,7 +4158,7 @@ return [
         'vendor_not_dispatchable' => 'صدر بدون إسناد: :vendor غير قابل للإرسال (محظور/غير نشط، أو انتهت شهادة التأمين). أسند مقاولًا مستوفيًا قبل تنفيذ العمل.',
     ],
 
-    'maintenance' => [
+    'tenant_requests' => [
         'comments' => 'التعليقات',
         'updates' => 'تحديثات من فريق الإدارة',
         'body' => 'الرسالة',
@@ -4273,7 +4272,7 @@ return [
         'tax_code_needs_role' => 'الكود الضريبي :code ليس له حساب ترحيل، فلا يمكن تفعيله. اختر الحساب الذي تُرحَّل إليه محصّلاته — وإلا حُصِّلت أموال بلا حساب.',
         'tenant_tax_id_format' => 'يجب أن يتكون الرقم الضريبي من 9 أرقام، ويمكن تنسيقه كـ XXX-XXX-XXX (رقم التسجيل الضريبي المصري).',
         'invoice_due_after_issue' => 'يجب أن يكون تاريخ الاستحقاق بعد تاريخ الإصدار.',
-        'maintenance_resolution_after_creation' => 'لا يمكن أن يكون تاريخ الحل أقدم من تاريخ إنشاء الطلب.',
+        'request_resolution_after_creation' => 'لا يمكن أن يكون تاريخ الحل أقدم من تاريخ إنشاء الطلب.',
         'unit_has_active_lease' => 'هذه الوحدة لديها عقد إيجار نشط بالفعل. قم بإنهائه أولاً أو اختر وحدة أخرى.',
         'import_asset_out_of_scope' => 'رمز العقار غير موجود أو خارج نطاق العقارات التي يمكنك إدارتها.',
         'lease_terminal_immutable' => 'هذا العقد منتهٍ/ملغى ولا يمكن تعديله بعد الآن. قم بعكسه أو تجديده بدلاً من ذلك.',

@@ -25,7 +25,7 @@ class CreateTenantRequestController extends ApiController
 
         return $this->ok(
             new TenantRequestResource($maintenanceRequest),
-            __('api.maintenance_created'),
+            __('api.request_created'),
             201,
         );
     }

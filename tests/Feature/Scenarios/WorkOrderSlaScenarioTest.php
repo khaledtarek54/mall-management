@@ -4,7 +4,7 @@ use App\Models\MaintenanceWorkOrder;
 use App\Models\SlaPolicy;
 use App\Notifications\WorkOrderSlaBreachedNotification;
 use App\Services\MaintenanceWorkOrderService;
-use App\Settings\MaintenanceSettings;
+use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -36,7 +36,7 @@ function cm(array $attrs = []): MaintenanceWorkOrder
 it('falls back to the operator-wide default when a property has no policy', function () {
     // A row is an override, not a requirement — an operator records only the malls that
     // genuinely differ instead of restating four numbers per property.
-    $settings = app(MaintenanceSettings::class);
+    $settings = app(SlaSettings::class);
 
     expect(SlaResolver::hoursFor($this->asset->id, 'urgent'))->toBe($settings->sla_urgent_hours);
 });
@@ -62,7 +62,7 @@ it('only overrides the priority it names', function () {
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 2]);
 
     expect(SlaResolver::hoursFor($this->asset->id, 'urgent'))->toBe(2);
-    expect(SlaResolver::hoursFor($this->asset->id, 'medium'))->toBe(app(MaintenanceSettings::class)->sla_medium_hours);
+    expect(SlaResolver::hoursFor($this->asset->id, 'medium'))->toBe(app(SlaSettings::class)->sla_medium_hours);
 });
 
 it('allows one policy per property and priority', function () {

@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\App;
  *
  * So the payload carries both. `BellChannel` runs the notification's own `toDatabase()` once per
  * supported locale — which is what makes NESTED translations come out right, the part that key +
- * parameter storage gets wrong: a body interpolating `__("admin.enums.maintenance_priority.urgent")`
+ * parameter storage gets wrong: a body interpolating `__("admin.enums.work_priority.urgent")`
  * would otherwise be an Arabic sentence with an English word inside it. Rendering the whole payload
  * under each locale cannot produce that, because nothing is interpolated across a language boundary.
  *

@@ -74,4 +74,4 @@ Scheduled (`routes/console.php`): `leases:scan-option-windows` · `requests:scan
 - **`/safe-change`** — definition-of-done for changing a module's business logic (read doc → service → invariants → test → regression → update doc → commit).
 
 ## Demo logins (password `password`)
-`admin@mall.test` (super_admin) · `manager@/viewer@/leasing@/maintenance@/accounting@/marketing@/hr@mall.test` · `owner@atriom.test` (owner) · portal `tenant1@atriomwalk.test` (admin) / `staff1@atriomwalk.test` (read-only).
+`admin@mall.test` (super_admin) · `manager@/viewer@/leasing@/operations@/accounting@/marketing@/hr@mall.test` · `owner@atriom.test` (owner) · portal `tenant1@atriomwalk.test` (admin) / `staff1@atriomwalk.test` (read-only).

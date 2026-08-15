@@ -43,7 +43,7 @@ class AreaWorkOrderRaisedNotification extends Notification
             'body' => __('admin.notifications.area_work_order_raised_body', [
                 'title' => $this->order->title,
                 'unit' => $this->order->unitCode() ?? '—',
-                'priority' => __("admin.enums.maintenance_priority.{$this->order->priority}"),
+                'priority' => __("admin.enums.work_priority.{$this->order->priority}"),
             ]),
             'icon' => 'heroicon-o-map-pin',
             'color' => $this->order->priority === 'urgent' ? 'danger' : 'warning',

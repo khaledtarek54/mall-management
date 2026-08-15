@@ -647,7 +647,7 @@ return [
             'modules' => 'Modules',
             'accounting' => 'Accounting',
             'billing' => 'Billing',
-            'maintenance' => 'Maintenance',
+            'sla' => 'Service levels',
             'eta' => 'ETA e-Invoicing',
             'tax' => 'Tax',
             'payroll' => 'Payroll',
@@ -913,7 +913,7 @@ return [
             'description' => 'Add contractors and suppliers to route maintenance requests externally and track service contracts.',
             'cta' => 'Add a vendor',
         ],
-        'maintenance' => [
+        'requests' => [
             'heading' => 'No requests',
             'description' => 'When a tenant reports an issue from the portal — or you log one yourself — it lands here for triage.',
             'cta' => 'Log a request',
@@ -1462,7 +1462,7 @@ return [
         'vendors' => 'Vendors',
         'roles' => 'Roles & Permissions',
         'settings' => 'Settings',
-        'maintenance' => 'Requests',
+        'requests' => 'Requests',
         'tenant_sales' => 'Tenant Sales',
         'cam' => 'CAM Reconciliation',
         'cam_allocations' => 'Common Area Charges',
@@ -1610,8 +1610,8 @@ return [
             'unbilled_leases_body' => 'Run monthly billing to issue invoices',
             'missing_sales' => ':count percentage-rent tenant hasn\'t reported last month\'s sales|:count percentage-rent tenants haven\'t reported last month\'s sales',
             'missing_sales_body' => 'Chase the sales report so the overage can be billed',
-            'urgent_maintenance' => ':count urgent request|:count urgent requests',
-            'urgent_maintenance_body' => 'Tenants flagged these as critical',
+            'urgent_requests' => ':count urgent request|:count urgent requests',
+            'urgent_requests_body' => 'Tenants flagged these as critical',
             'sla_breached' => ':count request past SLA|:count requests past SLA',
             'sla_breached_body' => 'Resolve or update the tenant',
             'wo_sla_breached' => ':count work order past SLA|:count work orders past SLA',
@@ -1715,7 +1715,7 @@ return [
             'empty' => 'No leases expiring in the next 90 days',
         ],
 
-        'open_maintenance' => [
+        'open_requests' => [
             'heading' => 'Open Requests',
             'reference' => 'Reference',
             'title' => 'Title',
@@ -1727,7 +1727,7 @@ return [
             'empty' => 'No open requests — all caught up.',
         ],
 
-        'portal_open_maintenance' => [
+        'portal_open_requests' => [
             'heading' => 'My Open Requests',
             'empty' => 'No open requests.',
         ],
@@ -1891,7 +1891,7 @@ return [
             'amount' => 'Amount',
             'method' => 'Method',
         ],
-        'maintenance' => [
+        'requests' => [
             'reference' => 'Reference',
             'title' => 'Title',
             'tenant' => 'Tenant',
@@ -2453,15 +2453,15 @@ return [
         'payment_received_thanks' => 'Thank you for your payment.',
         'payment_received_title' => 'Payment received',
         'payment_received_short' => ':amount allocated to :invoices.',
-        'maintenance_status_subject' => ':type :reference is now :status',
-        'maintenance_status_title' => ':type update · :reference',
-        'maintenance_status_body' => ':type ":title" moved from :from to :to.',
-        'maintenance_status_short' => '":title" is now :status.',
-        'maintenance_status_resolution' => 'Resolution notes: :notes',
-        'maintenance_comment_subject' => 'New update on :type :reference',
-        'maintenance_comment_title' => ':type update · :reference',
-        'maintenance_comment_body' => 'The property team added an update to ":title": :comment',
-        'maintenance_comment_short' => 'New comment on ":title".',
+        'request_status_subject' => ':type :reference is now :status',
+        'request_status_title' => ':type update · :reference',
+        'request_status_body' => ':type ":title" moved from :from to :to.',
+        'request_status_short' => '":title" is now :status.',
+        'request_status_resolution' => 'Resolution notes: :notes',
+        'request_comment_subject' => 'New update on :type :reference',
+        'request_comment_title' => ':type update · :reference',
+        'request_comment_body' => 'The property team added an update to ":title": :comment',
+        'request_comment_short' => 'New comment on ":title".',
         'sales_locked_subject' => 'Your :period sales declaration is locked',
         'sales_locked_body' => 'Your :period sales declaration has been locked by the operator. Percentage rent owed: :amount.',
         'sales_locked_billing_hint' => 'This amount has been billed on a separate invoice, now available in your portal.',
@@ -2489,14 +2489,14 @@ return [
         'violation_notice_title' => 'Violation notice',
         'violation_notice_body' => 'A violation (:reference) has been recorded against your account: :description',
         // Admin / operator-facing (incoming triage events)
-        'portal_maintenance_submitted_title' => 'New :type request',
-        'portal_maintenance_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',
+        'portal_request_submitted_title' => 'New :type request',
+        'portal_request_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',
         'area_request_raised_title' => 'New request in :area',
         'area_request_raised_body' => ':type request in your zone: ":title" (unit :unit) · priority :priority',
         'area_work_order_raised_title' => 'New work order in :area',
         'area_work_order_raised_body' => 'Work order in your zone: ":title" (unit :unit) · priority :priority',
-        'maintenance_comment_staff_title' => 'New tenant comment',
-        'maintenance_comment_staff_body' => ':tenant commented on :reference (":title"): :comment',
+        'request_comment_staff_title' => 'New tenant comment',
+        'request_comment_staff_body' => ':tenant commented on :reference (":title"): :comment',
         'sales_submitted_title' => 'New sales declaration',
         'sales_submitted_body' => ':tenant (unit :unit) submitted :period · :sales',
         'sla_breached_title' => 'SLA breached',
@@ -2562,7 +2562,7 @@ return [
         'payroll_approved' => 'Payroll approved',
         'payroll_cancelled' => 'Payroll cancelled',
         'vendor_created' => 'Vendor saved',
-        'maintenance_assigned_vendor' => 'Assigned to vendor :vendor.',
+        'request_assigned_vendor' => 'Assigned to vendor :vendor.',
         // Paymob
         'pay_now_failed' => 'Could not start payment',
         'pay_now_failed_body' => 'Paymob did not accept the request. Please try again in a moment.',
@@ -3000,7 +3000,7 @@ return [
         'csat_comment' => 'Any feedback? (optional)',
         'channel' => 'Channel',
         'channel_helper' => 'How the tenant reported this issue. Helps track which channels need staffing.',
-        'maintenance_title' => 'Title',
+        'request_title' => 'Title',
         'assigned_to' => 'Assigned To',
         'unassigned' => 'Unassigned',
         'target_resolution_at' => 'Target Resolution',
@@ -3313,8 +3313,8 @@ return [
         'payment' => 'Payment',
         'gateway_cheque' => 'Gateway / Cheque',
         'invoice' => 'Invoice',
-        'maintenance_request' => 'Request',
-        'maintenance_details' => 'Details',
+        'request' => 'Request',
+        'request_details' => 'Details',
         'permit_validity' => 'Permit Validity',
         'permit_validity_description' => 'The period this permit is valid for (fit-out work or a temporary installation).',
         'assignment' => 'Assignment',
@@ -3373,7 +3373,7 @@ return [
         'expenses' => 'Expenses',
         'deposit_transactions' => 'Security Deposits',
         'payrolls' => 'Payroll',
-        'maintenance' => 'Requests',
+        'requests' => 'Requests',
         'tenant_sales' => 'Tenant Sales',
         'cam' => 'CAM Reconciliation',
         'utility_meters' => 'Utility Meters',
@@ -3817,13 +3817,13 @@ return [
             'refund' => 'Refund',
             'forfeit' => 'Forfeit',
         ],
-        'maintenance_priority' => [
+        'work_priority' => [
             'low' => 'Low',
             'medium' => 'Medium',
             'high' => 'High',
             'urgent' => 'Urgent',
         ],
-        'maintenance_category' => [
+        'work_category' => [
             'electrical' => 'Electrical',
             'plumbing' => 'Plumbing',
             'hvac' => 'HVAC / Air Conditioning',
@@ -3832,7 +3832,7 @@ return [
             'safety' => 'Safety / Fire',
             'other' => 'Other',
         ],
-        'maintenance_channel' => [
+        'request_channel' => [
             'portal' => 'Tenant Portal',
             'whatsapp' => 'WhatsApp',
             'phone' => 'Phone Call',
@@ -4035,7 +4035,6 @@ return [
             'tenant' => 'Tenant',
             'charge' => 'Charge',
             'asset' => 'Property',
-            'maintenance_request' => 'Request',
             'tenant_sales' => 'Sales Declaration',
             'cam_pool' => 'CAM Pool',
             'credit_note' => 'Credit Note',
@@ -4178,7 +4177,7 @@ return [
         'vendor_not_dispatchable' => 'Raised unassigned: :vendor cannot be dispatched (blacklisted/inactive, or its insurance certificate has lapsed). Assign a compliant contractor before this work is carried out.',
     ],
 
-    'maintenance' => [
+    'tenant_requests' => [
         'comments' => 'Comments',
         'updates' => 'Updates from the property team',
         'body' => 'Message',
@@ -4292,7 +4291,7 @@ return [
         'tax_code_needs_role' => 'Tax code :code has no posting account, so it cannot be switched on. Pick the account its collections land in — otherwise it would take money into nowhere.',
         'tenant_tax_id_format' => 'Tax ID must be 9 digits, optionally formatted as XXX-XXX-XXX (Egyptian Tax Registration Number).',
         'invoice_due_after_issue' => 'The due date must be after the issue date.',
-        'maintenance_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
+        'request_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
         'unit_has_active_lease' => 'This unit already has an active lease. Terminate it first or pick another unit.',
         'import_asset_out_of_scope' => 'This property code is not found or is outside the properties you can manage.',
         'lease_terminal_immutable' => 'This lease is terminated/expired/cancelled and can no longer be edited. Reverse or renew it instead.',

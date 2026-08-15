@@ -52,7 +52,7 @@ use App\Notifications\MarketingPostReviewedNotification;
 use App\Notifications\OwnerRequestNotification;
 use App\Notifications\OwnerStatementSentNotification;
 use App\Notifications\PaymentReceivedNotification;
-use App\Notifications\PortalMaintenanceSubmittedNotification;
+use App\Notifications\PortalRequestSubmittedNotification;
 use App\Notifications\PreventiveGenerationFailedNotification;
 use App\Notifications\SalesDeclarationLockedNotification;
 use App\Notifications\SalesDeclarationReminderNotification;
@@ -183,7 +183,7 @@ final class NotificationTargets
         ],
 
         // ---- Tenant requests ---------------------------------------------------------------
-        PortalMaintenanceSubmittedNotification::class => [
+        PortalRequestSubmittedNotification::class => [
             'record' => [TenantRequest::class, 'request_id'],
             'admin' => TenantRequestResource::class,
             'portal' => null,

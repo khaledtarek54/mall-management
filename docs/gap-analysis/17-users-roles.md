@@ -64,7 +64,7 @@
 |---|---|---|
 | DEMO.md | "Three roles: super admin, manager, viewer. The login they're using now is super admin..." | ✅ (in reality 6 roles seeded; demo emphasizes the 3 main ones) |
 | DEMO.md | "Custom Roles + Permissions — `/admin/roles` lets admins create custom roles with any of 81 granular permissions." | ✅ 81 permissions, custom roles supported |
-| DEMO.md | "Role-tailored dashboards — log in as `leasing@mall.test` or `maintenance@mall.test` to demo per-role widget sets." | ✅ widgets use `RoleScopedWidget` trait + `allowedRoles()` |
+| DEMO.md | "Role-tailored dashboards — log in as `leasing@mall.test` or `operations@mall.test` to demo per-role widget sets." | ✅ widgets use `RoleScopedWidget` trait + `allowedRoles()` |
 | FEATURES.md | "Spatie Permission (RBAC) + Spatie ActivityLog (audit trail) + Spatie MediaLibrary (document attachments)" | ✅ but User isn't itself ActivityLogged — see F-67 |
 
 ## 3. Findings

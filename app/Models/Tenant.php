@@ -388,7 +388,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return $this->morphMany(Note::class, 'noteable')->latest('contacted_at');
     }
 
-    public function maintenanceRequests(): HasMany
+    public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class);
     }

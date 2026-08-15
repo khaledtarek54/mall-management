@@ -174,7 +174,7 @@ class Unit extends Model
             ->isNotEmpty();
     }
 
-    public function maintenanceRequests(): HasMany
+    public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class);
     }

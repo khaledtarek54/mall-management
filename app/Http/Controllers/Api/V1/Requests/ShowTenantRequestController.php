@@ -14,7 +14,7 @@ class ShowTenantRequestController extends ApiController
 {
     public function __invoke(Request $request, int $id): TenantRequestResource
     {
-        $maintenanceRequest = $request->user()->maintenanceRequests()
+        $tenantRequest = $request->user()->tenantRequests()
             ->with([
                 'unit',
                 'media',
@@ -23,6 +23,6 @@ class ShowTenantRequestController extends ApiController
             ])
             ->findOrFail($id);
 
-        return new TenantRequestResource($maintenanceRequest);
+        return new TenantRequestResource($tenantRequest);
     }
 }

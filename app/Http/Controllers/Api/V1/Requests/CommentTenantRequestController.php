@@ -19,13 +19,13 @@ class CommentTenantRequestController extends ApiController
         AddTenantRequestCommentAction $action
     ): JsonResponse {
         $tenant = $request->user();
-        $maintenanceRequest = $tenant->maintenanceRequests()->findOrFail($id);
+        $tenantRequest = $tenant->tenantRequests()->findOrFail($id);
 
-        $comment = $action->handle($maintenanceRequest, $tenant, $request->input('body'));
+        $comment = $action->handle($tenantRequest, $tenant, $request->input('body'));
 
         return $this->ok(
             new TenantRequestCommentResource($comment),
-            __('api.maintenance_comment_added'),
+            __('api.request_comment_added'),
             201,
         );
     }

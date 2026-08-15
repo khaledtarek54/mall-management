@@ -4,7 +4,7 @@ use App\Models\MaintenanceWorkOrder;
 use App\Models\SlaPolicy;
 use App\Notifications\WorkOrderResponseSlaBreachedNotification;
 use App\Services\MaintenanceWorkOrderService;
-use App\Settings\MaintenanceSettings;
+use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use Illuminate\Support\Facades\Notification;
 
@@ -31,7 +31,7 @@ beforeEach(function () {
     $this->svc = app(MaintenanceWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'MALL']);
 
-    $settings = app(MaintenanceSettings::class);
+    $settings = app(SlaSettings::class);
     $settings->sla_high_hours = 24;
     $settings->sla_high_respond_hours = 4;
     $settings->save();
@@ -159,7 +159,7 @@ it('resolves the response target through the same three tiers as the resolution 
         // A policy may override resolution ONLY — null response falls through to the operator-wide
         // target rather than needing a sentinel value.
         ->and(SlaResolver::respondHoursFor($this->asset->id, 'medium'))
-        ->toBe(app(MaintenanceSettings::class)->sla_medium_respond_hours);
+        ->toBe(app(SlaSettings::class)->sla_medium_respond_hours);
 });
 
 it('alerts once on an unanswered job, off its own stamp', function () {

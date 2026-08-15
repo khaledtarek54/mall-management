@@ -44,8 +44,8 @@ class ActionRequired extends Widget
      * @var array<string, string>
      */
     private const CARD_PERMISSIONS = [
-        'urgent_maintenance' => 'maintenance.view',
-        'sla_breached' => 'maintenance.view',
+        'urgent_requests' => 'requests.view',
+        'sla_breached' => 'requests.view',
         'wo_sla_breached' => 'preventive_maintenance.view',
         'wo_response_breached' => 'preventive_maintenance.view',
         'ledger_without_property' => 'journal_entries.view',
@@ -157,7 +157,7 @@ class ActionRequired extends Widget
 
         $vacantCount = $unitBase()->where('status', 'vacant')->count();
 
-        $urgentMaintenanceCount = $maintBase()->whereIn('status', TenantRequest::OPEN_STATUSES)
+        $urgentRequestCount = $maintBase()->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->where('priority', 'urgent')
             ->count();
 
@@ -215,25 +215,25 @@ class ActionRequired extends Widget
             ->count();
 
         $items = [];
-        $maintenanceEnabled = Modules::enabled('maintenance');
+        $requestsEnabled = Modules::enabled('requests');
         $ppmEnabled = Modules::enabled('preventive_maintenance');
 
         // Each card pre-applies the right filter AND sorts the offending
         // rows to the top, so clicking lands the operator on the work
         // they need to do, not on a table they then have to re-sort.
 
-        if ($maintenanceEnabled && $urgentMaintenanceCount > 0) {
+        if ($requestsEnabled && $urgentRequestCount > 0) {
             $items[] = [
-                'key' => 'urgent_maintenance',
+                'key' => 'urgent_requests',
                 'icon' => 'heroicon-o-wrench-screwdriver',
                 'color' => 'danger',
-                'title' => trans_choice('admin.widgets.action_required.urgent_maintenance', $urgentMaintenanceCount, ['count' => $urgentMaintenanceCount]),
-                'body' => __('admin.widgets.action_required.urgent_maintenance_body'),
+                'title' => trans_choice('admin.widgets.action_required.urgent_requests', $urgentRequestCount, ['count' => $urgentRequestCount]),
+                'body' => __('admin.widgets.action_required.urgent_requests_body'),
                 'url' => ResourceLink::indexSelect(TenantRequestResource::class, 'priority', 'urgent', 'submitted_at:asc'),
             ];
         }
 
-        if ($maintenanceEnabled && $slaBreachedCount > 0) {
+        if ($requestsEnabled && $slaBreachedCount > 0) {
             $items[] = [
                 'key' => 'sla_breached',
                 'icon' => 'heroicon-o-clock',

@@ -178,13 +178,13 @@ it('hides Edit / Redirect / Assign on a closed record (canEdit gates all three)'
         ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'in_progress'])))->toBeTrue();
 });
 
-it('blocks a super_admin from editing a terminal record even though they hold maintenance.edit', function () {
+it('blocks a super_admin from editing a terminal record even though they hold requests.edit', function () {
     $this->seed(RolesPermissionsSeeder::class);
     $admin = makeUser('super_admin');
     $this->actingAs($admin);
 
     // The permission is held...
-    expect($admin->can('maintenance.edit'))->toBeTrue()
+    expect($admin->can('requests.edit'))->toBeTrue()
         // ...yet the terminal guard wins.
         ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'closed'])))->toBeFalse();
 });

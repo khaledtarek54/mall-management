@@ -42,14 +42,14 @@ function actionItems(): array
     return $ref->invoke($widget)['items'];
 }
 
-it('surfaces an urgent_maintenance card when the maintenance module is enabled', function () {
+it('surfaces an urgent_requests card when the maintenance module is enabled', function () {
     $settings = app(ModulesSettings::class);
     $settings->maintenance = true;
     $settings->save();
 
     asTenant($this->asset, function () {
         $keys = collect(actionItems())->pluck('key')->all();
-        expect($keys)->toContain('urgent_maintenance');
+        expect($keys)->toContain('urgent_requests');
     });
 });
 
@@ -60,7 +60,7 @@ it('omits maintenance cards entirely when the module is disabled', function () {
 
     asTenant($this->asset, function () {
         $keys = collect(actionItems())->pluck('key')->all();
-        expect($keys)->not->toContain('urgent_maintenance')
+        expect($keys)->not->toContain('urgent_requests')
             ->not->toContain('sla_breached');
     });
 });

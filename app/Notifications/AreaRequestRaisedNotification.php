@@ -43,7 +43,7 @@ class AreaRequestRaisedNotification extends Notification
                 'type' => $this->request->typeLabel(),
                 'title' => $this->request->title,
                 'unit' => $this->request->unitCode() ?? '—',
-                'priority' => __("admin.enums.maintenance_priority.{$this->request->priority}"),
+                'priority' => __("admin.enums.work_priority.{$this->request->priority}"),
             ]),
             'icon' => 'heroicon-o-map-pin',
             'color' => $this->request->priority === 'urgent' ? 'danger' : 'warning',

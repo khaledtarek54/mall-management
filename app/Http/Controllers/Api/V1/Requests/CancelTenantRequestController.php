@@ -19,13 +19,13 @@ class CancelTenantRequestController extends ApiController
         int $id,
         CancelTenantRequestAction $action
     ): JsonResponse {
-        $maintenanceRequest = $request->user()->maintenanceRequests()->findOrFail($id);
+        $tenantRequest = $request->user()->tenantRequests()->findOrFail($id);
 
-        $maintenanceRequest = $action->handle($maintenanceRequest);
+        $tenantRequest = $action->handle($tenantRequest);
 
         return $this->ok(
-            new TenantRequestResource($maintenanceRequest->load('unit')),
-            __('api.maintenance_cancelled'),
+            new TenantRequestResource($tenantRequest->load('unit')),
+            __('api.request_cancelled'),
         );
     }
 }

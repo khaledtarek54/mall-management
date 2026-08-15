@@ -44,7 +44,7 @@ class TenantRequestResource extends Resource
 
     protected static function permissionModule(): string
     {
-        return 'maintenance';
+        return 'requests';
     }
 
     /**
@@ -71,7 +71,7 @@ class TenantRequestResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return __('admin.navigation.maintenance');
+        return __('admin.navigation.requests');
     }
 
     public static function getModelLabel(): string
@@ -149,7 +149,7 @@ class TenantRequestResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return AssignmentScope::apply(static::scopedViaPropertyQuery(), 'maintenance', 'assigned_to');
+        return AssignmentScope::apply(static::scopedViaPropertyQuery(), 'requests', 'assigned_to');
     }
 
     public static function getPages(): array

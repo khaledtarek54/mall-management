@@ -23,7 +23,7 @@ class CancelTenantRequestAction
     {
         if (! in_array($request->status, self::CANCELLABLE, true)) {
             throw ValidationException::withMessages([
-                'status' => [__('api.maintenance_cannot_cancel')],
+                'status' => [__('api.request_cannot_cancel')],
             ]);
         }
 

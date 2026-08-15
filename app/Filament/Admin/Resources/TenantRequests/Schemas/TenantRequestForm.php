@@ -34,7 +34,7 @@ class TenantRequestForm
                 ->columnSpanFull()
                 ->persistTabInQueryString()
                 ->tabs([
-                    FormTab::make('admin.sections.maintenance_request', [
+                    FormTab::make('admin.sections.request', [
 
 
                     TextInput::make('reference')
@@ -74,19 +74,19 @@ class TenantRequestForm
                         ->required(fn (Get $get) => $get('channel') === TenantRequest::SELF_SERVICE_CHANNEL || blank($get('caller_name'))),
                     // Intake for someone who is NOT a registered tenant — only on a staff channel.
                     TextInput::make('caller_name')
-                        ->label(__('admin.maintenance.caller.name'))
+                        ->label(__('admin.tenant_requests.caller.name'))
                         ->maxLength(255)
                         ->live()
-                        ->helperText(__('admin.maintenance.caller.section_hint'))
+                        ->helperText(__('admin.tenant_requests.caller.section_hint'))
                         ->visible(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL)
                         ->required(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL && blank($get('tenant_id'))),
                     TextInput::make('caller_phone')
-                        ->label(__('admin.maintenance.caller.phone'))
+                        ->label(__('admin.tenant_requests.caller.phone'))
                         ->tel()
                         ->maxLength(50)
                         ->visible(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL),
                     Textarea::make('caller_notes')
-                        ->label(__('admin.maintenance.caller.notes'))
+                        ->label(__('admin.tenant_requests.caller.notes'))
                         ->rows(2)
                         ->visible(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL),
                     Select::make('unit_id')
@@ -104,7 +104,7 @@ class TenantRequestForm
                         ->required(),
                     Select::make('priority')
                         ->label(__('admin.fields.priority'))
-                        ->options(fn () => __('admin.enums.maintenance_priority'))
+                        ->options(fn () => __('admin.enums.work_priority'))
                         ->default('medium')
                         ->required()
                         ->native(false),
@@ -122,7 +122,7 @@ class TenantRequestForm
                         ->native(false),
                     Select::make('channel')
                         ->label(__('admin.fields.channel'))
-                        ->options(fn () => __('admin.enums.maintenance_channel'))
+                        ->options(fn () => __('admin.enums.request_channel'))
                         ->default('portal')
                         ->required()
                         ->native(false)
@@ -141,11 +141,11 @@ class TenantRequestForm
                         ->native(false),
                     ])->columns(3),
 
-                    FormTab::make('admin.sections.maintenance_details', [
+                    FormTab::make('admin.sections.request_details', [
 
 
                     TextInput::make('title')
-                        ->label(__('admin.fields.maintenance_title'))
+                        ->label(__('admin.fields.request_title'))
                         ->required()
                         ->maxLength(150)
                         ->columnSpanFull(),
@@ -231,7 +231,7 @@ class TenantRequestForm
                         // create the row doesn't exist yet, so floor at today.
                         ->minDate(fn (?TenantRequest $record) => $record?->created_at?->startOfDay() ?? today())
                         ->validationMessages([
-                            'after_or_equal' => __('admin.validation.maintenance_resolution_after_creation'),
+                            'after_or_equal' => __('admin.validation.request_resolution_after_creation'),
                         ]),
                     DateTimePicker::make('scheduled_from')
                         ->label(__('admin.fields.scheduled_from'))

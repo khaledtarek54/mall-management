@@ -21,17 +21,17 @@ class RateTenantRequestController extends ApiController
         int $id,
         RateTenantRequestAction $action
     ): JsonResponse {
-        $maintenanceRequest = $request->user()->maintenanceRequests()->findOrFail($id);
+        $tenantRequest = $request->user()->tenantRequests()->findOrFail($id);
 
-        $maintenanceRequest = $action->handle(
-            $maintenanceRequest,
+        $tenantRequest = $action->handle(
+            $tenantRequest,
             (int) $request->input('rating'),
             $request->input('comment'),
         );
 
         return $this->ok(
-            new TenantRequestResource($maintenanceRequest->load('unit')),
-            __('api.maintenance_rated'),
+            new TenantRequestResource($tenantRequest->load('unit')),
+            __('api.request_rated'),
         );
     }
 }

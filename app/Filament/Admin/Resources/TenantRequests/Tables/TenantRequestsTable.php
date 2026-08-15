@@ -38,23 +38,23 @@ class TenantRequestsTable
             ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'unit', 'area', 'assignee', 'department']))
             ->columns([
                 TextColumn::make('reference')
-                    ->label(__('admin.tables.maintenance.reference'))
+                    ->label(__('admin.tables.requests.reference'))
                     ->searchable()
                     ->copyable()
                     ->fontFamily('mono')
                     ->size('xs'),
                 TextColumn::make('title')
-                    ->label(__('admin.tables.maintenance.title'))
+                    ->label(__('admin.tables.requests.title'))
                     ->searchable()
                     ->limit(40)
                     ->weight('medium'),
                 TextColumn::make('tenant.name')
-                    ->label(__('admin.tables.maintenance.tenant'))
+                    ->label(__('admin.tables.requests.tenant'))
                     // A caller-only intake (no registered tenant) shows who reported it instead of a
                     // blank cell — the whole point of the caller fields (FR-REQ intake).
                     ->state(fn (TenantRequest $record) => $record->reportedByName())
                     ->description(fn (TenantRequest $record) => $record->tenant_id === null && filled($record->caller_name)
-                        ? __('admin.maintenance.caller.section')
+                        ? __('admin.tenant_requests.caller.section')
                         : null)
                     ->placeholder('—')
                     ->searchable(query: fn (Builder $query, string $search) => $query->where(
@@ -62,7 +62,7 @@ class TenantRequestsTable
                             ->orWhere('caller_name', 'like', "%{$search}%")
                     )),
                 TextColumn::make('unit.code')
-                    ->label(__('admin.tables.maintenance.unit'))
+                    ->label(__('admin.tables.requests.unit'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('request_type')
@@ -84,16 +84,16 @@ class TenantRequestsTable
                     ->placeholder('—')
                     ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.tenant_request_subcategory.{$state}") : null),
                 TextColumn::make('channel')
-                    ->label(__('admin.tables.maintenance.channel'))
+                    ->label(__('admin.tables.requests.channel'))
                     ->badge()
                     ->color('info')
                     ->placeholder('—')
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.maintenance_channel.{$state}") : null)
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.request_channel.{$state}") : null)
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('priority')
-                    ->label(__('admin.tables.maintenance.priority'))
+                    ->label(__('admin.tables.requests.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_priority.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'urgent' => 'danger',
                         'high' => 'warning',
@@ -128,7 +128,7 @@ class TenantRequestsTable
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('assignee.name')
-                    ->label(__('admin.tables.maintenance.assigned_to'))
+                    ->label(__('admin.tables.requests.assigned_to'))
                     ->placeholder(__('admin.fields.unassigned'))
                     ->toggleable(),
                 TextColumn::make('assignedVendor.name')
@@ -138,11 +138,11 @@ class TenantRequestsTable
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('submitted_at')
-                    ->label(__('admin.tables.maintenance.submitted'))
+                    ->label(__('admin.tables.requests.submitted'))
                     ->date('d/m/Y')
                     ->sortable(),
                 TextColumn::make('target_resolution_at')
-                    ->label(__('admin.tables.maintenance.target'))
+                    ->label(__('admin.tables.requests.target'))
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->color(fn ($record): ?string => $record->isOverdue() ? 'danger' : null)
@@ -177,10 +177,10 @@ class TenantRequestsTable
                     ->options(fn () => TenantRequestType::options()),
                 SelectFilter::make('priority')
                     ->label(__('admin.filters.priority'))
-                    ->options(fn () => __('admin.enums.maintenance_priority')),
+                    ->options(fn () => __('admin.enums.work_priority')),
                 SelectFilter::make('channel')
                     ->label(__('admin.filters.channel'))
-                    ->options(fn () => __('admin.enums.maintenance_channel')),
+                    ->options(fn () => __('admin.enums.request_channel')),
                 SelectFilter::make('department_id')
                     ->label(__('admin.resources.department.singular'))
                     ->options(fn () => Department::selectableOptions()),
@@ -211,8 +211,8 @@ class TenantRequestsTable
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
-                    ->visible(fn () => auth()->user()?->can('maintenance.view_all') ?? false)
-                    ->authorize(fn () => auth()->user()?->can('maintenance.view_all') ?? false),
+                    ->visible(fn () => auth()->user()?->can('requests.view_all') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('requests.view_all') ?? false),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less
@@ -231,7 +231,7 @@ class TenantRequestsTable
                     ->visible(fn (TenantRequest $record) => TenantRequestResource::canEdit($record)
                         && ! empty(TenantRequestService::TRANSITIONS[$record->status] ?? []))
                     // visible() is NOT a dispatch gate — mountAction never checks isVisible(), and
-                    // viewer/owner hold maintenance.view. Re-assert the same canEdit predicate as the
+                    // viewer/owner hold requests.view. Re-assert the same canEdit predicate as the
                     // real gate in authorize() + action(), so they can't drift (module-08/09 pattern).
                     ->authorize(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
                     ->modalHeading(fn (TenantRequest $record) => __('admin.actions.change_status_heading', ['ref' => $record->reference]))
@@ -363,11 +363,11 @@ class TenantRequestsTable
             ])
             ->defaultSort('submitted_at', 'desc')
             ->emptyStateIcon('heroicon-o-wrench-screwdriver')
-            ->emptyStateHeading(__('admin.empty.maintenance.heading'))
-            ->emptyStateDescription(__('admin.empty.maintenance.description'))
+            ->emptyStateHeading(__('admin.empty.requests.heading'))
+            ->emptyStateDescription(__('admin.empty.requests.description'))
             ->emptyStateActions([
                 CreateAction::make()
-                    ->label(__('admin.empty.maintenance.cta'))
+                    ->label(__('admin.empty.requests.cta'))
                     ->icon('heroicon-o-plus'),
             ]);
     }

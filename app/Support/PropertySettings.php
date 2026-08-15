@@ -86,10 +86,10 @@ class PropertySettings
      * @var array<int, string>
      */
     public const NOT_OVERRIDABLE_BY_DESIGN = [
-        'maintenance.sla_urgent_hours',
-        'maintenance.sla_high_hours',
-        'maintenance.sla_medium_hours',
-        'maintenance.sla_low_hours',
+        'sla.sla_urgent_hours',
+        'sla.sla_high_hours',
+        'sla.sla_medium_hours',
+        'sla.sla_low_hours',
     ];
 
     /**

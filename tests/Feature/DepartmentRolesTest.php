@@ -18,7 +18,7 @@ it('seeds the department access roles with their permissions', function () {
     $accounting = makeUser('accounting');
     expect($accounting->can('invoices.create'))->toBeTrue()
         ->and($accounting->can('payments.view'))->toBeTrue()
-        ->and($accounting->can('maintenance.create'))->toBeFalse();
+        ->and($accounting->can('requests.create'))->toBeFalse();
 
     $marketing = makeUser('marketing');
     expect($marketing->can('marketing.create'))->toBeTrue()

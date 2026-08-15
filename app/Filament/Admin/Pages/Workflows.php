@@ -45,7 +45,7 @@ class Workflows extends Page implements HasSchemas, HasTable
     public static function canAccess(): bool
     {
         // A harmless read-only reference — visible to anyone who works one of the workflows it maps.
-        return Auth::user()?->canAny(['requests.view', 'maintenance.view', 'procurement.view']) ?? false;
+        return Auth::user()?->canAny(['requests.view', 'procurement.view']) ?? false;
     }
 
     public static function getNavigationGroup(): ?string

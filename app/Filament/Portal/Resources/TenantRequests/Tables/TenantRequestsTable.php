@@ -26,17 +26,17 @@ class TenantRequestsTable
             ->modifyQueryUsing(fn ($query) => $query->with('unit'))
             ->columns([
                 TextColumn::make('reference')
-                    ->label(__('admin.tables.maintenance.reference'))
+                    ->label(__('admin.tables.requests.reference'))
                     ->searchable()
                     ->fontFamily('mono')
                     ->size('xs'),
                 TextColumn::make('title')
-                    ->label(__('admin.tables.maintenance.title'))
+                    ->label(__('admin.tables.requests.title'))
                     ->searchable()
                     ->limit(40)
                     ->weight('medium'),
                 TextColumn::make('unit.code')
-                    ->label(__('admin.tables.maintenance.unit'))
+                    ->label(__('admin.tables.requests.unit'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('request_type')
@@ -51,9 +51,9 @@ class TenantRequestsTable
                     ->placeholder('—')
                     ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.tenant_request_subcategory.{$state}") : null),
                 TextColumn::make('priority')
-                    ->label(__('admin.tables.maintenance.priority'))
+                    ->label(__('admin.tables.requests.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_priority.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.work_priority.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'urgent' => 'danger',
                         'high' => 'warning',
@@ -76,7 +76,7 @@ class TenantRequestsTable
                         default => 'gray',
                     }),
                 TextColumn::make('submitted_at')
-                    ->label(__('admin.tables.maintenance.submitted'))
+                    ->label(__('admin.tables.requests.submitted'))
                     ->date('d/m/Y')
                     ->sortable(),
             ])

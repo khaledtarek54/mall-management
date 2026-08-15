@@ -6,13 +6,13 @@ return [
     'profile_updated' => 'تم تحديث الملف الشخصي.',
 
     // Maintenance
-    'maintenance_created' => 'تم إرسال طلب الصيانة.',
-    'maintenance_comment_added' => 'تمت إضافة التعليق.',
-    'maintenance_cancelled' => 'تم إلغاء طلب الصيانة.',
-    'maintenance_cannot_cancel' => 'لا يمكن إلغاء هذا الطلب — لقد بدأ العمل عليه بالفعل.',
-    'maintenance_rated' => 'شكراً لك — تم تسجيل تقييمك.',
-    'maintenance_cannot_rate' => 'لا يمكن تقييم الطلب إلا بعد حله أو إغلاقه.',
-    'maintenance_cannot_comment' => 'تم إغلاق هذا الطلب — لم يعد بالإمكان إضافة تعليقات.',
+    'request_created' => 'تم إرسال طلب الصيانة.',
+    'request_comment_added' => 'تمت إضافة التعليق.',
+    'request_cancelled' => 'تم إلغاء طلب الصيانة.',
+    'request_cannot_cancel' => 'لا يمكن إلغاء هذا الطلب — لقد بدأ العمل عليه بالفعل.',
+    'request_rated' => 'شكراً لك — تم تسجيل تقييمك.',
+    'request_cannot_rate' => 'لا يمكن تقييم الطلب إلا بعد حله أو إغلاقه.',
+    'request_cannot_comment' => 'تم إغلاق هذا الطلب — لم يعد بالإمكان إضافة تعليقات.',
 
     // Sales declarations
     'sales_declaration_created' => 'تم إرسال إقرار المبيعات.',

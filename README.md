@@ -38,7 +38,7 @@ Visit the landing page at `http://localhost:8000/` (or `http://mall-management.t
 | `/admin` | `manager@mall.test` | manager |
 | `/admin` | `viewer@mall.test` | viewer |
 | `/admin` | `leasing@mall.test` | leasing |
-| `/admin` | `maintenance@mall.test` | operations |
+| `/admin` | `operations@mall.test` | operations |
 | `/admin` | `accounting@mall.test` | accounting |
 | `/admin` | `marketing@mall.test` | marketing |
 | `/admin` | `hr@mall.test` | hr |

@@ -124,7 +124,7 @@ QA ran in layers — see [`docs/modules/`](modules/) gotchas sections and the re
 - **Concurrency** validated against real MySQL (late-fee + scan idempotency under parallel runs).
 - **Security** — adversarial pentest pass (auth/scoping/webhook-HMAC/secrets) found only low info-disclosure, fixed.
 
-Demo logins (password `password`): `admin@mall.test` (super_admin) · `manager@/viewer@/leasing@/maintenance@/accounting@/marketing@/hr@mall.test` · `owner@atriom.test` (owner) · portal `tenant1@atriomwalk.test` (admin) / `staff1@atriomwalk.test` (read-only).
+Demo logins (password `password`): `admin@mall.test` (super_admin) · `manager@/viewer@/leasing@/operations@/accounting@/marketing@/hr@mall.test` · `owner@atriom.test` (owner) · portal `tenant1@atriomwalk.test` (admin) / `staff1@atriomwalk.test` (read-only).
 
 ---
 

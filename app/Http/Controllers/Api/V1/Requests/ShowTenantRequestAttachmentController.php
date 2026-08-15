@@ -16,10 +16,10 @@ class ShowTenantRequestAttachmentController extends ApiController
 {
     public function __invoke(Request $request, int $id, int $media): StreamedResponse
     {
-        /** @var \App\Models\TenantRequest $maintenanceRequest */
-        $maintenanceRequest = $request->user()->maintenanceRequests()->findOrFail($id);
+        /** @var \App\Models\TenantRequest $tenantRequest */
+        $tenantRequest = $request->user()->tenantRequests()->findOrFail($id);
 
-        $item = $maintenanceRequest->getMedia('attachments')->firstWhere('id', $media);
+        $item = $tenantRequest->getMedia('attachments')->firstWhere('id', $media);
         abort_if($item === null, 404);
 
         return $item->toInlineResponse($request);

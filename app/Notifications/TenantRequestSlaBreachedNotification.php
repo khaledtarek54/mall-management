@@ -33,7 +33,7 @@ class TenantRequestSlaBreachedNotification extends Notification
         $hoursOver = (int) abs($this->request->target_resolution_at?->diffInHours(now()) ?? 0);
 
         return [
-            'type' => 'maintenance_sla_breached',
+            'type' => 'request_sla_breached',
             'request_id' => $this->request->id,
             'reference' => $this->request->reference,
             'priority' => $this->request->priority,
@@ -42,7 +42,7 @@ class TenantRequestSlaBreachedNotification extends Notification
             'body' => __('admin.notifications.sla_breached_body', [
                 'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
-                'priority' => __("admin.enums.maintenance_priority.{$this->request->priority}"),
+                'priority' => __("admin.enums.work_priority.{$this->request->priority}"),
                 'hours' => $hoursOver,
             ]),
             'icon' => 'heroicon-o-clock',

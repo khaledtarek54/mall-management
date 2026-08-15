@@ -42,7 +42,7 @@ class SummaryController extends ApiController
             'is_delinquent' => (bool) $tenant->isDelinquent(),
 
             // Open work
-            'open_maintenance' => (int) $tenant->maintenanceRequests()
+            'open_requests' => (int) $tenant->tenantRequests()
                 ->whereIn('status', TenantRequest::OPEN_STATUSES)->count(),
 
             // Needs the tenant's attention

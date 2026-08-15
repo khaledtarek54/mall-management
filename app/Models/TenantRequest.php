@@ -134,11 +134,11 @@ class TenantRequest extends Model implements HasMedia
             }
 
             if ($request->channel === self::SELF_SERVICE_CHANNEL) {
-                throw new \DomainException(__('admin.maintenance.errors.portal_needs_tenant'));
+                throw new \DomainException(__('admin.tenant_requests.errors.portal_needs_tenant'));
             }
 
             if (blank($request->caller_name)) {
-                throw new \DomainException(__('admin.maintenance.errors.caller_or_tenant_required'));
+                throw new \DomainException(__('admin.tenant_requests.errors.caller_or_tenant_required'));
             }
         });
 
@@ -153,7 +153,7 @@ class TenantRequest extends Model implements HasMedia
             }
 
             if ($request->valid_to->lt($request->valid_from)) {
-                throw new \DomainException(__('admin.maintenance.errors.permit_validity_order'));
+                throw new \DomainException(__('admin.tenant_requests.errors.permit_validity_order'));
             }
         });
 
@@ -177,7 +177,7 @@ class TenantRequest extends Model implements HasMedia
             ];
             foreach ($frozen as $field) {
                 if ($request->isDirty($field)) {
-                    throw new \DomainException(__('admin.maintenance.errors.terminal_immutable'));
+                    throw new \DomainException(__('admin.tenant_requests.errors.terminal_immutable'));
                 }
             }
         });

@@ -5,7 +5,7 @@ namespace App\Settings;
 use Spatie\LaravelSettings\Settings;
 
 /**
- * SLA hours by priority — TWO clocks. Drives the ActionRequired widget + the SLA-breached filters.
+ * SLA hours by priority — shared by tenant requests AND facility work orders — TWO clocks. Drives the ActionRequired widget + the SLA-breached filters.
  *
  * **Resolution** is how long the job may take once somebody has taken it on (FR-CM-07: the clock
  * starts at acceptance, so an engineer is not charged for queue time). **Response** is how long it
@@ -13,7 +13,7 @@ use Spatie\LaravelSettings\Settings;
  * engineer's problem it has to be somebody's. Without it, never accepting a job meant it had no
  * deadline at all.
  */
-class MaintenanceSettings extends Settings
+class SlaSettings extends Settings
 {
     public int $sla_urgent_hours = 4;
     public int $sla_high_hours = 24;
@@ -27,6 +27,6 @@ class MaintenanceSettings extends Settings
 
     public static function group(): string
     {
-        return 'maintenance';
+        return 'sla';
     }
 }
