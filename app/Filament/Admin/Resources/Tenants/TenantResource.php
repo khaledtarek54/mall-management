@@ -41,6 +41,28 @@ class TenantResource extends Resource
         return 'leases.unit';
     }
 
+    /**
+     * A tenant belongs on a property's register on any of three grounds: they LEASE a unit here,
+     * they OWN one here (module 37 — a unit owner is a `tenants` row holding no lease at all), or
+     * they are affiliated with nowhere yet, so a tenant just created does not vanish from the list
+     * that created them.
+     *
+     * That third branch was `orWhereDoesntHave('leases')` alone, which was equivalent for as long
+     * as every unleased tenant was a new one. A unit owner is PERMANENTLY unleased, so it silently
+     * widened into "every owner in the portfolio shows on every property's register" — invisible
+     * with one mall, wrong on the second. Ownership is now its own branch, matched to the property
+     * of the unit owned, and the unaffiliated branch means genuinely unaffiliated.
+     *
+     * @param  array<int, int>  $assetIds
+     */
+    protected static function affiliatedWith(Builder $query, array $assetIds): Builder
+    {
+        return $query
+            ->whereHas(static::tenantScopeRelation(), fn (Builder $r) => $r->whereIn('asset_id', $assetIds))
+            ->orWhereHas('unitOwnerships.unit', fn (Builder $u) => $u->whereIn('asset_id', $assetIds))
+            ->orWhere(fn (Builder $u) => $u->whereDoesntHave('leases')->whereDoesntHave('unitOwnerships'));
+    }
+
     protected static ?string $model = Tenant::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
@@ -97,16 +119,10 @@ class TenantResource extends Resource
         $query = parent::getEloquentQuery();
 
         if ($assetId = TenantScope::currentAssetId()) {
-            $query->where(function (Builder $q) use ($assetId) {
-                $q->whereHas(static::tenantScopeRelation(), fn (Builder $r) => $r->where('asset_id', $assetId))
-                    ->orWhereDoesntHave('leases');
-            });
+            $query->where(fn (Builder $q) => static::affiliatedWith($q, [$assetId]));
         } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
             // "All Properties" for a restricted user — pin to their assigned set.
-            $query->where(function (Builder $q) use ($ids) {
-                $q->whereHas(static::tenantScopeRelation(), fn (Builder $r) => $r->whereIn('asset_id', $ids))
-                    ->orWhereDoesntHave('leases');
-            });
+            $query->where(fn (Builder $q) => static::affiliatedWith($q, $ids));
         }
 
         return $query;

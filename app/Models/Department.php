@@ -27,7 +27,11 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletableWhenUnused(blockedBy: ['members', 'employees'], instead: 'move its members first, then delete the empty department')]
 // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
-#[PropertyOwned]
+// `departments.asset_id` is NULLABLE and a null means operator-wide — DepartmentResource already
+// scopes on exactly that basis. The declaration said strict, which described neither the column nor
+// the resource; converting DepartmentResource to ScopesToProperty on that reading would have hidden
+// every operator-wide department. Corrected 2026-08-16.
+#[PropertyOwned(portfolioRowsWhenNull: true)]
 class Department extends Model
 {
     use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;

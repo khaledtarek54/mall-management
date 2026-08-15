@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Resources\TenantSalesDeclarations;
 
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
-use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\EditTenantSalesDeclaration;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\ListTenantSalesDeclarations;
@@ -30,12 +30,7 @@ class TenantSalesDeclarationResource extends Resource
 
     use GuardsAssetInScope;
     use RoleGatedActions;
-    use ScopesViaProperty;
-
-    protected static function tenantScopeRelation(): string
-    {
-        return 'lease.unit';
-    }
+    use ScopesToProperty;
 
     protected static function permissionModule(): string
     {
@@ -83,7 +78,7 @@ class TenantSalesDeclarationResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        // Respect the active Filament tenant (Asset). ScopesViaProperty's
+        // Respect the active Filament tenant (Asset). ScopesToProperty's
         // getEloquentQuery() applies the lease.unit.asset_id filter; the
         // ALL pseudo-asset bypasses scoping and returns the portfolio-wide
         // count of declarations awaiting admin review.

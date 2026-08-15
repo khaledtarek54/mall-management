@@ -55,12 +55,19 @@ class PaymentForm
                                 // Scope to tenants of the current property — a
                                 // property-restricted user must not allocate a
                                 // payment to another property's tenant/invoices.
+                                //
+                                // A unit OWNER holds no lease at all (module 37 — they bought the
+                                // unit and pay صيانة against an assessment invoice), so scoping on
+                                // leases alone made every owner unpickable here: their assessments
+                                // could be raised and shown, but never paid. The ownership branch is
+                                // kept exactly as narrow as the lease one — `orWhereDoesntHave('leases')`
+                                // would have cleared the symptom by exposing every unaffiliated tenant
+                                // in the portfolio, which is the isolation this callback exists for.
                                 $ids = TenantScope::visibleAssetIds();
 
-                                return $query->when($ids !== null, fn ($q) => $q->whereHas(
-                                    'leases.unit',
-                                    fn ($u) => $u->whereIn('asset_id', $ids),
-                                ));
+                                return $query->when($ids !== null, fn ($q) => $q->where(fn ($w) => $w
+                                    ->whereHas('leases.unit', fn ($u) => $u->whereIn('asset_id', $ids))
+                                    ->orWhereHas('unitOwnerships.unit', fn ($u) => $u->whereIn('asset_id', $ids))));
                             })
                             ->searchable(['name', 'legal_name', 'email', 'phone'])
                             ->preload()

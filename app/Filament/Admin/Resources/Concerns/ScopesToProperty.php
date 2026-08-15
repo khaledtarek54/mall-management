@@ -102,9 +102,13 @@ trait ScopesToProperty
      */
     protected static function propertyOwnership(): PropertyOwned
     {
-        $model = static::$model ?? null;
+        // getModel() rather than the $model property: Filament falls back to DERIVING the model
+        // from the resource's own class name when $model is not set, so reading the property
+        // directly would see null on a resource that legitimately relies on that fallback and then
+        // throw below — refusing to scope a resource that is perfectly well formed.
+        $model = static::getModel();
 
-        $found = $model === null ? [] : (new ReflectionClass($model))->getAttributes(PropertyOwned::class);
+        $found = $model === '' ? [] : (new ReflectionClass($model))->getAttributes(PropertyOwned::class);
 
         if ($found === []) {
             throw new RuntimeException(sprintf(

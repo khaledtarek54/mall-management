@@ -4,6 +4,9 @@ namespace App\Models\Concerns\Lease;
 
 use App\Models\Unit;
 use Carbon\CarbonImmutable;
+// For the `@param Builder|BelongsToMany` docblocks — unimported, `Builder` would resolve to
+// App\Models\Concerns\Lease\Builder, which does not exist.
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;

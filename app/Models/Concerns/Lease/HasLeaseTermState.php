@@ -3,7 +3,10 @@
 namespace App\Models\Concerns\Lease;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Carbon;
+// Imported for the `@param Builder` docblocks below: without it they resolve to
+// App\Models\Concerns\Lease\Builder, a class that does not exist — a type annotation naming
+// nothing, which is the namespace-rebinding trap in its harmless form.
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * **Where a lease is in its term: status, expiry, holdover, and whether it bills.**

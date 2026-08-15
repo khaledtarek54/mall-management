@@ -22,8 +22,8 @@ foreach (glob(__DIR__.'/admin/*.php') ?: [] as $partial) {
     $keys = require $partial;
 
     // A key defined in two partials would be silently resolved by load order, which is nobody's
-    // decision. Fail loudly instead — ADMIN_TRANSLATION_PARTIALS in the conformance test also gates
-    // this, but a developer running the app should not need the suite to find out.
+    // decision. Fail loudly instead. This runtime guard is the ONLY check on cross-partial
+    // collisions — TranslationKeyConformanceTest catches duplicates WITHIN one file, not across two.
     if ($clash = array_intersect_key($keys, $merged)) {
         throw new LogicException(sprintf(
             'Duplicate admin translation key(s) in %s: %s',

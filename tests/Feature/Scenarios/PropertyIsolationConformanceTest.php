@@ -442,6 +442,11 @@ it('F: pins which models treat a null asset_id as portfolio-level', function () 
     // Scoping a hybrid strictly HIDES real rows; scoping a strict model loosely SHOWS it rows
     // belonging to nobody. Neither throws.
     expect(PropertyIsolation::hybridModels())->toBe([
+        // Not a money model, and it joined the list on 2026-08-16 rather than being missed: it had
+        // declared STRICT ownership while `departments.asset_id` is nullable and DepartmentResource
+        // already scoped it as portfolio-wide. The declaration described neither the column nor the
+        // resource, so converting that resource on it would have hidden every operator-wide row.
+        App\Models\Department::class,
         App\Models\DepositTransaction::class,
         App\Models\Expense::class,
         App\Models\JournalEntry::class,

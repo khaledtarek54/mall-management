@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Resources\Leases;
 
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
-use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
@@ -25,13 +25,8 @@ class LeaseResource extends Resource
 {
     use GuardsAssetInScope;
     use RoleGatedActions;
-    use ScopesViaProperty;
+    use ScopesToProperty;
     use SearchesNormalizedText;
-
-    protected static function tenantScopeRelation(): string
-    {
-        return 'unit';
-    }
 
     protected static ?string $model = Lease::class;
 

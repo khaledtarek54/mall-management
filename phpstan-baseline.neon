@@ -898,7 +898,7 @@ parameters:
 			message: '#^Using nullsafe property access "\?\-\>asset_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
-			path: app/Models/Lease.php
+			path: app/Models/Concerns/Lease/ActsAsBillableAgreement.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'

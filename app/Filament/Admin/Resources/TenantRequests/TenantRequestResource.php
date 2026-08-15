@@ -7,7 +7,7 @@ use App\Filament\Admin\RelationManagers\TenantRequestCommentsRelationManager;
 use App\Filament\Admin\RelationManagers\StockConsumptionRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
-use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Admin\Resources\TenantRequests\Pages\EditTenantRequest;
 use App\Filament\Admin\Resources\TenantRequests\Pages\ListTenantRequests;
@@ -33,14 +33,7 @@ class TenantRequestResource extends Resource
     use RoleGatedActions {
         canEdit as protected roleGatedCanEdit;
     }
-    use ScopesViaProperty {
-        ScopesViaProperty::getEloquentQuery as scopedViaPropertyQuery;
-    }
-
-    protected static function tenantScopeRelation(): string
-    {
-        return 'unit';
-    }
+    use ScopesToProperty;
 
     protected static function permissionModule(): string
     {
@@ -91,7 +84,7 @@ class TenantRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        // Respect the active Filament tenant (Asset). ScopesViaProperty
+        // Respect the active Filament tenant (Asset). ScopesToProperty
         // applies the unit.asset_id filter; ALL pseudo-asset bypasses scope
         // and returns the portfolio-wide count.
         $count = static::getEloquentQuery()
@@ -149,7 +142,14 @@ class TenantRequestResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return AssignmentScope::apply(static::scopedViaPropertyQuery(), 'requests', 'assigned_to');
+        // No trait aliasing needed: ScopesToProperty exposes the scoping as a public primitive, so
+        // the property scope and the assignment scope simply compose. The old form had to alias the
+        // trait's getEloquentQuery() because that WAS its whole implementation.
+        return AssignmentScope::apply(
+            static::scopeToProperty(parent::getEloquentQuery()),
+            'requests',
+            'assigned_to',
+        );
     }
 
     public static function getPages(): array

@@ -84,10 +84,10 @@ class InvoiceResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        // Respect the active Filament tenant (Asset). ScopesViaProperty's
-        // getEloquentQuery() applies the lease.unit.asset_id filter; the
-        // "All Properties" pseudo-asset bypasses scoping and returns the
-        // portfolio-wide overdue count.
+        // Respect the active Filament tenant (Asset). ScopesToProperty's getEloquentQuery() filters
+        // on the invoice's OWN asset_id — which is what makes an owner assessment (lease_id NULL)
+        // count here at all; the old lease.unit chain silently excluded every one of them. The
+        // "All Properties" pseudo-asset bypasses scoping and returns the portfolio-wide count.
         $overdue = static::getEloquentQuery()
             ->where('balance', '>', 0)
             ->where('due_date', '<', now())

@@ -3,9 +3,11 @@
 > The buyer who bought a shop instead of renting one. A peer of the lease, not a variant of it —
 > and **not** the mall owner ([module 32](32-owner-statements.md)), who is the opposite money direction.
 >
-> **Status: phases 1, 2a and 2b SHIPPED (2026-08-15).** The register, the screen, and the monthly
-> صيانة run — an owner with no lease is now billed, ages, and posts to the ledger. Outstanding:
-> the agency fee and remittance (5), portal and
+> **Status: phases 0–4 and 6 SHIPPED (2026-08-16).** The register, the screen, the monthly صيانة run,
+> the owner's share of CAM, the owner letting his own unit, and the owner portal with its resale
+> certificate — an owner with no lease is billed, ages, posts to the ledger, and can now be paid.
+> Outstanding: the management fee, the cash-basis owner statement and remittance (phase 5), which are
+> blocked on two accounting answers rather than on code (§8).
 
 
 ## 1. Purpose & business context
@@ -267,12 +269,29 @@ not a redesign.
 
 ## 9. Everything else is done
 
-the management fee, cash-basis
-owner statement and remittance (5), 
+Phases 0–4 and 6 have shipped. What remains is the management fee, the cash-basis owner statement
+and remittance — phase 5, blocked on the two accounting answers in §8 above rather than on code.
 
 **~25 read sites still scope invoices through `lease.unit`** — reports, widgets, statement PDFs. They
 are correct for lease-raised invoices and will MISS owner invoices; migrating them is tracked in
 [plan 08 §5.2b](../plans/08-unit-owners.md).
+
+**Four of those sites were admin surfaces, and are now fixed** (2026-08-16). They are worth naming
+because they show the two shapes this bug takes — and they are opposite shapes, so a single habit of
+"add the ownership branch" would have got two of them wrong:
+
+| Surface | Was | Shape |
+|---|---|---|
+| `/admin/invoices`, `/admin/payments` | Scoped by chaining `lease.unit` / `invoices.lease.unit`, so an owner assessment (which has no `lease_id`) was **invisible** | Too NARROW — the owner's document did not exist on screen |
+| `PaymentForm`'s tenant picker | `whereHas('leases.unit')`, so a property-restricted user could not select an owner at all — his assessment could be raised and chased but **never paid** | Too NARROW — the AR had no way to clear |
+| `TenantResource`'s register | Admitted the owner only via `orWhereDoesntHave('leases')`, the branch meant for a tenant *just created* | Too WIDE — an owner is permanently unleased, so **every owner showed on every property's register** |
+
+The rule the fixes follow: **ownership is its own branch, matched to the property of the unit owned** —
+never a relaxation of the lease branch. `orWhereDoesntHave('leases')` looks like it fixes the picker
+and does: it also exposes every unaffiliated tenant in the portfolio on a restricted user's payment
+form, which is the isolation that callback exists to enforce. Pinned by
+`tests/Feature/Regression/OwnerCanBeHandedAPaymentTest.php`, which was verified by reverting each fix
+and watching the matching case fail.
 
 Also unchanged and still true: [module 32](32-owner-statements.md) apportions the whole property P&L
 to the mall owner, so it over-pays from the day a unit is genuinely sold. Phase 5.
@@ -282,7 +301,7 @@ sold unit can be occupied, let or empty, and collapsing them into one column wou
 `units.status` answer two questions badly. `Unit::isOwned()` answers the ownership one. (This departs
 from the plan's own phase-1 line, which listed a "sold" state.)
 
-## 9. Demo data
+## 10. Demo data
 
 `DemoSeeder` seeds **7 ownerships over 5 units** on Atriom Walk, with 42 assessments billed through
 `BillUnitOwnershipsService` — not inserted, per the seeder's own rule that demo data an operator
@@ -301,7 +320,7 @@ All four owner states appear, plus the two shapes that cannot be pictured from a
 `LearningSeeder` deliberately seeds **no** ownerships — it is the empty-mall variant, and its whole
 point is that an experiment's own numbers are the only numbers on screen.
 
-## 10. Tests
+## 11. Tests
 
 `tests/Feature/UnitOwnershipTest.php` — the party decision, the defaults, which layer refuses, the
 handover trigger, resale-as-tenure-end, the reference series, and the audit trail rendered in **both
@@ -310,3 +329,9 @@ languages** with no stored value or raw key leaking through.
 `tests/Feature/Resources/UnitOwnershipResourceTest.php` — property isolation through the real scoped
 query, the RBAC grants, the write guard (with an authorised control beside the refusal), and a sale
 recorded end-to-end through the create page.
+
+`tests/Feature/Regression/OwnerCanBeHandedAPaymentTest.php` — the two admin surfaces in §9: the owner
+is offered on the payment form of the property he owns in, he is on that property's register and not
+on another's, and a tenant affiliated with nowhere stays visible. It runs as a **property-restricted**
+user on purpose — `visibleAssetIds()` is null for a super_admin, so every case here would pass without
+asserting anything if it ran as one.
