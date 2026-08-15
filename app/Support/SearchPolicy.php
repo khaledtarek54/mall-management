@@ -154,6 +154,10 @@ class SearchPolicy
         Models\Asset::class,
         Models\Area::class,
         Models\UnitOwnership::class,
+        // Registered 2026-08-15. It carried the trait, the column and a searchable resource but was
+        // never listed here, so `atriom:rebuild-search` skipped it — see the completeness gate in
+        // SearchPolicyConformanceTest for why nothing caught that.
+        Models\RentableItem::class,
 
         // ---- Receivables ----
         Models\Invoice::class,

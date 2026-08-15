@@ -139,10 +139,51 @@ class Unit extends Model { … }
 **The registry classes keep their names and public method API**, so all 40 gates and every call site
 keep working. `DeletionPolicy::for()` still answers; only its backing store changes.
 
-Migrate in this order, one merge each, highest churn first:
-**`DeletionPolicy` (DONE — 548 → 240 LOC)** → `PropertyIsolation` (316) → `MorphMap` (308) →
-`SearchPolicy` (304) → `DerivedFields` (242) → `PostingDateGuards` (155) → `ChangeImpact` (596,
-per-column map — last, it's the most intricate).
+Status, one merge each:
+
+| Registry | Result |
+|---|---|
+| `DeletionPolicy` | **DONE** — 548 → 240 |
+| `PropertyIsolation` | **DONE** — 343 → 173 |
+| `PostingDateGuards` | **DONE** — 155 → 93 |
+| `SearchPolicy` | **deliberately NOT migrated** — see below (but a live bug it hid is fixed) |
+| `ChangeImpact` | to do — 596, per-COLUMN, the most intricate; last |
+| `MorphMap` | **deliberately NOT migrated** — see below |
+| `DerivedFields` | **deliberately NOT migrated** — see below |
+
+**`MorphMap` stays a central list, and this is a decision rather than a gap.** Two reasons, either
+sufficient. First, it is boot-critical: `AppServiceProvider::boot()` calls
+`Relation::enforceMorphMap(MorphMap::MAP)` on *every* request, job and command, and needs the map
+COMPLETE — so unlike the others there is no cold path, and deriving it would glob and autoload all
+101 models on every boot, including requests that touch no model. Second, an alias is **permanent
+data stored in years of rows**, not a policy that travels with the model: renaming one is a data
+migration, and `2026_08_15_170000_store_morph_aliases_instead_of_class_names` reads the map, so a
+historical migration would come to depend on live model files. A single reviewable list is the right
+shape for identifiers whose whole point is that they never change.
+
+**`DerivedFields` is not per-model at all.** It is keyed by Filament *form and importer* classes
+(`LeaseForm::class`, `LeaseImporter::class`) and its values are per-field metadata including a test
+path. There is no model to hang it on.
+
+**`SearchPolicy` splits three ways and none of them wants an attribute.** `PRIORITY` is an ORDERED
+list of resources — the order *is* the data, and the file's own docblock records that it exists
+precisely to stop "a magic integer scattered across 35 resource classes that nobody can order
+relative to each other without opening all 35". Distributing it would rebuild the problem it solved.
+`GLOBAL_SEARCH_EXEMPT` is keyed by resource, not model. And `INDEXED` needs no new declaration at
+all, because **a model already declares it is searchable by using `HasSearchText` and implementing
+`searchTextSources()`** — an attribute would be a third statement of the same fact.
+
+That last point surfaced a live bug rather than a refactor: `RentableItem` carried the trait, the
+`search_text` column and a resource that searches the blob, but was never listed in `INDEXED` — and
+`atriom:rebuild-search` iterates `INDEXED`. So the one command that re-folds blobs skipped it
+entirely: change the fold or its `searchTextSources()`, run the rebuild as the docs instruct, and
+every existing rentable item keeps its old blob while newly-saved rows get the new one. Fixed, and
+`SearchPolicyConformanceTest` gained the **completeness** direction nothing was asking — every other
+check there starts from `INDEXED` and validates what is in it, which passes happily while something
+is missing from it. Proven by deleting the fix and watching the new gate fail.
+
+**Only migrate a registry whose data is genuinely a per-model policy AND whose enumerating path is
+cold.** Moving the other two would have been motion rather than progress.
 
 **Two techniques from the pilot, both of which cost a wasted attempt to learn:**
 

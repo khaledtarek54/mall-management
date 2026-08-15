@@ -250,6 +250,46 @@ it('gives every registered model the trait and a non-empty source list', functio
     expect($broken)->toBe([], implode('; ', $broken));
 });
 
+it('registers every model that carries the blob', function () {
+    // THE COMPLETENESS DIRECTION, and the one nothing was asking. Every other check here starts
+    // from INDEXED and validates what is in it, or starts from a resource and checks its model has
+    // the trait. All of those pass while a model carries the trait, the column and a searchable
+    // resource yet never appears in INDEXED — which is exactly what `RentableItem` did.
+    //
+    // The cost is silent and delayed. `atriom:rebuild-search` iterates INDEXED, so an unregistered
+    // model is skipped by the ONE command that exists to re-fold blobs. Change the fold or a
+    // `searchTextSources()`, run the rebuild as the docs instruct, and every existing row of that
+    // model keeps its old blob forever while newly-saved rows get the new one — the search then
+    // answers differently for the same query depending on when a row was last touched, which is
+    // precisely the Arabic-spelling inconsistency the fold exists to remove.
+    $unregistered = [];
+
+    foreach (glob(app_path('Models/*.php')) as $file) {
+        $model = 'App\\Models\\'.basename($file, '.php');
+
+        if (! class_exists($model) || ! is_subclass_of($model, Illuminate\Database\Eloquent\Model::class)) {
+            continue;
+        }
+
+        if ((new ReflectionClass($model))->isAbstract()) {
+            continue;
+        }
+
+        if (searchPolicyUsesBlob($model) && ! in_array($model, SearchPolicy::INDEXED, true)) {
+            $unregistered[] = class_basename($model);
+        }
+    }
+
+    sort($unregistered);
+
+    expect($unregistered)->toBe([], implode('', [
+        'These models maintain a search_text blob but are not in SearchPolicy::INDEXED, so ',
+        'atriom:rebuild-search skips them and their blobs go stale on the next fold change: ',
+        implode(', ', $unregistered),
+        '. Register them, or drop the HasSearchText trait if they should not be searchable.',
+    ]));
+});
+
 it('keeps the blob out of every serialized payload', function () {
     // The blob concatenates a record's identifying fields. On Tenant that is name, legal name,
     // contact person, email and phone in one string — on a model the tenant-facing API returns.
