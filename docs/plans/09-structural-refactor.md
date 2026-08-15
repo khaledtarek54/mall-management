@@ -64,7 +64,14 @@ The worktree has no `vendor`, `node_modules`, or `.env`.
 - `composer install` — a **real install, never a symlink to the main tree's `vendor`**; symlinking
   makes every test die with "facade root has not been set".
 - Copy `.env` from the main tree.
-- Record the baseline: `vendor/bin/pest --parallel` green, and note the case count and wall time.
+- `npm install && npx vite build` — **required, and easy to skip.** Without `public/build/manifest.json`
+  every page-rendering test 500s on `ViteManifestNotFoundException`. That was 31 failures on the
+  first Phase 2a run, plus 2 more wearing a disguise: `TranslationKeyConformanceTest` failed with
+  *"0 is greater than 150"*, because it asserts its own sweep found something first and every
+  screen it swept had 500'd. `npx vite build` is enough — the full `npm run build` also rebuilds
+  the handbook, which no test reads.
+- Record the baseline: run `pest --parallel` and note the case count and wall time **before**
+  changing anything, so "pre-existing" is a measurement rather than an argument.
 
 Run one heavy process at a time — no stacking a suite and a seed.
 
@@ -239,6 +246,15 @@ Per phase, before merging to `main`:
 
 1. `vendor/bin/pest --parallel` — fully green, and the **case count must not drop** (a silently
    skipped file reads as a pass).
+
+   **Do not read the exit code — read the JSON `result` field.** The reporter configured here
+   exits **0 on a failing run**: Phase 2a's first run reported `exit code 0` with 34 failures and
+   1 error. Anything that trusts `$?` — a script, a hook, a habit — will call a red suite green.
+
+   When something does fail, prove whose it is before assuming it's yours: `git checkout -b tmp main`,
+   run just those tests, then switch back and delete the branch. Phase 2a's two survivors
+   (`DemoSeederTest` 39-vs-33, `FilterCorrectnessTest` on `UnitManagementMode`) reproduced exactly
+   at main's tip and were another session's, not the refactor's.
 2. The gates named in that phase, run individually so a failure names itself.
 3. `php artisan atriom:dump-registries`, `atriom:dump-system-census`, `atriom:dump-handbook-data`,
    `atriom:dump-admin-manifest` — regenerate and confirm no unexplained diff.
