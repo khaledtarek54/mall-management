@@ -114,7 +114,9 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'legal_name', 'type', 'status', 'email', 'phone'])
+            // `party_type` is logged because reclassifying a party is a consequential act: it decides
+            // which screens offer them, whether they can hold a lease, and what the portal shows.
+            ->logOnly(['name', 'legal_name', 'type', 'party_type', 'status', 'email', 'phone'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('tenant');

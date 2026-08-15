@@ -2581,6 +2581,7 @@ return [
     ],
 
     'fields' => [
+        'party_type' => 'Party type',
         'tenure_type' => 'Tenure',
         'management_mode' => 'Managed as',
         'assessment_basis' => 'Service-charge basis',

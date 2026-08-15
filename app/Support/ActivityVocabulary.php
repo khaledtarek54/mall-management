@@ -88,6 +88,10 @@ class ActivityVocabulary
         'post_dated_cheque.status' => 'admin.post_dated_cheques.statuses',
         'purchase_request.status' => 'admin.procurement.statuses',
         'rentable_item.status' => 'admin.enums.rentable_item_status',
+        // The ownership lifecycle. Its labels live with the enum they are cast from
+        // (`admin.enums.*`), not under `admin.statuses`, so the audit trail and the form read the
+        // SAME words rather than two catalogues that drift.
+        'unit_ownership.status' => 'admin.enums.unit_ownership_status',
         'user.status' => 'admin.users.statuses',
 
         // Everything else, keyed by the catalogue the FORM for that field reads from — checked
@@ -127,6 +131,17 @@ class ActivityVocabulary
         'marketing_spend.category' => 'admin.enums.marketing_spend_category',
         'marketing_spend.paid_from' => 'admin.enums.expense_paid_from',
         'note.channel' => 'admin.enums.note_channel',
+        // Every value-set column on a unit ownership, pointed at the SAME `admin.enums.*` group its
+        // backed enum labels from. Without these the audit trail renders the stored value verbatim —
+        // an Arabic reader would see `handed_over` and `operator_managed` in an otherwise Arabic
+        // diff, which is precisely what storing data and resolving words at read time exists to
+        // avoid. `tenure_type` matters most: تمليك and حق انتفاع are different legal instruments,
+        // and a diff that cannot name which one changed is a diff nobody can act on.
+        'tenant.party_type' => 'admin.enums.party_type',
+        'unit_ownership.assessment_basis' => 'admin.enums.assessment_basis',
+        'unit_ownership.fee_basis' => 'admin.enums.management_fee_basis',
+        'unit_ownership.management_mode' => 'admin.enums.unit_management_mode',
+        'unit_ownership.tenure_type' => 'admin.enums.unit_tenure_type',
         'owner_request.priority' => 'admin.owner_requests.priorities',
         'owner_request.recipient' => 'admin.enums.owner_request_recipient',
         'payment.method' => 'admin.enums.method',

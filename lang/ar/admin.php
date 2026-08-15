@@ -2570,6 +2570,7 @@ return [
     ],
 
     'fields' => [
+        'party_type' => 'نوع الطرف',
         'tenure_type' => 'نوع الملكية',
         'management_mode' => 'طريقة الإدارة',
         'assessment_basis' => 'أساس رسوم الصيانة',

@@ -9,6 +9,7 @@ use App\Enums\UnitTenureType;
 use App\Models\Tenant;
 use App\Models\UnitOwnership;
 use App\Support\ValueSets;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * The ownership register — phase 1 of plan 08.
@@ -126,6 +127,42 @@ it('refuses a tenure that ends before it starts', function () {
     // Equal is allowed — a sale that collapses on its own handover date stays recordable — and the
     // control proves the refusal is about the ordering, not the fixture.
     expect(makeOwnership(['started_at' => '2026-06-01', 'ended_at' => '2026-06-01'])->exists)->toBeTrue();
+});
+
+it('reads its audit trail in Arabic as well as English, with no stored value leaking through', function () {
+    // The activity log stores DATA and resolves every word at READ time — that is what lets ONE
+    // stored row read correctly in both languages. It only works if the vocabulary points somewhere:
+    // without a VALUE_VOCABULARY entry the diff renders the raw column value, so an Arabic reader
+    // sees `handed_over` and `operator_managed` sitting in an otherwise Arabic sentence.
+    $ownership = makeOwnership(['status' => UnitOwnershipStatus::Contracted->value]);
+
+    $ownership->update([
+        'status' => UnitOwnershipStatus::HandedOver->value,
+        'management_mode' => UnitManagementMode::OperatorManaged->value,
+        'tenure_type' => UnitTenureType::Usufruct->value,
+    ]);
+
+    $activity = Activity::query()->where('log_name', 'unit_ownership')->latest('id')->firstOrFail();
+
+    foreach (['en' => 'Handed over', 'ar' => 'تم التسليم'] as $locale => $expected) {
+        app()->setLocale($locale);
+        $rendered = renderActivityChanges($activity);
+
+        expect($rendered)->toContain($expected);
+
+        // The stored values must NOT survive into either rendering — their presence is the symptom
+        // of a missing vocabulary entry, and it looks identical to a working log in English.
+        expect($rendered)->not->toContain('handed_over')
+            ->and($rendered)->not->toContain('operator_managed')
+            ->and($rendered)->not->toContain('usufruct')
+            // ...and no untranslated key reached the screen either.
+            ->and($rendered)->not->toContain('admin.');
+    }
+
+    // The Arabic rendering must not be the English one arriving via Lang's fallback — the trap
+    // CLAUDE.md names, where a parity check passes because `Lang::has` falls back by default.
+    app()->setLocale('ar');
+    expect(renderActivityChanges($activity))->not->toContain('Handed over');
 });
 
 it('allocates a per-property reference series', function () {
