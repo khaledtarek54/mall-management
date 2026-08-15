@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\UtilityMeters;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\CreateUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\EditUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\ListUtilityMeters;
@@ -12,7 +12,6 @@ use App\Filament\Admin\Resources\UtilityMeters\Schemas\UtilityMeterForm;
 use App\Filament\Admin\Resources\UtilityMeters\Tables\UtilityMetersTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\UtilityMeter;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -29,9 +28,9 @@ class UtilityMeterResource extends Resource
     // clobbering the chosen mall (the "Announcements tenancy trap"). BypassesFilamentTenantAutoScope
     // turns that hook off; reads are scoped in getEloquentQuery() below and the submitted asset_id is
     // re-validated by assertAssetInScope() on create + edit.
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = UtilityMeter::class;
@@ -105,16 +104,7 @@ class UtilityMeterResource extends Resource
     /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['asset', 'unit']);
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // All-Properties mode: a restricted user still sees only their own malls.
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
+        return static::scopeToProperty(parent::getEloquentQuery()->with(['asset', 'unit']));
     }
     /**
      * Context under the title. A bare reference does not tell an operator whether the

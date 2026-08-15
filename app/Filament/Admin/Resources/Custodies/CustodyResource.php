@@ -2,8 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Custodies;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Custodies\Pages\CreateCustody;
 use App\Filament\Admin\Resources\Custodies\Pages\EditCustody;
 use App\Filament\Admin\Resources\Custodies\Pages\ListCustodies;
@@ -30,8 +30,8 @@ class CustodyResource extends Resource
     // panel tenant. With auto-tenancy on, Filament's `creating` hook overwrote it with the current
     // tenant — the ALL pseudo-asset in All-mode — clobbering the employee's mall. No asset_id form
     // field, so no create-guard is needed; reads are scoped in getEloquentQuery() below.
-    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = Custody::class;
@@ -95,17 +95,11 @@ class CustodyResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // Derived settled-to-date in one subquery — no per-row N+1.
-        $query = parent::getEloquentQuery()->withSum('transactions as settled_sum', 'amount');
-
-        // Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note).
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
+        // Derived settled-to-date in one subquery — no per-row N+1. The property scoping is the
+        // standard rule off Custody's own #[PropertyOwned], reused rather than restated.
+        return static::scopeToProperty(
+            parent::getEloquentQuery()->withSum('transactions as settled_sum', 'amount')
+        );
     }
 
     /**

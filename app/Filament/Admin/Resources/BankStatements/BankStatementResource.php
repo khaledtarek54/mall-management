@@ -8,10 +8,9 @@ use App\Filament\Admin\Resources\BankStatements\Pages\ListBankStatements;
 use App\Filament\Admin\Resources\BankStatements\RelationManagers\LinesRelationManager;
 use App\Filament\Admin\Resources\BankStatements\Schemas\BankStatementForm;
 use App\Filament\Admin\Resources\BankStatements\Tables\BankStatementsTable;
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Models\BankStatement;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -36,8 +35,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class BankStatementResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use ScopesToProperty;
 
     protected static ?string $model = BankStatement::class;
 
@@ -73,15 +72,9 @@ class BankStatementResource extends Resource
     /** Scoped through the account — a statement carries no asset_id of its own. */
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->whereHas('bankAccount', fn ($q) => $q->where('asset_id', $assetId));
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereHas('bankAccount', fn ($q) => $q->whereIn('asset_id', $ids));
-        }
-
-        return $query;
+        // The `bankAccount` hop is BankStatement's own #[PropertyOwned(via: 'bankAccount')] — the
+        // relation is named on the model, so this resource no longer states it a second time.
+        return static::scopeToProperty(parent::getEloquentQuery());
     }
 
     public static function form(Schema $schema): Schema

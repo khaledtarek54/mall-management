@@ -4,8 +4,8 @@ namespace App\Filament\Admin\Resources\FacilityWorkOrders;
 
 use App\Filament\Admin\RelationManagers\ServiceChecklistRelationManager;
 use App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager;
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\CreateFacilityWorkOrder;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\EditFacilityWorkOrder;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
@@ -34,11 +34,11 @@ class FacilityWorkOrderResource extends Resource
     // picks the mall, and that Select is enabled in All-Properties mode for a new order). Filament's
     // ownership `creating` hook would force asset_id to the current tenant — and in All-mode the
     // tenant is the ALL pseudo-asset, silently clobbering the chosen mall (the "Announcements tenancy
-    // trap"). BypassesFilamentTenantAutoScope turns that hook off; reads are scoped in
-    // getEloquentQuery() below (composed with AssignmentScope) and the submitted asset_id is
-    // re-validated by assertAssetInScope() on create + edit.
-    use BypassesFilamentTenantAutoScope;
+    // trap"). ScopesToProperty turns that hook off AND supplies the scoping rule from the model's
+    // own #[PropertyOwned], which getEloquentQuery() below composes with AssignmentScope; the
+    // submitted asset_id is re-validated by assertAssetInScope() on create + edit.
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = FacilityWorkOrder::class;
@@ -106,21 +106,15 @@ class FacilityWorkOrderResource extends Resource
         // Derived checklist progress (total + marked) in subqueries — no per-row N+1.
         // "Marked" counts pass *and* fail: progress measures the visit's completeness,
         // not its outcome (FR-PPM-07). Covered by mwoi_order_result_index.
-        $query = parent::getEloquentQuery()
-            ->withCount([
-                'items',
-                'items as marked_items_count' => fn ($q) => $q->marked(),
-                'items as failed_items_count' => fn ($q) => $q->failed(),
-            ]);
-
-        // Property scoping — Filament auto-tenancy is off (see the trait note above), so we apply the
-        // per-property constraint ourselves, exactly as BypassesScopingOnAll's global scope used to.
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // All-Properties mode: a restricted user still sees only their own malls.
-            $query->whereIn('asset_id', $ids);
-        }
+        // Property scoping is the standard rule off FacilityWorkOrder's own #[PropertyOwned].
+        $query = static::scopeToProperty(
+            parent::getEloquentQuery()
+                ->withCount([
+                    'items',
+                    'items as marked_items_count' => fn ($q) => $q->marked(),
+                    'items as failed_items_count' => fn ($q) => $q->failed(),
+                ])
+        );
 
         // FR-USR-04 — a technician sees only the jobs assigned to them. Here, in the query, so it
         // covers the record page too and cannot be cleared like a filter. Composes with the

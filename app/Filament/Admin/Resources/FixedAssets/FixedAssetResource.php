@@ -2,8 +2,8 @@
 
 namespace App\Filament\Admin\Resources\FixedAssets;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\FixedAssets\Pages\CreateFixedAsset;
 use App\Filament\Admin\Resources\FixedAssets\Pages\EditFixedAsset;
 use App\Filament\Admin\Resources\FixedAssets\Pages\ListFixedAssets;
@@ -32,11 +32,11 @@ class FixedAssetResource extends Resource
     // NOT Filament auto-tenancy: asset_id is CLIENT-supplied (the operator picks the mall, and that
     // Select is enabled in All-Properties mode). Filament's ownership `creating` hook would force
     // asset_id to the current tenant — and in All-mode the tenant is the ALL pseudo-asset, silently
-    // clobbering the chosen mall (the "Announcements tenancy trap"). BypassesFilamentTenantAutoScope
-    // turns that hook off; reads are scoped in getEloquentQuery() below and the submitted asset_id is
-    // re-validated by assertAssetInScope() on create + edit.
-    use BypassesFilamentTenantAutoScope;
+    // clobbering the chosen mall (the "Announcements tenancy trap"). ScopesToProperty turns that
+    // hook off AND supplies the scoping rule from the model's own #[PropertyOwned]; the submitted
+    // asset_id is re-validated by assertAssetInScope() on create + edit.
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = FixedAsset::class;
@@ -110,23 +110,16 @@ class FixedAssetResource extends Resource
         // balance-sheet schedule reports every imported asset at cost.
         // `FixedAssetOpeningBalanceTest` asserts the two expressions agree; that test is the only
         // thing keeping a second copy of a rule honest.
-        $query = parent::getEloquentQuery()
-            ->withSum('depreciationEntries as depreciation_charged', 'amount')
-            ->addSelect(['*', DB::raw(
-                'COALESCE(opening_accumulated_depreciation, 0) + COALESCE(('
-                .'SELECT SUM(amount) FROM depreciation_entries '
-                .'WHERE depreciation_entries.fixed_asset_id = fixed_assets.id'
-                .'), 0) AS accumulated'
-            )]);
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // All-Properties mode: a restricted user still sees only their own malls.
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
+        return static::scopeToProperty(
+            parent::getEloquentQuery()
+                ->withSum('depreciationEntries as depreciation_charged', 'amount')
+                ->addSelect(['*', DB::raw(
+                    'COALESCE(opening_accumulated_depreciation, 0) + COALESCE(('
+                    .'SELECT SUM(amount) FROM depreciation_entries '
+                    .'WHERE depreciation_entries.fixed_asset_id = fixed_assets.id'
+                    .'), 0) AS accumulated'
+                )])
+        );
     }
 
     /**
