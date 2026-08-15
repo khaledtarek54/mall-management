@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\UnitOwnerships;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\UnitOwnerships\Pages\CreateUnitOwnership;
 use App\Filament\Admin\Resources\UnitOwnerships\Pages\EditUnitOwnership;
 use App\Filament\Admin\Resources\UnitOwnerships\Pages\ListUnitOwnerships;
@@ -12,13 +12,11 @@ use App\Filament\Admin\Resources\UnitOwnerships\Schemas\UnitOwnershipForm;
 use App\Filament\Admin\Resources\UnitOwnerships\Tables\UnitOwnershipsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\UnitOwnership;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * The unit-ownership register (module 37) — مُلّاك الوحدات, the buyers who bought a shop instead of
@@ -34,10 +32,10 @@ class UnitOwnershipResource extends Resource
 {
     // asset_id is CLIENT-supplied (the operator picks the mall when not scoped to one), so Filament's
     // ownership `creating` hook must be off or it would clobber the chosen property. Reads are scoped
-    // in getEloquentQuery(); the submitted asset_id is re-validated by assertAssetInScope().
-    use BypassesFilamentTenantAutoScope;
+    // by ScopesToProperty from the model's own #[PropertyOwned]; the submitted asset_id is re-validated by assertAssetInScope().
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = UnitOwnership::class;
@@ -51,20 +49,6 @@ class UnitOwnershipResource extends Resource
     protected static function permissionModule(): string
     {
         return 'unit_ownerships';
-    }
-
-    /** Property-scope the list ourselves — Filament auto-tenancy is off (see the trait note above). */
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     public static function getNavigationLabel(): string

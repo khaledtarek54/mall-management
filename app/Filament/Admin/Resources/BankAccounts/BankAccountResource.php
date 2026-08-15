@@ -7,8 +7,8 @@ use App\Filament\Admin\Resources\BankAccounts\Pages\EditBankAccount;
 use App\Filament\Admin\Resources\BankAccounts\Pages\ListBankAccounts;
 use App\Filament\Admin\Resources\BankAccounts\Schemas\BankAccountForm;
 use App\Filament\Admin\Resources\BankAccounts\Tables\BankAccountsTable;
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\BankAccount;
 use App\Support\TenantScope;
@@ -17,7 +17,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * الحسابات البنكية — the bank accounts the operator actually holds (bank-reconciliation slice 1).
@@ -31,14 +30,14 @@ use Illuminate\Database\Eloquent\Builder;
  * it did before, so registering an account changes no balance and no entry. This is a register, and
  * on its own it is where the operator's banks stop being a posting-map row.
  *
- * Property-scoped like every property-owned module: reads filtered in `getEloquentQuery()`, the
+ * Property-scoped like every property-owned module: reads filtered by `ScopesToProperty` (from the model's own `#[PropertyOwned]`), the
  * client-supplied `asset_id` re-validated by `assertAssetInScope()` on create AND edit (Filament
  * stamps asset_id on create only, never on update).
  */
 class BankAccountResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = BankAccount::class;
@@ -72,21 +71,6 @@ class BankAccountResource extends Resource
     public static function getNavigationGroup(): ?string
     {
         return __('admin.groups.general_ledger');
-    }
-
-    /** Property-scope the list ourselves — Filament auto-tenancy is off (see the trait note). */
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // A restricted user still sees only their own malls — never fall back to unscoped.
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     /** @return array<int, string> */

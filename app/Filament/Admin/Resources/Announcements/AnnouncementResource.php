@@ -9,18 +9,16 @@ use App\Filament\Admin\Resources\Announcements\Pages\ViewAnnouncement;
 use App\Filament\Admin\Resources\Announcements\RelationManagers\RecipientsRelationManager;
 use App\Filament\Admin\Resources\Announcements\Schemas\AnnouncementForm;
 use App\Filament\Admin\Resources\Announcements\Tables\AnnouncementsTable;
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Announcement;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -46,15 +44,15 @@ use Illuminate\Support\Str;
  * which force-associates asset_id with the *current* panel tenant, and in
  * "All Properties" mode the tenant is the ALL pseudo-asset — it would silently
  * overwrite the chosen property and broadcast to nobody (no unit belongs to ALL).
- * BypassesFilamentTenantAutoScope turns that hook off; reads are scoped explicitly in
- * getEloquentQuery() and the submitted asset_id is re-validated by assertAssetInScope() on
+ * ScopesToProperty turns that hook off AND scopes reads from the model's own
+ * #[PropertyOwned] and the submitted asset_id is re-validated by assertAssetInScope() on
  * create AND on edit (Filament only stamps asset_id on create, never on update).
  */
 class AnnouncementResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = Announcement::class;
@@ -68,21 +66,6 @@ class AnnouncementResource extends Resource
     protected static function permissionModule(): string
     {
         return 'announcements';
-    }
-
-    /** Property-scope the list ourselves (Filament's auto-tenancy is off — see class docblock). */
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // All-Properties mode: a restricted user still only sees their own.
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     /**

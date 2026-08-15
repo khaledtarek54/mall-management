@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\MarketingPosts;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\MarketingPosts\Pages\CreateMarketingPost;
 use App\Filament\Admin\Resources\MarketingPosts\Pages\EditMarketingPost;
 use App\Filament\Admin\Resources\MarketingPosts\Pages\ListMarketingPosts;
@@ -12,13 +12,11 @@ use App\Filament\Admin\Resources\MarketingPosts\Schemas\MarketingPostForm;
 use App\Filament\Admin\Resources\MarketingPosts\Tables\MarketingPostsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\MarketingPost;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -34,15 +32,15 @@ use Illuminate\Support\Str;
  * Like {@see \App\Filament\Admin\Resources\Announcements\AnnouncementResource}, the target property
  * is CLIENT-SUPPLIED (the operator picks which mall a post runs in), so Filament's tenancy
  * ownership is deliberately off — its `creating` hook would force-associate `asset_id` with the
- * current panel tenant and silently move the post. Reads are scoped in `getEloquentQuery()`;
+ * current panel tenant and silently move the post. Reads are scoped by `ScopesToProperty`;
  * writes are re-validated by `assertAssetInScope()` on BOTH create and edit (Filament stamps
  * asset_id on create only, so an edit could otherwise relocate a post to another mall).
  */
 class MarketingPostResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = MarketingPost::class;
@@ -66,21 +64,6 @@ class MarketingPostResource extends Resource
     public static function canApprove(): bool
     {
         return static::hasPermission('approve');
-    }
-
-    /** Property-scope the list ourselves (Filament's auto-tenancy is off — see class docblock). */
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // All-Properties mode: a restricted user still only sees their own.
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     public static function getNavigationLabel(): string

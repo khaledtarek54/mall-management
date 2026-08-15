@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\PostDatedCheques;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\PostDatedCheques\Pages\CreatePostDatedCheque;
 use App\Filament\Admin\Resources\PostDatedCheques\Pages\EditPostDatedCheque;
 use App\Filament\Admin\Resources\PostDatedCheques\Pages\ListPostDatedCheques;
@@ -12,7 +12,6 @@ use App\Filament\Admin\Resources\PostDatedCheques\Schemas\PostDatedChequeForm;
 use App\Filament\Admin\Resources\PostDatedCheques\Tables\PostDatedChequesTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\PostDatedCheque;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -28,9 +27,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PostDatedChequeResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = PostDatedCheque::class;
@@ -92,19 +91,6 @@ class PostDatedChequeResource extends Resource
     public static function canClear(): bool
     {
         return auth()->user()?->can('payments.create') ?? false;
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     public static function form(Schema $schema): Schema

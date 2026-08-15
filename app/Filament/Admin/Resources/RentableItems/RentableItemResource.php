@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\RentableItems;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\RentableItems\Pages\CreateRentableItem;
 use App\Filament\Admin\Resources\RentableItems\Pages\EditRentableItem;
 use App\Filament\Admin\Resources\RentableItems\Pages\ListRentableItems;
@@ -13,13 +13,11 @@ use App\Filament\Admin\Resources\RentableItems\Schemas\RentableItemForm;
 use App\Filament\Admin\Resources\RentableItems\Tables\RentableItemsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\RentableItem;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Parking bays, storage and signage — let alongside a lease, but never lettable AREA.
@@ -32,9 +30,9 @@ class RentableItemResource extends Resource
 {
     // asset_id is client-supplied (the operator picks the mall), so Filament's ownership hook is
     // off and reads are scoped below — the Announcements tenancy trap.
-    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = RentableItem::class;
@@ -48,19 +46,6 @@ class RentableItemResource extends Resource
     protected static function permissionModule(): string
     {
         return 'rentable_items';
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     public static function getNavigationLabel(): string

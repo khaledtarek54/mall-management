@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\PurchaseRequests;
 
 use App\Filament\Admin\RelationManagers\PurchaseRequestLinesRelationManager;
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\PurchaseRequests\Pages\CreatePurchaseRequest;
 use App\Filament\Admin\Resources\PurchaseRequests\Pages\EditPurchaseRequest;
 use App\Filament\Admin\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
@@ -18,7 +18,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Procurement (module 29) — the request-to-purchase flow (FR-PROC-01..05).
@@ -29,11 +28,11 @@ class PurchaseRequestResource extends Resource
     // NOT Filament auto-tenancy: asset_id is CLIENT-supplied (the operator picks the mall, and that
     // Select is enabled in All-Properties mode). Filament's ownership `creating` hook would force
     // asset_id to the current tenant — and in All-mode the tenant is the ALL pseudo-asset, silently
-    // clobbering the chosen mall (the "Announcements tenancy trap"). BypassesFilamentTenantAutoScope
-    // turns that hook off; reads are scoped in getEloquentQuery() below and the submitted asset_id is
+    // clobbering the chosen mall (the "Announcements tenancy trap"). ScopesToProperty
+    // turns that hook off AND scopes reads from the model's own #[PropertyOwned]; the submitted asset_id is
     // re-validated by assertAssetInScope() on create + edit.
-    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = PurchaseRequest::class;
@@ -47,21 +46,6 @@ class PurchaseRequestResource extends Resource
     protected static function permissionModule(): string
     {
         return 'procurement';
-    }
-
-    /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // All-Properties mode: a restricted user still sees only their own malls.
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     public static function getNavigationLabel(): string

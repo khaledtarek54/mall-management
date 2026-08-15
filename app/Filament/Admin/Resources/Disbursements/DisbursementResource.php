@@ -2,18 +2,16 @@
 
 namespace App\Filament\Admin\Resources\Disbursements;
 
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Disbursements\Pages\ListDisbursements;
 use App\Filament\Admin\Resources\Disbursements\Tables\DisbursementsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Disbursement;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Owner disbursements (module 32) — the payout board. Approve, pay, or cancel the payouts
@@ -22,8 +20,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class DisbursementResource extends Resource
 {
-    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use ScopesToProperty;
     use SearchesNormalizedText;
 
     protected static ?string $model = Disbursement::class;
@@ -87,19 +85,6 @@ class DisbursementResource extends Resource
     public static function canCancel(): bool
     {
         return auth()->user()?->can('disbursements.cancel') ?? false;
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where('asset_id', $assetId);
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            $query->whereIn('asset_id', $ids);
-        }
-
-        return $query;
     }
 
     public static function table(Table $table): Table
