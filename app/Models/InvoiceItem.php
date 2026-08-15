@@ -97,7 +97,7 @@ class InvoiceItem extends Model
                 return;
             }
             $invoice = $item->invoice;
-            $assetId = $invoice?->lease?->unit?->asset_id;
+            $assetId = $invoice?->asset_id;
             $year = $invoice?->issue_date?->year;
             if ($assetId && $year) {
                 MarketingBudget::forPeriod($assetId, (int) $year)->recomputeAccrued();

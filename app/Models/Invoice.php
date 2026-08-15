@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
-use App\Support\DocumentNumbering;
+use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
-use App\Models\Concerns\GuardsPostingDate;
+use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
+use App\Settings\BillingSettings;
+use App\Support\DocumentNumbering;
+use App\Support\OpsLog;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -24,8 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Invoice extends Model
 {
-    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
-
+    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
@@ -64,6 +66,7 @@ class Invoice extends Model
 
     protected $fillable = [
         'number',
+        'asset_id',
         'lease_id',
         'tenant_id',
         'status',
@@ -107,6 +110,38 @@ class Invoice extends Model
         'is_opening_balance' => 'boolean',
         'eta_response' => 'array',
     ];
+
+    /**
+     * The property whose books this receivable belongs to — denormalized, never inferred.
+     *
+     * @return BelongsTo<Asset, $this>
+     */
+    public function asset(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class);
+    }
+
+    /**
+     * Work out this invoice's property from whatever raised it.
+     *
+     * `withTrashed()`, deliberately: a terminated lease's unit may be soft-deleted, and its invoices
+     * are still real receivables in a real mall. The Eloquent relation would scope exactly those
+     * rows out and hand back null — which is the invisibility this column exists to end.
+     */
+    protected function deriveAssetId(): ?int
+    {
+        if ($this->lease_id === null) {
+            return null;
+        }
+
+        // Use the loaded relation when there is one, so the billing run does not pay for a query per
+        // invoice on a path that already knows the answer.
+        $lease = $this->relationLoaded('lease') && $this->lease !== null
+            ? $this->lease
+            : Lease::withTrashed()->whereKey($this->lease_id)->first();
+
+        return $lease?->assetId();
+    }
 
     /** @return BelongsTo<Lease, $this> */
     public function lease(): BelongsTo
@@ -354,14 +389,14 @@ class Invoice extends Model
             if ($invoice->status !== 'issued' || round((float) $invoice->balance, 2) <= 0) {
                 return;
             }
-            if (! app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit) {
+            if (! app(BillingSettings::class)->auto_apply_tenant_credit) {
                 return;
             }
 
             static::$applyingCredit = true;
 
             try {
-                app(\App\Services\ApplyTenantCreditService::class)->applyToInvoice($invoice);
+                app(ApplyTenantCreditService::class)->applyToInvoice($invoice);
             } catch (\DomainException $e) {
                 // "This tenant has no credit to apply" is the ORDINARY case — most invoices have
                 // none — and a DomainException is a refusal, not a fault (bootstrap/app.php treats
@@ -370,7 +405,7 @@ class Invoice extends Model
             } catch (\Throwable $e) {
                 // Anything else IS worth hearing about, but must never cost the operator the
                 // invoice: the credit stays on account and can be applied by hand.
-                \App\Support\OpsLog::error('invoice.auto_apply_credit_failed', [
+                OpsLog::error('invoice.auto_apply_credit_failed', [
                     'invoice_id' => $invoice->id,
                     'error' => $e->getMessage(),
                 ]);
@@ -427,11 +462,32 @@ class Invoice extends Model
         });
 
         static::creating(function (self $invoice) {
+            // ── The invoice's own property, resolved once ─────────────────────────────────────
+            // Four things used to walk lease → unit → asset for this: isolation, the GL's asset
+            // dimension, the number prefix below, and the marketing-levy accrual. `lease_id` is
+            // becoming nullable (a unit OWNER has no lease), so the property is settled here, on the
+            // row, and every one of them reads the column instead. See the migration for why the
+            // column is nullable in the schema and never null in practice.
+            //
+            // `IssueInvoiceService` already passes it — the agreement knows its own property, so the
+            // billing path costs no query. This fills it for every other path: the Filament form,
+            // the factory, a fixture.
+            if ($invoice->asset_id === null) {
+                $invoice->asset_id = $invoice->deriveAssetId();
+            }
+
+            if ($invoice->asset_id === null) {
+                // Refused rather than defaulted. An invoice with no property is invisible to every
+                // property-scoped screen and posts to the GL with no dimension — it would read as
+                // "saved" and behave as though it did not exist.
+                throw new \DomainException(__('admin.errors.invoice_without_property'));
+            }
+
             // Always (re)generate at save time so we never persist a stale
             // form-cached number that could collide with another record. The
-            // prefix is the property's code (INV-AW-…), derived from the linked
-            // lease's unit; falls back to AW when no lease is attached.
-            $assetCode = $invoice->lease?->unit?->asset?->code ?: 'AW';
+            // prefix is the property's code (INV-AW-…), now read from the invoice's
+            // own asset rather than inferred through the lease.
+            $assetCode = $invoice->asset?->code ?: 'AW';
 
             // A migrated OPENING ITEM keeps the operator's own number.
             //
@@ -472,6 +528,14 @@ class Invoice extends Model
         //      this event anyway).
         // Defense-in-depth behind the form lock — closes the JS-tamper / API / tinker path.
         static::updating(function (self $invoice) {
+            // The property can never be CLEARED, on a draft or otherwise. The column is nullable at
+            // the schema level only because tightening it would mean `->change()` on `invoices`,
+            // which on SQLite silently drops the CHECK constraints guarding `status`/`eta_status`
+            // (see the migration). This is where that nullability is taken back.
+            if ($invoice->isDirty('asset_id') && $invoice->asset_id === null) {
+                throw new \DomainException(__('admin.errors.invoice_without_property'));
+            }
+
             // Captured CASH blocks a cancel — on EVERY path, not just VoidInvoiceService, and
             // in `updating` so the write is refused rather than merely reported.
             //
@@ -508,7 +572,10 @@ class Invoice extends Model
             // rewrites it", which was true of the code and not of the form: `InvoiceForm` renders it
             // `disabled()->dehydrated()`, and `disabled` is an HTML attribute while `dehydrated()`
             // is an explicit opt-IN to the submitted payload.
-            foreach (['issue_date', 'tenant_id', 'lease_id', 'number'] as $field) {
+            // `asset_id` joins the list: it IS the GL's property dimension now, so moving it on an
+            // issued invoice books the revenue into another mall's P&L and another owner's
+            // statement — the very thing `lease_id` was refused for before it stopped carrying it.
+            foreach (['issue_date', 'asset_id', 'tenant_id', 'lease_id', 'number'] as $field) {
                 if ($invoice->isDirty($field)) {
                     throw new \DomainException("A finalized invoice's {$field} is immutable — void and re-issue instead.");
                 }
@@ -549,7 +616,7 @@ class Invoice extends Model
                 // would stay spent on an invoice that no longer claims any AR — the tenant's
                 // refund permanently short by the amount, and Deposits Held holding a balance
                 // against a receivable that left the books.
-                foreach (\App\Models\DepositApplication::where('invoice_id', $invoice->id)->get() as $app) {
+                foreach (DepositApplication::where('invoice_id', $invoice->id)->get() as $app) {
                     $app->delete();
                 }
             }
@@ -690,7 +757,7 @@ class Invoice extends Model
             (float) $this->paid_amount
             - (float) $this->credit_applied_amount
             - (float) TenantCreditApplication::where('invoice_id', $this->id)->sum('amount')
-            - (float) \App\Models\DepositApplication::where('invoice_id', $this->id)->sum('amount'),
+            - (float) DepositApplication::where('invoice_id', $this->id)->sum('amount'),
             2,
         );
     }
@@ -700,5 +767,4 @@ class Invoice extends Model
     {
         return $this->status !== 'draft';
     }
-
 }

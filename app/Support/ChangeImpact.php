@@ -103,7 +103,8 @@ class ChangeImpact
             self::REFUSED => [
                 'issue_date' => 'it IS the entry date, so it decides which period recognises the revenue',
                 'tenant_id' => 'the AR dimension — re-pointing an issued invoice books the receivable against someone else',
-                'lease_id' => 'carries the property dimension of every line; re-pointing moves the revenue to another mall\'s books',
+                'asset_id' => 'THE property dimension of the GL entry (denormalized 2026-08-15). Re-pointing an issued invoice books its revenue into another mall\'s P&L and another owner\'s statement',
+                'lease_id' => 'the AR document\'s identity — which agreement raised it. It no longer carries the property (see asset_id above), but re-pointing an issued invoice still re-parents a live receivable',
             ],
             self::DERIVED => [
                 'status' => 'draft and cancelled have no GL effect, so a status move posts or reverses the whole entry',

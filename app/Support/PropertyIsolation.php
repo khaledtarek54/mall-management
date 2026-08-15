@@ -218,15 +218,18 @@ class PropertyIsolation
         // ---- Indirect (relation chain to asset_id) ----
         UnitArea::class => 'unit',             // a unit's measurement history — reached through its unit, never portfolio-wide
         Lease::class => 'unit',
-        Invoice::class => 'lease.unit',
-        InvoiceItem::class => 'invoice.lease.unit',
+        // Denormalized asset_id (like Disbursement / OwnerStatement). It USED to walk
+        // `lease.unit`, which was only safe while `lease_id` was NOT NULL — a unit owner has no
+        // lease, and an invoice that cannot name its property is invisible to every scoped query.
+        Invoice::class => null,
+        InvoiceItem::class => 'invoice',            // its invoice now carries the property itself
         Charge::class => 'lease.unit',
         LeaseCamTerm::class => 'lease.unit',
         LeaseOption::class => 'lease.unit',
         LeasePercentageRentTier::class => 'lease.unit',
         LeaseEvent::class => 'lease.unit',
         InvoiceWriteOff::class => 'asset',
-        Payment::class => 'invoices.lease.unit',
+        Payment::class => 'invoices',               // ditto, one hop shorter than it used to be
         CreditNote::class => 'lease.unit',
         CreditNoteItem::class => 'creditNote.lease.unit',
         CreditNoteApplication::class => 'creditNote.lease.unit', // one application of a note; asset = the note's (invoice's) property; service-created, no Filament resource

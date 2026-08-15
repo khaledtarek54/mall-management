@@ -244,6 +244,34 @@ assessment work. Sequenced as **Phase 2a**, before anything writes `unit_ownersh
 treat the lease as the route to the property. Relaxing a NOT NULL is never only a schema change — it
 is a change to every inference that column licensed.*
 
+#### 2a outcome (2026-08-15) — and what deliberately stayed behind
+
+`invoices.asset_id` shipped, backfilled, with the four inference points repointed at it and the
+isolation registry shortened (`Invoice` → direct, `InvoiceItem` → `invoice`, `Payment` → `invoices`).
+
+**It confirmed the pattern rather than invented it: 8 of 10 money records already carried their own
+`asset_id`** — deposits, cheques, disbursements, owner statements, journal entries, expenses, vendor
+bills, write-offs. Invoice, Payment and CreditNote were the three that still inferred. Invoice is now
+the fourth to carry it.
+
+**It also fixed a live bug that predates unit owners entirely.** `units.asset_id` is editable, so a
+unit can be re-homed to another mall — and while an invoice inferred its property through
+`lease → unit → asset`, re-homing silently re-parented *every invoice that unit ever raised* (issued,
+paid, GL-posted) into the new mall's reports and owner statement. The journal entry never moved with
+them, because `journal_entries.asset_id` has always been its own column. Sub-ledger and ledger would
+have disagreed, in opposite directions, with nothing raising a hand. Pinned by
+`InvoiceCarriesItsOwnPropertyTest`.
+
+**~25 READ sites still scope invoices through `lease.unit`** — `ReportService` (×5), `VatReturnService`
+(×2), five widgets, the tenant/asset statement PDFs, `BooksReconciliationService`, and several form
+pickers. They are **correct today and stay correct for every lease-raised invoice**, which is exactly
+why they were not swept now: both forms return the identical answer until an owner invoice exists, so
+the change could not be tested and a refactor that cannot be told right from wrong is one to defer.
+They are migrated in **2b**, against a real owner invoice that makes the difference observable.
+
+Regenerate the list with:
+`grep -rn "lease\.unit" app/ | grep -i invoice`
+
 ### 5.3 Invoicing an owner
 
 `invoices.lease_id` becomes nullable; a nullable `unit_ownership_id` is added; exactly one is set.

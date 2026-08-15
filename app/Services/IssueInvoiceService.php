@@ -78,6 +78,10 @@ class IssueInvoiceService
         $total = round($subtotal + $vatAmount, 2);
 
         $invoice = Invoice::create($agreement->invoiceLinkAttributes() + [
+            // The property, from the agreement that knows it — so the billing run never pays for the
+            // lookup `Invoice::creating` would otherwise do, and an ownership (which has no lease to
+            // infer through) answers for itself.
+            'asset_id' => $agreement->assetId(),
             'tenant_id' => $tenantId ?? $agreement->billingTenantId(),
             'status' => $status,
             'issue_date' => $issueDate,

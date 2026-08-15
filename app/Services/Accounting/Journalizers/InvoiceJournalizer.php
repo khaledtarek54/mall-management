@@ -4,8 +4,10 @@ namespace App\Services\Accounting\Journalizers;
 
 use App\Models\ChargeCode;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Issue invoice (إصدار فاتورة):
@@ -96,12 +98,12 @@ class InvoiceJournalizer implements Journalizer
             return null;
         }
 
-        $invoice->loadMissing('items', 'lease.unit');
-        $assetId = $invoice->lease?->unit?->asset_id;
+        $invoice->loadMissing('items');
+        $assetId = $invoice->asset_id;
 
         $revenueByRole = [];
         $vat = 0.0;
-        /** @var \App\Models\InvoiceItem $item */
+        /** @var InvoiceItem $item */
         foreach ($invoice->items as $item) {
             // The catalogue first (`charge_codes`, which an accountant maintains), then the
             // hard-coded map as a floor, then misc_income. The middle step is not redundant: a
@@ -126,7 +128,7 @@ class InvoiceJournalizer implements Journalizer
             // The entry will still balance + tie out, so flag it loudly rather than
             // letting a misclassification hide behind a green tie-out.
             if ($invoice->items->isNotEmpty()) {
-                \Illuminate\Support\Facades\Log::warning(
+                Log::warning(
                     "InvoiceJournalizer: invoice {$invoice->number} has items but no positive revenue; "
                     .'classifying the subtotal as misc_income — check the line items.'
                 );

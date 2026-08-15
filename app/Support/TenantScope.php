@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Single source of truth for "which property are we filtering to?"
@@ -43,19 +44,20 @@ class TenantScope
      * property — passes through unchanged when "All Properties" is
      * active or no tenant is set.
      *
-     *   $invoices = TenantScope::applyTo(Invoice::query(), 'lease.unit');
+     *   $invoices = TenantScope::applyTo(Invoice::query());   // invoices carry their own asset_id
      *
      * Pass `null` (or omit) for `$relation` when the model itself has
      * `asset_id` directly (Unit, UtilityMeter, CamExpensePool).
      *
      * @template TModel of \Illuminate\Database\Eloquent\Model
-     * @param  \Illuminate\Database\Eloquent\Builder<TModel>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<TModel>
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public static function applyTo(
-        \Illuminate\Database\Eloquent\Builder $query,
+        Builder $query,
         ?string $relation = null,
-    ): \Illuminate\Database\Eloquent\Builder {
+    ): Builder {
         $assetId = self::currentAssetId();
         if ($assetId !== null) {
             return $relation === null
