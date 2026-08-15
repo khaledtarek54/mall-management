@@ -1,21 +1,34 @@
 # Mobile ↔ Backend sync audit — 2026-08-15
 
-> ## Status: backend half SHIPPED on `feat/mobile-api-sync`
+> ## Status (2026-08-16): both halves shipped. Backend on `main`; app in PR #98.
 >
-> Everything marked **✅ done (backend)** below is implemented, tested and in the spec. Three
-> findings were **corrected while implementing** — read these before acting on the sections:
+> **Every P0 and P1 in this document is closed.** What remains is listed at the bottom of §K and
+> is either a product decision or a feature build, not a contract gap.
 >
-> 1. **§A2 — `ReceiptPdfService` already existed** (the admin table and the portal both call it).
->    The endpoint was a controller + route, not a new service. Done.
+> | | Then | Now |
+> |---|---|---|
+> | mobile calls hitting a missing route | 8 | **0** |
+> | pushes that deep-link nowhere | 2 of 13 | **0** |
+> | lists where page 2 was unreachable | 8 of 8 | **0** |
+> | `openapi.json` paths (backend / app copy) | 50 / 35 | **51 / 51, byte-identical** |
+>
+> Three findings in this document were **corrected while implementing** — read these before acting
+> on the sections:
+>
+> 1. **§A2 — `ReceiptPdfService` already existed** (admin + portal both call it). The endpoint was
+>    a controller, not a new service.
 > 2. **§G3 — `ApiSpecContractTest` already existed** and enforces route→spec completeness, and it
->    is green. So the backend's `openapi.json` was never stale; **only the mobile repo's copy is a
->    fork.** The recommended new gate was already there.
+>    was green. The backend spec was never stale; **only the app's copy had forked.**
 > 3. **§E1 — the root cause was the CONTRACT DOC, not the app guessing.** `MOBILE-API.md` §4.9
->    itself documented the push deep-link keys as `invoiceId, maintenanceId, declarationId`.
->    `maintenanceId` was never emitted by anything. **The app implemented the written contract
->    faithfully and the contract was wrong** — which upgrades this from "the client should not
->    infer" to "the backend published a key it did not send". Both halves are now fixed: the doc,
->    and a real `link` object so nothing has to read ids out of the payload at all.
+>    documented the push key as `maintenanceId`. Nothing has ever emitted it. The app implemented
+>    the written contract faithfully and the contract was wrong. Both halves are fixed.
+>
+> **Also fixed, and not in the original audit** — each found by reading rather than by a failure:
+> a `draft` credit note was being served to tenants; the permit screen printed "Approved on" over a
+> refusal; the generic request list painted a refusal green; the mall's validity window was hidden
+> by the tenant's own description-parse guard; `decided_by` could be filled from the wrong auth
+> guard.
+
 
 > **What this is.** A field-by-field, route-by-route comparison of the Atriom backend's
 > `/api/v1` surface against the Jawad mobile app as it stands **with PR #94 (`feat/mall-news`)
@@ -120,32 +133,32 @@ endpoint is safe by construction, and a tenant who lost a phone has no other rev
 Not all are defects — three are genuinely redundant. The rest are **shipped capability the
 tenant cannot reach**.
 
-### B1 · Whole feature missing from the app: retailer marketing posts (module 36) ⛔ P1
+### B1 · Retailer marketing posts — **NOT a defect. Corrected 2026-08-16.** ✅
 
-Eight endpoints, zero mobile coverage:
+This was filed as a P1 on the reasoning that *"a retailer receives a push about a post they have no
+screen to open"*. **That premise was wrong**, and acting on it would have meant building a
+duplicate of a feature that already works.
+
+The **tenant portal has the full surface** — `app/Filament/Portal/Resources/MarketingPosts/`, with
+list, create and edit pages, gated on `Modules::enabled('marketing_posts')` and `Portal::isAdmin()`.
+A retailer composes and submits there. The mobile push then tells them the outcome, and its body
+carries what they need to act:
 
 ```
-GET    /me/feed                          — what's on at the malls you trade in
-GET    /me/marketing-posts               — your posts, ?status= filter
-POST   /me/marketing-posts               — create a draft (multipart: hero, gallery[])
-GET    /me/marketing-posts/{id}
-POST   /me/marketing-posts/{id}          — update (POST not PATCH — multipart)
-POST   /me/marketing-posts/{id}/submit   — → pending
-POST   /me/marketing-posts/{id}/withdraw — → draft
-DELETE /me/marketing-posts/{id}          — bin a draft
+"Your offer needs changes"
+'":title" was not approved. Reason: :reason'
 ```
 
-A retailer can compose an offer/event/news card and send it to the mall for review. The backend
-built the whole workflow — `MarketingPostResource` carries `isEditable`, `isAwaitingReview`,
-**`reviewNotes`** (why the mall returned it), `viewCount`, `clickCount`. `MarketingPostReviewedNotification`
-already fires `['database', 'push']` when the mall approves or rejects — **so a retailer receives
-a push about a post they have no screen to open.**
+So the flow is complete: compose in the portal, get told on the phone, fix it in the portal. The
+push has no deep link because the app has no such screen — which is correct, not a dead end.
 
-The app's `notificationCategoryFrom()` collapses `MarketingPostReviewedNotification` to
-`NotificationCategory.other` (no keyword match) → no deep link → the push is a dead end.
+**Building the mobile surface is a feature request, not a sync fix**, and should be judged on
+whether retailers want to compose offers from a phone. The eight `/me/marketing-posts` endpoints
+exist for whenever that is wanted.
 
-**Note the module gate:** these routes sit behind `EnsureMarketingPostsEnabled`, so they 404 when
-`marketing_posts` is off. The app must treat a 404 on this surface as "feature off", not as an error.
+*(This is the fourth premise in this document that turned out to be false on inspection — see the
+status block at the top. The pattern is consistent: an "X is missing" finding is usually a
+mechanism living in a layer the audit did not look at.)*
 
 ### B2 · Endpoints for shipped app features 🔶 P1/P2
 
@@ -629,7 +642,7 @@ distinction, not collapse it.**
 | 9 | **mobile** | Route request attachments through authenticated Dio as bytes (copy the sales pattern) | B2 | ⬜ |
 | 10 | **mobile** | `creditStatusFrom` → fail open to `issued` | D4 | ⬜ |
 | 11 | **mobile** | Consume `unreadAnnouncements`; send `?unread=1` | D6, D7 | ⬜ |
-| 12 | **mobile** | Build the retailer marketing-post surface, **or** suppress `MarketingPostReviewedNotification` push until there is a screen — a push to nowhere is worse than no push | B1 | ⬜ |
+| 12 | — | ~~Retailer marketing-post surface~~ — **withdrawn**: the portal already has it, so the push is a notification about work done there, not a dead end | B1 | ✅ n/a |
 
 ### P2 — next cycle
 | | Owner | Item | Ref | Status |
