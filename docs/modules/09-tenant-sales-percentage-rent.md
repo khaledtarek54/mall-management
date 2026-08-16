@@ -2,6 +2,41 @@
 
 > Tenants on percentage-rent leases submit periodic sales declarations by **uploading their sales report file**; the operator reviews the file, enters the sales figure, and locks the declaration — which **bills the percentage-rent overage immediately as its own invoice**.
 
+> **⚠️ A SHORT percentage-rent year now gets a SHORT breakpoint (2026-08-16).**
+> An annual breakpoint is a whole year's figure. Applied unchanged to a year the lease only traded
+> part of, it is unreachable: a lease commencing 1 October carried a 12,000,000 breakpoint against
+> **three months** of trading, owed no percentage rent at all in its first year, and the clock then
+> reset on 1 January. A straight under-bill of the landlord's share, and a silent one — the tenant
+> never crosses a line nobody is looking at.
+>
+> **Decided against the market rule, not invented:** the standard treatment of a short percentage-rent
+> year is to pro-rate the sales breakpoint, and the **natural** breakpoint proves it must be — it is
+> *defined* as annual base rent ÷ rate, so a tenant occupying three months, who pays three months of
+> base rent, reaches it on a quarter of the sales.
+>
+> Applied by **annualising the sales** rather than scaling each breakpoint —
+> `overage_short(S) = f × overage(S ÷ f)` — which is identical arithmetic for artificial and natural
+> and is the only form that also works for a **tiered** ladder, which has no single breakpoint to
+> scale. One rule at the existing `overage()` choke point, so the cumulative-marginal arithmetic and
+> `retrueAnnualYear()` are untouched. `explain()` reports the pro-rated figure, because a screen
+> showing 12,000,000 beside a charge computed against 3,000,000 is how a correct invoice comes to look
+> like a mistake — and how a wrong one escapes notice.
+>
+> **Two deviations stated plainly.** Pro-rated by whole **months**, not days (the commoner legal
+> wording): sales are declared per month, so a lease commencing on the 20th still files a full October
+> declaration, and a day-share breakpoint would measure one grain against another. And the year stays
+> the **calendar** year — whether a clause runs the percentage-rent year from the lease anniversary is
+> a contract question needing a per-lease setting, and with proration the two readings now agree
+> everywhere except the boundary month. Pinned by `PercentageRentShortYearTest`.
+>
+> **STILL OPEN — billing frequency is not the same thing as calculation basis.** Yardi carries three
+> separate settings (`docs/benchmarks/yardi/03`): *reporting* frequency (when the tenant declares),
+> *billing* frequency (when overage is charged — monthly, quarterly, or **annually in arrears**), and
+> the *calculation basis* (period vs cumulative). Atriom's `percentage_rent_frequency` is the basis
+> only, and billing is implicitly "on lock", i.e. monthly. A lease reading *"percentage rent payable
+> quarterly in arrears"* cannot be expressed. The benchmark calls this out in bold: *a system that
+> assumes they are the same cannot express the most common retail deal.*
+
 > **File-first submission (2026-07):** Tenants no longer type a sales figure. On both the mobile app and the web portal they **attach their sales report** (image/PDF). `declared_sales` is nullable and is **entered by staff** in the admin panel after reviewing the attachment, then Lock bills the percentage rent. The report file lives in the Spatie `sales_report` media collection on a **private** disk (it can carry commercial turnover figures) and is streamed only through authenticated, tenant-scoped endpoints.
 
 ## 1. Purpose & business context

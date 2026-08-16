@@ -11,6 +11,7 @@ use App\Models\TenantSalesDeclaration;
 use App\Models\User;
 use App\Notifications\SalesDeclarationLockedNotification;
 use App\Support\Vat;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +46,9 @@ class PercentageRentCalculationService
             $prior = $this->priorLockedSalesYtd($declaration);
             $withThis = $prior + (float) $declaration->declared_sales;
 
-            $gross = round(max(0.0, $this->overage($lease, $withThis)) - max(0.0, $this->overage($lease, $prior)), 2);
+            $year = Carbon::parse($declaration->period_start)->year;
+
+            $gross = round(max(0.0, $this->overage($lease, $withThis, $year)) - max(0.0, $this->overage($lease, $prior, $year)), 2);
 
             return $this->netOfDeductions($declaration, $gross);
         }
@@ -137,6 +140,13 @@ class PercentageRentCalculationService
             ? ($rate > 0 ? round(((float) $lease->base_rent_monthly * ($annual ? 12 : 1)) / ($rate / 100.0), 2) : 0.0)
             : (float) ($lease->percentage_rent_threshold ?? 0);
 
+        // A SHORT year gets a short breakpoint, and the explanation must show the one the
+        // calculation used. Displaying the full-year figure beside a charge computed against a
+        // quarter of it is how a correct invoice comes to look like a mistake — and how a wrong one
+        // escapes notice.
+        $yearFactor = $annual ? $this->yearFactor($lease, Carbon::parse($declaration->period_start)->year) : 1.0;
+        $breakpoint = round($breakpoint * $yearFactor, 2);
+
         $base = [
             'applicable' => true,
             'frequency' => $annual ? 'annual' : 'monthly',
@@ -146,6 +156,8 @@ class PercentageRentCalculationService
             'declared_sales' => (float) $declaration->declared_sales,
             'this_period_share' => (float) $declaration->calculated_percentage_rent,
             'is_estimate' => $declaration->status !== 'locked',
+            // < 1.0 on a lease that traded only part of this calendar year.
+            'year_factor' => $yearFactor,
         ];
 
         if (! $annual) {
@@ -158,7 +170,7 @@ class PercentageRentCalculationService
         return $base + [
             'prior_ytd_sales' => $prior,
             'cumulative_ytd_sales' => $cumulative,
-            'ytd_overage' => round(max(0.0, $this->overage($lease, $cumulative)), 2),
+            'ytd_overage' => round(max(0.0, $this->overage($lease, $cumulative, Carbon::parse($declaration->period_start)->year)), 2),
         ];
     }
 
@@ -194,10 +206,48 @@ class PercentageRentCalculationService
      * Artificial: (sales − breakpoint) × rate. Natural: sales × rate − base rent (× 12 for an annual
      * lease, whose breakpoint is the ANNUAL base rent).
      */
-    private function overage(Lease $lease, float $sales): float
+    private function overage(Lease $lease, float $sales, ?int $year = null): float
     {
-        $rate = (float) $lease->percentage_rent_rate / 100.0;
         $annual = ($lease->percentage_rent_frequency ?? 'monthly') === 'annual';
+
+        // ── A SHORT percentage-rent year gets a SHORT breakpoint (2026-08-16) ──────────────────
+        //
+        // An annual breakpoint is a whole year's figure. Applied unchanged to a year the lease only
+        // traded part of, it is unreachable: a lease commencing 1 October carried a 12,000,000
+        // breakpoint against three months of trading, so it owed no percentage rent at all in its
+        // first year and the clock then reset on 1 January. That is a straight under-bill of the
+        // landlord's share, and it is silent — the tenant simply never crosses a line nobody looks at.
+        //
+        // The market rule is to pro-rate the breakpoint for the short year, and the natural
+        // breakpoint proves why it must be: it is DEFINED as annual base rent ÷ rate, and a tenant
+        // who occupies three months pays three months of base rent, so the sales at which the
+        // percentage would have covered that rent are a quarter as many.
+        //
+        // **Applied by annualising the sales rather than scaling each breakpoint**, which is the
+        // same arithmetic and survives every calculation type:
+        //
+        //     overage_short(S) = f × overage(S ÷ f)
+        //
+        //   artificial:  f × ((S/f) − T)·r          = (S − f·T)·r      ← threshold scaled
+        //   natural:     f × ((S/f)·r − 12·B)       = S·r − f·12·B     ← annual base rent scaled
+        //   tiered:      every band boundary scales with f, whatever the ladder's shape
+        //
+        // A tiered ladder cannot be pro-rated by scaling "the breakpoint" — there isn't one — so
+        // doing it at the sales end is what keeps the three types on one rule instead of three.
+        //
+        // MONTHLY leases are untouched: their breakpoint is already a monthly figure applied fresh
+        // to a month's actual sales, so there is no year to be short of.
+        $factor = ($annual && $year !== null) ? $this->yearFactor($lease, $year) : 1.0;
+
+        if ($factor <= 0.0) {
+            return 0.0;   // the lease was not in force at all that year
+        }
+
+        if ($factor < 1.0) {
+            return round($factor * $this->overage($lease, $sales / $factor), 2);
+        }
+
+        $rate = (float) $lease->percentage_rent_rate / 100.0;
         $type = $lease->percentage_rent_calculation_type ?? 'artificial';
 
         // TIERED: a breakpoint ladder, where each band charges only the sales within it. Inserted
@@ -216,6 +266,47 @@ class PercentageRentCalculationService
         }
 
         return ($sales - (float) ($lease->percentage_rent_threshold ?? 0)) * $rate;
+    }
+
+    /**
+     * How much of a calendar year this lease was actually in force — 1.0 for a full year, 0.25 for
+     * an October commencement, 0.0 for a year it never touched.
+     *
+     * **Counted in whole MONTHS, not days**, and that is a deliberate deviation from the commonest
+     * legal wording (which pro-rates by days). Sales are declared per month: a lease commencing on
+     * the 20th of October still files an October declaration covering that month, so the year holds
+     * three months of reported sales and a day-share breakpoint would be measuring one thing against
+     * the other. The grain of the breakpoint should match the grain of the sales it is compared to.
+     *
+     * The year is the CALENDAR year, matching `priorLockedSalesYtd()` and `retrueAnnualYear()`. That
+     * is a separate contract question — some clauses run the percentage-rent year from the lease
+     * anniversary — and it needs a per-lease setting rather than an assumption; recorded in module 09.
+     * With proration in place, the two readings agree everywhere except the boundary month itself.
+     */
+    private function yearFactor(Lease $lease, int $year): float
+    {
+        if (blank($lease->commencement_date)) {
+            return 1.0;
+        }
+
+        $yearStart = CarbonImmutable::create($year, 1, 1);
+        $yearEnd = $yearStart->endOfYear();
+
+        $from = CarbonImmutable::instance($lease->commencement_date)->startOfMonth();
+        $from = $from->greaterThan($yearStart) ? $from : $yearStart;
+
+        $to = filled($lease->expiry_date)
+            ? CarbonImmutable::instance($lease->expiry_date)->endOfMonth()
+            : $yearEnd;
+        $to = $to->lessThan($yearEnd) ? $to : $yearEnd;
+
+        if ($to->lessThan($from)) {
+            return 0.0;
+        }
+
+        $months = ($to->year - $from->year) * 12 + ($to->month - $from->month) + 1;
+
+        return min(1.0, max(0.0, $months / 12));
     }
 
     /**
@@ -278,7 +369,7 @@ class PercentageRentCalculationService
         $runningPrior = 0.0;
         foreach ($locked as $decl) {
             $withThis = $runningPrior + (float) $decl->declared_sales;
-            $marginalGross = round(max(0.0, $this->overage($lease, $withThis)) - max(0.0, $this->overage($lease, $runningPrior)), 2);
+            $marginalGross = round(max(0.0, $this->overage($lease, $withThis, $year)) - max(0.0, $this->overage($lease, $runningPrior, $year)), 2);
 
             // The cumulative stays GROSS — `$runningPrior` is SALES, and the marginal arithmetic
             // must not be perturbed by a clause about what the tenant already paid (see
