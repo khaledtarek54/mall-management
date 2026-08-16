@@ -82,7 +82,7 @@ it('still admits an operator to the admin panel — the paired control', functio
 });
 
 it('fails the health check when the mobile reset link points at a route that does not exist', function () {
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('app.url', 'https://atriom.example');
     config()->set('app.mobile_reset_url', 'https://atriom.example/reset-password');
 
@@ -93,7 +93,7 @@ it('fails the health check when the mobile reset link points at a route that doe
 });
 
 it('passes the health check once a real mobile reset target is configured', function () {
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('app.url', 'https://atriom.example');
     config()->set('app.mobile_reset_url', 'atriom://reset-password');
 

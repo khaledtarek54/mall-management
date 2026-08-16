@@ -137,7 +137,7 @@ it('does not quietly ship a production deploy with no second factor', function (
     $check = new ReflectionMethod(Health::class, 'checkTwoFactor');
     $check->setAccessible(true);
 
-    config()->set('app.env', 'production');
+    inEnvironment('production');
 
     config()->set('security.force_2fa_roles', []);
     $unset = $check->invoke(null);
@@ -145,7 +145,7 @@ it('does not quietly ship a production deploy with no second factor', function (
     config()->set('security.force_2fa_roles', SecurityDefaults::FORCE_2FA_ROLES);
     $enforced = $check->invoke(null);
 
-    config()->set('app.env', 'testing');
+    inEnvironment('testing');
     config()->set('security.force_2fa_roles', []);
     $local = $check->invoke(null);
 

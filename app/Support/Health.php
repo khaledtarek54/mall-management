@@ -3,6 +3,10 @@
 namespace App\Support;
 
 use App\Models\SystemSetting;
+use App\Models\User;
+use App\Services\Accounting\AccountResolver;
+use Illuminate\Queue\Failed\FailedJobProviderInterface;
+use Illuminate\Queue\Failed\NullFailedJobProvider;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -110,7 +114,7 @@ class Health
             driver: config("database.connections.{$connection}.driver"),
             dumpBinaryPath: (string) config("database.connections.{$connection}.dump.dump_binary_path", ''),
             disks: (array) config('backup.backup.destination.disks', []),
-            environment: (string) config('app.env'),
+            environment: Deployment::name(),
         );
     }
 
@@ -203,7 +207,7 @@ class Health
     {
         $forced = (array) config('security.force_2fa_roles', []);
 
-        if (in_array(config('app.env'), ['local', 'testing'], true)) {
+        if (! Deployment::isDeployed()) {
             return ['ok' => true, 'detail' => $forced === []
                 ? 'not enforced (local/testing — expected)'
                 : 'enforced for: '.implode(', ', $forced)];
@@ -212,7 +216,7 @@ class Health
         if ($forced === []) {
             return [
                 'ok' => false,
-                'detail' => 'NOT ENFORCED in production — set SECURITY_FORCE_2FA_ROLES="'
+                'detail' => 'NOT ENFORCED on '.Deployment::name().' — set SECURITY_FORCE_2FA_ROLES="'
                     .implode(',', SecurityDefaults::FORCE_2FA_ROLES).'"',
             ];
         }
@@ -311,7 +315,7 @@ class Health
     {
         $verdict = self::accountingReadiness();
 
-        if (in_array(config('app.env'), ['local', 'testing'], true)) {
+        if (! Deployment::isDeployed()) {
             return ['ok' => true, 'detail' => $verdict['ok']
                 ? $verdict['detail']
                 : 'local/testing — not enforced ('.$verdict['detail'].')'];
@@ -333,7 +337,7 @@ class Health
     public static function accountingReadiness(): array
     {
         try {
-            $resolver = app(\App\Services\Accounting\AccountResolver::class);
+            $resolver = app(AccountResolver::class);
             $broken = [];
 
             foreach (PostingRoles::keys() as $role) {
@@ -381,7 +385,7 @@ class Health
      */
     private static function checkDemoAccounts(): array
     {
-        $production = ! in_array(config('app.env'), ['local', 'testing'], true);
+        $production = Deployment::isDeployed();
         $emails = self::demoAccountEmails();
 
         if ($emails === null) {
@@ -417,10 +421,10 @@ class Health
      */
     private static function checkAdminAccess(): array
     {
-        $production = ! in_array(config('app.env'), ['local', 'testing'], true);
+        $production = Deployment::isDeployed();
 
         try {
-            $admins = \App\Models\User::role('super_admin')->count();
+            $admins = User::role('super_admin')->count();
         } catch (Throwable $e) {
             // Before RolesPermissionsSeeder runs there is no such role — which is itself the
             // uninstalled state the `accounting` check already reports in full.
@@ -530,8 +534,8 @@ class Health
             // it. Counting its zero would be the same fail-open in a new costume.
             $failer = app()->bound('queue.failer') ? app('queue.failer') : null;
 
-            if (! $failer instanceof \Illuminate\Queue\Failed\FailedJobProviderInterface
-                || $failer instanceof \Illuminate\Queue\Failed\NullFailedJobProvider) {
+            if (! $failer instanceof FailedJobProviderInterface
+                || $failer instanceof NullFailedJobProvider) {
                 return ['ok' => false, 'detail' => 'failed jobs are not recorded (QUEUE_FAILED_DRIVER=null) — a job that dies leaves no trace'];
             }
 
@@ -660,17 +664,43 @@ class Health
      * enforcement sat silently broken here for months. A setting that is safe only because a
      * second mechanism overrides it should still be visible.
      *
+     * **On staging the alarm matters MORE, not less** — and until 2026-08-16 it was the one place
+     * that stayed quiet, reporting `enabled (non-production — expected)`. On production the flag is
+     * merely an intent, because `DemoPayments::forbiddenByEnvironment()` overrides it. On staging
+     * nothing overrides it: the shortcut is genuinely live, an authenticated tenant can mark their
+     * own invoice paid, and `billing:reconcile` stays green because every relationship really is
+     * consistent — the money simply never existed. That is precisely the box PRODUCTION-RUNBOOK §12
+     * tells the operator to rehearse the cut-over on twice and get the same numbers both times.
+     *
+     * The opt-in itself stays legal (`DemoPaymentEnvironmentGuardTest` pins it — the flag is "a
+     * decision somebody made"). What changes is that the decision is no longer silent.
+     *
      * @return array{ok: bool, detail: string}
      */
     private static function checkDemoPayments(): array
     {
-        // `app()->environment()`, matching DemoPayments — NOT `config('app.env')`. The two
-        // disagree the moment a test or a runtime tweak sets one and not the other, and a guard
-        // that reads the environment differently from the thing it guards is not a guard.
-        if (! app()->environment('production')) {
+        // `Deployment`, matching DemoPayments — NOT `config('app.env')`. The two disagree the
+        // moment a test or a runtime tweak sets one and not the other, and a guard that reads the
+        // environment differently from the thing it guards is not a guard.
+        if (! Deployment::isDeployed()) {
             return ['ok' => true, 'detail' => DemoPayments::enabled()
-                ? 'enabled (non-production — expected)'
+                ? 'enabled (workstation — expected)'
                 : 'disabled'];
+        }
+
+        if (Deployment::isPreProduction()) {
+            if (DemoPayments::enabled()) {
+                return [
+                    'ok' => false,
+                    'detail' => 'the demo-payment shortcut is LIVE on '.Deployment::name()
+                        .' — a tenant can mark their own invoice paid, writing a real captured '
+                        .'payment (Dr Bank / Cr AR) for money that never arrived. Nothing overrides '
+                        .'the flag outside production. Unset DEMO_PAYMENTS_ENABLED before rehearsing '
+                        .'a cut-over on this box.',
+                ];
+            }
+
+            return ['ok' => true, 'detail' => 'disabled ('.Deployment::name().')'];
         }
 
         if (config('integrations.demo_payments.enabled')) {
@@ -698,15 +728,17 @@ class Health
      * asking the mobile app to reset their password receives a mail whose only button 404s.
      *
      * Nothing else notices: the mail sends successfully, the token is minted correctly, and the
-     * failure lands entirely on the tenant. Production only — locally the 404 is obvious and
-     * harmless.
+     * failure lands entirely on the tenant. Skipped only on a workstation, where the 404 is obvious
+     * and harmless — **staging is checked**, because staging is where the mobile app is pointed
+     * before it ships, so a reset link that 404s there is a bug found by a tester rather than by a
+     * tenant.
      *
      * @return array{ok: bool, detail: string}
      */
     private static function checkMobileResetUrl(): array
     {
-        if (! app()->environment('production')) {
-            return ['ok' => true, 'detail' => 'not checked outside production'];
+        if (! Deployment::isDeployed()) {
+            return ['ok' => true, 'detail' => 'not checked on a workstation'];
         }
 
         // Read config, never env() — this class runs under `config:cache`, where env() is null and
@@ -741,14 +773,17 @@ class Health
      * DB unique index behind it**, so the lock IS the guard. A lock whose store is a slow remote
      * database is a guard with a longer window.
      *
-     * Production only. Local and CI run on `database` deliberately and must stay quiet.
+     * Local and CI run on `database` deliberately and must stay quiet. **Staging is checked**:
+     * INFRASTRUCTURE.md §5 gives staging its own Redis keyspace (`REDIS_DB=1`, prefix `atr_s_`)
+     * precisely because it shares the topology, so a staging box left on the `database` driver is
+     * both the same defect and a rehearsal that does not rehearse the production configuration.
      *
      * @return array{ok: bool, detail: string}
      */
     private static function checkRuntimeDrivers(): array
     {
-        if (! app()->environment('production')) {
-            return ['ok' => true, 'detail' => 'not checked outside production'];
+        if (! Deployment::isDeployed()) {
+            return ['ok' => true, 'detail' => 'not checked on a workstation'];
         }
 
         $onDatabase = array_keys(array_filter([
@@ -760,9 +795,9 @@ class Health
         if ($onDatabase !== []) {
             return [
                 'ok' => false,
-                'detail' => implode(', ', $onDatabase).' still on the `database` driver in '
-                    .'production — INFRASTRUCTURE.md §5 requires Redis. Every Cache::lock() then '
-                    .'crosses the network, and the monthly-billing double-bill guard IS a cache lock.',
+                'detail' => implode(', ', $onDatabase).' still on the `database` driver on '
+                    .Deployment::name().' — INFRASTRUCTURE.md §5 requires Redis. Every Cache::lock() '
+                    .'then crosses the network, and the monthly-billing double-bill guard IS a cache lock.',
             ];
         }
 

@@ -6,6 +6,7 @@ Operator **Eltizam** runs malls for owners (**Jawad**); **tenants** are the reta
 **Read [docs/OVERVIEW.md](docs/OVERVIEW.md) first**, then the relevant **[docs/modules/NN-*.md](docs/modules/)** before changing any module's logic — each has *Business rules*, *Extension points (how to change safely)*, and *Gotchas*.
 
 **Before go-live:** [docs/GO-LIVE.md](docs/GO-LIVE.md) — the single gate: every configuration item, credential and unanswered question, verified against the code (2026-08-11). The code is not the blocker.
+**Before STAGING:** [docs/STAGING.md](docs/STAGING.md) — a staging box is gated on none of that. It has its own `.env` deltas, one posture decision (demo data vs production restore), and a set of `atriom:health` rows that are *supposed* to be red there. `APP_ENV=staging` is a third tier, not "production-ish": `App\Support\Deployment` is the ONE reading of which tier a box is, and an unanticipated env name inherits the stricter treatment.
 
 **Orientation:** [docs/PROJECT-MAP.md](docs/PROJECT-MAP.md) (generated census — what exists + what's covered) · [docs/ROADMAP.md](docs/ROADMAP.md) (**the single** prioritized list: go-live + FRD + accounting) · the visual handbook — read it **in the panel at `/admin/handbook`** (built by `npm run build`), or as source: [the whole system on one page](docs/visual/map.md), [a month in the life](docs/visual/scenarios.md).
 

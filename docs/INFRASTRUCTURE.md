@@ -4,6 +4,9 @@ How the servers are provisioned and wired. This is the **infrastructure** layer;
 for per-release deploy steps + ops procedures see **[PRODUCTION-RUNBOOK.md](PRODUCTION-RUNBOOK.md)**
 (this doc supersedes a few of its env defaults — see [§Env deltas](#env-deltas-vs-the-runbook)).
 
+For the **staging box specifically** — what it is for, its `.env` deltas, and which of its red
+`atriom:health` rows are expected — see **[STAGING.md](STAGING.md)**.
+
 **Design goals (chosen with the owner):** lowest cost to start · one self-managed box we
 control end-to-end (full root, install anything) · staging + production co-located to avoid
 complexity · Cloudflare in front for protection · a clean scaling/offload path documented so

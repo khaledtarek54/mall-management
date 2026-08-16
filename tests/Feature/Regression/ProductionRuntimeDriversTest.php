@@ -16,7 +16,7 @@ use App\Support\Health;
  * it** — the lock is the entire guard, and its own comment says so.
  */
 it('fails in production while cache, session or queue run on the database', function () {
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('cache.default', 'database');
     config()->set('session.driver', 'database');
     config()->set('queue.default', 'database');
@@ -30,7 +30,7 @@ it('fails in production while cache, session or queue run on the database', func
 });
 
 it('names only the drivers that are actually wrong', function () {
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('cache.default', 'redis');
     config()->set('session.driver', 'redis');
     config()->set('queue.default', 'database');
@@ -44,7 +44,7 @@ it('names only the drivers that are actually wrong', function () {
 });
 
 it('passes in production once all three are off the database', function () {
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('cache.default', 'redis');
     config()->set('session.driver', 'redis');
     config()->set('queue.default', 'redis');

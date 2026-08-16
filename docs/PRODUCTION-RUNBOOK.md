@@ -3,7 +3,8 @@
 The end-to-end path to running Atriom in production with **real money + real tax**.
 The application code is ready; what remains is **config + ops**. Work top to bottom.
 
-> Companion docs: [INFRASTRUCTURE.md](INFRASTRUCTURE.md) (**server topology + provisioning** — the box, Cloudflare Tunnel, managed MySQL, backups; overrides some env defaults below),
+> Companion docs: [STAGING.md](STAGING.md) (**the staging box** — what it is for, its `.env` deltas, and which health rows are expected red there),
+> [INFRASTRUCTURE.md](INFRASTRUCTURE.md) (**server topology + provisioning** — the box, Cloudflare Tunnel, managed MySQL, backups; overrides some env defaults below),
 > [ETA-PAYMOB-CERTIFICATION.md](ETA-PAYMOB-CERTIFICATION.md) (integration cutover),
 > [PAYMENT-LINK-APPLEPAY.md](PAYMENT-LINK-APPLEPAY.md), [gap-analysis/999-production-checklist.md](gap-analysis/999-production-checklist.md), [ROADMAP.md](ROADMAP.md).
 

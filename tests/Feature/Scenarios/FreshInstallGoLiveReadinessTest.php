@@ -71,7 +71,7 @@ it('bills correctly and posts nothing when the chart of accounts was never seede
 it('reports the unpostable install as unhealthy in production', function () {
     freshInstallInvoice();
 
-    config(['app.env' => 'production']);
+    inEnvironment('production');
     $check = Health::run()['checks']['accounting'];
 
     expect($check['ok'])->toBeFalse()
@@ -81,15 +81,21 @@ it('reports the unpostable install as unhealthy in production', function () {
 
     // The control: seed the chart + mappings and the same check passes, so the failure above is
     // the missing chart and not the check reporting red on everything.
-    $this->seed(ChartOfAccountsSeeder::class);
-    $this->seed(AccountMappingSeeder::class);
+    //
+    // Run the seeders directly rather than through `$this->seed()`: `db:seed` is confirmable, and
+    // `ConfirmableTrait` reads `app()->environment()` — so in a genuine production environment it
+    // asks before running and aborts unanswered. That is correct of Laravel, and it only surfaces
+    // now because this test used to set `config('app.env')` alone, leaving the framework itself
+    // still in `testing` while `Health` was told it was live.
+    app(ChartOfAccountsSeeder::class)->run();
+    app(AccountMappingSeeder::class)->run();
 
     expect(Health::run()['checks']['accounting']['ok'])->toBeTrue();
 });
 
 it('does not cry wolf on a developer machine', function () {
     // Local is the state between `migrate` and `db:seed`, which is not a broken install.
-    config(['app.env' => 'local']);
+    inEnvironment('local');
 
     expect(Health::run()['checks']['accounting']['ok'])->toBeTrue()
         ->and(Health::run()['checks']['accounting']['detail'])->toContain('not enforced');
@@ -101,7 +107,7 @@ it('reports the seeded demo logins as unhealthy in production', function () {
     User::factory()->create(['email' => 'admin@mall.test']);
     User::factory()->create(['email' => 'owner@atriom.test']);
 
-    config(['app.env' => 'production']);
+    inEnvironment('production');
     $check = Health::run()['checks']['demo_accounts'];
 
     expect($check['ok'])->toBeFalse()
@@ -122,7 +128,7 @@ it('flags a demo account whose password was rotated', function () {
         'password' => Hash::make('a-long-rotated-secret'),
     ]);
 
-    config(['app.env' => 'production']);
+    inEnvironment('production');
 
     expect(Health::run()['checks']['demo_accounts']['ok'])->toBeFalse();
 });

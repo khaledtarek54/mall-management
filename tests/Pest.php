@@ -37,6 +37,27 @@ pest()->extend(TestCase::class)
 */
 
 /**
+ * Put the application in an environment — for BOTH of the things that answer "which one is this?".
+ *
+ * `config(['app.env' => …])` and `app()->environment()` **provably diverge**: Laravel resolves
+ * `environment()` from the container's `env` binding, which `LoadConfiguration` stamps once at
+ * boot, so setting the config afterwards leaves `app()->environment()` reading `local`. On a real
+ * box both come from the same `.env` line and agree — only a test can hold them apart.
+ *
+ * That matters because a test which sets the config while the guard reads the container (or the
+ * reverse) is exercising the environment it was already in. Both spellings were in use across this
+ * suite, each correct for the check it was written against, and nothing said which was which.
+ *
+ * `App\Support\Deployment` is the single reading on the application side; this is its counterpart
+ * here, so a test never has to know which spelling its subject happens to use.
+ */
+function inEnvironment(string $env): void
+{
+    config(['app.env' => $env]);
+    app()['env'] = $env;
+}
+
+/**
  * Create the role catalogue Pest tests assume exists. Run from beforeEach
  * blocks in tests that touch roles.
  */

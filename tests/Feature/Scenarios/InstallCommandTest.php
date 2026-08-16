@@ -136,7 +136,7 @@ it('uses the password it was given, and leaves an existing administrator alone',
 it('reports an install nobody can sign in to as unhealthy in production', function () {
     $this->artisan('atriom:install --force')->assertSuccessful();
 
-    config(['app.env' => 'production']);
+    inEnvironment('production');
     $check = Health::run()['checks']['admin_access'];
 
     expect($check['ok'])->toBeFalse()

@@ -40,16 +40,14 @@ beforeEach(function () {
 });
 
 it('refuses the demo payment on production even when the flag is set', function () {
-    app()['env'] = 'production';
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('integrations.demo_payments.enabled', true);
 
     expect(DemoPayments::enabled())->toBeFalse();
 });
 
 it('refuses the demo payment on a staging-shaped environment unless explicitly opted in', function () {
-    app()['env'] = 'staging';
-    config()->set('app.env', 'staging');
+    inEnvironment('staging');
     config()->set('integrations.demo_payments.enabled', null);
 
     // Unset must NOT mean "on" anywhere that carries real-shaped data.
@@ -71,8 +69,7 @@ it('allows the demo payment in testing, so the control below is meaningful', fun
 });
 
 it('does not create a payment through the API when the environment refuses it', function () {
-    app()['env'] = 'production';
-    app()['env'] = 'production';
+    inEnvironment('production');
 
     Sanctum::actingAs($this->tenant, ['*'], 'tenant-api');
 
@@ -96,7 +93,7 @@ it('DOES create a payment through the API when the environment allows it — the
 });
 
 it('fails the health check when the flag is set on production', function () {
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('integrations.demo_payments.enabled', true);
 
     $check = Health::run()['checks']['demo_payments'];
@@ -106,7 +103,7 @@ it('fails the health check when the flag is set on production', function () {
 });
 
 it('passes the health check on a production box with the flag unset', function () {
-    app()['env'] = 'production';
+    inEnvironment('production');
     config()->set('integrations.demo_payments.enabled', null);
 
     expect(Health::run()['checks']['demo_payments']['ok'])->toBeTrue();

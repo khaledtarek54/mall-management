@@ -25,6 +25,10 @@ money.** Compiled and verified against the running code 2026-08-11.
 > **How to read a row.** ⚙️ = infrastructure/DevOps · 🔑 = a credential or account only the client
 > holds · 🧑‍💼 = a business decision. "Verified" is what the code does *today*, checked while writing
 > this — not what a doc said last month.
+>
+> **Going to staging, not live?** None of this page blocks a staging box. That gate is
+> [STAGING.md](STAGING.md) — what staging is for, its `.env` deltas, and which of its red health
+> rows are supposed to be red.
 
 ---
 
@@ -64,10 +68,19 @@ the single highest-consequence row on the page.
 **If skipped:** every money-path failure — a refused GL posting, a failed backup, a stopped worker —
 is visible only to someone who happens to open `/admin`.
 
-### 1.3 There is no deploy workflow at all ⚙️
+### 1.3 ~~There is no deploy workflow at all~~ — CLOSED 2026-08-13 ⚙️
 
-**Verified: no deploy pipeline exists.** This makes several other rows moot — you cannot ship the
-MySQL client or rotate an env var reliably without one.
+*Row corrected 2026-08-16: this was verified 2026-08-11 and went stale two days later.*
+**`./deploy.sh` exists at the repo root.** It is [PRODUCTION-RUNBOOK.md §2](PRODUCTION-RUNBOOK.md)
+in one command — `git pull` → `composer install --no-dev` → `npm ci && npm run build` →
+`migrate --force` → cache rebuild → `queue:restart` → `atriom:health` — and **refuses rather than
+continues**: a dirty working tree, a missing `npm`, an empty `public/build`, or `--skip-migrate`
+with migrations pending all stop it. Production is gated behind a manual confirm; staging deploys
+freely. Maintenance mode is lifted by an `EXIT` trap, so a failed deploy cannot strand the box on a
+503 with nobody knowing why.
+
+What remains is not a deploy workflow but the two things it cannot do for you: **ship the MySQL
+client in the image** (§1.1) and hold the secrets it deploys with.
 
 ### 1.4 ETA e-invoicing cannot legally submit 🔑
 

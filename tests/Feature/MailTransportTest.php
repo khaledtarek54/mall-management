@@ -33,7 +33,7 @@ it('redirects every outgoing email to the catch-all outside production', functio
 
 it('never redirects in production — a stray catch-all must not swallow tenant mail', function () {
     config()->set('mail.always_to', 'catchall@atriom.test');
-    app()['env'] = 'production';
+    inEnvironment('production');
 
     (new AppServiceProvider(app()))->configureMailCatchAll();
 
