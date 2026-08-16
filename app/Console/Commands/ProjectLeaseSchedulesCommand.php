@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Charge;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
 use App\Support\OpsLog;
@@ -38,10 +39,16 @@ class ProjectLeaseSchedulesCommand extends Command
     {
         $commit = (bool) $this->option('commit');
 
+        // Both projectable clause types, matching `projectTermEscalations()` exactly — a narrower
+        // query here would report "No active leases with a contracted escalation" about a portfolio
+        // full of them (2026-08-16: `fixed_amount` was excluded in three places at once — the
+        // projector, this backfill, and the panel heading — so an amount-escalating lease had its
+        // rent moved every year by the sweep with nothing anywhere saying it would).
         $leases = Lease::query()
             ->where('status', 'active')
-            ->where('escalation_type', 'fixed_percent')
-            ->where('escalation_rate', '>', 0)
+            ->where(fn ($q) => $q
+                ->where(fn ($p) => $p->where('escalation_type', 'fixed_percent')->where('escalation_rate', '>', 0))
+                ->orWhere(fn ($a) => $a->where('escalation_type', 'fixed_amount')->where('escalation_amount', '>', 0)))
             ->whereNotNull('commencement_date')
             ->whereNotNull('expiry_date')
             ->when($this->option('lease'), fn ($q, $id) => $q->whereKey($id))
@@ -60,7 +67,7 @@ class ProjectLeaseSchedulesCommand extends Command
         foreach ($leases as $lease) {
             // Already laddered — re-running must not duplicate. setAmount() would no-op anyway
             // (same amount already in force), but skipping keeps the report honest.
-            if ($lease->charges()->where('origin', \App\Models\Charge::ORIGIN_ESCALATION)->exists()) {
+            if ($lease->charges()->where('origin', Charge::ORIGIN_ESCALATION)->exists()) {
                 $skipped++;
 
                 continue;
@@ -72,7 +79,7 @@ class ProjectLeaseSchedulesCommand extends Command
             $created = $schedule->projectTermEscalations($lease);
 
             $steps = $lease->charges()
-                ->where('origin', \App\Models\Charge::ORIGIN_ESCALATION)
+                ->where('origin', Charge::ORIGIN_ESCALATION)
                 ->where('type', 'base_rent')
                 ->orderBy('start_date')
                 ->get(['amount', 'start_date']);
@@ -80,7 +87,11 @@ class ProjectLeaseSchedulesCommand extends Command
             $rows[] = [
                 $lease->reference,
                 number_format((float) $lease->base_rent_monthly, 2),
-                $lease->escalation_rate.'%',
+                // In the clause's OWN unit. Printed as a bare percentage, an amount lease reported
+                // its step as "0.00%" — a number that reads as "no increase" beside four steps.
+                (string) $lease->escalation_type === 'fixed_amount'
+                    ? '+'.number_format((float) $lease->escalation_amount, 2).' EGP'
+                    : $lease->escalation_rate.'%',
                 $steps->count(),
                 $steps->isEmpty() ? '—' : $steps->first()->start_date->format('d/m/Y').' → '.number_format((float) $steps->first()->amount, 2),
             ];
@@ -89,7 +100,7 @@ class ProjectLeaseSchedulesCommand extends Command
             $totalCreated += $created;
         }
 
-        $this->table(['Lease', 'Rent now', 'Rate', 'Steps', 'First step'], $rows);
+        $this->table(['Lease', 'Rent now', 'Step', 'Steps', 'First step'], $rows);
 
         $verb = $commit ? 'Created' : 'Would create';
         $this->info("{$verb} {$totalCreated} schedule row(s) across ".count($rows).' lease(s); '."{$skipped} already laddered.");

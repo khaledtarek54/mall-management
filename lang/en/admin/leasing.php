@@ -108,7 +108,7 @@ return [
         'end_from_hint' => 'The first month this charge should NOT be billed. The row in force is closed the month before, and any later scheduled rows are cancelled.',
         'ended' => ':type stopped (:count row(s) closed).',
         'from_commencement' => 'From commencement',
-        'unprojected_escalation' => 'a contracted :rate% escalation is due :date, not yet scheduled',
+        'unprojected_escalation' => 'a contracted :step escalation is due :date, not yet scheduled',
         'frequency' => 'Frequency',
         'state' => 'Status',
         'frequencies' => [
@@ -123,6 +123,9 @@ return [
         'open_ended' => 'Open-ended',
         'origin' => 'Source',
         'current_rent' => 'Billing now: :amount',
+        'not_billing_yet' => 'Not billing yet — first rent :amount from :date',
+        // Amounts in this table are per MONTH; a non-monthly lease raises one invoice per cycle.
+        'billed_cycle' => 'invoiced :frequency — amounts below are monthly, × :months per invoice',
         'next_step' => 'next step :amount on :date',
         'no_further_steps' => 'no further steps scheduled',
         'empty' => 'No charges on this lease yet.',

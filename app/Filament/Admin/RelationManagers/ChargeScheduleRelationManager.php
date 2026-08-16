@@ -97,15 +97,9 @@ class ChargeScheduleRelationManager extends RelationManager
      */
     private static function typeLabel(string $type): string
     {
-        $key = "admin.enums.invoice_item_type.{$type}";
-        $translated = __($key);
-
-        if ($translated !== $key) {
-            return $translated;
-        }
-
-        return ChargeCode::query()->where('code', $type)->first()?->label()
-            ?? str($type)->replace('_', ' ')->title()->toString();
+        // Moved onto the model that owns `label()` once the Billing forecast tab needed the same
+        // answer — two copies is how one screen ends up showing `base_rent` in Arabic.
+        return ChargeCode::labelFor($type);
     }
 
     /** In force today · starts later · already ended. The three states an operator scans for. */
@@ -371,50 +365,118 @@ class ChargeScheduleRelationManager extends RelationManager
             ->emptyStateDescription(__('admin.charge_schedule.empty_description'));
     }
 
-    /** The headline: what this lease bills right now, and when that next changes. */
+    /**
+     * The headline: what this lease bills right now, and when that next changes.
+     *
+     * Rewritten 2026-08-16. It read a lease that had not commenced yet as *"Billing now: EGP
+     * 100,000 · next step EGP 100,000 on 01/09/2026"* — four wrong readings in one line:
+     *
+     *  1. **"Billing now" read the lease COLUMN**, not the schedule, so it announced a rent on a
+     *     lease that bills nothing for another six weeks. `base_rent_monthly` is the rent in force
+     *     *under the contract*; what the schedule bills *today* is a different question, and this
+     *     panel is the one place that must answer the second one.
+     *  2. **"Next step" was any future-dated row**, so a lease's own opening rent row was reported
+     *     as an escalation step — 100,000 "stepping" to 100,000.
+     *  3. **The query had no `type` filter**, so the row it called a *rent* step could just as
+     *     easily be the service charge or the marketing levy. Nothing ordered the tie beyond
+     *     `start_date`, so which one it announced was down to insertion order.
+     *  4. **The unprojected-clause warning only knew `fixed_percent`.** A `fixed_amount` lease —
+     *     rent rising a contracted EGP 4,000 every year — fell through to "no further steps
+     *     scheduled", which is not a hedge but a false statement about the contract.
+     *
+     * All four are now answered from the rent schedule itself, which is the only thing that decides
+     * what actually bills.
+     */
     public function getTableDescription(): ?string
     {
         /** @var Lease $lease */
         $lease = $this->getOwnerRecord();
         $today = CarbonImmutable::now()->startOfDay();
 
-        $next = Charge::query()
+        $rentRows = Charge::query()
             ->where('lease_id', $lease->getKey())
+            ->where('type', 'base_rent')
             ->where('is_active', true)
             ->whereNotNull('start_date')
-            ->whereDate('start_date', '>', $today->toDateString())
             ->orderBy('start_date')
-            ->first();
+            ->get();
 
-        $current = __('admin.charge_schedule.current_rent', [
-            'amount' => 'EGP '.number_format((float) $lease->base_rent_monthly, 2),
-        ]);
+        $inForce = $rentRows->first(fn (Charge $row): bool => ! CarbonImmutable::instance($row->start_date)->greaterThan($today)
+            && ($row->end_date === null || ! CarbonImmutable::instance($row->end_date)->lessThan($today)));
 
-        if (! $next) {
-            // "No further steps" is only true if there is no escalation CLAUSE either. A lease
-            // that has one but no projected ladder (signed before projection existed) must say so
-            // — telling the operator no increase is coming when the contract says otherwise is an
-            // answer, and a wrong one. Backfill with `atriom:project-lease-schedules`.
-            //
-            // Only when the step is still in the FUTURE. A next_escalation_date in the past means
-            // the sweep is behind, which is a different problem — saying "not yet scheduled"
-            // about an overdue escalation would be a second wrong answer.
-            if ($lease->escalation_type === 'fixed_percent'
-                && (float) $lease->escalation_rate > 0
-                && $lease->next_escalation_date
-                && CarbonImmutable::instance($lease->next_escalation_date)->greaterThanOrEqualTo($today)) {
-                return $current.' · '.__('admin.charge_schedule.unprojected_escalation', [
-                    'rate' => rtrim(rtrim((string) $lease->escalation_rate, '0'), '.'),
-                    'date' => CarbonImmutable::instance($lease->next_escalation_date)->format('d/m/Y'),
-                ]);
-            }
+        $upcoming = $rentRows->first(fn (Charge $row): bool => CarbonImmutable::instance($row->start_date)->greaterThan($today));
 
-            return $current.' · '.__('admin.charge_schedule.no_further_steps');
+        // What bills today — or, on a lease that has not started, when it starts and at what.
+        // Falling back to the lease column covers a lease with no schedule at all (an import that
+        // seeded none), where saying "not billing yet" would be a guess about a different problem.
+        $current = match (true) {
+            $inForce !== null => __('admin.charge_schedule.current_rent', [
+                'amount' => 'EGP '.number_format((float) $inForce->amount, 2),
+            ]),
+            $upcoming !== null => __('admin.charge_schedule.not_billing_yet', [
+                'amount' => 'EGP '.number_format((float) $upcoming->amount, 2),
+                'date' => CarbonImmutable::instance($upcoming->start_date)->format('d/m/Y'),
+            ]),
+            default => __('admin.charge_schedule.current_rent', [
+                'amount' => 'EGP '.number_format((float) $lease->base_rent_monthly, 2),
+            ]),
+        };
+
+        // A STEP is a change to a rent already running. Where nothing is in force yet, the upcoming
+        // row is the lease's opening rent — already reported above — so the question becomes whether
+        // anything is scheduled AFTER it.
+        $step = $inForce !== null
+            ? $upcoming
+            : $rentRows->first(fn (Charge $row): bool => $upcoming !== null
+                && CarbonImmutable::instance($row->start_date)->greaterThan(CarbonImmutable::instance($upcoming->start_date)));
+
+        // On a non-monthly lease every row still reads "Monthly", because `charges.frequency` is how
+        // often a charge RECURS while `leases.billing_frequency` is how often it is INVOICED — two
+        // fields, one word. The panel never said which, so a quarterly lease showed 72,000 beside a
+        // schedule that actually raises 216,000. Stated only where it differs from the monthly
+        // default: annotating every ordinary lease would be noise.
+        $cadence = $lease->billingCycleMonths() > 1
+            ? ' · '.__('admin.charge_schedule.billed_cycle', [
+                'frequency' => mb_strtolower(__('admin.billing_frequency.'.$lease->billing_frequency)),
+                'months' => $lease->billingCycleMonths(),
+            ])
+            : '';
+
+        if ($step !== null) {
+            return $current.' · '.__('admin.charge_schedule.next_step', [
+                'amount' => 'EGP '.number_format((float) $step->amount, 2),
+                'date' => CarbonImmutable::instance($step->start_date)->format('d/m/Y'),
+            ]).$cadence;
         }
 
-        return $current.' · '.__('admin.charge_schedule.next_step', [
-            'amount' => 'EGP '.number_format((float) $next->amount, 2),
-            'date' => CarbonImmutable::instance($next->start_date)->format('d/m/Y'),
-        ]);
+        // "No further steps" is only true if there is no escalation CLAUSE either. A lease that has
+        // one but no projected ladder (signed before projection existed, or CPI — which is never
+        // projected because there is no index feed) must say so: telling the operator no increase is
+        // coming when the contract says otherwise is an answer, and a wrong one. Backfill a
+        // projectable one with `atriom:project-lease-schedules`.
+        //
+        // Only when the step is still in the FUTURE. A next_escalation_date in the past means the
+        // sweep is behind, which is a different problem — saying "not yet scheduled" about an
+        // overdue escalation would be a second wrong answer.
+        if ($lease->escalatesContractually()
+            && $lease->next_escalation_date
+            && CarbonImmutable::instance($lease->next_escalation_date)->greaterThanOrEqualTo($today)) {
+            return $current.' · '.__('admin.charge_schedule.unprojected_escalation', [
+                'step' => self::escalationStepLabel($lease),
+                'date' => CarbonImmutable::instance($lease->next_escalation_date)->format('d/m/Y'),
+            ]).$cadence;
+        }
+
+        return $current.' · '.__('admin.charge_schedule.no_further_steps').$cadence;
+    }
+
+    /** How this lease's contracted step reads, in its own unit — a percentage, pounds, or an index. */
+    private static function escalationStepLabel(Lease $lease): string
+    {
+        return match ((string) $lease->escalation_type) {
+            'fixed_amount' => 'EGP '.number_format((float) $lease->escalation_amount, 2),
+            'cpi' => __('admin.enums.escalation_type.cpi'),
+            default => rtrim(rtrim((string) $lease->escalation_rate, '0'), '.').'%',
+        };
     }
 }

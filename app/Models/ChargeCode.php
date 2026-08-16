@@ -103,6 +103,30 @@ class ChargeCode extends Model
     }
 
     /**
+     * What to call a charge TYPE on screen, in the reader's language.
+     *
+     * Three sources in priority order, because the catalogue is open: the shipped types have
+     * translated strings, an accountant-added code carries its own bilingual pair, and anything
+     * else falls back to a humanised form of the code rather than a blank cell.
+     *
+     * Lives here, on the model that owns `label()`, because two screens need the same answer — the
+     * charge schedule and the billing forecast — and a second copy is how one of them ends up
+     * showing `base_rent` in Arabic.
+     */
+    public static function labelFor(string $type): string
+    {
+        $key = "admin.enums.invoice_item_type.{$type}";
+        $translated = __($key);
+
+        if ($translated !== $key) {
+            return $translated;
+        }
+
+        return static::query()->where('code', $type)->first()?->label()
+            ?? str($type)->replace('_', ' ')->title()->toString();
+    }
+
+    /**
      * The posting role a charge code books to, or null to take the misc_income fallback.
      *
      * Memoized per request because the journalizer asks once per invoice line and a hundred-line

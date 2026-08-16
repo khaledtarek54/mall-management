@@ -116,8 +116,18 @@ class ChargeScheduleService
      * `next_escalation_date`, so "the rent in force" stays correct without a second writer of the
      * schedule. A projected lease and a swept one converge on identical rows.
      *
-     * Only `fixed_percent` is projected: CPI has no index feed, and inventing the number here
-     * would be inventing data — the same reason the sweep skips it.
+     * **`fixed_percent` AND `fixed_amount` are projected; only CPI is not.** CPI has no index feed
+     * and inventing the number here would be inventing data — the same reason the sweep skips it.
+     * An amount step has no such problem: "+EGP 4,000 a month each year" is as knowable at signing
+     * as a percentage, and it is an ordinary anchor-tenant term. Excluding it was an omission rather
+     * than a decision (2026-08-16) — `RentEscalationService` has applied amount steps at the
+     * anniversary all along, so those leases had a rent that moved every year with **nothing in the
+     * schedule saying so**: no budget, no owner projection, no rent-roll step, and the panel's own
+     * heading reporting "no further steps scheduled" about a contracted increase.
+     *
+     * The step is sized exactly as the sweep sizes it — `rent + amount`, and **no collar**, because
+     * a bound stated in percent has no meaning against a step stated in pounds. That equality is
+     * what keeps the invariant above true for amount leases too: projected and swept converge.
      *
      * The marketing levy is projected in lock-step because it is a percentage of base rent; a
      * complete rent schedule beside a single-row levy would bill a future month's rent correctly
@@ -127,14 +137,24 @@ class ChargeScheduleService
      */
     public function projectTermEscalations(Lease $lease): int
     {
-        if ($lease->escalation_type !== 'fixed_percent'
-            || (float) $lease->escalation_rate <= 0
+        // Read the type as a plain string: `escalation_type` was created as a DB-level
+        // enum('none','fixed_percent','cpi') in 2024, and static analysis still derives the
+        // attribute type from that migration rather than the `->change()` that made it a varchar —
+        // so a direct comparison against `fixed_amount` reads as "always false" (the same trap
+        // annotated in RentEscalationService).
+        $type = (string) $lease->escalation_type;
+
+        $byPercent = $type === 'fixed_percent' && (float) $lease->escalation_rate > 0;
+        $byAmount = $type === 'fixed_amount' && (float) $lease->escalation_amount > 0;
+
+        if ((! $byPercent && ! $byAmount)
             || blank($lease->commencement_date)
             || blank($lease->expiry_date)) {
             return 0;
         }
 
         $rate = (float) $lease->escalation_rate;
+        $step = round((float) $lease->escalation_amount, 2);
         $expiry = CarbonImmutable::instance($lease->expiry_date);
         $rent = (float) $lease->base_rent_monthly;
 
@@ -169,7 +189,9 @@ class ChargeScheduleService
                 break;
             }
 
-            $rent = round($rent * (1 + $rate / 100), 2);
+            $rent = $byAmount
+                ? round($rent + $step, 2)
+                : round($rent * (1 + $rate / 100), 2);
 
             if ($this->setAmount($lease, 'base_rent', $rent, $effective, [
                 'name' => 'Base Rent',

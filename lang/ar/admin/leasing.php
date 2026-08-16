@@ -108,7 +108,7 @@ return [
         'end_from_hint' => 'أول شهر يجب ألا يُفوتر فيه هذا الرسم. يُغلق السطر الساري في الشهر السابق له، وتُلغى السطور المجدولة بعده.',
         'ended' => 'تم إيقاف :type (أُغلق :count سطر).',
         'from_commencement' => 'من بداية العقد',
-        'unprojected_escalation' => 'زيادة تعاقدية :rate% مستحقة في :date، لم تُجدول بعد',
+        'unprojected_escalation' => 'زيادة تعاقدية :step مستحقة في :date، لم تُجدول بعد',
         'frequency' => 'التكرار',
         'state' => 'الحالة',
         'frequencies' => [
@@ -123,6 +123,8 @@ return [
         'open_ended' => 'مفتوح',
         'origin' => 'المصدر',
         'current_rent' => 'الفوترة الحالية: :amount',
+        'not_billing_yet' => 'لم تبدأ الفوترة بعد — أول إيجار :amount من :date',
+        'billed_cycle' => 'الفوترة :frequency — المبالغ أدناه شهرية، × :months في كل فاتورة',
         'next_step' => 'الزيادة التالية :amount في :date',
         'no_further_steps' => 'لا توجد زيادات مجدولة',
         'empty' => 'لا توجد رسوم على هذا العقد بعد.',
