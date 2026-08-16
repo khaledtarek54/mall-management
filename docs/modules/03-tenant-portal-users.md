@@ -39,6 +39,14 @@ Before this module, a Tenant company had a single password stored on the `Tenant
 
 **Scoping:** Every portal resource (Invoice, Maintenance Request, Payment, CAM Allocation, Sales Declaration) filters to the logged-in user's company (`tenant_id`), ensuring a company A user never leaks company B's data.
 
+**Scoping to the company is not the same question as what that company may SEE (2026-08-16).** The
+invoice table filtered on `tenant_id` correctly and still showed **draft** invoices — the column's
+DEFAULT status — because "whose row is this?" and "has this document been raised?" are two
+questions and only the first was being asked. The table now also narrows with `visibleToTenant()`;
+the registry is `App\Support\TenantVisibility` and it is shared with the mobile API, because the
+portal and `/api/v1` are the same surface with different renderers. See
+[module 20](20-mobile-api.md#3-business-rules--invariants).
+
 ## 2. Domain model
 
 ### TenantUser table & model

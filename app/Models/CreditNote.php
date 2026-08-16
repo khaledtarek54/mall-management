@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\HidesDraftsFromTenant;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Services\CreditNoteService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -22,11 +24,11 @@ use Spatie\Activitylog\Support\LogOptions;
 // Denormalized asset_id, like Invoice. The `lease.unit` chain answered NULL for a note
 // against a unit-owner invoice, dropping it from every property-scoped read.
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\CreditNoteService::class)]
+#[PostingDateGuardedBy(guard: CreditNoteService::class)]
 class CreditNote extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
-    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, HidesDraftsFromTenant, LogsActivity, SoftDeletes;
 
     /**
      * The note number.

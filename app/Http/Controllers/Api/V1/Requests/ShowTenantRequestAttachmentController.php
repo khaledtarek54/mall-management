@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Requests;
 
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Models\TenantRequest;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -16,7 +17,7 @@ class ShowTenantRequestAttachmentController extends ApiController
 {
     public function __invoke(Request $request, int $id, int $media): StreamedResponse
     {
-        /** @var \App\Models\TenantRequest $tenantRequest */
+        /** @var TenantRequest $tenantRequest */
         $tenantRequest = $request->user()->tenantRequests()->findOrFail($id);
 
         $item = $tenantRequest->getMedia('attachments')->firstWhere('id', $media);

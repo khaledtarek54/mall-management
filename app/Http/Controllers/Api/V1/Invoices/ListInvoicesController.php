@@ -19,6 +19,7 @@ class ListInvoicesController extends ApiController
     public function __invoke(Request $request): AnonymousResourceCollection
     {
         $query = $request->user()->invoices()
+            ->visibleToTenant()
             ->with(['lease.unit', 'receivedPayments'])
             ->latest('issue_date');
 

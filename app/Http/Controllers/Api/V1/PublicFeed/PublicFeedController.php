@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1\PublicFeed;
 
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Models\Asset;
+use App\Models\MarketingPost;
+use App\Models\Tenant;
 
 /**
  * Shared base for the UNAUTHENTICATED shopper endpoints.
@@ -37,7 +39,7 @@ abstract class PublicFeedController extends ApiController
      * Scoped to the mall being browsed, exactly as in the directory: never the retailer's
      * footprint across the operator's whole portfolio.
      *
-     * @param  iterable<int, \App\Models\MarketingPost>  $posts
+     * @param  iterable<int, MarketingPost>  $posts
      */
     protected function attachStoreLocations(iterable $posts, int $assetId): void
     {
@@ -63,7 +65,7 @@ abstract class PublicFeedController extends ApiController
      *
      * @return array<int, string>
      */
-    protected static function locationsFor(\App\Models\Tenant $tenant, int $assetId): array
+    protected static function locationsFor(Tenant $tenant, int $assetId): array
     {
         return $tenant->activeLeases
             ->flatMap(fn ($lease) => $lease->units)

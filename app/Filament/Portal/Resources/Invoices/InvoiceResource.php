@@ -8,13 +8,13 @@ use App\Filament\Portal\Resources\Invoices\Pages\ViewInvoice;
 use App\Filament\Portal\Resources\Invoices\Schemas\InvoiceInfolist;
 use App\Filament\Portal\Resources\Invoices\Tables\InvoicesTable;
 use App\Models\Invoice;
+use App\Support\Portal;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 
 class InvoiceResource extends Resource
 {
@@ -79,7 +79,8 @@ class InvoiceResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('tenant_id', \App\Support\Portal::tenantId());
+            ->visibleToTenant()
+            ->where('tenant_id', Portal::tenantId());
     }
 
     public static function canCreate(): bool

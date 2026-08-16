@@ -24,10 +24,19 @@
 >    the written contract faithfully and the contract was wrong. Both halves are fixed.
 >
 > **Also fixed, and not in the original audit** — each found by reading rather than by a failure:
-> a `draft` credit note was being served to tenants; the permit screen printed "Approved on" over a
-> refusal; the generic request list painted a refusal green; the mall's validity window was hidden
-> by the tenant's own description-parse guard; `decided_by` could be filled from the wrong auth
-> guard.
+> the permit screen printed "Approved on" over a refusal; the generic request list painted a
+> refusal green; the mall's validity window was hidden by the tenant's own description-parse guard;
+> `decided_by` could be filled from the wrong auth guard.
+>
+> **Correction (2026-08-16).** An earlier revision of this block listed "a `draft` credit note was
+> being served to tenants" as already fixed. **It was not** — no such change existed in history.
+> Running the endpoint during manual testing showed the draft still there. The real defect was
+> also much wider than one endpoint: `invoices.status` and `credit_notes.status` both DEFAULT to
+> `'draft'` at the column, and **seven tenant-facing surfaces** served them — list, show, invoice
+> PDF, the **Statement of Account**, `pay-demo`, `paymob-session` and the **portal invoice table**
+> — with `?status=draft` available to enumerate them. Now closed at one seam
+> (`App\Support\TenantVisibility` + a `visibleToTenant()` scope), mutation-proven, and verified
+> against the live backend. See [module 20 §3](../modules/20-mobile-api.md#3-business-rules--invariants).
 
 
 > **What this is.** A field-by-field, route-by-route comparison of the Atriom backend's

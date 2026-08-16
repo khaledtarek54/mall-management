@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Cache;
  * **Cached, with a versioned key.** This is the one endpoint every shopper hits on app open and it
  * is identical for all of them, so it is cached — but the key carries a per-property version that
  * publishing and archiving bump, so an operator who approves an offer and immediately opens the
- * app sees it. See {@see \App\Support\MarketingFeedCache} for why it is version-plus-TTL rather
+ * app sees it. See {@see MarketingFeedCache} for why it is version-plus-TTL rather
  * than either one alone.
  */
 class ListPublicPostsController extends PublicFeedController

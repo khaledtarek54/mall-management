@@ -55,7 +55,7 @@ abstract class ApiController extends Controller
      * list it was reading — and `from`/`to` (what this page actually covers) were the two missing.
      * One method so there is one shape.
      *
-     * @param  \Illuminate\Contracts\Pagination\LengthAwarePaginator<int, mixed>  $paginator
+     * @param  LengthAwarePaginator<int, mixed>  $paginator
      * @return array<string, int|null>
      */
     protected function paginationMeta(LengthAwarePaginator $paginator): array
@@ -77,7 +77,7 @@ abstract class ApiController extends Controller
     {
         return response($contents, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 }

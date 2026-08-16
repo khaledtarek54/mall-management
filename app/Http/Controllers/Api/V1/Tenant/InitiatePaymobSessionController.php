@@ -8,7 +8,6 @@ use App\Models\Invoice;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Issues a Paymob payment session for a single invoice belonging to the
@@ -54,7 +53,7 @@ class InitiatePaymobSessionController extends Controller
             abort(404);
         }
 
-        if (in_array($invoice->status, ['cancelled', 'credited', 'written_off'], true)) {
+        if (in_array($invoice->status, ['draft', 'cancelled', 'credited', 'written_off'], true)) {
             return response()->json([
                 'message' => __('admin.notifications.pay_now_failed_body'),
                 'error' => 'invoice_not_payable',

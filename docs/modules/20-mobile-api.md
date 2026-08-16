@@ -76,8 +76,15 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - Token revocation is explicit: logout deletes the current token, password reset/change revokes all *other* tokens (keeping the current session alive for UX).
 - A tenant cannot access another tenant's data; all show/list endpoints are scoped via `$request->user()->invoices()`, etc. (not a global query). Cross-tenant access returns **404** (not 403) to prevent enumeration. (See `ShowInvoiceController`, `InitiatePaymobSessionController`.)
 
+**A draft is not a document — the tenant never sees one (`App\Support\TenantVisibility`, 2026-08-16):**
+- `invoices.status` and `credit_notes.status` both **DEFAULT to `'draft'` at the column**, so a draft is not an exotic state: it is what any create that doesn't set the status explicitly produces (`CreditUnearnedBillingService` does exactly that). The status list below was written as though `draft` could never arrive here, and that assumption was the bug.
+- Every tenant-facing read narrows with the `visibleToTenant()` scope, and both payment initiations refuse a draft as `invoice_not_payable`. It leaked on **seven surfaces at once** — list, show, invoice PDF, the Statement of Account, `pay-demo`, `paymob-session` and the portal invoice table — and `?status=draft` let a tenant enumerate them directly.
+- The **visible** set is derived (`ValueSets::allowed()` minus `HIDDEN`), never listed: a new status is visible by default and must be hidden deliberately. The scope EXCLUDES rather than allowlists, so a legacy or imported status still reaches its tenant — losing a real document from someone's history is the worse failure.
+- Only `draft` is hidden, deliberately. A `cancelled` or `written_off` invoice still explains a number the tenant remembers; withholding is for documents that never existed to them, not for ones that ended badly.
+- Gated by `TenantNeverSeesADraftTest` (13 cases) + a portal case. Every refusal is paired with a control that must succeed — a scope that hid everything would satisfy the refusals alone and read as a pass.
+
 **Invoice & Payment:**
-- Invoice statuses: `issued`, `partially_paid`, `overdue`, `paid`, `cancelled`, `credited`. Only invoices with `balance > 0` and status NOT IN (`cancelled`, `credited`) are payable.
+- Invoice statuses: `issued`, `partially_paid`, `overdue`, `paid`, `cancelled`, `credited`. Only invoices with `balance > 0` and status NOT IN (`draft`, `cancelled`, `credited`) are payable.
 - Payment statuses: `initiated`, `captured`, `failed`, `refunded`. Only `captured` payments increment the invoice's `paid_amount`.
 - A payment is allocated to invoices via the `payment_invoice` pivot. Invoice `balance = total - paid_amount - credit_applied_amount`. The balance is recomputed on every payment save.
 - Allocation is idempotent: `PaymentReceivedNotification` is fired once per payment (guarded by `receipt_notified_at`).
@@ -405,6 +412,11 @@ However, **key validation & business logic** is shared via:
 **Tenant Status & Login:**
 - Blocked tenants (status != 'active') get 403, not 401. This drives a specific "Account Blocked" screen in the app. Don't confuse with password failure (401).
 - Inactive tenants can still view invoices/payments via API if they somehow have a token (the routes don't re-check status). This is intentional: a session shouldn't be invalidated mid-request if status changes. Password reset/change does revoke tokens, so a re-login is required.
+
+**Scoping to the tenant is not the same question as scoping to what they may SEE (fixed 2026-08-16):**
+- `$request->user()->invoices()` answers "whose row is this?" and nothing else. Every controller did that correctly, and every one of them still handed over drafts — because the relationship is also what the admin and the GL read, so it must return everything.
+- That is why the narrowing lives at the **call site** (`->visibleToTenant()`), not on the relationship. Two different readers, two different entitlements, one relationship.
+- The tell that this was never considered: the documented status list in §3 simply omitted `draft`. The column's DEFAULT is `draft`.
 
 **Cross-Tenant Enumeration Prevention:**
 - The API returns **404 (not 403)** for cross-tenant access. This is deliberate: a 403 would confirm "row exists but you can't access it," whereas 404 is indistinguishable from "row never existed."

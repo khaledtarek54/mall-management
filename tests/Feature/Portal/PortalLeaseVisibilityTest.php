@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Portal\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Portal\Resources\Leases\LeaseResource;
 use App\Filament\Portal\Resources\Leases\Pages\ListLeases;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -61,4 +62,23 @@ it('a read-only (non-admin) portal user can still view their lease', function ()
     Livewire::test(ListLeases::class)
         ->assertOk()
         ->assertCanSeeTableRecords([$this->leaseA]);
+});
+
+// ============================================================================
+// The portal invoice table is the same tenant surface as the API, so it hides
+// the same thing — see App\Support\TenantVisibility.
+// ============================================================================
+
+it('never shows a tenant a draft invoice in the portal, but does show an issued one', function () {
+    $this->actingAs(makeTenantUser($this->tenantA), 'portal');
+
+    $draft = makeInvoice($this->leaseA, ['status' => 'draft']);
+    $issued = makeInvoice($this->leaseA, ['status' => 'issued']);
+
+    // The control matters as much as the refusal: a table scoped to nothing would satisfy the
+    // first assertion on its own.
+    Livewire::test(ListInvoices::class)
+        ->assertOk()
+        ->assertCanSeeTableRecords([$issued])
+        ->assertCanNotSeeTableRecords([$draft]);
 });

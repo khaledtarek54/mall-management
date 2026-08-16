@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Payment;
 use App\Models\Tenant;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -17,8 +18,8 @@ class TenantStatementPdfService
      *                                            read a shared tenant's AR in a mall they can't see. Pass null (the default) for the tenant's
      *                                            OWN statement (portal / mobile API) — the tenant is entitled to their whole-company view.
      *                                            Note: null also means "unrestricted" (super_admin), matching visibleAssetIds()'s null.
-     * @param  \Carbon\CarbonInterface|null  $from  Start of the window. Defaults to 12 months back.
-     * @param  \Carbon\CarbonInterface|null  $to    End of the window. Defaults to today.
+     * @param  CarbonInterface|null  $from  Start of the window. Defaults to 12 months back.
+     * @param  CarbonInterface|null  $to  End of the window. Defaults to today.
      *
      * The window is a PARAMETER because the statement used to hard-code a trailing 12 months and
      * report nothing about what it covered — so a client printed a period computed from the DEVICE
@@ -30,8 +31,7 @@ class TenantStatementPdfService
         ?array $visibleAssetIds = null,
         $from = null,
         $to = null,
-    ): string
-    {
+    ): string {
         $tenant->loadMissing(['leases.unit.asset']);
 
         $asOf = $to !== null ? CarbonImmutable::parse($to) : CarbonImmutable::now();
@@ -41,6 +41,7 @@ class TenantStatementPdfService
 
         $invoicesAll = $tenant->invoices()
             ->with('lease.unit')
+            ->visibleToTenant()
             ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->get();

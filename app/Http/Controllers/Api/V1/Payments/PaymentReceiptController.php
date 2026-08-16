@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Payments;
 
 use App\Http\Controllers\Api\V1\ApiController;
+use App\Http\Controllers\Api\V1\Invoices\InvoicePdfController;
 use App\Models\Payment;
 use App\Services\ReceiptPdfService;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * The proof a tenant screenshots. It reuses the exact {@see ReceiptPdfService} the admin table and
  * the portal's ViewPayment page call, so all three surfaces hand out a byte-identical document —
- * the same rule {@see \App\Http\Controllers\Api\V1\Invoices\InvoicePdfController} follows. Locale
+ * the same rule {@see InvoicePdfController} follows. Locale
  * follows `Accept-Language` (SetApiLocale), which is what switches the PDF to RTL.
  *
  * **Gated on `isReceived()`, the same predicate the portal action gates on**, named once so the two

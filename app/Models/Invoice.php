@@ -3,10 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\AllocatesDocumentNumber;
-use App\Models\Concerns\Invoice\AllocatesInvoiceNumber;
-use App\Models\Concerns\Invoice\HasPaymentLink;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\HidesDraftsFromTenant;
+use App\Models\Concerns\Invoice\AllocatesInvoiceNumber;
+use App\Models\Concerns\Invoice\HasPaymentLink;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
@@ -33,11 +34,11 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned]
 // The finalisation guard already froze issue_date once an invoice is ISSUED; what
 // remained was a DRAFT back-dated and then issued, posting AR into a sealed month.
-#[PostingDateGuardedBy(guard: \App\Models\Invoice::class)]
+#[PostingDateGuardedBy(guard: Invoice::class)]
 class Invoice extends Model
 {
     use AllocatesDocumentNumber, AllocatesInvoiceNumber, HasPaymentLink, RefusesDeletionOfCommittedRecords;
-    use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, HasSearchText, HidesDraftsFromTenant, LogsActivity, SoftDeletes;
 
     /**
      * The invoice number, and nothing else. Everything an operator might otherwise search
