@@ -8,6 +8,23 @@ return [
         'annual' => 'سنوي',
     ],
 
+    'forecast' => [
+        'tab' => 'توقّع الفوترة',
+        'period' => 'الفترة',
+        'lines' => 'البنود',
+        'net' => 'الصافي',
+        'total' => 'إجمالي الفاتورة',
+        'status_forecast' => 'متوقّعة',
+        'status_invoiced' => 'صدرت · :number',
+        'window' => 'التوقّع',
+        'window_value' => ':from – :to · :count فاتورة · الإجمالي :total جنيه',
+        'period_total' => 'الإجمالي :total',
+        'already_invoiced' => 'صدرت بالفعل (:number)',
+        'not_active' => 'هذا العقد غير نشط، لذا لن تصدر أي من هذه الفواتير حتى يتم تفعيله.',
+        'truncated' => 'يتم عرض أول :count فترة — والجدول يستمر بعدها.',
+        'empty' => 'لا توجد فوترة في هذه الفترة.',
+    ],
+
     'billing_preview' => [
         'nav_label' => 'معاينة تشغيل الفوترة',
         'title' => 'معاينة تشغيل الفوترة',

@@ -2,6 +2,17 @@
 
 namespace App\Filament\Admin\Resources\Leases;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\BillingForecastRelationManager;
+use App\Filament\Admin\RelationManagers\ChargeScheduleRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseCamTermsRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseDepositsRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseHistoryRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseRentableItemsRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseSalesDeclarationsRelationManager;
+use App\Filament\Admin\RelationManagers\PercentageRentTiersRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -19,7 +30,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class LeaseResource extends Resource
 {
@@ -71,26 +81,30 @@ class LeaseResource extends Resource
         return [
             // The charge schedule first: it is what the lease bills, and phase 1 made it a
             // ladder rather than a single number.
-            \App\Filament\Admin\RelationManagers\ChargeScheduleRelationManager::class,
+            ChargeScheduleRelationManager::class,
+            // Directly beside it, because the two are the pair people confuse: the schedule holds
+            // the RULES (one dated row per amount) and this expands them into the invoices those
+            // rules produce. Asked of the schedule alone, "what is paid each month?" has no answer.
+            BillingForecastRelationManager::class,
             // The schedule says what the rent is and when it changed; the history says why, on
             // whose authority, and against which document (LE-01). They belong side by side.
-            \App\Filament\Admin\RelationManagers\LeaseHistoryRelationManager::class,
+            LeaseHistoryRelationManager::class,
             // The space a lease rents BEYOND its premises — parking bays, storage, signage.
             // Assign/Release live here as well as on the leases list, because this is where
             // someone asking "what does this tenant have?" actually looks.
-            \App\Filament\Admin\RelationManagers\LeaseRentableItemsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\PercentageRentTiersRelationManager::class,
-            \App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager::class,
+            LeaseRentableItemsRelationManager::class,
+            LeaseOptionsRelationManager::class,
+            PercentageRentTiersRelationManager::class,
+            LeaseInvoicesRelationManager::class,
             // "Have they paid the deposit, and how much is still ours?" — asked at signing,
             // at renewal and again at move-out. The lease carried what was AGREED and a
             // yes/no; neither says what was received, refunded or forfeited.
-            \App\Filament\Admin\RelationManagers\LeaseDepositsRelationManager::class,
+            LeaseDepositsRelationManager::class,
             // Only on a percentage-rent lease — see the class docblock. On a fixed-rent one
             // a permanently empty table would read as "they have not declared".
-            \App\Filament\Admin\RelationManagers\LeaseSalesDeclarationsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\LeaseCamTermsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            LeaseSalesDeclarationsRelationManager::class,
+            LeaseCamTermsRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -125,7 +139,7 @@ class LeaseResource extends Resource
         return [
             __('admin.tables.lease.tenant') => $record->tenant?->name,
             __('admin.tables.lease.unit') => $record->unit?->code,
-            __('admin.tables.lease.rent') => 'EGP ' . number_format((float) $record->base_rent_monthly, 2),
+            __('admin.tables.lease.rent') => 'EGP '.number_format((float) $record->base_rent_monthly, 2),
             __('admin.tables.common.status') => __("admin.statuses.lease.{$record->status}"),
         ];
     }

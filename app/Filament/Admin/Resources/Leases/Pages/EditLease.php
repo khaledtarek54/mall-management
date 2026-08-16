@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Leases\Pages;
 
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
+use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -60,7 +61,7 @@ class EditLease extends EditRecord
 
         // Re-sync the marketing levy charge so a toggle/rate change on the form takes effect
         // (activates/deactivates + re-rates the `marketing` charge for the next monthly run).
-        app(\App\Services\MarketingLevyService::class)->createLevyCharge($this->record);
+        app(MarketingLevyService::class)->createLevyCharge($this->record);
     }
 
     protected function getHeaderActions(): array
@@ -110,7 +111,7 @@ class EditLease extends EditRecord
                         ->title(__('admin.actions.invoice_created'))
                         ->body(__('admin.actions.invoice_created_body', [
                             'number' => $result['invoice']->number,
-                            'total' => 'EGP ' . number_format((float) $result['invoice']->total, 2),
+                            'total' => 'EGP '.number_format((float) $result['invoice']->total, 2),
                         ]))
                         ->success()
                         ->send();
@@ -126,8 +127,7 @@ class EditLease extends EditRecord
                         $record->status !== 'active' => __('admin.actions.not_billable_status', [
                             'status' => __('admin.statuses.lease.'.$record->status, [], $record->status),
                         ]),
-                        $record->expiry_date && $period->greaterThan(\Carbon\CarbonImmutable::instance($record->expiry_date)->endOfMonth())
-                            => __('admin.actions.not_billable_expired', ['date' => $record->expiry_date->format('d/m/Y')]),
+                        $record->expiry_date && $period->greaterThan(CarbonImmutable::instance($record->expiry_date)->endOfMonth()) => __('admin.actions.not_billable_expired', ['date' => $record->expiry_date->format('d/m/Y')]),
                         default => __('admin.actions.not_billable_not_started', [
                             'date' => $record->commencement_date?->format('d/m/Y') ?? '—',
                         ]),
@@ -177,7 +177,7 @@ class EditLease extends EditRecord
                         ->title(__('admin.actions.off_cycle_title'))
                         ->body(__('admin.actions.off_cycle_body', [
                             'period' => $period->format('F Y'),
-                            'frequency' => __('admin.billing_frequency.' . $record->billing_frequency),
+                            'frequency' => __('admin.billing_frequency.'.$record->billing_frequency),
                         ]))
                         ->warning()
                         ->send();

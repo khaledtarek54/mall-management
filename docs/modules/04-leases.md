@@ -2,6 +2,112 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ NEW 2026-08-16 — "Billing forecast", the per-lease forward view.** A **tab beside the Charge
+> schedule**: what this tenancy will be invoiced, period by period, for the next 24 months.
+>
+> **It is a relation manager with no relation, and that is supported rather than a hack.** Filament
+> requires `$relationship` named to mount one, but `Table::records()` installs a data source and
+> `Table::hasQuery()` is `! $dataSource` — so the named relation is never queried. Two defaults do
+> have to be cleared: the base table wires `recordAction` and `recordUrl` closures typed
+> `Model $record`, which exist to open the related record and fatal on the first render against
+> computed rows. (Built as a modal action first, on the belief that a tab had to be a real relation.
+> It doesn't, on v4.11.8 — and beside the schedule is where it belongs, because those two are exactly
+> the pair people confuse.)
+>
+> **Why it had to exist.** Four screens described a lease's money and none answered this question.
+> The **Charge schedule** holds the *rules* — one dated row per amount, because storing the months as
+> well as the rule would store the same fact twice — and was therefore repeatedly read as a payment
+> plan and found wanting ("why doesn't it show what's paid each month?"). **Rent Roll** is a snapshot
+> of today. **Billing Run Preview** is one period across every lease. The **Invoices** tab is history.
+> So *"what does this tenancy bill next year?"* — the question a negotiator, an operator and an owner
+> all ask — had no screen.
+>
+> **It computes nothing of its own.** Every row is `MonthlyBillingService::planInvoiceForLease()`,
+> the method the real run persists verbatim and the preview renders. A forecast with its own
+> arithmetic diverges first on exactly the cases that matter — a proration edge, a cycle boundary, an
+> escalation step — and does it silently. `LeaseBillingForecastService` only walks the calendar and
+> asks.
+>
+> Three readings worth knowing: a **quarterly** lease is grouped into cycles rather than listing the
+> mid-cycle months as gaps in the tenant's obligations; a period **already invoiced** shows what it
+> ACTUALLY billed and names the invoice (re-planning the past would report it at today's rent and
+> read as a discrepancy that isn't one); and **truncated** means *the schedule continues past what is
+> shown*, not *we hit the row cap* — a 60-month lease whose 24 rows exactly fill the 24-month horizon
+> hits no cap and is still cut short by three years. Pinned by `LeaseBillingForecastTest`.
+
+> **⚠️ A lease's future rent is now visible wherever it is claimed (2026-08-16).** `fixed_amount`
+> was excluded from projection in **three places at once**, and the standard create form projected
+> nothing at all — so an amount-escalating lease had its rent moved every anniversary by
+> `RentEscalationService` with **nothing anywhere saying it would**. Pinned by
+> `FutureRentIsVisibleTest`.
+>
+> - **`CreateLease` never projected.** `LeaseCreationService::create()` has always written the whole
+>   ladder, but that service is reached only from the *Quick new lease* wizard on the list header;
+>   the ordinary **New lease** page runs Eloquent directly and stopped at the three seeded rows. The
+>   same deal produced a different lease depending on which button was pressed. It now projects.
+> - **`projectTermEscalations()` refused `fixed_amount`.** "+EGP 4,000 a month each year" is an
+>   ordinary anchor-tenant term and is exactly as knowable at signing as a percentage — unlike CPI,
+>   which stays unprojected because there is no index feed. The step is sized as the sweep sizes it
+>   (`rent + amount`, **no collar** — a bound in percent cannot clamp a step in pounds), which is what
+>   keeps "a projected lease and a swept one converge on identical rows" true for amount leases too.
+> - **`atriom:project-lease-schedules` filtered the same way**, so the backfill answered *"No active
+>   leases with a contracted escalation"* about a portfolio of them — and printed an amount lease's
+>   step as `0.00%`, which reads as *no increase* beside four projected steps.
+> - **The Charge-schedule heading had four wrong readings**, all fixed by answering from the rent
+>   schedule instead of the lease column: *"Billing now"* announced a rent on a lease that had not
+>   commenced; *"next step"* called the lease's own **opening** rent row a step; the query carried
+>   **no `type` filter**, so the row reported as a *rent* step could be the service charge or the
+>   levy (whichever the tie broke to); and the unprojected-clause warning knew only `fixed_percent`,
+>   so an amount lease was told **"no further steps scheduled"** — not a hedge but a false statement
+>   about the contract.
+
+> **⚠️ The lease form now says what it means (2026-08-16).** Five ways this screen could be filled
+> in wrongly and report success. All pinned by `LeaseFormTightnessTest`.
+>
+> - **The double-booking guard had stopped guarding.** The `unit_id` rule that refuses a second
+>   active lease was sitting on `unit_ownership_id`, where `$value` is an ownership id — so
+>   `! $value` returned early on every ordinary lease and the closure could never fire. What kept it
+>   looking present is the option query, which hides occupied units; **`show_occupied_units` widens
+>   exactly that query**, and behind it there was nothing left. `CreateLease` does not run
+>   `LeaseCreationService`, so the unit row-lock never saw it either — the standard form would mint a
+>   SECOND active lease on a let unit. Reproduced before the fix ("Component has no errors"). The
+>   lock in the service is the real guard for the *raced* case; this is the guard for the ordinary
+>   one, and neither substitutes for the other.
+> - **Escalation asks the TYPE first, and shows only that type's fields.** Visibility used to read
+>   "not `fixed_amount`", so a lease declaring **`none`** still offered a rate box and a collar —
+>   inputs an operator would fill in and nothing would ever read. `none` now shows nothing at all;
+>   `fixed_percent`/`cpi` show the rate + collar; `fixed_amount` shows the amount alone (a bound
+>   written in percent cannot clamp a step written in pounds, which is why `collar()` skips it).
+> - **A hidden field must not keep a live value.** Filament does not dehydrate a hidden field, so
+>   switching an existing lease to `none` LEFT its rate, amount and collar in the columns — invisible,
+>   and read again the moment anyone switched the type back. `Lease::saving` clears them, in the
+>   model rather than the form because the importer, the API and `LeaseRenewalService` never render a
+>   field. **Clearing keys on the type; arming keys on the figure** — a `fixed_percent` stated at 0%
+>   is a real clause with a zero step that the sweep deliberately keeps, so that it can roll the date
+>   once a year instead of reconsidering it nightly. Clearing on "no figure" instead looked
+>   equivalent and dropped those leases out of the sweep permanently.
+> - **A clause recorded after signing now actually runs.** `next_escalation_date` was armed in
+>   `creating` only, so adding an escalation to an EXISTING lease left it null and
+>   `RentEscalationService`'s `whereNotNull` excluded that lease for the rest of its term — the same
+>   dead feature the create-side fix was written for, one edit away.
+> - **Percentage rent can no longer be configured to charge nothing, or everything.** The rate was
+>   optional (toggle on, rate blank → an overage of 0.00 every month, reading as configured on every
+>   screen); it is now required. And a **natural breakpoint with no base rent** is refused — the
+>   breakpoint IS the base rent, so at zero the clause silently becomes "a percentage of every pound
+>   of sales from the first one", which looks perfectly ordinary on the resulting invoice.
+>
+> **And what identifies a lease is chosen once (the Yardi rule).** `unit_id`, `tenant_id` and
+> `unit_ownership_id` are locked on Edit: the master unit is the lease's identity, re-pointing the
+> tenant would hand one retailer's billing history and deposit to another under the same contract
+> reference, and both are separate commercial acts (a relocation, an assignment) rather than edits.
+> Additional units stay editable — expanding and contracting the premises is ordinary.
+> `commencement_date`, `rent_commencement_date` and `fit_out_scope` are free while the lease is still
+> an agreement and **lock the moment it has been invoiced**, because from then on they are what those
+> invoices were derived from. And `terminated` / `renewed` are no longer offered in the status select:
+> they are outcomes of a service (deactivating the schedule, crediting unearned billing, cancelling
+> open invoices, settling the deposit, writing the next lease), and typing one recorded the word while
+> skipping every one of those acts.
+
 > **⚠️ Exercising an option now writes the deal (2026-08-09, OP-04/OP-03).**
 > `ExerciseLeaseOptionService` is the one path that resolves an option. It marks it, records a
 > **lease event typed by what the option DOES** (a renewal EXTENDS, an expansion EXPANDS, a

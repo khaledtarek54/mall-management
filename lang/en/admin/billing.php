@@ -8,6 +8,25 @@ return [
         'annual' => 'Annual (yearly)',
     ],
 
+    // The per-lease forward view: what THIS tenancy will be invoiced, period by period. Distinct
+    // from `billing_preview`, which is one period across every lease.
+    'forecast' => [
+        'tab' => 'Billing forecast',
+        'period' => 'Period',
+        'lines' => 'Lines',
+        'net' => 'Net',
+        'total' => 'Invoice total',
+        'status_forecast' => 'Forecast',
+        'status_invoiced' => 'Invoiced · :number',
+        'window' => 'Forecast',
+        'window_value' => ':from – :to · :count invoices · EGP total :total',
+        'period_total' => 'Total :total',
+        'already_invoiced' => 'already invoiced (:number)',
+        'not_active' => 'This lease is not active, so none of this will bill until it is activated.',
+        'truncated' => 'Showing the first :count periods — the schedule continues past them.',
+        'empty' => 'Nothing bills in this window.',
+    ],
+
     'billing_preview' => [
         'nav_label' => 'Billing Run Preview',
         'title' => 'Billing Run Preview',
