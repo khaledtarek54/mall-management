@@ -409,6 +409,30 @@ However, **key validation & business logic** is shared via:
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+**The mobile token belongs to the COMPANY, not to a person — so `/me` can never report a role.**
+`LoginTenantAction` authenticates against `tenants.email` + `tenants.password` and issues
+`$tenant->createToken(...)`. No `TenantUser` is involved at any point, which is the opposite of
+`/portal` (multi-user `TenantUser`, `is_admin` decides who may write). Consequences, all of them
+deliberate rather than missing:
+
+- The app models an owner-vs-staff Home split and reads `TenantResource.role` to pick it. **The
+  server has no person to name**, so the key is absent, the app decodes null, and
+  `homeVariantFor(null)` falls back to the full owner Home. That is the safe direction: one shared
+  company credential already implies full access, so nothing is being over-exposed.
+- The staff Home layout is therefore unreachable against a real backend — it is exercised only by
+  the in-app mock. A dev-only banner ("Role unknown — the full home is shown") makes that visible
+  in non-production builds rather than letting it read as a bug.
+- **This is a product decision, not a patch.** Closing it means moving mobile auth to `TenantUser`
+  so the API knows which person signed in — matching the portal, and a breaking change for a
+  shipped app. The alternative is to drop the staff variant. Either way the choice belongs to the
+  operator, and `role` should not be faked from `is_admin` on some other row in the meantime.
+
+**`/me/balance` and `/me/notifications/unread-count` exist but the app calls neither, on purpose.**
+`outstanding` and `unreadNotifications` both arrive on `/me/summary`, which Home loads anyway, and
+the bell badge reloads that summary on return from the inbox. Calling either would be a second
+round trip for a number already in hand.
+
+
 **Tenant Status & Login:**
 - Blocked tenants (status != 'active') get 403, not 401. This drives a specific "Account Blocked" screen in the app. Don't confuse with password failure (401).
 - Inactive tenants can still view invoices/payments via API if they somehow have a token (the routes don't re-check status). This is intentional: a session shouldn't be invalidated mid-request if status changes. Password reset/change does revoke tokens, so a re-login is required.
