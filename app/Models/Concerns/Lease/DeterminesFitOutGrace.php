@@ -138,6 +138,21 @@ trait DeterminesFitOutGrace
     }
 
     /**
+     * Does the rent-free period abate this charge type — asked WITHOUT reference to a date?
+     *
+     * The sibling above answers "what is free in this period", which is empty once the grace has
+     * run out. This answers the different question the billing engine needs in the CROSSOVER month:
+     * the grace ended on the 15th, so the period is no longer inside the window, and yet the first
+     * fourteen days of it were still rent-free. Only the types the grace actually covered may be
+     * clipped to the rent-commencement date — under net abatement the service charge and the levy
+     * have been billing in full since handover and must keep doing so.
+     */
+    public function graceAbates(string $chargeType): bool
+    {
+        return $this->fit_out_scope === self::FIT_OUT_GROSS || $chargeType === 'base_rent';
+    }
+
+    /**
      * True when the given billing period falls entirely inside the fit-out grace, so NOTHING bills.
      * fit_out_months = 0 → always false (today's behaviour). Shared by the monthly billing engine
      * and the ActionRequired "unbilled leases" card, so a lease in fit-out is neither billed nor nagged.

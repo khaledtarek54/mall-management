@@ -462,24 +462,63 @@ class MonthlyBillingService
             return $nothing('lease_ended');
         }
 
+        // RENT-COMMENCEMENT edge — the month the rent-free period ends part-way through.
+        //
+        // Unconditional, for the trailing edge's reason rather than the leading one's. Whether a
+        // mid-month MOVE-IN pays for part of the month is a commercial term the operator sets per
+        // run; whether rent is owed before the date the contract says rent commences is not a
+        // question at all. Until this existed, `rent_commencement_date = 15 April` billed the whole
+        // of April: `Lease::rentCommencesOn()` normalises to the 1st (billing periods are whole
+        // months, and April IS the first rent month), and its own docblock called the remaining
+        // half "a proration question" — which nothing then answered. On a 100,000 rent that is
+        // 46,666.67 billed for a fortnight of a rent-free period, on the first invoice a new tenant
+        // ever sees.
+        //
+        // Kept SEPARATE from `$multiplier` because the grace is per charge type: under net
+        // abatement the tenant has been paying the service charge and the levy all through fit-out,
+        // and those bill the full month here. Only what the grace actually abated is clipped.
+        $rentStart = $lease->rent_commencement_date
+            ? CarbonImmutable::instance($lease->rent_commencement_date)
+            : null;
+
+        $graceMultiplier = ($rentStart
+            && $rentStart->greaterThan($effectivePeriodStart)
+            && ! $rentStart->greaterThan($effectivePeriodEnd))
+                ? self::monthsCovered($periodStart, $cycleMonths, $rentStart, $effectivePeriodEnd)
+                : null;
+
         // The share of a full cycle, for the label and the `prorated` flag.
         $factor = $multiplier / max($cycleMonths, 1);
 
         // The rate is resolved for the date the invoice will carry — `effectivePeriodStart`, which
         // becomes `issue_date` below and is the GL entry_date. Reading `charges.vat_rate` directly
         // meant a rate change never reached rent or service charge; see `Charge::resolvedVatRate()`.
-        $items = $applicableCharges->map(function (Charge $charge) use ($periodStart, $periodEnd, $factor, $multiplier, $cycleMonths, $effectivePeriodStart) {
+        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $effectivePeriodStart) {
             // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
             // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
-            $multiplier = $charge->frequency === 'monthly' ? $multiplier : 1.0;
-            $amount = round((float) $charge->amount * $multiplier, 2);
+            //
+            // A charge the rent-free period abated is clipped to the rent-commencement date instead
+            // — so on a net-abatement lease the rent bills half of April while the service charge,
+            // which the tenant has been paying since handover, bills all of it.
+            $rowMultiplier = match (true) {
+                $charge->frequency !== 'monthly' => 1.0,
+                $graceMultiplier !== null && $lease->graceAbates($charge->type) => $graceMultiplier,
+                default => $multiplier,
+            };
+
+            $amount = round((float) $charge->amount * $rowMultiplier, 2);
             $vatRate = $charge->resolvedVatRate($effectivePeriodStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
             $label = $charge->name.' - '.($cycleMonths > 1
                 ? $this->cycleLabel($periodStart, $periodEnd)
                 : $periodStart->format('F Y'));
-            if ($factor < 1) {
-                $label .= ' ('.round($factor * 100).'% pro-rated)';
+
+            // The line's OWN share, so a part-month rent line is marked pro-rated while a full-month
+            // service charge beside it is not.
+            $rowFactor = $rowMultiplier / max($cycleMonths, 1);
+
+            if ($charge->frequency === 'monthly' && $rowFactor < 1) {
+                $label .= ' ('.round($rowFactor * 100).'% pro-rated)';
             }
 
             return [

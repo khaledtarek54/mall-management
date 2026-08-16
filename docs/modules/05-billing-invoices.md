@@ -1,6 +1,30 @@
 # Billing & Invoices
 > Generate and track monthly invoices for leased retail units, including VAT compliance, proration, payment reconciliation, and overdue notifications.
 
+> **⚠️ Fixed 2026-08-16 — the month rent COMMENCES was billed whole.**
+> A lease with `rent_commencement_date = 15 April` was invoiced the full April rent.
+> `Lease::rentCommencesOn()` normalises to the 1st — correctly, since billing periods are whole
+> months and April genuinely is the first rent month — and its docblock called the remaining half
+> *"a proration question, not a period question"*. Nothing answered that question:
+> `planInvoiceForLease()` clipped its leading edge to `commencement_date` alone, which on a lease
+> that commenced in January is months past, so the multiplier came out at 1.0. **On a 100,000 rent
+> that is 46,666.67 charged for a fortnight of a contractually rent-free period — on the first
+> invoice a new tenant ever receives.**
+>
+> The clip is **per charge TYPE**, which is the part worth keeping in mind: under net abatement
+> (`rent_only`, the default) the tenant has been paying the service charge and the marketing levy
+> since handover, so those bill the **whole** month while the rent beside them bills half. Under
+> `gross` the entire invoice was abated, so the entire invoice is clipped. The predicate is
+> `Lease::graceAbates()` — deliberately *dateless*, unlike its sibling `abatedChargeTypesFor()`,
+> because the crossover month is no longer inside the fit-out window and yet part of it was still
+> rent-free.
+>
+> **Unconditional, for the trailing edge's reason rather than the leading one's.** Whether a
+> mid-month *move-in* pays for part of the month is a commercial term the operator sets per run
+> (the `$prorate` flag); whether rent is owed before the date the contract says rent commences is
+> not a question at all. Only the prorated LINE carries the `(x% pro-rated)` label, so a full-month
+> service charge beside it is not mislabelled. Pinned by `RentCommencementIsProratedTest`.
+
 
 > **⚠️ Fixed 2026-08-11 — partial write-offs were uncapped and broke the AR tie-out.**
 >
