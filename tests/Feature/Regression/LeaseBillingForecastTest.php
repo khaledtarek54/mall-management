@@ -24,6 +24,7 @@ use App\Services\ChargeScheduleService;
 use App\Services\LeaseBillingForecastService;
 use App\Services\LeaseCreationService;
 use App\Services\MonthlyBillingService;
+use App\Support\BillingWindow;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -211,6 +212,66 @@ it('reads in Arabic for an Arabic reader — period and lines both', function ()
         ->and((string) $first['lines'])->toMatch('/\p{Arabic}/u');
 
     app()->setLocale('en');
+    Filament::setTenant(null, isQuiet: true);
+});
+
+// ── Billing from the forecast, bounded by the same window the preview uses ──────────────────────
+
+it('offers "bill this period" only on the row that can actually be raised now', function () {
+    // "Now" is mid-September; the window is the last 12 months plus October.
+    CarbonImmutable::setTestNow('2026-09-15');
+
+    $lease = forecastLease($this, [
+        'commencement_date' => '2026-10-01',
+        'expiry_date' => '2029-09-30',
+    ]);
+
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::setTenant($this->asset);
+
+    $billable = collect(Livewire::test(BillingForecastRelationManager::class, [
+        'ownerRecord' => $lease,
+        'pageClass' => EditLease::class,
+    ])->instance()->getTableRecords())
+        ->filter(fn (array $r): bool => $r['can_bill']);
+
+    Filament::setTenant(null, isQuiet: true);
+
+    // October is inside the window; November 2026 onwards is not, however certain the forecast is.
+    expect($billable)->toHaveCount(1)
+        ->and($billable->first()['period_key'])->toBe('2026-10-01');
+});
+
+it('refuses to bill a period outside the window even when dispatched directly', function () {
+    CarbonImmutable::setTestNow('2026-09-15');
+
+    expect(BillingWindow::allows(CarbonImmutable::parse('2026-10-01')))->toBeTrue()
+        ->and(BillingWindow::allows(CarbonImmutable::parse('2026-11-01')))->toBeFalse()
+        ->and(BillingWindow::allows(CarbonImmutable::parse('2025-09-01')))->toBeTrue()
+        ->and(BillingWindow::allows(CarbonImmutable::parse('2025-08-01')))->toBeFalse();
+});
+
+it('links an invoiced period to the invoice that produced it', function () {
+    $lease = forecastLease($this);
+
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::setTenant($this->asset);
+
+    $invoice = app(MonthlyBillingService::class)
+        ->generateForLease($lease, CarbonImmutable::parse('2026-10-01'), prorate: true)['invoice'];
+
+    $records = collect(Livewire::test(BillingForecastRelationManager::class, [
+        'ownerRecord' => $lease->fresh(),
+        'pageClass' => EditLease::class,
+    ])->instance()->getTableRecords());
+
+    $billed = $records->firstWhere('period_key', '2026-10-01');
+
+    expect($billed['invoice_url'])->toContain((string) $invoice->getKey())
+        ->and($billed['can_bill'])->toBeFalse();   // already raised — no second button
+
     Filament::setTenant(null, isQuiet: true);
 });
 

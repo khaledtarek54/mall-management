@@ -167,6 +167,8 @@ return [
         'billing_forecast' => 'Billing forecast',
         'billing_forecast_for' => 'Billing forecast · :ref',
         'billing_forecast_description' => 'What this lease will be invoiced, period by period. Computed by the billing engine itself, so it matches what will actually be raised.',
+        'outside_billing_window_title' => 'That month cannot be billed by hand',
+        'outside_billing_window_body' => 'Manual billing reaches :from – :to. A period outside that is raised by the scheduled run, or by billing:run for a backfill.',
         'generate_invoice' => 'Generate Invoice',
         'generate_invoice_for' => 'Generate invoice for :ref',
         'generate_invoice_description' => 'Create an invoice for this lease for the selected billing period. Charges are pulled from the lease and pro-rated automatically if the commencement falls mid-month.',

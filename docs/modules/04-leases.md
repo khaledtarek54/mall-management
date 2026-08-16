@@ -28,6 +28,15 @@
 > escalation step — and does it silently. `LeaseBillingForecastService` only walks the calendar and
 > asks.
 >
+> **Two actions on it, both scoped.** The invoice number on an already-raised period is a **link**
+> to that invoice (drill-down on every number, the panel's standard), and the row that is genuinely
+> due carries **Bill this period** — routed through `MonthlyBillingService::generateForLease()`, so
+> it inherits the period lock and the already-billed probe rather than becoming a second billing
+> path. It appears **only** where `App\Support\BillingWindow` allows: a button on every future row
+> would let someone raise a receivable two years early from the one screen whose whole job is to
+> look ahead. Gated in `visible()` and again with `abort_unless` in the closure, on
+> `leases.generate_invoice`.
+>
 > Three readings worth knowing: a **quarterly** lease is grouped into cycles rather than listing the
 > mid-cycle months as gaps in the tenant's obligations; a period **already invoiced** shows what it
 > ACTUALLY billed and names the invoice (re-planning the past would report it at today's rent and

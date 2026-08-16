@@ -6,6 +6,7 @@ use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Services\MonthlyBillingService;
+use App\Support\BillingWindow;
 use App\Support\Modules;
 use App\Support\OpsLog;
 use App\Support\TenantScope;
@@ -93,18 +94,16 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
         }
     }
 
-    /** The last 12 months plus the next one — the realistic window for a manual run. */
+    /**
+     * The last 12 months plus the next one — the realistic window for a manual run.
+     *
+     * The rule moved to `App\Support\BillingWindow` when the lease's Generate Invoice action turned
+     * out to accept ANY month: this screen refused to preview a period that screen would happily
+     * bill. Kept as a method here because the filter and the tests both name it.
+     */
     public static function periodOptions(): array
     {
-        $options = [];
-        $cursor = CarbonImmutable::now()->startOfMonth()->addMonth();
-
-        for ($i = 0; $i < 14; $i++) {
-            $options[$cursor->format('Y-m')] = $cursor->locale(app()->getLocale())->isoFormat('MMMM YYYY');
-            $cursor = $cursor->subMonth();
-        }
-
-        return $options;
+        return BillingWindow::options();
     }
 
     public function filtersForm(Schema $schema): Schema

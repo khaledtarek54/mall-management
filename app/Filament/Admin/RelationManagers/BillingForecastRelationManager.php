@@ -2,10 +2,15 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\ChargeCode;
 use App\Models\Lease;
 use App\Services\LeaseBillingForecastService;
+use App\Services\MonthlyBillingService;
+use App\Support\BillingWindow;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -75,7 +80,22 @@ class BillingForecastRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
-                    ->color(fn (array $record): string => $record['status_color']),
+                    ->color(fn (array $record): string => $record['status_color'])
+                    ->url(fn (array $record): ?string => $record['invoice_url']),
+            ])
+            ->recordActions([
+                Action::make('billPeriod')
+                    ->label(__('admin.forecast.bill_period'))
+                    ->icon('heroicon-o-document-plus')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (array $record): string => __('admin.forecast.bill_period_heading', ['period' => $record['period']]))
+                    ->modalDescription(__('admin.forecast.bill_period_description'))
+                    // Only where an invoice is genuinely raisable now: billable, not already raised,
+                    // and inside the window an operator may reach by hand.
+                    ->visible(fn (array $record): bool => $record['can_bill'] && self::canBill())
+                    ->authorize(fn (): bool => self::canBill())
+                    ->action(fn (array $record) => $this->bill($record)),
             ])
             // A relation manager's base table wires `recordAction`/`recordUrl` closures typed
             // `Model $record` — they exist to open the related record, and these rows are computed
@@ -125,10 +145,76 @@ class BillingForecastRelationManager extends RelationManager
                     ! $row['billable'] => 'gray',
                     default => 'info',
                 },
+                // Drill-down on every number, the panel's own standard: the figure beside an
+                // invoiced period is a document, so it opens the document.
+                'invoice_url' => $billed && $row['invoice_id'] !== null
+                    ? InvoiceResource::getUrl('edit', ['record' => $row['invoice_id']])
+                    : null,
+                // Billable ONLY on a period an operator may raise by hand today. A button on every
+                // future row would let someone bill two years ahead from a screen whose whole job is
+                // to look ahead — see App\Support\BillingWindow.
+                'can_bill' => $row['billable']
+                    && ! $billed
+                    && BillingWindow::allows($row['period_start']),
+                'period_key' => $row['period_start']->format('Y-m-d'),
             ];
         }
 
         return $rows;
+    }
+
+    /** Raising a receivable is its own permission, distinct from reading the lease. */
+    protected static function canBill(): bool
+    {
+        return auth()->user()?->can('leases.generate_invoice') ?? false;
+    }
+
+    /**
+     * Raise the invoice this row predicts — through the ordinary billing path, not a second one.
+     *
+     * `generateForLease()` carries the period lock and the already-billed probe, so a double-click
+     * here, a second admin, or this racing the scheduled run all resolve the same way they do
+     * anywhere else. The screen only decides WHICH period; it does not decide how to bill it.
+     */
+    protected function bill(array $record): void
+    {
+        // The real gate. `visible()` hides the button; `mountAction` is reachable without it, and
+        // "raise a receivable" is not something a URL should be able to do unauthorised.
+        abort_unless(self::canBill(), 403);
+
+        $period = CarbonImmutable::parse($record['period_key'])->startOfMonth();
+
+        abort_unless(BillingWindow::allows($period), 403);
+
+        /** @var Lease $lease */
+        $lease = $this->getOwnerRecord();
+
+        $result = app(MonthlyBillingService::class)->generateForLease($lease, $period, prorate: true);
+
+        if ($result['status'] === 'created') {
+            Notification::make()
+                ->title(__('admin.actions.invoice_created'))
+                ->body(__('admin.actions.invoice_created_body', [
+                    'number' => $result['invoice']->number,
+                    'total' => 'EGP '.number_format((float) $result['invoice']->total, 2),
+                ]))
+                ->success()
+                ->send();
+
+            // The row this was raised from must stop offering the button, and start naming the
+            // invoice — both come from a fresh forecast.
+            $this->cachedForecast = null;
+
+            return;
+        }
+
+        Notification::make()
+            ->title(__('admin.forecast.bill_period_refused'))
+            ->body(__('admin.billing_preview.reason.'.($result['reason'] ?? 'unknown')))
+            ->warning()
+            ->send();
+
+        $this->cachedForecast = null;
     }
 
     /** The window, the count, the money — and any caveat that changes how the rows should be read. */

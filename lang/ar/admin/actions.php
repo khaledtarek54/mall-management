@@ -167,6 +167,8 @@ return [
         'billing_forecast' => 'توقّع الفوترة',
         'billing_forecast_for' => 'توقّع الفوترة · :ref',
         'billing_forecast_description' => 'ما سيتم تفويتره على هذا العقد، فترة بفترة. محسوب بمحرّك الفوترة نفسه، فهو مطابق لما سيصدر فعليًا.',
+        'outside_billing_window_title' => 'لا يمكن فوترة هذا الشهر يدويًا',
+        'outside_billing_window_body' => 'الفوترة اليدوية متاحة من :from إلى :to. أي فترة خارج ذلك تصدر عبر التشغيل المجدول أو عبر billing:run لإعادة الترحيل.',
         'generate_invoice' => 'إنشاء فاتورة',
         'generate_invoice_for' => 'إنشاء فاتورة للعقد :ref',
         'generate_invoice_description' => 'إنشاء فاتورة لهذا العقد للفترة المختارة. يتم جلب البنود من العقد، ويتم احتسابها تناسبيًا تلقائيًا إذا كان تاريخ بدء العقد في منتصف الشهر.',

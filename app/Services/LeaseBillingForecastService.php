@@ -125,6 +125,8 @@ class LeaseBillingForecastService
                 // it; the plan is only a prediction of a thing that has already happened.
                 'total' => $invoice ? (float) $invoice->total : $plan['total'],
                 'invoice_number' => $invoice?->number,
+                // So the screen can link the figure to the document that produced it.
+                'invoice_id' => $invoice?->getKey(),
             ];
 
             // Skip the months this row already covers rather than re-planning each one to be told

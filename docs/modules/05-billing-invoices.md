@@ -1,6 +1,20 @@
 # Billing & Invoices
 > Generate and track monthly invoices for leased retail units, including VAT compliance, proration, payment reconciliation, and overdue notifications.
 
+> **⚠️ 2026-08-16 — how far ahead an operator may bill now has ONE answer.**
+> The Billing Run Preview offered the last 12 months plus the next one; the lease's own **Generate
+> Invoice** picker carried **no bounds at all** and `generateForLease()` no future check — so the
+> same deal was billable four months early from one screen while the other refused even to preview
+> it. Raising a receivable years ahead posts revenue into a period that may not exist and dates an
+> e-invoice into the future.
+>
+> The rule is `App\Support\BillingWindow` and both screens read it; the picker's `minDate`/`maxDate`
+> are the UI half and the closure re-checks, because a picker is not a guard. **It bounds the
+> OPERATOR, not the engine** — `MonthlyBillingService` stays unclamped on purpose, since the
+> scheduled run, `billing:run --period=`, a backfill and the test suite all bill periods chosen
+> deliberately by someone who is not clicking a button. The line is "typed into a form", which is
+> where a mis-key becomes a receivable nobody meant to raise.
+
 > **⚠️ Fixed 2026-08-16 — the month rent COMMENCES was billed whole.**
 > A lease with `rent_commencement_date = 15 April` was invoiced the full April rent.
 > `Lease::rentCommencesOn()` normalises to the 1st — correctly, since billing periods are whole

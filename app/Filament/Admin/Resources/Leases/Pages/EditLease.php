@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
 use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
+use App\Support\BillingWindow;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -95,6 +96,13 @@ class EditLease extends EditRecord
                     ->format('Y-m-01')
                     ->required()
                     ->default(now()->startOfMonth()->toDateString())
+                    // The same window the Billing Run Preview offers. This picker carried no bounds
+                    // at all, so one screen refused to PREVIEW a month the other would happily
+                    // BILL — a receivable raisable years early, posting revenue into a period that
+                    // may not exist and dating an e-invoice into the future. The bounds are the UI
+                    // half; the closure below is the gate.
+                    ->minDate(BillingWindow::earliest())
+                    ->maxDate(BillingWindow::latest())
                     ->native(false),
                 Toggle::make('prorate')
                     ->label(__('admin.actions.prorate_first_period'))
@@ -103,6 +111,21 @@ class EditLease extends EditRecord
             ])
             ->action(function (array $data, Lease $record): void {
                 $period = CarbonImmutable::parse($data['period'])->startOfMonth();
+
+                // The real gate — `minDate`/`maxDate` bound the picker, and a picker is not a guard.
+                if (! BillingWindow::allows($period)) {
+                    Notification::make()
+                        ->title(__('admin.actions.outside_billing_window_title'))
+                        ->body(__('admin.actions.outside_billing_window_body', [
+                            'from' => BillingWindow::earliest()->locale(app()->getLocale())->isoFormat('MMMM YYYY'),
+                            'to' => BillingWindow::latest()->locale(app()->getLocale())->isoFormat('MMMM YYYY'),
+                        ]))
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
                 $result = app(MonthlyBillingService::class)
                     ->generateForLease($record, $period, (bool) ($data['prorate'] ?? false));
 
