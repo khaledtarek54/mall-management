@@ -15,7 +15,6 @@ use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
-use App\Support\PropertySettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -55,15 +54,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
     protected static function booted(): void
     {
-        // ── Arm the rent-escalation anniversary on create ──────────────────────────────────────
-        // The daily leases:apply-escalations sweep keys on next_escalation_date, but NO creation
-        // path used to populate it (the wizard omitted it, the form has no field, renewal set it
-        // null) — so escalation silently never ran for a single real lease (dead feature; the tests
-        // only passed because fixtures hand-injected the column). Converge the derivation HERE so
-        // every path (wizard, standard form, renewal, seeder) arms it consistently and can't drift.
-        // Derived only when escalation is genuinely configured; 'none'/rate-0 leases stay null and
-        // are never considered by the sweep.
-        // Allocate a reference when none was supplied — under the lock, held across the INSERT.
+        // ── Allocate a reference when none was supplied — under the lock, held across the INSERT ──
         //
         // Deliberately NOT Invoice's "always re-generate" rule, and the difference is the point.
         // Nothing legitimately supplies an invoice NUMBER, so overwriting one is free. A lease
@@ -89,15 +80,51 @@ class Lease extends Model implements BillableAgreement, HasMedia
             );
         });
 
-        static::creating(function (self $lease) {
-            $configured = match ($lease->escalation_type) {
-                'fixed_percent', 'cpi' => (float) $lease->escalation_rate > 0,
-                'fixed_amount' => (float) $lease->escalation_amount > 0,
-                default => false,
-            };
+        // ── The escalation clause and its terms are kept consistent on EVERY write ─────────────
+        // This was a `creating` hook, which covered exactly half of the problem.
+        //
+        //  1. **Arming.** The daily `leases:apply-escalations` sweep keys on
+        //     `next_escalation_date`, and no creation path used to populate it — so escalation
+        //     silently never ran for a single real lease. That was fixed on create. But adding a
+        //     clause to an EXISTING lease (the ordinary way an operator records a term they missed,
+        //     or switches `none` → `fixed_percent`) still left the column null, and `whereNotNull`
+        //     excluded the lease for the rest of its term. The same dead feature, one edit away.
+        //
+        //  2. **Clearing.** The form shows a rate box only for the types that state a rate, so a
+        //     lease switched to `none` keeps whatever rate, amount and collar it had — invisible in
+        //     the UI, still sitting in the columns, and read again the moment somebody switches the
+        //     type back. A field the operator cannot see must not hold a value that can take effect.
+        //
+        // Both belong on `saving` and in the MODEL rather than the form: the importer, the API and
+        // `LeaseRenewalService` all write leases without ever rendering a field.
+        //
+        // The anniversary stays `commencement + 1 year` even when that is in the past. A backlog is
+        // already how this system models a late clause — the sweep applies ONE step per run and
+        // rolls forward, so a mid-term lease catches up over successive nights instead of
+        // compounding several years in a single pass.
+        //
+        // **Clearing keys on the TYPE; arming keys on the FIGURE**, and the asymmetry is load-bearing.
+        // `none` is the only value that means "there is no clause", and it is the only one whose
+        // fields the form hides — so it is the only one whose terms may be discarded. A
+        // `fixed_percent` stated at 0% is a different animal: it is a real clause with a zero step,
+        // the rate box is on screen, and `RentEscalationService` deliberately keeps such a lease in
+        // its sweep so it can roll the date forward once a year rather than reconsider it every
+        // night. Clearing on `! escalatesContractually()` looked equivalent and dropped exactly
+        // those leases out of the sweep for good (caught by `RentEscalationTest` and
+        // `FixedAmountEscalationTest`, both of which pin the rolled date).
+        static::saving(function (self $lease) {
+            if ($lease->escalation_type === 'none') {
+                $lease->escalation_rate = 0;
+                $lease->escalation_amount = null;
+                $lease->escalation_floor_rate = null;
+                $lease->escalation_ceiling_rate = null;
+                $lease->next_escalation_date = null;
 
-            if ($lease->next_escalation_date === null
-                && $configured
+                return;
+            }
+
+            if ($lease->escalatesContractually()
+                && $lease->next_escalation_date === null
                 && $lease->commencement_date !== null) {
                 $lease->next_escalation_date = Carbon::parse($lease->commencement_date)->addYear()->format('Y-m-d');
             }
@@ -267,7 +294,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'possession_date' => 'the tenant took possession once, at the start of the original lease.',
         'rent_commencement_date' => 'fit-out grace was for the original build-out; a renewal has no new one.',
         'fit_out_scope' => 'same — there is no fit-out to scope on a renewal.',
-        'next_escalation_date' => 'recomputed by `Lease::creating` from the renewal\'s own dates; copying the original\'s would escalate against a term that has ended.',
+        'next_escalation_date' => 'recomputed by the escalation hook in `Lease::booted` from the renewal\'s own dates; copying the original\'s would escalate against a term that has ended.',
         'holdover_from' => 'holdover is a state the ORIGINAL entered by running past expiry. A renewal starts inside its term. (`holdover_rate_pct` — the negotiated uplift — DOES carry.)',
         'expiry_reminder_notified_at' => 'a notification stamp about the original\'s expiry.',
     ];
@@ -400,6 +427,26 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function isUnderOwnership(): bool
     {
         return $this->unit_ownership_id !== null;
+    }
+
+    /**
+     * Does this lease state a rent increase the system will actually apply?
+     *
+     * A TYPE alone is not a clause — `fixed_percent` at 0% and `fixed_amount` at nothing per year
+     * are both "no increase", stated in two words instead of one. This is the single reading of
+     * that question: the `saving` hook arms or clears the escalation terms from it, and both halves
+     * of the old `creating` hook derived it inline.
+     *
+     * `cpi` counts as configured because its rate is what arms the anniversary and what the collar
+     * clamps — `RentEscalationService` still declines to invent an index figure when the night comes.
+     */
+    public function escalatesContractually(): bool
+    {
+        return match ($this->escalation_type) {
+            'fixed_percent', 'cpi' => (float) $this->escalation_rate > 0,
+            'fixed_amount' => (float) $this->escalation_amount > 0,
+            default => false,
+        };
     }
 
     /** @return BelongsTo<Tenant, $this> */

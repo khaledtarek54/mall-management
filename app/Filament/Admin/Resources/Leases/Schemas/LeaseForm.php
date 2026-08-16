@@ -86,28 +86,30 @@ class LeaseForm
                             ->searchable()
                             ->preload()
                             ->required()
-                            ->helperText(fn (Get $get): ?string => $get('show_occupied_units')
-                                ? __('admin.helpers.unit_showing_all')
-                                : __('admin.helpers.only_available_units')),
-
-                        // Yardi's lessee-under-owner record: when a unit has been SOLD and the owner
-                        // lets it himself, the mall still keeps the tenancy on file — for access,
-                        // violations, SLA and fit-out — and the OWNER stays liable for the
-                        // assessment. Shown only when the chosen unit actually has an owner, so it
-                        // is invisible on the ordinary lease, which is nearly all of them.
-                        Select::make('unit_ownership_id')
-                            ->label(__('admin.fields.unit_ownership'))
-                            ->options(fn (Get $get): array => UnitOwnership::query()
-                                ->where('unit_id', $get('unit_id'))
-                                ->with('owner')
-                                ->get()
-                                ->mapWithKeys(fn (UnitOwnership $o) => [
-                                    $o->id => $o->owner?->name.' · '.$o->reference,
-                                ])
-                                ->all())
-                            ->visible(fn (Get $get): bool => $get('unit_id') !== null
-                                && UnitOwnership::where('unit_id', $get('unit_id'))->exists())
-                            ->helperText(__('admin.helpers.lease_under_ownership'))
+                            // The master unit IS the lease's identity (`leases.unit_id`), so it is
+                            // chosen once. Swapping it on an existing lease is a RELOCATION — a
+                            // different commercial act with its own event type — and doing it here
+                            // would move the tenancy silently while every invoice already raised
+                            // still names the old shop. ADDITIONAL units stay editable, because
+                            // expanding and contracting the premises is ordinary. Yardi locks the
+                            // unit on an executed lease for the same reason.
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->helperText(fn (Get $get, string $operation): ?string => match (true) {
+                                $operation === 'edit' => __('admin.helpers.master_unit_locked'),
+                                (bool) $get('show_occupied_units') => __('admin.helpers.unit_showing_all'),
+                                default => __('admin.helpers.only_available_units'),
+                            })
+                            // ── The double-booking guard ─────────────────────────────────────────
+                            // Restored to `unit_id` 2026-08-16. It had been moved onto
+                            // `unit_ownership_id`, where `$value` is an OWNERSHIP id rather than a
+                            // unit id, so `! $value` returned early on every ordinary lease and the
+                            // rule could never fire. What kept it looking present is the option
+                            // query, which hides occupied units — but `show_occupied_units` widens
+                            // exactly that query, and behind it there was nothing left: the standard
+                            // Create form would mint a SECOND active lease on a let unit. Nor does
+                            // `CreateLease` run `LeaseCreationService`, so the unit row-lock never
+                            // saw it either. Reproduced before the fix; pinned by
+                            // `LeaseFormTightnessTest`.
                             ->rules([
                                 fn (Get $get, ?Lease $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     if ($get('status') !== 'active' || ! $value) {
@@ -136,6 +138,31 @@ class LeaseForm
                                     }
                                 },
                             ]),
+
+                        // Yardi's lessee-under-owner record: when a unit has been SOLD and the owner
+                        // lets it himself, the mall still keeps the tenancy on file — for access,
+                        // violations, SLA and fit-out — and the OWNER stays liable for the
+                        // assessment. Shown only when the chosen unit actually has an owner, so it
+                        // is invisible on the ordinary lease, which is nearly all of them.
+                        Select::make('unit_ownership_id')
+                            ->label(__('admin.fields.unit_ownership'))
+                            ->options(fn (Get $get): array => UnitOwnership::query()
+                                ->where('unit_id', $get('unit_id'))
+                                ->with('owner')
+                                ->get()
+                                ->mapWithKeys(fn (UnitOwnership $o) => [
+                                    $o->id => $o->owner?->name.' · '.$o->reference,
+                                ])
+                                ->all())
+                            ->visible(fn (Get $get): bool => $get('unit_id') !== null
+                                && UnitOwnership::where('unit_id', $get('unit_id'))->exists())
+                            // Locked with the unit it hangs off: who the lease sits under decides who
+                            // is assessed, and re-pointing it on a live tenancy would re-address the
+                            // liability behind invoices already issued.
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->helperText(fn (string $operation): string => $operation === 'edit'
+                                ? __('admin.helpers.locked_after_creation')
+                                : __('admin.helpers.lease_under_ownership')),
                         Select::make('additional_unit_ids')
                             ->label(__('admin.fields.additional_units'))
                             ->helperText(__('admin.fields.additional_units_helper'))
@@ -197,14 +224,34 @@ class LeaseForm
                             ->searchable()
                             ->preload()
                             ->required()
+                            // The counterparty is the lease. Re-pointing it would hand one tenant's
+                            // billing history, deposit and AR to another under the same contract
+                            // reference — an ASSIGNMENT is a new lease, not an edit. Yardi refuses
+                            // this on an executed lease for exactly that reason.
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->helperText(fn (string $operation): ?string => $operation === 'edit'
+                                ? __('admin.helpers.locked_after_creation')
+                                : null)
                             ->createOptionForm([
                                 TextInput::make('name')->label(__('admin.fields.brand_name'))->required(),
                                 TextInput::make('phone')->label(__('admin.fields.phone'))->tel(),
                                 TextInput::make('email')->label(__('admin.fields.email'))->email(),
                             ]),
+                        // `renewed` and `terminated` are OUTCOMES of a service, not states to type.
+                        // Selecting them here wrote the status and skipped everything the act means:
+                        // terminating deactivates the charge schedule, credits unearned billing,
+                        // cancels open invoices and settles the deposit; renewing writes the next
+                        // lease and links the chain. A lease typed straight into `terminated` stops
+                        // billing (nothing is billable outside `active`) while its schedule, its open
+                        // AR and its deposit all stay exactly as they were — which reads as done and
+                        // is not. Reached through the Terminate / Renew actions instead. A record
+                        // already in one of them is still rendered, so the select is never blank.
                         Select::make('status')
                             ->label(__('admin.tables.common.status'))
-                            ->options(fn () => __('admin.statuses.lease'))
+                            ->options(fn (?Lease $record): array => collect(__('admin.statuses.lease'))
+                                ->reject(fn ($label, $value) => in_array($value, ['renewed', 'terminated'], true)
+                                    && $record?->status !== $value)
+                                ->all())
                             ->default('draft')
                             ->required()
                             ->native(false),
@@ -235,6 +282,15 @@ class LeaseForm
                             ->label(__('admin.fields.commencement_date'))
                             ->required()
                             ->native(false)
+                            // Free while the deal is still being negotiated; locked the moment the
+                            // lease has been invoiced. The commencement anchors the first billable
+                            // month, the billing cycle and every charge row's start date, so moving
+                            // it after billing has begun re-dates a schedule that issued documents
+                            // were already raised from.
+                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
+                            ->helperText(fn (?Lease $record): ?string => self::isInvoiced($record)
+                                ? __('admin.helpers.locked_after_invoicing')
+                                : null)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveExpiry($get, $set)),
                         TextInput::make('term_months')
@@ -361,7 +417,13 @@ class LeaseForm
                             // against it pulling the first billable month backwards; refused here too
                             // so the operator gets an inline error rather than a silent no-op.
                             ->afterOrEqual('commencement_date')
-                            ->helperText(__('admin.helpers.rent_commencement_date'))
+                            // Locked once invoiced, with `fit_out_scope`: together they decided what
+                            // was abated on invoices already issued, and moving them afterwards
+                            // makes the system disagree with its own documents.
+                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
+                            ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
+                                ? __('admin.helpers.locked_after_invoicing')
+                                : __('admin.helpers.rent_commencement_date'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rent_commencement_date')),
                         Select::make('fit_out_scope')
                             ->label(__('admin.fields.fit_out_scope'))
@@ -375,7 +437,10 @@ class LeaseForm
                             // default is gross); this is the default for NEW deals only.
                             ->default(Lease::FIT_OUT_RENT_ONLY)
                             ->visible(fn ($get) => filled($get('rent_commencement_date')))
-                            ->helperText(__('admin.helpers.fit_out_scope'))
+                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
+                            ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
+                                ? __('admin.helpers.locked_after_invoicing')
+                                : __('admin.helpers.fit_out_scope'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.fit_out_scope')),
                         Select::make('billing_frequency')
                             ->label(__('admin.fields.billing_frequency'))
@@ -391,10 +456,10 @@ class LeaseForm
                             // Lock once invoicing has started. Cycles are anchored to the commencement,
                             // so switching cadence mid-term could strand an unaligned month (billed on
                             // neither the old nor the new cadence). Set it before the first invoice.
-                            ->disabled(fn (?Lease $record): bool => $record !== null && $record->invoices()->exists())
+                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
                             // The helper text reports the STATE (locked or not), which changes; the
                             // hint icon explains the FIELD, which does not.
-                            ->helperText(fn (?Lease $record): string => $record !== null && $record->invoices()->exists()
+                            ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
                                 ? __('admin.helpers.billing_frequency_locked')
                                 : __('admin.helpers.billing_frequency'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_frequency')),
@@ -406,6 +471,27 @@ class LeaseForm
                             ->default(0)
                             ->dehydrateStateUsing(fn ($state) => $state ?? 0)
                             ->helperText(__('admin.helpers.security_deposit')),
+                        // ── Escalation: the TYPE is asked first, and it is the only field always on
+                        // screen ─────────────────────────────────────────────────────────────────
+                        // Every other field here belongs to exactly one type, so each appears only
+                        // once that type is chosen, and `none` shows nothing at all. Before this the
+                        // visibility was written as "not fixed_amount", which put a rate box and a
+                        // collar on a lease that had just declared it never escalates — three inputs
+                        // that could be filled in and would then be read by nothing. What the
+                        // operator can see and what the contract states now match.
+                        //
+                        // The stale-value half of this is enforced in `Lease::saving`, not here: a
+                        // field Filament has hidden is not dehydrated, so on an EDIT the old value
+                        // simply survives in the column, invisible. The model clears the terms when
+                        // no clause is configured, which also covers the importer and the API.
+                        Select::make('escalation_type')
+                            ->label(__('admin.fields.escalation_type'))
+                            ->options(fn () => __('admin.enums.escalation_type'))
+                            ->default('fixed_percent')
+                            ->required() // NOT-NULL column — never dehydrate null
+                            ->native(false)
+                            ->live()
+                            ->helperText(__('admin.helpers.escalation_type')),
                         TextInput::make('escalation_rate')
                             ->label(__('admin.fields.escalation_rate'))
                             ->numeric()
@@ -414,9 +500,10 @@ class LeaseForm
                             ->maxValue(100)
                             ->default(7)
                             ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            // Hidden for an amount-based lease: a rate and an amount are two different
-                            // units for one step, and showing both invites a lease that states each.
-                            ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
+                            // The two rate-stated clauses. `cpi` keeps it because the rate is what
+                            // arms the anniversary and what the collar is measured against.
+                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
+                            ->required(fn (Get $get) => $get('escalation_type') === 'fixed_percent')
                             ->helperText(__('admin.helpers.escalation_rate')),
                         TextInput::make('escalation_amount')
                             ->label(__('admin.fields.escalation_amount'))
@@ -427,23 +514,18 @@ class LeaseForm
                             ->required(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
                             ->helperText(__('admin.helpers.escalation_amount'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_amount')),
-                        Select::make('escalation_type')
-                            ->label(__('admin.fields.escalation_type'))
-                            ->options(fn () => __('admin.enums.escalation_type'))
-                            ->default('fixed_percent')
-                            ->required() // NOT-NULL column — never dehydrate null
-                            ->native(false)
-                            ->live()
-                            ->helperText(__('admin.helpers.escalation_type')),
                         // The collar. Left blank on most leases — a bound of zero would read as "never
-                        // increase", which is why these are nullable rather than defaulted.
+                        // increase", which is why these are nullable rather than defaulted. Shown only
+                        // for the rate-stated types: a bound written in percent has no meaning against
+                        // a step written in pounds, which is why `RentEscalationService::collar()`
+                        // never applies it to `fixed_amount`.
                         TextInput::make('escalation_floor_rate')
                             ->label(__('admin.fields.escalation_floor_rate'))
                             ->numeric()
                             ->suffix('%')
                             ->minValue(0)
                             ->maxValue(100)
-                            ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
+                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
                             ->helperText(__('admin.helpers.escalation_floor_rate'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_floor_rate')),
                         TextInput::make('escalation_ceiling_rate')
@@ -455,7 +537,7 @@ class LeaseForm
                             // Caught here for an inline error, and again in the model so an import or an
                             // API write cannot get round it.
                             ->gte('escalation_floor_rate')
-                            ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
+                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
                             ->helperText(__('admin.helpers.escalation_ceiling_rate'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_ceiling_rate')),
                         TextInput::make('payment_terms_days')
@@ -516,6 +598,19 @@ class LeaseForm
                             ->live()
                             ->helperText(__('admin.helpers.percentage_rent_calculation_type'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_calculation_type'))
+                            // A natural breakpoint IS the base rent: the tenant pays a percentage of
+                            // sales less the rent already paid, so with no base rent the breakpoint
+                            // is zero and the clause silently becomes "a percentage of EVERY pound
+                            // of sales from the first one" — the most expensive possible reading,
+                            // and one no operator intends. Refused rather than warned, because the
+                            // resulting overage looks perfectly ordinary on the invoice.
+                            ->rules([
+                                fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    if ($value === 'natural_breakpoint' && (float) $get('base_rent_monthly') <= 0) {
+                                        $fail(__('admin.validation.natural_breakpoint_needs_base_rent'));
+                                    }
+                                },
+                            ])
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                         // ANNUAL is the industry standard: percentage rent accrues on CUMULATIVE
                         // year-to-date sales against an annual breakpoint, settled up over the year
@@ -579,6 +674,11 @@ class LeaseForm
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(100)
+                            // The one figure the clause cannot do without. Left optional, a lease
+                            // saved with the toggle on and this blank reads as configured on every
+                            // screen and calculates an overage of 0.00 for the whole term — the
+                            // failure this module keeps meeting: silent, not loud.
+                            ->required(fn ($get) => (bool) $get('has_percentage_rent'))
                             ->helperText(__('admin.helpers.percentage_rent_rate'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_rate'))
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
@@ -604,6 +704,22 @@ class LeaseForm
                     ])->columns(1),
                 ]),
         ]);
+    }
+
+    /**
+     * Has this lease already produced a document?
+     *
+     * The dividing line for the term fields. While a lease is only an agreement its dates are still
+     * negotiable and an operator must be able to correct a typo; the moment an invoice exists those
+     * same dates are what that invoice was derived from, and moving them makes the system disagree
+     * with paper the tenant is holding. Null (a create) is never invoiced.
+     *
+     * Deliberately unmemoised: a static cache on a form class outlives the render in a long-lived
+     * worker, and would answer "not invoiced" for a lease that had just been billed.
+     */
+    private static function isInvoiced(?Lease $record): bool
+    {
+        return $record !== null && $record->invoices()->exists();
     }
 
     /**
