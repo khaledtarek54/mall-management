@@ -39,6 +39,13 @@ use Livewire\Livewire;
  * **Discovery, not a list.** Pages come from the panel's own registry, so resource #52 is covered
  * the day it is written — which a hand-kept list would not manage, and is exactly why the 22 were
  * uncovered in the first place.
+ *
+ * **Both panels.** The portal was the half nobody looked at: its forms carry four entity pickers
+ * whose scoping is genuinely different — `TenantScope::visibleAssetIds()` is null there, because the
+ * authenticated party is a `TenantUser` and not a `User`, so the tenant clamp written at each call
+ * site IS the isolation rather than an addition to it. A picker that quietly stopped narrowing there
+ * would leak another retailer's space, and until this test the only thing exercising those forms was
+ * the advisory Playwright suite.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -58,11 +65,11 @@ beforeEach(function () {
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 /** @return array<int, class-string<CreateRecord>> */
-function adminCreatePages(): array
+function panelCreatePages(string $panel): array
 {
     $pages = [];
 
-    foreach (Filament::getPanel('admin')->getResources() as $resource) {
+    foreach (Filament::getPanel($panel)->getResources() as $resource) {
         foreach ($resource::getPages() as $registration) {
             $page = $registration->getPage();
 
@@ -75,8 +82,8 @@ function adminCreatePages(): array
     return array_values(array_unique($pages));
 }
 
-it('mounts every resource Create form without erroring', function () {
-    $pages = adminCreatePages();
+it('mounts every admin resource Create form without erroring', function () {
+    $pages = panelCreatePages('admin');
 
     // The sweep must find something. One that silently matched zero pages would pass for ever
     // while covering nothing — this project has shipped exactly that gate before.
@@ -94,6 +101,40 @@ it('mounts every resource Create form without erroring', function () {
 
     expect($failed)->toBe([], implode("\n  ", array_merge(
         ['These resource Create forms did not mount:'],
+        $failed,
+    )));
+});
+
+it('mounts every portal resource Create form without erroring', function () {
+    // A retailer, not an operator: the portal authenticates a `TenantUser` on its own guard, and
+    // `Filament::getTenant()` is never an Asset there. That difference is the reason this case
+    // exists rather than being folded into the one above — the portal's pickers are scoped by the
+    // tenant clamp at each call site, and nothing else.
+    $tenant = makeTenant(['name' => 'Portal Smoke Retail']);
+    makeLease(makeUnit($this->asset, ['code' => 'PS-01']), $tenant);
+
+    Filament::setTenant(null, isQuiet: true);
+    Filament::setCurrentPanel(Filament::getPanel('portal'));
+    $this->actingAs(makeTenantUser($tenant, isAdmin: true), 'portal');
+
+    $pages = panelCreatePages('portal');
+
+    expect($pages)->not->toBeEmpty('The portal sweep found no Create pages — it is matching nothing.');
+
+    $failed = [];
+
+    foreach ($pages as $page) {
+        try {
+            Livewire::test($page)->assertOk();
+        } catch (Throwable $e) {
+            $failed[] = class_basename($page).' — '.str($e->getMessage())->limit(200);
+        }
+    }
+
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+    expect($failed)->toBe([], implode("\n  ", array_merge(
+        ['These portal Create forms did not mount:'],
         $failed,
     )));
 });
