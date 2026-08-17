@@ -166,24 +166,55 @@ final class RecordOption implements Htmlable, Stringable
      */
     public function toHtml(): string
     {
-        $head = '<span class="atriom-option-title">'.e($this->title).'</span>';
+        // A literal space between the spans. It costs nothing visually — a flex container
+        // discards whitespace-only text nodes between items, and the gap does the spacing — but
+        // it is the difference between a screen reader announcing "Cilantro TN-0000002 Active"
+        // and "CilantroTN-0000002Active". Filament builds the option's `aria-label` from
+        // `textContent`, which concatenates with no separator at all.
+        $head = '<span class="atriom-option-title">'.self::isolate($this->title).'</span>';
 
         if ($this->code !== null) {
-            $head .= '<span class="atriom-option-code">'.e($this->code).'</span>';
+            $head .= ' <span class="atriom-option-code">'.self::isolate($this->code).'</span>';
         }
 
         if ($this->badge !== null) {
-            $head .= '<span class="atriom-option-badge atriom-option-badge-'.($this->tone ?? 'gray').'">'
+            $head .= ' <span class="atriom-option-badge atriom-option-badge-'.($this->tone ?? 'gray').'">'
                 .e($this->badge).'</span>';
         }
 
         $html = '<span class="atriom-option"><span class="atriom-option-head">'.$head.'</span>';
 
         if ($this->subtitle !== null) {
-            $html .= '<span class="atriom-option-sub">'.e($this->subtitle).'</span>';
+            // Each PART isolated separately, not the line as a whole: the subtitle is where the
+            // Latin tokens live, and they are what the bidi algorithm reorders.
+            $parts = array_map(
+                fn (string $part): string => self::isolate($part),
+                explode(self::SEPARATOR, $this->subtitle),
+            );
+
+            $html .= ' <span class="atriom-option-sub">'.implode(e(self::SEPARATOR), $parts).'</span>';
         }
 
         return $html.'</span>';
+    }
+
+    /**
+     * Escape a value AND stop the bidi algorithm reordering it.
+     *
+     * `<bdi>` is not decoration in a bilingual panel. In an Arabic (RTL) paragraph a phone number
+     * like `+20100000001` is a run of neutral `+` followed by weak-direction digits, so the
+     * algorithm moves the sign to the other end and the operator reads `20100000001+`. Same class
+     * of failure for a unit code, an IBAN, a document number — every identifier in an option is a
+     * Latin token sitting inside Arabic text.
+     *
+     * `<bdi>` makes each value its own bidi context, which is exactly the guarantee wanted: the
+     * token keeps its internal order, and the LINE still lays out right-to-left around it. Doing it
+     * in markup rather than CSS is deliberate — this must hold wherever the option is rendered,
+     * including surfaces that never load the panel stylesheet.
+     */
+    private static function isolate(string $value): string
+    {
+        return '<bdi>'.e($value).'</bdi>';
     }
 
     /**

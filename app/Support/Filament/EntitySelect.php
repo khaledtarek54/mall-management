@@ -88,6 +88,15 @@ class EntitySelect extends Select
     protected bool $spansProperties = false;
 
     /**
+     * Re-entrancy guard.
+     *
+     * `applyTo()` calls `->preload()` on the component, and `preload()` is overridden to re-apply
+     * the wiring — so without this the two call each other until the process dies. It does not
+     * fail as an error: the page simply never finishes rendering.
+     */
+    protected bool $applyingEntityWiring = false;
+
+    /**
      * Bind this select to a model, and take everything else from the registry.
      *
      * @param  class-string<Model>  $model
@@ -174,6 +183,22 @@ class EntitySelect extends Select
     }
 
     /**
+     * Browse the whole (narrowed) set on open, instead of waiting for a search term.
+     *
+     * For the pickers where BROWSING is the flow rather than looking something up — a leasing
+     * officer opens the unit picker to see what is vacant. Overridden rather than inherited so it
+     * RE-APPLIES the wiring: whether the options list is a closure or a static empty array is
+     * decided from the preload state, so calling Filament's `preload()` without re-applying would
+     * leave the component configured for the opposite answer.
+     */
+    public function preload(bool|Closure $condition = true): static
+    {
+        parent::preload($condition);
+
+        return $this->applyEntityBehaviour();
+    }
+
+    /**
      * Re-apply the entity wiring after Filament's own relationship setup has overwritten it.
      *
      * @see static::applyEntityBehaviour() for why this exists
@@ -194,21 +219,27 @@ class EntitySelect extends Select
 
     protected function applyEntityBehaviour(): static
     {
-        if ($this->entityModel === null) {
+        if ($this->entityModel === null || $this->applyingEntityWiring) {
             return $this;
         }
 
-        self::applyTo(
-            $this,
-            $this->entityModel,
-            $this->modifyOptionsQueryUsing,
-            $this->decorateOptionUsing,
-            $this->extraOptionRelations,
-            // First time: take the registry's answer. Every re-application: keep what the component
-            // holds now, which is either that answer or a `->preload()` the call site added since.
-            $this->entityWiringApplied ? $this->isPreloaded() : null,
-            $this->spansProperties,
-        );
+        $this->applyingEntityWiring = true;
+
+        try {
+            self::applyTo(
+                $this,
+                $this->entityModel,
+                $this->modifyOptionsQueryUsing,
+                $this->decorateOptionUsing,
+                $this->extraOptionRelations,
+                // First time: take the registry's answer. Every re-application: keep what the component
+                // holds now, which is either that answer or a `->preload()` the call site added since.
+                $this->entityWiringApplied ? $this->isPreloaded() : null,
+                $this->spansProperties,
+            );
+        } finally {
+            $this->applyingEntityWiring = false;
+        }
 
         $this->entityWiringApplied = true;
 
@@ -274,6 +305,8 @@ class EntitySelect extends Select
                 [Model::class => $model, $model::class => $model],
             ) ?? $option;
 
+        $preloads = $preload ?? OptionDisplay::shouldPreload($model);
+
         $select
             ->allowHtml()
             // A non-empty column list is what makes Filament treat this as SERVER-searched. With
@@ -289,7 +322,7 @@ class EntitySelect extends Select
             // For the pickers where BROWSING is the flow rather than looking something up: a leasing
             // officer opens the unit picker to see what is vacant, and an empty list waiting for a
             // search term is a worse answer than a scrollable one.
-            ->preload($preload ?? OptionDisplay::shouldPreload($model))
+            ->preload($preloads)
             ->searchPrompt(fn (): string => OptionDisplay::searchPrompt($model))
             ->searchingMessage(fn (): string => __('admin.search.option.searching'))
             ->noSearchResultsMessage(fn (): string => __('admin.search.option.no_results'))
@@ -305,13 +338,18 @@ class EntitySelect extends Select
             ), $decorate),
         );
 
-        // The whole set, but only when it is small enough to be worth loading (`OptionDisplay::PRELOAD`).
-        // Otherwise the closed dropdown starts empty and the operator is prompted to type — which
-        // is the right shape for a table that grows, and the shape the previous
-        // `->options(fn () => Model::all()->pluck(...))` selects never had.
-        $select->options(fn (): array => $select->isPreloaded()
-            ? self::toLabels(OptionDisplay::options($model, $modifier, scoped: ! $spansProperties), $decorate)
-            : []);
+        // Preloading: the whole (narrowed) set, as a closure. NOT preloading: a STATIC empty array,
+        // and the difference is visible to the operator rather than internal. Filament reads a
+        // closure as `hasDynamicOptions`, and an empty dynamic list makes its JS render
+        // "No options available." — on a picker whose entire job is to be typed into. A static
+        // empty list instead shows the search prompt, which is the sentence that tells them what
+        // they may type. (Found by opening one in a browser; no test would have said a word.)
+        $preloads
+            ? $select->options(fn (): array => self::toLabels(
+                OptionDisplay::options($model, $modifier, scoped: ! $spansProperties),
+                $decorate,
+            ))
+            : $select->options([]);
 
         $select->getOptionLabelUsing(
             fn ($value): ?string => self::toLabel(

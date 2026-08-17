@@ -265,21 +265,26 @@ return [
          |
          | Keyed by the model's snake_case basename (App\Support\Search\OptionDisplay::searchPrompt);
          | anything unlisted falls back to `default`, which is honest rather than specific.
+         |
+         | KEEP THEM SHORT. The prompt renders inside the picker, which is one column of a
+         | three-column form — roughly 35 characters before it is clipped mid-word, and a truncated
+         | list of fields is worse than a short one because the reader cannot tell what was cut.
+         | The leading "Search by" was dropped for the same reason: it is a search box.
         */
         'prompts' => [
-            'default' => 'Search by name, code or number…',
-            'tenant' => 'Search by name, code, phone, tax ID or commercial register…',
-            'vendor' => 'Search by name, code, phone or tax ID…',
-            'unit' => 'Search by unit code, floor or zone…',
-            'lease' => 'Search by lease reference, tenant or unit…',
-            'invoice' => 'Search by invoice number or tenant…',
-            'vendor_bill' => 'Search by bill number, vendor or reference…',
-            'employee' => 'Search by name, staff number or national ID…',
-            'user' => 'Search by name or email…',
-            'ledger_account' => 'Search by account code or name…',
-            'inventory_item' => 'Search by item name or SKU…',
-            'equipment' => 'Search by asset code, name or location…',
-            'unit_ownership' => 'Search by reference, owner or unit…',
+            'default' => 'Name, code or number…',
+            'tenant' => 'Name, code, phone, tax ID…',
+            'vendor' => 'Name, code, phone, tax ID…',
+            'unit' => 'Unit code, floor or zone…',
+            'lease' => 'Reference, tenant or unit…',
+            'invoice' => 'Invoice number or tenant…',
+            'vendor_bill' => 'Bill number, vendor or reference…',
+            'employee' => 'Name, staff number or national ID…',
+            'user' => 'Name or email…',
+            'ledger_account' => 'Account code or name…',
+            'inventory_item' => 'Item name or SKU…',
+            'equipment' => 'Asset code, name or location…',
+            'unit_ownership' => 'Reference, owner or unit…',
         ],
 
         /*

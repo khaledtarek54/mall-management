@@ -85,11 +85,32 @@
 | at the FAR end of the line in both directions, which is the whole point of
 | putting it there.
 */
+/* Filament wraps an HTML option label in an UNSTYLED `<span>`:
+       <li class="fi-select-input-option"><span><span class="atriom-option">…
+   The `li` is the flex container, so that anonymous wrapper is the flex item —
+   and it shrink-wraps. `width: 100%` on `.atriom-option` then resolves against a
+   parent that is already only as wide as the text, which is why the state badge
+   landed in a different place on every row instead of at the end of the line.
+
+   Scoped with `:has()` so it only touches options rendering OUR markup; a plain
+   text option elsewhere in the panel keeps Filament's own layout. */
+.fi-select-input-option > span:has(> .atriom-option) {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .atriom-option {
     display: flex;
     flex-direction: column;
     gap: 0.075rem;
     min-width: 0;
+    /* Full width, or `margin-inline-start: auto` on the badge has nothing to push
+       against: the option shrink-wraps its own content and the state badge lands
+       wherever that row happens to end. Rows then disagree with each other down
+       the list, which reads as a rendering fault rather than a layout choice. */
+    flex: 1 1 auto;
+    width: 100%;
 }
 
 .atriom-option-head {
@@ -197,22 +218,71 @@
     color: var(--gray-300);
 }
 
-/* The chosen value, shown inside the closed control. Filament renders it through
-   the same label pipeline, so it arrives as the same two-line markup — which is
-   right (you can still see WHICH Zara you picked) but must not stretch the
-   control to two rows on every form in the app. */
+/* ── A CHIP IS NOT A ROW ───────────────────────────────────────────────────────
+|
+| A multi-select renders each chosen value as a `fi-badge` pill whose label is the
+| SAME markup as a dropdown row (Filament sets `innerHTML` on `.fi-badge-label`).
+| Two lines and a status badge inside a pill is a stack of blocks where a token
+| belongs — visible the moment you open a user's assigned properties.
+|
+| So inside a chip the option collapses to one line, and the two parts that exist
+| to disambiguate a LIST — the subtitle and the state badge — are dropped. They
+| have nothing to disambiguate: the chip is a value the operator already chose.
+*/
+.fi-badge-label .atriom-option {
+    display: inline;
+}
+
+.fi-badge-label .atriom-option-head {
+    display: inline;
+}
+
+.fi-badge-label .atriom-option-sub,
+.fi-badge-label .atriom-option-badge {
+    display: none;
+}
+
+.fi-badge-label .atriom-option-code {
+    margin-inline-start: 0.3em;
+    opacity: 0.75;
+}
+
+/* ── THE CHOSEN VALUE ─────────────────────────────────────────────────────────
+|
+| Filament pipes the same markup into the closed control. Left alone it renders
+| the whole two-line option on ONE line inside a single-row control, and the
+| flex maths eats the part that matters: the title collapsed to "C…" while the
+| subtitle kept its full width — a control that names everything about the record
+| except which record it is.
+|
+| So the closed control keeps the identity — title, code, state — and drops the
+| subtitle. The subtitle exists to separate two rows in a LIST; there is no list
+| here, the operator has already chosen, and the code is the disambiguator that
+| survives.
+*/
 .fi-select-input-value-ctn .atriom-option {
     flex-direction: row;
-    align-items: baseline;
+    align-items: center;
     gap: 0.4rem;
+    width: auto;
     overflow: hidden;
 }
 
+.fi-select-input-value-ctn .atriom-option-head {
+    min-width: 0;
+}
+
 .fi-select-input-value-ctn .atriom-option-sub {
-    flex: 1 1 auto;
+    display: none;
+}
+
+/* The title yields last: the code and the state badge are fixed-width tokens, so
+   only the name should ever be the thing that truncates. */
+.fi-select-input-value-ctn .atriom-option-title {
+    flex: 0 1 auto;
     min-width: 0;
 }
 
 .fi-select-input-value-ctn .atriom-option-badge {
-    margin-inline-start: 0;
+    margin-inline-start: 0.15rem;
 }

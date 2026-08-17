@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\FixedAssets;
 
+use App\Filament\Admin\RelationManagers\DepreciationEntriesRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\FixedAssets\Pages\CreateFixedAsset;
@@ -85,7 +86,7 @@ class FixedAssetResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\DepreciationEntriesRelationManager::class,
+            DepreciationEntriesRelationManager::class,
         ];
     }
 
@@ -113,7 +114,13 @@ class FixedAssetResource extends Resource
         return static::scopeToProperty(
             parent::getEloquentQuery()
                 ->withSum('depreciationEntries as depreciation_charged', 'amount')
-                ->addSelect(['*', DB::raw(
+                // NO leading `'*'` here. `withSum()` has already selected `fixed_assets.*`, and a
+                // second bare `*` after a qualified column list is a SYNTAX ERROR in MySQL —
+                // `select fixed_assets.*, (…) as depreciation_charged, *, COALESCE(…)`. SQLite
+                // accepts it, so the whole suite passed over this while the real database refused
+                // the fixed-asset list, the register CSV, and — because global search fans out to
+                // every resource — EVERY query typed into the search bar.
+                ->addSelect([DB::raw(
                     'COALESCE(opening_accumulated_depreciation, 0) + COALESCE(('
                     .'SELECT SUM(amount) FROM depreciation_entries '
                     .'WHERE depreciation_entries.fixed_asset_id = fixed_assets.id'
@@ -168,7 +175,7 @@ class FixedAssetResource extends Resource
                 // acquisition_date is a NOT-NULL date column — always a Carbon.
                 $asset->acquisition_date->format('Y-m-d'),
                 $cost, round($depreciation->monthlyAmount($asset), 2), $accumulated, $nbv,
-                __('admin.fixed_assets.statuses.' . $asset->status),
+                __('admin.fixed_assets.statuses.'.$asset->status),
             ];
         }
 
