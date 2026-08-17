@@ -2,6 +2,41 @@
 
 > Tenants on percentage-rent leases submit periodic sales declarations by **uploading their sales report file**; the operator reviews the file, enters the sales figure, and locks the declaration — which **bills the percentage-rent overage immediately as its own invoice**.
 
+> **⚠️ A declaration now records WHAT its figure is net of (2026-08-17).** `declared_sales` was one
+> number with no stated basis — nothing said whether it was gross or net of anything. Percentage rent
+> is charged on it, and if a tenant reports the VAT-inclusive figure their POS prints by default the
+> charge is wrong. Badly, because the breakpoint is subtracted **first**:
+>
+> | breakpoint 12,000,000 @ 7% | sales | overage |
+> |---|---|---|
+> | net of VAT | 15,000,000 | **210,000** |
+> | same sales, reported VAT-inclusive | 17,100,000 | **357,000** |
+>
+> **A 70% over-charge from a 14% error** — and the defect was never a wrong figure, it was an
+> *unknowable* one: nobody could tell which row they were looking at.
+>
+> A declaration is now a **certificate**: `gross_sales`, itemised `sales_exclusions`, and
+> `declared_sales` **derived** as the net. Every calculation still reads `declared_sales` and means
+> exactly what it always meant — **no arithmetic changed anywhere**, and a declaration recorded the
+> old way (gross null) is untouched.
+>
+> **The exclusion catalogue is `App\Support\SalesExclusions`** — VAT, returns, gift cards,
+> inter-store transfers, employee discounts, delivery/services, other. Every retail lease defines
+> "Gross Sales" with such a list and it is the most disputed clause in retail leasing, so
+> `leases.percentage_rent_sales_exclusions` records which ones THIS clause grants and the form offers
+> only those. **VAT needs no grant** (`ALWAYS_ALLOWED`): a shop collects it for the state, so it was
+> never its sales — every other line is a concession a landlord agreed to.
+>
+> Two details that are easy to get wrong and are pinned: the VAT deduction is the VAT **within** the
+> figure (`gross − gross ÷ 1.14`), never `gross × 14%`, which over-deducts by a factor of 1.14; and
+> deductions exceeding the gross are **refused**, not floored at zero, because silently flooring
+> would bill percentage rent on a figure nobody can reconcile to the tenant's certificate.
+>
+> **Yardi's shape, adapted.** Voyager has no VAT-exclusion feature — it reports by *sales category*
+> and flags a category not-included. Categories also carry their own rates (food vs merchandise);
+> that half is **not built** and is the remaining gap. This is the exclusion half alone, which is what
+> answers the money question. Pinned by `DeclaredSalesBasisTest`.
+
 > **⚠️ A SHORT percentage-rent year now gets a SHORT breakpoint (2026-08-16).**
 > An annual breakpoint is a whole year's figure. Applied unchanged to a year the lease only traded
 > part of, it is unreachable: a lease commencing 1 October carried a 12,000,000 breakpoint against

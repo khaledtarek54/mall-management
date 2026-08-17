@@ -1,6 +1,15 @@
 <?php
 
 return [
+    'sales_exclusions' => [
+        'vat' => 'ضريبة القيمة المضافة المحصَّلة للدولة',
+        'returns' => 'المرتجعات والاستردادات',
+        'gift_cards' => 'بطاقات الهدايا غير المستخدَمة',
+        'inter_store_transfers' => 'التحويلات إلى فروع أخرى',
+        'employee_discounts' => 'خصومات الموظفين',
+        'delivery_and_services' => 'التوصيل والتغليف والإصلاح',
+        'other' => 'أخرى (حسب البند)',
+    ],
     'statuses' => [
         'journal_entry' => [
             'draft' => 'مسودة',

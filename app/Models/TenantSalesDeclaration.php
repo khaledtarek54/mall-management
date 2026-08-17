@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\SalesExclusions;
+use DomainException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +32,8 @@ class TenantSalesDeclaration extends Model implements HasMedia
         'period_start',
         'period_end',
         'declared_sales',
+        'gross_sales',
+        'sales_exclusions',
         'is_estimate',
         'deducted_amount',
         'calculated_percentage_rent',
@@ -48,15 +52,52 @@ class TenantSalesDeclaration extends Model implements HasMedia
         'declared_at' => 'datetime',
         'locked_at' => 'datetime',
         'declared_sales' => 'decimal:2',
+        'gross_sales' => 'decimal:2',
+        'sales_exclusions' => 'array',
         'is_estimate' => 'boolean',
         'deducted_amount' => 'decimal:2',
         'calculated_percentage_rent' => 'decimal:2',
     ];
 
+    protected static function booted(): void
+    {
+        // ── A declaration is a CERTIFICATE, and `declared_sales` is its bottom line ────────────
+        //
+        // The tenant reports a gross figure; the lease grants deductions; percentage rent is charged
+        // on what is left. `declared_sales` has always been that net figure — every calculation reads
+        // it — but nothing recorded what it was net OF, so nobody could tell whether the number
+        // included the VAT a shop collects for the state. Because the breakpoint is subtracted first,
+        // a 14% error there becomes roughly a 70% error in the overage on a typical clause.
+        //
+        // Derived in the model, beside the lease's rate-priced rent and deposit derivations and for
+        // the same reason: the admin form, the portal, the mobile API, the estimator and the importer
+        // all write declarations, and only one of them is a screen.
+        //
+        // **Gross null = the old shape, untouched.** A declaration recorded before this keeps meaning
+        // exactly what it meant, and an operator who simply types a net figure still can.
+        static::saving(function (self $declaration) {
+            if ($declaration->gross_sales === null) {
+                return;
+            }
+
+            $gross = (float) $declaration->gross_sales;
+            $excluded = SalesExclusions::total($declaration->sales_exclusions);
+
+            // Refused rather than clamped: deductions larger than the turnover they come off is a
+            // typo or a misread column, and silently flooring it at zero would bill percentage rent
+            // on a figure nobody can reconcile to the certificate.
+            if ($excluded > $gross) {
+                throw new DomainException(__('admin.validation.sales_exclusions_exceed_gross'));
+            }
+
+            $declaration->declared_sales = round($gross - $excluded, 2);
+        });
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'declared_sales', 'calculated_percentage_rent', 'locked_at', 'audit_notes'])
+            ->logOnly(['status', 'declared_sales', 'gross_sales', 'calculated_percentage_rent', 'locked_at', 'audit_notes'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('tenant_sales');

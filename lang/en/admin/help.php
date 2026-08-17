@@ -2,6 +2,11 @@
 
 return [
     'helpers' => [
+        'gross_sales' => 'The figure on the tenant’s own certificate, before any deduction.',
+        'gross_includes_vat' => 'Adds the VAT contained in the figure as a deduction, at today’s standard rate.',
+        'sales_exclusions' => 'Only what this lease’s clause grants. VAT is always allowed.',
+        'declared_sales_derived' => 'Derived: :gross gross less :excluded deducted. Percentage rent is charged on this.',
+        'percentage_rent_sales_exclusions' => 'What this clause lets the tenant take off gross turnover.',
         'security_deposit_months' => 'Blank keeps the deposit a flat sum. Filled, it tracks the rent through every escalation.',
         'security_deposit_derived' => 'Derived from the rent and the months above.',
         'percentage_rent_billing_frequency' => 'When the overage is invoiced. Sales are still declared every month.',
@@ -147,6 +152,8 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'gross_sales' => 'Leave blank to record a net figure directly, as before. Filled, it becomes a certificate: gross, the deductions, and the net percentage rent is charged on.',
+        'percentage_rent_sales_exclusions' => 'Every retail lease defines Gross Sales with an exclusion list, and it is the most disputed clause in retail leasing. VAT needs no grant — a shop collects it for the state — but returns, gift cards, inter-store transfers and employee discounts are all concessions a landlord agreed to.',
         'security_deposit_months' => 'A deposit agreed as “three months’ rent” must stay three months’ rent. Left flat, a 7% escalation clause erodes a 3× deposit to 2.29× by year five — the security shrinks exactly as the risk grows.',
         'percentage_rent_billing_frequency' => 'A separate lease term from the calculation basis. Quarterly and annual settle in arrears: the invoice is raised only once every month of the period has been locked.',
         'announcement_category' => 'Sorts the notice in the tenant\'s feed and colours an emergency red on their phone.',

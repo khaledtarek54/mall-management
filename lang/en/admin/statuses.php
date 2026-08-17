@@ -1,6 +1,15 @@
 <?php
 
 return [
+    'sales_exclusions' => [
+        'vat' => 'VAT collected for the state',
+        'returns' => 'Returns & refunds',
+        'gift_cards' => 'Gift cards not yet redeemed',
+        'inter_store_transfers' => 'Transfers to other stores',
+        'employee_discounts' => 'Employee discounts',
+        'delivery_and_services' => 'Delivery, gift wrapping & repairs',
+        'other' => 'Other (per the clause)',
+    ],
     'statuses' => [
         'journal_entry' => [
             'draft' => 'Draft',

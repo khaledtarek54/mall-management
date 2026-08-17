@@ -365,6 +365,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'percentage_rent_frequency',
         'percentage_rent_billing_frequency',
         'percentage_rent_deductible_types',
+        'percentage_rent_sales_exclusions',
         'billing_day',
         'payment_terms_days',
         'late_fee_percent',
@@ -393,6 +394,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
     protected $casts = [
         'percentage_rent_deductible_types' => 'array',
+        'percentage_rent_sales_exclusions' => 'array',
         'commencement_date' => 'date',
         'expiry_date' => 'date',
         'holdover_rate_pct' => 'decimal:2',

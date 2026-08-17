@@ -4,14 +4,20 @@ namespace App\Filament\Admin\Resources\TenantSalesDeclarations\Schemas;
 
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
+use App\Support\SalesExclusions;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Validation\Rules\Unique;
 
 class TenantSalesDeclarationForm
@@ -25,7 +31,8 @@ class TenantSalesDeclarationForm
                     Select::make('lease_id')
                         ->label(__('admin.resources.lease.singular'))
                         ->options(function () {
-                            $assetIds = \App\Support\TenantScope::visibleAssetIds();
+                            $assetIds = TenantScope::visibleAssetIds();
+
                             return Lease::with(['tenant', 'unit'])
                                 ->where('status', 'active')
                                 ->when($assetIds, fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
@@ -51,7 +58,7 @@ class TenantSalesDeclarationForm
                         ->unique(
                             table: TenantSalesDeclaration::class,
                             ignoreRecord: true,
-                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', \App\Support\TenantScope::clampLeaseId($get('lease_id'))),
+                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', TenantScope::clampLeaseId($get('lease_id'))),
                         )
                         ->validationMessages([
                             'unique' => __('api.sales_declaration_duplicate'),
@@ -67,13 +74,67 @@ class TenantSalesDeclarationForm
                     // it and enter it here, then Lock to bill the percentage
                     // rent. Optional so a declaration can be saved mid-review
                     // (the column is nullable); Lock with no figure owes 0.
+                    // ── The certificate: gross, what comes off it, and the net it leaves ──────
+                    // `declared_sales` was one number with no stated basis. Percentage rent is
+                    // charged on it, and if a tenant reports the VAT-inclusive figure their POS
+                    // prints by default the charge is wrong — badly, because the breakpoint is
+                    // subtracted first, so a 14% error in sales becomes ~70% in the overage.
+                    TextInput::make('gross_sales')
+                        ->label(__('admin.fields.gross_sales'))
+                        ->prefix('EGP')
+                        ->numeric()
+                        ->minValue(0)
+                        ->step('0.01')
+                        ->live(onBlur: true)
+                        ->helperText(__('admin.helpers.gross_sales'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.gross_sales')),
+                    // The one deduction that is not a concession — a shop collects VAT for the
+                    // state, so it was never its sales. Computed as the VAT WITHIN the figure
+                    // (gross − gross ÷ 1.14), never gross × 14%, which would over-deduct by a
+                    // factor of 1.14.
+                    Toggle::make('gross_includes_vat')
+                        ->label(__('admin.fields.gross_includes_vat'))
+                        ->dehydrated(false)
+                        ->live()
+                        ->helperText(__('admin.helpers.gross_includes_vat'))
+                        ->visible(fn (Get $get): bool => filled($get('gross_sales')))
+                        ->afterStateUpdated(function (bool $state, Get $get, Set $set) {
+                            $exclusions = (array) ($get('sales_exclusions') ?? []);
+
+                            if ($state) {
+                                $exclusions['vat'] = SalesExclusions::vatWithin((float) $get('gross_sales'));
+                            } else {
+                                unset($exclusions['vat']);
+                            }
+
+                            $set('sales_exclusions', $exclusions);
+                        }),
+                    KeyValue::make('sales_exclusions')
+                        ->label(__('admin.fields.sales_exclusions'))
+                        ->keyLabel(__('admin.fields.sales_exclusion_type'))
+                        ->valueLabel(__('admin.fields.amount'))
+                        ->addActionLabel(__('admin.fields.sales_exclusion_add'))
+                        ->live()
+                        ->columnSpanFull()
+                        ->visible(fn (Get $get): bool => filled($get('gross_sales')))
+                        ->helperText(__('admin.helpers.sales_exclusions')),
                     TextInput::make('declared_sales')
                         ->label(__('admin.fields.declared_sales'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)
                         ->step('0.01')
-                        ->helperText(__('admin.fields.declared_sales_help')),
+                        // Derived once a gross figure is stated — the same rule as a rate-priced
+                        // rent: two editable fields that derive from each other is how they end up
+                        // disagreeing. The model is the authority; this only mirrors it on screen.
+                        ->disabled(fn (Get $get): bool => filled($get('gross_sales')))
+                        ->dehydrated()
+                        ->helperText(fn (Get $get): string => filled($get('gross_sales'))
+                            ? __('admin.helpers.declared_sales_derived', [
+                                'gross' => number_format((float) $get('gross_sales'), 2),
+                                'excluded' => number_format(SalesExclusions::total((array) ($get('sales_exclusions') ?? [])), 2),
+                            ])
+                            : __('admin.fields.declared_sales_help')),
                     TextInput::make('calculated_percentage_rent')
                         ->label(__('admin.fields.calculated_percentage_rent'))
                         ->prefix('EGP')

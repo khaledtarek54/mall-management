@@ -11,6 +11,7 @@ use App\Settings\BillingSettings;
 use App\Support\FormTab;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
+use App\Support\SalesExclusions;
 use App\Support\TenantScope;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -691,6 +692,18 @@ class LeaseForm
                                     : null)
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')
                                 && ($get('percentage_rent_calculation_type') ?? 'artificial') === 'artificial'),
+                        // WHICH deductions this clause grants, so an operator cannot credit one the
+                        // contract never gave. VAT is not on this list by policy — it is not a
+                        // concession, the money was never the tenant's — but every other line here
+                        // is something a landlord agreed to.
+                        Select::make('percentage_rent_sales_exclusions')
+                            ->label(__('admin.fields.percentage_rent_sales_exclusions'))
+                            ->multiple()
+                            ->options(fn () => SalesExclusions::options())
+                            ->native(false)
+                            ->helperText(__('admin.helpers.percentage_rent_sales_exclusions'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_sales_exclusions'))
+                            ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                         Select::make('percentage_rent_deductible_types')
                             ->label(__('admin.fields.percentage_rent_deductible_types'))
                             ->multiple()

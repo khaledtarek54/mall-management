@@ -355,6 +355,7 @@ return [
         'request_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
         'unit_has_active_lease' => 'This unit already has an active lease. Terminate it first or pick another unit.',
         'natural_breakpoint_needs_base_rent' => 'A natural breakpoint is derived from the base rent, so this lease needs one. Enter a base rent, or use an artificial breakpoint with a stated threshold.',
+        'sales_exclusions_exceed_gross' => 'The deductions come to more than the gross turnover they are taken from. Check the figures against the tenant’s certificate.',
         'import_asset_out_of_scope' => 'This property code is not found or is outside the properties you can manage.',
         'lease_terminal_immutable' => 'This lease is terminated/expired/cancelled and can no longer be edited. Reverse or renew it instead.',
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
