@@ -8,13 +8,13 @@ use App\Filament\Portal\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Portal\Resources\Payments\Schemas\PaymentInfolist;
 use App\Filament\Portal\Resources\Payments\Tables\PaymentsTable;
 use App\Models\Payment;
+use App\Support\Portal;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 
 class PaymentResource extends Resource
 {
@@ -79,7 +79,7 @@ class PaymentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('tenant_id', \App\Support\Portal::tenantId());
+            ->where('tenant_id', Portal::tenantId());
     }
 
     public static function canCreate(): bool

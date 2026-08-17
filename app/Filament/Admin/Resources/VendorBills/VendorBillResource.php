@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\VendorBills;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -12,6 +13,7 @@ use App\Filament\Admin\Resources\VendorBills\RelationManagers\VendorBillPayments
 use App\Filament\Admin\Resources\VendorBills\Schemas\VendorBillForm;
 use App\Filament\Admin\Resources\VendorBills\Tables\VendorBillsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Models\Vendor;
 use App\Models\VendorBill;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -75,7 +77,7 @@ class VendorBillResource extends Resource
     {
         return [
             VendorBillPaymentsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -103,16 +105,17 @@ class VendorBillResource extends Resource
             'vendor.search_text',
         ];
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  VendorBill  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                              can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
-        /** @var \App\Models\Vendor|null $vendor */
+        /** @var Vendor|null $vendor */
         $vendor = $record->vendor;
 
         return [
@@ -130,5 +133,4 @@ class VendorBillResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['vendor']);
     }
-
 }

@@ -1,12 +1,16 @@
 <?php
 
+use App\Filament\Admin\Resources\UtilityMeters\Pages\CreateUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\EditUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\RelationManagers\ReadingsRelationManager;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
+use App\Filament\Admin\Widgets\EnergyConsumptionTrend;
 use App\Models\MeterReading;
 use App\Models\UtilityMeter;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Database\QueryException;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 /*
@@ -36,7 +40,7 @@ beforeEach(function () {
     $this->meter = UtilityMeter::create([
         'asset_id' => $this->asset->id,
         'unit_id' => $this->unit->id,
-        'meter_number' => 'HW-E-' . uniqid(),
+        'meter_number' => 'HW-E-'.uniqid(),
         'type' => 'electric',
         'status' => 'active',
         'unit_of_measurement' => 'kWh',
@@ -62,7 +66,7 @@ function seedReading(UtilityMeter $meter, string $date, float $value, ?float $co
 }
 
 /** Mount the relation-manager create action so its form state is live. */
-function mountReadingCreate(UtilityMeter $meter): \Livewire\Features\SupportTesting\Testable
+function mountReadingCreate(UtilityMeter $meter): Testable
 {
     return Livewire::test(ReadingsRelationManager::class, [
         'ownerRecord' => $meter,
@@ -235,7 +239,7 @@ it('rejects a second reading on the same date for the same meter (unique period)
     seedReading($this->meter, '2026-02-01', 5000);
 
     expect(fn () => seedReading($this->meter, '2026-02-01', 5100))
-        ->toThrow(\Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('allows the same reading date on a different meter', function () {
@@ -243,7 +247,7 @@ it('allows the same reading date on a different meter', function () {
 
     $otherMeter = UtilityMeter::create([
         'asset_id' => $this->asset->id,
-        'meter_number' => 'HW-W-' . uniqid(),
+        'meter_number' => 'HW-W-'.uniqid(),
         'type' => 'water',
         'status' => 'active',
         'unit_of_measurement' => 'm3',
@@ -268,7 +272,7 @@ it('sums consumption per meter type into the energy trend widget for the current
     seedReading($this->meter, $month, 5250, consumption: 250);
     $elec2 = UtilityMeter::create([
         'asset_id' => $this->asset->id,
-        'meter_number' => 'HW-E2-' . uniqid(),
+        'meter_number' => 'HW-E2-'.uniqid(),
         'type' => 'electric',
         'status' => 'active',
         'unit_of_measurement' => 'kWh',
@@ -278,7 +282,7 @@ it('sums consumption per meter type into the energy trend widget for the current
     // A water reading — different series.
     $water = UtilityMeter::create([
         'asset_id' => $this->asset->id,
-        'meter_number' => 'HW-W2-' . uniqid(),
+        'meter_number' => 'HW-W2-'.uniqid(),
         'type' => 'water',
         'status' => 'active',
         'unit_of_measurement' => 'm3',
@@ -286,7 +290,7 @@ it('sums consumption per meter type into the energy trend widget for the current
     seedReading($water, $month, 60, consumption: 60);
 
     $data = asTenant($this->asset, function () {
-        $widget = new \App\Filament\Admin\Widgets\EnergyConsumptionTrend;
+        $widget = new EnergyConsumptionTrend;
 
         return (fn () => $this->getData())->call($widget);
     });
@@ -308,7 +312,7 @@ it('excludes another property\'s meter readings from this property\'s energy tre
     $other = makeAsset(['code' => 'CP']);
     $otherMeter = UtilityMeter::create([
         'asset_id' => $other->id,
-        'meter_number' => 'CP-E-' . uniqid(),
+        'meter_number' => 'CP-E-'.uniqid(),
         'type' => 'electric',
         'status' => 'active',
         'unit_of_measurement' => 'kWh',
@@ -316,7 +320,7 @@ it('excludes another property\'s meter readings from this property\'s energy tre
     seedReading($otherMeter, $month, 9999, consumption: 9999);
 
     $data = asTenant($this->asset, function () {
-        $widget = new \App\Filament\Admin\Widgets\EnergyConsumptionTrend;
+        $widget = new EnergyConsumptionTrend;
 
         return (fn () => $this->getData())->call($widget);
     });
@@ -337,7 +341,7 @@ it('scopes the meter list to the active property only', function () {
     $other = makeAsset(['code' => 'CP']);
     UtilityMeter::create([
         'asset_id' => $other->id,
-        'meter_number' => 'CP-E-' . uniqid(),
+        'meter_number' => 'CP-E-'.uniqid(),
         'type' => 'electric',
         'status' => 'active',
     ]);
@@ -356,7 +360,7 @@ it('shows meters from every property when All-Properties is active', function ()
     $other = makeAsset(['code' => 'CP']);
     $cpMeter = UtilityMeter::create([
         'asset_id' => $other->id,
-        'meter_number' => 'CP-E-' . uniqid(),
+        'meter_number' => 'CP-E-'.uniqid(),
         'type' => 'electric',
         'status' => 'active',
     ]);
@@ -382,7 +386,7 @@ it('binds a reading to its parent meter and that meter to its asset/unit', funct
 it('treats a unit-less meter as a common-area meter', function () {
     $common = UtilityMeter::create([
         'asset_id' => $this->asset->id,
-        'meter_number' => 'HW-CA-' . uniqid(),
+        'meter_number' => 'HW-CA-'.uniqid(),
         'type' => 'water',
         'status' => 'active',
     ]);
@@ -400,7 +404,7 @@ it('treats a unit-less meter as a common-area meter', function () {
 
 it('defaults and locks the meter asset picker to the active property', function () {
     asTenant($this->asset, function () {
-        Livewire::test(\App\Filament\Admin\Resources\UtilityMeters\Pages\CreateUtilityMeter::class)
+        Livewire::test(CreateUtilityMeter::class)
             ->assertSet('data.asset_id', $this->asset->id)
             ->assertFormFieldDisabled('asset_id');
     });
@@ -456,7 +460,7 @@ it('offers "Bill to tenant" only when the meter has a unit — never for a commo
     $common = UtilityMeter::create([
         'asset_id' => $this->asset->id,
         'unit_id' => null,
-        'meter_number' => 'HW-CA-' . uniqid(),
+        'meter_number' => 'HW-CA-'.uniqid(),
         'type' => 'electric', 'status' => 'active', 'unit_of_measurement' => 'kWh', 'rate_per_unit' => 2,
     ]);
     $commonReading = seedReading($common, $month, 1000, consumption: 400);
@@ -473,14 +477,14 @@ it('excludes a soft-deleted meter\'s readings from the energy trend', function (
     // A second meter that later gets decommissioned (soft-deleted).
     $decommissioned = UtilityMeter::create([
         'asset_id' => $this->asset->id,
-        'meter_number' => 'HW-E-OLD-' . uniqid(),
+        'meter_number' => 'HW-E-OLD-'.uniqid(),
         'type' => 'electric', 'status' => 'active', 'unit_of_measurement' => 'kWh',
     ]);
     seedReading($decommissioned, $month, 8000, consumption: 8000);
     $decommissioned->delete(); // soft-delete
 
     $data = asTenant($this->asset, function () {
-        $widget = new \App\Filament\Admin\Widgets\EnergyConsumptionTrend;
+        $widget = new EnergyConsumptionTrend;
 
         return (fn () => $this->getData())->call($widget);
     });

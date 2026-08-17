@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -26,7 +27,7 @@ class TenantPaymentsRelationManager extends RelationManager
             // Property isolation: a payment is visible only if it settles an invoice in
             // one of the user's visible properties (a shared tenant may pay across malls).
             ->modifyQueryUsing(fn ($query) => $query->when(
-                \App\Support\TenantScope::visibleAssetIds(),
+                TenantScope::visibleAssetIds(),
                 fn ($q, $ids) => $q->whereHas('invoices.lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)),
             ))
             ->columns([

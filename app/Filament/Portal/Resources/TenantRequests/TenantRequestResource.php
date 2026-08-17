@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\TenantRequests;
 
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Filament\Portal\RelationManagers\PortalTenantRequestCommentsRelationManager;
 use App\Filament\Portal\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Portal\Resources\TenantRequests\Pages\ListTenantRequests;
 use App\Filament\Portal\Resources\TenantRequests\Pages\ViewTenantRequest;
@@ -10,13 +11,13 @@ use App\Filament\Portal\Resources\TenantRequests\Schemas\TenantRequestForm;
 use App\Filament\Portal\Resources\TenantRequests\Schemas\TenantRequestInfolist;
 use App\Filament\Portal\Resources\TenantRequests\Tables\TenantRequestsTable;
 use App\Models\TenantRequest;
+use App\Support\Portal;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 
 class TenantRequestResource extends Resource
 {
@@ -80,7 +81,7 @@ class TenantRequestResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Portal\RelationManagers\PortalTenantRequestCommentsRelationManager::class,
+            PortalTenantRequestCommentsRelationManager::class,
         ];
     }
 
@@ -96,13 +97,13 @@ class TenantRequestResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('tenant_id', \App\Support\Portal::tenantId());
+            ->where('tenant_id', Portal::tenantId());
     }
 
     public static function canCreate(): bool
     {
         // Only the tenant-admin may submit requests; other users are read-only.
-        return \App\Support\Portal::isAdmin();
+        return Portal::isAdmin();
     }
 
     public static function canEdit($record): bool

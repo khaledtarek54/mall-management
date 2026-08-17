@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Services\VendorBillService;
+use App\Services\VoidVendorBillPaymentService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -20,10 +22,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[NeverDeletable(correction: 'void the payment — money left the bank')]
 #[PropertyOwned(via: 'bill')]
-#[PostingDateGuardedBy(guard: \App\Services\VendorBillService::class)]
+#[PostingDateGuardedBy(guard: VendorBillService::class)]
 class VendorBillPayment extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, SoftDeletes;
+    use HasFactory, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     protected $fillable = [
         'vendor_bill_id',
@@ -53,7 +55,7 @@ class VendorBillPayment extends Model
      * (which must stop returning a payload so the sweep reverses the entry). Named once so the
      * document and the ledger cannot disagree about whether the money moved.
      *
-     * `voided_at` is deliberately not fillable: only {@see \App\Services\VoidVendorBillPaymentService}
+     * `voided_at` is deliberately not fillable: only {@see VoidVendorBillPaymentService}
      * may set it, so a void always carries its reason and its reversal.
      */
     public function isVoided(): bool

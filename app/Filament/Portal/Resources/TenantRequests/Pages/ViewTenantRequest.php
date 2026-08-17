@@ -20,6 +20,7 @@ class ViewTenantRequest extends ViewRecord
     {
         /** @var TenantRequest $record */
         $record = $this->record;
+
         return $record->reference;
     }
 

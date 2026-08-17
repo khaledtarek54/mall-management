@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Lease;
 use App\Models\StraightLineRentAdjustment;
 use App\Support\OpsLog;
+use App\Support\PostingDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -129,7 +130,7 @@ class PostStraightLineRentService
             ->whereDate('period', '>=', $from->toDateString())
             ->get()
             ->each(function (StraightLineRentAdjustment $adjustment) use (&$reversed): void {
-                if (\App\Support\PostingDate::isClosed($adjustment->entry_date)) {
+                if (PostingDate::isClosed($adjustment->entry_date)) {
                     return;
                 }
 

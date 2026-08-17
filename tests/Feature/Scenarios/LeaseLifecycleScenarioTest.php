@@ -16,10 +16,12 @@
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Services\ChargeScheduleService;
 use App\Services\LeaseCreationService;
-use App\Services\LeaseRentChangeService;
 use App\Services\LeaseRenewalService;
+use App\Services\LeaseRentChangeService;
 use App\Services\LeaseTerminationService;
+use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 
 beforeEach(function () {
@@ -103,7 +105,7 @@ it('the first billing run after creation invoices the three seeded charges with 
         'service_charge_monthly' => 2000,
     ]);
 
-    $svc = app(\App\Services\MonthlyBillingService::class);
+    $svc = app(MonthlyBillingService::class);
     $result = $svc->generateForLease($lease, CarbonImmutable::parse('2026-01-01'));
 
     expect($result['status'])->toBe('created');
@@ -146,8 +148,8 @@ it('an escalation raises base rent on schedule and the base_rent charge tracks i
     // Lease field AND the base-rent row IN FORCE both move to the new rent — no drift between
     // the widget value and what billing reads.
     $lease->refresh();
-    $today = \Carbon\CarbonImmutable::now();
-    $inForce = app(\App\Services\ChargeScheduleService::class)->rowInForce($lease, 'base_rent', $today);
+    $today = CarbonImmutable::now();
+    $inForce = app(ChargeScheduleService::class)->rowInForce($lease, 'base_rent', $today);
 
     expect((float) $lease->base_rent_monthly)->toBe(10700.0)
         ->and((float) $inForce->amount)->toBe(10700.0)
@@ -173,7 +175,7 @@ it('an escalation raises base rent on schedule and the base_rent charge tracks i
     expect((float) $lease->charges()->where('type', 'service_charge')->sole()->amount)->toBe(2000.0);
 
     // A month ON or AFTER the change bills the escalated rent.
-    $billing = app(\App\Services\MonthlyBillingService::class);
+    $billing = app(MonthlyBillingService::class);
     $after = $billing->generateForLease($lease, $today->startOfMonth());
     expect((float) $after['invoice']->items()->where('type', 'base_rent')->sole()->amount)->toBe(10700.0);
 
@@ -220,7 +222,7 @@ it('renewal links previous_lease_id, marks the original renewed, and resets next
         // commencement + 1 year (previously it was left null, so a "7% escalation" renewal never
         // actually escalated — the dead-escalation bug the Lease::creating hook now fixes).
         ->and($renewal->next_escalation_date?->toDateString())
-            ->toBe($renewal->commencement_date->copy()->addYear()->toDateString());
+        ->toBe($renewal->commencement_date->copy()->addYear()->toDateString());
 
     // Relationship wiring resolves both directions.
     expect($renewal->previousLease->is($original))->toBeTrue()
@@ -278,7 +280,7 @@ it('termination stamps the end_date on every charge so a later billing run produ
 
     // A whole-portfolio run for April finds the lease no longer 'active' and
     // never considers it — zero invoices created for it.
-    $stats = app(\App\Services\MonthlyBillingService::class)
+    $stats = app(MonthlyBillingService::class)
         ->runForPeriod(CarbonImmutable::parse('2026-04-01'));
 
     expect(Invoice::where('lease_id', $lease->id)->count())->toBe(0)
@@ -289,7 +291,7 @@ it('a direct single-lease billing call on a terminated lease is refused for BEIN
     $lease = createLeaseVia($this->unit->id, ['commencement_date' => '2026-01-01']);
     app(LeaseTerminationService::class)->terminate($lease, ['termination_date' => '2026-02-10']);
 
-    $result = app(\App\Services\MonthlyBillingService::class)
+    $result = app(MonthlyBillingService::class)
         ->generateForLease($lease->fresh(), CarbonImmutable::parse('2026-05-01'));
 
     // This used to assert 'no_applicable_charges', and the reason it passed was an ACCIDENT:
@@ -340,7 +342,7 @@ it('termination accepts a pending_approval lease but rejects every other non-act
     expect($result->status)->toBe('terminated');
 
     foreach (['draft', 'expired', 'renewed', 'terminated', 'cancelled'] as $status) {
-        $unit = makeUnit($this->asset, ['code' => 'G-' . $status]);
+        $unit = makeUnit($this->asset, ['code' => 'G-'.$status]);
         $lease = makeLease($unit, attrs: ['status' => $status]);
 
         expect(fn () => app(LeaseTerminationService::class)->terminate($lease, []))
@@ -351,7 +353,7 @@ it('termination accepts a pending_approval lease but rejects every other non-act
 it('renewal rejects every non-active status, including pending_approval', function () {
     // Unlike termination, renewal is strictly active-only.
     foreach (['draft', 'pending_approval', 'expired', 'renewed', 'terminated', 'cancelled'] as $status) {
-        $unit = makeUnit($this->asset, ['code' => 'R-' . $status]);
+        $unit = makeUnit($this->asset, ['code' => 'R-'.$status]);
         $lease = makeLease($unit, attrs: ['status' => $status]);
 
         expect(fn () => app(LeaseRenewalService::class)->renew($lease, [
@@ -363,7 +365,7 @@ it('renewal rejects every non-active status, including pending_approval', functi
 
 it('rent change accepts active and pending_approval but rejects the rest', function () {
     foreach (['active', 'pending_approval'] as $ok) {
-        $unit = makeUnit($this->asset, ['code' => 'OK-' . $ok]);
+        $unit = makeUnit($this->asset, ['code' => 'OK-'.$ok]);
         $lease = makeLease($unit, attrs: ['status' => $ok, 'base_rent_monthly' => 10000]);
         Charge::create([
             'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
@@ -377,7 +379,7 @@ it('rent change accepts active and pending_approval but rejects the rest', funct
     }
 
     foreach (['draft', 'expired', 'renewed', 'terminated', 'cancelled'] as $bad) {
-        $unit = makeUnit($this->asset, ['code' => 'BAD-' . $bad]);
+        $unit = makeUnit($this->asset, ['code' => 'BAD-'.$bad]);
         $lease = makeLease($unit, attrs: ['status' => $bad]);
 
         expect(fn () => app(LeaseRentChangeService::class)->apply($lease, ['base_rent_monthly' => 12000]))

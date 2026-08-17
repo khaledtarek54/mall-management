@@ -2,11 +2,11 @@
 
 use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
+use App\Notifications\SalesDeclarationLockedNotification;
 use App\Notifications\TenantRequestCommentAddedNotification;
 use App\Notifications\TenantRequestStatusChangedNotification;
-use App\Notifications\SalesDeclarationLockedNotification;
-use App\Services\TenantRequestService;
 use App\Services\PercentageRentCalculationService;
+use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
@@ -30,7 +30,7 @@ it('TenantRequestService::transition notifies the tenant on status change', func
     Notification::fake();
 
     $request = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'AC not cooling',
@@ -54,7 +54,7 @@ it('the cancelled transition does NOT fire (tenant cancelled themselves)', funct
     Notification::fake();
 
     $request = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'misfiled',
@@ -74,7 +74,7 @@ it('a tenant comment notifies the assigned property team (ERP bell)', function (
     Notification::fake();
 
     $request = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'AC not cooling',
@@ -98,7 +98,7 @@ it('a staff comment notifies the tenant, and internal notes notify no one', func
     Notification::fake();
 
     $request = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'Leak',

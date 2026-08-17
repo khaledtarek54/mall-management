@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Asset;
 use App\Models\MarketingPost;
 use App\Settings\ModulesSettings;
 use App\Support\MarketingFeedCache;
@@ -16,7 +17,7 @@ beforeEach(function (): void {
     Storage::fake('public');
 });
 
-function reviewLivePost(App\Models\Asset $asset, ?int $tenantId, array $attrs = []): MarketingPost
+function reviewLivePost(Asset $asset, ?int $tenantId, array $attrs = []): MarketingPost
 {
     $post = MarketingPost::factory()->published()->create(array_merge([
         'asset_id' => $asset->id,
@@ -123,13 +124,13 @@ it('resolves the portal property list through the lease_unit pivot', function ()
     $lease = makeLease(makeUnit($home), $tenant, ['status' => 'active']);
     $lease->units()->attach(makeUnit($second)->id, ['is_master' => false]);
 
-    $viaPivot = App\Models\Asset::query()
+    $viaPivot = Asset::query()
         ->whereHas('units.allLeases', fn ($q) => $q
             ->where('leases.tenant_id', $tenant->id)
             ->where('leases.status', 'active'))
         ->pluck('id');
 
-    $viaMasterOnly = App\Models\Asset::query()
+    $viaMasterOnly = Asset::query()
         ->whereHas('units.leases', fn ($q) => $q
             ->where('leases.tenant_id', $tenant->id)
             ->where('leases.status', 'active'))

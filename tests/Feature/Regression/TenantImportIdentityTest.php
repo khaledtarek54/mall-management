@@ -2,6 +2,7 @@
 
 use App\Filament\Imports\TenantImporter;
 use App\Models\Tenant;
+use App\Models\User;
 use Filament\Actions\Imports\Models\Import;
 
 /**
@@ -26,7 +27,7 @@ beforeEach(function () {
         'processed_rows' => 0,
         'total_rows' => 1,
         'successful_rows' => 0,
-        'user_id' => \App\Models\User::factory()->create()->id,
+        'user_id' => User::factory()->create()->id,
     ]);
 });
 

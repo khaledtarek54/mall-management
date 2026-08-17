@@ -33,7 +33,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PortfolioShared]
 class TenantDocument extends Model implements HasMedia
 {
-    use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;
+    use HasSupersededDocuments, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     /** شهادة تأمين — public-liability cover, normally naming the landlord as additional insured. */
     public const TYPE_INSURANCE_COI = 'insurance_coi';

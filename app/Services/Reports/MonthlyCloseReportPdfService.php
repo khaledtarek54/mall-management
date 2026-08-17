@@ -53,6 +53,6 @@ class MonthlyCloseReportPdfService
 
     public function filename(CarbonImmutable $period): string
     {
-        return 'atriom-monthly-close-' . $period->format('Y-m') . '.pdf';
+        return 'atriom-monthly-close-'.$period->format('Y-m').'.pdf';
     }
 }

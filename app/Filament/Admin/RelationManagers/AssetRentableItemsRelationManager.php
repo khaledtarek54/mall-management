@@ -2,12 +2,14 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Models\RentableItem;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The property's parking bays, storage rooms and signage faces — and who holds each one.
@@ -24,7 +26,7 @@ class AssetRentableItemsRelationManager extends RelationManager
 {
     protected static string $relationship = 'rentableItems';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.asset_rentable_items.title');
     }
@@ -83,8 +85,8 @@ class AssetRentableItemsRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.open'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (RentableItem $record): string => \App\Filament\Admin\Resources\RentableItems\RentableItemResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (RentableItem $record): bool => \App\Filament\Admin\Resources\RentableItems\RentableItemResource::canEdit($record)),
+                    ->url(fn (RentableItem $record): string => RentableItemResource::getUrl('edit', ['record' => $record]))
+                    ->visible(fn (RentableItem $record): bool => RentableItemResource::canEdit($record)),
             ])
             ->defaultSort('code')
             ->emptyStateIcon('heroicon-o-ticket')

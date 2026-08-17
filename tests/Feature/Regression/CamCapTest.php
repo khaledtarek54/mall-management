@@ -4,6 +4,8 @@ use App\Models\CamExpensePool;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\LedgerReportService;
 use App\Services\CamReconciliationService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use Database\Seeders\AccountMappingSeeder;
@@ -22,7 +24,7 @@ afterEach(fn () => Carbon::setTestNow());
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear(2027);
+    app(FiscalCalendar::class)->ensureYear(2027);
 });
 
 /** A single 100-sqm lease pool for reconciled year 2026; returns [pool, lease]. */
@@ -132,7 +134,7 @@ it('ties out the books end-to-end when a cap applies', function () {
     $svc->bill($pool->allocations()->sole());
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertSuccessful();
-    expect(app(\App\Services\Accounting\LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue()
+    expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue()
         ->and(app(BooksReconciliationService::class)->run()['ok'])->toBeTrue();
 });
 

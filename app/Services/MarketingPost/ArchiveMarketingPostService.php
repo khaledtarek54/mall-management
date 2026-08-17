@@ -2,6 +2,7 @@
 
 namespace App\Services\MarketingPost;
 
+use App\Console\Commands\ExpireMarketingPostsCommand;
 use App\Models\MarketingPost;
 use App\Models\User;
 use App\Support\OpsLog;
@@ -17,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  * that away. Both are possible; this is the one an operator should reach for, and the admin UI
  * offers it far more prominently than delete.
  *
- * Also the sweep's action: {@see \App\Console\Commands\ExpireMarketingPostsCommand} archives posts
+ * Also the sweep's action: {@see ExpireMarketingPostsCommand} archives posts
  * whose window has closed, so the feed empties itself without anyone remembering to.
  */
 class ArchiveMarketingPostService

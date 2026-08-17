@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -47,8 +48,8 @@ return new class extends Migration
     {
         // Only reversible while no ownership has been billed — a row with a null lease_id cannot be
         // made NOT NULL again, and inventing a lease for it would be worse than refusing.
-        $orphaned = \Illuminate\Support\Facades\DB::table('invoices')->whereNull('lease_id')->count()
-            + \Illuminate\Support\Facades\DB::table('charges')->whereNull('lease_id')->count();
+        $orphaned = DB::table('invoices')->whereNull('lease_id')->count()
+            + DB::table('charges')->whereNull('lease_id')->count();
 
         if ($orphaned > 0) {
             throw new RuntimeException(

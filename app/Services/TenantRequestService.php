@@ -4,13 +4,15 @@ namespace App\Services;
 
 use App\Enums\TenantRequestType;
 use App\Models\Department;
+use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
+use App\Models\Unit;
 use App\Models\User;
+use App\Notifications\PortalRequestSubmittedNotification;
 use App\Notifications\TenantRequestCommentAddedNotification;
 use App\Notifications\TenantRequestStatusChangedNotification;
-use App\Notifications\PortalRequestSubmittedNotification;
 use App\Settings\SlaSettings;
 use Carbon\Carbon;
 use DomainException;
@@ -60,7 +62,7 @@ class TenantRequestService
             // report faults for A-01. Matching the column too is belt-and-braces for any lease
             // whose master was never synced into the pivot.
             $requestedUnitId = isset($data['unit_id']) ? (int) $data['unit_id'] : null;
-            /** @var \App\Models\Lease|null $lease — the `?? activeLeases()->first()` fallback otherwise widens it to Model, hiding units()/unit. */
+            /** @var Lease|null $lease — the `?? activeLeases()->first()` fallback otherwise widens it to Model, hiding units()/unit. */
             $lease = ($requestedUnitId !== null
                 ? $tenant->leases()
                     ->where(fn ($q) => $q
@@ -74,7 +76,7 @@ class TenantRequestService
             // not that lease's master, which is what made a fault in the second shop arrive
             // labelled as the first. Falls back to the master when the request named nothing, or
             // named a unit that is not on this lease (i.e. someone else's — the clamp still holds).
-            /** @var \App\Models\Unit|null $unit — units() (BelongsToMany) ->first() resolves to base Model, so narrow. */
+            /** @var Unit|null $unit — units() (BelongsToMany) ->first() resolves to base Model, so narrow. */
             $unit = $requestedUnitId !== null
                 ? ($lease?->units()->whereKey($requestedUnitId)->first() ?? $lease?->unit)
                 : $lease?->unit;

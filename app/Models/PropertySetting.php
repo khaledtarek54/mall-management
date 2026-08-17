@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\PropertySettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -43,7 +44,7 @@ class PropertySetting extends Model
 
     protected static function booted(): void
     {
-        $flush = fn (self $row) => \App\Support\PropertySettings::forgetCache($row->asset_id);
+        $flush = fn (self $row) => PropertySettings::forgetCache($row->asset_id);
 
         static::saved($flush);
         static::deleted($flush);

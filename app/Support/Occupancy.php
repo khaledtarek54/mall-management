@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Unit;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -31,7 +32,7 @@ class Occupancy
      * `pct` is **null**, not 0, when there is no area to divide by — a property with no units
      * recorded is unknown, not empty, and reporting 0% would read as a mall nobody has let.
      *
-     * @param  Builder<\App\Models\Unit>  $units
+     * @param  Builder<Unit>  $units
      * @return array{occupied_sqm: float, total_sqm: float, pct: float|null}
      */
     public static function forUnits(Builder $units): array

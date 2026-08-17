@@ -5,15 +5,16 @@ namespace App\Filament\Admin\Resources\VendorBills\Pages;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Services\VendorBillService;
 use App\Support\PostingDate;
+use App\Support\WithholdingTax;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -105,15 +106,15 @@ class EditVendorBill extends EditRecord
                     // the vendor receives less and the difference is owed to the ETA.
                     Placeholder::make('wht_breakdown')
                         ->label(__('admin.vendors.wht.breakdown'))
-                        ->visible(fn () => \App\Support\WithholdingTax::rateFor($this->record->vendor) > 0)
+                        ->visible(fn () => WithholdingTax::rateFor($this->record->vendor) > 0)
                         ->content(function (Get $get) {
                             $gross = (float) ($get('amount') ?: 0);
 
                             // The SAME call the service makes. When these two drifted apart the
                             // operator was shown one figure and the bank paid another, which is the
                             // failure mode this placeholder exists to prevent in the first place.
-                            $base = \App\Support\WithholdingTax::vatExclusiveShareOf($gross, $this->record);
-                            $withheld = \App\Support\WithholdingTax::onBillPayment($gross, $this->record);
+                            $base = WithholdingTax::vatExclusiveShareOf($gross, $this->record);
+                            $withheld = WithholdingTax::onBillPayment($gross, $this->record);
 
                             return __('admin.vendors.wht.breakdown_text', [
                                 'gross' => number_format($gross, 2),
@@ -122,7 +123,7 @@ class EditVendorBill extends EditRecord
                                 // see that VAT was excluded from the base.
                                 'base' => number_format($base, 2),
                                 'rate' => rtrim(rtrim(number_format(
-                                    \App\Support\WithholdingTax::rateFor($this->record->vendor), 2), '0'), '.'),
+                                    WithholdingTax::rateFor($this->record->vendor), 2), '0'), '.'),
                                 'withheld' => number_format($withheld, 2),
                                 'net' => number_format($gross - $withheld, 2),
                             ]);
@@ -170,6 +171,7 @@ class EditVendorBill extends EditRecord
                             ->title(__('admin.notifications.vendor_bill_paid'))
                             ->warning()
                             ->send();
+
                         return;
                     }
 

@@ -7,7 +7,6 @@ use App\Models\Lease;
 use App\Models\LeasePercentageRentTier;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
 
 /**

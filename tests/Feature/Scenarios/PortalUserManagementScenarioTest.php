@@ -2,11 +2,13 @@
 
 use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
+use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Notifications\InvoiceIssuedNotification;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 /*
@@ -29,7 +31,7 @@ use Livewire\Livewire;
 beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
 /** Render the relation manager as Filament would, under a given owner tenant. */
-function portalUsersRm(\App\Models\Tenant $tenant): \Livewire\Features\SupportTesting\Testable
+function portalUsersRm(Tenant $tenant): Testable
 {
     return Livewire::test(PortalUsersRelationManager::class, [
         'ownerRecord' => $tenant,

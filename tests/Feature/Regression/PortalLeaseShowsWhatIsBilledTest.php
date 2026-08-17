@@ -7,6 +7,7 @@ use App\Services\AssignRentableItemService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 /**
@@ -46,7 +47,7 @@ function billedLease(array $attributes = []): Lease
     ], $attributes))->fresh();
 }
 
-function viewAsTenant(Lease $lease): \Livewire\Features\SupportTesting\Testable
+function viewAsTenant(Lease $lease): Testable
 {
     test()->actingAs(makeTenantUser(test()->tenant), 'portal');
 

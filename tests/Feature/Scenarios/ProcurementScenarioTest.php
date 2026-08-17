@@ -1,6 +1,5 @@
 <?php
 
-use App\Support\MorphMap;
 use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
 use App\Models\PurchaseRequest;
@@ -8,8 +7,10 @@ use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\PurchaseRequestService;
 use App\Support\ApprovalPolicy;
+use App\Support\MorphMap;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -240,7 +241,7 @@ it('refuses another property\'s warehouse — at creation, with receive() as the
     $r = pr();
     $this->svc->approve($r, null, $this->manager);
     $this->svc->order($r->fresh(), null, 'PO-6', $this->manager);
-    \Illuminate\Support\Facades\DB::table('purchase_requests')->where('id', $r->id)->update(['warehouse_id' => $foreign->id]);
+    DB::table('purchase_requests')->where('id', $r->id)->update(['warehouse_id' => $foreign->id]);
 
     expect(fn () => $this->svc->receive($r->fresh(), $this->buyer))->toThrow(DomainException::class);
     expect(onHandPrc())->toBe(0.0);

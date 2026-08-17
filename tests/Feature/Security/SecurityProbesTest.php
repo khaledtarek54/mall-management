@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureMarketingPostsEnabled;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
@@ -34,11 +35,11 @@ it('guards every non-public /api/v1 route with the tenant-api auth middleware', 
         }
         $mw = collect($route->gatherMiddleware());
         if (! $mw->contains(fn ($m) => Str::contains($m, 'auth:tenant-api'))) {
-            $unguarded[] = $route->methods()[0] . ' ' . $route->uri();
+            $unguarded[] = $route->methods()[0].' '.$route->uri();
         }
     }
 
-    expect($unguarded)->toBe([], 'Unguarded /api/v1 routes (missing auth:tenant-api): ' . implode(', ', $unguarded));
+    expect($unguarded)->toBe([], 'Unguarded /api/v1 routes (missing auth:tenant-api): '.implode(', ', $unguarded));
 });
 
 /**
@@ -65,7 +66,7 @@ it('constrains every unauthenticated /api/v1/public route with a throttle and th
         $mw = collect($route->gatherMiddleware());
 
         $throttled = $mw->contains(fn ($m) => Str::startsWith($m, 'throttle:'));
-        $moduleGated = $mw->contains(\App\Http\Middleware\EnsureMarketingPostsEnabled::class);
+        $moduleGated = $mw->contains(EnsureMarketingPostsEnabled::class);
 
         if (! $throttled || ! $moduleGated) {
             $unconstrained[] = $route->methods()[0].' '.$route->uri()

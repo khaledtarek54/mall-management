@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\OwnerRequest;
+use App\Notifications\OwnerRequestNotification;
 use App\Services\OwnerRequestService;
 use Illuminate\Support\Facades\Notification;
 
@@ -70,6 +70,6 @@ it('notifies the owner when the operator replies (not the operator author)', fun
     $this->svc->reply($this->request, $this->operator, 'On it.');
 
     // The owner who raised it is belled; the operator (author) is not.
-    Notification::assertSentTo($this->owner, \App\Notifications\OwnerRequestNotification::class);
-    Notification::assertNotSentTo($this->operator, \App\Notifications\OwnerRequestNotification::class);
+    Notification::assertSentTo($this->owner, OwnerRequestNotification::class);
+    Notification::assertNotSentTo($this->operator, OwnerRequestNotification::class);
 });

@@ -1,8 +1,8 @@
 <?php
 
-use App\Support\MorphMap;
 use App\Models\Vendor;
 use App\Support\ActivityLogChangeRenderer;
+use App\Support\MorphMap;
 use Spatie\Activitylog\Models\Activity;
 
 /**

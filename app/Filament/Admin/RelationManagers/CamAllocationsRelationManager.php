@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\CamAllocation;
+use App\Models\Lease;
+use App\Models\Tenant;
 use App\Services\CamReconciliationService;
 use App\Services\CamStatementPdfService;
 use Filament\Actions\Action;
@@ -13,12 +15,13 @@ use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class CamAllocationsRelationManager extends RelationManager
 {
     protected static string $relationship = 'allocations';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.tables.cam.allocations');
     }
@@ -26,9 +29,9 @@ class CamAllocationsRelationManager extends RelationManager
     protected static function tenantName(CamAllocation $record): string
     {
         $lease = $record->lease;
-        $tenant = $lease instanceof \App\Models\Lease ? $lease->tenant : null;
+        $tenant = $lease instanceof Lease ? $lease->tenant : null;
 
-        return $tenant instanceof \App\Models\Tenant ? $tenant->name : '—';
+        return $tenant instanceof Tenant ? $tenant->name : '—';
     }
 
     /** Named once so the bill action's visible() (UI) and action() (real gate) can't drift. */

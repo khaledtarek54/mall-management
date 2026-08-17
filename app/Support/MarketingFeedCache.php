@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Unit;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -72,7 +73,7 @@ class MarketingFeedCache
      */
     public static function bumpForTenant(int $tenantId): void
     {
-        $assetIds = \App\Models\Unit::query()
+        $assetIds = Unit::query()
             ->whereHas('allLeases', fn ($lease) => $lease
                 ->where('leases.tenant_id', $tenantId)
                 ->where('leases.status', 'active'))

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\GrantEmployeeAdvanceService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -21,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: reversed rather than removed')]
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\GrantEmployeeAdvanceService::class)]
+#[PostingDateGuardedBy(guard: GrantEmployeeAdvanceService::class)]
 class EmployeeAdvance extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

@@ -49,7 +49,7 @@ it('actually escalates a real-path lease at its anniversary (end-to-end sweep)',
     expect($stats['applied'])->toBe(1)
         ->and((float) $lease->fresh()->base_rent_monthly)->toBe(107000.0)
         ->and($lease->fresh()->next_escalation_date->toDateString())
-            ->toBe(CarbonImmutable::now()->addYear()->toDateString());
+        ->toBe(CarbonImmutable::now()->addYear()->toDateString());
 });
 
 it('carries escalation forward on renewal (renewed lease armed, not null)', function () {

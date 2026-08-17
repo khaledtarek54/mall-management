@@ -3,10 +3,10 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\ApprovalPolicy;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
-use App\Support\ApprovalPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

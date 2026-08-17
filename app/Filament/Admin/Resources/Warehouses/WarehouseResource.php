@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Warehouses;
 
+use App\Filament\Admin\RelationManagers\StockMovementsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Warehouses\Pages\CreateWarehouse;
@@ -85,7 +86,7 @@ class WarehouseResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\StockMovementsRelationManager::class,
+            StockMovementsRelationManager::class,
         ];
     }
 

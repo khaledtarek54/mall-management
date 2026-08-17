@@ -31,6 +31,7 @@ use App\Models\Asset;
 use App\Models\Vendor;
 use App\Models\VendorContract;
 use App\Support\TenantScope;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
@@ -44,8 +45,8 @@ afterEach(function () {
 function makeVendor(array $attrs = []): Vendor
 {
     return Vendor::create(array_merge([
-        'name' => 'Vendor ' . uniqid(),
-        'slug' => 'vendor-' . uniqid(),
+        'name' => 'Vendor '.uniqid(),
+        'slug' => 'vendor-'.uniqid(),
         'type' => 'service_provider',
         'status' => 'active',
     ], $attrs));
@@ -57,7 +58,7 @@ function makeContract(Vendor $vendor, ?Asset $asset, array $attrs = []): VendorC
     return VendorContract::create(array_merge([
         'vendor_id' => $vendor->id,
         'asset_id' => $asset?->id,
-        'name' => 'Contract ' . uniqid(),
+        'name' => 'Contract '.uniqid(),
         'status' => 'active',
         'start_date' => '2025-01-01',
         'end_date' => '2026-01-01',
@@ -232,7 +233,7 @@ describe('vendor contract property scoping', function () {
     });
 
     it('the asset picker offers only A to a manager pinned to A — B is leak-free', function () {
-        $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+        $this->seed(RolesPermissionsSeeder::class);
         $manager = makeUser('manager', [$this->a->id]);
         $this->actingAs($manager);
 
@@ -258,7 +259,7 @@ describe('vendor contract property scoping', function () {
         // In All-Properties mode currentAssetId() is null, so the picker is
         // enabled and unconstrained for super_admin — every real property is
         // selectable, the synthetic ALL row is still excluded.
-        $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+        $this->seed(RolesPermissionsSeeder::class);
         $this->actingAs(makeUser('super_admin'));
 
         Filament::setCurrentPanel(Filament::getPanel('admin'));
@@ -282,7 +283,7 @@ describe('vendor contract property scoping', function () {
     it('locks the asset picker to the pinned property when a real tenant is active', function () {
         // When scoped to a single property the picker is disabled and defaulted
         // to that property — the contract cannot be filed against another mall.
-        $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+        $this->seed(RolesPermissionsSeeder::class);
         $this->actingAs(makeUser('super_admin'));
 
         Filament::setCurrentPanel(Filament::getPanel('admin'));
@@ -325,7 +326,7 @@ describe('vendor contract property scoping', function () {
 
 describe('vendor contract form validation', function () {
     beforeEach(function () {
-        $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+        $this->seed(RolesPermissionsSeeder::class);
         ensureAllPropertiesAsset();
         $this->asset = makeAsset();
         $this->vendor = makeVendor();

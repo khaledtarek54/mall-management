@@ -7,12 +7,14 @@ use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\AccessControlAudit;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -34,7 +36,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned(portfolioRowsWhenNull: true)]
 class Department extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     /**
      * Department name and code.
@@ -169,11 +171,11 @@ class Department extends Model
      * property-restricted user only sees global departments plus those of
      * the properties they can access. Super_admin (no scope) sees all.
      *
-     * @return \Illuminate\Support\Collection<int, string>
+     * @return Collection<int, string>
      */
-    public static function selectableOptions(): \Illuminate\Support\Collection
+    public static function selectableOptions(): Collection
     {
-        $ids = \App\Support\TenantScope::visibleAssetIds();
+        $ids = TenantScope::visibleAssetIds();
 
         return static::query()
             ->where('is_active', true)
@@ -195,7 +197,7 @@ class Department extends Model
                 $slug = $base;
                 $suffix = 1;
                 while (static::withTrashed()->where('slug', $slug)->exists()) {
-                    $slug = $base . '-' . (++$suffix);
+                    $slug = $base.'-'.(++$suffix);
                 }
                 $department->slug = $slug;
             }

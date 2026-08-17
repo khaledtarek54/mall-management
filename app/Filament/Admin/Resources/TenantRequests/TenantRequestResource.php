@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\TenantRequests;
 
 use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
-use App\Filament\Admin\RelationManagers\TenantRequestCommentsRelationManager;
 use App\Filament\Admin\RelationManagers\StockConsumptionRelationManager;
+use App\Filament\Admin\RelationManagers\TenantRequestCommentsRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -29,11 +29,11 @@ class TenantRequestResource extends Resource
     protected static ?string $slug = 'requests';
 
     use GuardsAssetInScope;
-    use SearchesNormalizedText;
     use RoleGatedActions {
         canEdit as protected roleGatedCanEdit;
     }
     use ScopesToProperty;
+    use SearchesNormalizedText;
 
     protected static function permissionModule(): string
     {

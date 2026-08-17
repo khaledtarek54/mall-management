@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Charge;
 use App\Models\Lease;
 use App\Services\RentEscalationService;
 use Carbon\CarbonImmutable;
@@ -33,7 +34,7 @@ function amountLease(array $attributes = []): Lease
     // schedule row, which `ChargeScheduleService` dates to the lease commencement rather than the
     // anniversary — correct behaviour, but it would make the dating assertion below test the
     // fixture instead of the feature.
-    \App\Models\Charge::create([
+    Charge::create([
         'lease_id' => $lease->id,
         'name' => 'Base Rent',
         'type' => 'base_rent',

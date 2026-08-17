@@ -173,7 +173,7 @@ it('refuses to apply a credit note to an invoice in a non-visible property', fun
         try {
             Livewire::test(EditCreditNote::class, ['record' => $note->id])
                 ->callAction('apply', data: ['invoice_id' => $invB->id, 'amount' => 100]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // abort(403) may surface as an exception depending on the Livewire path.
         }
     });

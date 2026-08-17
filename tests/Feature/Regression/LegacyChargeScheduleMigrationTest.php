@@ -3,9 +3,10 @@
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
-use Illuminate\Support\Facades\DB;
 use App\Services\MonthlyBillingService;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The schedule rollout leaves every existing lease billing exactly what it billed (story LS-06).
@@ -54,7 +55,7 @@ function legacyShapedLease(string $unitCode): Lease
     Charge::create([
         'lease_id' => $lease->id, 'name' => 'Service Charge', 'type' => 'service_charge',
         'amount' => 5000, 'currency' => 'EGP', 'frequency' => 'monthly',
-        'vat_applicable' => true, 'vat_rate' => \App\Support\Vat::standardRate(),
+        'vat_applicable' => true, 'vat_rate' => Vat::standardRate(),
         'start_date' => null, 'end_date' => null, 'is_active' => true,
     ]);
 

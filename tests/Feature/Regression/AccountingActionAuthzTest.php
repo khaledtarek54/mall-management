@@ -4,13 +4,15 @@ use App\Filament\Admin\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Admin\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Admin\Resources\JournalEntries\Pages\EditJournalEntry;
 use App\Filament\Admin\Resources\VendorBills\Pages\EditVendorBill;
+use App\Models\Asset;
 use App\Models\CreditNote;
 use App\Models\Expense;
+use App\Models\LedgerAccount;
+use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
-use App\Models\LedgerAccount;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -46,7 +48,7 @@ afterEach(fn () => Filament::setTenant(null, isQuiet: true));
  * grants (no accounting role, so nothing re-inherits the removed permission). They
  * can still open the edit page (they keep view/update etc.) but lack the one action.
  */
-function accountingWithout(string $permission): \App\Models\User
+function accountingWithout(string $permission): User
 {
     $perms = Role::findByName('accounting', 'web')->permissions
         ->pluck('name')->reject(fn ($p) => $p === $permission)->values()->all();
@@ -57,7 +59,7 @@ function accountingWithout(string $permission): \App\Models\User
     return $user;
 }
 
-function makeDraftCreditNote(\App\Models\Asset $asset): CreditNote
+function makeDraftCreditNote(Asset $asset): CreditNote
 {
     $lease = makeLease(makeUnit($asset));
 

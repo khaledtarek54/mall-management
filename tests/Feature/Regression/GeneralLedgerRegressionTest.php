@@ -1,12 +1,19 @@
 <?php
 
 use App\Models\CreditNote;
+use App\Models\Expense;
 use App\Models\Payment;
+use App\Models\Payroll;
+use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\PayrollService;
+use App\Services\VendorBillService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -90,8 +97,8 @@ it('balance-sheet net income equals income-statement net profit', function () {
     }
 
     $year = (int) now()->year;
-    $netProfit = $this->reports->incomeStatement(null, \Carbon\CarbonImmutable::create($year, 1, 1), \Carbon\CarbonImmutable::create($year, 12, 31))['net_profit'];
-    $netIncome = $this->reports->balanceSheet(null, \Carbon\CarbonImmutable::create($year, 12, 31))['net_income'];
+    $netProfit = $this->reports->incomeStatement(null, CarbonImmutable::create($year, 1, 1), CarbonImmutable::create($year, 12, 31))['net_profit'];
+    $netIncome = $this->reports->balanceSheet(null, CarbonImmutable::create($year, 12, 31))['net_income'];
 
     expect($netIncome)->toBe($netProfit);
 });
@@ -99,7 +106,7 @@ it('balance-sheet net income equals income-statement net profit', function () {
 // Payroll-phase review fix: an all-deduction run (net 0) posts a balanced 2-line
 // entry (Dr salaries / Cr deduction), no zero bank line.
 it('posts a balanced payroll with net 0 and no zero bank line', function () {
-    $payroll = \App\Models\Payroll::create([
+    $payroll = Payroll::create([
         'asset_id' => makeAsset()->id, 'period_month' => now()->startOfMonth()->toDateString(),
         'gross_salaries' => 1000, 'salary_tax' => 1000, 'social_insurance' => 0,
         'paid_from' => 'bank', 'status' => 'approved',
@@ -115,21 +122,21 @@ it('posts a balanced payroll with net 0 and no zero bank line', function () {
 // Payroll-phase review fix: a run whose deductions exceed gross (net < 0) is rejected
 // at approval (else it would approve fine but silently never post).
 it('refuses to approve a payroll whose deductions exceed gross', function () {
-    $payroll = \App\Models\Payroll::create([
+    $payroll = Payroll::create([
         'asset_id' => makeAsset()->id, 'period_month' => now()->startOfMonth()->toDateString(),
         'gross_salaries' => 1000, 'salary_tax' => 1200, 'social_insurance' => 0, // net −200
         'paid_from' => 'bank', 'status' => 'draft',
     ]);
 
-    expect(fn () => app(\App\Services\PayrollService::class)->approve($payroll))->toThrow(DomainException::class);
+    expect(fn () => app(PayrollService::class)->approve($payroll))->toThrow(DomainException::class);
     expect($payroll->fresh()->status)->toBe('draft');
 });
 
 // Phase 3 review fix: cancelling a bill zeroes its balance via recompute(), and a
 // later recompute() must NOT resurrect the payable (balance stays 0).
 it('keeps a cancelled vendor bill at zero balance across recompute', function () {
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id,
         'asset_id' => makeAsset()->id,
         'category' => 'admin',
         'status' => 'approved',
@@ -137,7 +144,7 @@ it('keeps a cancelled vendor bill at zero balance across recompute', function ()
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000, 'balance' => 5000,
     ]);
 
-    app(\App\Services\VendorBillService::class)->cancel($bill);
+    app(VendorBillService::class)->cancel($bill);
     expect((float) $bill->fresh()->balance)->toEqualWithDelta(0.0, 0.001);
 
     $bill->fresh()->recompute(); // must not restore balance = total
@@ -149,7 +156,7 @@ it('keeps a cancelled vendor bill at zero balance across recompute', function ()
 // debit-0/credit-0 expense line (which the posting engine rejects, silently
 // dropping the document). The net line is guarded; only VAT + cash/AP post.
 it('posts a balanced pure-VAT expense with no zero-amount line', function () {
-    $expense = \App\Models\Expense::create([
+    $expense = Expense::create([
         'asset_id' => makeAsset()->id,
         'category' => 'utilities',
         'amount' => 0, 'vat_amount' => 140, // net 0
@@ -168,7 +175,7 @@ it('posts a balanced pure-VAT expense with no zero-amount line', function () {
 
 it('posts a balanced pure-VAT credit note with no zero-amount line', function () {
     $lease = makeLease(makeUnit(makeAsset()));
-    $note = \App\Models\CreditNote::create([
+    $note = CreditNote::create([
         'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
         'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
         'subtotal' => 0, 'vat_amount' => 140, 'total' => 140, // net 0
@@ -184,7 +191,7 @@ it('posts a balanced pure-VAT credit note with no zero-amount line', function ()
 
 it('skips a malformed credit note whose VAT exceeds total (no unbalanced entry)', function () {
     $lease = makeLease(makeUnit(makeAsset()));
-    $note = \App\Models\CreditNote::create([
+    $note = CreditNote::create([
         'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
         'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
         'subtotal' => 0, 'vat_amount' => 150, 'total' => 100, // vat > total → net < 0
@@ -196,8 +203,8 @@ it('skips a malformed credit note whose VAT exceeds total (no unbalanced entry)'
 });
 
 it('posts a balanced pure-VAT vendor bill with no zero-amount line', function () {
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id,
         'asset_id' => makeAsset()->id,
         'category' => 'maintenance', 'status' => 'approved',
         'bill_date' => now()->toDateString(),
@@ -215,8 +222,8 @@ it('posts a balanced pure-VAT vendor bill with no zero-amount line', function ()
 // write path (not just the form). A programmatic create with NO total must derive
 // it (not persist 0, which the journalizer would silently skip), and post balanced.
 it('enforces total = subtotal + vat on write and posts a balanced bill', function () {
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id,
         'asset_id' => makeAsset()->id,
         'category' => 'maintenance',
         'status' => 'approved',
@@ -240,8 +247,8 @@ it('enforces total = subtotal + vat on write and posts a balanced bill', functio
 // decimal:2 cast throws MathException when '' is read through the getter, which
 // would crash the import/API path the coercion exists to protect.
 it('coerces blank money strings on a vendor bill without crashing', function () {
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id,
         'asset_id' => makeAsset()->id,
         'category' => 'other',
         'status' => 'draft',

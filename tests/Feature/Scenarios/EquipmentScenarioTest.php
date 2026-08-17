@@ -6,6 +6,7 @@ use App\Models\FixedAsset;
 use App\Models\InventoryItem;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Database\QueryException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The maintainable-asset register (module 26, FR-PPM-03/04/05): codes unique per property,
@@ -194,5 +195,5 @@ it('rejects an out-of-scope asset_id', function () {
     EquipmentResource::assertAssetInScope($this->asset->id);
 
     expect(fn () => EquipmentResource::assertAssetInScope($other->id))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });

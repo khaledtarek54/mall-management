@@ -1,11 +1,18 @@
 <?php
 
 use App\Models\CreditNote;
+use App\Models\DepositTransaction;
+use App\Models\Expense;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Models\Payment;
+use App\Models\Payroll;
 use App\Models\SystemSetting;
+use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\VendorBillService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -16,7 +23,7 @@ beforeEach(function () {
 });
 
 /** Issued invoice with two consistent items (rent 10,000 + service 1,000 + 140 VAT = 11,140). */
-function syncInvoice(): \App\Models\Invoice
+function syncInvoice(): Invoice
 {
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())), [
         'issue_date' => now()->toDateString(),
@@ -51,15 +58,15 @@ it('backfills journal entries for invoices, payments, and credit notes', functio
 });
 
 it('backfills vendor bills and their payments (AP)', function () {
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id,
         'asset_id' => makeAsset()->id,
         'category' => 'utilities',
         'status' => 'approved',
         'bill_date' => now()->toDateString(),
         'subtotal' => 2000, 'vat_amount' => 280, 'total' => 2280, 'balance' => 2280,
     ]);
-    app(\App\Services\VendorBillService::class)->recordPayment($bill, 1000, 'bank_transfer');
+    app(VendorBillService::class)->recordPayment($bill, 1000, 'bank_transfer');
 
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
 
@@ -69,7 +76,7 @@ it('backfills vendor bills and their payments (AP)', function () {
 });
 
 it('backfills direct expenses', function () {
-    $expense = \App\Models\Expense::create([
+    $expense = Expense::create([
         'asset_id' => makeAsset()->id,
         'category' => 'admin',
         'amount' => 500, 'vat_amount' => 0, 'total' => 500,
@@ -83,7 +90,7 @@ it('backfills direct expenses', function () {
 });
 
 it('voids the entry when an expense is later cancelled', function () {
-    $expense = \App\Models\Expense::create([
+    $expense = Expense::create([
         'asset_id' => makeAsset()->id, 'category' => 'admin',
         'amount' => 500, 'vat_amount' => 0, 'total' => 500,
         'paid_from' => 'cash', 'expense_date' => now()->toDateString(), 'status' => 'recorded',
@@ -99,7 +106,7 @@ it('voids the entry when an expense is later cancelled', function () {
 });
 
 it('backfills approved payroll runs', function () {
-    $payroll = \App\Models\Payroll::create([
+    $payroll = Payroll::create([
         'asset_id' => makeAsset()->id,
         'period_month' => now()->startOfMonth()->toDateString(),
         'gross_salaries' => 20000, 'salary_tax' => 2000, 'social_insurance' => 1500,
@@ -114,7 +121,7 @@ it('backfills approved payroll runs', function () {
 
 it('backfills security-deposit transactions', function () {
     $lease = makeLease(makeUnit(makeAsset()));
-    $deposit = \App\Models\DepositTransaction::create([
+    $deposit = DepositTransaction::create([
         'lease_id' => $lease->id, 'type' => 'receipt', 'amount' => 5000,
         'transaction_date' => now()->toDateString(), 'method' => 'bank', 'status' => 'recorded',
     ]);

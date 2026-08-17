@@ -19,12 +19,16 @@
 | rather than zero.
 */
 
-use App\Models\Asset;
 use App\Models\Lease;
 use App\Models\PropertySetting;
 use App\Settings\BillingSettings;
+use App\Support\DeletionPolicy;
+use App\Support\PropertyIsolation;
 use App\Support\PropertySettings;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -60,7 +64,7 @@ it('has something actually reading every overridable key', function () {
     // registry and then forgotten.
     $source = collect(['app/Models/Lease.php', 'app/Services', 'app/Filament'])
         ->flatMap(fn (string $path) => is_dir(base_path($path))
-            ? collect(\Illuminate\Support\Facades\File::allFiles(base_path($path)))->map->getPathname()->all()
+            ? collect(File::allFiles(base_path($path)))->map->getPathname()->all()
             : [base_path($path)])
         ->map(fn (string $file) => (string) file_get_contents($file))
         ->implode("\n");
@@ -70,7 +74,7 @@ it('has something actually reading every overridable key', function () {
 
         // Either the full key, or the helper named after the setting (paymentTermsDays).
         $referenced = str_contains($source, $key)
-            || str_contains($source, \Illuminate\Support\Str::camel($name));
+            || str_contains($source, Str::camel($name));
 
         expect($referenced)->toBeTrue("nothing reads {$key} — an override that does nothing is worse than none");
     }
@@ -146,7 +150,7 @@ it('refuses to override a setting that is not on the list', function () {
     $asset = makeAsset();
 
     expect(fn () => PropertySettings::set('tax.vat_standard_rate', $asset->id, 5.0))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 it('answers the portfolio when there is no property at all', function () {
@@ -165,6 +169,6 @@ it('clamps payment terms so a due date can never precede its issue date', functi
 it('classifies the model in the registries that gate every model', function () {
     // A new model that ships unclassified is what these gates exist to catch; asserting it here
     // keeps the failure attached to this feature rather than surfacing as a mystery elsewhere.
-    expect(\App\Support\PropertyIsolation::isOwned(PropertySetting::class))->toBeTrue();
-    expect(\App\Support\DeletionPolicy::allowed())->toHaveKey(PropertySetting::class);
+    expect(PropertyIsolation::isOwned(PropertySetting::class))->toBeTrue();
+    expect(DeletionPolicy::allowed())->toHaveKey(PropertySetting::class);
 });

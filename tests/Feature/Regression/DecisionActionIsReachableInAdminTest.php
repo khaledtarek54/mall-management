@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\TenantRequests\Pages\ListTenantRequests;
+use App\Models\Asset;
 use App\Models\TenantRequest;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -34,7 +35,7 @@ afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 function permitAwaitingAnswer(int $assetId): TenantRequest
 {
-    $unit = makeUnit(\App\Models\Asset::find($assetId));
+    $unit = makeUnit(Asset::find($assetId));
 
     $request = makeTenantRequest([
         'unit_id' => $unit->id,

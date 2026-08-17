@@ -19,11 +19,12 @@
 */
 
 use App\Models\CreditNote;
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\CreditNoteService;
 
 /** Future-due so an unpaid recompute stays `issued`, never auto-flips overdue. */
-function cnDriftInvoice(float $total): App\Models\Invoice
+function cnDriftInvoice(float $total): Invoice
 {
     $lease = makeLease(makeUnit(makeAsset()));
 

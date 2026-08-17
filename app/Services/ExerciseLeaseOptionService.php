@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Models\LeaseOption;
 use Carbon\CarbonImmutable;
@@ -137,7 +138,7 @@ class ExerciseLeaseOptionService
      *
      * @return array{option: LeaseOption, term_months: ?int, rent: ?float, commencement: CarbonImmutable}|null
      */
-    public function pendingRenewalTerms(\App\Models\Lease $lease): ?array
+    public function pendingRenewalTerms(Lease $lease): ?array
     {
         $option = $lease->options()
             ->where('status', 'exercised')
@@ -157,7 +158,7 @@ class ExerciseLeaseOptionService
         ];
     }
 
-    private function effectiveFrom(LeaseOption $option, \App\Models\Lease $lease): CarbonImmutable
+    private function effectiveFrom(LeaseOption $option, Lease $lease): CarbonImmutable
     {
         return filled($lease->expiry_date)
             ? CarbonImmutable::instance($lease->expiry_date)->addDay()

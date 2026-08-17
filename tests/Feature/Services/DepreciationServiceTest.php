@@ -10,7 +10,7 @@ function fixedAsset(array $attrs = []): FixedAsset
     return FixedAsset::create(array_merge([
         'asset_id' => makeAsset()->id,
         'name' => 'HVAC Unit',
-        'tag' => 'FA-' . uniqid(),
+        'tag' => 'FA-'.uniqid(),
         'acquisition_date' => '2026-01-01',
         'acquisition_cost' => 12000,
         'salvage_value' => 0,

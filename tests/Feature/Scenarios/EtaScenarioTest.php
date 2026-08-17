@@ -51,7 +51,7 @@ function etaLine($invoice, ?Charge $charge, string $description, string $type, f
 /** A fully-wired business invoice (asset -> unit -> lease -> tenant -> invoice). */
 function etaBusinessInvoice(array $tenantAttrs = [], array $invoiceAttrs = [])
 {
-    $asset = makeAsset(['code' => 'ETA' . strtoupper(substr(uniqid(), -3))]);
+    $asset = makeAsset(['code' => 'ETA'.strtoupper(substr(uniqid(), -3))]);
     $unit = makeUnit($asset, ['status' => 'occupied']);
     $tenant = makeTenant(array_merge([
         'name' => 'Acme Co',
@@ -66,11 +66,11 @@ function etaBusinessInvoice(array $tenantAttrs = [], array $invoiceAttrs = [])
 }
 
 /** A fake ETA client returning whatever array it's constructed with (or throwing). */
-function bindEtaClient(array $response = [], ?\Throwable $throws = null): void
+function bindEtaClient(array $response = [], ?Throwable $throws = null): void
 {
     app()->bind(EtaApiClient::class, fn () => new class($response, $throws) extends EtaApiClient
     {
-        public function __construct(private array $resp, private ?\Throwable $throws) {}
+        public function __construct(private array $resp, private ?Throwable $throws) {}
 
         public function submitDocument(array $documentJson): array
         {

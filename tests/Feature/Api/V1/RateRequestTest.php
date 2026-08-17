@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\TenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
 
 /**
  * CSAT: a tenant rates their resolved/closed request (1–5 + optional comment).

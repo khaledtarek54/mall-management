@@ -13,7 +13,7 @@ use App\Support\OpsLog;
  * Filament table action.
  *
  * Delivery goes through the SAME tenant-notify path every operator→tenant signal
- * uses ({@see \App\Models\Tenant::notifyPortal()}): the Tenant's mobile inbox +
+ * uses ({@see Tenant::notifyPortal()}): the Tenant's mobile inbox +
  * push, and each portal login's web bell.
  *
  * FAILURE-CONTAINED: a missing recipient or a throwing send never bubbles a 500

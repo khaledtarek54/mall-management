@@ -6,7 +6,6 @@ use App\Services\Eta\Signing\UnsignedEtaSigner;
 use Illuminate\Support\Facades\Http;
 
 /** ETA credential preflight + the pluggable signing seam + the integrations:check command. */
-
 it('reports mock mode without contacting ETA', function () {
     config()->set('eta.mock', true);
 

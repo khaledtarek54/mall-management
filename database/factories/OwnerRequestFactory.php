@@ -2,12 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Models\Asset;
 use App\Models\OwnerRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\OwnerRequest>
+ * @extends Factory<OwnerRequest>
  */
 class OwnerRequestFactory extends Factory
 {
@@ -27,7 +28,7 @@ class OwnerRequestFactory extends Factory
     {
         return [
             // NOT NULL + unique. Mirrors OwnerRequest::generateReference() shape.
-            'reference' => 'OR-' . now()->format('Y') . '-' . fake()->unique()->numberBetween(1, 999999),
+            'reference' => 'OR-'.now()->format('Y').'-'.fake()->unique()->numberBetween(1, 999999),
             // NOT NULL FK -> users (the Jawad owner who raised it).
             'created_by_user_id' => User::factory(),
             // Nullable FK -> assets.
@@ -53,10 +54,10 @@ class OwnerRequestFactory extends Factory
     /**
      * Attach the request to a specific property.
      */
-    public function forAsset(int|\App\Models\Asset $asset): static
+    public function forAsset(int|Asset $asset): static
     {
         return $this->state(fn (array $attributes) => [
-            'asset_id' => $asset instanceof \App\Models\Asset ? $asset->id : $asset,
+            'asset_id' => $asset instanceof Asset ? $asset->id : $asset,
         ]);
     }
 

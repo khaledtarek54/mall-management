@@ -3,6 +3,7 @@
 use App\Models\CamExpensePool;
 use App\Models\LeaseCamTerm;
 use App\Services\CamReconciliationService;
+use App\Services\RemeasureUnitService;
 use Illuminate\Support\Carbon;
 
 /**
@@ -37,7 +38,7 @@ it('freezes the share basis on re-run so a unit-area edit cannot shift the denom
     // the recompute would find 50% whether or not the basis were frozen).
     // Goes through RemeasureUnitService because that is now the only way an area moves: the column
     // is derived from the dated rows and the model refuses a bare edit (validation sweep, spacing).
-    app(\App\Services\RemeasureUnitService::class)->record($unitB, 300, ['effective_from' => '2026-01-01']);
+    app(RemeasureUnitService::class)->record($unitB, 300, ['effective_from' => '2026-01-01']);
 
     // Re-run must reuse B's ESTABLISHED 50% share, not recompute 300/400 = 75%.
     $svc->generateAllocations($pool);

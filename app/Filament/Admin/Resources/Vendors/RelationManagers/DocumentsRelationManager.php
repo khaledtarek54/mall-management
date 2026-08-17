@@ -18,6 +18,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Vendor compliance documents (module 12b) — replaces the three fixed COI fields that used to sit
@@ -28,7 +29,7 @@ class DocumentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'documents';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.vendors.documents.title');
     }
@@ -107,12 +108,9 @@ class DocumentsRelationManager extends RelationManager
                     // The consequence, not just the date — an expired insurance certificate
                     // silently removed the vendor from every picker before this.
                     ->description(fn (VendorDocument $record) => match (true) {
-                        $record->alertStage() === VendorDocument::STAGE_EXPIRED && $record->isBlocking()
-                            => __('admin.vendors.documents.expired_blocking'),
-                        $record->alertStage() === VendorDocument::STAGE_EXPIRED
-                            => __('admin.vendors.documents.expired_nonblocking'),
-                        $record->alertStage() === VendorDocument::STAGE_EXPIRING
-                            => __('admin.vendors.documents.expiring_in', ['days' => (int) $record->daysToExpiry()]),
+                        $record->alertStage() === VendorDocument::STAGE_EXPIRED && $record->isBlocking() => __('admin.vendors.documents.expired_blocking'),
+                        $record->alertStage() === VendorDocument::STAGE_EXPIRED => __('admin.vendors.documents.expired_nonblocking'),
+                        $record->alertStage() === VendorDocument::STAGE_EXPIRING => __('admin.vendors.documents.expiring_in', ['days' => (int) $record->daysToExpiry()]),
                         default => null,
                     }),
             ])

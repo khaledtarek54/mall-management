@@ -3,10 +3,12 @@
 use App\Filament\Admin\Resources\BankAccounts\BankAccountResource;
 use App\Filament\Admin\Resources\BankAccounts\Pages\ListBankAccounts;
 use App\Models\BankAccount;
+use App\Models\JournalEntry;
 use App\Services\Accounting\LedgerPoster;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The bank-account register — slice 1 of bank reconciliation.
@@ -54,7 +56,7 @@ it('changes nothing about posting — which is the whole claim of slice 1', func
     ]);
 
     expect(array_key_exists(BankAccount::class, LedgerPoster::JOURNALIZERS))->toBeFalse()
-        ->and(\App\Models\JournalEntry::count())->toBe(0);
+        ->and(JournalEntry::count())->toBe(0);
 });
 
 it('scopes the list to the property, and never falls back to unscoped', function () {
@@ -75,7 +77,7 @@ it('refuses to file an account against a property outside the user\'s reach', fu
     $this->actingAs($restricted);
 
     expect(fn () => BankAccountResource::assertAssetInScope($foreign->id))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     // Paired control: their own property still passes, or the guard could be refusing everything.
     BankAccountResource::assertAssetInScope($this->asset->id);

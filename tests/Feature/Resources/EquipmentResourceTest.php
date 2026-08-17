@@ -1,9 +1,11 @@
 <?php
 
+use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Filament\Admin\Resources\Equipment\Pages\CreateEquipment;
 use App\Filament\Admin\Resources\Equipment\Pages\EditEquipment;
 use App\Filament\Admin\Resources\Equipment\Pages\ListEquipment;
 use App\Models\Equipment;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -132,7 +134,7 @@ it('refuses to move equipment to a property outside the user\'s set on edit', fu
             Livewire::test(EditEquipment::class, ['record' => $e->id])
                 ->fillForm(['asset_id' => $other->id])
                 ->call('save');
-        } catch (\Throwable $ex) {
+        } catch (Throwable $ex) {
             // abort(403) may surface as an exception depending on the Livewire path.
         }
     });
@@ -145,16 +147,16 @@ it('refuses to move equipment to a property outside the user\'s set on edit', fu
 it('hides the register from a role without facility.view', function () {
     $this->actingAs(makeUser('leasing', [$this->asset->id]));
 
-    expect(\App\Filament\Admin\Resources\Equipment\EquipmentResource::canViewAny())->toBeFalse();
+    expect(EquipmentResource::canViewAny())->toBeFalse();
 });
 
 it('hides the register when the facility module is off', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
-    expect(\App\Filament\Admin\Resources\Equipment\EquipmentResource::canViewAny())->toBeTrue();
+    expect(EquipmentResource::canViewAny())->toBeTrue();
 
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->facility = false;
     $settings->save();
 
-    expect(\App\Filament\Admin\Resources\Equipment\EquipmentResource::canViewAny())->toBeFalse();
+    expect(EquipmentResource::canViewAny())->toBeFalse();
 });

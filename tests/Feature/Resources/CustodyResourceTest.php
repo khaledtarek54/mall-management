@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Custodies\Pages\EditCustody;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use App\Models\Employee;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -55,7 +56,7 @@ it('hides the custody resource when the module is disabled', function () {
     $this->actingAs(makeUser('super_admin'));
     expect(CustodyResource::canViewAny())->toBeTrue();
 
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->custodies = false;
     $settings->save();
 

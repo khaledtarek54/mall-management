@@ -23,8 +23,8 @@ use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\Users\UserResource;
@@ -33,15 +33,16 @@ use App\Models\Asset;
 use App\Models\CreditNote;
 use App\Models\Department;
 use App\Models\Invoice;
-use App\Support\DeletionPolicy;
 use App\Models\Lease;
-use App\Models\TenantRequest;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Vendor;
+use App\Support\DeletionPolicy;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -55,21 +56,21 @@ beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
  *
  * Resource class => a blank model instance (canDelete takes the record).
  *
- * @return array<string, array{0: class-string, 1: \Illuminate\Database\Eloquent\Model}>
+ * @return array<string, array{0: class-string, 1: Model}>
  */
 function deleteAuthResources(): array
 {
     return [
-        'Invoices'             => [InvoiceResource::class, new Invoice()],
-        'Tenants'              => [TenantResource::class, new Tenant()],
-        'Users'                => [UserResource::class, new User()],
-        'Leases'               => [LeaseResource::class, new Lease()],
-        'Payments'             => [PaymentResource::class, new Payment()],
-        'Assets'               => [AssetResource::class, new Asset()],
-        'Units'                => [UnitResource::class, new Unit()],
-        'Vendors'              => [VendorResource::class, new Vendor()],
-        'CreditNotes'          => [CreditNoteResource::class, new CreditNote()],
-        'TenantRequests'  => [TenantRequestResource::class, new TenantRequest()],
+        'Invoices' => [InvoiceResource::class, new Invoice],
+        'Tenants' => [TenantResource::class, new Tenant],
+        'Users' => [UserResource::class, new User],
+        'Leases' => [LeaseResource::class, new Lease],
+        'Payments' => [PaymentResource::class, new Payment],
+        'Assets' => [AssetResource::class, new Asset],
+        'Units' => [UnitResource::class, new Unit],
+        'Vendors' => [VendorResource::class, new Vendor],
+        'CreditNotes' => [CreditNoteResource::class, new CreditNote],
+        'TenantRequests' => [TenantRequestResource::class, new TenantRequest],
     ];
 }
 
@@ -79,7 +80,7 @@ function deleteAuthResources(): array
  * permissive default (true for everyone). Tracked as a BUG; see
  * userForceDeleteGateIsOpen below.
  *
- * @return array<string, array{0: class-string, 1: \Illuminate\Database\Eloquent\Model}>
+ * @return array<string, array{0: class-string, 1: Model}>
  */
 function forceDeleteAuthResources(): array
 {
@@ -204,11 +205,11 @@ it('still denies delete to a role even after it is granted the module.delete per
     // Sanity: the permission is genuinely present...
     expect($user->can('tenants.delete'))->toBeTrue()
         // ...yet delete is still gated to super_admin only.
-        ->and(TenantResource::canDelete(new Tenant()))->toBeFalse()
+        ->and(TenantResource::canDelete(new Tenant))->toBeFalse()
         // ...and it stays false for the money resources, whose permission is gone entirely.
-        ->and(InvoiceResource::canDelete(new Invoice()))->toBeFalse()
-        ->and(PaymentResource::canDelete(new Payment()))->toBeFalse()
-        ->and(InvoiceResource::canForceDelete(new Invoice()))->toBeFalse()
+        ->and(InvoiceResource::canDelete(new Invoice))->toBeFalse()
+        ->and(PaymentResource::canDelete(new Payment))->toBeFalse()
+        ->and(InvoiceResource::canForceDelete(new Invoice))->toBeFalse()
         // ...and bulk delete remains off.
         ->and(InvoiceResource::canDeleteAny())->toBeFalse();
 });
@@ -223,8 +224,8 @@ it('keeps non-delete actions available to manager while delete stays locked', fu
     $this->actingAs(makeUser('manager'));
 
     expect(InvoiceResource::canCreate())->toBeTrue()
-        ->and(InvoiceResource::canEdit(new Invoice()))->toBeTrue()
-        ->and(InvoiceResource::canDelete(new Invoice()))->toBeFalse();
+        ->and(InvoiceResource::canEdit(new Invoice))->toBeTrue()
+        ->and(InvoiceResource::canDelete(new Invoice))->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------
@@ -235,7 +236,7 @@ it('keeps non-delete actions available to manager while delete stays locked', fu
 it('locks department delete for everyone including super_admin', function (string $role) {
     $this->actingAs(makeUser($role));
 
-    expect(DepartmentResource::canDelete(new Department()))->toBeFalse("{$role} single delete department")
+    expect(DepartmentResource::canDelete(new Department))->toBeFalse("{$role} single delete department")
         ->and(DepartmentResource::canDeleteAny())->toBeFalse("{$role} bulk delete department");
 })->with(['super_admin', ...NON_ADMIN_ROLES]);
 
@@ -262,5 +263,5 @@ it('forbids super_admin from deleting their own user account', function () {
 it('gates UserResource::canForceDelete to super_admin only', function () {
     $this->actingAs(makeUser('viewer'));
 
-    expect(UserResource::canForceDelete(new User()))->toBeFalse();
+    expect(UserResource::canForceDelete(new User))->toBeFalse();
 });

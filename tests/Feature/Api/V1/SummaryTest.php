@@ -1,5 +1,6 @@
 <?php
 
+use App\Notifications\PaymentReceivedNotification;
 use Illuminate\Support\Str;
 
 it('returns a home summary scoped to the tenant', function () {
@@ -8,7 +9,7 @@ it('returns a home summary scoped to the tenant', function () {
     makeLease(makeUnit(makeAsset()), $tenant, ['has_percentage_rent' => true]);
     $tenant->notifications()->create([
         'id' => (string) Str::uuid(),
-        'type' => \App\Notifications\PaymentReceivedNotification::class,
+        'type' => PaymentReceivedNotification::class,
         'data' => ['title' => 'x'],
         'read_at' => null,
     ]);

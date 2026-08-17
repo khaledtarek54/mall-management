@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -28,7 +29,7 @@ class TenantLeasesRelationManager extends RelationManager
             ->modifyQueryUsing(fn ($query) => $query
                 ->with('unit')
                 ->when(
-                    \App\Support\TenantScope::visibleAssetIds(),
+                    TenantScope::visibleAssetIds(),
                     fn ($q, $ids) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids)),
                 ))
             ->columns([

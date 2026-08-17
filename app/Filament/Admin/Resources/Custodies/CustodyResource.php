@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Custodies;
 
+use App\Filament\Admin\RelationManagers\CustodyTransactionsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Custodies\Pages\CreateCustody;
@@ -80,7 +81,7 @@ class CustodyResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\CustodyTransactionsRelationManager::class,
+            CustodyTransactionsRelationManager::class,
         ];
     }
 
@@ -149,7 +150,7 @@ class CustodyResource extends Resource
                 $custody->purpose ?? '',
                 (string) data_get($custody, 'asset.name', ''),
                 $amount, $settled, $outstanding,
-                __('admin.enums.expense_paid_from.' . $custody->paid_from),
+                __('admin.enums.expense_paid_from.'.$custody->paid_from),
             ];
         }
 

@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The meters fitted to this unit.
@@ -23,7 +24,7 @@ class UnitMetersRelationManager extends RelationManager
 {
     protected static string $relationship = 'utilityMeters';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.unit_meters.title');
     }

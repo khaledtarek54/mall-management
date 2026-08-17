@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Lease;
+use App\Services\LeaseCreationService;
 use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
@@ -119,7 +120,7 @@ it('seeds standard charges via CreateLease afterCreate when none exist', functio
     expect($lease->charges()->count())->toBe(0); // observer doesn't seed charges
 
     // Simulate what CreateLease::afterCreate() does for the standard form.
-    \App\Services\LeaseCreationService::seedStandardCharges(
+    LeaseCreationService::seedStandardCharges(
         $lease,
         rent: (float) $lease->base_rent_monthly,
         service: (float) $lease->service_charge_monthly,
@@ -146,10 +147,10 @@ it('seedStandardCharges is idempotent — second call does not duplicate', funct
         'currency' => 'EGP',
         'payment_terms_days' => 7,
     ]);
-    \App\Services\LeaseCreationService::seedStandardCharges($lease, 10000, 1500);
+    LeaseCreationService::seedStandardCharges($lease, 10000, 1500);
     expect($lease->fresh()->charges()->count())->toBe(3); // base rent + service + marketing
 
     // Second call — must not double-seed.
-    \App\Services\LeaseCreationService::seedStandardCharges($lease->fresh(), 10000, 1500);
+    LeaseCreationService::seedStandardCharges($lease->fresh(), 10000, 1500);
     expect($lease->fresh()->charges()->count())->toBe(3);
 });

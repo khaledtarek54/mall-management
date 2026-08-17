@@ -111,6 +111,7 @@ class ReportFilters
             ->live()
             ->afterStateUpdated(self::persisting($onChange));
     }
+
     /**
      * Run the report's own callback, then remember the choice.
      *

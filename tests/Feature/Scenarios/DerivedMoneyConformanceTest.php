@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\CreditNote;
+use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Support\DerivedMoney;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Self-enforcing gate — a derived money column may not be written by whoever posts the form.
@@ -42,7 +44,7 @@ function modelsWithFillableMoney(): array
 
         $reflection = new ReflectionClass($class);
 
-        if ($reflection->isAbstract() || ! $reflection->isSubclassOf(\Illuminate\Database\Eloquent\Model::class)) {
+        if ($reflection->isAbstract() || ! $reflection->isSubclassOf(Model::class)) {
             continue;
         }
 
@@ -143,7 +145,7 @@ describe('the derived columns resist tampering', function () {
             'applied_amount' => 0, 'balance' => 0,
         ]);
 
-        \App\Models\CreditNoteItem::create([
+        CreditNoteItem::create([
             'credit_note_id' => $note->id, 'description' => 'Correction',
             'amount' => 1000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 1000,
         ]);

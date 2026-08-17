@@ -96,7 +96,7 @@ class LeaseEvent extends Model
 
     public function label(): string
     {
-        return __('admin.lease_events.types.' . $this->type);
+        return __('admin.lease_events.types.'.$this->type);
     }
 
     /**

@@ -2,11 +2,14 @@
 
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
+use App\Models\Charge;
 use App\Models\Invoice;
+use App\Support\Vat;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Write actions that must be gated in action(), not merely hidden.
@@ -74,7 +77,7 @@ it('refuses a viewer running monthly billing when the action closure is reached 
     expect($action)->not->toBeNull();
 
     expect(fn () => $action->call())
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect(Invoice::count())->toBe(0);
 });
@@ -91,7 +94,7 @@ it('control: an authorised user CAN run monthly billing through the same path', 
         'expiry_date' => now()->addYear()->endOfMonth(),
     ]);
 
-    App\Models\Charge::create([
+    Charge::create([
         'lease_id' => $lease->id,
         'name' => 'Base rent',
         'type' => 'base_rent',
@@ -99,7 +102,7 @@ it('control: an authorised user CAN run monthly billing through the same path', 
         'currency' => 'EGP',
         'frequency' => 'monthly',
         'vat_applicable' => false,
-        'vat_rate' => App\Support\Vat::EXEMPT,
+        'vat_rate' => Vat::EXEMPT,
         'start_date' => now()->subYear()->startOfMonth(),
         'is_active' => true,
     ]);

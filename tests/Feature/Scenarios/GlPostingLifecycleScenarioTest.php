@@ -3,6 +3,7 @@
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\Lease;
 use App\Models\Payment;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
@@ -12,6 +13,7 @@ use App\Services\VoidInvoiceService;
 use App\Services\VoidPaymentService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -37,7 +39,7 @@ function sync(): void
 }
 
 /** The current (posted, non-void) journal entry for a source document, with its lines. */
-function entryFor(\Illuminate\Database\Eloquent\Model $source): ?JournalEntry
+function entryFor(Model $source): ?JournalEntry
 {
     return JournalEntry::where('source_type', $source->getMorphClass())
         ->where('source_id', $source->getKey())
@@ -47,7 +49,7 @@ function entryFor(\Illuminate\Database\Eloquent\Model $source): ?JournalEntry
 }
 
 /** Count void journal entries for a source. */
-function voidEntries(\Illuminate\Database\Eloquent\Model $source): int
+function voidEntries(Model $source): int
 {
     return JournalEntry::where('source_type', $source->getMorphClass())
         ->where('source_id', $source->getKey())
@@ -72,7 +74,7 @@ function arControlNet(): float
 }
 
 /** A single-item, VAT-exempt invoice whose total equals its item (so the entry balances). */
-function lifecycleInvoice(int $amount = 10000, ?\App\Models\Lease $lease = null): Invoice
+function lifecycleInvoice(int $amount = 10000, ?Lease $lease = null): Invoice
 {
     $lease ??= makeLease(makeUnit(makeAsset()));
     $invoice = makeInvoice($lease, [

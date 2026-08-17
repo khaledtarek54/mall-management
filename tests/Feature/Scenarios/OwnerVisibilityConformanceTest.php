@@ -19,7 +19,7 @@ use Spatie\Permission\Models\Role;
  */
 function catalogue(): array
 {
-    $seeder = new RolesPermissionsSeeder();
+    $seeder = new RolesPermissionsSeeder;
     $method = (new ReflectionClass($seeder))->getMethod('flatPermissionList');
     $method->setAccessible(true);
 

@@ -31,7 +31,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateNotOperatorTyped(reason: 'applied_at is stamped now() at the moment the penalty is applied — a penalty cannot be applied into the past.')]
 class SlaPenalty extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity;
+    use HasFactory, LogsActivity, RefusesDeletionOfCommittedRecords;
 
     /**
      * FR-CM-08 never says on what basis a penalty is computed, and the three readings behave

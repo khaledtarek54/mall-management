@@ -4,9 +4,11 @@ namespace App\Console\Commands;
 
 use App\Models\Lease;
 use App\Models\TenantDocument;
+use App\Models\User;
 use App\Notifications\TenantDocumentExpiringNotification;
 use App\Services\AssetStaffRecipients;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -147,9 +149,9 @@ class ScanTenantDocumentExpiryCommand extends Command
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, \App\Models\User>
+     * @return Collection<int, User>
      */
-    private function recipientsFor(TenantDocument $document): \Illuminate\Support\Collection
+    private function recipientsFor(TenantDocument $document): Collection
     {
         $resolver = app(AssetStaffRecipients::class);
         // Leasing owns the tenant relationship and the paperwork chase; the manager is the

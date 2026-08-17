@@ -1,15 +1,18 @@
 <?php
 
+use App\Models\Asset;
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PostDatedCheque;
 use App\Services\PostDatedChequeService;
+use App\Services\VoidPaymentService;
 
 /**
  * Post-dated cheque register (strengthen item #4), v1 = register-only, settle-on-clear. The
  * invoice stays open until the cheque CLEARS; clearing records a normal cheque Payment (AR reduced
  * through Invoice::recomputeTotals). Lifecycle: held -> deposited -> cleared / bounced; cancel.
  */
-function invoiceOf(App\Models\Asset $asset, float $balance): App\Models\Invoice
+function invoiceOf(Asset $asset, float $balance): Invoice
 {
     $lease = makeLease(makeUnit($asset));
 
@@ -19,7 +22,7 @@ function invoiceOf(App\Models\Asset $asset, float $balance): App\Models\Invoice
     ]);
 }
 
-function pdcFor(App\Models\Asset $asset, App\Models\Invoice $invoice, float $amount): PostDatedCheque
+function pdcFor(Asset $asset, Invoice $invoice, float $amount): PostDatedCheque
 {
     return PostDatedCheque::create([
         'reference' => PostDatedCheque::generateReference(),
@@ -135,7 +138,7 @@ it('reverses a cleared cheque back to bounced when its clearing payment is voide
         ->and((float) $invoice->fresh()->balance)->toBe(0.0);
 
     $payment = Payment::find($pdc->fresh()->cleared_payment_id);
-    app(\App\Services\VoidPaymentService::class)->void($payment, 'bank returned it');
+    app(VoidPaymentService::class)->void($payment, 'bank returned it');
 
     // The register stops reporting it collected, and the invoice's AR re-opened.
     expect($pdc->fresh()->status)->toBe('bounced')

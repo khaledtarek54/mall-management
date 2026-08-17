@@ -13,6 +13,7 @@ use App\Services\RecordAdvanceRepaymentService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
@@ -87,17 +88,17 @@ it('rejects granting an advance to a terminated employee', function () {
     $emp->update(['status' => 'terminated']);
 
     expect(fn () => grantAdvance($emp->fresh()))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 it('rejects a zero or negative advance amount', function () {
     $emp = advEmployee();
 
     expect(fn () => grantAdvance($emp, ['amount' => 0]))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     expect(fn () => grantAdvance($emp, ['amount' => -500]))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
-    expect(App\Models\EmployeeAdvance::count())->toBe(0);
+        ->toThrow(HttpException::class);
+    expect(EmployeeAdvance::count())->toBe(0);
 });
 
 /* ---- Repayment ----------------------------------------------------------- */
@@ -131,7 +132,7 @@ it('rejects a repayment that exceeds the outstanding balance', function () {
     app(RecordAdvanceRepaymentService::class)->record($advance, ['amount' => 3000, 'repaid_on' => now()->toDateString()]);
 
     expect(fn () => app(RecordAdvanceRepaymentService::class)->record($advance->fresh(), ['amount' => 1, 'repaid_on' => now()->toDateString()]))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 /* ---- Lifecycle ----------------------------------------------------------- */

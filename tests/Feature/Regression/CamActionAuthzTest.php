@@ -8,9 +8,12 @@ use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Services\CamReconciliationService;
 use Database\Seeders\RolesPermissionsSeeder;
-use Filament\Facades\Filament;
 use Filament\Actions\Testing\TestAction;
+use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * CAM write actions (generateAllocations / markReconciled / bill) gated their permission + status
@@ -62,7 +65,6 @@ function callCamAction(string $name, CamExpensePool $pool): void
 
     $action->record($pool)->call();
 }
-
 
 /** Authenticate as a role, THEN scope the panel to the asset (setTenant needs a user). */
 function camActAs(string $role): void
@@ -119,8 +121,8 @@ it('refuses billing an allocation without cam.bill_allocation, even dispatched d
     app(CamReconciliationService::class)->generateAllocations($this->pool);
     $allocation = CamAllocation::where('cam_expense_pool_id', $this->pool->id)->first();
 
-    \Spatie\Permission\Models\Role::findByName('accounting', 'web')->revokePermissionTo('cam.bill_allocation');
-    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    Role::findByName('accounting', 'web')->revokePermissionTo('cam.bill_allocation');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->actingAs(makeUser('accounting', [$this->asset->id]));
     Filament::setTenant($this->asset);
@@ -142,8 +144,8 @@ it('refuses VOIDING an allocation without cam.bill_allocation, even dispatched d
     $svc->generateAllocations($this->pool);
     $billed = $svc->bill($this->pool->allocations()->first());
 
-    \Spatie\Permission\Models\Role::findByName('accounting', 'web')->revokePermissionTo('cam.bill_allocation');
-    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    Role::findByName('accounting', 'web')->revokePermissionTo('cam.bill_allocation');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->actingAs(makeUser('accounting', [$this->asset->id]));
     Filament::setTenant($this->asset);
@@ -168,7 +170,7 @@ it('refuses a viewer generating allocations when the action closure is reached d
     camActAs('viewer');
 
     expect(fn () => callCamAction('generateAllocations', $this->pool))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($this->pool->fresh()->allocations()->count())->toBe(0)
         ->and($this->pool->fresh()->status)->toBe('draft');
@@ -179,7 +181,7 @@ it('refuses a viewer marking a pool reconciled when the action closure is reache
     camActAs('viewer');
 
     expect(fn () => callCamAction('markReconciled', $this->pool))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($this->pool->fresh()->status)->toBe('reconciling')
         ->and($this->pool->fresh()->reconciled_at)->toBeNull();

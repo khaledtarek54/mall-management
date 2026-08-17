@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TenantRequestType;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -25,7 +26,7 @@ use Illuminate\Support\Facades\Schema;
  *     resolved request means "we do not know", and every reader must render it that way** — not as
  *     an approval. That is the whole bug, and defaulting the column would recreate it at scale.
  *
- * Which types are a question is {@see \App\Enums\TenantRequestType::requiresDecision()} — `permit`,
+ * Which types are a question is {@see TenantRequestType::requiresDecision()} — `permit`,
  * `access` and `document`, the three where the tenant is asking for permission or for a thing.
  * `App\Services\TenantRequestService::transition()` refuses to resolve one of those without an
  * answer, so null stays a legacy state rather than becoming a fresh one.

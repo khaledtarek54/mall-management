@@ -15,12 +15,13 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class TenantNotesRelationManager extends RelationManager
 {
     protected static string $relationship = 'notes';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.relation_managers.notes');
     }
@@ -102,6 +103,7 @@ class TenantNotesRelationManager extends RelationManager
                     ->visible(fn () => auth()->user()?->can('notes.create') ?? false)
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['author_id'] ??= auth()->id();
+
                         return $data;
                     }),
             ])

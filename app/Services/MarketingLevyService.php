@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
-use App\Models\MarketingBudget;
 use App\Settings\MarketingSettings;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;

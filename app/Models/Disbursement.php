@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Services\OwnerAccounting\DisbursementService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -23,20 +24,27 @@ use Spatie\Activitylog\Support\LogOptions;
 #[NeverDeletable(correction: 'cancel the disbursement — it is a GL source and an owner payout')]
 // owner payout; asset_id denormalized (journalizer reads own row)
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\OwnerAccounting\DisbursementService::class)]
+#[PostingDateGuardedBy(guard: DisbursementService::class)]
 class Disbursement extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     public const STATUS_SCHEDULED = 'scheduled';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_PAID = 'paid';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUSES = [self::STATUS_SCHEDULED, self::STATUS_APPROVED, self::STATUS_PAID, self::STATUS_CANCELLED];
 
     public const METHOD_BANK_TRANSFER = 'bank_transfer';
+
     public const METHOD_CHEQUE = 'cheque';
+
     public const METHOD_CASH = 'cash';
+
     public const METHODS = [self::METHOD_BANK_TRANSFER, self::METHOD_CHEQUE, self::METHOD_CASH];
 
     protected $fillable = [

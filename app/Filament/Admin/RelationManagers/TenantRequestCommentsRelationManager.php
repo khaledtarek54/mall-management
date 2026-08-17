@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
-use App\Models\TenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
 use App\Models\User;
 use App\Services\TenantRequestService;
 use Filament\Actions\Action;
@@ -47,11 +47,12 @@ class TenantRequestCommentsRelationManager extends RelationManager
                     ->state(function ($record): string {
                         $author = $record->author;
                         if ($author instanceof Tenant) {
-                            return $author->name . ' · ' . __('admin.tenant_requests.author_tenant');
+                            return $author->name.' · '.__('admin.tenant_requests.author_tenant');
                         }
                         if ($author instanceof User) {
-                            return $author->name . ' · ' . __('admin.tenant_requests.author_staff');
+                            return $author->name.' · '.__('admin.tenant_requests.author_staff');
                         }
+
                         return __('admin.activity.system');
                     })
                     ->weight('medium'),
@@ -89,6 +90,7 @@ class TenantRequestCommentsRelationManager extends RelationManager
                     ->using(function (array $data, RelationManager $livewire) {
                         /** @var TenantRequest $request */
                         $request = $livewire->getOwnerRecord();
+
                         return app(TenantRequestService::class)
                             ->comment($request, Auth::user(), $data['body'], (bool) ($data['is_internal'] ?? false));
                     }),

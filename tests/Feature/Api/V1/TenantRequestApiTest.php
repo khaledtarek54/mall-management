@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\TenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 

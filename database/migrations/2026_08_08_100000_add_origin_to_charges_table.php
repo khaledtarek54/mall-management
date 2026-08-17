@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -30,7 +31,7 @@ return new class extends Migration
 
         // Existing rows keep the default; make it explicit so a later default change can't
         // silently re-label history.
-        \Illuminate\Support\Facades\DB::table('charges')->update(['origin' => 'seed']);
+        DB::table('charges')->update(['origin' => 'seed']);
     }
 
     public function down(): void

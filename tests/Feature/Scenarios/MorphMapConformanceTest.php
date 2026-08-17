@@ -1,10 +1,15 @@
 <?php
 
+use App\Models\FacilityWorkOrder;
+use App\Models\Invoice;
 use App\Support\MorphMap;
+use Illuminate\Database\ClassMorphViolationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 /**
  * The gate on App\Support\MorphMap.
@@ -59,7 +64,7 @@ it('found models to check, so the sweep cannot pass by matching nothing', functi
  * completeness failed. These are named explicitly because a sweep cannot discover them.
  */
 it('maps the morph targets that are NOT ours, which no app/Models sweep can find', function () {
-    foreach ([\Spatie\Permission\Models\Role::class, \Spatie\Permission\Models\Permission::class] as $vendorModel) {
+    foreach ([Role::class, Permission::class] as $vendorModel) {
         expect(in_array($vendorModel, MorphMap::MAP, true))->toBeTrue(
             "{$vendorModel} is written to a morph column but has no alias"
         );
@@ -75,7 +80,7 @@ it('proves the enforced map really does throw for something unmapped', function 
     };
 
     expect(fn () => $orphan->getMorphClass())
-        ->toThrow(Illuminate\Database\ClassMorphViolationException::class);
+        ->toThrow(ClassMorphViolationException::class);
 });
 
 it('points every alias at a model that still exists', function () {
@@ -135,8 +140,8 @@ it('is actually INSTALLED and enforced, not merely declared', function () {
 });
 
 it('makes a model report its alias, not its class name, as its morph type', function () {
-    expect((new App\Models\Invoice)->getMorphClass())->toBe('invoice')
-        ->and((new App\Models\FacilityWorkOrder)->getMorphClass())->toBe('facility_work_order');
+    expect((new Invoice)->getMorphClass())->toBe('invoice')
+        ->and((new FacilityWorkOrder)->getMorphClass())->toBe('facility_work_order');
 });
 
 /**

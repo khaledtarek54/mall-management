@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -24,14 +25,17 @@ use Spatie\Activitylog\Support\LogOptions;
 #[DeletionAllowed(reason: 'operational: superseded by a new version rather than removed')]
 // owner statement run — one property's period statement (module 32)
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\OwnerAccounting\FinaliseOwnerStatementRunService::class)]
+#[PostingDateGuardedBy(guard: FinaliseOwnerStatementRunService::class)]
 class OwnerStatementRun extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_FINALISED = 'finalised';
+
     public const STATUS_SUPERSEDED = 'superseded';
+
     public const STATUSES = [self::STATUS_DRAFT, self::STATUS_FINALISED, self::STATUS_SUPERSEDED];
 
     /**
@@ -178,9 +182,9 @@ class OwnerStatementRun extends Model
      */
     public function hasActiveDisbursements(): bool
     {
-        return \App\Models\Disbursement::query()
+        return Disbursement::query()
             ->whereIn('owner_statement_id', $this->statements()->select('id'))
-            ->where('status', '!=', \App\Models\Disbursement::STATUS_CANCELLED)
+            ->where('status', '!=', Disbursement::STATUS_CANCELLED)
             ->exists();
     }
 

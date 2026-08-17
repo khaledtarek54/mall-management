@@ -2,10 +2,12 @@
 
 use App\Models\SystemSetting;
 use App\Notifications\BooksDriftDetectedNotification;
+use App\Services\Accounting\FiscalCalendar;
 use App\Support\Health;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -29,7 +31,7 @@ beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
     $this->seed(RolesPermissionsSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) now()->year);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
 
     // The tie-out is deliberately skipped until something has actually POSTED — there is nothing to
     // tie out on an empty ledger, and raising a false failure there would be its own bug. So the
@@ -170,7 +172,7 @@ it('schedules the deep reconciliation that says WHICH document disagrees', funct
     // It existed and was never scheduled — the whole second half of this finding. Asserted against
     // the real schedule rather than the file's text, so renaming the command cannot leave this
     // green.
-    $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+    $events = collect(app(Schedule::class)->events())
         ->map(fn ($e) => $e->command ?? '')
         ->filter(fn (string $c): bool => str_contains($c, 'billing:reconcile'));
 

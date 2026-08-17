@@ -13,6 +13,7 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Models\Warehouse;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\DepositService;
@@ -188,7 +189,7 @@ it('posts the employer social-insurance leg through the real sweep and stays bal
     expect($entry->isBalanced())->toBeTrue();   // Dr 20000+3750 = Cr 2000+6750+15000
     expect(gps_balanced())->toBeTrue();          // whole trial balance still balances
 
-    $accounts = app(App\Services\Accounting\AccountResolver::class);
+    $accounts = app(AccountResolver::class);
     $byAccount = $entry->lines->keyBy('ledger_account_id');
     expect((float) $byAccount[$accounts->id('salaries_expense')]->debit)->toEqualWithDelta(20000.0, 0.001);
     expect((float) $byAccount[$accounts->id('social_insurance_expense')]->debit)->toEqualWithDelta(3750.0, 0.001);   // employer share = expense
@@ -214,7 +215,7 @@ it('posts a payroll advance installment through the real sweep (Cr Employee Adva
     expect($entry->isBalanced())->toBeTrue();   // Dr 10000 = Cr 1500 (advances) + 8500 (bank)
     expect(gps_balanced())->toBeTrue();
 
-    $accounts = app(App\Services\Accounting\AccountResolver::class);
+    $accounts = app(AccountResolver::class);
     $byAccount = $entry->lines->keyBy('ledger_account_id');
     expect((float) $byAccount[$accounts->id('salaries_expense')]->debit)->toEqualWithDelta(10000.0, 0.001);
     expect((float) $byAccount[$accounts->id('employee_advances')]->credit)->toEqualWithDelta(1500.0, 0.001); // loan repaid
@@ -238,7 +239,7 @@ it('posts an ad-hoc payroll deduction through the real sweep (Cr Employee Deduct
     expect($entry->isBalanced())->toBeTrue();   // Dr 10000 = Cr 400 (deductions) + 9600 (bank)
     expect(gps_balanced())->toBeTrue();
 
-    $accounts = app(App\Services\Accounting\AccountResolver::class);
+    $accounts = app(AccountResolver::class);
     $byAccount = $entry->lines->keyBy('ledger_account_id');
     expect((float) $byAccount[$accounts->id('employee_deductions_payable')]->credit)->toEqualWithDelta(400.0, 0.001);
     expect((float) $byAccount[$accounts->id('bank')]->credit)->toEqualWithDelta(9600.0, 0.001);

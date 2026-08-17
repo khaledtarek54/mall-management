@@ -5,6 +5,7 @@ use App\Filament\Admin\Resources\TenantSalesDeclarations\Tables\TenantSalesDecla
 use App\Models\TenantSalesDeclaration;
 use App\Notifications\SalesDeclarationLockedNotification;
 use App\Services\PercentageRentCalculationService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
@@ -45,7 +46,7 @@ function uxDecl($lease, string $month, float $sales, string $status = 'submitted
     return TenantSalesDeclaration::create([
         'lease_id' => $lease->id,
         'period_start' => $start,
-        'period_end' => \Carbon\CarbonImmutable::parse($start)->endOfMonth()->toDateString(),
+        'period_end' => CarbonImmutable::parse($start)->endOfMonth()->toDateString(),
         'declared_sales' => $sales,
         'calculated_percentage_rent' => 0,
         'status' => $status,

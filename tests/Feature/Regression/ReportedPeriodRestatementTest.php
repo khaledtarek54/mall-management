@@ -1,13 +1,16 @@
 <?php
 
+use App\Models\AccountingPeriod;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\OwnerStatementRun;
 use App\Models\User;
 use App\Notifications\LedgerRestatedReportedPeriodNotification;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\MonthEndReadinessService;
 use App\Support\LedgerTrail;
 use App\Support\ReportedPeriod;
+use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -55,10 +58,10 @@ function reportedTestInvoice(string $issueDate, float $total = 1000): Invoice
 function finaliseStatementFor(int $assetId, string $start, string $end): OwnerStatementRun
 {
     // The run is period-anchored, so the fiscal year has to exist before one can be written.
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) \Carbon\CarbonImmutable::parse($start)->year);
+    app(FiscalCalendar::class)->ensureYear((int) CarbonImmutable::parse($start)->year);
 
     return OwnerStatementRun::create([
-        'accounting_period_id' => \App\Models\AccountingPeriod::forDate(\Carbon\CarbonImmutable::parse($end))?->id,
+        'accounting_period_id' => AccountingPeriod::forDate(CarbonImmutable::parse($end))?->id,
         'reference' => 'OS-'.uniqid(),
         'asset_id' => $assetId,
         'period_start' => $start,
@@ -182,7 +185,7 @@ it('flags the restatement on the document itself, before it happens', function (
 
 it('raises a month-end step for a reported month still open, and clears it once closed', function () {
     $asset = makeAsset();
-    $month = \Carbon\CarbonImmutable::parse('2026-03-01');
+    $month = CarbonImmutable::parse('2026-03-01');
 
     $stepFor = fn () => collect(app(MonthEndReadinessService::class)->for($month, $asset->id)['steps'])
         ->firstWhere('key', 'reported_not_closed');

@@ -4,11 +4,11 @@ namespace App\Filament\Portal\Widgets;
 
 use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
+use App\Support\Portal;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 
 class OpenTenantRequests extends TableWidget
 {
@@ -26,7 +26,7 @@ class OpenTenantRequests extends TableWidget
         return $table
             ->query(
                 fn (): Builder => TenantRequest::query()
-                    ->where('tenant_id', \App\Support\Portal::tenantId())
+                    ->where('tenant_id', Portal::tenantId())
                     ->whereIn('status', TenantRequest::OPEN_STATUSES)
                     ->with('unit')
                     ->latest('submitted_at')

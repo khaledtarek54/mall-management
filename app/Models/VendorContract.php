@@ -7,6 +7,7 @@ use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -68,8 +69,8 @@ class VendorContract extends Model
         return $this->belongsTo(Asset::class);
     }
 
-    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<VendorBill, $this> */
-    public function bills(): \Illuminate\Database\Eloquent\Relations\HasMany
+    /** @return HasMany<VendorBill, $this> */
+    public function bills(): HasMany
     {
         return $this->hasMany(VendorBill::class);
     }
@@ -81,8 +82,8 @@ class VendorContract extends Model
     // EGP 500k contract could quietly absorb EGP 5m of bills. Cancelled bills don't consume
     // the commitment — they were withdrawn, not incurred.
 
-    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<VendorContractAmendment, $this> */
-    public function amendments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    /** @return HasMany<VendorContractAmendment, $this> */
+    public function amendments(): HasMany
     {
         return $this->hasMany(VendorContractAmendment::class);
     }

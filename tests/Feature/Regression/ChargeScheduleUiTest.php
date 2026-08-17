@@ -2,6 +2,8 @@
 
 use App\Filament\Admin\RelationManagers\ChargeScheduleRelationManager;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
+use App\Models\Charge;
+use App\Models\Lease;
 use App\Services\LeaseCreationService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -30,7 +32,7 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
-function ladderLease(): \App\Models\Lease
+function ladderLease(): Lease
 {
     return app(LeaseCreationService::class)->create([
         'tenant_mode' => 'existing',
@@ -157,9 +159,9 @@ it('warns when a contracted escalation is due but has never been scheduled', fun
         'escalation_rate' => 7,
         'next_escalation_date' => '2027-03-01',
     ]);
-    \App\Models\Charge::create([
+    Charge::create([
         'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
-        'origin' => \App\Models\Charge::ORIGIN_SEED, 'amount' => 66000, 'currency' => 'EGP',
+        'origin' => Charge::ORIGIN_SEED, 'amount' => 66000, 'currency' => 'EGP',
         'frequency' => 'monthly', 'vat_applicable' => false, 'vat_rate' => 0, 'is_active' => true,
     ]);
 

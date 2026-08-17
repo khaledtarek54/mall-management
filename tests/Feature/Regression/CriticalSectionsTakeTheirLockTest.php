@@ -1,14 +1,16 @@
 <?php
 
-use App\Models\Invoice;
-use App\Models\ServicePlan;
 use App\Models\FacilityWorkOrder;
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\ServicePlan;
 use App\Services\ApplyTenantCreditService;
+use App\Services\FacilityWorkOrderService;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use App\Services\LateFeeService;
 use App\Services\LeaseCreationService;
-use App\Services\FacilityWorkOrderService;
 use App\Services\VoidInvoiceService;
+use App\Settings\BillingSettings;
 use App\Support\ConcurrencyPolicy;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
@@ -47,7 +49,7 @@ beforeEach(function () {
     // LateFeeService's own lock deleted — it was observing a lock taken by a different service on
     // the same table. Verified by mutation: the assertion only means "this service locks" once
     // nothing else in the request does.
-    app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit = false;
+    app(BillingSettings::class)->auto_apply_tenant_credit = false;
 });
 
 it('locks the UNIT when a lease is created — the double-booking race', function () {
@@ -115,7 +117,7 @@ it('locks the invoice and the tenant before spending on-account credit', functio
         'status' => 'issued', 'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000,
         'paid_amount' => 0, 'balance' => 1000,
     ]);
-    \App\Models\Payment::create([
+    Payment::create([
         'tenant_id' => $tenant->id, 'amount' => 3000, 'currency' => 'EGP', 'method' => 'cash',
         'payment_date' => now()->toDateString(), 'status' => 'captured',
     ])->invoices()->attach($paid->id, ['allocated_amount' => 1000]);

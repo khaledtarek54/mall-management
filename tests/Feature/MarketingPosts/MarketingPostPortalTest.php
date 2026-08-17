@@ -2,7 +2,10 @@
 
 use App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource;
 use App\Filament\Portal\Resources\MarketingPosts\Pages\ListMarketingPosts;
+use App\Models\Asset;
 use App\Models\MarketingPost;
+use App\Models\TenantUser;
+use App\Settings\ModulesSettings;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +28,7 @@ beforeEach(function (): void {
 afterEach(fn () => Filament::setCurrentPanel(Filament::getPanel('admin')));
 
 /** A retailer trading in the given mall, signed in to the portal. */
-function portalActor(App\Models\Asset $asset, bool $isAdmin = true): App\Models\TenantUser
+function portalActor(Asset $asset, bool $isAdmin = true): TenantUser
 {
     $tenant = makeTenant(['trade_name' => 'Defacto']);
     makeLease(makeUnit($asset), $tenant, ['status' => 'active']);
@@ -36,7 +39,7 @@ function portalActor(App\Models\Asset $asset, bool $isAdmin = true): App\Models\
     return $user;
 }
 
-function portalPost(App\Models\Asset $asset, int $tenantId, array $attrs = []): MarketingPost
+function portalPost(Asset $asset, int $tenantId, array $attrs = []): MarketingPost
 {
     $post = MarketingPost::factory()->create(array_merge([
         'asset_id' => $asset->id,
@@ -129,7 +132,7 @@ it('hides the whole surface when the operator switches the module off', function
     // Control first.
     expect(MarketingPostResource::canViewAny())->toBeTrue();
 
-    $settings = app(App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->marketing_posts = false;
     $settings->save();
 

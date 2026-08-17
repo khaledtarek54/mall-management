@@ -7,7 +7,6 @@ use App\Models\Unit;
  * Module-01 close-out — occupancy-projection integrity. Unit status is a projection of the unit's
  * leases (via the lease_unit pivot); these guard the lifecycle edges the gap sweep found unhooked.
  */
-
 it('frees the unit when an active lease is soft-deleted (occupancy recomputes)', function () {
     $asset = makeAsset();
     $unit = makeUnit($asset, ['status' => 'vacant']);

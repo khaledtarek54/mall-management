@@ -2,13 +2,13 @@
 
 namespace App\Support;
 
+use App\Http\Resources\Api\V1\NotificationResource;
 use App\Models\Announcement;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use App\Notifications\Channels\PushChannel;
-use App\Http\Resources\Api\V1\NotificationResource;
 
 /**
  * **Where a notification opens in the MOBILE app — derived from {@see NotificationTargets}, not

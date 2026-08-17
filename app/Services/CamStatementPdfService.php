@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
+use App\Models\Lease;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -40,9 +41,9 @@ class CamStatementPdfService
         // Larastan types the relation as non-null regardless of the annotation, so those reads are
         // baselined under the same `nullsafe.neverNull` exemption as every other soft-deleted
         // parent in this codebase — removing the `?->` would be a real crash, not a cleanup.
-        /** @var \App\Models\CamExpensePool|null $pool */
+        /** @var CamExpensePool|null $pool */
         $pool = $allocation->pool;
-        /** @var \App\Models\Lease|null $lease */
+        /** @var Lease|null $lease */
         $lease = $allocation->lease;
 
         $isRtl = app()->getLocale() === 'ar';
@@ -91,9 +92,9 @@ class CamStatementPdfService
      */
     public function facts(CamAllocation $allocation): array
     {
-        /** @var \App\Models\CamExpensePool|null $pool */
+        /** @var CamExpensePool|null $pool */
         $pool = $allocation->pool;
-        /** @var \App\Models\Lease|null $lease */
+        /** @var Lease|null $lease */
         $lease = $allocation->lease;
 
         $share = (float) $allocation->pro_rata_share_pct;
@@ -158,9 +159,9 @@ class CamStatementPdfService
 
     public function filename(CamAllocation $allocation): string
     {
-        /** @var \App\Models\CamExpensePool|null $pool */
+        /** @var CamExpensePool|null $pool */
         $pool = $allocation->pool;
-        /** @var \App\Models\Lease|null $lease */
+        /** @var Lease|null $lease */
         $lease = $allocation->lease;
 
         $year = $pool?->period_year ?? 'cam';

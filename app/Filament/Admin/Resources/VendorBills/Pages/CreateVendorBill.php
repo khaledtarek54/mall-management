@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VendorBills\Pages;
 
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Models\VendorBill;
 use App\Support\PostingDate;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
@@ -32,7 +33,7 @@ class CreateVendorBill extends CreateRecord
         // this renders the refusal ON the reference field, next to what has to change, instead of
         // a redirect that loses the form. Same predicate, named once, so the two cannot drift.
         try {
-            (new \App\Models\VendorBill)->forceFill($data)->assertVendorReferenceNotAlreadyBilled();
+            (new VendorBill)->forceFill($data)->assertVendorReferenceNotAlreadyBilled();
         } catch (\DomainException $e) {
             throw ValidationException::withMessages(['data.reference' => $e->getMessage()]);
         }

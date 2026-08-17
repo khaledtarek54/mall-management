@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Models\Lease;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 
@@ -19,7 +20,7 @@ use Carbon\CarbonImmutable;
  *
  * Found by the Yardi benchmark — docs/benchmarks/yardi/04-scenarios.md S2.
  */
-function proratedLease(array $leaseAttrs = [], float $rent = 30000): \App\Models\Lease
+function proratedLease(array $leaseAttrs = [], float $rent = 30000): Lease
 {
     $asset = makeAsset();
     $lease = makeLease(makeUnit($asset), null, array_merge([

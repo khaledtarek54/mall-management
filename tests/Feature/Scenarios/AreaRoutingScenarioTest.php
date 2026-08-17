@@ -14,6 +14,7 @@ use App\Notifications\AreaWorkOrderRaisedNotification;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Area routing (module 30 → 11): a unit belongs to a zone, a request inherits its unit's zone on
@@ -174,7 +175,7 @@ it('strips and rejects an out-of-scope supervisor attach on save', function () {
     $zone->supervisors()->attach($mallBStaff->id);
 
     expect(fn () => AreaResource::assertSupervisorsInScope($zone->fresh()))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     // The tampered attach is stripped (a 403, never a silent 500 or a leaked pivot).
     expect($zone->fresh()->supervisors()->count())->toBe(0);
@@ -206,7 +207,7 @@ it('refuses to tag a unit with a zone from another property, even via a crafted 
 
     // Cross-property zone → 403.
     expect(fn () => UnitResource::assertAreaInScope($zoneB->id, $mallA->id))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     // Same-property zone, and "no zone", both pass.
     UnitResource::assertAreaInScope($zoneA->id, $mallA->id);

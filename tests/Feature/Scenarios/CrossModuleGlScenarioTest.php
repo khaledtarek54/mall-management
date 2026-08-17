@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Custody;
-use App\Models\DepreciationEntry;
 use App\Models\Employee;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
@@ -14,10 +13,11 @@ use App\Services\DepreciationService;
 use App\Services\DisposeFixedAssetService;
 use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
-use App\Services\RecordAdvanceRepaymentService;
 use App\Services\Reconciliation\BooksReconciliationService;
+use App\Services\RecordAdvanceRepaymentService;
 use App\Services\SettleCustodyService;
 use App\Services\StockMovementService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -50,7 +50,7 @@ it('posts every module together and keeps the AR/AP tie-out + trial balance inta
         'asset_id' => makeAsset()->id, 'name' => 'HVAC', 'tag' => 'FA-X', 'acquisition_date' => now()->startOfYear()->toDateString(),
         'acquisition_cost' => 12000, 'salvage_value' => 0, 'useful_life_months' => 12, 'method' => 'straight_line', 'funded_from' => 'bank',
     ]);
-    app(DepreciationService::class)->run(\Carbon\CarbonImmutable::parse($fa->acquisition_date));
+    app(DepreciationService::class)->run(CarbonImmutable::parse($fa->acquisition_date));
     app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => 0]);
 
     // --- Inventory: receipt + consumption.

@@ -1,5 +1,10 @@
 <?php
 
+use App\Filament\Admin\Pages\BalanceSheet;
+use App\Filament\Admin\Pages\CashFlow;
+use App\Filament\Admin\Pages\GeneralLedger;
+use App\Filament\Admin\Pages\IncomeStatement;
+use App\Filament\Admin\Pages\TrialBalance;
 use App\Support\TenantScope;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -19,7 +24,7 @@ it('clamps the report PDF header label to the visible property (no name leak)', 
     $b = makeAsset();
     $this->actingAs(makeUser('accounting', [$a->id])); // visible: A only
 
-    $page = new \App\Filament\Admin\Pages\TrialBalance();
+    $page = new TrialBalance;
     $page->assetId = $b->id; // tamper to a property they cannot see
 
     $method = new ReflectionMethod($page, 'propertyLabel');
@@ -58,12 +63,12 @@ it('clamps the PDF header label on every report page, not just Trial Balance', f
     $this->actingAs(makeUser('accounting', [$a->id])); // visible: A only
 
     foreach ([
-        \App\Filament\Admin\Pages\IncomeStatement::class,
-        \App\Filament\Admin\Pages\BalanceSheet::class,
-        \App\Filament\Admin\Pages\CashFlow::class,
-        \App\Filament\Admin\Pages\GeneralLedger::class,
+        IncomeStatement::class,
+        BalanceSheet::class,
+        CashFlow::class,
+        GeneralLedger::class,
     ] as $pageClass) {
-        $page = new $pageClass();
+        $page = new $pageClass;
         $page->assetId = $b->id; // tamper to a property they cannot see
         $m = new ReflectionMethod($page, 'propertyLabel');
         $m->setAccessible(true);

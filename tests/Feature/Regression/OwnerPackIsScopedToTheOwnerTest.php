@@ -17,14 +17,15 @@
 | appear anywhere in the first owner's pack.
 */
 
+use App\Models\Asset;
 use App\Models\User;
 use App\Services\OwnerAccounting\BuildOwnerPackService;
 use App\Support\OwnerPack;
-use App\Support\ReportParameters;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use OpenSpout\Reader\XLSX\Reader;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -35,7 +36,7 @@ beforeEach(function () {
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 /** An owner holding one property from a date. */
-function ownerHolding(string $name, \App\Models\Asset $asset, string $since = '2020-01-01'): User
+function ownerHolding(string $name, Asset $asset, string $since = '2020-01-01'): User
 {
     // makeUser()'s second argument is ASSET IDS, not attributes — the name is set afterwards.
     $owner = makeUser('owner');
@@ -255,7 +256,7 @@ function packContents(string $path): string
         $sheet = tempnam(sys_get_temp_dir(), 'atriom-pack').'.xlsx';
         file_put_contents($sheet, $zip->getFromIndex($i));
 
-        $reader = new OpenSpout\Reader\XLSX\Reader;
+        $reader = new Reader;
         $reader->open($sheet);
 
         foreach ($reader->getSheetIterator() as $s) {

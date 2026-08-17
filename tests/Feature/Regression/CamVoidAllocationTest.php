@@ -1,11 +1,13 @@
 <?php
 
 use App\Models\CamExpensePool;
+use App\Models\CreditNote;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\CamReconciliationService;
+use App\Services\Reconciliation\BooksReconciliationService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Support\Carbon;
@@ -93,7 +95,7 @@ it('voids a negative true-up: un-applies + voids the credit note, re-opening the
 
     expect($billed->fresh()->status)->toBe('pending')
         ->and($billed->fresh()->billed_credit_note_id)->toBeNull()          // ref cleared
-        ->and(\App\Models\CreditNote::find($noteId)->status)->toBe('void')  // note voided (un-applied first)
+        ->and(CreditNote::find($noteId)->status)->toBe('void')  // note voided (un-applied first)
         ->and((float) $open->fresh()->balance)->toBe(50000.0)               // invoice re-opened
         ->and(camTb())->toBeTrue();
 });
@@ -156,7 +158,7 @@ it('voids a positive true-up WITH an admin fee (one shared invoice) and the book
         ->and($billed->fresh()->status)->toBe('pending')
         ->and($billed->fresh()->billed_admin_fee_charge_id)->toBeNull()
         ->and(camTb())->toBeTrue()                              // run the sweep so the GL reverses
-        ->and(app(\App\Services\Reconciliation\BooksReconciliationService::class)->run()['ok'])->toBeTrue();
+        ->and(app(BooksReconciliationService::class)->run()['ok'])->toBeTrue();
 });
 
 it('is a no-op on a pending (unbilled) allocation', function () {

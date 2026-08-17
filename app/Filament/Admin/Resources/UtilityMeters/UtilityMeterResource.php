@@ -8,9 +8,11 @@ use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\CreateUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\EditUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\ListUtilityMeters;
+use App\Filament\Admin\Resources\UtilityMeters\RelationManagers\ReadingsRelationManager;
 use App\Filament\Admin\Resources\UtilityMeters\Schemas\UtilityMeterForm;
 use App\Filament\Admin\Resources\UtilityMeters\Tables\UtilityMetersTable;
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Models\Unit;
 use App\Models\UtilityMeter;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -97,7 +99,7 @@ class UtilityMeterResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\Resources\UtilityMeters\RelationManagers\ReadingsRelationManager::class,
+            ReadingsRelationManager::class,
         ];
     }
 
@@ -106,16 +108,17 @@ class UtilityMeterResource extends Resource
     {
         return static::scopeToProperty(parent::getEloquentQuery()->with(['asset', 'unit']));
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  UtilityMeter  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                                can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
-        /** @var \App\Models\Unit|null $unit */
+        /** @var Unit|null $unit */
         $unit = $record->unit;
 
         return [
@@ -133,5 +136,4 @@ class UtilityMeterResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['unit']);
     }
-
 }

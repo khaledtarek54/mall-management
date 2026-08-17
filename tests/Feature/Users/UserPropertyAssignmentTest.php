@@ -3,9 +3,12 @@
 use App\Filament\Admin\Resources\Users\Pages\CreateUser;
 use App\Filament\Admin\Resources\Users\Pages\EditUser;
 use App\Filament\Admin\Resources\Users\UserResource;
+use App\Models\Asset;
 use App\Models\User;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -18,7 +21,7 @@ beforeEach(function () {
     $this->actingAs(makeUser('super_admin'));
     // UserResource is not tenant-scoped, but Filament still resolves the
     // panel's tenant from the URL — set one explicitly so getUrl() works.
-    \Filament\Facades\Filament::setTenant($this->hw);
+    Filament::setTenant($this->hw);
 });
 
 it('the Create User form pre-fills every real property in assignedAssets', function () {
@@ -29,7 +32,7 @@ it('the Create User form pre-fills every real property in assignedAssets', funct
 });
 
 it('the Create User form excludes the synthetic ALL pseudo-asset from the pre-fill', function () {
-    $all = \App\Models\Asset::where('code', \App\Models\Asset::ALL_PROPERTIES_CODE)->first();
+    $all = Asset::where('code', Asset::ALL_PROPERTIES_CODE)->first();
 
     $state = Livewire::test(CreateUser::class)->get('data.assignedAssets');
 
@@ -40,9 +43,9 @@ it('saving the create form attaches every selected property to the new user', fu
     Livewire::test(CreateUser::class)
         ->fillForm([
             'name' => 'New Manager',
-            'email' => 'new-mgr-' . uniqid() . '@test.local',
+            'email' => 'new-mgr-'.uniqid().'@test.local',
             'password' => 'password',
-            'roles' => [\Spatie\Permission\Models\Role::findByName('manager', 'web')->id],
+            'roles' => [Role::findByName('manager', 'web')->id],
             // assignedAssets is pre-filled with all three; submit as-is
         ])
         ->call('create')
@@ -57,9 +60,9 @@ it('deselecting a property in the form restricts the user to only the chosen one
     Livewire::test(CreateUser::class)
         ->fillForm([
             'name' => 'HW-only User',
-            'email' => 'hwonly-' . uniqid() . '@test.local',
+            'email' => 'hwonly-'.uniqid().'@test.local',
             'password' => 'password',
-            'roles' => [\Spatie\Permission\Models\Role::findByName('manager', 'web')->id],
+            'roles' => [Role::findByName('manager', 'web')->id],
             'assignedAssets' => [$this->hw->id], // only HW
         ])
         ->call('create')

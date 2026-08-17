@@ -15,6 +15,7 @@ class CreateRole extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['guard_name'] = 'web';
+
         return $data;
     }
 

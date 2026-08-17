@@ -27,12 +27,12 @@ it('prefers a per-asset override over the global default', function () {
 });
 
 it('throws on an unmapped role', function () {
-    expect(fn () => $this->r->account('role_that_does_not_exist'))->toThrow(\DomainException::class);
+    expect(fn () => $this->r->account('role_that_does_not_exist'))->toThrow(DomainException::class);
 });
 
 it('throws when a mapping points to a non-postable (summary) account', function () {
     $summary = LedgerAccount::where('code', '4')->first(); // Revenue parent — not postable
     AccountMapping::updateOrCreate(['key' => 'misc_income', 'asset_id' => null], ['ledger_account_id' => $summary->id]);
 
-    expect(fn () => $this->r->account('misc_income'))->toThrow(\DomainException::class);
+    expect(fn () => $this->r->account('misc_income'))->toThrow(DomainException::class);
 });

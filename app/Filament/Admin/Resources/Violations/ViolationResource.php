@@ -11,6 +11,7 @@ use App\Filament\Admin\Resources\Violations\Pages\ListViolations;
 use App\Filament\Admin\Resources\Violations\Schemas\ViolationForm;
 use App\Filament\Admin\Resources\Violations\Tables\ViolationTable;
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Models\Tenant;
 use App\Models\Violation;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -134,16 +135,17 @@ class ViolationResource extends Resource
             'tenant.search_text',
         ];
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  Violation  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                             can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
-        /** @var \App\Models\Tenant|null $tenant */
+        /** @var Tenant|null $tenant */
         $tenant = $record->tenant;
 
         return [
@@ -161,5 +163,4 @@ class ViolationResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['tenant']);
     }
-
 }

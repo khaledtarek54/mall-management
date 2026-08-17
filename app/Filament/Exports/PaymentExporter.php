@@ -25,7 +25,7 @@ class PaymentExporter extends Exporter
 
     public static function getCompletedNotificationBody(Export $export): string
     {
-        return 'Your payment export has completed and ' . number_format($export->successful_rows) . ' ' . str('row')->plural($export->successful_rows) . ' exported.';
+        return 'Your payment export has completed and '.number_format($export->successful_rows).' '.str('row')->plural($export->successful_rows).' exported.';
     }
 
     public function getJobConnection(): ?string

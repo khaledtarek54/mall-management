@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Payrolls;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\PayrollLinesRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -72,8 +74,8 @@ class PayrollResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\PayrollLinesRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            PayrollLinesRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 

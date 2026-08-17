@@ -4,6 +4,7 @@ use App\Filament\Admin\Pages\VatReturn;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Models\InvoiceItem;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\Reports\VatReturnService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
@@ -30,7 +31,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear(2026);
+    app(FiscalCalendar::class)->ensureYear(2026);
 
     $asset = makeAsset(['code' => 'MALL']);
     $lease = makeLease(makeUnit($asset), makeTenant());

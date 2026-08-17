@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\Tenant;
 use App\Models\TenantCreditApplication;
 use App\Support\PostingDate;
 use DomainException;
@@ -36,7 +37,7 @@ class ApplyTenantCreditService
             // Lock the tenant row so two concurrent applies (to different invoices) can't both draw
             // the same credit — the second waits, then re-reads the now-reduced available balance.
             $tenant = $invoice->tenant()->lockForUpdate()->first();
-            if (! $tenant instanceof \App\Models\Tenant) {
+            if (! $tenant instanceof Tenant) {
                 return 0.0;
             }
 

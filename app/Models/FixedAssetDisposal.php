@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Services\DisposeFixedAssetService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -26,10 +27,10 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[NeverDeletable(correction: 'reverse the disposal')]
 #[PropertyOwned(via: 'fixedAsset')]
-#[PostingDateGuardedBy(guard: \App\Services\DisposeFixedAssetService::class)]
+#[PostingDateGuardedBy(guard: DisposeFixedAssetService::class)]
 class FixedAssetDisposal extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     protected $fillable = [
         'fixed_asset_id',

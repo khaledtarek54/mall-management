@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Payment;
+use App\Models\Tenant;
 use App\Notifications\PaymentReceivedNotification;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -32,10 +33,10 @@ beforeEach(function () {
  * mirroring the Create/Edit page: the record is persisted first and the pivot
  * is synced afterwards, then notifyReceiptOnce() is invoked by the after-hook.
  */
-function capturedPaymentWithoutNotice(\App\Models\Tenant $tenant): Payment
+function capturedPaymentWithoutNotice(Tenant $tenant): Payment
 {
     return Payment::withoutEvents(fn () => Payment::create([
-        'reference' => 'PAY-TEST-' . uniqid(),
+        'reference' => 'PAY-TEST-'.uniqid(),
         'tenant_id' => $tenant->id,
         'amount' => 11400,
         'currency' => 'EGP',

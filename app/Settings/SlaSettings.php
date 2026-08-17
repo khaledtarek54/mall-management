@@ -16,13 +16,19 @@ use Spatie\LaravelSettings\Settings;
 class SlaSettings extends Settings
 {
     public int $sla_urgent_hours = 4;
+
     public int $sla_high_hours = 24;
+
     public int $sla_medium_hours = 72;
+
     public int $sla_low_hours = 168;
 
     public int $sla_urgent_respond_hours = 1;
+
     public int $sla_high_respond_hours = 4;
+
     public int $sla_medium_respond_hours = 24;
+
     public int $sla_low_respond_hours = 48;
 
     public static function group(): string

@@ -372,7 +372,7 @@ it('F: no Filament component renders an auto-generated English label', function 
         // else, so this gate's job is to be legible about it, not to be the one that reports it.
         try {
             $ast = $parser->parse(file_get_contents($file->getPathname()));
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $unparseable[] = "{$path} — {$e->getMessage()}";
 
             continue;

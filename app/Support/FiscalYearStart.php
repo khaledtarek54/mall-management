@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\JournalEntry;
 use App\Settings\AccountingSettings;
+use Carbon\CarbonImmutable;
 use DomainException;
 
 /**
@@ -75,7 +76,7 @@ class FiscalYearStart
     public static function options(): array
     {
         return collect(range(1, 12))
-            ->mapWithKeys(fn (int $m) => [$m => \Carbon\CarbonImmutable::create(2026, $m, 1)->translatedFormat('F')])
+            ->mapWithKeys(fn (int $m) => [$m => CarbonImmutable::create(2026, $m, 1)->translatedFormat('F')])
             ->all();
     }
 }

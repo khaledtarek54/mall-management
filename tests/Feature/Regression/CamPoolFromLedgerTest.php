@@ -5,14 +5,15 @@ use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
-use App\Models\LedgerAccount;
 use App\Models\Lease;
+use App\Models\LedgerAccount;
 use App\Services\ApplyCamEstimateService;
 use App\Services\CamReconciliationService;
 use App\Services\ChargeScheduleService;
 use App\Services\SyncCamPoolFromLedgerService;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Database\Seeders\ChartOfAccountsSeeder;
 
 /**
  * The recovery pool stops being two numbers somebody typed (phase 6, stories RC-01 and RC-05).
@@ -29,7 +30,7 @@ use Carbon\CarbonImmutable;
 afterEach(fn () => CarbonImmutable::setTestNow());
 
 // The ledger-sourced tests need a real chart of accounts to post into.
-beforeEach(fn () => test()->seed(\Database\Seeders\ChartOfAccountsSeeder::class));
+beforeEach(fn () => test()->seed(ChartOfAccountsSeeder::class));
 
 function camPoolAsset(): array
 {

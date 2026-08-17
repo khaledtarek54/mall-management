@@ -8,7 +8,7 @@ use App\Models\UtilityMeter;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\UtilityMeter>
+ * @extends Factory<UtilityMeter>
  */
 class UtilityMeterFactory extends Factory
 {

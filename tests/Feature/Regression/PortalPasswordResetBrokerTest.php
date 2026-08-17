@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Support\Health;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Password;
+use Spatie\Permission\Models\Role;
 
 /**
  * The tenant portal's password reset must resolve against `tenant_users`, not the admin table.
@@ -75,7 +76,7 @@ it('still admits an operator to the admin panel — the paired control', functio
     // Without this, `canAccessPanel()` returning false for everything would look like a fix.
     $operator = User::factory()->create();
     $operator->assignRole(
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'manager', 'guard_name' => 'web'])
+        Role::firstOrCreate(['name' => 'manager', 'guard_name' => 'web'])
     );
 
     expect($operator->canAccessPanel(Filament::getPanel('admin')))->toBeTrue();

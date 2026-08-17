@@ -3,10 +3,11 @@
 namespace App\Support;
 
 use App\Models\JournalEntry;
-use App\Services\Accounting\LedgerPoster;
-use Illuminate\Database\Eloquent\Model;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
+use App\Services\Accounting\LedgerPoster;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The read model behind "what did this document do to the ledger?".
@@ -37,7 +38,7 @@ class LedgerTrail
      *     drifted: bool,
      *     restates_reported: bool,
      *     reported_reason: ?string,
-     *     post_month: ?\Carbon\CarbonImmutable,
+     *     post_month: ?CarbonImmutable,
      * }
      */
     public static function for(Model $source): array

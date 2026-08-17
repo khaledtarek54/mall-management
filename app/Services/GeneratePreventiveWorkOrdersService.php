@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Equipment;
-use App\Models\ServicePlan;
 use App\Models\FacilityWorkOrder;
+use App\Models\ServicePlan;
 use App\Models\Vendor;
 use App\Notifications\PreventiveGenerationFailedNotification;
 use App\Notifications\WorkOrderRaisedNotification;

@@ -3,6 +3,7 @@
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\EditTenantSalesDeclaration;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Charge;
+use App\Models\Invoice;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -75,7 +76,7 @@ it('never leaves two live overage invoices when a declaration is re-locked', fun
 
     // The overage is billed as an immediate invoice, not an active monthly charge, so the
     // double-bill guard is: exactly ONE live (non-cancelled) overage invoice survives a re-lock.
-    $live = \App\Models\Invoice::whereHas('items', fn ($q) => $q->where('type', 'percentage_rent'))
+    $live = Invoice::whereHas('items', fn ($q) => $q->where('type', 'percentage_rent'))
         ->where('tenant_id', $decl->lease->tenant_id)
         ->whereNotIn('status', ['cancelled', 'credited'])
         ->count();

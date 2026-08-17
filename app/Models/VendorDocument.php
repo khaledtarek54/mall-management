@@ -28,7 +28,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PortfolioShared]
 class VendorDocument extends Model implements HasMedia
 {
-    use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;
+    use HasSupersededDocuments, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     /** Insurance certificate (COI) — the one that stops a vendor being sent to site. */
     public const TYPE_INSURANCE_COI = 'insurance_coi';
@@ -43,6 +43,7 @@ class VendorDocument extends Model implements HasMedia
     public const TYPE_SOCIAL_INSURANCE = 'social_insurance';
 
     public const TYPE_TRADE_LICENSE = 'trade_license';
+
     public const TYPE_OTHER = 'other';
 
     /**
@@ -61,6 +62,7 @@ class VendorDocument extends Model implements HasMedia
     public const ALERT_DAYS = 30;
 
     public const STAGE_EXPIRING = 'expiring';
+
     public const STAGE_EXPIRED = 'expired';
 
     /** @return array<int, string> */

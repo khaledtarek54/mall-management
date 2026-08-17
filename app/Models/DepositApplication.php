@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ApplyDepositToInvoiceService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -38,7 +39,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 // Guarded in BOTH services now: the one that stamps the date onto the row, and the one that
 // takes it from the operator (so a refusal arrives before the first side effect rather than
 // half way through a final account).
-#[PostingDateGuardedBy(guard: \App\Services\ApplyDepositToInvoiceService::class)]
+#[PostingDateGuardedBy(guard: ApplyDepositToInvoiceService::class)]
 class DepositApplication extends Model
 {
     use HasFactory, SoftDeletes;

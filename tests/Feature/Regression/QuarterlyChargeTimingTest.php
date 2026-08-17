@@ -45,7 +45,7 @@ function quarterlyCharge(Lease $lease, array $attrs = []): Charge
 /** A lease that comfortably spans the whole 2026 billing window. */
 function quarterlyLease(array $attrs = []): Lease
 {
-    $asset = makeAsset(['code' => 'QTR' . strtoupper(substr(uniqid(), -3))]);
+    $asset = makeAsset(['code' => 'QTR'.strtoupper(substr(uniqid(), -3))]);
     $unit = makeUnit($asset, ['status' => 'occupied']);
 
     return makeLease($unit, null, array_merge([

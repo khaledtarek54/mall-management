@@ -23,6 +23,7 @@ use App\Models\MeterReading;
 use App\Models\UtilityMeter;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Database\QueryException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -109,7 +110,7 @@ it('the unique index rejects a second reading on the same date for the same mete
         'reading_value' => 1200,
         'consumption' => 200,
         'cost' => 300,
-    ]))->toThrow(\Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 
     expect(MeterReading::where('utility_meter_id', $meter->id)->count())->toBe(1);
 });

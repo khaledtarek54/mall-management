@@ -91,7 +91,7 @@ it('locks an issued credit note but leaves a draft one editable', function () {
 it('rejects reverting a finalized invoice to draft at the model layer', function () {
     $invoice = makeInvoice(makeLease(makeUnit($this->asset))); // issued
 
-    expect(fn () => $invoice->update(['status' => 'draft']))->toThrow(\DomainException::class);
+    expect(fn () => $invoice->update(['status' => 'draft']))->toThrow(DomainException::class);
     expect($invoice->fresh()->status)->toBe('issued'); // not persisted
 });
 
@@ -103,7 +103,7 @@ it('rejects reverting a finalized credit note to draft at the model layer', func
         'applied_amount' => 0, 'balance' => 500, 'currency' => 'EGP', 'status' => 'issued',
     ]);
 
-    expect(fn () => $note->update(['status' => 'draft']))->toThrow(\DomainException::class);
+    expect(fn () => $note->update(['status' => 'draft']))->toThrow(DomainException::class);
     expect($note->fresh()->status)->toBe('issued');
 });
 
@@ -126,9 +126,9 @@ it('freezes a finalized invoice\'s GL-identity fields but allows forward transit
     $invoice = makeInvoice(makeLease(makeUnit($this->asset))); // issued
 
     expect(fn () => $invoice->update(['issue_date' => now()->subMonths(3)->toDateString()]))
-        ->toThrow(\DomainException::class); // period is immutable
+        ->toThrow(DomainException::class); // period is immutable
     expect(fn () => $invoice->fresh()->update(['tenant_id' => makeTenant()->id]))
-        ->toThrow(\DomainException::class); // AR dimension is immutable
+        ->toThrow(DomainException::class); // AR dimension is immutable
 
     $invoice->fresh()->update(['status' => 'disputed']); // a forward status change is fine
     expect($invoice->fresh()->status)->toBe('disputed');
@@ -144,9 +144,9 @@ it('freezes a captured payment\'s amount/date but allows capture + chargeback tr
     $payment->update(['status' => 'captured']); // the capture transition must NOT be blocked
     expect($payment->fresh()->status)->toBe('captured');
 
-    expect(fn () => $payment->fresh()->update(['amount' => 6000]))->toThrow(\DomainException::class);
+    expect(fn () => $payment->fresh()->update(['amount' => 6000]))->toThrow(DomainException::class);
     expect(fn () => $payment->fresh()->update(['payment_date' => now()->subDay()->toDateString()]))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 
     $payment->fresh()->update(['status' => 'failed']); // captured→failed chargeback is fine
     expect($payment->fresh()->status)->toBe('failed');
@@ -161,7 +161,7 @@ it('freezes a finalized credit note\'s target fields but allows applying it', fu
     ]);
 
     expect(fn () => $note->update(['issue_date' => now()->subMonth()->toDateString()]))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 
     $note->fresh()->update(['status' => 'applied', 'applied_amount' => 100, 'balance' => 400]);
     expect($note->fresh()->status)->toBe('applied'); // derived fields stay writable

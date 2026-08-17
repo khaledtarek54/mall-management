@@ -19,7 +19,17 @@
 | #42 cannot quietly ship a Delete button on a money record.
 */
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Models\Invoice;
+use App\Models\JournalEntry;
+use App\Models\Payment;
+use App\Models\Tenant;
 use App\Support\DeletionPolicy;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Resources\Resource;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 
 /* ---- the model layer: the backstop behind the missing button -------------- */
@@ -30,7 +40,7 @@ it('guards every never-deletable model at the model layer', function () {
     $unguarded = [];
 
     foreach (array_keys(DeletionPolicy::neverDeletable()) as $model) {
-        if (! in_array(App\Models\Concerns\RefusesDeletionOfCommittedRecords::class, class_uses_recursive($model), true)) {
+        if (! in_array(RefusesDeletionOfCommittedRecords::class, class_uses_recursive($model), true)) {
             $unguarded[] = class_basename($model);
         }
     }
@@ -118,7 +128,7 @@ it('exposes no delete action on any money resource', function () {
 it('has retired the delete permissions rather than leaving them grantable', function () {
     // A surviving permission row still appears in the Roles screen, so an administrator could
     // grant `invoices.delete` and reasonably expect it to mean something.
-    $this->seed(Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
 
     $surviving = DB::table('permissions')
         ->whereIn('name', DeletionPolicy::retiredPermissions())
@@ -134,7 +144,7 @@ it('seeds no grantable delete permission for any never-deletable model', functio
     // derives the invariant straight from NEVER_DELETABLE, so a money model added later — whose
     // scaffold seeds `{model}.{action}` by the standard plural-snake convention — is caught even if
     // nobody remembers to extend RETIRED_PERMISSIONS.
-    $this->seed(Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
 
     $seeded = DB::table('permissions')->pluck('name')->all();
     $live = [];
@@ -161,13 +171,13 @@ it('refuses to delete an issued invoice, and says what to do instead', function 
 
     expect(fn () => $invoice->delete())->toThrow(DomainException::class);
 
-    expect(App\Models\Invoice::withTrashed()->whereKey($invoice->id)->first()->deleted_at)
+    expect(Invoice::withTrashed()->whereKey($invoice->id)->first()->deleted_at)
         ->toBeNull('the invoice must still be there, not soft-deleted');
 });
 
 it('refuses to delete a received payment', function () {
     $lease = makeLease(makeUnit(makeAsset()), makeTenant(), ['status' => 'active']);
-    $payment = App\Models\Payment::create([
+    $payment = Payment::create([
         'reference' => 'PAY-'.uniqid(), 'tenant_id' => $lease->tenant_id, 'amount' => 5000,
         'currency' => 'EGP', 'method' => 'bank_transfer', 'status' => 'captured',
         'payment_date' => now(),
@@ -180,7 +190,7 @@ it('still allows rolling back a payment that never became money', function () {
     // CreatePayment deletes the orphan row it just created when allocation fails. A blanket
     // refusal would break payment creation itself — the guard is about COMMITTED records.
     $lease = makeLease(makeUnit(makeAsset()), makeTenant(), ['status' => 'active']);
-    $orphan = App\Models\Payment::create([
+    $orphan = Payment::create([
         'reference' => 'PAY-'.uniqid(), 'tenant_id' => $lease->tenant_id, 'amount' => 5000,
         'currency' => 'EGP', 'method' => 'bank_transfer', 'status' => 'initiated',
         'payment_date' => now(),
@@ -189,22 +199,22 @@ it('still allows rolling back a payment that never became money', function () {
     $orphan->delete();
 
     // fresh() ignores the soft-delete scope, so assert through a scoped query.
-    expect(App\Models\Payment::whereKey($orphan->id)->exists())->toBeFalse()
-        ->and(App\Models\Payment::withTrashed()->whereKey($orphan->id)->first()->deleted_at)->not->toBeNull();
+    expect(Payment::whereKey($orphan->id)->exists())->toBeFalse()
+        ->and(Payment::withTrashed()->whereKey($orphan->id)->first()->deleted_at)->not->toBeNull();
 });
 
 it('still allows discarding a draft journal entry but refuses a posted one', function () {
     // A draft was never posted, so nothing is on the books yet. Anything posted is permanent —
     // correct it with a reversing entry. This carve-out matters: EditJournalEntry deliberately
     // allowed deleting drafts, and a blanket refusal would have removed a real workflow.
-    $draft = App\Models\JournalEntry::create([
+    $draft = JournalEntry::create([
         'number' => 'JE-'.uniqid(), 'entry_date' => now(), 'status' => 'draft', 'is_manual' => true,
     ]);
     $draft->delete();
 
-    expect(App\Models\JournalEntry::whereKey($draft->id)->exists())->toBeFalse();
+    expect(JournalEntry::whereKey($draft->id)->exists())->toBeFalse();
 
-    $posted = App\Models\JournalEntry::create([
+    $posted = JournalEntry::create([
         'number' => 'JE-'.uniqid(), 'entry_date' => now(), 'status' => 'posted', 'is_manual' => true,
     ]);
 
@@ -217,7 +227,7 @@ it('guards every when-unused model at the model layer', function () {
     $unguarded = [];
 
     foreach (array_keys(DeletionPolicy::whenUnused()) as $model) {
-        if (! in_array(App\Models\Concerns\RefusesDeletionWhenReferenced::class, class_uses_recursive($model), true)) {
+        if (! in_array(RefusesDeletionWhenReferenced::class, class_uses_recursive($model), true)) {
             $unguarded[] = class_basename($model);
         }
     }
@@ -242,7 +252,7 @@ it('declares only relations that actually exist', function () {
             }
 
             // Exists, but is it a relation? A scope or accessor would blow up at delete time.
-            if (! $instance->{$relation}() instanceof Illuminate\Database\Eloquent\Relations\Relation) {
+            if (! $instance->{$relation}() instanceof Relation) {
                 $bogus[] = class_basename($model)."::{$relation}() is not a relation";
             }
         }
@@ -278,7 +288,7 @@ it('refuses to delete a tenant that has history, and names what is holding it', 
             ->and($e->getMessage())->toContain('inactive');
     }
 
-    expect(App\Models\Tenant::whereKey($tenant->id)->exists())->toBeTrue();
+    expect(Tenant::whereKey($tenant->id)->exists())->toBeTrue();
 });
 
 it('still deletes a tenant that has no history at all', function () {
@@ -288,7 +298,7 @@ it('still deletes a tenant that has no history at all', function () {
 
     $tenant->delete();
 
-    expect(App\Models\Tenant::whereKey($tenant->id)->exists())->toBeFalse();
+    expect(Tenant::whereKey($tenant->id)->exists())->toBeFalse();
 });
 
 it('counts a soft-deleted child as history', function () {
@@ -332,7 +342,7 @@ it('classifies every model', function () {
     foreach (glob(app_path('Models/*.php')) as $file) {
         $model = 'App\\Models\\'.basename($file, '.php');
 
-        if (! class_exists($model) || ! is_subclass_of($model, Illuminate\Database\Eloquent\Model::class)) {
+        if (! class_exists($model) || ! is_subclass_of($model, Model::class)) {
             continue;
         }
 

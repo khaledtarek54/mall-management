@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
 use Carbon\CarbonImmutable;
@@ -65,7 +66,7 @@ class RecordLeaseEventService
      * The payload shape for a change to one charge type — used by rent modifications, reliefs and
      * holdover conversions alike so the timeline can render them without knowing which produced it.
      *
-     * @param  iterable<\App\Models\Charge>  $opened
+     * @param  iterable<Charge>  $opened
      * @return array<string, mixed>
      */
     public static function scheduleChangePayload(

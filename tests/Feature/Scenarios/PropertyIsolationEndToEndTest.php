@@ -1,8 +1,9 @@
 <?php
 
+use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\Expenses\Pages\CreateExpense;
-use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
 use App\Models\Expense;
 use App\Models\TenantRequest;
@@ -30,7 +31,6 @@ use Livewire\Livewire;
  *      non-form write path. Its correctness is proven directly in the regression suite
  *      (AssetInScopeWriteGuardTest) and its wiring by PropertyIsolationConformanceTest.
  */
-
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     $this->seed(ChartOfAccountsSeeder::class);
@@ -56,7 +56,7 @@ function attemptCreate(string $page, array $data): void
 {
     try {
         Livewire::test($page)->fillForm($data)->call('create');
-    } catch (\Throwable) {
+    } catch (Throwable) {
         // Blocked (guard abort(403) or scoped-picker validation) — intended.
     }
 }
@@ -110,7 +110,7 @@ it('unit-derived (TenantRequest): blocks a foreign-property unit', function () {
     $tenant = makeTenant();
 
     $valid = [
-        'request_type' => \App\Enums\TenantRequestType::default()->value,
+        'request_type' => TenantRequestType::default()->value,
         'tenant_id' => $tenant->id,
         'priority' => 'medium',
         'title' => 'Broken AC',

@@ -2,11 +2,13 @@
 
 namespace App\Filament\Admin\Resources\Payments\Pages;
 
-use Illuminate\Support\Facades\Auth;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Payment;
+use App\Support\PostingDate;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class CreatePayment extends CreateRecord
 {
@@ -21,7 +23,7 @@ class CreatePayment extends CreateRecord
         // App\Support\PostingDate exists to stop). Refuse in the service layer, not just a
         // DatePicker minDate. A missing period is allowed (see PostingDate).
         try {
-            \App\Support\PostingDate::assertOpen($data['payment_date'] ?? null, __('admin.fields.payment_date'));
+            PostingDate::assertOpen($data['payment_date'] ?? null, __('admin.fields.payment_date'));
         } catch (\DomainException $e) {
             Notification::make()->title($e->getMessage())->danger()->send();
             $this->halt();
@@ -121,7 +123,7 @@ class CreatePayment extends CreateRecord
         if (! empty($sync)) {
             try {
                 $payment->assertInvoicesShareTenant(array_keys($sync));
-                \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync) {
+                DB::transaction(function () use ($payment, $sync) {
                     $payment->invoices()->sync($sync);
                     $payment->recomputeAllocatedInvoices();
                     // Lock-safe backstop: the form cap is per-request; this catches

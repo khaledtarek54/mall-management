@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CamExpensePool;
+use App\Models\InvoiceItem;
 use App\Services\CamReconciliationService;
 
 beforeEach(function () {
@@ -52,8 +53,8 @@ it('bills the positive true-up on invoice items typed cam_recovery (for GL CAM r
     // Each under-collected lease's recovery invoice carries a `cam_recovery` item so
     // the GL routes it to CAM Recovery Revenue (إيرادات استرداد المصروفات المشتركة),
     // not the legacy generic 'other' type that fell through to misc income.
-    expect(\App\Models\InvoiceItem::where('type', 'cam_recovery')->count())->toBe(2);
-    expect(\App\Models\InvoiceItem::where('type', 'other')->count())->toBe(0);
+    expect(InvoiceItem::where('type', 'cam_recovery')->count())->toBe(2);
+    expect(InvoiceItem::where('type', 'other')->count())->toBe(0);
 });
 
 it('is idempotent — running twice does not double-bill', function () {

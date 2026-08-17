@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Charge;
+use App\Models\Lease;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 
@@ -11,8 +12,7 @@ use Carbon\CarbonImmutable;
  * now anchors to max(issue_date, today) + terms so nothing is born overdue. issue_date is
  * left at the period start on purpose (it is the GL entry_date + the invoice-number month).
  */
-
-function overdueBugLease(int $termsDays = 7): App\Models\Lease
+function overdueBugLease(int $termsDays = 7): Lease
 {
     $lease = makeLease(makeUnit(makeAsset()), makeTenant(), [
         'commencement_date' => '2026-01-01',

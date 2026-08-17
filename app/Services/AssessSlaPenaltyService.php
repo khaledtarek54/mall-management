@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\SlaPenalty;
 use App\Models\FacilityWorkOrder;
+use App\Models\SlaPenalty;
 use App\Models\VendorContract;
 use DomainException;
 use Illuminate\Support\Facades\DB;

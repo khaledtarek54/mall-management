@@ -2,6 +2,7 @@
 
 use App\Models\AccountingPeriod;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\PeriodService;
 use Database\Seeders\AccountMappingSeeder;
@@ -38,7 +39,7 @@ it('refuses to close a period with a document whose ledger entry is out of sync'
     $invoice->items()->first()->update(['type' => 'service_charge']);
 
     $period = AccountingPeriod::forDate(now());
-    expect(fn () => app(PeriodService::class)->closePeriod($period))->toThrow(\DomainException::class);
+    expect(fn () => app(PeriodService::class)->closePeriod($period))->toThrow(DomainException::class);
     expect($period->fresh()->status)->toBe('open'); // still open — the close was refused
 });
 
@@ -56,11 +57,11 @@ it('refuses to close a period with an issued-but-NEVER-posted document dated in 
     // An issued invoice dated in the current period with NO journal entry yet (real-time is off
     // in tests, and we never run the sweep) — the exact F4 gap the close gate initially missed.
     $invoice = closeGateInvoice();
-    expect(\App\Models\JournalEntry::where('source_type', $invoice->getMorphClass())
+    expect(JournalEntry::where('source_type', $invoice->getMorphClass())
         ->where('source_id', $invoice->id)->count())->toBe(0); // never posted
 
     $period = AccountingPeriod::forDate(now());
-    expect(fn () => app(PeriodService::class)->closePeriod($period))->toThrow(\DomainException::class);
+    expect(fn () => app(PeriodService::class)->closePeriod($period))->toThrow(DomainException::class);
     expect($period->fresh()->status)->toBe('open'); // refused — closing would strand its post
 
     // Once it's posted, the close succeeds.

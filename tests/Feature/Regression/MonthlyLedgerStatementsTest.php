@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Pages\BalanceSheet;
+use App\Filament\Admin\Pages\CashFlow;
 use App\Filament\Admin\Pages\IncomeStatement;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Models\FiscalYear;
@@ -39,7 +40,7 @@ function ledgerPeriod(object $page, string $method): mixed
 }
 
 it('defaults to the whole year, exactly as before', function () {
-    $page = new TrialBalance();
+    $page = new TrialBalance;
     $page->year = 2026;
     $page->period = null;
 
@@ -48,7 +49,7 @@ it('defaults to the whole year, exactly as before', function () {
 });
 
 it('narrows to a single month when one is picked', function () {
-    $page = new TrialBalance();
+    $page = new TrialBalance;
     $page->year = 2026;
     $page->period = '2026-03';
 
@@ -66,7 +67,7 @@ it('follows a NON-CALENDAR fiscal year instead of assuming January to December',
         'status' => 'open',
     ]);
 
-    $page = new IncomeStatement();
+    $page = new IncomeStatement;
     $page->year = 2026;
     $page->period = null;
 
@@ -79,7 +80,7 @@ it('offers the months of THAT fiscal year, labelled with their real calendar yea
         'year' => 2026, 'starts_on' => '2026-04-01', 'ends_on' => '2027-03-31', 'status' => 'open',
     ]);
 
-    $page = new TrialBalance();
+    $page = new TrialBalance;
     $page->year = 2026;
 
     $options = ledgerPeriod($page, 'periodOptions');
@@ -93,7 +94,7 @@ it('offers the months of THAT fiscal year, labelled with their real calendar yea
 
 it('falls back to the calendar year when no fiscal year row exists', function () {
     // What a fresh install looks like before the accountant sets one up.
-    $page = new TrialBalance();
+    $page = new TrialBalance;
     $page->year = 2026;
 
     expect(ledgerPeriod($page, 'periodStart')->toDateString())->toBe('2026-01-01')
@@ -103,7 +104,7 @@ it('falls back to the calendar year when no fiscal year row exists', function ()
 it('dates the balance sheet AS OF the chosen month end, not 31 December', function () {
     // The balance sheet's whole meaning is its as-of date; pinned to year-end it could not answer
     // "what did we hold at the end of March?" — the question a monthly close asks.
-    $page = new BalanceSheet();
+    $page = new BalanceSheet;
     $page->year = 2026;
     $page->period = '2026-03';
 
@@ -111,7 +112,7 @@ it('dates the balance sheet AS OF the chosen month end, not 31 December', functi
 });
 
 it('carries the month into the export filename and the PDF header', function () {
-    $page = new TrialBalance();
+    $page = new TrialBalance;
     $page->year = 2026;
     $page->period = '2026-03';
 
@@ -145,5 +146,5 @@ it('renders every ledger page for a single month', function (string $page) {
     TrialBalance::class,
     IncomeStatement::class,
     BalanceSheet::class,
-    \App\Filament\Admin\Pages\CashFlow::class,
+    CashFlow::class,
 ]);

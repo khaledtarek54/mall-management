@@ -18,7 +18,9 @@
 | tenant who bargained for a lower late fee gets billed the standard one.
 */
 
+use App\Models\Asset;
 use App\Models\Invoice;
+use App\Models\PostDatedCheque;
 use App\Services\BillBouncedChequeFeeService;
 use App\Services\LateFeeService;
 use App\Settings\BillingSettings;
@@ -39,7 +41,7 @@ beforeEach(function () {
 });
 
 /** An overdue invoice of $amount at a property, with no lease-level late-fee terms of its own. */
-function overdueInvoiceAt(\App\Models\Asset $asset, float $amount = 1000.0): Invoice
+function overdueInvoiceAt(Asset $asset, float $amount = 1000.0): Invoice
 {
     $unit = makeUnit($asset);
     $lease = makeLease($unit, null, ['late_fee_percent' => null, 'late_fee_grace_days' => null, 'late_fee_minimum' => null]);
@@ -129,8 +131,8 @@ it('charges the bounced-cheque fee at the property amount', function () {
     $unit = makeUnit($asset);
     $lease = makeLease($unit);
 
-    $cheque = \App\Models\PostDatedCheque::create([
-        'reference' => \App\Models\PostDatedCheque::generateReference(),
+    $cheque = PostDatedCheque::create([
+        'reference' => PostDatedCheque::generateReference(),
         'asset_id' => $asset->id,
         'tenant_id' => $lease->tenant_id,
         'lease_id' => $lease->id,
@@ -139,7 +141,7 @@ it('charges the bounced-cheque fee at the property amount', function () {
         'amount' => 5000,
         'cheque_date' => '2026-08-01',
         'received_date' => '2026-07-01',
-        'status' => \App\Models\PostDatedCheque::STATUS_BOUNCED,
+        'status' => PostDatedCheque::STATUS_BOUNCED,
     ]);
 
     $invoice = app(BillBouncedChequeFeeService::class)->bill($cheque);

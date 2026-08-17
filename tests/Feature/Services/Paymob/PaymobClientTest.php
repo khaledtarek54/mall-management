@@ -94,7 +94,7 @@ it('buildPaymentSession refuses an invoice with zero balance', function () {
     $invoice = makeInvoice($lease, ['total' => 100, 'paid_amount' => 100, 'balance' => 0]);
 
     paymobClient()->buildPaymentSession($invoice);
-})->throws(\RuntimeException::class, 'no balance');
+})->throws(RuntimeException::class, 'no balance');
 
 it('verifyHmac accepts a callback signed with our hmac_secret', function () {
     $obj = [
@@ -127,7 +127,7 @@ it('fromConfig throws when credentials are missing', function () {
     ]);
 
     PaymobClient::fromConfig();
-})->throws(\RuntimeException::class, 'Paymob credentials missing');
+})->throws(RuntimeException::class, 'Paymob credentials missing');
 
 it('authenticate raises a clear error when Paymob returns a non-2xx', function () {
     Http::fake([
@@ -135,4 +135,4 @@ it('authenticate raises a clear error when Paymob returns a non-2xx', function (
     ]);
 
     paymobClient()->authenticate();
-})->throws(\RuntimeException::class, 'Paymob authenticate failed');
+})->throws(RuntimeException::class, 'Paymob authenticate failed');

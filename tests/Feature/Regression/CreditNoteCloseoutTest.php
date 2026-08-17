@@ -1,16 +1,17 @@
 <?php
 
-use App\Support\MorphMap;
 use App\Models\AccountingPeriod;
 use App\Models\CreditNote;
 use App\Models\CreditNoteApplication;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\CreditNoteService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use App\Services\VoidInvoiceService;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -183,7 +184,7 @@ it('reverses output VAT on the GL through the real sweep (Dr VAT Payable + Dr Sa
         ->and((float) $entry->lines->sum('credit'))->toBe(1140.0); // AR (balanced)
 
     // The VAT is reversed to VAT Payable (not lumped into sales_returns) — the whole point.
-    $accounts = app(\App\Services\Accounting\AccountResolver::class);
+    $accounts = app(AccountResolver::class);
     $vatLine = $entry->lines->firstWhere('ledger_account_id', $accounts->id('vat_payable'));
     $srLine = $entry->lines->firstWhere('ledger_account_id', $accounts->id('sales_returns'));
     expect((float) $vatLine?->debit)->toBe(140.0)

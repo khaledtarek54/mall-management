@@ -33,6 +33,7 @@ use App\Models\OwnerRequest;
 use App\Models\Tenant;
 use App\Models\Vendor;
 use App\Support\PropertyIsolation;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -41,7 +42,7 @@ use function Pest\Laravel\actingAs;
 beforeEach(function () {
     // Any canViewAny/read-scope assertion needs the full permission map (managers
     // must hold owner_requests.edit to reach the operator-inbox query branch).
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 });
 
@@ -61,7 +62,7 @@ it('DEPARTMENT read-scope: a global (null asset_id) department is visible to a u
     makeAsset(['code' => 'DPB']);
 
     $global = Department::create([
-        'name' => 'Global Ops ' . uniqid(),
+        'name' => 'Global Ops '.uniqid(),
         'asset_id' => null,
         'is_active' => true,
     ]);
@@ -77,8 +78,8 @@ it('DEPARTMENT read-scope: a department scoped to property B is NOT visible to a
     $a = makeAsset(['code' => 'DQA']);
     $b = makeAsset(['code' => 'DQB']);
 
-    $deptA = Department::create(['name' => 'Dept A ' . uniqid(), 'asset_id' => $a->id, 'is_active' => true]);
-    $deptB = Department::create(['name' => 'Dept B ' . uniqid(), 'asset_id' => $b->id, 'is_active' => true]);
+    $deptA = Department::create(['name' => 'Dept A '.uniqid(), 'asset_id' => $a->id, 'is_active' => true]);
+    $deptB = Department::create(['name' => 'Dept B '.uniqid(), 'asset_id' => $b->id, 'is_active' => true]);
 
     actingAs(makeUser('manager', [$a->id]));
 
@@ -94,8 +95,8 @@ it('DEPARTMENT all-properties: super_admin sees BOTH A and B property-scoped dep
     $b = makeAsset(['code' => 'DSB']);
     $all = ensureAllPropertiesAsset();
 
-    $deptA = Department::create(['name' => 'SA Dept A ' . uniqid(), 'asset_id' => $a->id, 'is_active' => true]);
-    $deptB = Department::create(['name' => 'SA Dept B ' . uniqid(), 'asset_id' => $b->id, 'is_active' => true]);
+    $deptA = Department::create(['name' => 'SA Dept A '.uniqid(), 'asset_id' => $a->id, 'is_active' => true]);
+    $deptB = Department::create(['name' => 'SA Dept B '.uniqid(), 'asset_id' => $b->id, 'is_active' => true]);
 
     actingAs(makeUser('super_admin'));
 
@@ -111,9 +112,9 @@ it('DEPARTMENT all-properties: a restricted user in ALL mode still sees only the
     $b = makeAsset(['code' => 'DRB']);
     $all = ensureAllPropertiesAsset();
 
-    $global = Department::create(['name' => 'ALL Global ' . uniqid(), 'asset_id' => null, 'is_active' => true]);
-    $deptA = Department::create(['name' => 'ALL Dept A ' . uniqid(), 'asset_id' => $a->id, 'is_active' => true]);
-    $deptB = Department::create(['name' => 'ALL Dept B ' . uniqid(), 'asset_id' => $b->id, 'is_active' => true]);
+    $global = Department::create(['name' => 'ALL Global '.uniqid(), 'asset_id' => null, 'is_active' => true]);
+    $deptA = Department::create(['name' => 'ALL Dept A '.uniqid(), 'asset_id' => $a->id, 'is_active' => true]);
+    $deptB = Department::create(['name' => 'ALL Dept B '.uniqid(), 'asset_id' => $b->id, 'is_active' => true]);
 
     actingAs(makeUser('manager', [$a->id]));
 

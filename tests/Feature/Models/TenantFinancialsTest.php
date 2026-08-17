@@ -42,7 +42,7 @@ it('outstandingBalance() nets out unapplied credit-note balances', function () {
     makeInvoice($this->lease, ['balance' => 500, 'status' => 'partially_paid']);
 
     CreditNote::create([
-        'number' => 'CN-' . uniqid(),
+        'number' => 'CN-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'lease_id' => $this->lease->id,
         'reason' => 'adjustment',
@@ -60,7 +60,7 @@ it('outstandingBalance() ignores fully-applied credit notes', function () {
     makeInvoice($this->lease, ['balance' => 1000, 'status' => 'issued']);
 
     CreditNote::create([
-        'number' => 'CN-' . uniqid(),
+        'number' => 'CN-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'lease_id' => $this->lease->id,
         'reason' => 'adjustment',

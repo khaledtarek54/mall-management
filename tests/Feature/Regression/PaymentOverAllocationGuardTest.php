@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Invoice;
 use App\Models\Payment;
 
 /**
@@ -8,7 +9,7 @@ use App\Models\Payment;
  * payments that each fit the balance alone but together exceed the invoice total.
  * (SQLite can't exercise lockForUpdate, so we assert the invariant logic.)
  */
-function overAllocCaptured(\App\Models\Invoice $invoice, float $amount): Payment
+function overAllocCaptured(Invoice $invoice, float $amount): Payment
 {
     $p = Payment::create([
         'tenant_id' => $invoice->tenant_id, 'amount' => $amount, 'currency' => 'EGP',

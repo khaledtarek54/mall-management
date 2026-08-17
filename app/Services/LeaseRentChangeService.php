@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\LeaseEvent;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -141,11 +142,11 @@ class LeaseRentChangeService
             // the only path where a human is present to give one.
             app(RecordLeaseEventService::class)->record(
                 $lease,
-                \App\Models\LeaseEvent::TYPE_RENT_MODIFICATION,
+                LeaseEvent::TYPE_RENT_MODIFICATION,
                 $effectiveFrom,
                 isset($data['reason']) && trim((string) $data['reason']) !== ''
                     ? trim((string) $data['reason'])
-                    : 'Rent changed from ' . number_format($previousRent, 2) . ' to ' . number_format($newRent, 2) . '.',
+                    : 'Rent changed from '.number_format($previousRent, 2).' to '.number_format($newRent, 2).'.',
                 RecordLeaseEventService::scheduleChangePayload('base_rent', $previousRent, $newRent, [$opened]),
                 $data['document_reference'] ?? null,
             );

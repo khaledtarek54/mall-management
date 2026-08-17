@@ -16,8 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\Eloquent\Model;
 
 class TenantSalesDeclarationResource extends Resource
 {
@@ -41,7 +40,7 @@ class TenantSalesDeclarationResource extends Resource
     // percentage_rent billing charge. Editing it (e.g. flipping status back to
     // 'submitted') could double-bill or strand the charge, so block edit
     // entirely; corrections go through the void action.
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
         if ($record->status === 'locked') {
             return false;
@@ -112,5 +111,4 @@ class TenantSalesDeclarationResource extends Resource
             'edit' => EditTenantSalesDeclaration::route('/{record}/edit'),
         ];
     }
-
 }

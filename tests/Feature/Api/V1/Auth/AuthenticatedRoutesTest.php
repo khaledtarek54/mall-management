@@ -16,12 +16,13 @@ class AuthenticatedRoutesTest extends TestCase
     {
         $tenant = Tenant::create([
             'name' => 'Test Tenant',
-            'email' => 'authed-' . uniqid() . '@t.local',
+            'email' => 'authed-'.uniqid().'@t.local',
             'password' => Hash::make('secret-pw'),
             'status' => 'active',
             'type' => 'company',
         ]);
         $token = $tenant->createToken('test-device', ['tenant:*'])->plainTextToken;
+
         return [$tenant, $token];
     }
 
@@ -73,7 +74,7 @@ class AuthenticatedRoutesTest extends TestCase
     {
         $tenant = Tenant::create([
             'name' => 'Multi Device',
-            'email' => 'multi-' . uniqid() . '@t.local',
+            'email' => 'multi-'.uniqid().'@t.local',
             'password' => Hash::make('secret-pw'),
             'status' => 'active',
             'type' => 'company',

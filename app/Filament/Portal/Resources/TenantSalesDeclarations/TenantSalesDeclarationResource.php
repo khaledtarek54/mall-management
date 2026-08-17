@@ -9,13 +9,13 @@ use App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas\TenantSalesDec
 use App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas\TenantSalesDeclarationInfolist;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\Tables\TenantSalesDeclarationsTable;
 use App\Models\TenantSalesDeclaration;
+use App\Support\Portal;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 
 class TenantSalesDeclarationResource extends Resource
 {
@@ -71,7 +71,6 @@ class TenantSalesDeclarationResource extends Resource
         ];
     }
 
-
     /**
      * Hidden from a UNIT OWNER, who signs neither.
      *
@@ -81,19 +80,19 @@ class TenantSalesDeclarationResource extends Resource
      */
     public static function shouldRegisterNavigation(): bool
     {
-        return ! (\App\Support\Portal::tenant()?->isUnitOwner() ?? false);
+        return ! (Portal::tenant()?->isUnitOwner() ?? false);
     }
 
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->whereHas('lease', fn ($q) => $q->where('tenant_id', \App\Support\Portal::tenantId()));
+            ->whereHas('lease', fn ($q) => $q->where('tenant_id', Portal::tenantId()));
     }
 
     public static function canCreate(): bool
     {
         // Only the tenant-admin may submit declarations; others are read-only.
-        return \App\Support\Portal::isAdmin();
+        return Portal::isAdmin();
     }
 
     public static function canEdit($record): bool

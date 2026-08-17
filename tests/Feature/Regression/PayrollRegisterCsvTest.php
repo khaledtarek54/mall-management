@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Models\Employee;
+use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 
 /**
@@ -33,7 +34,7 @@ it('exports the per-employee register with the earnings breakdown + net', functi
     $asset = makeAsset();
     $run = registerRun($asset->id);
     $emp = registerEmployee($asset->id, 'E-1', 'Mona Adel');
-    $advance = \App\Models\EmployeeAdvance::create(['employee_id' => $emp->id, 'asset_id' => $asset->id,
+    $advance = EmployeeAdvance::create(['employee_id' => $emp->id, 'asset_id' => $asset->id,
         'type' => 'loan', 'amount' => 5000, 'advance_date' => '2026-01-01', 'paid_from' => 'cash']);
     $run->lines()->create(['employee_id' => $emp->id, 'employee_advance_id' => $advance->id,
         'gross' => 10000, 'allowances' => 2000, 'salary_tax' => 1000, 'social_insurance' => 500,

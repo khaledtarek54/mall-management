@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\Asset;
 use App\Models\Vendor;
 use App\Models\VendorContract;
 use Illuminate\Support\Carbon;
+use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
@@ -15,7 +15,7 @@ it('expires active contracts past their end_date', function () {
 
     $vendor = Vendor::create([
         'name' => 'Cool-Air HVAC',
-        'slug' => 'cool-air-hvac-' . uniqid(),
+        'slug' => 'cool-air-hvac-'.uniqid(),
         'type' => 'service_provider',
         'status' => 'active',
     ]);
@@ -55,7 +55,7 @@ it('--dry-run reports candidates without writing', function () {
 
     $vendor = Vendor::create([
         'name' => 'BrightSpark',
-        'slug' => 'brightspark-' . uniqid(),
+        'slug' => 'brightspark-'.uniqid(),
         'type' => 'contractor',
         'status' => 'active',
     ]);
@@ -84,7 +84,7 @@ it('is idempotent and leaves an activity-log trail for the auto-expiry', functio
 
     $vendor = Vendor::create([
         'name' => 'SteadyState Facilities',
-        'slug' => 'steadystate-' . uniqid(),
+        'slug' => 'steadystate-'.uniqid(),
         'type' => 'service_provider',
         'status' => 'active',
     ]);
@@ -111,7 +111,7 @@ it('is idempotent and leaves an activity-log trail for the auto-expiry', functio
 
     // The auto-expiry is audit-logged — a mass update() would have bypassed model
     // events entirely, so no 'updated' activity would exist for the contract.
-    $hasUpdateLog = \Spatie\Activitylog\Models\Activity::query()
+    $hasUpdateLog = Activity::query()
         ->where('log_name', 'vendor_contract')
         ->where('subject_type', $contract->getMorphClass())
         ->where('subject_id', $contract->id)

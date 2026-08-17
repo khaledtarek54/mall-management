@@ -27,6 +27,8 @@
 */
 
 use App\Models\Charge;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -172,7 +174,7 @@ it('lock bills the overage IMMEDIATELY as its own invoice (not a deferred, never
 
     // The overage is billed NOW as its own issued invoice (mirrors the CAM true-up), routed to
     // percentage_rent revenue in the GL, with the SALES period so it can't collide with a live run.
-    $item = \App\Models\InvoiceItem::where('charge_id', $charge->id)->sole();
+    $item = InvoiceItem::where('charge_id', $charge->id)->sole();
     expect($item->type)->toBe('percentage_rent')->and((float) $item->amount)->toBe(2000.0);
     $invoice = $item->invoice;
     expect($invoice->status)->toBe('issued')
@@ -286,7 +288,7 @@ it('re-locking a voided declaration voids the old overage invoice and bills exac
     // (100000 - 50000) * 0.05 = 2500
     $decl = pctDeclaration(['percentage_rent_threshold' => 50000, 'percentage_rent_rate' => 5], 100000);
 
-    $liveOverage = fn () => \App\Models\Invoice::whereHas('items', fn ($q) => $q->where('type', 'percentage_rent'))
+    $liveOverage = fn () => Invoice::whereHas('items', fn ($q) => $q->where('type', 'percentage_rent'))
         ->where('tenant_id', $decl->lease->tenant_id)
         ->whereNotIn('status', ['cancelled', 'credited'])
         ->get();

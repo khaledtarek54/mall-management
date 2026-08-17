@@ -7,6 +7,7 @@ use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * طرف القيد — one debit (مدين) or credit (دائن) line of a journal entry.
@@ -115,7 +116,7 @@ class JournalLine extends Model
      * The bank-reconciliation match, if this posting has been explained by a statement line.
      * At most one — matching a book posting twice would report the same money verified twice.
      */
-    public function bankMatch(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function bankMatch(): HasOne
     {
         return $this->hasOne(BankMatch::class, 'journal_line_id');
     }

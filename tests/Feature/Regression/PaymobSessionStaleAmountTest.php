@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use Illuminate\Support\Facades\Http;
@@ -49,7 +50,7 @@ beforeEach(function () {
  * longer being exercised at all. (CLAUDE.md: a fixture that writes what no form, service or seeder
  * writes is a test that is green over dead code.)
  */
-function settlePartOf(\App\Models\Invoice $invoice, float $amount): void
+function settlePartOf(Invoice $invoice, float $amount): void
 {
     $payment = Payment::create([
         'tenant_id' => $invoice->tenant_id,

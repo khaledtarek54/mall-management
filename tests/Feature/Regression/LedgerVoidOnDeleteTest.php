@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AccountingPeriod;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
@@ -23,7 +24,7 @@ beforeEach(function () {
     $this->poster = app(LedgerPoster::class);
 });
 
-function voidTestInvoice(): \App\Models\Invoice
+function voidTestInvoice(): Invoice
 {
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())), [
         'issue_date' => now()->toDateString(),

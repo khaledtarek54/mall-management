@@ -3,6 +3,7 @@
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Models\ServicePlan;
 use Database\Seeders\RolesPermissionsSeeder;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -49,7 +50,7 @@ it('rejects an out-of-scope asset_id on the plan', function () {
     expect(true)->toBeTrue();
 
     expect(fn () => ServicePlanResource::assertAssetInScope($assetB->id))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 it('coerces a zero frequency_value to 1 (never a non-advancing plan)', function () {

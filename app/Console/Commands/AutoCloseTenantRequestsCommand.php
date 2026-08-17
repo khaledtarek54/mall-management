@@ -77,7 +77,7 @@ class AutoCloseTenantRequestsCommand extends Command
                     $closed++;
                 }
             } catch (\Throwable $e) {
-                $failed[] = "#{$request->id}: " . $e->getMessage();
+                $failed[] = "#{$request->id}: ".$e->getMessage();
             }
         }
 
@@ -86,7 +86,7 @@ class AutoCloseTenantRequestsCommand extends Command
         if ($failed) {
             $this->warn('Failed to close:');
             foreach ($failed as $row) {
-                $this->line('  ' . $row);
+                $this->line('  '.$row);
             }
 
             return self::FAILURE;

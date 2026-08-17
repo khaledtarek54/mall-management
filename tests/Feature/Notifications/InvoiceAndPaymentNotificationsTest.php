@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Invoice;
+use App\Models\Charge;
 use App\Models\Payment;
 use App\Notifications\InvoiceIssuedNotification;
 use App\Notifications\PaymentReceivedNotification;
@@ -13,7 +13,7 @@ beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
     $this->asset = makeAsset();
-    $this->tenant = makeTenant(['email' => 'cafe-' . uniqid() . '@haya.test']);
+    $this->tenant = makeTenant(['email' => 'cafe-'.uniqid().'@haya.test']);
     $this->unit = makeUnit($this->asset);
     $this->lease = makeLease($this->unit, $this->tenant, [
         'status' => 'active',
@@ -23,7 +23,7 @@ beforeEach(function () {
         'service_charge_monthly' => 3000,
         'payment_terms_days' => 7,
     ]);
-    \App\Models\Charge::create([
+    Charge::create([
         'lease_id' => $this->lease->id,
         'name' => 'Base Rent',
         'type' => 'base_rent',

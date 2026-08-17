@@ -36,7 +36,7 @@ class InitiatePaymobSessionTest extends TestCase
         $asset = makeAsset();
         $tenant = Tenant::create([
             'name' => 'Cafe Crema',
-            'email' => 'pay-' . uniqid() . '@t.local',
+            'email' => 'pay-'.uniqid().'@t.local',
             'password' => Hash::make('secret-pw'),
             'status' => 'active',
             'type' => 'company',
@@ -97,7 +97,7 @@ class InitiatePaymobSessionTest extends TestCase
         // A second, unrelated tenant tries to pay the first tenant's invoice.
         $intruder = Tenant::create([
             'name' => 'Intruder',
-            'email' => 'intruder-' . uniqid() . '@t.local',
+            'email' => 'intruder-'.uniqid().'@t.local',
             'password' => Hash::make('secret-pw'),
             'status' => 'active',
             'type' => 'company',

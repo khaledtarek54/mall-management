@@ -9,7 +9,7 @@ use App\Models\Unit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\TenantRequest>
+ * @extends Factory<TenantRequest>
  */
 class TenantRequestFactory extends Factory
 {
@@ -67,7 +67,7 @@ class TenantRequestFactory extends Factory
             'resolved_at' => null,
             'closed_at' => null,
             'target_resolution_at' => $type->hasSla()
-                ? (clone $submittedAt)->modify('+' . ($type->slaHours()[$priority] ?? 72) . ' hours')
+                ? (clone $submittedAt)->modify('+'.($type->slaHours()[$priority] ?? 72).' hours')
                 : null,
             'scheduled_from' => null,
             'scheduled_to' => null,
@@ -98,7 +98,7 @@ class TenantRequestFactory extends Factory
                 ),
                 'category' => $subcategories === [] ? null : fake()->randomElement($subcategories),
                 'target_resolution_at' => $type->hasSla()
-                    ? (clone $submittedAt)->modify('+' . ($type->slaHours()[$priority] ?? 72) . ' hours')
+                    ? (clone $submittedAt)->modify('+'.($type->slaHours()[$priority] ?? 72).' hours')
                     : null,
             ];
         });

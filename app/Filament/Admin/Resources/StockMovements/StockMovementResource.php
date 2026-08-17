@@ -114,7 +114,7 @@ class StockMovementResource extends Resource
                 $movement->moved_on->format('Y-m-d'),
                 (string) data_get($movement, 'warehouse.name', ''),
                 (string) data_get($movement, 'item.name', ''),
-                __('admin.inventory.types.' . $movement->type),
+                __('admin.inventory.types.'.$movement->type),
                 round((float) $movement->quantity, 3),
                 (string) ($movement->reference ?? ''),
                 (string) data_get($movement, 'movedBy.name', ''),

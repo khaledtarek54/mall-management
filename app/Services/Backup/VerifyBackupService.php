@@ -68,7 +68,7 @@ class VerifyBackupService
         // Only MySQL is restorable this way. Say so rather than reporting a false green — a
         // verification that silently checks nothing is the exact failure mode this replaces.
         if (config("database.connections.{$connection}.driver") !== 'mysql') {
-            return [...$result, 'skipped' => true, 'reason' => "restore verification supports mysql only (driver: ".config("database.connections.{$connection}.driver").')'];
+            return [...$result, 'skipped' => true, 'reason' => 'restore verification supports mysql only (driver: '.config("database.connections.{$connection}.driver").')'];
         }
 
         $appDatabase = (string) config("database.connections.{$connection}.database");

@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ApplyLateFees;
 use App\Support\QueueJobSafety;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 
@@ -81,7 +82,7 @@ it('keeps retry_after longer than the longest job timeout', function () {
 it('serialises the late-fee sweep per day, so a manual run cannot race the scheduled one', function () {
     // The specific finding. Two runs for the SAME day must collide; two runs for different days
     // are different work and must not — a backfill of yesterday should not be blocked by tonight's.
-    $key = fn (?string $date): string => collect((new App\Jobs\ApplyLateFees($date))->middleware())
+    $key = fn (?string $date): string => collect((new ApplyLateFees($date))->middleware())
         ->first(fn ($m): bool => $m instanceof WithoutOverlapping)->key;
 
     expect($key('2026-08-12'))->toBe($key('2026-08-12'))
@@ -92,7 +93,7 @@ it('discards a colliding run rather than requeueing it', function () {
     // `dontRelease()`. The sweep is idempotent and runs again tomorrow, so releasing a collided run
     // back onto the queue only repeats work the first run is already doing — and on a job with
     // `$tries = 1` a released job is a job that fails.
-    $guard = collect((new App\Jobs\ApplyLateFees)->middleware())
+    $guard = collect((new ApplyLateFees)->middleware())
         ->first(fn ($m): bool => $m instanceof WithoutOverlapping);
 
     $releaseAfter = (new ReflectionProperty(WithoutOverlapping::class, 'releaseAfter'))->getValue($guard);

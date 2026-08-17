@@ -18,7 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: a spend line')]
 #[PropertyOwned(via: 'budget')]
-#[PostingDateGuardedBy(guard: \App\Models\MarketingSpend::class)]
+#[PostingDateGuardedBy(guard: MarketingSpend::class)]
 class MarketingSpend extends Model
 {
     use GuardsPostingDate, LogsActivity, SoftDeletes;

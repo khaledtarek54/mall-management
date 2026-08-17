@@ -7,6 +7,8 @@ use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Vendor;
 use Database\Seeders\RolesPermissionsSeeder;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
@@ -28,12 +30,12 @@ it('restricts delete to super_admin, even when another role holds the delete per
     // Use a still-deletable resource (Vendor): canDelete ignores the {module}.delete permission and
     // gates on the super_admin ROLE alone. (Money records like Invoice lost their .delete permission
     // entirely — they are never deletable; see DeletionPolicy.)
-    \Spatie\Permission\Models\Role::findByName('viewer', 'web')->givePermissionTo('vendors.delete');
-    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    Role::findByName('viewer', 'web')->givePermissionTo('vendors.delete');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->actingAs(makeUser('viewer'));
-    expect(VendorResource::canDelete(new Vendor()))->toBeFalse(); // holds vendors.delete, still can't delete
+    expect(VendorResource::canDelete(new Vendor))->toBeFalse(); // holds vendors.delete, still can't delete
 
     $this->actingAs(makeUser('super_admin'));
-    expect(VendorResource::canDelete(new Vendor()))->toBeTrue();
+    expect(VendorResource::canDelete(new Vendor))->toBeTrue();
 });

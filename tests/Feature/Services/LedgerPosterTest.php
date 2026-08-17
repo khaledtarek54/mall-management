@@ -1,16 +1,26 @@
 <?php
 
 use App\Models\CreditNote;
+use App\Models\InventoryItem;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\Lease;
 use App\Models\LedgerAccount;
 use App\Models\MarketingBudget;
+use App\Models\MarketingSpend;
 use App\Models\Payment;
+use App\Models\Vendor;
+use App\Models\VendorBill;
+use App\Models\VendorBillPayment;
+use App\Models\Warehouse;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\StockMovementService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
@@ -22,13 +32,13 @@ beforeEach(function () {
 });
 
 /** A lease whose unit belongs to a fresh asset. */
-function glLease(): \App\Models\Lease
+function glLease(): Lease
 {
     return makeLease(makeUnit(makeAsset()));
 }
 
 /** An issued invoice with two consistent items (rent 10,000 ex-VAT + service 1,000 + 140 VAT). */
-function glInvoice(\App\Models\Lease $lease): \App\Models\Invoice
+function glInvoice(Lease $lease): Invoice
 {
     $invoice = makeInvoice($lease, [
         'issue_date' => now()->toDateString(),
@@ -206,18 +216,18 @@ it('ties the GL receivables balance to the invoice balance after payment', funct
 it('skips a draft invoice — revenue is recognized only at issue', function () {
     $invoice = glInvoice(glLease());
     // Force a persisted draft (the model's auto-status hook would otherwise flip it).
-    \Illuminate\Support\Facades\DB::table('invoices')->where('id', $invoice->id)->update(['status' => 'draft']);
+    DB::table('invoices')->where('id', $invoice->id)->update(['status' => 'draft']);
 
     expect($this->poster->post($invoice->fresh()))->toBeNull();
 });
 
 it('skips a vendor-bill payment whose bill is not postable (draft/cancelled)', function () {
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
         'category' => 'utilities', 'status' => 'draft', 'bill_date' => now()->toDateString(),
         'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000, 'balance' => 1000,
     ]);
-    $payment = \App\Models\VendorBillPayment::create([
+    $payment = VendorBillPayment::create([
         'vendor_bill_id' => $bill->id, 'amount' => 500, 'method' => 'bank_transfer', 'payment_date' => now()->toDateString(),
     ]);
 
@@ -242,7 +252,7 @@ it('books a payment overpayment to unearned revenue', function () {
 });
 
 /** A marketing spend against a fresh property's marketing budget. */
-function glMarketingSpend(array $attrs = []): \App\Models\MarketingSpend
+function glMarketingSpend(array $attrs = []): MarketingSpend
 {
     $budget = MarketingBudget::create([
         'asset_id' => makeAsset()->id,
@@ -322,15 +332,15 @@ it('voids a marketing spend entry when the spend is soft-deleted', function () {
 function glInventory(): array
 {
     $asset = makeAsset();
-    $warehouse = \App\Models\Warehouse::create(['asset_id' => $asset->id, 'name' => 'Store', 'code' => 'S1']);
-    $item = \App\Models\InventoryItem::create(['sku' => 'SKU-' . uniqid(), 'name' => 'Seal', 'unit' => 'each', 'unit_cost' => 25]);
+    $warehouse = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Store', 'code' => 'S1']);
+    $item = InventoryItem::create(['sku' => 'SKU-'.uniqid(), 'name' => 'Seal', 'unit' => 'each', 'unit_cost' => 25]);
 
     return [$asset, $warehouse, $item];
 }
 
 it('journalizes a stock receipt as Dr Inventory / Cr GRNI (not the AP control)', function () {
     [$asset, $w, $i] = glInventory();
-    $movement = app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25); // value 250
+    $movement = app(StockMovementService::class)->receive($w, $i, 10, 25); // value 250
 
     $entry = $this->poster->post($movement->fresh());
 
@@ -345,8 +355,8 @@ it('journalizes a stock receipt as Dr Inventory / Cr GRNI (not the AP control)',
 
 it('journalizes stock consumption as Dr Maintenance Expense / Cr Inventory', function () {
     [, $w, $i] = glInventory();
-    app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25); // stock to consume from
-    $movement = app(\App\Services\StockMovementService::class)->record([
+    app(StockMovementService::class)->receive($w, $i, 10, 25); // stock to consume from
+    $movement = app(StockMovementService::class)->record([
         'warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'consumption', 'quantity' => 4, 'unit_cost' => 25,
     ]); // value 100
 
@@ -362,8 +372,8 @@ it('journalizes a shrinkage adjustment as Dr Inventory Adjustment / Cr Inventory
     [, $w, $i] = glInventory();
     // Stock it first — you cannot write off what was never received. The overdraw floor now
     // keys on the sign, so a negative adjustment is checked against on-hand too (F-84).
-    app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25);
-    $movement = app(\App\Services\StockMovementService::class)->adjust($w, $i, -2, ['unit_cost' => 25]); // value 50
+    app(StockMovementService::class)->receive($w, $i, 10, 25);
+    $movement = app(StockMovementService::class)->adjust($w, $i, -2, ['unit_cost' => 25]); // value 50
 
     $entry = $this->poster->post($movement->fresh());
 
@@ -378,8 +388,8 @@ it('does not post a stock transfer to the GL (intra-company move)', function () 
     // you cannot transfer out stock the warehouse doesn't hold. (Transfers are still unbuilt:
     // nothing in the app creates one. When they are built they need a paired atomic out/in,
     // and this floor is already the right guard for the out leg.)
-    app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25);
-    $movement = app(\App\Services\StockMovementService::class)->record([
+    app(StockMovementService::class)->receive($w, $i, 10, 25);
+    $movement = app(StockMovementService::class)->record([
         'warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'transfer_out', 'quantity' => 3, 'unit_cost' => 25,
     ]);
 
@@ -388,7 +398,7 @@ it('does not post a stock transfer to the GL (intra-company move)', function () 
 
 it('voids a stock movement entry when the movement is soft-deleted', function () {
     [, $w, $i] = glInventory();
-    $movement = app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25);
+    $movement = app(StockMovementService::class)->receive($w, $i, 10, 25);
     expect($this->poster->sync($movement->fresh()))->not->toBeNull();
 
     trashBypassingDeletionPolicy($movement);

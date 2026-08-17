@@ -2,13 +2,14 @@
 
 use App\Filament\Admin\Pages\ActivityLog;
 use Carbon\CarbonImmutable;
+use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
     $this->actingAs(makeUser('super_admin'));
-    \Filament\Facades\Filament::setTenant(makeAsset(['code' => 'HW']));
+    Filament::setTenant(makeAsset(['code' => 'HW']));
 
     // Anchor "now" so the period-preset math is deterministic.
     CarbonImmutable::setTestNow('2026-05-15 12:00:00');

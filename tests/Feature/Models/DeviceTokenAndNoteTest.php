@@ -1,15 +1,16 @@
 <?php
 
-use App\Support\MorphMap;
 use App\Models\DeviceToken;
 use App\Models\Lease;
 use App\Models\Note;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\MorphMap;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Spatie\Activitylog\Models\Activity;
 
 /* ───────────────────────── DeviceToken ───────────────────────── */
 
@@ -256,7 +257,7 @@ it('Note writes a spatie activity-log entry on the "note" log', function () {
         'body' => 'Activity should be recorded.',
     ]);
 
-    $logged = \Spatie\Activitylog\Models\Activity::query()
+    $logged = Activity::query()
         ->where('log_name', 'note')
         ->where('subject_type', MorphMap::alias(Note::class))
         ->where('subject_id', $note->id)

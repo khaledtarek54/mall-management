@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
+use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -28,7 +29,7 @@ class TenantRequestsRelationManager extends RelationManager
                 ->with(['unit', 'assignee'])
                 ->latest('submitted_at')
                 ->when(
-                    \App\Support\TenantScope::visibleAssetIds(),
+                    TenantScope::visibleAssetIds(),
                     fn ($q, $ids) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids)),
                 ))
             ->columns([

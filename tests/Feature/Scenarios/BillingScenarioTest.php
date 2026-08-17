@@ -15,8 +15,8 @@
 
 use App\Models\Charge;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Notifications\InvoiceIssuedNotification;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Notification;
@@ -44,7 +44,7 @@ function billingCharge(Lease $lease, array $attrs = []): Charge
 /** A lease commencing on the 1st so full-month billing is unambiguous. */
 function billingLease(array $attrs = []): Lease
 {
-    $asset = makeAsset(['code' => 'BIL' . strtoupper(substr(uniqid(), -3))]);
+    $asset = makeAsset(['code' => 'BIL'.strtoupper(substr(uniqid(), -3))]);
     $unit = makeUnit($asset, ['status' => 'occupied']);
 
     return makeLease($unit, null, array_merge([
@@ -138,7 +138,7 @@ it('dispatches the invoice-issued notification to the tenant on creation', funct
 
     Notification::assertSentTo(
         $lease->tenant,
-        \App\Notifications\InvoiceIssuedNotification::class,
+        InvoiceIssuedNotification::class,
     );
 });
 

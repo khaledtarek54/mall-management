@@ -105,9 +105,9 @@ it('declares no test helper function in two different files', function () {
         ->filter(fn (array $files) => count($files) > 1);
 
     expect($collisions->all())->toBe([], $collisions->isEmpty() ? '' : sprintf(
-        "These helper names are declared in more than one test file, which is a FATAL redeclaration "
+        'These helper names are declared in more than one test file, which is a FATAL redeclaration '
         ."on any single-process run (and invisible under --parallel):\n%s\n"
-        ."Reuse the existing helper, move it to tests/Pest.php, or give yours a distinct name.",
+        .'Reuse the existing helper, move it to tests/Pest.php, or give yours a distinct name.',
         $collisions->map(fn (array $files, string $name) => "  {$name}: ".implode(', ', $files))
             ->implode("\n"),
     ));

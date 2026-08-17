@@ -8,6 +8,7 @@ use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -97,9 +98,9 @@ class OwnerRequest extends Model
     /**
      * The conversation thread — replies oldest-first, so it reads top-to-bottom like a chat.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<OwnerRequestReply, $this>
+     * @return HasMany<OwnerRequestReply, $this>
      */
-    public function replies(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function replies(): HasMany
     {
         return $this->hasMany(OwnerRequestReply::class)->oldest();
     }

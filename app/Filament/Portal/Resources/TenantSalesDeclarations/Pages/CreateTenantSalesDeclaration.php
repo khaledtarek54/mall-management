@@ -2,14 +2,14 @@
 
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Pages;
 
-use App\Support\MorphMap;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Tenant;
 use App\Notifications\SalesDeclarationSubmittedNotification;
 use App\Services\AssetStaffRecipients;
 use App\Services\PercentageRentCalculationService;
+use App\Support\MorphMap;
+use App\Support\Portal;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 
 class CreateTenantSalesDeclaration extends CreateRecord
@@ -24,12 +24,12 @@ class CreateTenantSalesDeclaration extends CreateRecord
         // lease's (lease_id, period_start) unique slot (DoS'ing the victim's own reporting) and surface
         // a fabricated report on that mall's admin queue → potential misbilling. The mobile API's
         // CreateSalesDeclarationAction already enforces this; the portal page must too.
-        $data['lease_id'] = \App\Support\Portal::clampLeaseId($data['lease_id'] ?? null);
+        $data['lease_id'] = Portal::clampLeaseId($data['lease_id'] ?? null);
         abort_if($data['lease_id'] === null, 403);
 
         $data['declared_at'] ??= now();
         $data['declared_by_type'] = MorphMap::alias(Tenant::class);
-        $data['declared_by_id'] = \App\Support\Portal::tenantId();
+        $data['declared_by_id'] = Portal::tenantId();
         $data['status'] = 'submitted';
 
         return $data;

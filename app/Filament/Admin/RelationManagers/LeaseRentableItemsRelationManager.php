@@ -13,6 +13,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The parking bays, stores and signage faces a lease holds — on the lease itself.
@@ -31,7 +32,7 @@ class LeaseRentableItemsRelationManager extends RelationManager
 {
     protected static string $relationship = 'rentableItems';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.lease_rentable_items.title');
     }

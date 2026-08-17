@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\MarketingPost;
+use App\Services\MarketingPost\RejectMarketingPostService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -13,7 +14,7 @@ use Illuminate\Notifications\Notification;
  *
  * Bell + push, never email — same channel choice as {@see AnnouncementNotification}. The rejection
  * REASON is carried in the payload, not just the fact: a retailer told only "rejected" resubmits
- * the same artwork, which is the loop {@see \App\Services\MarketingPost\RejectMarketingPostService}
+ * the same artwork, which is the loop {@see RejectMarketingPostService}
  * exists to prevent.
  */
 class MarketingPostReviewedNotification extends Notification

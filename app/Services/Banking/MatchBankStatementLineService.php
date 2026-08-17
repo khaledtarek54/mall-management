@@ -2,8 +2,8 @@
 
 namespace App\Services\Banking;
 
-use App\Models\BankMatch;
 use App\Models\BankAccount;
+use App\Models\BankMatch;
 use App\Models\BankStatement;
 use App\Models\BankStatementLine;
 use App\Models\JournalLine;

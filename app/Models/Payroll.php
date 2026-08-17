@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Services\PayrollService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
-use App\Models\Concerns\HasSearchText;
-use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,11 +28,10 @@ use Spatie\Activitylog\Support\LogOptions;
 // — an operator-wide bill is not hidden because someone picked a mall. Declared, not implied:
 // scoping this strictly would hide those rows from every screen and nothing would fail loudly.
 #[PropertyOwned(portfolioRowsWhenNull: true)]
-#[PostingDateGuardedBy(guard: \App\Services\PayrollService::class)]
+#[PostingDateGuardedBy(guard: PayrollService::class)]
 class Payroll extends Model
 {
-    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
-
+    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [

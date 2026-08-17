@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\FacilityWorkOrder;
+use App\Models\SlaPenalty;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorContract;
@@ -75,7 +76,7 @@ it('logs a failed penalty assessment loudly — the vendor going uncharged is no
     $this->app->bind(AssessSlaPenaltyService::class, function () {
         return new class extends AssessSlaPenaltyService
         {
-            public function assess(FacilityWorkOrder $order): ?\App\Models\SlaPenalty
+            public function assess(FacilityWorkOrder $order): ?SlaPenalty
             {
                 throw new RuntimeException('contract terms unreadable');
             }

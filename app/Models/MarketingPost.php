@@ -3,21 +3,22 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Services\MarketingPost\PublishMarketingPostService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\MarketingFeedCache;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 // `Carbon\Carbon`, not `Illuminate\Support\Carbon`: the `datetime` cast is typed as the base class,
 // and `Illuminate\Support\Carbon` extends it — so declaring the base accepts what Laravel actually
 // hands back at runtime, while declaring the subclass makes `validUntil()` narrower than its own
 // return value. Widening the two parameter types below is safe: they still accept everything they
 // accepted before.
-use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
@@ -28,7 +29,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  *
  * Authored either by the operator's marketing team (published directly) or by the retailer from
  * /portal or the mobile API, in which case it waits in `pending` until an operator approves it.
- * See {@see \App\Services\MarketingPost\PublishMarketingPostService} and docs/modules/36-*.md.
+ * See {@see PublishMarketingPostService} and docs/modules/36-*.md.
  *
  * ## The one predicate: {@see scopeLiveFor}
  *

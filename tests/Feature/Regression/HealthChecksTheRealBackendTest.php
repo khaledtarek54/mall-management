@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ApplyLateFees;
 use App\Support\Health;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -30,9 +31,9 @@ it('counts the depth of the CONFIGURED queue, not every row in the jobs table', 
     config()->set('queue.connections.database.queue', 'reports');
     config()->set('queue.connections.database.driver', 'database');
 
-    Queue::connection('database')->push(new \App\Jobs\ApplyLateFees, '', 'reports');
-    Queue::connection('database')->push(new \App\Jobs\ApplyLateFees, '', 'default');
-    Queue::connection('database')->push(new \App\Jobs\ApplyLateFees, '', 'default');
+    Queue::connection('database')->push(new ApplyLateFees, '', 'reports');
+    Queue::connection('database')->push(new ApplyLateFees, '', 'default');
+    Queue::connection('database')->push(new ApplyLateFees, '', 'default');
 
     $check = Health::run()['checks']['queue'];
 

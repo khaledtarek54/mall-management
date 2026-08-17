@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -56,7 +57,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        $owned = \Illuminate\Support\Facades\DB::table('cam_allocations')->whereNull('lease_id')->count();
+        $owned = DB::table('cam_allocations')->whereNull('lease_id')->count();
 
         if ($owned > 0) {
             throw new RuntimeException(

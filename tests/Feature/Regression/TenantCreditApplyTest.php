@@ -1,6 +1,5 @@
 <?php
 
-use App\Support\MorphMap;
 use App\Models\AccountingPeriod;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
@@ -12,6 +11,8 @@ use App\Services\ApplyTenantCreditService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use App\Services\VoidInvoiceService;
 use App\Services\VoidPaymentService;
+use App\Settings\BillingSettings;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -27,7 +28,7 @@ beforeEach(function () {
     // Auto-apply OFF: these exercise the MANUAL apply path, where an operator chooses the
     // invoice and sometimes the amount. With the automatic trigger on, the credit would be
     // consumed by the invoice's own creation before the test could apply it deliberately.
-    app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit = false;
+    app(BillingSettings::class)->auto_apply_tenant_credit = false;
 
     $this->seed(RolesPermissionsSeeder::class);
     $this->seed(ChartOfAccountsSeeder::class);

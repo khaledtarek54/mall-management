@@ -23,6 +23,7 @@
 | Filament tenant, so the scoping tests run inside asTenant().
 */
 
+use App\Filament\Admin\Pages\Reports;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
@@ -31,6 +32,9 @@ use App\Services\Reports\ReportService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
@@ -53,7 +57,7 @@ function reportLease(array $assetAttrs = []): Lease
 function reportPayment(Invoice $invoice, array $attrs = []): Payment
 {
     $payment = Payment::create(array_merge([
-        'reference' => 'P-' . uniqid(),
+        'reference' => 'P-'.uniqid(),
         'tenant_id' => $invoice->tenant_id,
         'amount' => 1000,
         'currency' => 'EGP',
@@ -257,7 +261,7 @@ describe('AR aging bucket boundaries', function () {
         $asOf = CarbonImmutable::parse('2026-06-15');
 
         // Exactly on / around each cutoff — distinct balances tag each one.
-        agingInvoice($lease, $asOf, 0,  100);   // due today          → current
+        agingInvoice($lease, $asOf, 0, 100);   // due today          → current
         agingInvoice($lease, $asOf, 30, 200);   // 30 days overdue    → d_1_30  (<= 30)
         agingInvoice($lease, $asOf, 31, 400);   // 31 days overdue    → d_31_60 (> 30)
         agingInvoice($lease, $asOf, 60, 800);   // 60 days overdue    → d_31_60 (<= 60)
@@ -457,18 +461,18 @@ describe('reports.download permission', function () {
         $user = makeUser('accounting');
         // reports.download is granted via the accounting ROLE, so strip it there
         // (a user-level revoke wouldn't override the role grant).
-        \Spatie\Permission\Models\Role::findByName('accounting', 'web')->revokePermissionTo('reports.download');
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        Role::findByName('accounting', 'web')->revokePermissionTo('reports.download');
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->actingAs($user);
 
         expect($user->can('reports.view'))->toBeTrue()
             ->and($user->can('reports.download'))->toBeFalse();
 
-        $page = new \App\Filament\Admin\Pages\Reports;
+        $page = new Reports;
         $page->period = '2026-02';
 
         // With reports.download revoked the export is refused (403).
         expect(fn () => $page->downloadMonthlyClose())
-            ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+            ->toThrow(HttpException::class);
     });
 });

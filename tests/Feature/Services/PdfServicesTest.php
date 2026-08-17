@@ -42,7 +42,7 @@ it('InvoicePdfService filename is invoice number + .pdf', function () {
     $invoice = makeInvoice($this->lease);
 
     expect(app(InvoicePdfService::class)->filename($invoice))
-        ->toBe($invoice->number . '.pdf');
+        ->toBe($invoice->number.'.pdf');
 });
 
 it('TenantStatementPdfService builds a PDF with summary, open + recent invoices, payments', function () {
@@ -61,7 +61,7 @@ it('TenantStatementPdfService builds a PDF with summary, open + recent invoices,
     ]);
     Payment::create([
         'tenant_id' => $this->tenant->id,
-        'reference' => 'P-' . uniqid(),
+        'reference' => 'P-'.uniqid(),
         'amount' => 10000,
         'method' => 'bank_transfer',
         'status' => 'captured',

@@ -6,12 +6,14 @@ use App\Filament\Imports\MeterReadingImporter;
 use App\Models\Charge;
 use App\Models\Employee;
 use App\Models\MeterReading;
+use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Support\Vat;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChargeCodeSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\TaxCodeSeeder;
+use Filament\Actions\Imports\Models\Import;
 
 /**
  * The last three cut-over importers: payroll, charge schedules and meter readings.
@@ -35,7 +37,7 @@ beforeEach(function () {
 
     $this->asset = makeAsset(['code' => 'MALL']);
 
-    $this->import = \Filament\Actions\Imports\Models\Import::create([
+    $this->import = Import::create([
         'completed_at' => null,
         'file_name' => 'cutover.csv',
         'file_path' => 'cutover.csv',
@@ -43,7 +45,7 @@ beforeEach(function () {
         'processed_rows' => 0,
         'total_rows' => 1,
         'successful_rows' => 0,
-        'user_id' => \App\Models\User::factory()->create()->id,
+        'user_id' => User::factory()->create()->id,
     ]);
 });
 

@@ -1,6 +1,8 @@
 <?php
 
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
+use App\Filament\Admin\Resources\MarketingBudgets\Pages\EditMarketingBudget;
+use App\Filament\Admin\Resources\MarketingBudgets\RelationManagers\MarketingSpendsRelationManager;
 use App\Models\Charge;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
@@ -387,9 +389,9 @@ it('accepts a positive spend through the relation-manager form', function () {
 
     $budget = MarketingBudget::create(['asset_id' => $asset->id, 'period_year' => 2026, 'accrued_amount' => 1000]);
 
-    Livewire::test(\App\Filament\Admin\Resources\MarketingBudgets\RelationManagers\MarketingSpendsRelationManager::class, [
+    Livewire::test(MarketingSpendsRelationManager::class, [
         'ownerRecord' => $budget,
-        'pageClass' => \App\Filament\Admin\Resources\MarketingBudgets\Pages\EditMarketingBudget::class,
+        'pageClass' => EditMarketingBudget::class,
     ])
         ->callTableAction('create', data: [
             'category' => 'event',
@@ -410,9 +412,9 @@ it('rejects a negative spend amount at the form layer', function () {
 
     $budget = MarketingBudget::create(['asset_id' => $asset->id, 'period_year' => 2026, 'accrued_amount' => 1000]);
 
-    Livewire::test(\App\Filament\Admin\Resources\MarketingBudgets\RelationManagers\MarketingSpendsRelationManager::class, [
+    Livewire::test(MarketingSpendsRelationManager::class, [
         'ownerRecord' => $budget,
-        'pageClass' => \App\Filament\Admin\Resources\MarketingBudgets\Pages\EditMarketingBudget::class,
+        'pageClass' => EditMarketingBudget::class,
     ])
         ->callTableAction('create', data: [
             'category' => 'event',
@@ -433,9 +435,9 @@ it('rejects a missing/blank spend amount at the form layer', function () {
 
     $budget = MarketingBudget::create(['asset_id' => $asset->id, 'period_year' => 2026, 'accrued_amount' => 1000]);
 
-    Livewire::test(\App\Filament\Admin\Resources\MarketingBudgets\RelationManagers\MarketingSpendsRelationManager::class, [
+    Livewire::test(MarketingSpendsRelationManager::class, [
         'ownerRecord' => $budget,
-        'pageClass' => \App\Filament\Admin\Resources\MarketingBudgets\Pages\EditMarketingBudget::class,
+        'pageClass' => EditMarketingBudget::class,
     ])
         ->callTableAction('create', data: [
             'category' => 'event',

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Services\GrantCustodyService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -22,7 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: settled through SettleCustodyService')]
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\GrantCustodyService::class)]
+#[PostingDateGuardedBy(guard: GrantCustodyService::class)]
 class Custody extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;

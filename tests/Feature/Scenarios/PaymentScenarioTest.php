@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Notifications\PaymentReceivedNotification;
@@ -320,11 +321,11 @@ it('rejects allocating a payment to an invoice belonging to a different tenant',
 
     // The model guard must reject the cross-tenant allocation.
     expect(fn () => $payment->assertInvoicesShareTenant([$invoiceB->id]))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 
     // The same-tenant invoice passes the guard.
     expect(fn () => $payment->assertInvoicesShareTenant([$invoiceA->id]))
-        ->not->toThrow(\DomainException::class);
+        ->not->toThrow(DomainException::class);
 });
 
 // ============================================================
@@ -336,7 +337,7 @@ it('settles an invoice via the demo capture path and notifies the tenant', funct
 
     $invoice = futureDueInvoice(['total' => 11400, 'balance' => 11400]);
 
-    $payment = app(\App\Actions\Api\V1\Payments\RecordDemoPaymentAction::class)->handle($invoice);
+    $payment = app(RecordDemoPaymentAction::class)->handle($invoice);
 
     $invoice->refresh();
     expect($payment->status)->toBe('captured');
@@ -359,7 +360,7 @@ it('records the demo payment for only the remaining balance on a partially paid 
     expect((float) $invoice->balance)->toBe(4000.0);
 
     // The demo action pays the REMAINING balance only.
-    $payment = app(\App\Actions\Api\V1\Payments\RecordDemoPaymentAction::class)->handle($invoice);
+    $payment = app(RecordDemoPaymentAction::class)->handle($invoice);
 
     $invoice->refresh();
     expect((float) $payment->amount)->toBe(4000.0);

@@ -3,10 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Models\Lease;
-use Carbon\CarbonImmutable;
+use App\Models\Tenant;
 use App\Notifications\SalesDeclarationReminderNotification;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Remind percentage-rent tenants who have NOT submitted a sales declaration for a closed period.
@@ -32,7 +34,7 @@ class ScanMissingSalesDeclarationsCommand extends Command
         // Lock-safe (scheduled-scan invariant): serialize with a concurrent manual run — withoutOverlapping
         // only guards scheduler-vs-scheduler. Without a stampable row (a missing declaration has none),
         // an atomic cache lock is the analogue to the sibling scans' lockForUpdate + stamp.
-        $lock = \Illuminate\Support\Facades\Cache::lock('sales:scan-missing-declarations', 600);
+        $lock = Cache::lock('sales:scan-missing-declarations', 600);
         if (! $lock->get()) {
             $this->warn('Another sales-declaration scan is already running.');
 
@@ -73,7 +75,7 @@ class ScanMissingSalesDeclarationsCommand extends Command
 
         foreach ($leases as $lease) {
             $tenant = $lease->tenant;
-            if (! $tenant instanceof \App\Models\Tenant) {
+            if (! $tenant instanceof Tenant) {
                 continue;
             }
 
@@ -85,11 +87,13 @@ class ScanMissingSalesDeclarationsCommand extends Command
                 ->exists();
             if ($already) {
                 $skipped++;
+
                 continue;
             }
 
             if ($this->option('dry-run')) {
                 $this->line(sprintf('  would remind %s · %s · %s', $tenant->name, $lease->reference, $periodLabel));
+
                 continue;
             }
 
@@ -104,7 +108,7 @@ class ScanMissingSalesDeclarationsCommand extends Command
         }
 
         if ($this->option('dry-run')) {
-            $this->warn("Would remind {$leases->count()} tenant(s) for {$periodLabel} (".$leases->count()." missing).");
+            $this->warn("Would remind {$leases->count()} tenant(s) for {$periodLabel} (".$leases->count().' missing).');
 
             return self::SUCCESS;
         }

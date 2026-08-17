@@ -3,10 +3,12 @@
 use App\Models\AccountingPeriod;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Models\OwnerStatementRun;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\Accounting\PeriodService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
 use App\Services\OwnerAccounting\ReviseOwnerStatementRunService;
@@ -50,7 +52,7 @@ function postPandL($test, int $assetId, float $revenue, float $expense): void
     ]]);
 }
 
-function ownerRunEntry(App\Models\OwnerStatementRun $run): ?JournalEntry
+function ownerRunEntry(OwnerStatementRun $run): ?JournalEntry
 {
     return JournalEntry::where('source_type', $run->getMorphClass())
         ->where('source_id', $run->id)
@@ -149,7 +151,7 @@ it('refuses to finalise into a closed period (posting-date guard, in the service
     $run = $this->generate->generate($asset, $this->march);
 
     // Close March, then attempt to finalise with a March posting date.
-    app(App\Services\Accounting\PeriodService::class)->closePeriod($this->march);
+    app(PeriodService::class)->closePeriod($this->march);
 
     expect(fn () => $this->finalise->finalise($run, $owner, '2026-03-31'))
         ->toThrow(DomainException::class);

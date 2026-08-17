@@ -1,15 +1,21 @@
 <?php
 
+use App\Models\CamAllocation;
+use App\Models\CamExpensePool;
 use App\Models\Invoice;
+use App\Models\MarketingBudget;
 use App\Models\Payment;
+use App\Services\CamReconciliationService;
+use App\Services\MarketingLevyService;
+use App\Services\MonthlyBillingService;
 use App\Services\Reconciliation\BooksReconciliationService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
  * The reconciliation harness must (a) confirm clean books tie out and (b) actually
  * CATCH a stored value that drifted from its source — otherwise it gives false comfort.
  */
-
 function reconcile(?string $month = null): array
 {
     return app(BooksReconciliationService::class)->run($month);
@@ -74,14 +80,14 @@ it('catches a broken invoice composition (subtotal + VAT ≠ total)', function (
 it('catches a marketing budget whose accrued drifted from the billed levies', function () {
     $asset = makeAsset();
     $lease = makeLease(makeUnit($asset), null, ['commencement_date' => '2026-01-01', 'base_rent_monthly' => 10000]);
-    app(\App\Services\MarketingLevyService::class)->createLevyCharge($lease);
-    app(\App\Services\MonthlyBillingService::class)->generateForLease($lease->fresh(), \Illuminate\Support\Carbon::parse('2026-02-01')->toImmutable());
+    app(MarketingLevyService::class)->createLevyCharge($lease);
+    app(MonthlyBillingService::class)->generateForLease($lease->fresh(), Carbon::parse('2026-02-01')->toImmutable());
 
     // Clean: accrued is derived from the billed marketing line item → ties out.
     expect(reconcile()['ok'])->toBeTrue();
 
     // Corrupt the stored accrued_amount, bypassing the derive.
-    \App\Models\MarketingBudget::query()->update(['accrued_amount' => 99999]);
+    MarketingBudget::query()->update(['accrued_amount' => 99999]);
 
     $report = reconcile();
     expect($report['ok'])->toBeFalse();
@@ -92,17 +98,17 @@ it('catches a CAM allocation billed without a backing charge', function () {
     $asset = makeAsset();
     $unit = makeUnit($asset, ['area_sqm' => 100]);
     makeLease($unit, null, ['status' => 'active']);
-    $pool = \App\Models\CamExpensePool::create([
+    $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
         'total_actual_expense' => 10000, 'total_estimated_collected' => 8000, 'status' => 'draft',
     ]);
-    app(\App\Services\CamReconciliationService::class)->generateAllocations($pool);
+    app(CamReconciliationService::class)->generateAllocations($pool);
 
     // Clean: the pro-rata allocations sum to the pool's expense.
     expect(reconcile()['ok'])->toBeTrue();
 
     // Mark an allocation billed but strip its backing charge → drift.
-    \App\Models\CamAllocation::query()->update(['status' => 'billed', 'billed_charge_id' => null]);
+    CamAllocation::query()->update(['status' => 'billed', 'billed_charge_id' => null]);
 
     $report = reconcile();
     expect($report['ok'])->toBeFalse();

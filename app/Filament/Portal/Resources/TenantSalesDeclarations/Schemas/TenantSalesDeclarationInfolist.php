@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas;
 
+use App\Models\TenantSalesDeclaration;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -29,7 +30,7 @@ class TenantSalesDeclarationInfolist
                     TextEntry::make('report_status')
                         ->label(__('admin.fields.sales_report'))
                         ->state(fn ($record) => $record->hasReport()
-                            ? trans_choice('admin.tables.tenant_sales.report_count', $record->getMedia(\App\Models\TenantSalesDeclaration::REPORT_COLLECTION)->count())
+                            ? trans_choice('admin.tables.tenant_sales.report_count', $record->getMedia(TenantSalesDeclaration::REPORT_COLLECTION)->count())
                             : null)
                         ->placeholder('—')
                         ->badge()

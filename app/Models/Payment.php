@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
-use App\Models\Concerns\GuardsPostingDate;
 use App\Notifications\PaymentReceivedNotification;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
@@ -23,10 +23,10 @@ use Spatie\Activitylog\Support\LogOptions;
 // Payment was guarded only on the admin CREATE page, which left the edit form, the
 // portal, the mobile API and the console uncovered — moving a captured payment's date
 // into a closed month sailed through. On the model, every path is covered at once.
-#[PostingDateGuardedBy(guard: \App\Models\Payment::class)]
+#[PostingDateGuardedBy(guard: Payment::class)]
 class Payment extends Model
 {
-    use RefusesDeletionOfCommittedRecords, GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     /**
      * Receipt reference, the cheque it came on, and the gateway's own transaction id —
@@ -213,7 +213,7 @@ class Payment extends Model
                 (float) $invoice->payments()->whereIn('payments.status', self::RECEIVED_STATUSES)->sum('invoice_payment.allocated_amount')
                 + (float) $invoice->credit_applied_amount
                 + (float) TenantCreditApplication::where('invoice_id', $invoice->id)->sum('amount')
-                + (float) \App\Models\DepositApplication::where('invoice_id', $invoice->id)->sum('amount'),
+                + (float) DepositApplication::where('invoice_id', $invoice->id)->sum('amount'),
                 2,
             );
 
@@ -271,7 +271,7 @@ class Payment extends Model
                     ->sum('invoice_payment.allocated_amount');
 
                 $appliedTenantCredit = (float) TenantCreditApplication::where('invoice_id', $invoice->getKey())->sum('amount');
-                $appliedDeposit = (float) \App\Models\DepositApplication::where('invoice_id', $invoice->getKey())->sum('amount');
+                $appliedDeposit = (float) DepositApplication::where('invoice_id', $invoice->getKey())->sum('amount');
 
                 $fittable = max(0.0, round(
                     (float) $invoice->total
@@ -426,5 +426,4 @@ class Payment extends Model
     {
         return $this->isReceived();
     }
-
 }

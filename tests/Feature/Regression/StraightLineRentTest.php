@@ -1,19 +1,25 @@
 <?php
 
-use App\Support\MorphMap;
+use App\Models\AccountingPeriod;
 use App\Models\Charge;
+use App\Models\FiscalYear;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use App\Models\StraightLineRentAdjustment;
+use App\Services\Accounting\AccountResolver;
 use App\Services\ChargeScheduleService;
 use App\Services\MonthlyBillingService;
 use App\Services\PostStraightLineRentService;
 use App\Services\StraightLineRentService;
 use App\Settings\BillingSettings;
+use App\Support\MorphMap;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\Artisan;
 
 /**
  * Straight-line rent recognition (phase 5, story RA-02 — EAS 49 / IFRS 16).
@@ -35,8 +41,8 @@ afterEach(function () {
 });
 
 beforeEach(function () {
-    test()->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
-    test()->seed(\Database\Seeders\AccountMappingSeeder::class);
+    test()->seed(ChartOfAccountsSeeder::class);
+    test()->seed(AccountMappingSeeder::class);
 });
 
 /** A 3-year lease that steps up every year — the shape straight-lining exists for. */
@@ -156,7 +162,7 @@ it('posts Dr Deferred Rent / Cr Rental Income through the real sweep, and balanc
     $lease = steppedLease();
 
     app(PostStraightLineRentService::class)->postForMonth(CarbonImmutable::parse('2028-06-01'));
-    \Illuminate\Support\Facades\Artisan::call('accounting:sync-ledger', ['--all' => true]);
+    Artisan::call('accounting:sync-ledger', ['--all' => true]);
 
     $adjustment = StraightLineRentAdjustment::where('lease_id', $lease->id)->sole();
 
@@ -168,7 +174,7 @@ it('posts Dr Deferred Rent / Cr Rental Income through the real sweep, and balanc
         ->where('source_id', $adjustment->id)->where('status', 'posted')->sole();
 
     $lines = JournalLine::where('journal_entry_id', $entry->id)->get();
-    $resolver = app(\App\Services\Accounting\AccountResolver::class);
+    $resolver = app(AccountResolver::class);
     $assetId = $lease->unit->asset_id;
 
     expect(round((float) $lines->sum('debit'), 2))->toBe(10000.0)
@@ -184,12 +190,12 @@ it('flips the entry the other way once the ladder overtakes the average', functi
     $lease = steppedLease();
 
     app(PostStraightLineRentService::class)->postForMonth(CarbonImmutable::parse('2030-06-01'));
-    \Illuminate\Support\Facades\Artisan::call('accounting:sync-ledger', ['--all' => true]);
+    Artisan::call('accounting:sync-ledger', ['--all' => true]);
 
     $adjustment = StraightLineRentAdjustment::where('lease_id', $lease->id)->sole();
     $entry = JournalEntry::where('source_id', $adjustment->id)->where('source_type', MorphMap::alias(StraightLineRentAdjustment::class))->sole();
     $lines = JournalLine::where('journal_entry_id', $entry->id)->get();
-    $resolver = app(\App\Services\Accounting\AccountResolver::class);
+    $resolver = app(AccountResolver::class);
     $assetId = $lease->unit->asset_id;
 
     expect((float) $adjustment->adjustment_amount)->toBe(-10000.0)
@@ -224,10 +230,10 @@ it('re-derives forward only, leaving a closed month exactly as it was', function
     // January is signed off; February is not. The period has to be created here — the sweep's
     // `ensureFiscalYears()` has not run in this test, and with NO period the date is not closed
     // (a missing period and a closed one are opposites; see PostingDate::assertOpen).
-    $year = \App\Models\FiscalYear::create([
+    $year = FiscalYear::create([
         'year' => 2028, 'starts_on' => '2028-01-01', 'ends_on' => '2028-12-31', 'status' => 'open',
     ]);
-    \App\Models\AccountingPeriod::create([
+    AccountingPeriod::create([
         'fiscal_year_id' => $year->id, 'period_no' => 1,
         'starts_on' => '2028-01-01', 'ends_on' => '2028-01-31', 'status' => 'closed',
     ]);

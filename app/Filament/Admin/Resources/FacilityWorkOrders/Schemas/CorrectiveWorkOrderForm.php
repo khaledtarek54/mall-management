@@ -5,11 +5,11 @@ namespace App\Filament\Admin\Resources\FacilityWorkOrders\Schemas;
 use App\Models\FacilityWorkOrder;
 use App\Models\User;
 use App\Models\Vendor;
-use App\Support\AssignedAssets;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 
 /**
@@ -24,7 +24,7 @@ class CorrectiveWorkOrderForm
 {
     /**
      * @param  int|null  $assetId  the originating order's property — scopes the assignee list
-     * @return array<int,\Filament\Schemas\Components\Component>
+     * @return array<int,Component>
      */
     public static function fields(?int $assetId): array
     {

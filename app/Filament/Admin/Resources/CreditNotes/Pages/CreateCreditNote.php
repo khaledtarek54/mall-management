@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Models\Lease;
+use App\Support\PostingDate;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -28,7 +29,7 @@ class CreateCreditNote extends CreateRecord
         // guard so a closed period is a clean field-level toast, not an uncaught Livewire 500.
         if (in_array($data['status'] ?? 'draft', ['issued', 'applied'], true)) {
             try {
-                \App\Support\PostingDate::assertOpen($data['issue_date'] ?? null, __('admin.fields.issue_date'));
+                PostingDate::assertOpen($data['issue_date'] ?? null, __('admin.fields.issue_date'));
             } catch (\DomainException $e) {
                 Notification::make()->title($e->getMessage())->danger()->send();
                 $this->halt();
@@ -36,6 +37,7 @@ class CreateCreditNote extends CreateRecord
         }
 
         $data['issued_by_user_id'] = auth()->id();
+
         return $data;
     }
 

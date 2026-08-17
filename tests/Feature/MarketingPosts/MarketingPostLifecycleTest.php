@@ -1,11 +1,14 @@
 <?php
 
+use App\Models\Asset;
 use App\Models\MarketingPost;
+use App\Models\Tenant;
 use App\Services\MarketingPost\ApproveMarketingPostService;
 use App\Services\MarketingPost\ArchiveMarketingPostService;
 use App\Services\MarketingPost\PublishMarketingPostService;
 use App\Services\MarketingPost\RejectMarketingPostService;
 use App\Services\MarketingPost\SubmitMarketingPostService;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,7 +20,7 @@ use Illuminate\Support\Facades\Storage;
  * separately, in MarketingPostAuthzTest.
  */
 beforeEach(function (): void {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
 });
 
 /** Give a post the artwork publication requires, without touching a real filesystem. */
@@ -31,7 +34,7 @@ function attachHero(MarketingPost $post): MarketingPost
 }
 
 /** A tenant actually trading in the given property — what SubmitMarketingPostService demands. */
-function makeTradingTenant(\App\Models\Asset $asset): \App\Models\Tenant
+function makeTradingTenant(Asset $asset): Tenant
 {
     $tenant = makeTenant();
     makeLease(makeUnit($asset), $tenant, ['status' => 'active']);

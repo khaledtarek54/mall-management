@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Asset;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Services\CamReconciliationService;
+use App\Services\RemeasureUnitService;
 
 /**
  * CAM must apportion on the lease's TOTAL leased area — every unit on the lease — not the master
@@ -19,7 +21,7 @@ use App\Services\CamReconciliationService;
  *
  * Found by the Yardi benchmark — docs/benchmarks/yardi/04-scenarios.md S5.
  */
-function makeCamPool(\App\Models\Asset $asset, array $attrs = []): CamExpensePool
+function makeCamPool(Asset $asset, array $attrs = []): CamExpensePool
 {
     return CamExpensePool::create(array_merge([
         'asset_id' => $asset->id,
@@ -95,7 +97,7 @@ it('freezes the corrected share on a re-run rather than recomputing it', functio
     // Through RemeasureUnitService, and dated back into the pool's year: an area is a dated record
     // now, so a bare column edit is refused AND a remeasurement dated after the period would leave
     // areaOn(period) untouched — which would make this pass without exercising the freeze at all.
-    app(\App\Services\RemeasureUnitService::class)->record($extraA, 5000, [
+    app(RemeasureUnitService::class)->record($extraA, 5000, [
         'effective_from' => $pool->period_year.'-01-01',
     ]);
     $service->generateAllocations($pool->fresh());

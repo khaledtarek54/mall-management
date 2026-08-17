@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting\Journalizers;
 
+use App\Models\Invoice;
 use App\Models\TenantCreditApplication;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
@@ -36,7 +37,7 @@ class TenantCreditApplicationJournalizer implements Journalizer
         }
 
         $assetId = $app->asset_id;
-        $ref = \App\Models\Invoice::whereKey($app->invoice_id)->value('number') ?? ('#'.$app->invoice_id);
+        $ref = Invoice::whereKey($app->invoice_id)->value('number') ?? ('#'.$app->invoice_id);
 
         return [
             'entry_date' => $app->entry_date,

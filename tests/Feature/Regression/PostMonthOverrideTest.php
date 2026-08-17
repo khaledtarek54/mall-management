@@ -2,6 +2,8 @@
 
 use App\Models\AccountingPeriod;
 use App\Models\JournalEntry;
+use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\SetPostMonthService;
@@ -44,12 +46,12 @@ function openMonth(string $month): AccountingPeriod
     return AccountingPeriod::forDate(CarbonImmutable::parse($month)->startOfMonth());
 }
 
-function billDated(string $date): \App\Models\VendorBill
+function billDated(string $date): VendorBill
 {
     $asset = makeAsset();
 
-    return \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::create([
+    return VendorBill::create([
+        'vendor_id' => Vendor::create([
             'name' => 'Supplier '.fake()->unique()->numberBetween(1, 99999),
             'asset_id' => $asset->id,
             'status' => 'active',

@@ -1,17 +1,17 @@
 <?php
 
-use App\Support\MorphMap;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
-use App\Models\TenantRequest;
-use App\Models\TenantRequestComment;
 use App\Models\MeterReading;
 use App\Models\Note;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
 use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Models\Vendor;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
+use App\Support\MorphMap;
 
 beforeEach(function () {
     $this->asset = makeAsset();
@@ -103,7 +103,7 @@ it('Note morphs to a noteable and belongs to author', function () {
 
 it('CreditNoteItem belongs to a CreditNote', function () {
     $cn = CreditNote::create([
-        'reference' => 'CN-' . uniqid(),
+        'reference' => 'CN-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'issue_date' => now(),
         'status' => 'issued',
@@ -126,7 +126,7 @@ it('CreditNoteItem belongs to a CreditNote', function () {
 it('TenantRequestComment relates to request + polymorphic author', function () {
     $user = User::create(['name' => 'U', 'email' => 'u@t.test', 'password' => bcrypt('x')]);
     $mr = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id,
         'title' => 'AC', 'description' => 'broken',
         'status' => 'submitted', 'priority' => 'high', 'category' => 'hvac',
@@ -149,7 +149,7 @@ it('TenantRequestComment relates to request + polymorphic author', function () {
 it('MeterReading belongs to UtilityMeter', function () {
     $meter = UtilityMeter::create([
         'asset_id' => $this->asset->id, 'unit_id' => $this->unit->id,
-        'meter_number' => 'M-' . uniqid(),
+        'meter_number' => 'M-'.uniqid(),
         'type' => 'water', 'unit_of_measurement' => 'm3', 'status' => 'active',
     ]);
     $reading = MeterReading::create([

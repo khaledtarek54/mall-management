@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Expense;
+use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Services\Reports\ReportService;
@@ -27,7 +28,7 @@ it('classifies each category fixed vs variable, defaulting an unknown one to var
 
 it('sums weekly spend split fixed/variable, ex-VAT, across expenses + bills, scoped to the property', function () {
     $asset = makeAsset(['code' => 'WSP']);
-    $this->actingAs(\App\Models\User::factory()->create());
+    $this->actingAs(User::factory()->create());
     Filament::setTenant($asset);
 
     $wk = CarbonImmutable::now()->startOfWeek(CarbonInterface::MONDAY);
@@ -70,7 +71,7 @@ it('sums weekly spend split fixed/variable, ex-VAT, across expenses + bills, sco
 
 it('pre-seeds every week in the range so a spend-free week reads as zero, not a gap', function () {
     $asset = makeAsset(['code' => 'ZRO']);
-    $this->actingAs(\App\Models\User::factory()->create());
+    $this->actingAs(User::factory()->create());
     Filament::setTenant($asset);
 
     $to = CarbonImmutable::now()->endOfWeek(CarbonInterface::SUNDAY);

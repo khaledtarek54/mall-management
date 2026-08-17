@@ -23,7 +23,7 @@ return new class extends Migration
             $table->decimal('amount', 12, 2);
             $table->string('currency', 3)->default('EGP');
             $table->enum('frequency', ['monthly', 'quarterly', 'annually', 'one_time'])
-                  ->default('monthly');
+                ->default('monthly');
             $table->boolean('vat_applicable')->default(true);
             $table->decimal('vat_rate', 5, 2)->default(14.00);
             $table->date('start_date')->nullable();

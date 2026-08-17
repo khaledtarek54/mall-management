@@ -12,13 +12,17 @@ use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Field;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 /**
  * Per-employee payroll lines (module 24, Phase 3). Add one line per employee to a
@@ -179,7 +183,7 @@ class PayrollLinesRelationManager extends RelationManager
                     ->visible(fn () => $this->runIsEditable())
                     ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
                     ->schema([
-                        \Filament\Forms\Components\Select::make('employee_id')
+                        Select::make('employee_id')
                             ->label(__('admin.payroll_lines.fields.employee'))
                             ->options(fn () => $this->employeeOptions())
                             ->required()
@@ -235,12 +239,12 @@ class PayrollLinesRelationManager extends RelationManager
                         'advance_deduction' => (float) $record->advance_deduction,
                     ])
                     ->schema([
-                        \Filament\Forms\Components\Select::make('employee_advance_id')
+                        Select::make('employee_advance_id')
                             ->label(__('admin.payroll_lines.deduct_advance.advance'))
                             ->options(fn (PayrollLine $record) => $this->advanceOptions($record))
                             ->native(false)
                             ->helperText(__('admin.payroll_lines.deduct_advance.advance_helper')),
-                        \Filament\Forms\Components\TextInput::make('advance_deduction')
+                        TextInput::make('advance_deduction')
                             ->label(__('admin.payroll_lines.deduct_advance.amount'))
                             ->numeric()->minValue(0)->default(0)->prefix('EGP')
                             ->helperText(__('admin.payroll_lines.deduct_advance.amount_helper')),
@@ -325,7 +329,7 @@ class PayrollLinesRelationManager extends RelationManager
      * net (a payslip printing "Net −1,000"). The model enforces the same invariant as a
      * backstop; this validates it inline so the operator sees it on the field, not a 500.
      *
-     * @return array<int, \Filament\Forms\Components\Field>
+     * @return array<int, Field>
      */
     private function moneyFields(): array
     {
@@ -345,7 +349,7 @@ class PayrollLinesRelationManager extends RelationManager
         };
 
         return [
-            \Filament\Forms\Components\Hidden::make('advance_deduction')->dehydrated(false),
+            Hidden::make('advance_deduction')->dehydrated(false),
             TextInput::make('gross')->label(__('admin.payroll_lines.fields.gross'))->helperText(__('admin.payroll_lines.fields.gross_helper'))->numeric()->minValue(0)->required()->prefix('EGP')
                 ->rule($netRule), // lowering gross below the retained deductions drives net negative
             TextInput::make('allowances')->label(__('admin.payroll_lines.fields.allowances'))->helperText(__('admin.payroll_lines.fields.allowances_helper'))->numeric()->minValue(0)->default(0)->prefix('EGP')
@@ -361,7 +365,7 @@ class PayrollLinesRelationManager extends RelationManager
                 ->rule($netRule),
             TextInput::make('other_deductions')->label(__('admin.payroll_lines.fields.other_deductions'))->helperText(__('admin.payroll_lines.fields.other_deductions_helper'))->numeric()->minValue(0)->default(0)->prefix('EGP')
                 ->rule($netRule), // full net incl. the retained advance installment
-            \Filament\Forms\Components\TextInput::make('deduction_note')->label(__('admin.payroll_lines.fields.deduction_note'))->maxLength(255)->placeholder(__('admin.payroll_lines.fields.deduction_note_placeholder')),
+            TextInput::make('deduction_note')->label(__('admin.payroll_lines.fields.deduction_note'))->maxLength(255)->placeholder(__('admin.payroll_lines.fields.deduction_note_placeholder')),
             TextInput::make('employer_social_insurance')->label(__('admin.payroll_lines.fields.employer_social_insurance'))->helperText(__('admin.payroll_lines.fields.employer_social_insurance_helper'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
         ];
     }
@@ -405,9 +409,9 @@ class PayrollLinesRelationManager extends RelationManager
      * the employee, so this also blocks repaying an out-of-scope loan). `outstanding()` isn't a
      * column, so filter in PHP — an employee has only a handful of advances.
      *
-     * @return \Illuminate\Support\Collection<int, EmployeeAdvance>
+     * @return Collection<int, EmployeeAdvance>
      */
-    private function eligibleAdvances(PayrollLine $record): \Illuminate\Support\Collection
+    private function eligibleAdvances(PayrollLine $record): Collection
     {
         if (! $record->employee_id) {
             return collect();

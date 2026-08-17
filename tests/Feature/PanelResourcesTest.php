@@ -1,14 +1,12 @@
 <?php
 
 use App\Filament\Portal\Resources\Invoices\InvoiceResource as PortalInvoiceResource;
-use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource as PortalMRResource;
 use App\Filament\Portal\Resources\Payments\PaymentResource as PortalPaymentResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource as PortalMRResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource as PortalTSDResource;
-use App\Models\Asset;
-use App\Models\TenantRequest;
 use App\Models\Payment;
+use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
-use App\Models\User;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
@@ -36,7 +34,7 @@ it('Portal InvoiceResource filters to invoices the authenticated tenant owns', f
 it('Portal PaymentResource scoped via Auth::guard(portal)', function () {
     $payment = Payment::create([
         'tenant_id' => $this->tenant->id,
-        'reference' => 'P-' . uniqid(),
+        'reference' => 'P-'.uniqid(),
         'amount' => 500,
         'method' => 'cash',
         'status' => 'captured',
@@ -46,7 +44,7 @@ it('Portal PaymentResource scoped via Auth::guard(portal)', function () {
     $strangerTenant = makeTenant();
     $strangerPay = Payment::create([
         'tenant_id' => $strangerTenant->id,
-        'reference' => 'P-' . uniqid(),
+        'reference' => 'P-'.uniqid(),
         'amount' => 200, 'method' => 'cash', 'status' => 'captured',
         'currency' => 'EGP', 'payment_date' => now(),
     ]);
@@ -60,7 +58,7 @@ it('Portal PaymentResource scoped via Auth::guard(portal)', function () {
 
 it('Portal TenantRequestResource scoped via Auth::guard(portal); canCreate=true', function () {
     $mine = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id,
         'title' => 't', 'description' => 'd',
         'status' => 'submitted', 'priority' => 'medium', 'category' => 'hvac',

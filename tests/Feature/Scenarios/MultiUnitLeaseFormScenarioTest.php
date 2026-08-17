@@ -24,8 +24,10 @@ use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
+use App\Models\Lease;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -74,7 +76,7 @@ it('creates a multi-unit lease through the create form and occupies every unit',
         ->call('create')
         ->assertHasNoFormErrors();
 
-    $lease = \App\Models\Lease::where('tenant_id', $tenant->id)->firstOrFail();
+    $lease = Lease::where('tenant_id', $tenant->id)->firstOrFail();
 
     // Pivot is the source of truth: 3 units, master mirrored to unit_id.
     $ids = $lease->units()->pluck('units.id')->all();
@@ -98,7 +100,7 @@ it('creates a single-unit lease (no additional ids) with exactly one master pivo
         ->call('create')
         ->assertHasNoFormErrors();
 
-    $lease = \App\Models\Lease::where('tenant_id', $tenant->id)->firstOrFail();
+    $lease = Lease::where('tenant_id', $tenant->id)->firstOrFail();
 
     expect($lease->units()->pluck('units.id')->all())->toBe([$master->id])
         ->and((bool) $lease->units()->first()->pivot->is_master)->toBeTrue()
@@ -171,7 +173,7 @@ it('swaps the additional unit on edit — old freed, new occupied', function () 
 */
 
 /** Resolve the option keys for the additional_unit_ids select on a mounted page. */
-function additionalUnitOptionKeys(\Livewire\Features\SupportTesting\Testable $page): array
+function additionalUnitOptionKeys(Testable $page): array
 {
     $component = $page->instance()->form->getComponent('additional_unit_ids');
 
@@ -246,10 +248,10 @@ it('shows the "+ <code>" additional-units line only for multi-unit leases', func
 
 it('description helper renders "+ <codes>" for additional units and null for single-unit', function () {
     // Exercise the exact column description closure both ways.
-    $describe = function (\App\Models\Lease $lease): ?string {
+    $describe = function (Lease $lease): ?string {
         $extra = $lease->units->reject(fn ($u) => $u->pivot->is_master);
 
-        return $extra->isNotEmpty() ? '+ ' . $extra->pluck('code')->join(', ') : null;
+        return $extra->isNotEmpty() ? '+ '.$extra->pluck('code')->join(', ') : null;
     };
 
     $solo = makeLease(makeUnit($this->asset, ['code' => 'D-SOLO']), null, ['status' => 'active']);
@@ -289,7 +291,7 @@ it('lets leasing, manager and super_admin reach the lease Create + Edit pages', 
         ->call('create')
         ->assertHasNoFormErrors();
 
-    $lease = \App\Models\Lease::where('tenant_id', $tenant->id)->firstOrFail();
+    $lease = Lease::where('tenant_id', $tenant->id)->firstOrFail();
     expect($lease->units()->pluck('units.id')->all())->toContain($extra->id)
         ->and(LeaseResource::canEdit($lease))->toBeTrue("{$role} canEdit");
 

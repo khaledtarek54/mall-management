@@ -57,7 +57,7 @@ it('refuses to post a journal entry whose date falls in a CLOSED period', functi
     expect($june->fresh()->status)->toBe('closed');
 
     expect(fn () => periodEntry('2026-06-20'))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 
     // Nothing landed on the books for June.
     expect(JournalEntry::whereDate('entry_date', '2026-06-20')->count())->toBe(0);
@@ -73,7 +73,7 @@ it('refuses to void a posted entry that lives in a CLOSED period once the curren
 
     // reversalPeriod tries the entry's own period then now() — both June, both closed → refuse.
     expect(fn () => app(JournalPostingService::class)->void($entry->fresh(), 'test'))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 
     expect($entry->fresh()->status)->toBe('posted'); // still on the books, untouched
 });
@@ -81,7 +81,7 @@ it('refuses to void a posted entry that lives in a CLOSED period once the curren
 it('lets a closed period be reopened and posted into again (reopen semantics)', function () {
     $june = AccountingPeriod::forDate(Carbon::create(2026, 6, 15));
     app(PeriodService::class)->closePeriod($june);
-    expect(fn () => periodEntry('2026-06-18'))->toThrow(\DomainException::class);
+    expect(fn () => periodEntry('2026-06-18'))->toThrow(DomainException::class);
 
     // Reopen restores posting.
     $reopened = app(PeriodService::class)->reopenPeriod($june->fresh());
@@ -120,7 +120,7 @@ it('closing one period leaves its sibling periods in the same year open (period 
 
     // Posting into the still-open sibling works; posting into the closed one does not.
     expect(periodEntry('2026-07-05')->status)->toBe('posted');
-    expect(fn () => periodEntry('2026-06-05'))->toThrow(\DomainException::class);
+    expect(fn () => periodEntry('2026-06-05'))->toThrow(DomainException::class);
 });
 
 it('reopens a whole fiscal year and its periods after a clean close (year reopen semantics)', function () {
@@ -131,7 +131,7 @@ it('reopens a whole fiscal year and its periods after a clean close (year reopen
         ->and($closed->periods()->where('status', 'open')->count())->toBe(0);
 
     // A closed year refuses fresh posts anywhere inside it.
-    expect(fn () => periodEntry('2026-06-15'))->toThrow(\DomainException::class);
+    expect(fn () => periodEntry('2026-06-15'))->toThrow(DomainException::class);
 
     $reopened = app(PeriodService::class)->reopenFiscalYear($year->fresh());
     expect($reopened->status)->toBe('open')

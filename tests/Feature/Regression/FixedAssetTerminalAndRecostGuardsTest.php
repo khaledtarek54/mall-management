@@ -3,6 +3,7 @@
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Services\DisposeFixedAssetService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -52,7 +53,7 @@ function depreciateMonths(FixedAsset $fixed, int $months): void
     $svc = app(DepreciationService::class);
 
     for ($i = 0; $i < $months; $i++) {
-        $svc->run(\Carbon\CarbonImmutable::parse('2026-01-01')->addMonths($i));
+        $svc->run(CarbonImmutable::parse('2026-01-01')->addMonths($i));
     }
 }
 

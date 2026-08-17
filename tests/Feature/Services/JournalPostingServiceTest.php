@@ -2,9 +2,11 @@
 
 use App\Models\AccountingPeriod;
 use App\Models\JournalEntry;
+use App\Models\LedgerAccount;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
+use App\Services\Accounting\PeriodService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -142,10 +144,10 @@ it('postDraft rejects an unbalanced saved draft', function () {
 
 it('void() refuses and creates no reversal when no open period exists', function () {
     $je = $this->post->post(invoicePayload($this->r));
-    app(\App\Services\Accounting\PeriodService::class)->closePeriod(AccountingPeriod::forDate(now()));
+    app(PeriodService::class)->closePeriod(AccountingPeriod::forDate(now()));
 
     $before = JournalEntry::count();
-    expect(fn () => $this->post->void($je->fresh()))->toThrow(\DomainException::class);
+    expect(fn () => $this->post->void($je->fresh()))->toThrow(DomainException::class);
     expect(JournalEntry::count())->toBe($before);
     expect($je->fresh()->status)->toBe('posted');
 });
@@ -155,19 +157,19 @@ it('postDraft() no-ops a posted entry and refuses a voided one', function () {
     expect($this->post->postDraft($posted->fresh())->id)->toBe($posted->id); // already posted → no-op
 
     $this->post->void($posted->fresh());
-    expect(fn () => $this->post->postDraft($posted->fresh()))->toThrow(\DomainException::class);
+    expect(fn () => $this->post->postDraft($posted->fresh()))->toThrow(DomainException::class);
 });
 
 it('rejects a single-line payload', function () {
     expect(fn () => $this->post->post([
         'entry_date' => now()->toDateString(),
         'lines' => [['ledger_account_id' => $this->r->id('accounts_receivable'), 'debit' => 100, 'credit' => 0]],
-    ]))->toThrow(\DomainException::class);
+    ]))->toThrow(DomainException::class);
 });
 
 it('rejects a line referencing an inactive account', function () {
-    \App\Models\LedgerAccount::where('code', '41101001')->update(['is_active' => false]);
-    $inactive = \App\Models\LedgerAccount::where('code', '41101001')->value('id');
+    LedgerAccount::where('code', '41101001')->update(['is_active' => false]);
+    $inactive = LedgerAccount::where('code', '41101001')->value('id');
 
     expect(fn () => $this->post->post([
         'entry_date' => now()->toDateString(),
@@ -175,5 +177,5 @@ it('rejects a line referencing an inactive account', function () {
             ['ledger_account_id' => $this->r->id('accounts_receivable'), 'debit' => 1000, 'credit' => 0],
             ['ledger_account_id' => $inactive, 'debit' => 0, 'credit' => 1000],
         ],
-    ]))->toThrow(\DomainException::class);
+    ]))->toThrow(DomainException::class);
 });

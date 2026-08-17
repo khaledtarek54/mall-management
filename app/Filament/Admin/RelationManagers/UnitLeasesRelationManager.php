@@ -2,11 +2,13 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Who has occupied this unit, and when.
@@ -28,7 +30,7 @@ class UnitLeasesRelationManager extends RelationManager
 {
     protected static string $relationship = 'allLeases';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.unit_leases.title');
     }
@@ -79,8 +81,8 @@ class UnitLeasesRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.open'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (Lease $record): string => \App\Filament\Admin\Resources\Leases\LeaseResource::getUrl('edit', ['record' => $record]))
-                    ->visible(fn (Lease $record): bool => \App\Filament\Admin\Resources\Leases\LeaseResource::canEdit($record)),
+                    ->url(fn (Lease $record): string => LeaseResource::getUrl('edit', ['record' => $record]))
+                    ->visible(fn (Lease $record): bool => LeaseResource::canEdit($record)),
             ])
             ->defaultSort('commencement_date', 'desc')
             ->emptyStateIcon('heroicon-o-document-text')

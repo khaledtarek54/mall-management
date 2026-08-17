@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Services\TenantRequestService;
+
 /**
  * The kinds of request a tenant can raise. "Maintenance" is the original — the
  * others generalise the feature so a tenant can request anything (see
@@ -93,7 +95,7 @@ enum TenantRequestType: string
      * an enquiry is answered. Forcing an approve/reject on those would make the operator pick a
      * word that does not describe what they did.
      *
-     * @see \App\Services\TenantRequestService::transition()  refuses to resolve one of these blind
+     * @see TenantRequestService::transition()  refuses to resolve one of these blind
      */
     public function requiresDecision(): bool
     {

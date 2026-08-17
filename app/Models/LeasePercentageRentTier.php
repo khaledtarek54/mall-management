@@ -151,7 +151,7 @@ class LeasePercentageRentTier extends Model
      * Ordered bands for a lease. Sorted by floor because the ladder's meaning is positional and a
      * mis-ordered set would charge the wrong rate on the wrong slice.
      *
-     * @return \Illuminate\Support\Collection<int, self>
+     * @return Collection<int, self>
      */
     public static function ladderFor(Lease $lease): Collection
     {

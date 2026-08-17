@@ -32,7 +32,7 @@ it('documents every live /api/v1 route (no undocumented endpoints)', function ()
     $documented = [];
     foreach ($spec['paths'] as $path => $operations) {
         foreach ($operations as $method => $_) {
-            $documented[strtoupper($method) . ' ' . $path] = true;
+            $documented[strtoupper($method).' '.$path] = true;
         }
     }
 
@@ -42,16 +42,16 @@ it('documents every live /api/v1 route (no undocumented endpoints)', function ()
             continue;
         }
         // api/v1/me/balance  ->  /v1/me/balance  (Scramble strips the `api` base path)
-        $specPath = '/' . Str::after($route->uri(), 'api/');
+        $specPath = '/'.Str::after($route->uri(), 'api/');
         foreach ($route->methods() as $method) {
             if (in_array($method, ['HEAD', 'OPTIONS'], true)) {
                 continue;
             }
-            if (! isset($documented[$method . ' ' . $specPath])) {
-                $missing[] = $method . ' ' . $route->uri();
+            if (! isset($documented[$method.' '.$specPath])) {
+                $missing[] = $method.' '.$route->uri();
             }
         }
     }
 
-    expect($missing)->toBe([], 'Undocumented /api/v1 routes — regenerate the spec (php artisan api:export-spec): ' . implode(', ', $missing));
+    expect($missing)->toBe([], 'Undocumented /api/v1 routes — regenerate the spec (php artisan api:export-spec): '.implode(', ', $missing));
 });

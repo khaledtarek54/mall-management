@@ -1,12 +1,17 @@
 <?php
 
+use App\Models\BankAccount;
+use App\Models\BankStatement;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Banking\ReconcileBankStatementService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Every service that SUMS journal lines must count `posted` **and** `void`.
@@ -37,7 +42,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) now()->format('Y'));
+    app(FiscalCalendar::class)->ensureYear((int) now()->format('Y'));
 
     $this->accounts = app(AccountResolver::class);
     $this->bank = $this->accounts->account('bank');
@@ -70,10 +75,10 @@ it('keeps the bank reconciliation agreeing with the ledger after a void', functi
     // The same account, read the way the bank reconciliation reads it. Two independent readings of
     // one number must agree — this single assertion is what the four `posted`-only sites all
     // violated, each in their own file.
-    $fromBankRec = round((float) \App\Models\JournalLine::query()
+    $fromBankRec = round((float) JournalLine::query()
         ->where('ledger_account_id', $this->bank->id)
         ->whereHas('entry', fn ($q) => $q->whereIn('status', JournalEntry::REPORTABLE_STATUSES))
-        ->sum(\Illuminate\Support\Facades\DB::raw('COALESCE(debit, 0) - COALESCE(credit, 0)')), 2);
+        ->sum(DB::raw('COALESCE(debit, 0) - COALESCE(credit, 0)')), 2);
 
     expect($fromBankRec)->toBe($fromReports)
         ->and($fromBankRec)->toBe(250000.0);
@@ -109,7 +114,7 @@ it('reads the same closing balance through the reconciliation service itself', f
     $entry = postBankEntry(80000);
     app(JournalPostingService::class)->void($entry, 'duplicate');
 
-    $account = \App\Models\BankAccount::create([
+    $account = BankAccount::create([
         'asset_id' => makeAsset()->id,
         'name' => 'Main',
         'bank_name' => 'CIB',
@@ -119,7 +124,7 @@ it('reads the same closing balance through the reconciliation service itself', f
         'is_active' => true,
     ]);
 
-    $statement = \App\Models\BankStatement::create([
+    $statement = BankStatement::create([
         'bank_account_id' => $account->id,
         'period_start' => now()->startOfMonth()->toDateString(),
         'period_end' => now()->endOfMonth()->toDateString(),

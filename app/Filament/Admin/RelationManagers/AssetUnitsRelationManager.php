@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Unit;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -10,12 +11,13 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class AssetUnitsRelationManager extends RelationManager
 {
     protected static string $relationship = 'units';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.resources.unit.plural');
     }
@@ -43,7 +45,7 @@ class AssetUnitsRelationManager extends RelationManager
                     ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.category.{$state}") : '—'),
                 TextColumn::make('area_sqm')
                     ->label(__('admin.tables.unit.area'))
-                    ->formatStateUsing(fn ($state) => number_format((float) $state, 0) . ' m²')
+                    ->formatStateUsing(fn ($state) => number_format((float) $state, 0).' m²')
                     ->sortable(),
                 TextColumn::make('activeLease.tenant.name')
                     ->label(__('admin.tables.unit.tenant'))
@@ -83,7 +85,7 @@ class AssetUnitsRelationManager extends RelationManager
             ->defaultSort('code')
             ->recordActions([
                 EditAction::make()
-                    ->url(fn (Unit $record) => \App\Filament\Admin\Resources\Units\UnitResource::getUrl('edit', ['record' => $record])),
+                    ->url(fn (Unit $record) => UnitResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

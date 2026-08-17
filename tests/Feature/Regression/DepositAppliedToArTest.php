@@ -1,6 +1,5 @@
 <?php
 
-use App\Support\MorphMap;
 use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\Invoice;
@@ -8,10 +7,15 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Services\Accounting\AccountResolver;
 use App\Services\ApplyDepositToInvoiceService;
 use App\Services\MoveOutStatementService;
 use App\Services\SettleMoveOutService;
+use App\Support\MorphMap;
 use Carbon\CarbonImmutable;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\Artisan;
 
 /**
  * Netting a security deposit against arrears (story MF-03, scenario S8 — completed 2026-08-09).
@@ -30,8 +34,8 @@ afterEach(fn () => CarbonImmutable::setTestNow());
 beforeEach(function () {
     // Both seeders: the chart supplies the accounts, the mapping is what `AccountResolver` reads to
     // turn a key like `deposits_held` into one.
-    test()->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
-    test()->seed(\Database\Seeders\AccountMappingSeeder::class);
+    test()->seed(ChartOfAccountsSeeder::class);
+    test()->seed(AccountMappingSeeder::class);
 });
 
 /**
@@ -194,7 +198,7 @@ it('posts Dr Deposits Held / Cr AR and ties out through the real sweep', functio
         ->and(round((float) $lines->sum('credit'), 2))->toBe(120000.0)
         ->and($entry->entry_date->toDateString())->toBe('2028-09-18');
 
-    $codeFor = fn (string $key) => app(\App\Services\Accounting\AccountResolver::class)
+    $codeFor = fn (string $key) => app(AccountResolver::class)
         ->id($key, $lease->unit->asset_id);
 
     expect((float) $lines->firstWhere('ledger_account_id', $codeFor('deposits_held'))->debit)->toBe(120000.0)
@@ -212,8 +216,8 @@ it('keeps GL receivables tied to invoice balances after a deposit settles one', 
 
     app(ApplyDepositToInvoiceService::class)->apply($lease, $invoice);
 
-    \Illuminate\Support\Facades\Artisan::call('accounting:sync-ledger', ['--all' => true]);
-    $output = \Illuminate\Support\Facades\Artisan::output();
+    Artisan::call('accounting:sync-ledger', ['--all' => true]);
+    $output = Artisan::output();
 
     expect($output)->toContain('GL ties to AR')
         ->and($output)->not->toContain('GL ↔ AR delta');

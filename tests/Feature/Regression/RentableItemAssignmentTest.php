@@ -1,10 +1,14 @@
 <?php
 
+use App\Models\Asset;
+use App\Models\ChargeCode;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
 use App\Services\MonthlyBillingService;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Letting a parking bay, store or signage face — and billing it (space model).
@@ -20,7 +24,7 @@ use Carbon\CarbonImmutable;
  */
 afterEach(fn () => CarbonImmutable::setTestNow());
 
-function itemFor(\App\Models\Asset $asset, string $code, float $rate = 900): RentableItem
+function itemFor(Asset $asset, string $code, float $rate = 900): RentableItem
 {
     return RentableItem::create([
         'asset_id' => $asset->id,
@@ -30,7 +34,7 @@ function itemFor(\App\Models\Asset $asset, string $code, float $rate = 900): Ren
     ]);
 }
 
-function leaseFor(\App\Models\Asset $asset, string $unitCode = 'S-01'): Lease
+function leaseFor(Asset $asset, string $unitCode = 'S-01'): Lease
 {
     return makeLease(makeUnit($asset, ['code' => $unitCode, 'area_sqm' => 100]), null, [
         'status' => 'active',
@@ -191,7 +195,7 @@ it('refuses to let the SAME lease take the same bay twice', function () {
     expect(fn () => $service->assign($lease->fresh(), $item->fresh(), ['effective_from' => '2026-04-01']))
         ->toThrow(DomainException::class);
 
-    expect(\Illuminate\Support\Facades\DB::table('lease_rentable_item')->count())->toBe(1)
+    expect(DB::table('lease_rentable_item')->count())->toBe(1)
         ->and((float) $lease->fresh()->charges()->where('type', 'parking')->sole()->amount)->toBe(900.0);
 });
 
@@ -244,7 +248,7 @@ it('bills parking VAT only when the accountant has ruled it taxable', function (
         ->and((float) $row->vat_rate)->toBe(0.0);
 
     // The accountant rules that parking is a taxable supply — one row, no deploy.
-    \App\Models\ChargeCode::updateOrCreate(
+    ChargeCode::updateOrCreate(
         ['code' => 'parking'],
         ['name_en' => 'Parking', 'name_ar' => 'مواقف', 'tax_code' => 'VAT_14'],
     );
@@ -255,7 +259,7 @@ it('bills parking VAT only when the accountant has ruled it taxable', function (
 
     expect((bool) $taxedRow->vat_applicable)->toBeTrue()
         // The settings-driven standard rate, never a literal.
-        ->and((float) $taxedRow->vat_rate)->toBe(\App\Support\Vat::standardRate())
+        ->and((float) $taxedRow->vat_rate)->toBe(Vat::standardRate())
         // …and the earlier lease is untouched: origination only, so a rate change never rewrites
         // what was already billed.
         ->and((bool) $exempt->fresh()->charges()->where('type', 'parking')->sole()->vat_applicable)

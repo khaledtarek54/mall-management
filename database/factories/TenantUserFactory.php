@@ -3,11 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * @extends Factory<\App\Models\TenantUser>
+ * @extends Factory<TenantUser>
  */
 class TenantUserFactory extends Factory
 {
@@ -27,7 +28,7 @@ class TenantUserFactory extends Factory
             // Tenant has no factory yet — create the company record inline using
             // the same valid shape as the makeTenant() Pest helper.
             'tenant_id' => fn () => Tenant::create([
-                'name' => 'Tenant ' . fake()->unique()->numerify('######'),
+                'name' => 'Tenant '.fake()->unique()->numerify('######'),
                 'email' => fake()->unique()->safeEmail(),
                 'type' => 'company',
                 'status' => 'active',

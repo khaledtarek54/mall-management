@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Payment;
 use App\Services\DisputeInvoiceItemService;
 use App\Services\LateFeeService;
 use App\Services\Reports\ReportService;
@@ -26,7 +28,7 @@ use Carbon\CarbonImmutable;
  */
 afterEach(fn () => CarbonImmutable::setTestNow());
 
-function overdueTwoLineInvoice(): \App\Models\Invoice
+function overdueTwoLineInvoice(): Invoice
 {
     $lease = makeLease(makeUnit(makeAsset(), ['code' => 'DP-1']), null, ['status' => 'active']);
 
@@ -52,7 +54,7 @@ function overdueTwoLineInvoice(): \App\Models\Invoice
     return $invoice->fresh();
 }
 
-function disputeThe(string $type, \App\Models\Invoice $invoice, string $reason = 'Tenant contests the 2026 CAM reconciliation.'): InvoiceItem
+function disputeThe(string $type, Invoice $invoice, string $reason = 'Tenant contests the 2026 CAM reconciliation.'): InvoiceItem
 {
     /** @var InvoiceItem $item */
     $item = $invoice->items()->where('type', $type)->firstOrFail();
@@ -113,7 +115,7 @@ it('disputes only what is still owed on a part-paid line', function () {
     CarbonImmutable::setTestNow('2026-04-01');
     $invoice = overdueTwoLineInvoice();
 
-    $payment = \App\Models\Payment::create([
+    $payment = Payment::create([
         'tenant_id' => $invoice->tenant_id, 'amount' => 36000,
         'payment_date' => '2026-03-20', 'method' => 'bank_transfer', 'status' => 'captured',
     ]);
@@ -150,7 +152,7 @@ it('refuses a dispute on a line that is already settled', function () {
     CarbonImmutable::setTestNow('2026-04-01');
     $invoice = overdueTwoLineInvoice();
 
-    $payment = \App\Models\Payment::create([
+    $payment = Payment::create([
         'tenant_id' => $invoice->tenant_id, 'amount' => 40000,
         'payment_date' => '2026-03-20', 'method' => 'bank_transfer', 'status' => 'captured',
     ]);

@@ -11,6 +11,7 @@ use App\Filament\Admin\Resources\Departments\Schemas\DepartmentForm;
 use App\Filament\Admin\Resources\Departments\Tables\DepartmentsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Department;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -107,7 +108,7 @@ class DepartmentResource extends Resource
         // everyone; property-scoped ones only within the user's visible set. Mirrors
         // Department::selectableOptions(). visibleAssetIds() = null for portfolio
         // users (super_admin / owners), who then see all departments.
-        $ids = \App\Support\TenantScope::visibleAssetIds();
+        $ids = TenantScope::visibleAssetIds();
         if ($ids !== null) {
             $query->where(fn (Builder $q) => $q->whereNull('asset_id')->orWhereIn('asset_id', $ids));
         }

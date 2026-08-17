@@ -2,9 +2,9 @@
 
 namespace App\Actions\Api\V1\Requests;
 
+use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
-use App\Models\Tenant;
 use App\Services\TenantRequestService;
 
 /**

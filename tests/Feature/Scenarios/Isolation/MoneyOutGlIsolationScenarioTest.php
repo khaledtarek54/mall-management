@@ -10,6 +10,7 @@ use App\Models\JournalEntry;
 use App\Models\Payroll;
 use App\Models\Vendor;
 use App\Models\VendorBill;
+use Database\Seeders\RolesPermissionsSeeder;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
@@ -34,7 +35,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * that regression file does not touch.
  */
 beforeEach(function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 
     $this->assetA = makeAsset(['code' => 'MOA']);
@@ -47,7 +48,7 @@ beforeEach(function () {
 function makeExpenseFor(?int $assetId): Expense
 {
     return Expense::create([
-        'number' => 'EXP-' . uniqid(),
+        'number' => 'EXP-'.uniqid(),
         'asset_id' => $assetId,
         'category' => 'admin',
         'amount' => 1000,
@@ -62,14 +63,14 @@ function makeExpenseFor(?int $assetId): Expense
 function makeVendorBillFor(?int $assetId): VendorBill
 {
     $vendor = Vendor::create([
-        'name' => 'Vendor ' . uniqid(),
-        'slug' => 'vendor-' . uniqid(),
+        'name' => 'Vendor '.uniqid(),
+        'slug' => 'vendor-'.uniqid(),
         'type' => 'supplier',
         'status' => 'active',
     ]);
 
     return VendorBill::create([
-        'number' => 'BILL-' . uniqid(),
+        'number' => 'BILL-'.uniqid(),
         'vendor_id' => $vendor->id,
         'asset_id' => $assetId,
         'category' => 'maintenance',
@@ -87,7 +88,7 @@ function makeVendorBillFor(?int $assetId): VendorBill
 function makePayrollFor(?int $assetId): Payroll
 {
     return Payroll::create([
-        'number' => 'PR-' . uniqid(),
+        'number' => 'PR-'.uniqid(),
         'asset_id' => $assetId,
         'period_month' => '2026-07-01',
         'gross_salaries' => 50000,
@@ -102,7 +103,7 @@ function makePayrollFor(?int $assetId): Payroll
 function makeJournalEntryFor(?int $assetId): JournalEntry
 {
     return JournalEntry::create([
-        'number' => 'JE-' . uniqid(),
+        'number' => 'JE-'.uniqid(),
         'entry_date' => '2026-07-01',
         'description_en' => 'Test entry',
         'is_manual' => true,

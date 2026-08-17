@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\TenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
 use App\Models\Unit;
 
 beforeEach(function () {
@@ -14,7 +14,7 @@ beforeEach(function () {
 function makeResolvedTenantRequest(Unit $unit, Tenant $tenant, array $overrides = []): TenantRequest
 {
     return TenantRequest::create(array_merge([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $tenant->id,
         'unit_id' => $unit->id,
         'title' => 'Old ticket',

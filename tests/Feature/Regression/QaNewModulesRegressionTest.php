@@ -1,10 +1,13 @@
 <?php
 
+use App\Filament\Admin\RelationManagers\PayrollLinesRelationManager;
+use App\Filament\Admin\Resources\Payrolls\Pages\EditPayroll;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Models\Employee;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
 use App\Models\Payroll;
+use App\Models\PayrollLine;
 use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
@@ -15,6 +18,8 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Regressions for the QA-sweep findings across the new modules (22-26).
@@ -36,7 +41,7 @@ it('rejects consuming more stock than is on hand (no negative stock / phantom CO
     $this->stock->receive($w, $i, 5, 25);
 
     expect(fn () => $this->stock->record(['warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'consumption', 'quantity' => 6]))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($this->stock->onHand($i, $w))->toBe(5.0); // unchanged
 });
@@ -98,7 +103,7 @@ it('rejects a negative disposal proceeds', function () {
     ]);
 
     expect(fn () => app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => -500]))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($fa->fresh()->status)->toBe('active'); // not disposed
 });
@@ -114,7 +119,7 @@ it('rejects an out-of-scope asset_id on a warehouse (assertAssetInScope)', funct
     expect(true)->toBeTrue();
 
     expect(fn () => WarehouseResource::assertAssetInScope($assetB->id))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 /* ---- #8 duplicate payroll line ------------------------------------------- */
@@ -133,13 +138,13 @@ it('rejects a duplicate employee line on a payroll run (no raw unique-constraint
     // The RM add_line action's server-side backstop rejects a tampered duplicate.
     asTenant($asset, function () use ($run, $emp) {
         try {
-            \Livewire\Livewire::test(\App\Filament\Admin\RelationManagers\PayrollLinesRelationManager::class, [
-                'ownerRecord' => $run, 'pageClass' => \App\Filament\Admin\Resources\Payrolls\Pages\EditPayroll::class,
+            Livewire::test(PayrollLinesRelationManager::class, [
+                'ownerRecord' => $run, 'pageClass' => EditPayroll::class,
             ])->callTableAction('add_line', data: ['employee_id' => $emp->id, 'gross' => 3000]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // abort(422) surfaces as an exception on the Livewire path.
         }
     });
 
-    expect(\App\Models\PayrollLine::where('payroll_id', $run->id)->where('employee_id', $emp->id)->count())->toBe(1);
+    expect(PayrollLine::where('payroll_id', $run->id)->where('employee_id', $emp->id)->count())->toBe(1);
 });

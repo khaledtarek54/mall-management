@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -9,7 +10,7 @@ beforeEach(function () {
     ensureAllPropertiesAsset();
     // ETA is postponed/off by default — these filters are module-gated, so enable
     // the module to exercise them.
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->eta = true;
     $settings->save();
     $this->asset = makeAsset();

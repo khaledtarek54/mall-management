@@ -4,10 +4,12 @@ use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\LedgerAccount;
 use App\Services\CamReconciliationService;
 use App\Services\CamStatementPdfService;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Database\Seeders\ChartOfAccountsSeeder;
 
 /**
  * The reconciliation statement a tenant can audit (phase 6, story RC-06).
@@ -132,10 +134,10 @@ it('reports no cap section for a lease that has none', function () {
 it('names the ledger accounts behind the pool when it was sourced from the GL', function () {
     // The audit answer to "where did 400,000 come from". A pool that was typed says so instead.
     CarbonImmutable::setTestNow('2029-01-15');
-    test()->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
+    test()->seed(ChartOfAccountsSeeder::class);
     [$asset, $lease] = statementSetup();
 
-    $account = \App\Models\LedgerAccount::where('is_postable', true)->where('type', 'expense')->firstOrFail();
+    $account = LedgerAccount::where('is_postable', true)->where('type', 'expense')->firstOrFail();
 
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2028, 'status' => 'draft',

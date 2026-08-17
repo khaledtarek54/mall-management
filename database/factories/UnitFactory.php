@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<\App\Models\Unit>
+ * @extends Factory<Unit>
  */
 class UnitFactory extends Factory
 {
@@ -22,7 +22,7 @@ class UnitFactory extends Factory
         return [
             // Asset has no factory; mirror the makeAsset() helper from tests/Pest.php.
             'asset_id' => fn () => Asset::create([
-                'name' => 'Asset ' . uniqid(),
+                'name' => 'Asset '.uniqid(),
                 'code' => strtoupper(substr(uniqid(), -6)),
                 'type' => 'mall',
                 'city' => 'Cairo',
@@ -33,7 +33,7 @@ class UnitFactory extends Factory
                 'is_active' => true,
             ])->id,
             // Unique per (asset_id, code); keep it globally unique to be safe.
-            'code' => strtoupper(fake()->bothify('?-##')) . '-' . Str::upper(Str::random(4)),
+            'code' => strtoupper(fake()->bothify('?-##')).'-'.Str::upper(Str::random(4)),
             // Floors are a per-property register now, not a free-text column. Left null: a
             // factory that invented a floor would have to invent the property's register with it,
             // and every test that cares assigns one explicitly.

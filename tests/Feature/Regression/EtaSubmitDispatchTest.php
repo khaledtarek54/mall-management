@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Jobs\SubmitInvoiceToEta;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -17,7 +18,7 @@ beforeEach(function () {
     ensureAllPropertiesAsset();
     // ETA is postponed/off by default — this suite exercises the feature, so
     // enable the module for these tests.
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->eta = true;
     $settings->save();
 });

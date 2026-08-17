@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\WriteOffInvoiceService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -29,7 +30,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 // model; the day one exists, ScopesToProperty would emit `whereHas('asset', asset_id = ?)` against
 // a table with no such column. The declaration now matches the schema.
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\WriteOffInvoiceService::class)]
+#[PostingDateGuardedBy(guard: WriteOffInvoiceService::class)]
 class InvoiceWriteOff extends Model
 {
     use HasFactory, SoftDeletes;

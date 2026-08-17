@@ -2,6 +2,7 @@
 
 use App\Models\Invoice;
 use App\Services\LateFeeService;
+use App\Settings\BillingSettings;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,7 +21,7 @@ beforeEach(function () {
     // The admin Settings page writes BillingSettings while LateFeeService read the config file
     // (populated from env), so every late-fee value an operator saved on that screen was ignored.
     // A test that configured the config file passed while the real screen did nothing.
-    $settings = app(\App\Settings\BillingSettings::class);
+    $settings = app(BillingSettings::class);
     $settings->late_fee_percent = 5;
     $settings->late_fee_grace_days = 7;
 });

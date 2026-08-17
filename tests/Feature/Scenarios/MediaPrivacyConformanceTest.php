@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Lease;
+use App\Models\Tenant;
 use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 
@@ -83,7 +85,7 @@ it('finds the HasMedia models it is meant to be guarding', function () {
     // A guard that silently matches nothing is worse than no guard. If this fails, the
     // discovery above broke — fix it before trusting anything below.
     expect(mediaModels())->not->toBeEmpty()
-        ->and(mediaModels())->toContain(\App\Models\Lease::class, \App\Models\Tenant::class);
+        ->and(mediaModels())->toContain(Lease::class, Tenant::class);
 });
 
 it('registers every media collection it uses', function () {
@@ -154,7 +156,7 @@ it('does not allowlist a collection that no longer exists', function () {
 it('stores lease and tenant documents on a private disk', function () {
     // The specific regression, named: these two are the confidential ones — a signed
     // contract and a retailer's tax card.
-    foreach ([\App\Models\Lease::class, \App\Models\Tenant::class] as $class) {
+    foreach ([Lease::class, Tenant::class] as $class) {
         $documents = collect(collectionsOf($class))->firstWhere('name', 'documents');
 
         expect($documents)->not->toBeNull("{$class} no longer registers a 'documents' collection.")

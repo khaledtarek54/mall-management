@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Asset;
+use App\Support\AssignedAssets;
 use Filament\Facades\Filament;
 
 beforeEach(function () {
@@ -30,8 +30,8 @@ it('non-super-admin user gets restricted to assigned properties via AssignedAsse
     $user = makeUser('manager', [$a->id]);
     $this->actingAs($user);
 
-    expect(\App\Support\AssignedAssets::idsForCurrentUser())->toEqual([$a->id]);
-    expect(\App\Support\AssignedAssets::isRestricted($user))->toBeTrue();
+    expect(AssignedAssets::idsForCurrentUser())->toEqual([$a->id]);
+    expect(AssignedAssets::isRestricted($user))->toBeTrue();
 });
 
 it('super_admin bypasses property scoping', function () {
@@ -39,6 +39,6 @@ it('super_admin bypasses property scoping', function () {
     $admin = makeUser('super_admin');
     $this->actingAs($admin);
 
-    expect(\App\Support\AssignedAssets::idsForCurrentUser())->toBeNull();
-    expect(\App\Support\AssignedAssets::isRestricted($admin))->toBeFalse();
+    expect(AssignedAssets::idsForCurrentUser())->toBeNull();
+    expect(AssignedAssets::isRestricted($admin))->toBeFalse();
 });

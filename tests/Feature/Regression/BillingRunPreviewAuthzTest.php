@@ -1,12 +1,15 @@
 <?php
 
 use App\Filament\Admin\Pages\BillingRunPreview;
+use App\Models\Asset;
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Models\Lease;
 use App\Support\Vat;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The preview page renders for anyone who may READ invoices; POSTING from it is gated separately
@@ -26,7 +29,7 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
-function billableLeaseIn(\App\Models\Asset $asset): \App\Models\Lease
+function billableLeaseIn(Asset $asset): Lease
 {
     $lease = makeLease(makeUnit($asset), makeTenant(), [
         'status' => 'active',
@@ -83,7 +86,7 @@ it('refuses a read-only viewer POSTING the run, when the action closure is reach
     expect($action)->not->toBeNull();
 
     expect(fn () => $action->call())
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect(Invoice::count())->toBe(0); // nothing minted, nothing posted to the GL
 });

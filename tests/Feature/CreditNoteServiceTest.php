@@ -21,15 +21,15 @@ class CreditNoteServiceTest extends TestCase
     private function scaffold(): array
     {
         $asset = Asset::create([
-            'name' => 'A', 'code' => 'A-' . uniqid(),
+            'name' => 'A', 'code' => 'A-'.uniqid(),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 100, 'leasable_area_sqm' => 100,
             'currency' => 'EGP', 'is_active' => true,
         ]);
-        $unit = Unit::create(['asset_id' => $asset->id, 'code' => 'U-' . uniqid(), 'area_sqm' => 100, 'status' => 'occupied']);
-        $tenant = Tenant::create(['name' => 'T', 'email' => uniqid() . '@t.test', 'status' => 'active']);
+        $unit = Unit::create(['asset_id' => $asset->id, 'code' => 'U-'.uniqid(), 'area_sqm' => 100, 'status' => 'occupied']);
+        $tenant = Tenant::create(['name' => 'T', 'email' => uniqid().'@t.test', 'status' => 'active']);
         $lease = Lease::create([
-            'reference' => 'L-' . uniqid(), 'unit_id' => $unit->id, 'tenant_id' => $tenant->id,
+            'reference' => 'L-'.uniqid(), 'unit_id' => $unit->id, 'tenant_id' => $tenant->id,
             'status' => 'active', 'commencement_date' => '2026-01-01', 'expiry_date' => '2026-12-31',
             'term_months' => 12, 'base_rent_monthly' => 5000, 'currency' => 'EGP', 'payment_terms_days' => 7,
         ]);
@@ -64,6 +64,7 @@ class CreditNoteServiceTest extends TestCase
             'description' => 'Adjustment',
             'amount' => $total, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => $total,
         ]);
+
         return $note->refresh();
     }
 

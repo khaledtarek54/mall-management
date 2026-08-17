@@ -56,7 +56,7 @@ class AssetsTable
                     // read by nothing — this is what it was implicitly asking: how much of the
                     // building can actually be let. ~70% is normal for a mall; a figure far outside
                     // that usually means one of the two areas is wrong.
-                    ->description(fn (\App\Models\Asset $record): ?string => $record->leasableEfficiencyPct() !== null
+                    ->description(fn (Asset $record): ?string => $record->leasableEfficiencyPct() !== null
                         ? __('admin.tables.asset.of_gross', [
                             'gross' => number_format((float) $record->total_area_sqm, 0),
                             'pct' => number_format($record->leasableEfficiencyPct(), 1),
@@ -72,7 +72,7 @@ class AssetsTable
                     // Null when there is no leasable area to measure — a property with no units is
                     // UNCONFIGURED, not empty, and a red 0% would say the opposite. The model keeps
                     // its 0.0 contract; the distinction lives here, where it is displayed.
-                    ->state(fn (\App\Models\Asset $record): ?float => $record->totalUnitAreaSqm() > 0
+                    ->state(fn (Asset $record): ?float => $record->totalUnitAreaSqm() > 0
                         ? $record->areaOccupancyRate()
                         : null)
                     ->formatStateUsing(fn (?float $state): string => $state === null
@@ -85,7 +85,7 @@ class AssetsTable
                         default => 'danger',
                     })
                     // What the percentage is made of, so the number is never a dead end.
-                    ->description(fn (\App\Models\Asset $record): ?string => $record->totalUnitAreaSqm() > 0
+                    ->description(fn (Asset $record): ?string => $record->totalUnitAreaSqm() > 0
                         ? __('admin.tables.asset.occupancy_detail', [
                             'let' => number_format($record->occupiedAreaSqm(), 0),
                             'total' => number_format($record->totalUnitAreaSqm(), 0),

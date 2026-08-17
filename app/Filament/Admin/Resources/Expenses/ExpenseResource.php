@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Expenses;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -72,7 +73,7 @@ class ExpenseResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -99,12 +100,13 @@ class ExpenseResource extends Resource
             'search_text',
         ];
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  Expense  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                           can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
@@ -114,5 +116,4 @@ class ExpenseResource extends Resource
             __('admin.fields.expense_date') => $record->expense_date->format('d/m/Y'),
         ];
     }
-
 }

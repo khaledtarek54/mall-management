@@ -59,4 +59,3 @@ it('excludes ended and not-yet-started ownership from the current set', function
         ->and($shares->has($ended->id))->toBeFalse()
         ->and($shares->has($future->id))->toBeFalse();
 });
-

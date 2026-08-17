@@ -2,7 +2,6 @@
 
 use App\Models\Violation;
 use Illuminate\Http\UploadedFile;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Violations gained a category + photographic evidence (module 31). A violation classified only by

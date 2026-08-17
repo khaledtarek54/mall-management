@@ -28,16 +28,18 @@ class MergeCoverageCommand extends Command
         $dir = base_path($this->option('dir'));
         if (! is_dir($dir)) {
             $this->error("Coverage directory not found: {$dir}");
+
             return self::FAILURE;
         }
 
-        $files = glob($dir . '/*.cov') ?: [];
+        $files = glob($dir.'/*.cov') ?: [];
         if ($files === []) {
             $this->warn("No .cov files in {$dir} — did the server boot with COVERAGE=1?");
+
             return self::FAILURE;
         }
 
-        $this->info("Merging " . count($files) . " coverage dumps...");
+        $this->info('Merging '.count($files).' coverage dumps...');
 
         $merged = null;
         foreach ($files as $i => $file) {
@@ -55,10 +57,12 @@ class MergeCoverageCommand extends Command
                 }
             } catch (\Throwable $e) {
                 $this->warn("Skipping unreadable dump {$file}: {$e->getMessage()}");
+
                 continue;
             }
             if (! $cov instanceof CodeCoverage) {
                 $this->warn("Skipping {$file}: not a CodeCoverage object");
+
                 continue;
             }
 
@@ -68,12 +72,13 @@ class MergeCoverageCommand extends Command
             }
 
             if ($i > 0 && $i % 50 === 0) {
-                $this->line("  merged {$i}/" . count($files));
+                $this->line("  merged {$i}/".count($files));
             }
         }
 
         if ($merged === null) {
             $this->error('No valid coverage dumps found.');
+
             return self::FAILURE;
         }
 
@@ -96,7 +101,7 @@ class MergeCoverageCommand extends Command
             foreach ($files as $f) {
                 @unlink($f);
             }
-            $this->line('Cleaned up ' . count($files) . ' .cov dumps.');
+            $this->line('Cleaned up '.count($files).' .cov dumps.');
         }
 
         return self::SUCCESS;

@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\MarketingPosts\Tables;
 
 use App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource;
 use App\Models\MarketingPost;
+use App\Services\MarketingPost\RejectMarketingPostService;
 use App\Services\MarketingPost\SubmitMarketingPostService;
 use App\Support\Portal;
 use DomainException;
@@ -23,7 +24,7 @@ use Filament\Tables\Table;
  * on the row rather than buried in a detail screen. A retailer who has to click to find out why
  * is a retailer who resubmits the same artwork — the loop the whole review workflow exists to
  * avoid, and the reason
- * {@see \App\Services\MarketingPost\RejectMarketingPostService} refuses to run without a reason.
+ * {@see RejectMarketingPostService} refuses to run without a reason.
  */
 class MarketingPostsTable
 {

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Settings\TaxSettings;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
@@ -20,7 +21,7 @@ class InvoicePdfService
         // The seller particulars a tax invoice is legally required to carry. Operator-level, not
         // per-property: Eltizam is one registered entity operating several malls, so the seller is
         // the operator and the building is only the trading address.
-        $tax = app(\App\Settings\TaxSettings::class);
+        $tax = app(TaxSettings::class);
 
         $html = View::make('invoices.pdf', [
             'invoice' => $invoice,

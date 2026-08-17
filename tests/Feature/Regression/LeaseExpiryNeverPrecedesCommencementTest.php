@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Services\LeaseTerminationService;
+use Illuminate\Database\QueryException;
 
 /**
  * A lease's expiry can never fall before its commencement — on ANY writer.
@@ -98,5 +99,5 @@ it('has no open-ended leases to worry about — expiry_date is NOT NULL at layer
     // plausibly have one), and that branch is only unreachable because the column forbids null.
     // If a migration ever relaxes it, this fails and the guard's null branch becomes live.
     expect(fn () => makeLease(makeUnit(makeAsset()), null, ['expiry_date' => null]))
-        ->toThrow(Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });

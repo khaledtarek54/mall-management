@@ -7,7 +7,11 @@ use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Asset;
 use App\Models\CreditNote;
 use App\Models\DepositTransaction;
+use App\Models\Invoice;
+use App\Models\Lease;
 use App\Models\Payment;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
@@ -22,7 +26,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * See docs/PROPERTY-ISOLATION-PLAN.md and App\Support\PropertyIsolation.
  */
 beforeEach(function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 
     $this->assetA = makeAsset(['code' => 'ARISA']);
@@ -40,7 +44,7 @@ beforeEach(function () {
     $this->invoiceB = makeInvoice($this->leaseB);
 });
 
-afterEach(fn () => \Filament\Facades\Filament::setTenant(null, isQuiet: true));
+afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 /*
 |--------------------------------------------------------------------------
@@ -49,10 +53,10 @@ afterEach(fn () => \Filament\Facades\Filament::setTenant(null, isQuiet: true));
 */
 
 /** A captured payment allocated to the given invoice (money-in for that invoice's property). */
-function makeArPayment(\App\Models\Invoice $invoice, array $attrs = []): Payment
+function makeArPayment(Invoice $invoice, array $attrs = []): Payment
 {
     $payment = Payment::create(array_merge([
-        'reference' => 'PAY-' . uniqid(),
+        'reference' => 'PAY-'.uniqid(),
         'tenant_id' => $invoice->tenant_id,
         'amount' => 11400,
         'currency' => 'EGP',
@@ -66,10 +70,10 @@ function makeArPayment(\App\Models\Invoice $invoice, array $attrs = []): Payment
     return $payment;
 }
 
-function makeArCreditNote(\App\Models\Invoice $invoice, ?int $leaseId, array $attrs = []): CreditNote
+function makeArCreditNote(Invoice $invoice, ?int $leaseId, array $attrs = []): CreditNote
 {
     return CreditNote::create(array_merge([
-        'number' => 'CN-' . uniqid(),
+        'number' => 'CN-'.uniqid(),
         'tenant_id' => $invoice->tenant_id,
         'invoice_id' => $invoice->id,
         'lease_id' => $leaseId,
@@ -85,10 +89,10 @@ function makeArCreditNote(\App\Models\Invoice $invoice, ?int $leaseId, array $at
     ], $attrs));
 }
 
-function makeArDeposit(\App\Models\Lease $lease, Asset $asset, array $attrs = []): DepositTransaction
+function makeArDeposit(Lease $lease, Asset $asset, array $attrs = []): DepositTransaction
 {
     return DepositTransaction::create(array_merge([
-        'number' => 'DEP-' . uniqid(),
+        'number' => 'DEP-'.uniqid(),
         'lease_id' => $lease->id,
         'tenant_id' => $lease->tenant_id,
         'asset_id' => $asset->id,

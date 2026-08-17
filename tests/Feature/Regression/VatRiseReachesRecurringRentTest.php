@@ -2,8 +2,10 @@
 
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\TaxCode;
 use App\Models\TaxRate;
+use App\Services\ChargeScheduleService;
 use App\Services\MonthlyBillingService;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
@@ -65,7 +67,7 @@ function raiseStandardVatTo(float $rate, string $from): void
     ]);
 }
 
-function serviceChargeLineFor(string $period): ?\App\Models\InvoiceItem
+function serviceChargeLineFor(string $period): ?InvoiceItem
 {
     app(MonthlyBillingService::class)->runForPeriod(CarbonImmutable::parse($period));
 
@@ -153,7 +155,7 @@ it('leaves an exempt charge exempt without anyone storing a zero', function () {
 it('does not bake a rate into a charge row when the schedule is written', function () {
     // The root cause. Every creation path used to default the column from the catalogue, which is
     // what made the stored snapshot look like a considered value.
-    app(\App\Services\ChargeScheduleService::class)->setAmount(
+    app(ChargeScheduleService::class)->setAmount(
         $this->lease, 'service_charge', 7000, CarbonImmutable::parse('2026-02-01'),
         ['name' => 'Service charge', 'frequency' => 'monthly', 'first_row_from_effective' => true],
     );

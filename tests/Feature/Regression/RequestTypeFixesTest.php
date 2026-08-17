@@ -17,7 +17,6 @@ use Livewire\Livewire;
  *    helper for every SLA type).
  *  - The mobile API must reject a sub-category sent for a type that has none.
  */
-
 it('computes the per-type SLA window from one shared helper', function () {
     $svc = app(TenantRequestService::class);
 

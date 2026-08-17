@@ -6,6 +6,7 @@ use App\Services\GrantCustodyService;
 use App\Services\SettleCustodyService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * A عهدة's grant terms are fixed once it has been settled against — and its custodian is fixed
@@ -118,5 +119,5 @@ it('keeps outstanding derived, so it can never be written directly', function ()
     // The property that makes all of the above matter: outstanding has no column. If one is ever
     // added, this fails and the guards above stop being the whole story.
     expect(in_array('outstanding', (new Custody)->getFillable(), true))->toBeFalse()
-        ->and(\Illuminate\Support\Facades\Schema::hasColumn('custodies', 'outstanding'))->toBeFalse();
+        ->and(Schema::hasColumn('custodies', 'outstanding'))->toBeFalse();
 });

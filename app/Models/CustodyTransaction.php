@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SettleCustodyService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -20,7 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'parent-managed: removed on settlement')]
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\SettleCustodyService::class)]
+#[PostingDateGuardedBy(guard: SettleCustodyService::class)]
 class CustodyTransaction extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

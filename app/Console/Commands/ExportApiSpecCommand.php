@@ -41,9 +41,9 @@ class ExportApiSpecCommand extends Command
         if (! is_dir(dirname($out))) {
             mkdir(dirname($out), 0755, true);
         }
-        file_put_contents($out, json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+        file_put_contents($out, json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");
 
-        $this->info('OpenAPI spec written to ' . $this->option('path') . ' (' . count($spec['paths'] ?? []) . ' paths).');
+        $this->info('OpenAPI spec written to '.$this->option('path').' ('.count($spec['paths'] ?? []).' paths).');
 
         return self::SUCCESS;
     }

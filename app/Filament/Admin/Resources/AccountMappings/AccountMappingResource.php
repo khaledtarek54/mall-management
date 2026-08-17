@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\AccountMappings;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\Resources\AccountMappings\Pages\CreateAccountMapping;
 use App\Filament\Admin\Resources\AccountMappings\Pages\EditAccountMapping;
 use App\Filament\Admin\Resources\AccountMappings\Pages\ListAccountMappings;
@@ -80,7 +81,7 @@ class AccountMappingResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 

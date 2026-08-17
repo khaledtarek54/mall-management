@@ -1,8 +1,9 @@
 <?php
 
+use App\Models\Asset;
 use App\Models\Equipment;
-use App\Models\ServicePlan;
 use App\Models\FacilityWorkOrder;
+use App\Models\ServicePlan;
 use App\Models\TenantRequest;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use App\Services\RaiseCorrectiveWorkOrderService;
@@ -20,7 +21,7 @@ use App\Services\RaiseCorrectiveWorkOrderService;
  */
 function criticalEquipment(string $criticality, ?int $assetId = null): Equipment
 {
-    $asset = $assetId ? \App\Models\Asset::find($assetId) : makeAsset();
+    $asset = $assetId ? Asset::find($assetId) : makeAsset();
 
     return Equipment::create([
         'asset_id' => $asset->id,

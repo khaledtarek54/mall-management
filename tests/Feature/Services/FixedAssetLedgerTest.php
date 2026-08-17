@@ -2,9 +2,10 @@
 
 use App\Models\DepreciationEntry;
 use App\Models\FixedAsset;
+use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
-use App\Models\VendorBill;
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
@@ -15,6 +16,7 @@ use App\Services\Reconciliation\BooksReconciliationService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
@@ -226,7 +228,7 @@ it('re-dimensions the depreciation entries when the asset is re-homed to another
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
     // Both the acquisition and the depreciation entry now sit on property B.
-    $chargeEntry = \App\Models\JournalEntry::where('source_type', $charge->getMorphClass())
+    $chargeEntry = JournalEntry::where('source_type', $charge->getMorphClass())
         ->where('source_id', $charge->id)->where('status', 'posted')->latest('id')->first();
     expect((int) $chargeEntry->asset_id)->toBe($propB->id);
 });
@@ -368,7 +370,7 @@ it('marks the asset disposed, records the row, and rejects a second disposal (te
     expect($disposal->proceeds_account)->toBe('bank');
 
     expect(fn () => app(DisposeFixedAssetService::class)->dispose($fa->fresh(), ['disposed_on' => now()->toDateString()]))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 /* ---- Tie-out safety (the GRNI-class regression) -------------------------- */

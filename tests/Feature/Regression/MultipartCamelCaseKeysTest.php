@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Middleware\SnakeCaseRequestKeys;
 use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -116,14 +119,14 @@ it('re-cases camelCase uploaded-file field names', function () {
     // The files bag is separate from the request bag; merge() never reaches it.
     // `attachments` is already snake, so assert the mechanism on a camel name
     // that must arrive as the snake key validation expects.
-    $request = Illuminate\Http\Request::create('/api/v1/me/sales-declarations', 'POST', [
+    $request = Request::create('/api/v1/me/sales-declarations', 'POST', [
         'leaseId' => $lease->id,
     ], [], [
         'salesReport' => [UploadedFile::fake()->image('report.jpg')],
     ]);
 
-    $middleware = new App\Http\Middleware\SnakeCaseRequestKeys;
-    $middleware->handle($request, fn () => new Illuminate\Http\Response);
+    $middleware = new SnakeCaseRequestKeys;
+    $middleware->handle($request, fn () => new Response);
 
     expect($request->files->keys())->toContain('sales_report')
         ->and((int) $request->input('lease_id'))->toBe($lease->id);

@@ -28,7 +28,7 @@ class ViewPayment extends ViewRecord
                     $pdf = $svc->build($record);
 
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename($record),
                         ['Content-Type' => 'application/pdf'],
                     );

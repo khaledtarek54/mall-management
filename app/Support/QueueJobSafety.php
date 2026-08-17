@@ -2,6 +2,13 @@
 
 namespace App\Support;
 
+use App\Jobs\ApplyLateFees;
+use App\Jobs\BroadcastAnnouncement;
+use App\Jobs\RunMonthlyBilling;
+use App\Jobs\SendPushNotification;
+use App\Jobs\SubmitInvoiceToEta;
+use App\Jobs\SyncDocumentToLedger;
+
 /**
  * Which queued jobs may run twice at once, and which must not — stated, not assumed.
  *
@@ -29,13 +36,11 @@ final class QueueJobSafety
      * @var array<class-string, string>
      */
     public const SERIALISED = [
-        \App\Jobs\ApplyLateFees::class =>
-            'Sweeps the whole arrears backlog and raises money documents. Idempotent per invoice '.
+        ApplyLateFees::class => 'Sweeps the whole arrears backlog and raises money documents. Idempotent per invoice '.
             '(row lock + full precondition re-check), so a second run is not WRONG — it is double '.
             'the load and double the memory against AR at 04:00, on the one dataset that never shrinks.',
 
-        \App\Jobs\RunMonthlyBilling::class =>
-            'A manually-dispatched run racing the scheduled one would double-bill: the '.
+        RunMonthlyBilling::class => 'A manually-dispatched run racing the scheduled one would double-bill: the '.
             'already-billed existence check is not yet behind a DB unique constraint.',
     ];
 
@@ -49,21 +54,17 @@ final class QueueJobSafety
      * @var array<class-string, string>
      */
     public const CONCURRENCY_SAFE = [
-        \App\Jobs\SyncDocumentToLedger::class =>
-            'Scoped to ONE document, and `LedgerPoster::sync()` is a reconciling upsert — it '.
+        SyncDocumentToLedger::class => 'Scoped to ONE document, and `LedgerPoster::sync()` is a reconciling upsert — it '.
             'compares the posted entry to the document and voids-and-reposts only on a difference. '.
             'Two runs converge on the same entry rather than making two.',
 
-        \App\Jobs\BroadcastAnnouncement::class =>
-            'Scoped to one announcement. The worst case is a duplicate notification, which is '.
+        BroadcastAnnouncement::class => 'Scoped to one announcement. The worst case is a duplicate notification, which is '.
             'noise rather than a wrong record, and it carries no timeout to outrun retry_after.',
 
-        \App\Jobs\SendPushNotification::class =>
-            'Scoped to one message to one device set. A duplicate push is absorbed by the '.
+        SendPushNotification::class => 'Scoped to one message to one device set. A duplicate push is absorbed by the '.
             'recipient; serialising every push behind a lock would cost far more than it saves.',
 
-        \App\Jobs\SubmitInvoiceToEta::class =>
-            'Scoped to one invoice, and the e-invoicing module is frozen — classified so the gate '.
+        SubmitInvoiceToEta::class => 'Scoped to one invoice, and the e-invoicing module is frozen — classified so the gate '.
             'stays complete, not touched.',
     ];
 

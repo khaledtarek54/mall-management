@@ -94,7 +94,7 @@ class InvoiceItemSettlement
      * a query per invoice for rows that almost never exist.
      *
      * @param  Collection<int, Invoice>  $invoices
-     * @return array<int, Collection<int, array{item: InvoiceItem, type: string, total: float, settled: float, outstanding: float, explicit: float}>>  invoice id → its lines
+     * @return array<int, Collection<int, array{item: InvoiceItem, type: string, total: float, settled: float, outstanding: float, explicit: float}>> invoice id → its lines
      */
     public static function forMany(Collection $invoices): array
     {

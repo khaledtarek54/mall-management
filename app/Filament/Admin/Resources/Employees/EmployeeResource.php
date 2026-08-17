@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Employees;
 
+use App\Filament\Admin\RelationManagers\EmployeeAdvancesRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Employees\Pages\CreateEmployee;
@@ -10,6 +11,7 @@ use App\Filament\Admin\Resources\Employees\Pages\ListEmployees;
 use App\Filament\Admin\Resources\Employees\Schemas\EmployeeForm;
 use App\Filament\Admin\Resources\Employees\Tables\EmployeesTable;
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -83,7 +85,7 @@ class EmployeeResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\EmployeeAdvancesRelationManager::class,
+            EmployeeAdvancesRelationManager::class,
         ];
     }
 
@@ -125,16 +127,17 @@ class EmployeeResource extends Resource
             abort(403);
         }
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  Employee  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                            can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
-        /** @var \App\Models\Department|null $department */
+        /** @var Department|null $department */
         $department = $record->department;
 
         return [
@@ -152,5 +155,4 @@ class EmployeeResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['department']);
     }
-
 }

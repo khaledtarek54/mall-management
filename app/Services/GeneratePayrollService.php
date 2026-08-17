@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\Payroll;
 use App\Settings\PayrollSettings;
 use App\Support\TenantScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -114,9 +115,9 @@ class GeneratePayrollService
      * consolidated run) — mirrors PayrollLinesRelationManager::employeeQuery so the
      * generate + manual-add paths select from exactly the same pool.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<Employee>
+     * @return Builder<Employee>
      */
-    private function eligibleEmployees(Payroll $run): \Illuminate\Database\Eloquent\Builder
+    private function eligibleEmployees(Payroll $run): Builder
     {
         $query = Employee::query()->active();
 

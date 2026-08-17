@@ -28,7 +28,7 @@ class UnitExporter extends Exporter
 
     public static function getCompletedNotificationBody(Export $export): string
     {
-        return 'Your unit export has completed and ' . number_format($export->successful_rows) . ' ' . str('row')->plural($export->successful_rows) . ' exported.';
+        return 'Your unit export has completed and '.number_format($export->successful_rows).' '.str('row')->plural($export->successful_rows).' exported.';
     }
 
     public function getJobConnection(): ?string

@@ -22,6 +22,8 @@
 | cannot drift apart.
 */
 
+use App\Filament\Admin\Resources\Invoices\Schemas\InvoiceForm;
+use App\Models\CreditNote;
 use App\Models\Payment;
 use App\Services\CreditNoteService;
 use App\Services\VoidInvoiceService;
@@ -70,7 +72,7 @@ it('agrees with VoidInvoiceService, which refuses the same case', function () {
 it('does not offer cancelled as a pickable status on the form', function () {
     // Belt and braces: the model is the gate, but the UI should not invite the action either —
     // cancelling is the outcome of the Void action, which takes a reason and audits it.
-    $options = App\Filament\Admin\Resources\Invoices\Schemas\InvoiceForm::class;
+    $options = InvoiceForm::class;
 
     expect(file_get_contents((new ReflectionClass($options))->getFileName()))
         ->toContain("unset(\$options['cancelled'])");
@@ -97,7 +99,7 @@ it('still allows the cancel when settlement was reversible non-cash', function (
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000, 'balance' => 5000, 'status' => 'issued',
     ]);
 
-    $note = App\Models\CreditNote::create([
+    $note = CreditNote::create([
         'tenant_id' => $lease->tenant_id,
         'invoice_id' => $invoice->id,
         'issue_date' => now()->toDateString(),

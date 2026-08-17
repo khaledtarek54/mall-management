@@ -10,10 +10,11 @@ use App\Services\Reconciliation\BooksReconciliationService;
 use App\Services\VendorBillService;
 use App\Services\VoidVendorBillPaymentService;
 use App\Settings\TaxSettings;
-use Database\Seeders\TaxCodeSeeder;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Database\Seeders\TaxCodeSeeder;
+use Tests\Support\TaxCatalogue;
 
 /**
  * Regression — a vendor payment must have a way back.
@@ -43,7 +44,7 @@ function voidTestBill(float $total = 1000, float $whtRate = 0.0): array
         test()->seed(TaxCodeSeeder::class);
         // The nature, not the number — `WH_3_P` carries 3% in the operator's catalogue. Any other
         // figure a test wants is a rung moved, which is what an accountant does on the screen.
-        \Tests\Support\TaxCatalogue::setOnlyRate('WH_3_P', -1 * $whtRate);
+        TaxCatalogue::setOnlyRate('WH_3_P', -1 * $whtRate);
     }
 
     $settings = app(TaxSettings::class);

@@ -270,7 +270,7 @@ class JournalPostingService
      * Enforces: ≥2 lines, postable+active accounts, one-sided non-negative amounts,
      * non-zero movement, and Σ debit = Σ credit (to the cent).
      *
-     * @param array<int, array{account: ?LedgerAccount, debit: float, credit: float}> $lines
+     * @param  array<int, array{account: ?LedgerAccount, debit: float, credit: float}>  $lines
      */
     protected function assertLinesValid(array $lines): void
     {

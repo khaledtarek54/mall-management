@@ -10,6 +10,7 @@ use App\Services\GrantCustodyService;
 use App\Services\SettleCustodyService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * End-to-end custody (عهدة): grant → categorised expense settlements → cash return.
@@ -75,5 +76,5 @@ it('rejects over-settlement beyond the outstanding custody', function () {
     $this->settle->settle($custody, ['type' => 'expense', 'amount' => 1000, 'transaction_date' => now()->toDateString(), 'category' => 'admin']);
 
     expect(fn () => $this->settle->settle($custody->fresh(), ['type' => 'expense', 'amount' => 1, 'transaction_date' => now()->toDateString(), 'category' => 'other']))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });

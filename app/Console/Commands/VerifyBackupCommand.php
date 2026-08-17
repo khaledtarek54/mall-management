@@ -74,5 +74,4 @@ class VerifyBackupCommand extends Command
 
         return self::SUCCESS;
     }
-
 }

@@ -17,6 +17,8 @@
 | switch on would break the tie-out this report exists to prove.
 */
 
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use Database\Seeders\AccountingSeeder;
@@ -68,12 +70,12 @@ it('does not list an account twice when it has moved', function () {
     $debit = LedgerAccount::where('type', 'asset')->where('is_postable', true)->firstOrFail();
     $credit = LedgerAccount::where('type', 'revenue')->where('is_postable', true)->firstOrFail();
 
-    $entry = App\Models\JournalEntry::create([
+    $entry = JournalEntry::create([
         'asset_id' => $asset->id, 'entry_date' => '2026-03-10',
         'description' => 'x', 'status' => 'draft', 'source_type' => 'manual',
     ]);
-    App\Models\JournalLine::create(['journal_entry_id' => $entry->id, 'ledger_account_id' => $debit->id, 'debit' => 500, 'credit' => 0]);
-    App\Models\JournalLine::create(['journal_entry_id' => $entry->id, 'ledger_account_id' => $credit->id, 'debit' => 0, 'credit' => 500]);
+    JournalLine::create(['journal_entry_id' => $entry->id, 'ledger_account_id' => $debit->id, 'debit' => 500, 'credit' => 0]);
+    JournalLine::create(['journal_entry_id' => $entry->id, 'ledger_account_id' => $credit->id, 'debit' => 0, 'credit' => 500]);
     $entry->update(['status' => 'posted']);
 
     $report = app(LedgerReportService::class)->trialBalance(includeZeroBalances: true);

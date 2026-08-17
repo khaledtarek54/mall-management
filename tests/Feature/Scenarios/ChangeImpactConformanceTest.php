@@ -4,13 +4,18 @@ use App\Models\CreditNote;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
-use App\Models\Vendor;
-use App\Services\VendorBillService;
 use App\Services\Accounting\LedgerPoster;
+use App\Services\VendorBillService;
 use App\Support\ChangeImpact;
 use App\Support\LedgerRealtimeSync;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Conformance gate — every field of every money document has a stated change policy, and the
@@ -118,7 +123,7 @@ it('records a reason for every decided field, and states when each document comm
  * Kept in the test rather than in `ChangeImpact` because a registry is a policy statement and
  * should not carry factories.
  *
- * @return array<class-string, callable(): \Illuminate\Database\Eloquent\Model>
+ * @return array<class-string, callable(): Model>
  */
 function committedFixtures(): array
 {
@@ -205,7 +210,7 @@ function committedFixtures(): array
 }
 
 /** A different, type-appropriate value for a field — enough to make the record dirty. */
-function mutatedValue(\Illuminate\Database\Eloquent\Model $model, string $field): mixed
+function mutatedValue(Model $model, string $field): mixed
 {
     $current = $model->getAttribute($field);
 
@@ -214,14 +219,14 @@ function mutatedValue(\Illuminate\Database\Eloquent\Model $model, string $field)
     // goes red either way — a QueryException is not caught below — but "the write succeeded" is
     // the message that names the actual defect, and a database error is not.
     if (str_ends_with($field, '_id') && $current !== null) {
-        $stem = \Illuminate\Support\Str::beforeLast($field, '_id');
+        $stem = Str::beforeLast($field, '_id');
 
         // Two candidates, because Laravel relations are named either way: `vendor_bill_id` is
         // reached by `vendorBill()` on some models and by the shortened `bill()` on others — which
         // is exactly what VendorBillPayment does.
         $candidates = [
-            \Illuminate\Support\Str::camel($stem),
-            \Illuminate\Support\Str::camel(\Illuminate\Support\Str::afterLast($stem, '_')),
+            Str::camel($stem),
+            Str::camel(Str::afterLast($stem, '_')),
         ];
 
         foreach (array_unique($candidates) as $relation) {
@@ -230,7 +235,7 @@ function mutatedValue(\Illuminate\Database\Eloquent\Model $model, string $field)
             }
 
             $result = $model->{$relation}();
-            if (! $result instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+            if (! $result instanceof BelongsTo) {
                 continue;
             }
 
@@ -246,7 +251,7 @@ function mutatedValue(\Illuminate\Database\Eloquent\Model $model, string $field)
     }
 
     return match (true) {
-        $current instanceof \DateTimeInterface => \Illuminate\Support\Carbon::instance($current)->copy()->subMonth(),
+        $current instanceof DateTimeInterface => Carbon::instance($current)->copy()->subMonth(),
         is_bool($current) => ! $current,
         is_numeric($current) => (float) $current + 7,
         // An unset or non-scalar field: an integer is a valid dirty value for both an FK and a
@@ -284,7 +289,7 @@ it('refuses every field it says it refuses, on a committed record', function () 
                 $problems[] = class_basename($model).".{$field} is classified REFUSED but the write succeeded";
             } catch (DomainException) {
                 // Correct — the model guard fired, which is the thing being proved.
-            } catch (\Illuminate\Database\QueryException) {
+            } catch (QueryException) {
                 // The DATABASE refused it — a foreign key, or a CHECK constraint on an enum-ish
                 // column. The write did not land, so the books are safe, but the model guard is
                 // NOT proved: it may be missing entirely and this would look identical. Reported
@@ -369,7 +374,7 @@ it('never classifies a source\'s posting-date column as neutral or prospective',
 
         if (! in_array($verdict, [ChangeImpact::REFUSED, ChangeImpact::DERIVED], true)) {
             $problems[] = class_basename($model).".{$column} decides the entry's accounting period "
-                ."but is classified ".($verdict ?? 'nothing');
+                .'but is classified '.($verdict ?? 'nothing');
         }
     }
 

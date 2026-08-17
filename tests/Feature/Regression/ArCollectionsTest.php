@@ -1,14 +1,16 @@
 <?php
 
 use App\Filament\Admin\Pages\ArCollections;
+use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Tenant;
 use App\Services\Reports\ReportService;
+use App\Support\AgingBuckets;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
-use App\Support\AgingBuckets;
 
 /**
  * The AR collections worklist (UX-03).
@@ -29,7 +31,7 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
-function openInvoiceFor(\App\Models\Tenant $tenant, \App\Models\Asset $asset, string $dueDate, float $balance): Invoice
+function openInvoiceFor(Tenant $tenant, Asset $asset, string $dueDate, float $balance): Invoice
 {
     $lease = makeLease(makeUnit($asset), $tenant);
 

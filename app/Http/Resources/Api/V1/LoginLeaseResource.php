@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Models\Lease;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,7 +17,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *  - mall       → asset name
  *  - unit_number→ unit code
  *
- * @mixin \App\Models\Lease
+ * @mixin Lease
  */
 class LoginLeaseResource extends JsonResource
 {

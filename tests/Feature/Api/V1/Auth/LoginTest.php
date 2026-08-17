@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Api\V1\Auth;
 
-use App\Support\MorphMap;
 use App\Models\Tenant;
+use App\Support\MorphMap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -16,7 +16,7 @@ class LoginTest extends TestCase
     {
         return Tenant::create(array_merge([
             'name' => 'Test Tenant',
-            'email' => 'test-' . uniqid() . '@tenant.local',
+            'email' => 'test-'.uniqid().'@tenant.local',
             'password' => Hash::make('secret-pw'),
             'status' => 'active',
             'type' => 'company',

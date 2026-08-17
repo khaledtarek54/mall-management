@@ -28,7 +28,7 @@ class BillingMathTest extends TestCase
     {
         $asset = Asset::create([
             'name' => 'Test Asset',
-            'code' => 'TST-' . uniqid(),
+            'code' => 'TST-'.uniqid(),
             'type' => 'mall',
             'city' => 'Cairo',
             'country' => 'EG',
@@ -40,19 +40,19 @@ class BillingMathTest extends TestCase
 
         $unit = Unit::create([
             'asset_id' => $asset->id,
-            'code' => 'U-' . uniqid(),
+            'code' => 'U-'.uniqid(),
             'area_sqm' => $overrides['unit_area'] ?? 100,
             'status' => 'occupied',
         ]);
 
         $tenant = Tenant::create([
             'name' => 'Test Tenant',
-            'email' => 'tenant-' . uniqid() . '@test.local',
+            'email' => 'tenant-'.uniqid().'@test.local',
             'status' => 'active',
         ]);
 
         return Lease::create(array_merge([
-            'reference' => 'LSE-' . uniqid(),
+            'reference' => 'LSE-'.uniqid(),
             'unit_id' => $unit->id,
             'tenant_id' => $tenant->id,
             'status' => 'active',
@@ -250,7 +250,7 @@ class BillingMathTest extends TestCase
     public function test_cam_allocation_distributes_by_sqm(): void
     {
         $asset = Asset::create([
-            'name' => 'A', 'code' => 'CA-' . uniqid(),
+            'name' => 'A', 'code' => 'CA-'.uniqid(),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 1000, 'leasable_area_sqm' => 1000,
             'currency' => 'EGP', 'is_active' => true,
@@ -259,16 +259,17 @@ class BillingMathTest extends TestCase
         $units = collect([100, 300])->map(function ($sqm, $i) use ($asset) {
             return Unit::create([
                 'asset_id' => $asset->id,
-                'code' => 'U' . $i . '-' . uniqid(),
+                'code' => 'U'.$i.'-'.uniqid(),
                 'area_sqm' => $sqm,
                 'status' => 'occupied',
             ]);
         });
 
         $leases = $units->map(function ($unit) {
-            $tenant = Tenant::create(['name' => 'T', 'email' => uniqid() . '@t.test', 'status' => 'active']);
+            $tenant = Tenant::create(['name' => 'T', 'email' => uniqid().'@t.test', 'status' => 'active']);
+
             return Lease::create([
-                'reference' => 'L-' . uniqid(),
+                'reference' => 'L-'.uniqid(),
                 'unit_id' => $unit->id, 'tenant_id' => $tenant->id, 'status' => 'active',
                 'commencement_date' => '2026-01-01', 'expiry_date' => '2026-12-31', 'term_months' => 12,
                 'base_rent_monthly' => 1000, 'service_charge_monthly' => 200, 'currency' => 'EGP',
@@ -303,15 +304,15 @@ class BillingMathTest extends TestCase
     public function test_cam_bill_creates_idempotent_charge(): void
     {
         $asset = Asset::create([
-            'name' => 'A', 'code' => 'CA-' . uniqid(),
+            'name' => 'A', 'code' => 'CA-'.uniqid(),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 500, 'leasable_area_sqm' => 500,
             'currency' => 'EGP', 'is_active' => true,
         ]);
-        $unit = Unit::create(['asset_id' => $asset->id, 'code' => 'U-' . uniqid(), 'area_sqm' => 500, 'status' => 'occupied']);
-        $tenant = Tenant::create(['name' => 'T', 'email' => uniqid() . '@t.test', 'status' => 'active']);
+        $unit = Unit::create(['asset_id' => $asset->id, 'code' => 'U-'.uniqid(), 'area_sqm' => 500, 'status' => 'occupied']);
+        $tenant = Tenant::create(['name' => 'T', 'email' => uniqid().'@t.test', 'status' => 'active']);
         $lease = Lease::create([
-            'reference' => 'L-' . uniqid(),
+            'reference' => 'L-'.uniqid(),
             'unit_id' => $unit->id, 'tenant_id' => $tenant->id, 'status' => 'active',
             'commencement_date' => '2026-01-01', 'expiry_date' => '2026-12-31', 'term_months' => 12,
             'base_rent_monthly' => 5000, 'service_charge_monthly' => 1000, 'currency' => 'EGP',

@@ -7,6 +7,7 @@ use App\Models\StockMovement;
 use App\Models\TenantRequest;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -66,7 +67,7 @@ it('refuses consumption from a warehouse in a different property than the ticket
             'quantity' => 1,
             'moved_on' => now()->toDateString(),
         ]);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         // abort(403) may surface as an exception depending on the Livewire path.
     }
 
@@ -84,7 +85,7 @@ it('refuses to log consumption against a terminal (closed) ticket', function () 
             'quantity' => 1,
             'moved_on' => now()->toDateString(),
         ]);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         // abort(403) may surface as an exception depending on the Livewire path.
     }
 
@@ -95,7 +96,7 @@ it('hides the consumption panel when the inventory module is off', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
     expect(StockConsumptionRelationManager::canViewForRecord($this->request, EditTenantRequest::class))->toBeTrue();
 
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->inventory = false;
     $settings->save();
 

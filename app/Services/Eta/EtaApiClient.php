@@ -27,7 +27,7 @@ class EtaApiClient
     {
         // Default to the passthrough so direct instantiation (and tests) work;
         // the container injects the bound signer when resolved via DI.
-        $this->signer = $signer ?? new UnsignedEtaSigner();
+        $this->signer = $signer ?? new UnsignedEtaSigner;
     }
 
     public function submitDocument(array $documentJson): array

@@ -9,6 +9,7 @@ use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /*
 |--------------------------------------------------------------------------
@@ -53,7 +54,7 @@ it('refuses a portal sales declaration crafted onto another retailer\'s lease', 
                 'sales_report' => [UploadedFile::fake()->create('sales.pdf', 100, 'application/pdf')],
             ])
             ->call('create');
-    } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+    } catch (HttpException $e) {
         expect($e->getStatusCode())->toBe(403);
     }
 

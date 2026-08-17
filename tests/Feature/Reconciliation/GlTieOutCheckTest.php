@@ -1,8 +1,13 @@
 <?php
 
+use App\Models\InventoryItem;
+use App\Models\Vendor;
+use App\Models\VendorBill;
+use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Reconciliation\BooksReconciliationService;
+use App\Services\StockMovementService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -87,8 +92,8 @@ it('keeps the GL↔AP tie-out balanced after an inventory receipt (credits GRNI,
     app(FiscalCalendar::class)->ensureYear((int) now()->year);
 
     // A real vendor bill sets the AP baseline...
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
         'category' => 'utilities', 'status' => 'approved', 'bill_date' => now()->toDateString(),
         'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000, 'balance' => 2000,
     ]);
@@ -97,9 +102,9 @@ it('keeps the GL↔AP tie-out balanced after an inventory receipt (credits GRNI,
     // ...and an inventory receipt posts (Dr Inventory / Cr GRNI) — it must NOT inflate
     // the AP control, or the monthly reconcile would falsely fail on an AP mismatch.
     $asset = makeAsset();
-    $warehouse = \App\Models\Warehouse::create(['asset_id' => $asset->id, 'name' => 'Store', 'code' => 'S1']);
-    $item = \App\Models\InventoryItem::create(['sku' => 'SKU-GRNI', 'name' => 'Seal', 'unit' => 'each', 'unit_cost' => 25]);
-    $receipt = app(\App\Services\StockMovementService::class)->receive($warehouse, $item, 40, 25); // value 1000
+    $warehouse = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Store', 'code' => 'S1']);
+    $item = InventoryItem::create(['sku' => 'SKU-GRNI', 'name' => 'Seal', 'unit' => 'each', 'unit_cost' => 25]);
+    $receipt = app(StockMovementService::class)->receive($warehouse, $item, 40, 25); // value 1000
     app(LedgerPoster::class)->sync($receipt->fresh());
 
     expect(glCheck(glReconcile())['passed'])->toBeTrue();
@@ -115,8 +120,8 @@ it('catches a GL that has drifted from the source AP (bill cancelled, not re-syn
     $this->seed(AccountMappingSeeder::class);
     app(FiscalCalendar::class)->ensureYear((int) now()->year);
 
-    $bill = \App\Models\VendorBill::create([
-        'vendor_id' => \App\Models\Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
+    $bill = VendorBill::create([
+        'vendor_id' => Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
         'category' => 'utilities', 'status' => 'approved', 'bill_date' => now()->toDateString(),
         'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000, 'balance' => 2000,
     ]);

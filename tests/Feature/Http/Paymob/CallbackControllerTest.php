@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\Paymob\PaymobPaymentInitiator;
@@ -29,7 +30,7 @@ beforeEach(function () {
  * the Pay Now action would, then return the Payment model + the Paymob
  * order_id used as its session anchor.
  */
-function seedInitiatedPayment(\App\Models\Invoice $invoice, int $orderId = 8888): \App\Models\Payment
+function seedInitiatedPayment(Invoice $invoice, int $orderId = 8888): Payment
 {
     Http::fake([
         'sandbox.paymob.test/api/auth/tokens' => Http::response(['token' => 'BEARER']),
@@ -203,11 +204,11 @@ it('captures once and receipts once when the gateway delivers the same callback 
     $this->postJson(route('paymob.callback', ['hmac' => $signature]), $payload)->assertOk();
 
     expect($payment->fresh()->status)->toBe('captured')
-        ->and(\App\Models\Payment::where('gateway', 'paymob')->count())->toBe(1);
+        ->and(Payment::where('gateway', 'paymob')->count())->toBe(1);
 
     Notification::assertSentToTimes(
         $this->invoice->tenant,
-        \App\Notifications\PaymentReceivedNotification::class,
+        PaymentReceivedNotification::class,
         1,
     );
 });

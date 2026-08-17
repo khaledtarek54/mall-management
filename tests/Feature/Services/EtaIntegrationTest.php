@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\SubmitInvoiceToEta;
+use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Services\Eta\EtaApiClient;
 use App\Services\Eta\EtaSubmissionService;
@@ -13,7 +14,7 @@ beforeEach(function () {
     $this->lease = makeLease($this->unit, $tenant);
 });
 
-function withItem($lease): \App\Models\Invoice
+function withItem($lease): Invoice
 {
     $invoice = makeInvoice($lease);
     InvoiceItem::create([
@@ -21,6 +22,7 @@ function withItem($lease): \App\Models\Invoice
         'description' => 'Rent', 'amount' => 10000,
         'vat_rate' => 0, 'vat_amount' => 0, 'subtotal' => 10000,
     ]);
+
     return $invoice->refresh();
 }
 

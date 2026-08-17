@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 
 /**
@@ -66,7 +67,7 @@ it('does not remind a lease still inside its fit-out grace for the period', func
         'commencement_date' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
         'rent_commencement_date' => now()->subMonthNoOverflow()->startOfMonth()->addMonths(3)->toDateString(),
         // Gross grace: the lease bills nothing, so it is not chased for a declaration either.
-        'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS,
+        'fit_out_scope' => Lease::FIT_OUT_GROSS,
     ]);
 
     $this->artisan('sales:scan-missing-declarations')->assertSuccessful();

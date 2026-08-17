@@ -24,6 +24,7 @@ use App\Models\User;
 use App\Services\ConvertLeaseToHoldoverService;
 use App\Services\LeaseReliefService;
 use App\Services\LeaseSpaceChangeService;
+use App\Services\MonthlyBillingService;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 
@@ -58,7 +59,7 @@ it('carries one lease through expansion, relief and holdover, and can replay it 
 
     $billed = function (string $month) use ($lease): float {
         Invoice::where('lease_id', $lease->id)->delete();
-        app(\App\Services\MonthlyBillingService::class)
+        app(MonthlyBillingService::class)
             ->generateForLease($lease->fresh(), CarbonImmutable::parse($month));
 
         return (float) Invoice::where('lease_id', $lease->id)->with('items')->get()

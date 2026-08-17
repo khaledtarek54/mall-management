@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Settings\BillingSettings;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 /**
  * Recognise rent evenly over the term, however unevenly it is billed (story RA-02, EAS 49 / IFRS 16).
@@ -60,7 +61,7 @@ class StraightLineRentService
 
         $months = ($to->year - $from->year) * 12 + ($to->month - $from->month) + 1;
 
-        /** @var \Illuminate\Support\Collection<int, Charge> $rows */
+        /** @var Collection<int, Charge> $rows */
         $rows = $lease->charges()
             ->where('type', 'base_rent')
             ->where('is_active', true)
@@ -117,7 +118,7 @@ class StraightLineRentService
             return 0.0;
         }
 
-        /** @var \Illuminate\Support\Collection<int, Charge> $rows */
+        /** @var Collection<int, Charge> $rows */
         $rows = $lease->charges()
             ->where('type', 'base_rent')
             ->where('is_active', true)

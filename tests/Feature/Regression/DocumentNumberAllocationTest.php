@@ -21,6 +21,7 @@
 | availability.
 */
 
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\CreditNote;
 use App\Models\DepositTransaction;
 use App\Models\Expense;
@@ -28,6 +29,7 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Payroll;
 use App\Models\VendorBill;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 
 /** Every model that mints a sequential number. */
@@ -45,7 +47,7 @@ it('allocates under a lock in every numbered document', function () {
     $unlocked = [];
 
     foreach (NUMBERED_DOCUMENTS as $class) {
-        if (! in_array(App\Models\Concerns\AllocatesDocumentNumber::class, class_uses_recursive($class), true)) {
+        if (! in_array(AllocatesDocumentNumber::class, class_uses_recursive($class), true)) {
             $unlocked[] = class_basename($class);
         }
     }
@@ -139,5 +141,5 @@ it('still refuses a genuine duplicate — the index stays the final arbiter', fu
         'period_end' => '2026-07-31',
         'subtotal' => 100, 'vat_amount' => 0, 'total' => 100, 'balance' => 100,
         'status' => 'issued',
-    ])))->toThrow(Illuminate\Database\QueryException::class);
+    ])))->toThrow(QueryException::class);
 });

@@ -11,6 +11,8 @@ use App\Services\GrantEmployeeAdvanceService;
 use App\Services\RecordAdvanceRepaymentService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * HR EDGE cases (module 24) — the negative / boundary / state-transition / scoping /
@@ -50,9 +52,9 @@ it('rejects a zero or negative advance grant', function () {
     $svc = app(GrantEmployeeAdvanceService::class);
 
     expect(fn () => $svc->grant($emp, ['amount' => 0, 'advance_date' => now()->toDateString()]))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     expect(fn () => $svc->grant($emp, ['amount' => -500, 'advance_date' => now()->toDateString()]))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($emp->advances()->count())->toBe(0);
 });
@@ -63,7 +65,7 @@ it('rejects a grant to a terminated employee', function () {
 
     expect(fn () => app(GrantEmployeeAdvanceService::class)
         ->grant($emp->fresh(), ['amount' => 1000, 'advance_date' => now()->toDateString()]))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($emp->advances()->count())->toBe(0);
 });
@@ -78,10 +80,10 @@ it('guards against over-repayment and honors the exact-outstanding boundary', fu
 
     // Cannot repay MORE than outstanding.
     expect(fn () => $svc->record($advance, ['amount' => 2500, 'repaid_on' => now()->toDateString()]))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     // Cannot repay zero.
     expect(fn () => $svc->record($advance, ['amount' => 0, 'repaid_on' => now()->toDateString()]))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     // Repay the EXACT outstanding — allowed, drives outstanding to 0.
     $svc->record($advance, ['amount' => 2000, 'repaid_on' => now()->toDateString()]);
@@ -89,7 +91,7 @@ it('guards against over-repayment and honors the exact-outstanding boundary', fu
 
     // Now that nothing is outstanding, any further repayment is rejected.
     expect(fn () => $svc->record($advance->fresh(), ['amount' => 1, 'repaid_on' => now()->toDateString()]))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     expect($advance->fresh()->repaid())->toBe(2000.0);
 });
 
@@ -158,7 +160,7 @@ it('scopes an advance to its employee property via denormalised asset_id', funct
 // ---- RBAC: hr / accounting can; marketing / leasing cannot ---------------------------
 
 it('grants HR-money permissions to hr and accounting but not marketing or leasing', function () {
-    $this->seed(Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
 
     $hr = makeUser('hr');
     $accounting = makeUser('accounting');

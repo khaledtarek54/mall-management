@@ -5,6 +5,7 @@ namespace App\Services\Accounting\Journalizers;
 use App\Models\Payroll;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Payroll run (مسير رواتب):
@@ -52,7 +53,7 @@ class PayrollJournalizer implements Journalizer
         // Deductions exceed gross (malformed) → net negative. Skip + flag rather than
         // emit an unbalanced entry.
         if ($net < 0) {
-            \Illuminate\Support\Facades\Log::warning(
+            Log::warning(
                 "PayrollJournalizer: run {$payroll->number} deductions exceed gross (net {$net}); skipping ledger post."
             );
 

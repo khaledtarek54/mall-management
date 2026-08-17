@@ -24,7 +24,7 @@ return new class extends Migration
             ])->default('retail');
             $table->decimal('area_sqm', 10, 2);
             $table->enum('status', ['vacant', 'reserved', 'occupied', 'maintenance'])
-                  ->default('vacant');
+                ->default('vacant');
             $table->text('description')->nullable();
             $table->json('features')->nullable(); // ['corner_unit', 'glass_facade', 'outdoor_seating']
             $table->timestamps();

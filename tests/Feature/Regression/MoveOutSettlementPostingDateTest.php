@@ -1,9 +1,12 @@
 <?php
 
+use App\Models\AccountingPeriod;
 use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\ApplyDepositToInvoiceService;
 use App\Services\SettleMoveOutService;
+use App\Support\PostingDateGuards;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -32,7 +35,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear(2026);
+    app(FiscalCalendar::class)->ensureYear(2026);
 
     $asset = makeAsset(['code' => 'MALL']);
     $this->lease = makeLease(makeUnit($asset), makeTenant(), [
@@ -67,7 +70,7 @@ beforeEach(function () {
 /** Close the period the back-dated settlement would land in. */
 function closeMarch(): void
 {
-    \App\Models\AccountingPeriod::forDate(\Carbon\CarbonImmutable::create(2026, 3, 15))
+    AccountingPeriod::forDate(CarbonImmutable::create(2026, 3, 15))
         ->update(['status' => 'closed']);
 }
 
@@ -152,6 +155,6 @@ it('rolls the settled arrears back when the DEDUCTIONS are refused', function ()
 
 it('registers a real guard class rather than a system exemption', function () {
     // The registry itself was the defect. Pinned so it cannot quietly revert to `system:`.
-    expect(\App\Support\PostingDateGuards::guards()[DepositApplication::class])
+    expect(PostingDateGuards::guards()[DepositApplication::class])
         ->toBe(ApplyDepositToInvoiceService::class);
 });

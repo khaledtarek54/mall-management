@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Lease;
 use App\Models\LeaseOption;
 use Carbon\CarbonImmutable;
 
@@ -27,7 +28,7 @@ it('counts a lease whose option notice window closes inside 90 days', function (
         'latest_notice_date' => '2026-07-15',   // inside the window
     ]);
 
-    $found = \App\Models\Lease::whereHas('options', fn ($q) => $q
+    $found = Lease::whereHas('options', fn ($q) => $q
         ->where('status', 'open')
         ->whereNotNull('latest_notice_date')
         ->whereBetween('latest_notice_date', [now(), now()->addDays(90)]))
@@ -54,7 +55,7 @@ it('ignores a window that has already been resolved or is far off', function () 
         'latest_notice_date' => '2027-06-01',
     ]);
 
-    $found = \App\Models\Lease::whereHas('options', fn ($q) => $q
+    $found = Lease::whereHas('options', fn ($q) => $q
         ->where('status', 'open')
         ->whereNotNull('latest_notice_date')
         ->whereBetween('latest_notice_date', [now(), now()->addDays(90)]))

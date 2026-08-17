@@ -82,7 +82,7 @@ class DumpRegistriesCommand extends Command
         return "## Every GL posting source\n\n"
             ."Generated from `LedgerPoster::JOURNALIZERS` — the single registry all four dispatch paths\n"
             ."derive from (real-time hook · `accounting:sync-ledger` sweep · close gate · `billing:reconcile`\n"
-            ."drift check). **".count($rows)." sources.** The `entry_date` column is what the sweep windows on, and what\n"
+            .'drift check). **'.count($rows)." sources.** The `entry_date` column is what the sweep windows on, and what\n"
             ."the posting-date guard checks against a closed period.\n\n"
             ."| Source model | Journalizer | `entry_date` from | Posting-date guard |\n|---|---|---|---|\n"
             .implode("\n", $rows);
@@ -104,9 +104,9 @@ class DumpRegistriesCommand extends Command
         return "## Model classification\n\n"
             ."Generated from `App\\Support\\PropertyIsolation`. `PropertyIsolationConformanceTest` fails the\n"
             ."build if a model ships unclassified, so this list is complete by construction.\n\n"
-            ."**Property-owned (".count($owned).")** — scoped to the selected property:\n\n".$format($owned)."\n\n"
-            ."**Shared (".count($shared).")** — portfolio-wide by design:\n\n".$format($shared)."\n\n"
-            ."**Self (".count($self).")** — the property record itself:\n\n".$format($self);
+            .'**Property-owned ('.count($owned).")** — scoped to the selected property:\n\n".$format($owned)."\n\n"
+            .'**Shared ('.count($shared).")** — portfolio-wide by design:\n\n".$format($shared)."\n\n"
+            .'**Self ('.count($self).")** — the property record itself:\n\n".$format($self);
     }
 
     /** Rewrite a marked block in place, leaving the surrounding narrative untouched. */
@@ -132,5 +132,4 @@ class DumpRegistriesCommand extends Command
 
         $this->line('  '.str_replace(base_path().'/', '', $path).' → '.$marker);
     }
-
 }

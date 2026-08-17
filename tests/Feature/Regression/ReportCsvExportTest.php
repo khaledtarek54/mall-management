@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\AccountingPeriod;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;

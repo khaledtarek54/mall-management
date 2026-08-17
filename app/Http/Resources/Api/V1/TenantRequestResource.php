@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\TenantRequest;
+use App\Services\TenantRequestService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,7 +37,7 @@ class TenantRequestResource extends JsonResource
             'can_cancel' => in_array($this->status, ['submitted', 'acknowledged'], true),
             // Whether the tenant can submit a satisfaction rating — true once the
             // request is resolved/closed. Mirrors the rate endpoint's guard.
-            'can_rate' => in_array($this->status, \App\Services\TenantRequestService::RATEABLE, true),
+            'can_rate' => in_array($this->status, TenantRequestService::RATEABLE, true),
             'csat_rating' => $this->csat_rating,
             'csat_comment' => $this->csat_comment,
             'submitted_at' => optional($this->submitted_at)->toIso8601String(),

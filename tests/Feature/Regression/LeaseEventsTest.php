@@ -8,6 +8,7 @@ use App\Services\LeaseRentChangeService;
 use App\Services\RecordLeaseEventService;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Every commercial change is a dated, reasoned, attributed event (phase 2, story LE-01 —
@@ -138,7 +139,7 @@ it('rolls the event back with the change, so history never records something tha
 
     // A charge row that would make the resulting schedule ambiguous makes the write throw at the
     // model guard, after the lease row and the event have already been touched in the transaction.
-    \Illuminate\Support\Facades\DB::table('charges')->insert([
+    DB::table('charges')->insert([
         'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
         'origin' => Charge::ORIGIN_SEED, 'amount' => 9999, 'currency' => 'EGP',
         'frequency' => 'monthly', 'vat_applicable' => 0, 'vat_rate' => 0,
@@ -152,7 +153,7 @@ it('rolls the event back with the change, so history never records something tha
             'reason' => 'Should not survive.',
             'effective_from' => '2026-07-01',
         ]);
-    } catch (\Throwable) {
+    } catch (Throwable) {
         // the refusal is the point
     }
 

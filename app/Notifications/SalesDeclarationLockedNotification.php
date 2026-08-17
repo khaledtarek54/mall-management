@@ -3,9 +3,11 @@
 namespace App\Notifications;
 
 use App\Models\TenantSalesDeclaration;
+use App\Services\PercentageRentCalculationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Carbon;
 
 class SalesDeclarationLockedNotification extends Notification
 {
@@ -20,7 +22,7 @@ class SalesDeclarationLockedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $working = app(\App\Services\PercentageRentCalculationService::class)->explain($this->declaration);
+        $working = app(PercentageRentCalculationService::class)->explain($this->declaration);
 
         $mail = (new MailMessage)
             ->subject(__('admin.notifications.sales_locked_subject', [
@@ -36,7 +38,7 @@ class SalesDeclarationLockedNotification extends Notification
         // year's breakpoint). Without this a single month's figure on an annual deal is inexplicable.
         if (($working['frequency'] ?? null) === 'annual') {
             $mail->line(__('admin.notifications.sales_locked_annual_context', [
-                'year' => \Illuminate\Support\Carbon::parse($this->declaration->period_start)->year,
+                'year' => Carbon::parse($this->declaration->period_start)->year,
                 'cumulative' => 'EGP '.number_format((float) ($working['cumulative_ytd_sales'] ?? 0), 2),
                 'breakpoint' => 'EGP '.number_format((float) ($working['breakpoint'] ?? 0), 2),
             ]));

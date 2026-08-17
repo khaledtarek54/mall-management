@@ -40,7 +40,7 @@ it('seeds a complete, correctly-branded demo dataset', function () {
     // rather than as a count: the literal was 34 and broke the moment the seeder grew a demo
     // expansion, which is a true statement about the demo and says nothing about correctness.
     $aw = Asset::where('code', 'AW')->first();
-    $heldUnitIds = \App\Models\Lease::query()
+    $heldUnitIds = Lease::query()
         ->whereIn('status', ['active', 'pending_approval'])
         ->with('units')
         ->get()

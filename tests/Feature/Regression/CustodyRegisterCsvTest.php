@@ -25,7 +25,7 @@ beforeEach(function () {
 function custodianFor(int $assetId, string $name): Employee
 {
     return Employee::create([
-        'asset_id' => $assetId, 'code' => 'C-' . uniqid(), 'name' => $name,
+        'asset_id' => $assetId, 'code' => 'C-'.uniqid(), 'name' => $name,
         'hire_date' => '2026-01-01', 'base_salary' => 8000, 'payment_method' => 'cash',
     ]);
 }

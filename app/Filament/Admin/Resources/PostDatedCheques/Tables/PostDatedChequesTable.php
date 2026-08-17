@@ -4,7 +4,9 @@ namespace App\Filament\Admin\Resources\PostDatedCheques\Tables;
 
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Models\PostDatedCheque;
+use App\Services\BillBouncedChequeFeeService;
 use App\Services\PostDatedChequeService;
+use App\Settings\BillingSettings;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -119,14 +121,14 @@ class PostDatedChequesTable
                     ->requiresConfirmation()
                     ->visible(fn (PostDatedCheque $r): bool => $r->status === PostDatedCheque::STATUS_BOUNCED
                         && $r->nsf_fee_invoice_id === null
-                        && (float) app(\App\Settings\BillingSettings::class)->nsf_fee_amount > 0
+                        && (float) app(BillingSettings::class)->nsf_fee_amount > 0
                         && PostDatedChequeResource::canManage())
                     ->authorize(fn (PostDatedCheque $r): bool => PostDatedChequeResource::canManage())
                     ->action(function (PostDatedCheque $record): void {
                         abort_unless(PostDatedChequeResource::canManage(), 403);
 
                         try {
-                            $invoice = app(\App\Services\BillBouncedChequeFeeService::class)->bill($record);
+                            $invoice = app(BillBouncedChequeFeeService::class)->bill($record);
                         } catch (\DomainException $e) {
                             Notification::make()->danger()->title($e->getMessage())->send();
 

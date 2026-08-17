@@ -1,8 +1,12 @@
 <?php
 
+use App\Filament\Admin\Resources\VendorBills\Schemas\VendorBillForm;
 use App\Models\PurchaseRequest;
 use App\Models\VendorBill;
+use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\Journalizers\VendorBillJournalizer;
 use App\Services\Accounting\LedgerPoster;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Regression — gap-analysis **F-100** and **F-101** (module 29). Fixed together, deliberately.
@@ -34,7 +38,7 @@ use App\Services\Accounting\LedgerPoster;
 it('lets a vendor bill name the purchase it pays for — through the form', function () {
     // The heart of F-100: the FORM must offer the field. Asserted against the schema the operator
     // actually sees, not against a fabricated model.
-    $fields = \App\Filament\Admin\Resources\VendorBills\Schemas\VendorBillForm::class;
+    $fields = VendorBillForm::class;
     $source = file_get_contents((new ReflectionClass($fields))->getFileName());
 
     expect($source)->toContain("Select::make('purchase_request_id')");
@@ -48,7 +52,7 @@ it('offers only received purchases from the same vendor and property', function 
     // purchase has credited nothing to GRNI, so a bill naming it would clear something that was
     // never there.
     $source = file_get_contents(
-        (new ReflectionClass(\App\Filament\Admin\Resources\VendorBills\Schemas\VendorBillForm::class))->getFileName()
+        (new ReflectionClass(VendorBillForm::class))->getFileName()
     );
 
     expect($source)->toContain("->where('vendor_id', \$vendorId)")
@@ -59,7 +63,7 @@ it('offers only received purchases from the same vendor and property', function 
 it('shares a purchase received value across its bills instead of clearing it twice', function () {
     // F-101 stated as arithmetic, with no DB: goodsAwaitingInvoice must allocate FIFO so the
     // AGGREGATE never exceeds what the receipt credited.
-    $ref = new ReflectionClass(\App\Services\Accounting\Journalizers\VendorBillJournalizer::class);
+    $ref = new ReflectionClass(VendorBillJournalizer::class);
     $source = file_get_contents($ref->getFileName());
 
     // The aggregate cap: it walks the purchase's OTHER bills and subtracts what they took.
@@ -88,7 +92,7 @@ it('only lets postable bills consume a purchase received value', function () {
 it('exposes the purchase bills relation the allocation depends on', function () {
     expect(method_exists(PurchaseRequest::class, 'bills'))->toBeTrue();
     expect((new PurchaseRequest)->bills())->toBeInstanceOf(
-        \Illuminate\Database\Eloquent\Relations\HasMany::class
+        HasMany::class
     );
 });
 
@@ -96,7 +100,7 @@ it('still charges the full expense on a bill with no purchase — most bills', f
     // The guard must not disturb the ordinary case: a bill naming no purchase is all expense.
     // Proven through the journalizer's own contract rather than a fabricated ledger.
     $ref = new ReflectionMethod(
-        \App\Services\Accounting\Journalizers\VendorBillJournalizer::class,
+        VendorBillJournalizer::class,
         'goodsAwaitingInvoice'
     );
     $ref->setAccessible(true);
@@ -105,8 +109,8 @@ it('still charges the full expense on a bill with no purchase — most bills', f
     expect($journalizer)->not->toBeNull();
 
     $bill = new VendorBill(['purchase_request_id' => null, 'total' => 500, 'vat_amount' => 0]);
-    $instance = new \App\Services\Accounting\Journalizers\VendorBillJournalizer(
-        app(\App\Services\Accounting\AccountResolver::class)
+    $instance = new VendorBillJournalizer(
+        app(AccountResolver::class)
     );
 
     expect($ref->invoke($instance, $bill))->toBe(0.0); // nothing to clear → all of net is expense

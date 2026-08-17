@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::table('maintenance_requests', function (Blueprint $table) {
             $table->enum('channel', ['portal', 'whatsapp', 'phone', 'email', 'walk_in', 'admin'])
-                  ->default('portal')
-                  ->after('category');
+                ->default('portal')
+                ->after('category');
             $table->index('channel');
         });
     }

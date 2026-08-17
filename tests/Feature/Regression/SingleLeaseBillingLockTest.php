@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Models\Lease;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -13,8 +14,7 @@ use Illuminate\Support\Facades\Cache;
  * scheduled run (or a second admin / double-click) could each pass the probe and mint a
  * duplicate invoice. generateForLease now contends on the SAME period lock the bulk run holds.
  */
-
-function lockTestLease(): App\Models\Lease
+function lockTestLease(): Lease
 {
     $lease = makeLease(makeUnit(makeAsset()), makeTenant(), [
         'commencement_date' => '2026-01-01', 'expiry_date' => '2027-12-31', 'payment_terms_days' => 7,

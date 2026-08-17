@@ -32,6 +32,7 @@ use App\Models\OwnerRequest;
 use App\Notifications\OwnerRequestNotification;
 use App\Services\OwnerRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 
 function orSvc(): OwnerRequestService
@@ -95,8 +96,8 @@ it('generates monotonically increasing references within the year', function () 
     $first = orSvc()->create(['subject' => 'a', 'body' => 'a'], $owner);
     $second = orSvc()->create(['subject' => 'b', 'body' => 'b'], $owner);
 
-    expect($first->reference)->toBe('OR-' . now()->format('Y') . '-0001')
-        ->and($second->reference)->toBe('OR-' . now()->format('Y') . '-0002');
+    expect($first->reference)->toBe('OR-'.now()->format('Y').'-0001')
+        ->and($second->reference)->toBe('OR-'.now()->format('Y').'-0002');
 });
 
 // ============================================================
@@ -120,9 +121,9 @@ it('resolving stamps resolved_at and writes the supplied resolution notes', func
     $owner = makeUser('owner');
     $req = orSvc()->create(['subject' => 'Lift noisy', 'body' => 'Lift 2 grinds.'], $owner);
 
-    \Illuminate\Support\Carbon::setTestNow('2026-07-10 14:00:00');
+    Carbon::setTestNow('2026-07-10 14:00:00');
     $out = orSvc()->transition($req, 'resolved', ['resolution_notes' => 'Replaced the bearing.']);
-    \Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 
     expect($out->status)->toBe('resolved')
         ->and($out->resolution_notes)->toBe('Replaced the bearing.')

@@ -1,8 +1,6 @@
 <?php
 
-use App\Models\Invoice;
 use App\Models\Tenant;
-use App\Support\TenantScope;
 
 /**
  * What the operator's tenant list says about money (module 02 close-out).

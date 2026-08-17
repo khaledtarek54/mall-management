@@ -1,11 +1,13 @@
 <?php
 
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
+use App\Models\FacilityWorkOrder;
 use App\Models\InventoryItem;
-use App\Models\Warehouse;
 use App\Models\JournalLine;
+use App\Models\Warehouse;
 use App\Services\Accounting\AccountResolver;
 use App\Services\StockMovementService;
+use App\Services\WorkOrderPartService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -164,13 +166,13 @@ it('prices a work-order part draw from the stock on hand, not a stale catalogue 
     $this->svc->receive($this->store, $this->item, 10, 400);   // really worth 400 each
     $this->item->update(['unit_cost' => 100]);                 // catalogue drifted low
 
-    $order = \App\Models\FacilityWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'title' => 'Chiller service', 'description' => 'Replace filters',
         'category' => 'hvac', 'scheduled_for' => '2026-08-01',
     ]);
 
-    $part = app(\App\Services\WorkOrderPartService::class)->requestInternal($order, [
+    $part = app(WorkOrderPartService::class)->requestInternal($order, [
         'inventory_item_id' => $this->item->id,
         'warehouse_id' => $this->store->id,
         'quantity' => 5,
@@ -185,13 +187,13 @@ it('still lets the caller state a cost on a part draw', function () {
     // The control: an operator who knows the part cost something else must still be able to say so.
     $this->svc->receive($this->store, $this->item, 10, 400);
 
-    $order = \App\Models\FacilityWorkOrder::create([
+    $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'title' => 'Chiller service', 'description' => 'Replace filters',
         'category' => 'hvac', 'scheduled_for' => '2026-08-01',
     ]);
 
-    $part = app(\App\Services\WorkOrderPartService::class)->requestInternal($order, [
+    $part = app(WorkOrderPartService::class)->requestInternal($order, [
         'inventory_item_id' => $this->item->id,
         'warehouse_id' => $this->store->id,
         'quantity' => 5,

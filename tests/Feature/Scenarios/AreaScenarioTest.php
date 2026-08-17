@@ -7,6 +7,7 @@ use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Database\QueryException;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Facility zones (module 30): a zone stands in exactly one property, its code is
@@ -143,7 +144,7 @@ it('rejects an out-of-scope asset_id on write', function () {
     AreaResource::assertAssetInScope($this->asset->id); // in scope — no throw
 
     expect(fn () => AreaResource::assertAssetInScope($other->id))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 /* ---- the table renders with rows ---------------------------------------- */

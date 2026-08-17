@@ -31,6 +31,7 @@
 | second layer so we know which layer is actually holding.
 */
 
+use Composer\InstalledVersions;
 use Filament\Actions\Action;
 
 it('treats a hidden action as disabled', function () {
@@ -72,6 +73,6 @@ it('still refuses the dispatch when hidden and authorized', function () {
 it('records the Filament version this contract was verified against', function () {
     // So a future reader can tell whether the claim above was checked against what they are
     // running, instead of inheriting it the way the original invariant was inherited.
-    expect(Composer\InstalledVersions::getPrettyVersion('filament/actions'))
+    expect(InstalledVersions::getPrettyVersion('filament/actions'))
         ->toStartWith('v4.', 'the dispatch contract above was verified against Filament v4.11.8 — re-verify on a major upgrade');
 });

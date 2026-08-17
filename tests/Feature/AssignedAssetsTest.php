@@ -25,21 +25,22 @@ class AssignedAssetsTest extends TestCase
     private function makeUser(string $role, array $assetIds = []): User
     {
         $u = User::create([
-            'name' => $role . ' user',
-            'email' => $role . uniqid() . '@test.local',
+            'name' => $role.' user',
+            'email' => $role.uniqid().'@test.local',
             'password' => Hash::make('pw'),
         ]);
         $u->syncRoles([$role]);
         if ($assetIds) {
             $u->assignedAssets()->sync(array_fill_keys($assetIds, ['assigned_at' => now()]));
         }
+
         return $u;
     }
 
     private function makeAsset(): Asset
     {
         return Asset::create([
-            'name' => 'Test Asset ' . uniqid(),
+            'name' => 'Test Asset '.uniqid(),
             'code' => strtoupper(substr(uniqid(), -6)),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 100, 'leasable_area_sqm' => 80,

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\CamExpensePools;
 
+use App\Filament\Admin\RelationManagers\CamAllocationsRelationManager;
 use App\Filament\Admin\Resources\CamExpensePools\Pages\CreateCamExpensePool;
 use App\Filament\Admin\Resources\CamExpensePools\Pages\EditCamExpensePool;
 use App\Filament\Admin\Resources\CamExpensePools\Pages\ListCamExpensePools;
@@ -80,7 +81,7 @@ class CamExpensePoolResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\CamAllocationsRelationManager::class,
+            CamAllocationsRelationManager::class,
         ];
     }
 
@@ -92,5 +93,4 @@ class CamExpensePoolResource extends Resource
             'edit' => EditCamExpensePool::route('/{record}/edit'),
         ];
     }
-
 }

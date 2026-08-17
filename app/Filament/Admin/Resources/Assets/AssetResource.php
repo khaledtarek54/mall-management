@@ -2,6 +2,12 @@
 
 namespace App\Filament\Admin\Resources\Assets;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\AssetFloorsRelationManager;
+use App\Filament\Admin\RelationManagers\AssetOwnersRelationManager;
+use App\Filament\Admin\RelationManagers\AssetRentableItemsRelationManager;
+use App\Filament\Admin\RelationManagers\AssetStaffRelationManager;
+use App\Filament\Admin\RelationManagers\AssetUnitsRelationManager;
 use App\Filament\Admin\Resources\Assets\Pages\CreateAsset;
 use App\Filament\Admin\Resources\Assets\Pages\EditAsset;
 use App\Filament\Admin\Resources\Assets\Pages\ListAssets;
@@ -10,6 +16,7 @@ use App\Filament\Admin\Resources\Assets\Tables\AssetsTable;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Asset;
+use App\Support\AssignedAssets;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -70,15 +77,15 @@ class AssetResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\AssetFloorsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\AssetUnitsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\AssetRentableItemsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\AssetStaffRelationManager::class,
+            AssetFloorsRelationManager::class,
+            AssetUnitsRelationManager::class,
+            AssetRentableItemsRelationManager::class,
+            AssetStaffRelationManager::class,
             // Legal ownership — distinct from staff. Absent until 2026-08-11, which left
             // `asset_owner` writable only by DemoSeeder and owner statements with nothing to
             // apportion by on a real install.
-            \App\Filament\Admin\RelationManagers\AssetOwnersRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            AssetOwnersRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -115,7 +122,7 @@ class AssetResource extends Resource
         // newly-created property visible/editable (a new mall is never the
         // active tenant). Before the "All Properties" removal this was
         // restricted to `currentAssetId()`; property-first drops that.
-        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        $ids = AssignedAssets::idsForCurrentUser();
         if ($ids !== null) {
             $query->whereIn('assets.id', $ids);
         }

@@ -2,8 +2,8 @@
 
 namespace App\Actions\Api\V1\Sales;
 
-use App\Models\TenantSalesDeclaration;
 use App\Models\Tenant;
+use App\Models\TenantSalesDeclaration;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 

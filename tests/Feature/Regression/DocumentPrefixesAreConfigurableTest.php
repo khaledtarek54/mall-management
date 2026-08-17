@@ -16,8 +16,10 @@
 | `PR-AW-202603-0007` could be either document with nothing to say which.
 */
 
-use App\Support\DocumentNumbering;
+use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
+use App\Models\Invoice;
 use App\Settings\AccountingSettings;
+use App\Support\DocumentNumbering;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -47,7 +49,7 @@ it('numbers an invoice with the operator letters', function () {
     // prefix the registry knows and the model ignores would be an inert setting.
     setPrefixes(['invoice' => 'TX']);
 
-    expect(App\Models\Invoice::numberPrefix('AW', new DateTimeImmutable('2026-03-05')))
+    expect(Invoice::numberPrefix('AW', new DateTimeImmutable('2026-03-05')))
         ->toBe('TX-AW-202603-');
 });
 
@@ -111,7 +113,7 @@ it('does not renumber anything that already exists', function () {
     $asset = makeAsset(['code' => 'AW']);
     $lease = makeLease(makeUnit($asset));
 
-    $first = App\Models\Invoice::create([
+    $first = Invoice::create([
         'lease_id' => $lease->id, 'tenant_id' => $lease->tenant_id, 'status' => 'issued',
         'issue_date' => '2026-03-05', 'due_date' => '2026-03-12',
         'period_start' => '2026-03-01', 'period_end' => '2026-03-31',
@@ -159,7 +161,7 @@ it('starts a new lease form from the configured term', function () {
     $this->actingAs(makeUser('super_admin'));
     Filament::setTenant(makeAsset());
 
-    Livewire::test(App\Filament\Admin\Resources\Leases\Pages\CreateLease::class)
+    Livewire::test(CreateLease::class)
         ->assertSet('data.term_months', 60);
 
     Filament::setTenant(null, isQuiet: true);
@@ -175,7 +177,7 @@ it('never starts a lease at a zero-month term', function () {
     $this->actingAs(makeUser('super_admin'));
     Filament::setTenant(makeAsset());
 
-    Livewire::test(App\Filament\Admin\Resources\Leases\Pages\CreateLease::class)
+    Livewire::test(CreateLease::class)
         ->assertSet('data.term_months', 1);
 
     Filament::setTenant(null, isQuiet: true);

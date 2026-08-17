@@ -9,6 +9,7 @@ use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The lock / dispute / voidLocked actions gated permission + status ONLY in visible(). Filament's
@@ -55,7 +56,6 @@ function callSalesAction(string $name, TenantSalesDeclaration $declaration): voi
 
     $action->record($declaration)->call();
 }
-
 
 function salesActAs(string $role): void
 {
@@ -111,7 +111,7 @@ it('refuses a viewer locking a declaration when the action closure is reached di
     salesActAs('viewer');
 
     expect(fn () => callSalesAction('lock', $this->decl))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($this->decl->fresh()->status)->not->toBe('locked');
 });
@@ -120,7 +120,7 @@ it('refuses a viewer disputing a declaration when the action closure is reached 
     salesActAs('viewer');
 
     expect(fn () => callSalesAction('dispute', $this->decl))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($this->decl->fresh()->status)->not->toBe('disputed');
 });

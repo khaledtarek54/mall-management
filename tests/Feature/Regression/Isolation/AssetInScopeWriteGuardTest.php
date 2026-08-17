@@ -23,7 +23,6 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * JournalEntryResource/DepositTransactionResource had no assertAssetInScope guard,
  * so a tampered asset_id posted to another property's GL/AR books.
  */
-
 $guarded = [
     'Expense' => ExpenseResource::class,
     'VendorBill' => VendorBillResource::class,

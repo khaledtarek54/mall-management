@@ -6,7 +6,7 @@ use App\Models\Asset;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\Asset>
+ * @extends Factory<Asset>
  */
 class AssetFactory extends Factory
 {
@@ -25,7 +25,7 @@ class AssetFactory extends Factory
         $totalArea = fake()->randomFloat(2, 2_000, 50_000);
 
         return [
-            'name' => fake()->unique()->company() . ' Mall',
+            'name' => fake()->unique()->company().' Mall',
             // NOT NULL + unique. Short uppercase property code, e.g. "HW".
             'code' => strtoupper(fake()->unique()->bothify('??##')),
             // DB enum — must be one of the allowed values.

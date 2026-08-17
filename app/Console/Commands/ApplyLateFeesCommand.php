@@ -19,7 +19,8 @@ class ApplyLateFeesCommand extends Command
 
         if ($this->option('queue')) {
             ApplyLateFees::dispatch($dateOption);
-            $this->info('Late-fee job dispatched' . ($dateOption ? " for {$dateOption}" : '') . '.');
+            $this->info('Late-fee job dispatched'.($dateOption ? " for {$dateOption}" : '').'.');
+
             return self::SUCCESS;
         }
 

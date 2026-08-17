@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The security deposit held against this lease, and what has happened to it.
@@ -26,7 +27,7 @@ class LeaseDepositsRelationManager extends RelationManager
 {
     protected static string $relationship = 'deposits';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.navigation.deposit_transactions');
     }

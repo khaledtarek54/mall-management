@@ -2,6 +2,9 @@
 
 use App\Models\Payment;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
+use App\Services\VoidPaymentService;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
 
 /**
  * Canonical "money received" set (Module 06 close-out 2026-07-19): captured / reconciled / settled
@@ -62,8 +65,8 @@ it('a failed payment re-opens the AR', function () {
 });
 
 it('the GL journalizer posts every received status and skips reversals', function () {
-    $this->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
-    $this->seed(\Database\Seeders\AccountMappingSeeder::class);
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
     [, $payment] = receivedTestInvoiceAndPayment('captured');
     $j = app(PaymentJournalizer::class);
 
@@ -94,7 +97,7 @@ it('the received scope (what the collections widgets + statements + reconciliati
 it('a received payment (any of captured/reconciled/settled) can be voided', function () {
     foreach (['captured', 'reconciled', 'settled'] as $status) {
         [$invoice, $payment] = receivedTestInvoiceAndPayment($status);
-        app(\App\Services\VoidPaymentService::class)->void($payment, 'test refund');
+        app(VoidPaymentService::class)->void($payment, 'test refund');
 
         expect($payment->fresh()->status)->toBe('refunded')
             ->and((float) $invoice->fresh()->balance)->toBe(1000.0);

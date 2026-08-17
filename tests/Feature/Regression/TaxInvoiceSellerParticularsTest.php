@@ -1,9 +1,11 @@
 <?php
 
+use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Services\InvoicePdfService;
 use App\Settings\TaxSettings;
 use Illuminate\Support\Facades\View;
+use Tests\Support\TaxCatalogue;
 
 /**
  * A document titled "Tax Invoice" must carry the seller's tax registration number.
@@ -22,7 +24,7 @@ use Illuminate\Support\Facades\View;
  * Asserted against the rendered HTML rather than the PDF bytes: mpdf is a renderer, and what we
  * are pinning is the DOCUMENT's content.
  */
-function taxInvoiceHtml(\App\Models\Invoice $invoice): string
+function taxInvoiceHtml(Invoice $invoice): string
 {
     $invoice->loadMissing(['items', 'tenant', 'lease.unit.asset']);
     $tax = app(TaxSettings::class);
@@ -131,7 +133,7 @@ it('reads each line\'s OWN rate rather than today\'s standard rate', function ()
     // An issued invoice keeps the rate it was billed at. Re-deriving the summary from
     // the tax catalogue would silently restate every historical document the day the rate changes —
     // the origination-only rule that governs VAT everywhere else in this codebase.
-    \Tests\Support\TaxCatalogue::setStandardRate(20.0);
+    TaxCatalogue::setStandardRate(20.0);
 
     $m = new ReflectionMethod(InvoicePdfService::class, 'vatSummary');
     $m->setAccessible(true);

@@ -4,7 +4,6 @@
  * Baseline security headers on every response, with a strict CSP scoped to the
  * public payment pages only (Filament panels need a looser policy).
  */
-
 it('sets baseline security headers on a normal web response (no strict CSP)', function () {
     $response = $this->get('/');
 

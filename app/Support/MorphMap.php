@@ -104,6 +104,8 @@ use App\Models\VendorDocument;
 use App\Models\Violation;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 /**
  * **The alias every polymorphic column stores, instead of a class name.**
@@ -211,13 +213,13 @@ class MorphMap
         // this map from `app/Models` alone missed both — the completeness gate swept the same
         // directory and so agreed with the mistake. That is the validity-vs-completeness trap in its
         // purest form: the check and the thing it checks shared an assumption, so it passed.
-        'permission' => \Spatie\Permission\Models\Permission::class,
+        'permission' => Permission::class,
         'post_dated_cheque' => PostDatedCheque::class,
         'property_setting' => PropertySetting::class,
         'purchase_request' => PurchaseRequest::class,
         'purchase_request_line' => PurchaseRequestLine::class,
         'rentable_item' => RentableItem::class,
-        'role' => \Spatie\Permission\Models\Role::class,
+        'role' => Role::class,
         'report_preference' => ReportPreference::class,
         'saved_report' => SavedReport::class,
         'service_plan' => ServicePlan::class,

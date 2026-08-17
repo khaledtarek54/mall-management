@@ -1,15 +1,16 @@
 <?php
 
-use App\Support\MorphMap;
+use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderPart;
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
-use App\Models\FacilityWorkOrder;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Reconciliation\BooksReconciliationService;
 use App\Services\StockMovementService;
 use App\Services\WorkOrderPartService;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -55,7 +56,7 @@ beforeEach(function () {
     ]);
 });
 
-function approvedDraw(float $qty = 5): App\Models\FacilityWorkOrderPart
+function approvedDraw(float $qty = 5): FacilityWorkOrderPart
 {
     $part = test()->svc->requestInternal(test()->order, [
         'inventory_item_id' => test()->item->id, 'warehouse_id' => test()->wh->id, 'quantity' => $qty,

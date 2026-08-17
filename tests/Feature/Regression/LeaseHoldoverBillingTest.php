@@ -4,6 +4,7 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
+use App\Services\ChargeScheduleService;
 use App\Services\ConvertLeaseToHoldoverService;
 use App\Services\MonthlyBillingService;
 use App\Support\Vat;
@@ -99,7 +100,7 @@ it('bases the holdover rent on the rent in force AT EXPIRY, not on a step the te
 
     // Through the real writer, which is how a projected ladder actually arrives: it closes the
     // row in force at 30 June and opens the July step.
-    app(\App\Services\ChargeScheduleService::class)->setAmount(
+    app(ChargeScheduleService::class)->setAmount(
         $lease, 'base_rent', 130000, CarbonImmutable::parse('2028-07-01'),
         ['name' => 'Base Rent', 'vat_applicable' => false, 'vat_rate' => Vat::EXEMPT],
         Charge::ORIGIN_ESCALATION,

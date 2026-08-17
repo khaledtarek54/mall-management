@@ -23,8 +23,12 @@
 */
 
 use App\Filament\Admin\Pages\BalanceSheet;
+use App\Filament\Admin\Pages\CashFlow;
+use App\Filament\Admin\Pages\GeneralLedger;
 use App\Filament\Admin\Pages\IncomeStatement;
 use App\Filament\Admin\Pages\RentRoll;
+use App\Filament\Admin\Pages\TrialBalance;
+use App\Filament\Admin\Pages\VatReturn;
 use App\Support\ReportParameters;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -121,12 +125,12 @@ it('covers every ledger report, not just the one that was noticed', function () 
     // The trait is shared, so the bug was shared. Fixing the Income Statement alone and calling it
     // done is the failure mode this codebase has hit before (the VendorBill GL omission).
     $ledgerReports = [
-        \App\Filament\Admin\Pages\IncomeStatement::class,
-        \App\Filament\Admin\Pages\BalanceSheet::class,
-        \App\Filament\Admin\Pages\CashFlow::class,
-        \App\Filament\Admin\Pages\TrialBalance::class,
-        \App\Filament\Admin\Pages\GeneralLedger::class,
-        \App\Filament\Admin\Pages\VatReturn::class,
+        IncomeStatement::class,
+        BalanceSheet::class,
+        CashFlow::class,
+        TrialBalance::class,
+        GeneralLedger::class,
+        VatReturn::class,
     ];
 
     foreach ($ledgerReports as $page) {

@@ -2,8 +2,8 @@
 
 namespace App\Actions\Api\V1\Requests;
 
-use App\Models\TenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
 use Illuminate\Http\UploadedFile;
 

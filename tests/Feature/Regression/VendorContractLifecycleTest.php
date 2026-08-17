@@ -3,7 +3,7 @@
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorContract;
-use App\Notifications\VendorContractRenewalDueNotification;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -47,7 +47,7 @@ it('derives the notice deadline from the term and keeps it in step with edits', 
 
 it('alerts once when the notice deadline arrives, then never re-nags', function () {
     Notification::fake();
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     // 60 days of term left, 90 days notice → the deadline passed 30 days ago.
     $contract = lifecycleContract(['notice_period_days' => 90]);
 

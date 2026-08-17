@@ -2,9 +2,9 @@
 
 namespace App\Notifications;
 
+use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
-use App\Models\Tenant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;

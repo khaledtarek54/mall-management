@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Payment;
+use App\Models\User;
 use App\Services\ApplyTenantCreditService;
+use App\Settings\BillingSettings;
 
 /**
  * Pre-go-live sweep (HIGH) — the Paymob gateway capture clamp must subtract applied on-account
@@ -22,13 +24,13 @@ use App\Services\ApplyTenantCreditService;
  * read it — which is correct behaviour, and would make these tests measure the trigger rather than
  * the thing they are about.
  */
-beforeEach(fn () => app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit = false);
+beforeEach(fn () => app(BillingSettings::class)->auto_apply_tenant_credit = false);
 
 it('clamps the gateway allocation by applied tenant credit — no over-settlement into negative AR', function () {
     $asset = makeAsset();
     $lease = makeLease(makeUnit($asset));
     $tenant = $lease->tenant;
-    $this->actingAs(\App\Models\User::factory()->create());
+    $this->actingAs(User::factory()->create());
 
     // The tenant holds 4,000 of on-account credit: a prior invoice (6,000) over-paid by 10,000.
     $prior = makeInvoice($lease, ['status' => 'issued', 'total' => 6000, 'balance' => 6000, 'paid_amount' => 0]);

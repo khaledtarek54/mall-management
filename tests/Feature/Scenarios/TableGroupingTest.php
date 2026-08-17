@@ -1,8 +1,8 @@
 <?php
 
 use App\Filament\Admin\Resources\Expenses\Pages\ListExpenses;
-use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
+use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Admin\Resources\Payments\Pages\ListPayments;
 use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Filament\Admin\Resources\VendorBills\Pages\ListVendorBills;

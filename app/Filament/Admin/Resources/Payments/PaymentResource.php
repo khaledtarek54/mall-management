@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Payments;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -19,7 +20,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PaymentResource extends Resource
 {
@@ -43,7 +43,6 @@ class PaymentResource extends Resource
             'tenant.search_text',
         ];
     }
-
 
     protected static ?string $model = Payment::class;
 
@@ -86,7 +85,7 @@ class PaymentResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -103,7 +102,7 @@ class PaymentResource extends Resource
     {
         return [
             __('admin.tables.payment.tenant') => $record->tenant?->name,
-            __('admin.tables.payment.amount') => 'EGP ' . number_format((float) $record->amount, 2),
+            __('admin.tables.payment.amount') => 'EGP '.number_format((float) $record->amount, 2),
             __('admin.tables.payment.date') => $record->payment_date?->format('d/m/Y'),
             __('admin.tables.payment.method') => __("admin.enums.method.{$record->method}"),
         ];

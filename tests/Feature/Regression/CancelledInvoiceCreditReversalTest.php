@@ -1,8 +1,7 @@
 <?php
 
 use App\Models\CreditNote;
-use App\Services\CreditNoteService;
-
+use App\Models\CreditNoteApplication;
 /**
  * Regression (HIGH / money): cancelling an invoice that had credit applied must return that credit
  * to the tenant WITHOUT double-counting the sales-return. The original design issued a SECOND
@@ -11,7 +10,7 @@ use App\Services\CreditNoteService;
  * is restored to available (its single, original GL entry now correctly represents the returned
  * credit), the invoice's applied credit is zeroed, and NO second note is created.
  */
-use App\Models\CreditNoteApplication;
+use App\Services\CreditNoteService;
 
 it('un-applies consumed credit when a credited invoice is cancelled (no second note, no double-count)', function () {
     $tenant = makeTenant();
@@ -19,7 +18,7 @@ it('un-applies consumed credit when a credited invoice is cancelled (no second n
     $invoice = makeInvoice($lease); // issued, balance 11400
 
     $note = CreditNote::create([
-        'number' => 'CN-' . uniqid(), 'tenant_id' => $tenant->id, 'lease_id' => $lease->id,
+        'number' => 'CN-'.uniqid(), 'tenant_id' => $tenant->id, 'lease_id' => $lease->id,
         'status' => 'issued', 'issue_date' => now(), 'reason' => 'adjustment',
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000,
         'applied_amount' => 0, 'balance' => 5000, 'currency' => 'EGP',
@@ -49,7 +48,7 @@ it('un-applies credit + zeros balance when cancelling the SAME (stale) in-memory
     $invoice = makeInvoice($lease); // balance 11400
 
     $note = CreditNote::create([
-        'number' => 'CN-' . uniqid(), 'tenant_id' => $tenant->id, 'lease_id' => $lease->id,
+        'number' => 'CN-'.uniqid(), 'tenant_id' => $tenant->id, 'lease_id' => $lease->id,
         'status' => 'issued', 'issue_date' => now(), 'reason' => 'adjustment',
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000,
         'applied_amount' => 0, 'balance' => 5000, 'currency' => 'EGP',
@@ -74,7 +73,7 @@ it('does NOT reverse credit when an invoice is marked credited (settlement stays
     $invoice = makeInvoice($lease);
 
     $note = CreditNote::create([
-        'number' => 'CN-' . uniqid(), 'tenant_id' => $tenant->id, 'lease_id' => $lease->id,
+        'number' => 'CN-'.uniqid(), 'tenant_id' => $tenant->id, 'lease_id' => $lease->id,
         'status' => 'issued', 'issue_date' => now(), 'reason' => 'adjustment',
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000,
         'applied_amount' => 0, 'balance' => 5000, 'currency' => 'EGP',

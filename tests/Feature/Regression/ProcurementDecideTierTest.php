@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\ApprovalRule;
 use App\Models\PurchaseRequest;
 use App\Services\PurchaseRequestService;
 use Database\Seeders\ApprovalRulesSeeder;

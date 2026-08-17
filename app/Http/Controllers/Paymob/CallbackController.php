@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Paymob;
 use App\Models\Payment;
 use App\Services\Paymob\PaymobClient;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Support\OpsLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Support\OpsLog;
 
 /**
  * Two roles:

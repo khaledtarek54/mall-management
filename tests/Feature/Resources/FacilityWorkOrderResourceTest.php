@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\EditFacilityWorkOrder;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -50,7 +51,7 @@ it('hides the module when disabled', function () {
     $this->actingAs(makeUser('super_admin'));
     expect(FacilityWorkOrderResource::canViewAny())->toBeTrue();
 
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->facility = false;
     $settings->save();
 

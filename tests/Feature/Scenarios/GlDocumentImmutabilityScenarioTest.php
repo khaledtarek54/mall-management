@@ -81,7 +81,7 @@ it('freezes a finalized invoice\'s lease (AR dimension) yet allows a forward sta
     // lease_id is a GL/AR dimension — immutable once finalized (regression pins issue_date +
     // tenant_id; lease_id is the third guarded field and is exercised here end-to-end).
     expect(fn () => $invoice->update(['lease_id' => $otherLease->id]))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
     expect($invoice->fresh()->lease_id)->not->toBe($otherLease->id);
 
     // A forward workflow transition on the SAME document is legitimate and must pass.
@@ -115,7 +115,7 @@ it('locks a captured payment\'s amount but never blocks the initiated→captured
     expect($payment->fresh()->status)->toBe('captured');
 
     // Now the cash is immutable — amount and payment_date are frozen.
-    expect(fn () => $payment->fresh()->update(['amount' => 9999]))->toThrow(\DomainException::class);
+    expect(fn () => $payment->fresh()->update(['amount' => 9999]))->toThrow(DomainException::class);
     expect((float) $payment->fresh()->amount)->toBe(4000.0);
 
     // …but a captured→failed chargeback (a status-only forward move) is still allowed.
@@ -208,13 +208,13 @@ it('supports the void-then-re-issue correction: a fresh invoice posts a NEW, bal
 it('blocks the wrong voids: draft invoice, ETA-filed invoice, captured-cash invoice, non-captured payment', function () {
     // (a) A draft is deleted, not voided.
     $draft = makeInvoice(makeLease(makeUnit(makeAsset())), ['status' => 'draft']);
-    expect(fn () => app(VoidInvoiceService::class)->void($draft))->toThrow(\DomainException::class);
+    expect(fn () => app(VoidInvoiceService::class)->void($draft))->toThrow(DomainException::class);
 
     // (b) A tax invoice already filed with ETA must be corrected via a credit note, not an
     // internal void (that would diverge the books from what ETA holds).
     $filed = postableInvoice();
     $filed->forceFill(['eta_status' => 'valid'])->saveQuietly();
-    expect(fn () => app(VoidInvoiceService::class)->void($filed->fresh()))->toThrow(\DomainException::class);
+    expect(fn () => app(VoidInvoiceService::class)->void($filed->fresh()))->toThrow(DomainException::class);
     expect($filed->fresh()->status)->not->toBe('cancelled');
 
     // (c) An invoice carrying captured CASH — refund the payment first.
@@ -222,7 +222,7 @@ it('blocks the wrong voids: draft invoice, ETA-filed invoice, captured-cash invo
     $pay = capturedPayment($withCash->tenant_id, 10000);
     $pay->invoices()->attach($withCash->id, ['allocated_amount' => 10000]);
     $withCash->recomputeTotals();
-    expect(fn () => app(VoidInvoiceService::class)->void($withCash->fresh()))->toThrow(\DomainException::class);
+    expect(fn () => app(VoidInvoiceService::class)->void($withCash->fresh()))->toThrow(DomainException::class);
     expect($withCash->fresh()->status)->not->toBe('cancelled');
 
     // (d) VoidPaymentService only reverses a CAPTURED payment — an initiated one can't be voided.
@@ -231,7 +231,7 @@ it('blocks the wrong voids: draft invoice, ETA-filed invoice, captured-cash invo
         'reference' => 'P-'.uniqid(), 'tenant_id' => $lease->tenant_id, 'amount' => 500,
         'method' => 'card', 'status' => 'initiated', 'payment_date' => now()->toDateString(),
     ]);
-    expect(fn () => app(VoidPaymentService::class)->void($initiated))->toThrow(\DomainException::class);
+    expect(fn () => app(VoidPaymentService::class)->void($initiated))->toThrow(DomainException::class);
     expect($initiated->fresh()->status)->toBe('initiated');
 });
 

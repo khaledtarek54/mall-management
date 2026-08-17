@@ -10,6 +10,7 @@ use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The admin surface: who may do what, and does the screen actually render.
@@ -156,7 +157,7 @@ it('refuses a write into a property outside the user visible set', function () {
     MarketingPostResource::assertAssetInScope($mine->id);
 
     expect(fn () => MarketingPostResource::assertAssetInScope($theirs->id))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 // ---------------------------------------------------------------- the workflow, end to end

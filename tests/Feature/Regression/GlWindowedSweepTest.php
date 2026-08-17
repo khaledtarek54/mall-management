@@ -4,15 +4,18 @@ use App\Filament\Admin\Resources\Payments\Pages\EditPayment;
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
 use App\Models\Payment;
-use App\Models\VendorBill;
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\LedgerReportService;
 use App\Services\StockMovementService;
 use App\Services\VendorBillService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -32,7 +35,7 @@ beforeEach(function () {
 });
 
 /** The current (posted, non-void) journal entry for a source document. */
-function currentEntry(\Illuminate\Database\Eloquent\Model $source): ?JournalEntry
+function currentEntry(Model $source): ?JournalEntry
 {
     return JournalEntry::where('source_type', $source->getMorphClass())
         ->where('source_id', $source->getKey())
@@ -42,7 +45,7 @@ function currentEntry(\Illuminate\Database\Eloquent\Model $source): ?JournalEntr
 }
 
 /** Force a source's updated_at out of the sweep's 2-day window (no events fired). */
-function backdateOutOfWindow(\Illuminate\Database\Eloquent\Model $source): void
+function backdateOutOfWindow(Model $source): void
 {
     DB::table($source->getTable())->where('id', $source->getKey())
         ->update(['updated_at' => now()->subDays(30)]);
@@ -140,7 +143,7 @@ it('voids a vendor-bill payment entry when the payment is soft-deleted (F7)', fu
 
     // The bill's own payable is restored and the books still balance.
     expect((float) $bill->fresh()->paid_amount)->toBe(0.0);
-    expect(app(\App\Services\Accounting\LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+    expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
 });
 
 it('voids a bill AND its payments on the windowed sweep when the bill is soft-deleted (F9/High)', function () {
@@ -167,7 +170,7 @@ it('voids a bill AND its payments on the windowed sweep when the bill is soft-de
     expect($voided($bill))->toBe(1)
         ->and($voided($payment))->toBe(1);
 
-    $tb = app(\App\Services\Accounting\LedgerReportService::class)->trialBalance();
+    $tb = app(LedgerReportService::class)->trialBalance();
     expect($tb['balanced'])->toBeTrue()
         ->and($tb['total_debit'])->toEqualWithDelta(0.0, 0.001); // fully unwound
 
@@ -179,11 +182,11 @@ it('voids a bill AND its payments on the windowed sweep when the bill is soft-de
     expect(currentEntry($bill->fresh()))->not->toBeNull()
         ->and(currentEntry($payment->fresh()))->not->toBeNull()
         ->and((float) $bill->fresh()->paid_amount)->toBe(1000.0);
-    expect(app(\App\Services\Accounting\LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+    expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
 });
 
 it('bumps a payment updated_at when its allocations are edited via the page (F8)', function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class); // grant payments.edit
+    $this->seed(RolesPermissionsSeeder::class); // grant payments.edit
     $this->actingAs(makeUser('super_admin'));
 
     $asset = makeAsset();

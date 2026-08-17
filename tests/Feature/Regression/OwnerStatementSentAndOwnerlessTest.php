@@ -21,7 +21,9 @@
 
 use App\Filament\Admin\Resources\OwnerStatementRuns\Pages\ListOwnerStatementRuns;
 use App\Models\AccountingPeriod;
+use App\Models\Asset;
 use App\Models\OwnerStatement;
+use App\Models\OwnerStatementRun;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
@@ -51,7 +53,7 @@ beforeEach(function () {
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 /** A property with real posted money in a month — the statement is the ledger, so it needs some. */
-function earningAsset(string $code, bool $withOwner = true): \App\Models\Asset
+function earningAsset(string $code, bool $withOwner = true): Asset
 {
     $asset = makeAsset(['code' => $code]);
 
@@ -65,7 +67,7 @@ function earningAsset(string $code, bool $withOwner = true): \App\Models\Asset
 }
 
 /** One month's rent and salary on a property, then its draft run for that month. */
-function runFor(\App\Models\Asset $asset, string $month): \App\Models\OwnerStatementRun
+function runFor(Asset $asset, string $month): OwnerStatementRun
 {
     $post = app(JournalPostingService::class);
     $r = app(AccountResolver::class);

@@ -3,6 +3,7 @@
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Services\MonthlyBillingService;
+use App\Services\RentEscalationService;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 
@@ -117,7 +118,7 @@ it('agrees with what the escalation sweep would have produced', function () {
         ->assertSuccessful();
 
     CarbonImmutable::setTestNow('2027-03-01');
-    app(\App\Services\RentEscalationService::class)->runForToday(CarbonImmutable::parse('2027-03-01'));
+    app(RentEscalationService::class)->runForToday(CarbonImmutable::parse('2027-03-01'));
 
     $billing = app(MonthlyBillingService::class);
     $march = CarbonImmutable::parse('2027-03-01');

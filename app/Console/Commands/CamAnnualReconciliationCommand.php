@@ -20,6 +20,7 @@ class CamAnnualReconciliationCommand extends Command
 
         if (empty($report)) {
             $this->warn("No CAM pools found for {$year}.");
+
             return self::SUCCESS;
         }
 
@@ -36,7 +37,7 @@ class CamAnnualReconciliationCommand extends Command
         $totalBilled = array_sum(array_column($report, 'billed'));
 
         $this->info(
-            "Done. {$totalAllocations} allocations generated" .
+            "Done. {$totalAllocations} allocations generated".
             ($autoBill ? ", {$totalBilled} billed." : '. Review and bill from the admin panel.'),
         );
 

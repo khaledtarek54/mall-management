@@ -17,7 +17,7 @@ interface EtaDocumentSigner
 {
     /**
      * @param  array<string,mixed>  $documentJson  the ETA invoice document
-     * @return array<string,mixed>  the document ready to submit (with a `signatures` array when signed)
+     * @return array<string,mixed> the document ready to submit (with a `signatures` array when signed)
      */
     public function sign(array $documentJson): array;
 

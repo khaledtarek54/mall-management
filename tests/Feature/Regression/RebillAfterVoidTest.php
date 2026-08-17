@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Services\MonthlyBillingService;
@@ -31,7 +32,7 @@ beforeEach(function () {
         'base_rent_monthly' => 10000,
     ]);
 
-    \App\Models\Charge::create([
+    Charge::create([
         'lease_id' => $this->lease->id,
         'name' => 'Base rent',
         'type' => 'base_rent',

@@ -13,7 +13,7 @@ beforeEach(function () {
     $this->asset = makeAsset();
     $this->meter = UtilityMeter::create([
         'asset_id' => $this->asset->id,
-        'meter_number' => 'HW-E-' . uniqid(),
+        'meter_number' => 'HW-E-'.uniqid(),
         'type' => 'electric',
         'status' => 'active',
         'unit_of_measurement' => 'kWh',

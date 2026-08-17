@@ -35,7 +35,7 @@ it('Payment::assertInvoicesShareTenant passes when every invoice belongs to the 
 
 it('Payment::assertInvoicesShareTenant throws when any invoice belongs to a different tenant', function () {
     $this->payment->assertInvoicesShareTenant([$this->invoiceA->id, $this->invoiceB->id]);
-})->throws(\DomainException::class);
+})->throws(DomainException::class);
 
 it('Payment::assertInvoicesShareTenant is a no-op on empty input', function () {
     $this->payment->assertInvoicesShareTenant([]);
@@ -47,7 +47,7 @@ it('the helper names the offending invoice in its message', function () {
     try {
         $this->payment->assertInvoicesShareTenant([$this->invoiceB->id]);
         $this->fail('expected a DomainException');
-    } catch (\DomainException $e) {
+    } catch (DomainException $e) {
         expect($e->getMessage())->toContain($this->invoiceB->number);
     }
 });

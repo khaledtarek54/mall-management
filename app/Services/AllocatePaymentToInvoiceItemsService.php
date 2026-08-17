@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Support\InvoiceItemSettlement;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -47,7 +49,7 @@ class AllocatePaymentToInvoiceItemsService
             throw new DomainException(__('admin.errors.item_allocation_payment_not_on_invoice'));
         }
 
-        /** @var \Illuminate\Support\Collection<int, \App\Models\InvoiceItem> $items */
+        /** @var Collection<int, InvoiceItem> $items */
         $items = $invoice->items()->get()->keyBy('id');
         $rows = [];
         $total = 0.0;

@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\Invoices\Pages;
 
 use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Filament\Portal\Resources\Invoices\InvoiceResource;
+use App\Models\Payment;
 use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Support\DemoPayments;
@@ -48,7 +49,7 @@ class ViewInvoice extends ViewRecord
                     abort_unless($this->canPayNow(), 403);
 
                     try {
-                        $session = app(PaymobPaymentInitiator::class)->start($this->record, \App\Models\Payment::CHANNEL_PORTAL);
+                        $session = app(PaymobPaymentInitiator::class)->start($this->record, Payment::CHANNEL_PORTAL);
 
                         return redirect()->away($session['iframe_url']);
                     } catch (\Throwable $e) {

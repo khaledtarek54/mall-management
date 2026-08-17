@@ -1,10 +1,11 @@
 <?php
 
-use App\Filament\Admin\Resources\ServicePlans\Pages\EditServicePlan;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\EditFacilityWorkOrder;
+use App\Filament\Admin\Resources\ServicePlans\Pages\CreateServicePlan;
+use App\Filament\Admin\Resources\ServicePlans\Pages\EditServicePlan;
 use App\Models\Equipment;
-use App\Models\ServicePlan;
 use App\Models\FacilityWorkOrder;
+use App\Models\ServicePlan;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -132,7 +133,7 @@ it('does not offer a retired machine when creating a new plan', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($live) {
-        Livewire::test(\App\Filament\Admin\Resources\ServicePlans\Pages\CreateServicePlan::class)
+        Livewire::test(CreateServicePlan::class)
             ->fillForm(['asset_id' => $this->asset->id])
             ->assertFormFieldExists('equipment_id', fn ($f) => array_keys($f->getOptions()) === [$live->id]);
     });

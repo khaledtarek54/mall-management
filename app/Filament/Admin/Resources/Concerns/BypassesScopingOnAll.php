@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Concerns;
 
 use App\Models\Asset;
+use App\Support\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -26,7 +27,7 @@ trait BypassesScopingOnAll
             // assigned properties (visibleAssetIds returns null only for
             // super_admin / unconstrained). Otherwise All-mode leaked every
             // property's direct-FK records (Units, Meters, CAM pools).
-            $ids = \App\Support\TenantScope::visibleAssetIds();
+            $ids = TenantScope::visibleAssetIds();
 
             return $ids === null ? $query : $query->whereIn('asset_id', $ids);
         }

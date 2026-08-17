@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\OwnerRequests\Schemas\OwnerRequestForm;
 use App\Filament\Admin\Resources\OwnerRequests\Tables\OwnerRequestsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\OwnerRequest;
+use App\Support\AssignedAssets;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -96,7 +97,7 @@ class OwnerRequestResource extends Resource
         if ($user && $user->can('owner_requests.edit')) {
             // A property-restricted operator only sees requests for their assigned
             // properties (idsForCurrentUser returns null for super_admin = all).
-            $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+            $ids = AssignedAssets::idsForCurrentUser();
 
             return parent::getEloquentQuery()
                 ->where('recipient', 'operator')

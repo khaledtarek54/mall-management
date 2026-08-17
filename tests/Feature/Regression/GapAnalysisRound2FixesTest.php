@@ -1,10 +1,10 @@
 <?php
 
-use App\Support\MorphMap;
-use App\Models\SlaPenalty;
 use App\Models\FacilityWorkOrder;
+use App\Models\JournalEntry;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
+use App\Models\SlaPenalty;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorBill;
@@ -14,6 +14,7 @@ use App\Services\ApplySlaPenaltyService;
 use App\Services\AssessSlaPenaltyService;
 use App\Services\FacilityWorkOrderService;
 use App\Services\Reconciliation\BooksReconciliationService;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -165,7 +166,7 @@ it('re-derives the ledger entry when only the document date changes', function (
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $entry = \App\Models\JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
+    $entry = JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
         ->where('source_id', $spend->id)->where('status', 'posted')->firstOrFail();
     expect($entry->entry_date->toDateString())->toBe(now()->startOfMonth()->toDateString());
 
@@ -175,7 +176,7 @@ it('re-derives the ledger entry when only the document date changes', function (
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $live = \App\Models\JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
+    $live = JournalEntry::where('source_type', MorphMap::alias(MarketingSpend::class))
         ->where('source_id', $spend->id)->where('status', 'posted')->firstOrFail();
 
     expect($live->entry_date->toDateString())

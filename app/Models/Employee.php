@@ -25,7 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned]
 class Employee extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     protected $fillable = [
         'asset_id',

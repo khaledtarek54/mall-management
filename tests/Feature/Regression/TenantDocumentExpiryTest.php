@@ -3,6 +3,7 @@
 use App\Models\TenantDocument;
 use App\Notifications\TenantDocumentExpiringNotification;
 use Carbon\CarbonImmutable;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -27,7 +28,7 @@ afterEach(fn () => CarbonImmutable::setTestNow());
  */
 function chaseStaff(): void
 {
-    test()->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    test()->seed(RolesPermissionsSeeder::class);
 
     // A super_admin specifically. `AssetStaffRecipients::for(null, …)` resolves ONLY super_admins —
     // the property-team roles are matched through `assignedAssets`, so with no asset there is

@@ -5,8 +5,8 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseOption;
 use App\Services\LeaseCreationService;
+use App\Services\MonthlyBillingService;
 use App\Services\Reports\ReportService;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -83,7 +83,7 @@ it('agrees with the invoice the billing engine produces for the same month', fun
     CarbonImmutable::setTestNow('2027-06-15');
     $lease = rollLease();
 
-    $invoice = app(\App\Services\MonthlyBillingService::class)
+    $invoice = app(MonthlyBillingService::class)
         ->generateForLease($lease, CarbonImmutable::parse('2027-06-01'))['invoice'];
 
     expect((float) roll('2027-06-15')->first()['base_rent'])

@@ -24,7 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PortfolioShared]
 class InventoryItem extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     protected $fillable = [
         'sku',

@@ -7,6 +7,7 @@ use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -26,9 +27,13 @@ class OwnerStatement extends Model
     use HasFactory, LogsActivity, SoftDeletes;
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_FINALISED = 'finalised';
+
     public const STATUS_SENT = 'sent';
+
     public const STATUS_SUPERSEDED = 'superseded';
+
     public const STATUSES = [self::STATUS_DRAFT, self::STATUS_FINALISED, self::STATUS_SENT, self::STATUS_SUPERSEDED];
 
     protected $fillable = [
@@ -130,7 +135,7 @@ class OwnerStatement extends Model
         return $this->belongsTo(OwnerStatementRun::class, 'owner_statement_run_id');
     }
 
-    public function disbursements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function disbursements(): HasMany
     {
         return $this->hasMany(Disbursement::class);
     }

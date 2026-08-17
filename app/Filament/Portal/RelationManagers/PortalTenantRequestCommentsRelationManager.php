@@ -45,6 +45,7 @@ class PortalTenantRequestCommentsRelationManager extends RelationManager
                         if ($author instanceof User) {
                             return __('admin.tenant_requests.author_property_team');
                         }
+
                         return __('admin.activity.system');
                     })
                     ->weight('medium'),

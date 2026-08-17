@@ -26,10 +26,15 @@
 | unless a scenario specifically needs the login-issued token.
 */
 
+use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\TenantSalesDeclaration;
 use App\Models\User;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
 // ---------------------------------------------------------------------------
@@ -102,7 +107,7 @@ it('rejects an empty bearer value (401)', function () {
 
 it('rejects a structurally-plausible but unknown token (401)', function () {
     // id|hash shape that no DB row backs.
-    $this->getJson('/api/v1/me', ['Authorization' => 'Bearer 999|' . str_repeat('a', 40)])
+    $this->getJson('/api/v1/me', ['Authorization' => 'Bearer 999|'.str_repeat('a', 40)])
         ->assertUnauthorized();
 });
 
@@ -148,10 +153,10 @@ it('rejects a Sanctum token whose tokenable is an admin User, not a Tenant', fun
     // token whose tokenable is a back-office User must NOT authenticate the
     // mobile API — otherwise a staff token would hand out a tenant session.
     // (User has no HasApiTokens, so the row is crafted directly.)
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $user = makeUser('super_admin');
 
-    $plain = \Illuminate\Support\Str::random(40);
+    $plain = Str::random(40);
     // tokenable_* aren't in PersonalAccessToken::$fillable — set the morph
     // explicitly so the row truly belongs to the admin User.
     $row = new PersonalAccessToken;
@@ -162,7 +167,7 @@ it('rejects a Sanctum token whose tokenable is an admin User, not a Tenant', fun
         'token' => hash('sha256', $plain),
         'abilities' => ['*'],
     ])->save();
-    $bearer = $row->id . '|' . $plain;
+    $bearer = $row->id.'|'.$plain;
 
     $this->getJson('/api/v1/me', ['Authorization' => "Bearer {$bearer}"])
         ->assertUnauthorized();
@@ -231,7 +236,7 @@ it('returns 404 showing a sales declaration belonging to another tenant', functi
         'percentage_rent_threshold' => 100000,
         'percentage_rent_calculation_type' => 'artificial',
     ]);
-    $foreignDeclaration = \App\Models\TenantSalesDeclaration::create([
+    $foreignDeclaration = TenantSalesDeclaration::create([
         'lease_id' => $foreignLease->id,
         'period_start' => '2026-04-01', 'period_end' => '2026-04-30',
         'declared_sales' => 150000, 'status' => 'submitted', 'declared_at' => now(),
@@ -254,7 +259,7 @@ it('rejects the old bearer end-to-end after a password reset revokes tokens', fu
     // Sanity: token works first.
     $this->getJson('/api/v1/me', ['Authorization' => "Bearer {$bearer}"])->assertOk();
 
-    $resetToken = \Illuminate\Support\Facades\Password::broker('tenants')->createToken($tenant);
+    $resetToken = Password::broker('tenants')->createToken($tenant);
     $this->postJson('/api/v1/auth/reset-password', [
         'token' => $resetToken,
         'email' => 'reset-e2e@t.test',
@@ -383,5 +388,5 @@ it('demo-pays the tenant\'s own invoice through the bearer and clears the balanc
     $invoice->refresh();
     expect((float) $invoice->balance)->toBe(0.0);
     expect($invoice->status)->toBe('paid');
-    expect(\App\Models\Payment::where('tenant_id', $tenant->id)->where('gateway', 'demo')->count())->toBe(1);
+    expect(Payment::where('tenant_id', $tenant->id)->where('gateway', 'demo')->count())->toBe(1);
 });

@@ -1,6 +1,9 @@
 <?php
 
-use App\Models\Asset;
+use App\Models\Floor;
+use App\Models\RentableItem;
+use App\Models\Unit;
+use App\Support\Occupancy;
 
 /**
  * The property's area figures mean something (module 01 close-out).
@@ -38,7 +41,7 @@ it('is not moved by parking, because a bay is not lettable area', function () {
     $asset = makeAsset(['total_area_sqm' => 1000, 'leasable_area_sqm' => 700]);
     $before = $asset->leasableEfficiencyPct();
 
-    \App\Models\RentableItem::create([
+    RentableItem::create([
         'asset_id' => $asset->id, 'code' => 'P-001', 'monthly_rate' => 900,
     ]);
 
@@ -56,7 +59,7 @@ it('reports economic occupancy from the same definition the dashboard uses', fun
     // The dashboard computes the same figure over a WIDER scope through the same definition — the
     // formula was written out by hand in both places before, so the day "occupied" changed they
     // would have disagreed about the mall's headline number with nothing failing.
-    expect(\App\Support\Occupancy::forUnits(\App\Models\Unit::where('asset_id', $asset->id))['pct'])
+    expect(Occupancy::forUnits(Unit::where('asset_id', $asset->id))['pct'])
         ->toBe(75.0);
 });
 
@@ -64,14 +67,14 @@ it('keeps the 0.0 contract for a property with no units', function () {
     // `AssetOccupancyTest` pins this and callers rely on a float. The "unconfigured, not empty"
     // distinction is made on the SCREEN — the properties table shows "—" rather than a red 0%.
     expect(makeAsset()->areaOccupancyRate())->toBe(0.0)
-        ->and(\App\Support\Occupancy::forUnits(\App\Models\Unit::where('asset_id', 0))['pct'])->toBeNull();
+        ->and(Occupancy::forUnits(Unit::where('asset_id', 0))['pct'])->toBeNull();
 });
 
 it('is not moved by parking, which is not a unit', function () {
     $asset = makeAsset();
     makeUnit($asset, ['code' => 'O-1', 'area_sqm' => 100, 'status' => 'occupied']);
 
-    \App\Models\RentableItem::create(['asset_id' => $asset->id, 'code' => 'P-9', 'monthly_rate' => 900]);
+    RentableItem::create(['asset_id' => $asset->id, 'code' => 'P-9', 'monthly_rate' => 900]);
 
     expect($asset->fresh()->areaOccupancyRate())->toBe(100.0);
 });
@@ -81,8 +84,8 @@ it('reports leasable area and occupancy per floor, without a column for it', fun
     // already IS one, and the figure is a sum over the units standing on it — storing it would be a
     // second truth about the same square metres.
     $asset = makeAsset();
-    $ground = \App\Models\Floor::create(['asset_id' => $asset->id, 'code' => 'G', 'level' => 0]);
-    $first = \App\Models\Floor::create(['asset_id' => $asset->id, 'code' => '1', 'level' => 1]);
+    $ground = Floor::create(['asset_id' => $asset->id, 'code' => 'G', 'level' => 0]);
+    $first = Floor::create(['asset_id' => $asset->id, 'code' => '1', 'level' => 1]);
 
     makeUnit($asset, ['code' => 'G-1', 'area_sqm' => 300, 'status' => 'occupied', 'floor_id' => $ground->id]);
     makeUnit($asset, ['code' => 'G-2', 'area_sqm' => 100, 'status' => 'vacant', 'floor_id' => $ground->id]);
@@ -93,6 +96,6 @@ it('reports leasable area and occupancy per floor, without a column for it', fun
         ->and($first->areaFigures()['pct'])->toBe(100.0);
 
     // A floor with nothing on it is unknown, not 0% — the same distinction the property draws.
-    $empty = \App\Models\Floor::create(['asset_id' => $asset->id, 'code' => 'B1', 'level' => -1]);
+    $empty = Floor::create(['asset_id' => $asset->id, 'code' => 'B1', 'level' => -1]);
     expect($empty->areaFigures()['pct'])->toBeNull();
 });

@@ -9,10 +9,13 @@ use App\Models\JournalEntry;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
+use App\Support\LedgerRealtimeSync;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Bus;
 use Livewire\Livewire;
 
 /**
@@ -68,7 +71,7 @@ it('no-ops safely when the source no longer exists', function () {
 it('wires the saved/deleted/restored real-time dispatch on every posting source', function () {
     // Real-time is disabled in the test env (deterministic posting), so register explicitly
     // to prove the wiring attaches to every source LedgerPoster can journalize.
-    \App\Support\LedgerRealtimeSync::register();
+    LedgerRealtimeSync::register();
 
     foreach (LedgerPoster::sources() as $model) {
         expect($model::getEventDispatcher()->hasListeners('eloquent.saved: '.$model))->toBeTrue()
@@ -76,7 +79,7 @@ it('wires the saved/deleted/restored real-time dispatch on every posting source'
 
         // `restored` only exists on a soft-deleting source — registering it on a
         // hard-deleting one would throw, so the wiring skips it there.
-        if (in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($model), true)) {
+        if (in_array(SoftDeletes::class, class_uses_recursive($model), true)) {
             expect($model::getEventDispatcher()->hasListeners('eloquent.restored: '.$model))->toBeTrue();
         }
     }
@@ -84,12 +87,12 @@ it('wires the saved/deleted/restored real-time dispatch on every posting source'
 
 it('dispatches the real-time sync job when a posting source is saved (enabled)', function () {
     config(['accounting.realtime_ledger_sync' => true]);
-    \App\Support\LedgerRealtimeSync::register();
-    \Illuminate\Support\Facades\Bus::fake(); // capture the dispatch without running it
+    LedgerRealtimeSync::register();
+    Bus::fake(); // capture the dispatch without running it
 
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())));
 
-    \Illuminate\Support\Facades\Bus::assertDispatched(
+    Bus::assertDispatched(
         SyncDocumentToLedger::class,
         fn ($job) => $job->sourceType === Invoice::class && (int) $job->sourceId === $invoice->id,
     );

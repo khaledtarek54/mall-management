@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsPostingDate;
+use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\CostNature;
 use App\Support\DocumentNumbering;
-use App\Models\Concerns\HasSearchText;
-use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
-use App\Models\Concerns\GuardsPostingDate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,11 +31,10 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned(portfolioRowsWhenNull: true)]
 // Their Filament resource writes the model directly, so the model's save is the only
 // choke point every path shares.
-#[PostingDateGuardedBy(guard: \App\Models\Expense::class)]
+#[PostingDateGuardedBy(guard: Expense::class)]
 class Expense extends Model
 {
-    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
-
+    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
@@ -62,7 +62,7 @@ class Expense extends Model
     /** This expense's fixed/variable cost nature (FR-FIN-02) — see App\Support\CostNature. */
     public function costNature(): string
     {
-        return \App\Support\CostNature::forCategory($this->category);
+        return CostNature::forCategory($this->category);
     }
 
     /** Constrain a query to expenses of one cost nature (fixed|variable). */
@@ -70,7 +70,7 @@ class Expense extends Model
     {
         // A never-matching sentinel when the nature is unknown, so a bad filter value shows
         // nothing rather than everything.
-        return $query->whereIn('category', \App\Support\CostNature::categoriesOf($nature) ?: ['__none__']);
+        return $query->whereIn('category', CostNature::categoriesOf($nature) ?: ['__none__']);
     }
 
     protected $fillable = [

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Asset;
+use App\Models\User;
 use App\Notifications\InvoiceOverdueOwnerNotification;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -32,7 +34,7 @@ use Illuminate\Support\Facades\Notification;
 beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
 /** Attach a user as a fractional/whole owner of an asset. */
-function ownInvoiceAsset(\App\Models\User $user, \App\Models\Asset $asset, int $pct = 100): void
+function ownInvoiceAsset(User $user, Asset $asset, int $pct = 100): void
 {
     $user->ownedAssets()->attach($asset->id, ['ownership_percentage' => $pct]);
 }
@@ -62,9 +64,9 @@ it('alerts the owner for each alertable status (issued / partially_paid / overdu
     Notification::assertSentTo($owner, InvoiceOverdueOwnerNotification::class);
     expect($invoice->refresh()->owner_overdue_notified_at)->not->toBeNull();
 })->with([
-    'issued'          => ['issued', 0.0, 1000.0],
-    'partially_paid'  => ['partially_paid', 400.0, 600.0],
-    'overdue'         => ['overdue', 0.0, 1000.0],
+    'issued' => ['issued', 0.0, 1000.0],
+    'partially_paid' => ['partially_paid', 400.0, 600.0],
+    'overdue' => ['overdue', 0.0, 1000.0],
 ]);
 
 // ============================================================

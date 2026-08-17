@@ -2,9 +2,9 @@
 
 use App\Models\BankAccount;
 use App\Models\BankStatement;
-use App\Models\BankStatementLine;
 use App\Models\JournalEntry;
 use App\Services\Banking\ImportBankStatementService;
+use Illuminate\Database\QueryException;
 
 /**
  * Bank statement import — slice 2 of bank reconciliation.
@@ -161,5 +161,5 @@ it('cannot hold two statements for the same account and period', function () {
         'period_start' => '2026-03-01',
         'period_end' => '2026-03-31',
         'opening_balance' => 0, 'closing_balance' => 0,
-    ]))->toThrow(Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 });

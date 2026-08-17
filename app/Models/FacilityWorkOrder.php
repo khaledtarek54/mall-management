@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Notifications\WorkOrderAssignedNotification;
+use App\Services\NotifyAreaSupervisorsService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\SlaResolver;
@@ -15,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -575,10 +578,10 @@ class FacilityWorkOrder extends Model
     private static function notifyAssignee(self $order): void
     {
         try {
-            \App\Models\User::find((int) $order->assigned_to_user_id)
-                ?->notify(new \App\Notifications\WorkOrderAssignedNotification($order));
+            User::find((int) $order->assigned_to_user_id)
+                ?->notify(new WorkOrderAssignedNotification($order));
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Work-order assigned notification failed', ['error' => $e->getMessage()]);
+            Log::warning('Work-order assigned notification failed', ['error' => $e->getMessage()]);
         }
     }
 
@@ -628,7 +631,7 @@ class FacilityWorkOrder extends Model
             // form, RaiseCorrectiveWorkOrderService, factory); the pickers filter to Vendor
             // ::assignable() too, but a client can post any vendor_id, so this is the real gate.
             if ($order->isDirty('vendor_id') && $order->vendor_id !== null) {
-                $vendor = \App\Models\Vendor::find($order->vendor_id);
+                $vendor = Vendor::find($order->vendor_id);
                 if ($vendor !== null && ! $vendor->isDispatchable()) {
                     throw new \DomainException(
                         "Vendor '{$vendor->name}' cannot be dispatched: it is blacklisted/inactive or its insurance (COI) has lapsed."
@@ -687,7 +690,7 @@ class FacilityWorkOrder extends Model
             // (no device tokens). If it is ever made ShouldQueue, or supervisors become push-capable,
             // move this to a post-commit fan-out (as GeneratePreventiveWorkOrdersService does for
             // WorkOrderRaisedNotification) so a rollback can't strand an external side-effect.
-            app(\App\Services\NotifyAreaSupervisorsService::class)->notifyWorkOrder($order);
+            app(NotifyAreaSupervisorsService::class)->notifyWorkOrder($order);
         });
 
         static::updated(function (self $order) {

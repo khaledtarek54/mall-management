@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\OwnerStatementRuns;
 
+use App\Filament\Admin\RelationManagers\OwnerStatementsRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -121,7 +122,7 @@ class OwnerStatementRunResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\OwnerStatementsRelationManager::class,
+            OwnerStatementsRelationManager::class,
         ];
     }
 

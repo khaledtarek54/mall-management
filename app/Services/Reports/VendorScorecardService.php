@@ -2,8 +2,8 @@
 
 namespace App\Services\Reports;
 
-use App\Models\SlaPenalty;
 use App\Models\FacilityWorkOrder;
+use App\Models\SlaPenalty;
 use App\Models\Vendor;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;

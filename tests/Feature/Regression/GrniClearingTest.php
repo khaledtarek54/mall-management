@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AccountingPeriod;
 use App\Models\InventoryItem;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
@@ -8,6 +9,7 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\PeriodService;
 use App\Services\PurchaseRequestService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use App\Services\StockMovementService;
@@ -15,6 +17,7 @@ use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Carbon;
 
 /**
  * Regression — a purchase must cost the company its money exactly ONCE.
@@ -281,8 +284,8 @@ it('refuses a stock movement dated into a closed accounting period (F-3)', funct
     $inClosedMonth = now()->startOfMonth()->addDays(3)->toDateString();
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
-    $period = \App\Models\AccountingPeriod::forDate(\Illuminate\Support\Carbon::parse($inClosedMonth));
-    app(\App\Services\Accounting\PeriodService::class)->closePeriod($period);
+    $period = AccountingPeriod::forDate(Carbon::parse($inClosedMonth));
+    app(PeriodService::class)->closePeriod($period);
 
     expect(fn () => app(StockMovementService::class)->record([
         'warehouse_id' => $this->warehouse->id, 'inventory_item_id' => $this->item->id,

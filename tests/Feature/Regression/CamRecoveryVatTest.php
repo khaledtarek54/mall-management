@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CamExpensePool;
+use App\Models\CreditNote;
 use App\Models\InvoiceItem;
 use App\Models\JournalLine;
 use App\Services\Accounting\AccountResolver;
@@ -77,7 +78,7 @@ it('reverses output VAT on an over-collection credit note, and the books tie out
     // allocated 10000, estimated 60000 → credit 50000; VAT 14% = 7000.
     $billed = billAtVat(10000, 60000, 14);
 
-    $note = \App\Models\CreditNote::find($billed->billed_credit_note_id);
+    $note = CreditNote::find($billed->billed_credit_note_id);
     expect((float) $note->subtotal)->toBe(50000.0)
         ->and((float) $note->vat_amount)->toBe(7000.0)
         ->and((float) $note->total)->toBe(57000.0);

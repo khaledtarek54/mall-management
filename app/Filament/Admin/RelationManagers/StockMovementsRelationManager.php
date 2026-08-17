@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Models\Warehouse;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Stock movements, shown on whichever record you are looking at — a warehouse or an item.
@@ -23,7 +25,7 @@ class StockMovementsRelationManager extends RelationManager
 {
     protected static string $relationship = 'movements';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.inventory.movement.plural');
     }
@@ -31,7 +33,7 @@ class StockMovementsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $owner = $this->getOwnerRecord();
-        $onWarehouse = $owner instanceof \App\Models\Warehouse;
+        $onWarehouse = $owner instanceof Warehouse;
 
         return $table
             ->columns([

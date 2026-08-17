@@ -117,7 +117,7 @@ class DepartmentMembersRelationManager extends RelationManager
                 DetachAction::make()
                     // Detaching REVOKES the department role — same role-management gate.
                     ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
-                    ->after(fn (\Illuminate\Database\Eloquent\Model $record, $livewire) => $livewire->getOwnerRecord()->unregisterMember($record)),
+                    ->after(fn (Model $record, $livewire) => $livewire->getOwnerRecord()->unregisterMember($record)),
             ])
             ->defaultSort('pivot_assigned_at', 'desc');
     }

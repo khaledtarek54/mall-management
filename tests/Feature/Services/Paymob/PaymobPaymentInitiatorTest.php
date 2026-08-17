@@ -94,7 +94,7 @@ it('cuts a fresh session once the reuse window has passed', function () {
 
     // Backdate the stale Payment past the reuse window.
     Payment::where('id', $first['payment_id'])->update([
-        'created_at' => now()->subSeconds(\App\Services\Paymob\PaymobPaymentInitiator::REUSE_WINDOW_SECONDS + 60),
+        'created_at' => now()->subSeconds(PaymobPaymentInitiator::REUSE_WINDOW_SECONDS + 60),
     ]);
 
     $second = app(PaymobPaymentInitiator::class)->start($this->invoice);

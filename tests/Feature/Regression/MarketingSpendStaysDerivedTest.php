@@ -1,9 +1,9 @@
 <?php
 
-use App\Support\MorphMap;
+use App\Models\JournalEntry;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
-use App\Models\JournalEntry;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 

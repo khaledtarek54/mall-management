@@ -3,6 +3,7 @@
 use App\Filament\Admin\RelationManagers\PayrollLinesRelationManager;
 use App\Filament\Admin\Resources\Payrolls\Pages\EditPayroll;
 use App\Models\Employee;
+use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -64,7 +65,7 @@ it('rejects adding an employee from another property (tamper guard)', function (
         linesRM($this->run)->callTableAction('add_line', data: [
             'employee_id' => $foreign->id, 'gross' => 9000, 'salary_tax' => 0, 'social_insurance' => 0,
         ]);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         // abort(403) may surface as an exception on the Livewire path.
     }
 
@@ -124,7 +125,7 @@ it('hides the generate action from a role without payrolls.edit', function () {
 
 it('applies an advance installment to a line, reducing net', function () {
     $this->actingAs(makeUser('accounting', [$this->asset->id]));
-    $advance = \App\Models\EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
+    $advance = EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
         'type' => 'loan', 'amount' => 5000, 'advance_date' => '2026-01-01', 'paid_from' => 'cash']);
     $line = $this->run->lines()->create(['employee_id' => $this->employee->id, 'gross' => 9000, 'salary_tax' => 800, 'social_insurance' => 600]);
 
@@ -141,7 +142,7 @@ it('applies an advance installment to a line, reducing net', function () {
 
 it('refuses an installment that exceeds the advance outstanding', function () {
     $this->actingAs(makeUser('accounting', [$this->asset->id]));
-    $advance = \App\Models\EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
+    $advance = EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
         'type' => 'loan', 'amount' => 500, 'advance_date' => '2026-01-01', 'paid_from' => 'cash']);
     $line = $this->run->lines()->create(['employee_id' => $this->employee->id, 'gross' => 9000, 'salary_tax' => 0, 'social_insurance' => 0]);
 
@@ -153,7 +154,7 @@ it('refuses an installment that exceeds the advance outstanding', function () {
 
 it('hides the deduct-advance action once the run leaves draft', function () {
     $this->actingAs(makeUser('accounting', [$this->asset->id]));
-    \App\Models\EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
+    EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
         'type' => 'loan', 'amount' => 5000, 'advance_date' => '2026-01-01', 'paid_from' => 'cash']);
     $line = $this->run->lines()->create(['employee_id' => $this->employee->id, 'gross' => 9000]);
     $this->run->update(['status' => 'approved']);
@@ -165,7 +166,7 @@ it('hides the deduct-advance action once the run leaves draft', function () {
 // else a reachable input slips past the inline rule and hits the model throw uncaught (a 500).
 it('refuses to edit gross below a retained advance installment (net guard)', function () {
     $this->actingAs(makeUser('accounting', [$this->asset->id]));
-    $advance = \App\Models\EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
+    $advance = EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
         'type' => 'loan', 'amount' => 5000, 'advance_date' => '2026-01-01', 'paid_from' => 'cash']);
     $line = $this->run->lines()->create(['employee_id' => $this->employee->id, 'gross' => 10000,
         'employee_advance_id' => $advance->id, 'advance_deduction' => 3000]);
@@ -180,7 +181,7 @@ it('refuses to edit gross below a retained advance installment (net guard)', fun
 
 it('refuses an advance installment that the line’s other deductions already consume', function () {
     $this->actingAs(makeUser('accounting', [$this->asset->id]));
-    $advance = \App\Models\EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
+    $advance = EmployeeAdvance::create(['employee_id' => $this->employee->id, 'asset_id' => $this->asset->id,
         'type' => 'loan', 'amount' => 5000, 'advance_date' => '2026-01-01', 'paid_from' => 'cash']);
     // take-home = 10000 − 9500 = 500, so a 1000 installment would drive net negative.
     $line = $this->run->lines()->create(['employee_id' => $this->employee->id, 'gross' => 10000, 'other_deductions' => 9500]);

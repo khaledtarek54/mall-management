@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Services\StockMovementService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -28,10 +29,10 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[NeverDeletable(correction: 'post a correcting movement; the original is what the GL was built from')]
 #[PropertyOwned(via: 'warehouse')]
-#[PostingDateGuardedBy(guard: \App\Services\StockMovementService::class)]
+#[PostingDateGuardedBy(guard: StockMovementService::class)]
 class StockMovement extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     /** Positive movements ADD stock; negative movements REMOVE it. */
     public const TYPES = ['receipt', 'consumption', 'adjustment', 'transfer_in', 'transfer_out'];

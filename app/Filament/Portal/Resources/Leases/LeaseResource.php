@@ -83,7 +83,6 @@ class LeaseResource extends Resource
         ];
     }
 
-
     /**
      * Hidden from a UNIT OWNER, who signs neither.
      *
@@ -93,7 +92,7 @@ class LeaseResource extends Resource
      */
     public static function shouldRegisterNavigation(): bool
     {
-        return ! (\App\Support\Portal::tenant()?->isUnitOwner() ?? false);
+        return ! (Portal::tenant()?->isUnitOwner() ?? false);
     }
 
     public static function getEloquentQuery(): Builder

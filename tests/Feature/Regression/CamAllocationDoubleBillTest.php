@@ -16,6 +16,7 @@
 | second generateAllocations() call without being reset to 'pending'.
 */
 
+use App\Models\Asset;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Services\CamReconciliationService;
@@ -25,7 +26,7 @@ function camDoubleBillService(): CamReconciliationService
     return app(CamReconciliationService::class);
 }
 
-function makeDoubleBillPool(\App\Models\Asset $asset, array $attrs = []): CamExpensePool
+function makeDoubleBillPool(Asset $asset, array $attrs = []): CamExpensePool
 {
     return CamExpensePool::create(array_merge([
         'asset_id' => $asset->id,

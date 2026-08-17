@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Services\DepreciationService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -25,7 +26,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: soft-delete IS the retirement path — the sweep voids the asset\'s entire GL footprint, which a scenario test pins')]
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Models\FixedAsset::class)]
+#[PostingDateGuardedBy(guard: FixedAsset::class)]
 class FixedAsset extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
@@ -192,7 +193,7 @@ class FixedAsset extends Model
             // is the single choke point every path shares, which is the same reasoning the
             // posting-date guard above already relies on.
             if ($fixedAsset->exists && $fixedAsset->isDirty(['acquisition_cost', 'salvage_value'])) {
-                app(\App\Services\DepreciationService::class)->assertRecostValid(
+                app(DepreciationService::class)->assertRecostValid(
                     $fixedAsset,
                     (float) $fixedAsset->acquisition_cost,
                     (float) $fixedAsset->salvage_value,

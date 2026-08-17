@@ -1,13 +1,16 @@
 <?php
 
-use App\Support\MorphMap;
+use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
+use App\Models\JournalEntry;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\StockMovementService;
 use App\Support\ApprovalPolicy;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 
@@ -151,22 +154,22 @@ it('still consumes normally when the item carries a real cost', function () {
 
     // ...and it genuinely reaches the ledger through the real sweep.
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
-    expect(\App\Models\JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))
+    expect(JournalEntry::where('source_type', MorphMap::alias(StockMovement::class))
         ->where('source_id', $consumption->id)->where('status', 'posted')->exists())->toBeTrue();
 });
 
 it('does not let a zero-cost item collapse the approval ladder to its lowest tier', function () {
     // The second blast radius, stated directly: the tier the ladder demands is driven by the
     // draw's VALUE, so a 0-cost catalog item made a 50,000 draw look free and ask for tier_1.
-    $this->seed(\Database\Seeders\ApprovalRulesSeeder::class);
+    $this->seed(ApprovalRulesSeeder::class);
 
-    $module = \App\Models\ApprovalRule::MODULE_INVENTORY_DRAW;
+    $module = ApprovalRule::MODULE_INVENTORY_DRAW;
 
     $free = ApprovalPolicy::permissionFor($module, 0.0);
     $real = ApprovalPolicy::permissionFor($module, 50000.0);
 
-    expect($free)->toBe(\App\Models\ApprovalRule::TIER_1)
-        ->and($real)->toBe(\App\Models\ApprovalRule::TIER_3)
+    expect($free)->toBe(ApprovalRule::TIER_1)
+        ->and($real)->toBe(ApprovalRule::TIER_3)
         ->and($real)->not->toBe($free, 'a 50k draw must not ask for the same tier as a free one');
 
     // So a draw of the unpriced item can no longer be valued at 0 in the first place —

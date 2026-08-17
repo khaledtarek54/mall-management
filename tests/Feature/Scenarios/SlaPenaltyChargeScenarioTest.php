@@ -1,17 +1,21 @@
 <?php
 
-use App\Support\MorphMap;
+use App\Models\FacilityWorkOrder;
 use App\Models\JournalLine;
 use App\Models\SlaPenalty;
-use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Services\Accounting\FiscalCalendar;
-use App\Services\AssessSlaPenaltyService;
+use App\Services\Accounting\Journalizers\SlaPenaltyJournalizer;
+use App\Services\Accounting\LedgerPoster;
 use App\Services\ApplySlaPenaltyService;
+use App\Services\AssessSlaPenaltyService;
 use App\Services\FacilityWorkOrderService;
+use App\Services\Reconciliation\BooksReconciliationService;
+use App\Services\VendorBillService;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -207,7 +211,7 @@ it('releases an applied penalty back to final when the bill is cancelled (never 
     $this->apply->toBill($penalty, $bill);
     expect($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_APPLIED);
 
-    app(\App\Services\VendorBillService::class)->cancel($bill->fresh());
+    app(VendorBillService::class)->cancel($bill->fresh());
 
     expect($penalty->fresh()->status)->toBe(SlaPenalty::STATUS_FINAL)
         ->and($penalty->fresh()->vendor_bill_id)->toBeNull()
@@ -224,7 +228,7 @@ it('posts the penalty as Dr Accounts Payable / Cr the expense the bill charged',
     $this->apply->toBill(finalPenalty(), $bill);
 
     $entry = SlaPenalty::first()->refresh();
-    app(\App\Services\Accounting\LedgerPoster::class)->post($entry);
+    app(LedgerPoster::class)->post($entry);
 
     $lines = JournalLine::whereHas('entry', fn ($q) => $q->where('source_type', MorphMap::alias(SlaPenalty::class)))
         ->with('account')->get();
@@ -246,13 +250,13 @@ it('keeps the AP tie-out balanced — the ledger and the bills agree', function 
     // balance and the GL's payable, so the two must still meet. If they didn't, every
     // monthly close would report a phantom discrepancy.
     $bill = payableBill(5000);
-    $poster = app(\App\Services\Accounting\LedgerPoster::class);
+    $poster = app(LedgerPoster::class);
     $poster->post($bill->fresh());
 
     $this->apply->toBill(finalPenalty(), $bill);
     $poster->post(SlaPenalty::first()->refresh());
 
-    $tie = app(\App\Services\Reconciliation\BooksReconciliationService::class)->glTieOut();
+    $tie = app(BooksReconciliationService::class)->glTieOut();
 
     expect($tie['ap']['expected'])->toBe(4500.0);   // 5000 − 500 penalty
     expect($tie['ap']['delta'])->toBe(0.0);         // and the GL agrees
@@ -262,7 +266,7 @@ it('posts nothing for a penalty that is only assessed, never charged', function 
     // `final` is an estimate of what is owed; an estimate has no place in the ledger.
     $penalty = finalPenalty();
 
-    expect(app(\App\Services\Accounting\Journalizers\SlaPenaltyJournalizer::class)
+    expect(app(SlaPenaltyJournalizer::class)
         ->payload($penalty))->toBeNull();
 });
 
@@ -270,6 +274,6 @@ it('posts nothing for a waived penalty', function () {
     $penalty = finalPenalty();
     $this->assess->waive($penalty, 'goodwill');
 
-    expect(app(\App\Services\Accounting\Journalizers\SlaPenaltyJournalizer::class)
+    expect(app(SlaPenaltyJournalizer::class)
         ->payload($penalty->fresh()))->toBeNull();
 });

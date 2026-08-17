@@ -2,12 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VendorContract;
 use App\Models\VendorDocument;
 use App\Notifications\VendorDocumentExpiringNotification;
 use App\Services\AssetStaffRecipients;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -148,9 +150,9 @@ class ScanVendorDocumentExpiryCommand extends Command
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, \App\Models\User>
+     * @return Collection<int, User>
      */
-    private function recipientsFor(VendorDocument $document): \Illuminate\Support\Collection
+    private function recipientsFor(VendorDocument $document): Collection
     {
         $resolver = app(AssetStaffRecipients::class);
         $roles = ['manager', 'operations'];

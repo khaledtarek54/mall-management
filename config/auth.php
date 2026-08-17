@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 
 return [
@@ -84,7 +85,7 @@ return [
         // TenantUser; the Tenant company is reached via ->tenant.
         'tenant_users' => [
             'driver' => 'eloquent',
-            'model' => \App\Models\TenantUser::class,
+            'model' => TenantUser::class,
         ],
     ],
 

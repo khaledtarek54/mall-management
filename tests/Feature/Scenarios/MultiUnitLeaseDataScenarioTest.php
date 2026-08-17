@@ -41,9 +41,9 @@ dataset('lease_status_to_unit_status', [
     'pending_approval → reserved' => ['pending_approval', 'reserved'],
     'renewed          → reserved' => ['renewed', 'reserved'],
     'active           → occupied' => ['active', 'occupied'],
-    'expired          → vacant'   => ['expired', 'vacant'],
-    'terminated       → vacant'   => ['terminated', 'vacant'],
-    'cancelled        → vacant'   => ['cancelled', 'vacant'],
+    'expired          → vacant' => ['expired', 'vacant'],
+    'terminated       → vacant' => ['terminated', 'vacant'],
+    'cancelled        → vacant' => ['cancelled', 'vacant'],
 ]);
 
 it('projects the master unit status from the lease status', function (string $leaseStatus, string $expected) {

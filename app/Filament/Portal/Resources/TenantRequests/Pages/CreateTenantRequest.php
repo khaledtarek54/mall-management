@@ -3,13 +3,13 @@
 namespace App\Filament\Portal\Resources\TenantRequests\Pages;
 
 use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
-use App\Models\TenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
+use App\Support\Portal;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 
 class CreateTenantRequest extends CreateRecord
 {
@@ -18,7 +18,7 @@ class CreateTenantRequest extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         /** @var Tenant $tenant */
-        $tenant = \App\Support\Portal::tenant();
+        $tenant = Portal::tenant();
 
         $request = app(TenantRequestService::class)->create($data, $tenant);
 

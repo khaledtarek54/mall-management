@@ -23,6 +23,7 @@
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
 /** A tenant on one lease spanning two units — the shape the column-only lookup could not express. */
@@ -39,7 +40,7 @@ function multiUnitTenant(): array
     return [$tenant, $master, $extra, $asset];
 }
 
-function postRequest(int $unitId): Illuminate\Testing\TestResponse
+function postRequest(int $unitId): TestResponse
 {
     return test()->postJson('/api/v1/me/requests', [
         'type' => 'maintenance',

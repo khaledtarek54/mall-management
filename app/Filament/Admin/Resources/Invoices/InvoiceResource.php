@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Invoices;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -19,7 +20,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class InvoiceResource extends Resource
 {
@@ -69,7 +69,7 @@ class InvoiceResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -124,7 +124,7 @@ class InvoiceResource extends Resource
         return [
             __('admin.tables.invoice.tenant') => $record->tenant?->name,
             __('admin.tables.invoice.unit') => $record->lease?->unit?->code,
-            __('admin.tables.invoice.balance') => 'EGP ' . number_format((float) $record->balance, 2),
+            __('admin.tables.invoice.balance') => 'EGP '.number_format((float) $record->balance, 2),
             __('admin.tables.common.status') => __("admin.statuses.invoice.{$record->status}"),
         ];
     }

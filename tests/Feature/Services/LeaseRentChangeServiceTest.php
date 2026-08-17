@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\LeaseEvent;
 use App\Services\LeaseRentChangeService;
 use Database\Seeders\RolesPermissionsSeeder;
 
@@ -86,7 +87,7 @@ it('updates lease columns AND the matching base_rent + service_charge Charge row
     // prose to `leases.notes` — a field operators use for their own notes (story LE-01).
     $event = $this->lease->fresh()->events()->first();
     expect($event)->not->toBeNull()
-        ->and($event->type)->toBe(\App\Models\LeaseEvent::TYPE_RENT_MODIFICATION)
+        ->and($event->type)->toBe(LeaseEvent::TYPE_RENT_MODIFICATION)
         ->and($event->reason)->toBe('Year-2 escalation')
         ->and($event->payload['amount_from'])->toEqual(50000)
         ->and($event->payload['amount_to'])->toEqual(60000);

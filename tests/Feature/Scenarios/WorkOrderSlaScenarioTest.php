@@ -7,6 +7,7 @@ use App\Services\FacilityWorkOrderService;
 use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -69,7 +70,7 @@ it('allows one policy per property and priority', function () {
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 2]);
 
     expect(fn () => SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 4]))
-        ->toThrow(Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('refuses a zero-hour SLA', function () {

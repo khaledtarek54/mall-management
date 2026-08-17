@@ -21,10 +21,11 @@
 */
 
 use App\Models\Charge;
+use App\Models\Lease;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 
-function billableFixture(array $attrs): App\Models\Lease
+function billableFixture(array $attrs): Lease
 {
     $lease = makeLease(makeUnit(makeAsset()), makeTenant(), $attrs + ['base_rent_monthly' => 30000]);
 
@@ -110,7 +111,7 @@ it('keeps one definition of billability — the predicate and the scope agree', 
         $lease = billableFixture($attrs);
 
         $predicate = $lease->isBillableForPeriod($period, $end);
-        $viaScope = App\Models\Lease::query()->billableForPeriod($period, $end)->whereKey($lease->id)->exists();
+        $viaScope = Lease::query()->billableForPeriod($period, $end)->whereKey($lease->id)->exists();
 
         expect($predicate)->toBe($viaScope,
             'isBillableForPeriod() and scopeBillableForPeriod() disagree for '.json_encode($attrs));

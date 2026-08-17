@@ -24,7 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateNotOperatorTyped(reason: 'period_month is set by DepreciationService::run from the month being posted; the operator-reachable inputs are the scheduler and the admin button (both now()) and PostDepreciationCommand --month, which is guarded there.')]
 class DepreciationEntry extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     protected $fillable = [
         'fixed_asset_id',

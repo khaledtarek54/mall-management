@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\AccountingPeriod;
+use App\Models\FiscalYear;
+use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
@@ -8,6 +10,7 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Accounting\PeriodService;
 use App\Services\Accounting\YearEndCloseService;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -147,7 +150,7 @@ it('closes per property: each property\'s net rolls into ITS OWN retained earnin
 
 it('closes and reopens a whole fiscal year (locks then unlocks its periods)', function () {
     $svc = app(PeriodService::class);
-    $fy = \App\Models\FiscalYear::where('year', 2026)->first();
+    $fy = FiscalYear::where('year', 2026)->first();
 
     $svc->closeFiscalYear($fy);
     expect($fy->fresh()->status)->toBe('closed');
@@ -164,7 +167,7 @@ it('reopen posts the reversal in-year even when the December period is locked', 
     $ye->close(2026);
 
     // Lock the whole year (December included).
-    app(PeriodService::class)->closeFiscalYear(\App\Models\FiscalYear::where('year', 2026)->first());
+    app(PeriodService::class)->closeFiscalYear(FiscalYear::where('year', 2026)->first());
 
     // Reopen must relax the period so the reversal posts back inside 2026.
     $ye->reopen(2026);
@@ -172,8 +175,8 @@ it('reopen posts the reversal in-year even when the December period is locked', 
     expect($ye->closingEntryFor(2026))->toBeNull();
     $re = LedgerAccount::where('code', '32101001')->first();
     expect($this->reports->accountLedger($re)['closing'])->toEqualWithDelta(0.0, 0.001);
-    $reversal = \App\Models\JournalEntry::whereNotNull('reversal_of_id')->where('is_closing', true)->latest('id')->first();
-    expect(\Carbon\Carbon::parse($reversal->entry_date)->year)->toBe(2026);
+    $reversal = JournalEntry::whereNotNull('reversal_of_id')->where('is_closing', true)->latest('id')->first();
+    expect(Carbon::parse($reversal->entry_date)->year)->toBe(2026);
 });
 
 it('closing a period blocks posting into it', function () {
@@ -219,9 +222,9 @@ it('closes a loss year: debits retained earnings (equity down)', function () {
 it('close() is self-sufficient — ensures the fiscal year row so its lock binds', function () {
     // A year never opened: close() must still create the fiscal-year row (so the
     // double-close lock has a row to hold) and return null when there is nothing to close.
-    expect(\App\Models\FiscalYear::where('year', 2035)->exists())->toBeFalse();
+    expect(FiscalYear::where('year', 2035)->exists())->toBeFalse();
 
     expect(app(YearEndCloseService::class)->close(2035))->toBeEmpty();
 
-    expect(\App\Models\FiscalYear::where('year', 2035)->exists())->toBeTrue();
+    expect(FiscalYear::where('year', 2035)->exists())->toBeTrue();
 });

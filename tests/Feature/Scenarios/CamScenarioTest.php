@@ -14,9 +14,12 @@
 |   - portal per-tenant allocation scoping   → tests/Feature/Resources/PortalCamAllocationScopingTest.php
 */
 
+use App\Models\Asset;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\CreditNote;
+use App\Models\InvoiceItem;
 use App\Services\CamReconciliationService;
 
 function camService(): CamReconciliationService
@@ -24,7 +27,7 @@ function camService(): CamReconciliationService
     return app(CamReconciliationService::class);
 }
 
-function makePool(\App\Models\Asset $asset, array $attrs = []): CamExpensePool
+function makePool(Asset $asset, array $attrs = []): CamExpensePool
 {
     return CamExpensePool::create(array_merge([
         'asset_id' => $asset->id,
@@ -192,7 +195,7 @@ it('billing an allocation creates a one-off CAM true-up charge on the lease', fu
     // Settled IMMEDIATELY on a dedicated recovery invoice (not deferred to a
     // future monthly run that could skip the lease) — the charge reached a
     // non-cancelled invoice item.
-    expect(\App\Models\InvoiceItem::where('charge_id', $charge->id)
+    expect(InvoiceItem::where('charge_id', $charge->id)
         ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled'))->count())->toBe(1);
 });
 
@@ -209,7 +212,7 @@ it('billing a negative-true-up allocation issues a credit note (not a negative c
     expect($billed->billed_charge_id)->toBeNull()
         ->and($billed->billed_credit_note_id)->not->toBeNull();
 
-    $note = \App\Models\CreditNote::find($billed->billed_credit_note_id);
+    $note = CreditNote::find($billed->billed_credit_note_id);
     expect($note->status)->toBe('issued')
         ->and((float) $note->total)->toBe(20000.0)
         ->and((float) $note->balance)->toBe(20000.0)

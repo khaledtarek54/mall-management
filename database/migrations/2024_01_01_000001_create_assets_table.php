@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('name'); // e.g., "Haya Walk"
             $table->string('code')->unique(); // e.g., "HW"
             $table->enum('type', ['mall', 'retail_walk', 'mixed_use', 'office', 'residential'])
-                  ->default('mall');
+                ->default('mall');
             $table->string('address')->nullable();
             $table->string('city')->default('Cairo');
             $table->string('country')->default('Egypt');

@@ -76,16 +76,16 @@
             "@php artisan api:export-spec"
         ],
         "lint": [
-            "vendor/bin/pint --test --dirty"
-        ],
-        "lint-all": [
             "vendor/bin/pint --test"
         ],
-        "lint-fix": [
-            "vendor/bin/pint --dirty"
+        "lint-dirty": [
+            "vendor/bin/pint --test --dirty"
         ],
-        "lint-fix-all": [
+        "lint-fix": [
             "vendor/bin/pint"
+        ],
+        "lint-fix-dirty": [
+            "vendor/bin/pint --dirty"
         ],
         "qa": [
             "@analyse",

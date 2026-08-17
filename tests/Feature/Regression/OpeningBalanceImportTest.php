@@ -2,7 +2,11 @@
 
 use App\Filament\Imports\OpeningInvoiceImporter;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
+use App\Models\User;
+use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\JournalPostingService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use Database\Seeders\AccountingSeeder;
 use Filament\Actions\Imports\Models\Import;
@@ -42,7 +46,7 @@ beforeEach(function () {
         'processed_rows' => 0,
         'total_rows' => 1,
         'successful_rows' => 0,
-        'user_id' => \App\Models\User::factory()->create()->id,
+        'user_id' => User::factory()->create()->id,
     ]);
 });
 
@@ -123,7 +127,7 @@ it('still posts a NORMAL invoice — the paired control', function () {
         'status' => 'issued',
         'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000, 'balance' => 5000,
     ]);
-    \App\Models\InvoiceItem::create([
+    InvoiceItem::create([
         'invoice_id' => $normal->id,
         'type' => 'base_rent',
         'description' => 'Rent',
@@ -147,8 +151,8 @@ it('ties out against the accountant opening entry — the whole cutover, end to 
     // 2. The accountant posts the opening trial balance by hand: Dr AR / Cr Opening Equity, for
     //    the same total. This is the real sequence, and it is the only thing that puts an opening
     //    receivable into the GL — the invoices deliberately post nothing.
-    $accounts = app(\App\Services\Accounting\AccountResolver::class);
-    app(\App\Services\Accounting\JournalPostingService::class)->post([
+    $accounts = app(AccountResolver::class);
+    app(JournalPostingService::class)->post([
         'entry_date' => '2026-01-01',
         'description' => 'Opening balances at cutover',
         'lines' => [

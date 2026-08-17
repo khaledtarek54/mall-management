@@ -1,12 +1,16 @@
 <?php
 
 use App\Models\Area;
+use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\CamReconciliationService;
+use App\Services\ChargeScheduleService;
 use App\Services\Reports\ReportService;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * A rentable item is never lettable area (parking, storage, signage).
@@ -32,7 +36,7 @@ use Carbon\CarbonImmutable;
  */
 afterEach(fn () => CarbonImmutable::setTestNow());
 
-function parkingFor(\App\Models\Asset $asset, string $code, ?Area $zone = null): RentableItem
+function parkingFor(Asset $asset, string $code, ?Area $zone = null): RentableItem
 {
     return RentableItem::create([
         'asset_id' => $asset->id,
@@ -135,7 +139,7 @@ it('leaves the rent roll’s EGP per m² untouched', function () {
 
     // The rent roll reads the schedule, not `leases.base_rent_monthly` — so the fixture needs the
     // row an operator's lease would actually have.
-    app(\App\Services\ChargeScheduleService::class)->setAmount(
+    app(ChargeScheduleService::class)->setAmount(
         Lease::first(),
         'base_rent',
         36000,
@@ -158,7 +162,7 @@ it('carries no area column for a future report to sum', function () {
     // The structural half of the guarantee. Every assertion above could be satisfied today and
     // broken tomorrow by adding `area_sqm` "just for reporting" — at which point it is one join
     // away from a GLA sum. There is no legitimate reader for it, so there is no column.
-    $columns = \Illuminate\Support\Facades\Schema::getColumnListing('rentable_items');
+    $columns = Schema::getColumnListing('rentable_items');
 
     expect(array_filter($columns, fn (string $c) => str_contains($c, 'area') && $c !== 'area_id'))
         ->toBe([]);
@@ -179,5 +183,5 @@ it('refuses two items with the same code in one property', function () {
     parkingFor($asset, 'P-001');
 
     expect(fn () => parkingFor($asset, 'P-001'))
-        ->toThrow(Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });

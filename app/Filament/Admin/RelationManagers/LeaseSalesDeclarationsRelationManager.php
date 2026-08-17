@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * What this tenant has declared in sales, and the percentage rent it produced.
@@ -29,7 +30,7 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
 {
     protected static string $relationship = 'salesDeclarations';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.navigation.tenant_sales');
     }
@@ -38,7 +39,7 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
      * Hidden on a fixed-rent lease — see the class docblock. Filament asks this per record, so a
      * lease that later gains percentage rent gets the tab without any further wiring.
      */
-    public static function canViewForRecord(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): bool
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
         return $ownerRecord instanceof Lease && (bool) $ownerRecord->has_percentage_rent;
     }

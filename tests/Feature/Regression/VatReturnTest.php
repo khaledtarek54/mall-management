@@ -2,6 +2,8 @@
 
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Reports\VatReturnService;
 use App\Support\Vat;
@@ -109,10 +111,10 @@ it('nets input VAT off what is owed', function () {
     vatInvoice([['type' => 'service_charge', 'amount' => 10000, 'vat_rate' => Vat::standardRate()]]);
 
     $asset = makeAsset();
-    $vendor = \App\Models\Vendor::create(['name' => 'Supplier '.uniqid(), 'status' => \App\Models\Vendor::STATUS_ACTIVE]);
+    $vendor = Vendor::create(['name' => 'Supplier '.uniqid(), 'status' => Vendor::STATUS_ACTIVE]);
 
     // A vendor bill carries recoverable input VAT.
-    $bill = \App\Models\VendorBill::create([
+    $bill = VendorBill::create([
         'vendor_id' => $vendor->id,
         'asset_id' => $asset->id,
         'category' => 'cleaning_security',
@@ -143,9 +145,9 @@ it('reports a credit position rather than treating it as an error', function () 
     // A month of heavy purchasing leaves the operator in credit with the authority. That is a real
     // state, and a report that clamped it at zero would hide money the operator is owed.
     $asset = makeAsset();
-    $vendor = \App\Models\Vendor::create(['name' => 'Supplier '.uniqid(), 'status' => \App\Models\Vendor::STATUS_ACTIVE]);
+    $vendor = Vendor::create(['name' => 'Supplier '.uniqid(), 'status' => Vendor::STATUS_ACTIVE]);
 
-    $bill = \App\Models\VendorBill::create([
+    $bill = VendorBill::create([
         'vendor_id' => $vendor->id, 'asset_id' => $asset->id,
         'category' => 'maintenance', 'status' => 'approved',
         'bill_date' => '2026-03-15',

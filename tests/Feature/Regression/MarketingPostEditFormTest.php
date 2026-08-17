@@ -7,6 +7,7 @@ use App\Models\MarketingPost;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The marketing-post create/edit form — nothing rendered it before this file.
@@ -101,7 +102,7 @@ it('still refuses to move a post into a property the operator cannot see', funct
 
     // A 403 specifically — `GuardsAssetInScope` calls `abort(403)`.
     expect(fn () => MarketingPostResource::assertAssetInScope($elsewhere->id))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     // The control — the property they ARE assigned to is accepted, so the refusal above is scoping
     // rather than a blanket refusal.

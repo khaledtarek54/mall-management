@@ -7,6 +7,8 @@ use App\Models\Payment;
 use App\Models\PostDatedCheque;
 use App\Models\User;
 use App\Support\PostingDate;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -138,11 +140,11 @@ class PostDatedChequeService
      * @param  array{asset_id:int, tenant_id:int, lease_id?:int|null, bank_name?:string|null,
      *     first_cheque_number:string, amount:float, count:int, first_cheque_date:string,
      *     received_date?:string|null, interval_months?:int, notes?:string|null}  $data
-     * @return \Illuminate\Support\Collection<int, PostDatedCheque>
+     * @return Collection<int, PostDatedCheque>
      *
      * @throws \DomainException
      */
-    public function lodgeSeries(array $data): \Illuminate\Support\Collection
+    public function lodgeSeries(array $data): Collection
     {
         $count = (int) $data['count'];
         $amount = round((float) $data['amount'], 2);
@@ -155,9 +157,9 @@ class PostDatedChequeService
             throw new \DomainException(__('admin.post_dated_cheques.errors.series_amount'));
         }
 
-        $firstMaturity = \Illuminate\Support\Carbon::parse($data['first_cheque_date']);
+        $firstMaturity = Carbon::parse($data['first_cheque_date']);
         $received = isset($data['received_date'])
-            ? \Illuminate\Support\Carbon::parse($data['received_date'])->toDateString()
+            ? Carbon::parse($data['received_date'])->toDateString()
             : now()->toDateString();
 
         return DB::transaction(function () use ($data, $count, $amount, $interval, $firstMaturity, $received) {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Charge;
+use App\Models\InvoiceItem;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -46,7 +47,7 @@ it('voidLocked cancels the immediate overage invoice and flips status to dispute
     expect((bool) $charge->is_active)->toBeFalse();
     expect($this->declaration->status)->toBe('locked');
 
-    $invoice = \App\Models\InvoiceItem::where('charge_id', $charge->id)->latest('id')->first()?->invoice;
+    $invoice = InvoiceItem::where('charge_id', $charge->id)->latest('id')->first()?->invoice;
     expect($invoice)->not->toBeNull();
     expect($invoice->status)->toBe('issued');
 
@@ -104,7 +105,7 @@ it('voidLocked only reverses the period-specific overage, leaving sibling-period
         ->whereDate('start_date', $siblingDeclaration->period_start)
         ->first();
     expect($siblingCharge)->not->toBeNull();
-    $siblingInvoice = \App\Models\InvoiceItem::where('charge_id', $siblingCharge->id)->latest('id')->first()?->invoice;
+    $siblingInvoice = InvoiceItem::where('charge_id', $siblingCharge->id)->latest('id')->first()?->invoice;
     expect($siblingInvoice?->status)->toBe('issued');
 
     app(PercentageRentCalculationService::class)

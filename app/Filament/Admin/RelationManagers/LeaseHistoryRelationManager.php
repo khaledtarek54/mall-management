@@ -73,7 +73,7 @@ class LeaseHistoryRelationManager extends RelationManager
                             return null;
                         }
 
-                        return number_format($change['from'], 2) . ' → ' . number_format($change['to'], 2);
+                        return number_format($change['from'], 2).' → '.number_format($change['to'], 2);
                     })
                     ->placeholder('—'),
                 TextColumn::make('reason')

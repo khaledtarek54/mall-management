@@ -45,14 +45,14 @@ it('bumps the deposit number past an existing collision (unique-retry)', functio
 
         public static ?string $forced = null;
 
-        public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
+        public static function generateNumber(string $assetCode = 'GEN', ?DateTimeInterface $date = null): string
         {
-            return static::$forced;
+            return self::$forced;
         }
 
         public static function unique(string $code): string
         {
-            return static::generateUniqueNumber($code);
+            return self::generateUniqueNumber($code);
         }
     };
     $probe::$forced = $existing->number;

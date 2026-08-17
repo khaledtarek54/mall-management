@@ -10,7 +10,6 @@ use App\Models\RentableItem;
  * server truth on a money screen, or dropped the line entirely rather than guess. None of them
  * needed a migration — the data existed and was simply never published.
  */
-
 it('reports when an invoice was actually paid', function () {
     $tenant = makeTenant();
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset()), $tenant), [

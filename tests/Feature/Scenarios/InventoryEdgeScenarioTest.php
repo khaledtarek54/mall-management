@@ -4,6 +4,7 @@ use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
+use Illuminate\Database\QueryException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
@@ -134,7 +135,7 @@ it('enforces the per-property unique warehouse code but allows the same code on 
 
     // Duplicate code within the SAME property violates the unique constraint.
     expect(fn () => Warehouse::create(['asset_id' => $assetA->id, 'name' => 'Dup', 'code' => 'MAIN']))
-        ->toThrow(\Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('leaves on-hand and the ledger intact after a warehouse is soft-deleted (movements are historical facts)', function () {

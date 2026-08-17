@@ -4,6 +4,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
 use App\Services\AllocatePaymentToInvoiceItemsService;
+use App\Services\Reports\ReportService;
 use App\Support\InvoiceItemSettlement;
 use Carbon\CarbonImmutable;
 
@@ -270,7 +271,7 @@ it('splits the aging by charge type and still ties to the invoice balances', fun
     $invoice = threeLineInvoice();
     payTowards($invoice, 30000);              // rent settled by priority; CAM left open
 
-    $report = app(\App\Services\Reports\ReportService::class)
+    $report = app(ReportService::class)
         ->arAgingByChargeType(CarbonImmutable::parse('2026-05-01')->endOfDay());
 
     expect($report['rows']->pluck('type')->all())->toBe(['service_charge'])
@@ -290,7 +291,7 @@ it('blames the line the tenant actually disputed, not the rent', function () {
         $invoice->items()->where('type', 'service_charge')->value('id') => 11400,
     ]);
 
-    $report = app(\App\Services\Reports\ReportService::class)
+    $report = app(ReportService::class)
         ->arAgingByChargeType(CarbonImmutable::parse('2026-05-01')->endOfDay());
 
     expect($report['rows']->pluck('type')->all())->toBe(['base_rent'])

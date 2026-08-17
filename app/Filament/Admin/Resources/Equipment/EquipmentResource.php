@@ -104,12 +104,13 @@ class EquipmentResource extends Resource
             'search_text',
         ];
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  Equipment  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                             can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
@@ -118,5 +119,4 @@ class EquipmentResource extends Resource
             __('admin.tables.meter.location') => $record->location,
         ];
     }
-
 }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\MarketingPosts;
 
+use App\Actions\Api\V1\MarketingPosts\SaveMarketingPostAction;
 use App\Models\MarketingPost;
+use App\Services\MarketingPost\SubmitMarketingPostService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,12 +15,12 @@ use Illuminate\Validation\Rule;
  * point: `status` and `is_featured`. Accepting either would let a retailer publish straight to the
  * mall's feed or promote themselves into the carousel — the two things the whole review workflow
  * exists to prevent. They are not validated-and-rejected, they are simply never read
- * ({@see \App\Actions\Api\V1\MarketingPosts\SaveMarketingPostAction} builds its own attribute
+ * ({@see SaveMarketingPostAction} builds its own attribute
  * list), so a future edit that adds a rule here still cannot hand them over.
  *
  * `asset_id` IS accepted, because a chain trading in three of the operator's malls has to say
  * which one — but it is re-checked server-side against the tenant's actual leases in
- * {@see \App\Services\MarketingPost\SubmitMarketingPostService::assertTenantTradesIn()}. The rule
+ * {@see SubmitMarketingPostService::assertTenantTradesIn()}. The rule
  * below is a fast fail, not the guard.
  */
 class SaveMarketingPostRequest extends FormRequest

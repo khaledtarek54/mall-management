@@ -3,6 +3,30 @@
 namespace App\Support;
 
 use App\Jobs\SyncDocumentToLedger;
+use App\Models\CreditNote;
+use App\Models\Custody;
+use App\Models\CustodyTransaction;
+use App\Models\DepositApplication;
+use App\Models\DepositTransaction;
+use App\Models\DepreciationEntry;
+use App\Models\Disbursement;
+use App\Models\EmployeeAdvance;
+use App\Models\EmployeeAdvanceRepayment;
+use App\Models\Expense;
+use App\Models\FixedAsset;
+use App\Models\FixedAssetDisposal;
+use App\Models\Invoice;
+use App\Models\InvoiceWriteOff;
+use App\Models\MarketingSpend;
+use App\Models\OwnerStatementRun;
+use App\Models\Payment;
+use App\Models\Payroll;
+use App\Models\SlaPenalty;
+use App\Models\StockMovement;
+use App\Models\StraightLineRentAdjustment;
+use App\Models\TenantCreditApplication;
+use App\Models\VendorBill;
+use App\Models\VendorBillPayment;
 use App\Services\Accounting\LedgerPoster;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -33,41 +57,41 @@ class LedgerRealtimeSync
      * new journalizer cannot ship without its date column.
      */
     public const SOURCE_DATE_COLUMNS = [
-        \App\Models\Invoice::class => 'issue_date',
-        \App\Models\Payment::class => 'payment_date',
-        \App\Models\CreditNote::class => 'issue_date',
-        \App\Models\VendorBill::class => 'bill_date',
-        \App\Models\VendorBillPayment::class => 'payment_date',
-        \App\Models\Expense::class => 'expense_date',
-        \App\Models\Payroll::class => 'period_month',
-        \App\Models\DepositTransaction::class => 'transaction_date',
-        \App\Models\MarketingSpend::class => 'spent_on',
-        \App\Models\StockMovement::class => 'moved_on',
-        \App\Models\FixedAsset::class => 'acquisition_date',
-        \App\Models\DepreciationEntry::class => 'period_month',
-        \App\Models\FixedAssetDisposal::class => 'disposed_on',
-        \App\Models\EmployeeAdvance::class => 'advance_date',
-        \App\Models\EmployeeAdvanceRepayment::class => 'repaid_on',
-        \App\Models\Custody::class => 'custody_date',
-        \App\Models\CustodyTransaction::class => 'transaction_date',
+        Invoice::class => 'issue_date',
+        Payment::class => 'payment_date',
+        CreditNote::class => 'issue_date',
+        VendorBill::class => 'bill_date',
+        VendorBillPayment::class => 'payment_date',
+        Expense::class => 'expense_date',
+        Payroll::class => 'period_month',
+        DepositTransaction::class => 'transaction_date',
+        MarketingSpend::class => 'spent_on',
+        StockMovement::class => 'moved_on',
+        FixedAsset::class => 'acquisition_date',
+        DepreciationEntry::class => 'period_month',
+        FixedAssetDisposal::class => 'disposed_on',
+        EmployeeAdvance::class => 'advance_date',
+        EmployeeAdvanceRepayment::class => 'repaid_on',
+        Custody::class => 'custody_date',
+        CustodyTransaction::class => 'transaction_date',
         // The owner-statement accrual is dated at finalise; a draft isn't posted at all.
-        \App\Models\OwnerStatementRun::class => 'posting_date',
+        OwnerStatementRun::class => 'posting_date',
         // The owner payout posts on the day it was paid; scheduled/approved don't post.
-        \App\Models\Disbursement::class => 'paid_on',
+        Disbursement::class => 'paid_on',
         // Mirrors SlaPenaltyJournalizer's `applied_at ?? created_at`. It only posts
         // once APPLIED, and applying always stamps applied_at, so the fallback never decides
         // the period of a real entry.
-        \App\Models\SlaPenalty::class => 'applied_at',
+        SlaPenalty::class => 'applied_at',
         // Applied at application time (an open period), never the source receipt's date — that
         // decoupling is what lets an old overpayment settle a current invoice without stranding the GL.
-        \App\Models\TenantCreditApplication::class => 'entry_date',
+        TenantCreditApplication::class => 'entry_date',
         // Same decoupling, same reason: a deposit taken three years ago must be able to settle a
         // current invoice without stranding its entry in a closed period.
-        \App\Models\DepositApplication::class => 'entry_date',
+        DepositApplication::class => 'entry_date',
         // Dated at the END of the month being recognised, never today: a recognition entry belongs
         // in the period it recognises or the P&L for that month is wrong.
-        \App\Models\StraightLineRentAdjustment::class => 'entry_date',
-        \App\Models\InvoiceWriteOff::class => 'entry_date',
+        StraightLineRentAdjustment::class => 'entry_date',
+        InvoiceWriteOff::class => 'entry_date',
     ];
 
     public static function register(): void

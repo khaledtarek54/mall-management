@@ -1,8 +1,10 @@
 <?php
 
 use App\Filament\Admin\Pages\BillingRunPreview;
+use App\Models\Asset;
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Models\Lease;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 
@@ -14,7 +16,7 @@ use Carbon\CarbonImmutable;
  * tests pin exactly that — a preview computed by a second implementation would be a preview that
  * lies, and an operator who catches it lying once will never trust it again.
  */
-function previewLease(\App\Models\Asset $asset, array $leaseAttrs = [], float $rent = 20000, float $service = 5000): \App\Models\Lease
+function previewLease(Asset $asset, array $leaseAttrs = [], float $rent = 20000, float $service = 5000): Lease
 {
     $lease = makeLease(makeUnit($asset), null, array_merge([
         'commencement_date' => '2026-01-01',
@@ -72,7 +74,7 @@ it('names the reason a lease is not billing rather than silently omitting it', f
     $fitOut = previewLease($asset, ['commencement_date' => '2026-06-01', 'rent_commencement_date' => '2026-09-01',
         // Gross grace: nothing bills, so the preview's reason is `fit_out`. A net-abated lease
         // WOULD bill its service charge — covered in FitOutAbatementScopeTest.
-        'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS]);
+        'fit_out_scope' => Lease::FIT_OUT_GROSS]);
     $quarterly = previewLease($asset, ['commencement_date' => '2026-01-01', 'billing_frequency' => 'quarterly']);
     $noCharges = makeLease(makeUnit($asset), null, ['commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31']);
 

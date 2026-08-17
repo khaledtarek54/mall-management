@@ -4,10 +4,10 @@ namespace App\Jobs;
 
 use App\Models\Invoice;
 use App\Services\Eta\EtaSubmissionService;
+use App\Support\OpsLog;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use App\Support\OpsLog;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Throwable;

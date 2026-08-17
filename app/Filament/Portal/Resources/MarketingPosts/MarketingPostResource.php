@@ -8,6 +8,7 @@ use App\Filament\Portal\Resources\MarketingPosts\Pages\ListMarketingPosts;
 use App\Filament\Portal\Resources\MarketingPosts\Schemas\MarketingPostForm;
 use App\Filament\Portal\Resources\MarketingPosts\Tables\MarketingPostsTable;
 use App\Models\MarketingPost;
+use App\Services\MarketingPost\SubmitMarketingPostService;
 use App\Support\Modules;
 use App\Support\Portal;
 use BackedEnum;
@@ -30,7 +31,7 @@ use Illuminate\Database\Eloquent\Model;
  *    would mean nothing.
  *  - **`status` is never a form field.** The only transitions available are the Submit and
  *    Withdraw actions, both of which run through
- *    {@see \App\Services\MarketingPost\SubmitMarketingPostService}, which ends at `pending`.
+ *    {@see SubmitMarketingPostService}, which ends at `pending`.
  *
  * Reads are scoped to the signed-in tenant in `getEloquentQuery()`; writes additionally re-check
  * that the retailer trades in the chosen property (the service's `assertTenantTradesIn`), because

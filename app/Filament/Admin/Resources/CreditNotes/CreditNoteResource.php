@@ -2,16 +2,19 @@
 
 namespace App\Filament\Admin\Resources\CreditNotes;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\CreditNoteApplicationsRelationManager;
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
+use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\CreditNotes\Pages\CreateCreditNote;
 use App\Filament\Admin\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Admin\Resources\CreditNotes\Pages\ListCreditNotes;
 use App\Filament\Admin\Resources\CreditNotes\Schemas\CreditNoteForm;
 use App\Filament\Admin\Resources\CreditNotes\Tables\CreditNotesTable;
-use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
-use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
-use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\CreditNote;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -19,7 +22,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CreditNoteResource extends Resource
 {
@@ -69,8 +71,8 @@ class CreditNoteResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\CreditNoteApplicationsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            CreditNoteApplicationsRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -91,15 +93,15 @@ class CreditNoteResource extends Resource
         // standalone note is a TENANT-level adjustment, so it belongs to the properties where that
         // tenant leases — NOT every property. Showing it portfolio-wide leaked a restricted
         // operator another property's tenant + credit amount (and let them void/issue it).
-        $ids = \App\Support\TenantScope::currentAssetId() !== null
-            ? [\App\Support\TenantScope::currentAssetId()]
-            : \App\Support\TenantScope::visibleAssetIds();
+        $ids = TenantScope::currentAssetId() !== null
+            ? [TenantScope::currentAssetId()]
+            : TenantScope::visibleAssetIds();
 
         if ($ids !== null) {
             $query->where(function ($q) use ($ids) {
                 $q->whereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids))
-                  ->orWhere(fn ($q3) => $q3->whereNull('lease_id')
-                      ->whereHas('tenant.leases.unit', fn ($u) => $u->whereIn('asset_id', $ids)));
+                    ->orWhere(fn ($q3) => $q3->whereNull('lease_id')
+                        ->whereHas('tenant.leases.unit', fn ($u) => $u->whereIn('asset_id', $ids)));
             });
         }
 
@@ -127,7 +129,7 @@ class CreditNoteResource extends Resource
     {
         return [
             __('admin.tables.credit_note.tenant') => $record->tenant?->name,
-            __('admin.tables.credit_note.total') => 'EGP ' . number_format((float) $record->total, 2),
+            __('admin.tables.credit_note.total') => 'EGP '.number_format((float) $record->total, 2),
             __('admin.tables.common.status') => __("admin.statuses.credit_note.{$record->status}"),
         ];
     }

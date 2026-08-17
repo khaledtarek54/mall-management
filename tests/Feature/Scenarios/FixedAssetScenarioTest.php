@@ -11,6 +11,7 @@ use App\Services\DisposeFixedAssetService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * End-to-end fixed-asset lifecycle: acquire → depreciate → dispose → the whole GL
@@ -114,7 +115,7 @@ it('soft-deleting a mid-life asset voids its entire GL footprint via the windowe
     $this->poster->sync($charge->fresh());
 
     // Age the charge outside the sweep window; the cascade must re-touch it.
-    \Illuminate\Support\Facades\DB::table('depreciation_entries')->where('id', $charge->id)->update(['updated_at' => now()->subDays(30)]);
+    DB::table('depreciation_entries')->where('id', $charge->id)->update(['updated_at' => now()->subDays(30)]);
 
     $fa->delete();
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);

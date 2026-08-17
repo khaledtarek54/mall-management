@@ -42,7 +42,7 @@ it('scopes revenue-by-type + credit notes to a restricted user\'s properties in 
     // Assigned ONLY to A, no property pinned → "All Properties" for a RESTRICTED user.
     $this->actingAs(makeUser('accounting', [$assetA->id]));
 
-    $report = app(\App\Services\Reports\ReportService::class)->monthlyClose(CarbonImmutable::now()->startOfMonth());
+    $report = app(ReportService::class)->monthlyClose(CarbonImmutable::now()->startOfMonth());
 
     // B's 2000 must NOT leak into the restricted user's revenue-by-type.
     expect($report['revenue_by_type']['base_rent'] ?? 0.0)->toBe(1000.0);
@@ -117,7 +117,7 @@ it('refuses to void a credit note that has been applied since it was loaded (sta
     DB::table('credit_notes')->where('id', $note->id)->update(['applied_amount' => 500, 'balance' => 0, 'status' => 'applied']);
 
     // void() must re-read under the lock and refuse — not void an already-applied note.
-    expect(fn () => app(CreditNoteService::class)->void($stale))->toThrow(\DomainException::class);
+    expect(fn () => app(CreditNoteService::class)->void($stale))->toThrow(DomainException::class);
     expect(CreditNote::find($note->id)->status)->toBe('applied'); // untouched
 });
 

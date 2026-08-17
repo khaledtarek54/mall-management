@@ -4,6 +4,7 @@ use App\Models\Vendor;
 use App\Models\VendorContract;
 use App\Models\VendorDocument;
 use App\Notifications\VendorDocumentExpiringNotification;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -34,7 +35,7 @@ function vendorDoc(Vendor $vendor, ?string $expiresOn, string $type = VendorDocu
 
 it('alerts once when a document is inside the 30-day window, then never re-nags', function () {
     Notification::fake();
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $vendor = docVendor();
     $document = vendorDoc($vendor, now()->addDays(10)->toDateString());
 
@@ -99,7 +100,7 @@ it('chases a statutory document without ever blocking site work', function () {
 
 it('notifies staff of the properties where the vendor actually works', function () {
     Notification::fake();
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $asset = makeAsset();
     $manager = makeUser('manager');
     $manager->assignedAssets()->syncWithoutDetaching([$asset->id]);

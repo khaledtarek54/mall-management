@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Admin\Widgets\ActionRequired;
 use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
@@ -61,8 +62,8 @@ it('lets a manager deactivate an override without needing delete rights', functi
     $manager = makeUser('manager', [$this->asset->id]);
     $this->actingAs($manager);
 
-    expect(\App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource::canEdit($policy))->toBeTrue();
-    expect(\App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource::canDelete($policy))->toBeFalse();
+    expect(SlaPolicyResource::canEdit($policy))->toBeTrue();
+    expect(SlaPolicyResource::canDelete($policy))->toBeFalse();
 
     $policy->update(['is_active' => false]);
 

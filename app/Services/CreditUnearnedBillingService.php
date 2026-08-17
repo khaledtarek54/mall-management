@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -160,7 +161,7 @@ class CreditUnearnedBillingService
             return false;
         }
 
-        /** @var \App\Models\Charge|null $charge */
+        /** @var Charge|null $charge */
         $charge = $item->charge;
 
         return $charge?->frequency === 'monthly';

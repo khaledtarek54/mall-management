@@ -49,8 +49,8 @@ class EquipmentTable
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => __('admin.facility.criticalities.'.($state ?: 'routine')))
                     ->color(fn (?string $state) => match ($state) {
-                        \App\Models\Equipment::CRITICAL => 'danger',
-                        \App\Models\Equipment::IMPORTANT => 'warning',
+                        Equipment::CRITICAL => 'danger',
+                        Equipment::IMPORTANT => 'warning',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -73,9 +73,9 @@ class EquipmentTable
                     ->toggleable(),
             ])
             ->filters([
-                \Filament\Tables\Filters\SelectFilter::make('criticality')
+                SelectFilter::make('criticality')
                     ->label(__('admin.facility.fields.criticality'))
-                    ->options(fn () => collect(\App\Models\Equipment::CRITICALITIES)
+                    ->options(fn () => collect(Equipment::CRITICALITIES)
                         ->mapWithKeys(fn (string $c) => [$c => __("admin.facility.criticalities.{$c}")])
                         ->all()),
                 SelectFilter::make('category')

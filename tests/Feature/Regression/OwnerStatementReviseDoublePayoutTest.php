@@ -2,6 +2,7 @@
 
 use App\Models\AccountingPeriod;
 use App\Models\Disbursement;
+use App\Models\OwnerStatementRun;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
@@ -76,7 +77,7 @@ it('allows revise again once the disbursement is cancelled', function () {
 
     expect($revised->version)->toBe(2)
         ->and($revised->isFinalised())->toBeTrue()
-        ->and($this->run->fresh()->status)->toBe(\App\Models\OwnerStatementRun::STATUS_SUPERSEDED);
+        ->and($this->run->fresh()->status)->toBe(OwnerStatementRun::STATUS_SUPERSEDED);
 });
 
 it('never lets total scheduled payouts exceed the owner share across a revise attempt', function () {

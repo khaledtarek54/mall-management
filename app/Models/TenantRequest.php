@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TenantRequestType;
 use App\Models\Concerns\HasSearchText;
+use App\Services\NotifyAreaSupervisorsService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -217,8 +218,8 @@ class TenantRequest extends Model implements HasMedia
             // coordinator picks the owner (manual assignment, FR-REQ-07). Never overrides an
             // explicit assignee. Enforced in the model, so admin + portal + API all inherit it.
             if ($request->assigned_to === null && $request->area_id !== null) {
-                /** @var \App\Models\Area|null $area */
-                $area = \App\Models\Area::find($request->area_id);
+                /** @var Area|null $area */
+                $area = Area::find($request->area_id);
                 if ($area !== null) {
                     $supervisorIds = $area->supervisors()->pluck('users.id')->all();
                     if (count($supervisorIds) === 1) {
@@ -233,7 +234,7 @@ class TenantRequest extends Model implements HasMedia
         // (admin Filament, portal, mobile API) passes through — so no channel can skip it. A no-op
         // when there's no area or no supervisors; failures are contained inside the service.
         static::created(function (self $request) {
-            app(\App\Services\NotifyAreaSupervisorsService::class)->notify($request);
+            app(NotifyAreaSupervisorsService::class)->notify($request);
         });
     }
 

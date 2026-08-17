@@ -23,6 +23,7 @@
  * first test below is what stops the split from losing coverage.
  */
 
+use App\Models\Asset;
 use App\Models\TenantUser;
 use Database\Seeders\DemoSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -65,7 +66,7 @@ it('runs every filter on every relation-manager table without error', function (
     // record's edit page and scrolling.
     $this->seed(DemoSeeder::class);
 
-    $asset = App\Models\Asset::query()->where('code', '!=', App\Models\Asset::ALL_PROPERTIES_CODE)->firstOrFail();
+    $asset = Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->firstOrFail();
     $this->actingAs(makeUser('super_admin', [$asset->id]));
 
     $report = FilterSweep::report();

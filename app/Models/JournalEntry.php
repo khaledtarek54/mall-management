@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
-use App\Models\Concerns\HasSearchText;
-use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,8 +31,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned(portfolioRowsWhenNull: true)]
 class JournalEntry extends Model
 {
-    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
-
+    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
@@ -76,10 +76,10 @@ class JournalEntry extends Model
      * Nothing counted them before, on any screen. This scope is what the Action Required card and
      * the journal table's filter both read, so the number, the list and the nag cannot disagree.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
-    public function scopeWithoutProperty(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    public function scopeWithoutProperty(Builder $query): Builder
     {
         return $query->where('status', 'posted')->whereNull('asset_id');
     }
@@ -279,6 +279,7 @@ class JournalEntry extends Model
             $entry->is_manual = empty($entry->source_type);
         });
     }
+
     /**
      * A draft entry has not been posted, so nothing is on the books yet. Anything else — posted or
      * void — is permanent; correct it with a reversing entry.
@@ -287,5 +288,4 @@ class JournalEntry extends Model
     {
         return $this->status !== 'draft';
     }
-
 }

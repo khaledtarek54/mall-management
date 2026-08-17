@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Settings\BillingSettings;
 use Throwable;
 
 /**
@@ -29,12 +30,12 @@ class ScheduleSetting
 {
     /**
      * @param  string  $property  the property name on the settings class
-     * @param  string  $configKey the `config()` key that supplies the fallback
+     * @param  string  $configKey  the `config()` key that supplies the fallback
      */
     public static function billing(string $property, string $configKey, mixed $default = null): mixed
     {
         try {
-            $value = app(\App\Settings\BillingSettings::class)->{$property};
+            $value = app(BillingSettings::class)->{$property};
 
             // A settings row that exists but holds nothing is not an answer; fall through.
             if ($value !== null && $value !== '') {

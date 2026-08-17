@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\CamExpensePool;
 use App\Models\CreditNote;
+use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\Invoice;
 use App\Models\Lease;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 /**
  * The one document that settles a departing tenant (story MF-03, scenario S8).
@@ -38,7 +40,7 @@ class MoveOutStatementService
      *   contractual_deposit: float,
      *   deposit_held: float,
      *   deposit_shortfall: float,
-     *   open_invoices: \Illuminate\Support\Collection<int, Invoice>,
+     *   open_invoices: Collection<int, Invoice>,
      *   open_ar: float,
      *   tenant_credit: float,
      *   pending_trueups: array<int, array{kind: string, detail: string}>,
@@ -109,7 +111,7 @@ class MoveOutStatementService
             - $rows->where('type', 'forfeit')->sum('amount')
             // …less anything already netted against the tenant's invoices (MF-03). Omitting this
             // would let the same deposit settle the arrears AND be refunded in full.
-            - \App\Models\DepositApplication::where('lease_id', $lease->id)->sum('amount');
+            - DepositApplication::where('lease_id', $lease->id)->sum('amount');
 
         return round((float) $held, 2);
     }

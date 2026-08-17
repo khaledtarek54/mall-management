@@ -7,7 +7,7 @@ use App\Models\MarketingBudget;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\MarketingBudget>
+ * @extends Factory<MarketingBudget>
  */
 class MarketingBudgetFactory extends Factory
 {

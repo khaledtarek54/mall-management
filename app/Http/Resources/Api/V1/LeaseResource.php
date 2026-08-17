@@ -2,12 +2,13 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Models\Lease;
 use App\Models\RentableItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Lease
+ * @mixin Lease
  */
 class LeaseResource extends JsonResource
 {

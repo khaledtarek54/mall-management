@@ -16,6 +16,7 @@ use Tests\TestCase;
 class TranslationCoverageTest extends TestCase
 {
     private array $en;
+
     private array $ar;
 
     protected function setUp(): void
@@ -90,7 +91,7 @@ class TranslationCoverageTest extends TestCase
 
         $this->assertEmpty(
             $missing,
-            "Missing translation keys (would render as raw 'admin.x.y.z' strings in the UI):\n  - " . implode("\n  - ", $missing),
+            "Missing translation keys (would render as raw 'admin.x.y.z' strings in the UI):\n  - ".implode("\n  - ", $missing),
         );
     }
 
@@ -109,7 +110,7 @@ class TranslationCoverageTest extends TestCase
             }
         }
 
-        $this->assertEmpty($diffs, "EN/AR translation key parity broken:\n  - " . implode("\n  - ", $diffs));
+        $this->assertEmpty($diffs, "EN/AR translation key parity broken:\n  - ".implode("\n  - ", $diffs));
     }
 
     /** Every __('ns.key') referenced in the code must resolve (leaf or array group). */
@@ -127,12 +128,13 @@ class TranslationCoverageTest extends TestCase
             if (isset($leaves[$key])) {
                 return true;
             }
-            $prefix = $key . '.';
+            $prefix = $key.'.';
             foreach ($leafKeys as $lk) {
                 if (str_starts_with($lk, $prefix)) {
                     return true; // an array group (e.g. enums.method)
                 }
             }
+
             return false;
         };
 
@@ -157,7 +159,7 @@ class TranslationCoverageTest extends TestCase
 
         $this->assertEmpty(
             array_keys($missing),
-            "Translation keys referenced in code but missing from lang files (render raw):\n  - " . implode("\n  - ", array_keys($missing)),
+            "Translation keys referenced in code but missing from lang files (render raw):\n  - ".implode("\n  - ", array_keys($missing)),
         );
     }
 
@@ -172,6 +174,7 @@ class TranslationCoverageTest extends TestCase
                 $out[$key] = $v;
             }
         }
+
         return $out;
     }
 
@@ -183,6 +186,7 @@ class TranslationCoverageTest extends TestCase
             }
             $a = $a[$p];
         }
+
         return $a;
     }
 }

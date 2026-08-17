@@ -4,8 +4,9 @@ namespace App\Http\Requests\Api\V1\Requests;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequest;
-use Illuminate\Foundation\Http\FormRequest;
 use Closure;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 
 class CreateTenantRequestRequest extends FormRequest
@@ -94,7 +95,7 @@ class CreateTenantRequestRequest extends FormRequest
      * the scalar attributes the service persists — so the action can push these
      * into the Spatie `attachments` media collection after the request is saved.
      *
-     * @return array<int, \Illuminate\Http\UploadedFile>
+     * @return array<int, UploadedFile>
      */
     public function attachments(): array
     {

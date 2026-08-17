@@ -4,8 +4,8 @@ namespace App\Filament\Portal\Resources\CamAllocations\Schemas;
 
 // Filament 4 moved Section to Schemas\Components; Infolists\Components\Section does not exist, so
 // this file fataled on render while every sibling infolist imported the right one.
-use Filament\Schemas\Components\Section;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class CamAllocationInfolist

@@ -80,7 +80,7 @@ class RecordCoverage
             @mkdir($dir, 0775, true);
         }
 
-        $file = $dir . '/req-' . uniqid('', true) . '.cov';
+        $file = $dir.'/req-'.uniqid('', true).'.cov';
         file_put_contents($file, serialize($coverage));
     }
 }

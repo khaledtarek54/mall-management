@@ -4,12 +4,15 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
+use App\Services\LeaseCreationService;
 use App\Services\LeaseRenewalService;
 use App\Services\LeaseRentChangeService;
+use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use App\Services\RentEscalationService;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The rent is a SCHEDULE, not a mutable amount (phase 1, stories LS-01/02/03 —
@@ -212,7 +215,7 @@ it('refuses to bill a month covered by two rows instead of silently double-charg
     // overlapping row, so the only way this state arises is the way the billing guard exists for —
     // a direct SQL write, a bad import, or a migration. The write guard is the first line; this is
     // the backstop for data that arrived another way.
-    \Illuminate\Support\Facades\DB::table('charges')->insert([
+    DB::table('charges')->insert([
         'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
         'origin' => Charge::ORIGIN_MANUAL, 'amount' => 12000, 'currency' => 'EGP',
         'frequency' => 'monthly', 'vat_applicable' => false, 'vat_rate' => Vat::EXEMPT,
@@ -252,7 +255,7 @@ it('lets several one-off charges land in the same month — they are not a sched
 it('moves the marketing levy on the same effective date as the rent it derives from', function () {
     CarbonImmutable::setTestNow('2026-06-10');
     $lease = scheduledLease(['has_marketing_levy' => true, 'marketing_levy_rate' => 5]);
-    app(\App\Services\MarketingLevyService::class)->createLevyCharge($lease->fresh());
+    app(MarketingLevyService::class)->createLevyCharge($lease->fresh());
 
     app(LeaseRentChangeService::class)->apply($lease->fresh(), ['base_rent_monthly' => 20000]);
 
@@ -295,7 +298,7 @@ it('reads the row in force on a date', function () {
 it('writes the whole term\'s contracted rent steps when the lease is created', function () {
     CarbonImmutable::setTestNow('2026-01-05');
 
-    $lease = app(\App\Services\LeaseCreationService::class)->create([
+    $lease = app(LeaseCreationService::class)->create([
         'tenant_mode' => 'existing',
         'tenant_id' => makeTenant()->id,
         'lease' => [
@@ -326,7 +329,7 @@ it('writes the whole term\'s contracted rent steps when the lease is created', f
 it('bills each year of a projected term at its own contracted rent, with no sweep run at all', function () {
     CarbonImmutable::setTestNow('2026-01-05');
 
-    $lease = app(\App\Services\LeaseCreationService::class)->create([
+    $lease = app(LeaseCreationService::class)->create([
         'tenant_mode' => 'existing',
         'tenant_id' => makeTenant()->id,
         'lease' => [
@@ -357,7 +360,7 @@ it('does not fight the escalation sweep — a projected lease and a swept one co
     // What the sweep keeps doing is advancing base_rent_monthly and next_escalation_date.
     CarbonImmutable::setTestNow('2026-01-05');
 
-    $lease = app(\App\Services\LeaseCreationService::class)->create([
+    $lease = app(LeaseCreationService::class)->create([
         'tenant_mode' => 'existing',
         'tenant_id' => makeTenant()->id,
         'lease' => [
@@ -385,7 +388,7 @@ it('does not fight the escalation sweep — a projected lease and a swept one co
 it('projects the marketing levy in lock-step so a future month is internally consistent', function () {
     CarbonImmutable::setTestNow('2026-01-05');
 
-    $lease = app(\App\Services\LeaseCreationService::class)->create([
+    $lease = app(LeaseCreationService::class)->create([
         'tenant_mode' => 'existing',
         'tenant_id' => makeTenant()->id,
         'lease' => [

@@ -9,6 +9,7 @@ use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -40,7 +41,7 @@ it('hides inventory resources when the module is disabled', function () {
     $this->actingAs(makeUser('super_admin'));
     expect(WarehouseResource::canViewAny())->toBeTrue();
 
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->inventory = false;
     $settings->save();
 
@@ -131,7 +132,7 @@ it('refuses to receive stock into a warehouse in a non-visible property (tamperi
                     'unit_cost' => 1,
                     'moved_on' => now()->toDateString(),
                 ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // abort(403) may surface as an exception depending on the Livewire path.
         }
     });

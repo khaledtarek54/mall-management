@@ -91,11 +91,11 @@ class PaymobClient
             'delivery_needed' => false,
             'amount_cents' => $amountCents,
             'currency' => $this->currency,
-            'merchant_order_id' => $invoice->number . '-' . now()->format('YmdHis'),
+            'merchant_order_id' => $invoice->number.'-'.now()->format('YmdHis'),
             'items' => [[
-                'name' => __('admin.notifications.invoice_issued_title') . ' ' . $invoice->number,
+                'name' => __('admin.notifications.invoice_issued_title').' '.$invoice->number,
                 'amount_cents' => $amountCents,
-                'description' => 'Invoice ' . $invoice->number,
+                'description' => 'Invoice '.$invoice->number,
                 'quantity' => 1,
             ]],
         ]);
@@ -245,7 +245,7 @@ class PaymobClient
         }
 
         $body = (string) $response->body();
-        $trimmed = strlen($body) > 240 ? substr($body, 0, 240) . '…' : $body;
+        $trimmed = strlen($body) > 240 ? substr($body, 0, 240).'…' : $body;
 
         // Make a Paymob outage visible instead of silent (the body is Paymob's
         // error response — no card data is ever returned by these endpoints).

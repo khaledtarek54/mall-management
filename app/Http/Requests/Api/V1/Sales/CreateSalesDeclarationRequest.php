@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Sales;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 
 class CreateSalesDeclarationRequest extends FormRequest
@@ -66,7 +67,7 @@ class CreateSalesDeclarationRequest extends FormRequest
      * Uploaded sales-report files. Kept out of payload() so the action can push
      * them into the Spatie `sales_report` media collection after the row saves.
      *
-     * @return array<int, \Illuminate\Http\UploadedFile>
+     * @return array<int, UploadedFile>
      */
     public function attachments(): array
     {

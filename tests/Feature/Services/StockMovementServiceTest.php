@@ -8,7 +8,7 @@ use App\Services\StockMovementService;
 function invItem(array $attrs = []): InventoryItem
 {
     return InventoryItem::create(array_merge([
-        'sku' => 'SKU-' . uniqid(),
+        'sku' => 'SKU-'.uniqid(),
         'name' => 'Pump Seal',
         'unit' => 'each',
         'unit_cost' => 25,
@@ -21,7 +21,7 @@ function warehouse(array $attrs = []): Warehouse
     return Warehouse::create(array_merge([
         'asset_id' => makeAsset()->id,
         'name' => 'Spare Parts Store',
-        'code' => 'SP-' . strtoupper(substr(uniqid(), -5)),
+        'code' => 'SP-'.strtoupper(substr(uniqid(), -5)),
         'category' => 'spare_parts',
     ], $attrs));
 }

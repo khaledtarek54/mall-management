@@ -37,6 +37,7 @@ use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Services\CreditNoteService;
 use Filament\Facades\Filament;
+use Illuminate\Support\Carbon;
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
@@ -197,18 +198,18 @@ it('applied_at is stamped on the first apply and never moved by a later apply', 
     $note = $svc->issue($note);
 
     // Freeze, apply, then advance the clock so a (buggy) re-stamp would differ.
-    \Illuminate\Support\Carbon::setTestNow('2026-03-01 09:00:00');
+    Carbon::setTestNow('2026-03-01 09:00:00');
     $svc->applyToInvoice($note->fresh(), $invoice->fresh(), 1000);
     $firstStamp = $note->fresh()->applied_at;
     expect($firstStamp)->not->toBeNull();
 
-    \Illuminate\Support\Carbon::setTestNow('2026-03-02 18:30:00'); // a day+ later
+    Carbon::setTestNow('2026-03-02 18:30:00'); // a day+ later
     $svc->applyToInvoice($note->fresh(), $invoice->fresh(), 1000);
 
     expect($note->fresh()->applied_at->equalTo($firstStamp))->toBeTrue()
         ->and($note->fresh()->applied_at->format('Y-m-d H:i:s'))->toBe('2026-03-01 09:00:00');
 
-    \Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 });
 
 it('drains one credit note across two invoices of the same tenant', function () {

@@ -8,11 +8,15 @@ use App\Filament\Admin\Widgets\OpenTenantRequests;
 use App\Filament\Admin\Widgets\RecentPayments;
 use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TopTenants;
-use App\Models\TenantRequest;
 use App\Models\MeterReading;
 use App\Models\Payment;
+use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use App\Models\UtilityMeter;
+use Filament\Support\RawJs;
+use Filament\Tables\Table;
+use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Database\Eloquent\Builder;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
@@ -25,6 +29,7 @@ beforeEach(function () {
 function callProtected(object $obj, string $method, array $args = []): mixed
 {
     $ref = new ReflectionMethod($obj, $method);
+
     return $ref->invokeArgs($obj, $args);
 }
 
@@ -40,7 +45,7 @@ it('EtaCompliance.getStats counts invoices across all eta statuses (property-sco
         $stats = callProtected(new EtaCompliance, 'getStats');
         expect($stats)->toHaveCount(4);
         // Valid card description encodes percentage; verify it's a Stat instance.
-        expect($stats[0])->toBeInstanceOf(\Filament\Widgets\StatsOverviewWidget\Stat::class);
+        expect($stats[0])->toBeInstanceOf(Stat::class);
     });
 });
 
@@ -48,7 +53,7 @@ it('EnergyConsumptionTrend.getData returns labeled monthly buckets', function ()
     $meter = UtilityMeter::create([
         'asset_id' => $this->asset->id,
         'unit_id' => $this->unit->id,
-        'meter_number' => 'E-' . uniqid(),
+        'meter_number' => 'E-'.uniqid(),
         'type' => 'electric',
         'unit_of_measurement' => 'kWh',
         'status' => 'active',
@@ -84,7 +89,7 @@ it('MonthlyRevenueTrend.getData returns 12 labels and 3 datasets (billed/collect
     ]);
     Payment::create([
         'tenant_id' => $this->tenant->id,
-        'reference' => 'P-' . uniqid(),
+        'reference' => 'P-'.uniqid(),
         'amount' => 5000,
         'method' => 'cash',
         'status' => 'captured',
@@ -101,7 +106,7 @@ it('MonthlyRevenueTrend.getData returns 12 labels and 3 datasets (billed/collect
 
 it('MonthlyRevenueTrend exposes type + options', function () {
     expect(callProtected(new MonthlyRevenueTrend, 'getType'))->toBe('bar');
-    expect(callProtected(new MonthlyRevenueTrend, 'getOptions'))->toBeInstanceOf(\Filament\Support\RawJs::class);
+    expect(callProtected(new MonthlyRevenueTrend, 'getOptions'))->toBeInstanceOf(RawJs::class);
 });
 
 it('SetupGuide.getViewData reports per-step completion + nextStep + progress', function () {
@@ -132,10 +137,11 @@ it('SetupGuide.allDone flips true once every step has data', function () {
 
 /* ─────────────── TableWidgets — drive query via Filament Table ─────────────── */
 
-function tableQueryFor(string $widgetClass): \Illuminate\Database\Eloquent\Builder
+function tableQueryFor(string $widgetClass): Builder
 {
     $widget = new $widgetClass;
-    $table = $widget->table(\Filament\Tables\Table::make($widget));
+    $table = $widget->table(Table::make($widget));
+
     return $table->getQuery();
 }
 
@@ -162,7 +168,7 @@ it('RecentPayments query is property-scoped', function () {
     $invoice = makeInvoice($this->lease);
     $payment = Payment::create([
         'tenant_id' => $this->tenant->id,
-        'reference' => 'P-' . uniqid(),
+        'reference' => 'P-'.uniqid(),
         'amount' => 5000,
         'method' => 'cash',
         'status' => 'captured',
@@ -179,7 +185,7 @@ it('RecentPayments query is property-scoped', function () {
 
 it('OpenTenantRequests query returns only open statuses, property-scoped', function () {
     TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'unit_id' => $this->unit->id,
         'tenant_id' => $this->tenant->id,
         'title' => 'A', 'description' => 'B',
@@ -187,7 +193,7 @@ it('OpenTenantRequests query returns only open statuses, property-scoped', funct
         'submitted_at' => now(),
     ]);
     TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'unit_id' => $this->unit->id,
         'tenant_id' => $this->tenant->id,
         'title' => 'Done', 'description' => 'B',

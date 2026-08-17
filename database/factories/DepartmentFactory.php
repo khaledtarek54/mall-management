@@ -3,12 +3,13 @@
 namespace Database\Factories;
 
 use App\Models\Asset;
+use App\Models\Department;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<\App\Models\Department>
+ * @extends Factory<Department>
  */
 class DepartmentFactory extends Factory
 {
@@ -44,7 +45,7 @@ class DepartmentFactory extends Factory
         // the factory never exhausts (slug, derived from name, must stay unique;
         // the model's `creating` hook dedupes it but we keep names distinct too).
         [$label] = fake()->randomElement($this->core);
-        $name = $label . ' ' . fake()->unique()->numberBetween(1, 1_000_000);
+        $name = $label.' '.fake()->unique()->numberBetween(1, 1_000_000);
 
         return [
             'name' => $name,
@@ -67,7 +68,7 @@ class DepartmentFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'asset_id' => ($asset ?? Asset::create([
-                'name' => 'Asset ' . uniqid(),
+                'name' => 'Asset '.uniqid(),
                 'code' => strtoupper(Str::substr(uniqid(), -6)),
                 'type' => 'mall',
                 'city' => 'Cairo',

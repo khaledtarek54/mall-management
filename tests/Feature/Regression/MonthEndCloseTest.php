@@ -2,12 +2,13 @@
 
 use App\Filament\Admin\Pages\MonthEndClose;
 use App\Models\AccountingPeriod;
+use App\Models\Asset;
 use App\Models\Charge;
 use App\Models\FiscalYear;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
-use App\Models\VendorBill;
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Services\Accounting\MonthEndReadinessService;
 use App\Services\MonthlyBillingService;
 use App\Support\Vat;
@@ -57,7 +58,7 @@ function stepCount(array $readiness, string $key): int
     return collect($readiness['steps'])->firstWhere('key', $key)['count'];
 }
 
-function billableLeaseForClose(\App\Models\Asset $asset, array $attrs = []): Lease
+function billableLeaseForClose(Asset $asset, array $attrs = []): Lease
 {
     $lease = makeLease(makeUnit($asset), null, array_merge([
         'status' => 'active',

@@ -7,8 +7,11 @@ use App\Models\DepreciationEntry;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Services\DisposeFixedAssetService;
+use App\Settings\ModulesSettings;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -20,7 +23,7 @@ function makeFixedAsset(int $assetId, array $attrs = []): FixedAsset
     return FixedAsset::create(array_merge([
         'asset_id' => $assetId,
         'name' => 'HVAC Unit',
-        'tag' => 'FA-' . uniqid(),
+        'tag' => 'FA-'.uniqid(),
         'acquisition_date' => '2026-01-01',
         'acquisition_cost' => 12000,
         'salvage_value' => 0,
@@ -51,7 +54,7 @@ it('hides the fixed-asset resource when the module is disabled', function () {
     $this->actingAs(makeUser('super_admin'));
     expect(FixedAssetResource::canViewAny())->toBeTrue();
 
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->fixed_assets = false;
     $settings->save();
 
@@ -79,7 +82,7 @@ it('scopes fixed assets to the current property', function () {
 it('exposes the derived accumulated depreciation on the query', function () {
     $asset = makeAsset();
     $fa = makeFixedAsset($asset->id, ['acquisition_cost' => 12000, 'useful_life_months' => 12]); // 1000/mo
-    app(DepreciationService::class)->run(\Carbon\CarbonImmutable::parse('2026-03-01'));
+    app(DepreciationService::class)->run(CarbonImmutable::parse('2026-03-01'));
 
     $this->actingAs(makeUser('super_admin'));
 
@@ -110,7 +113,7 @@ it('disposes an asset and stops future depreciation', function () {
     expect((float) $fa->fresh()->disposal->proceeds)->toBe(250.0);
 
     // A disposed asset is skipped by the monthly run.
-    expect(app(DepreciationService::class)->run(\Carbon\CarbonImmutable::parse('2026-08-01')))->toBe(0);
+    expect(app(DepreciationService::class)->run(CarbonImmutable::parse('2026-08-01')))->toBe(0);
     expect(DepreciationEntry::where('fixed_asset_id', $fa->id)->count())->toBe(0);
 });
 
@@ -144,7 +147,7 @@ it('makes a disposed asset terminal — hides edit + blocks the edit page (immut
             Livewire::test(EditFixedAsset::class, ['record' => $fa->getKey()])
                 ->fillForm(['name' => 'Tampered'])
                 ->call('save');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // abort(403) may surface as an exception on the Livewire path.
         }
     });
@@ -162,7 +165,7 @@ it('rejects re-costing an active asset below its accumulated depreciation, on th
 
     $svc = app(DepreciationService::class);
     for ($i = 0; $i < 6; $i++) {
-        $svc->run(\Carbon\CarbonImmutable::parse('2026-01-01')->addMonths($i), [$asset->id]);
+        $svc->run(CarbonImmutable::parse('2026-01-01')->addMonths($i), [$asset->id]);
     }
     expect($svc->accumulatedFor($fa->fresh()))->toBe(60000.0);
 
@@ -249,7 +252,7 @@ it('rejects an out-of-scope asset_id and allows an in-scope one', function () {
 
     // Tampered out-of-scope target aborts 403.
     expect(fn () => FixedAssetResource::assertAssetInScope($assetB->id))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 it('lets a portfolio user target any property (visibleAssetIds is null)', function () {

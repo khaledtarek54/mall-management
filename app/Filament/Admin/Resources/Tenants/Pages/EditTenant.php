@@ -73,8 +73,9 @@ class EditTenant extends EditRecord
                 ->action(function () {
                     $svc = app(TenantStatementPdfService::class);
                     $pdf = $svc->build($this->record);
+
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename($this->record),
                         ['Content-Type' => 'application/pdf'],
                     );

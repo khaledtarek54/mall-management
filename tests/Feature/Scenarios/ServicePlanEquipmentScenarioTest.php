@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\Equipment;
-use App\Models\ServicePlan;
 use App\Models\FacilityWorkOrder;
+use App\Models\ServicePlan;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use Illuminate\Support\Facades\DB;
 
@@ -22,7 +22,7 @@ beforeEach(function () {
 /** next_due_date is date-cast, so compare its string form rather than a Carbon. */
 function dueDate(ServicePlan $plan): string
 {
-    return $plan->next_due_date instanceof \DateTimeInterface
+    return $plan->next_due_date instanceof DateTimeInterface
         ? $plan->next_due_date->format('Y-m-d')
         : (string) $plan->next_due_date;
 }

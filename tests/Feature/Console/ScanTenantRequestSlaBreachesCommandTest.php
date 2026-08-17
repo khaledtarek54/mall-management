@@ -18,7 +18,7 @@ it('alerts on a breached request and stamps sla_breach_notified_at', function ()
     Notification::fake();
 
     $request = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'Late',
@@ -42,7 +42,7 @@ it('does not re-alert a request that was already notified', function () {
     Notification::fake();
 
     TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'Already alerted',
@@ -66,7 +66,7 @@ it('--dry-run does not write or notify', function () {
     Notification::fake();
 
     $request = TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'Dry-run',
@@ -90,7 +90,7 @@ it('skips closed/resolved/cancelled requests even if past the target', function 
     Notification::fake();
 
     TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
         'title' => 'Resolved',

@@ -2,6 +2,7 @@
 
 use App\Support\Filament\AuthorizedAction;
 use Filament\Actions\Action;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * `->authorize()` was a restatement of `visible()`, not a second layer.
@@ -33,7 +34,7 @@ it('refuses to run an action the user is not authorized for', function () {
         });
 
     expect(fn () => $action->call())
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 
     expect($ran)->toBeFalse('The action body ran despite authorization being denied.');
 });
@@ -75,7 +76,7 @@ it('keeps the closure gate working when both layers are present', function () {
         });
 
     expect(fn () => $action->call())
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 it('still resolves every Filament action through the guarded subclass', function () {

@@ -2,6 +2,7 @@
 
 use App\Enums\InvoiceItemType;
 use App\Models\ChargeCode;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Support\PostingRoles;
 use Database\Seeders\AccountMappingSeeder;
@@ -58,7 +59,7 @@ it('resolves every mapped role to a real postable account', function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
 
-    $resolver = app(App\Services\Accounting\AccountResolver::class);
+    $resolver = app(AccountResolver::class);
 
     foreach (array_unique(array_values(InvoiceJournalizer::REVENUE_ROLE)) as $role) {
         $account = $resolver->account($role);

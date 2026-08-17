@@ -1,12 +1,13 @@
 <?php
 
+use App\Notifications\PaymentReceivedNotification;
 use Illuminate\Support\Str;
 
 function makeTenantNotification($tenant, bool $read = false, array $data = [])
 {
     return $tenant->notifications()->create([
         'id' => (string) Str::uuid(),
-        'type' => \App\Notifications\PaymentReceivedNotification::class,
+        'type' => PaymentReceivedNotification::class,
         'data' => array_merge(['title' => 'Payment received'], $data),
         'read_at' => $read ? now() : null,
     ]);

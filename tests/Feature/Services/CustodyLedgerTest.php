@@ -13,6 +13,7 @@ use App\Services\SettleCustodyService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
@@ -66,9 +67,9 @@ it('journalizes a custody grant as Dr Custodies / Cr Cash', function () {
 it('rejects a grant to a terminated employee or a non-positive amount', function () {
     $emp = custodyEmployee();
     $emp->update(['status' => 'terminated']);
-    expect(fn () => grantCustody($emp->fresh()))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+    expect(fn () => grantCustody($emp->fresh()))->toThrow(HttpException::class);
 
-    expect(fn () => grantCustody(custodyEmployee(), ['amount' => 0]))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+    expect(fn () => grantCustody(custodyEmployee(), ['amount' => 0]))->toThrow(HttpException::class);
 });
 
 /* ---- Settlements --------------------------------------------------------- */
@@ -108,7 +109,7 @@ it('derives settled + outstanding and rejects over-settlement', function () {
 
     // Over-settling the remaining 1000 is rejected.
     expect(fn () => $svc->settle($custody->fresh(), ['type' => 'expense', 'amount' => 1500, 'transaction_date' => now()->toDateString(), 'category' => 'other']))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 /* ---- Lifecycle ----------------------------------------------------------- */

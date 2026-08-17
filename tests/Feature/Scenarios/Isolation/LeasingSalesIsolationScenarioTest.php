@@ -31,12 +31,14 @@
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
+use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses()->beforeEach(function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
 })->group('isolation');
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
@@ -73,7 +75,7 @@ function leasingSalesFixtures(): array
 }
 
 /** A submitted sales declaration on a lease (period Jan 2026). */
-function makeSalesDeclaration(\App\Models\Lease $lease, array $attrs = []): TenantSalesDeclaration
+function makeSalesDeclaration(Lease $lease, array $attrs = []): TenantSalesDeclaration
 {
     return TenantSalesDeclaration::create(array_merge([
         'lease_id' => $lease->id,

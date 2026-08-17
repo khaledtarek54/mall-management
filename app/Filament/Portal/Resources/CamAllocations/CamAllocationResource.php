@@ -7,13 +7,13 @@ use App\Filament\Portal\Resources\CamAllocations\Pages\ViewCamAllocation;
 use App\Filament\Portal\Resources\CamAllocations\Schemas\CamAllocationInfolist;
 use App\Filament\Portal\Resources\CamAllocations\Tables\CamAllocationsTable;
 use App\Models\CamAllocation;
+use App\Support\Portal;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 
 class CamAllocationResource extends Resource
 {
@@ -72,7 +72,7 @@ class CamAllocationResource extends Resource
             // lease (he is a participant in his own right since phase 3) — so he was billed a CAM
             // true-up he could not see the basis of.
             ->where(function (Builder $q) {
-                $tenantId = \App\Support\Portal::tenantId();
+                $tenantId = Portal::tenantId();
 
                 $q->whereHas('lease', fn (Builder $l) => $l->where('tenant_id', $tenantId))
                     ->orWhereHas('unitOwnership', fn (Builder $o) => $o->where('tenant_id', $tenantId));

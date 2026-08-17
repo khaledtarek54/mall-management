@@ -3,11 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\CreditNote;
+use App\Models\Invoice;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\CreditNote>
+ * @extends Factory<CreditNote>
  */
 class CreditNoteFactory extends Factory
 {
@@ -46,7 +47,7 @@ class CreditNoteFactory extends Factory
         $total = round($subtotal + $vatAmount, 2);
 
         return [
-            'number' => 'CN-AW-' . now()->format('Ym') . '-' . fake()->unique()->numerify('####'),
+            'number' => 'CN-AW-'.now()->format('Ym').'-'.fake()->unique()->numerify('####'),
             'tenant_id' => Tenant::factory(),
             'invoice_id' => null,
             'lease_id' => null,
@@ -106,7 +107,7 @@ class CreditNoteFactory extends Factory
     /**
      * Attach the credit note to an existing invoice (and inherit its tenant).
      */
-    public function forInvoice(\App\Models\Invoice $invoice): static
+    public function forInvoice(Invoice $invoice): static
     {
         return $this->state(fn (array $attributes) => [
             'invoice_id' => $invoice->id,

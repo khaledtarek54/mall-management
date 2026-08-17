@@ -9,7 +9,7 @@ use App\Models\Unit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\Lease>
+ * @extends Factory<Lease>
  */
 class LeaseFactory extends Factory
 {
@@ -33,12 +33,12 @@ class LeaseFactory extends Factory
         $serviceCharge = (int) round($baseRent * fake()->randomFloat(2, 0.1, 0.25));
 
         return [
-            'reference' => 'LSE-' . strtoupper(fake()->unique()->bothify('??-####-####')),
+            'reference' => 'LSE-'.strtoupper(fake()->unique()->bothify('??-####-####')),
             // Required FKs: no Unit/Tenant factory exists, so build the parents
             // inline with their NOT-NULL columns (see tests/Pest.php helpers).
             'unit_id' => fn () => Unit::create([
                 'asset_id' => Asset::create([
-                    'name' => 'Asset ' . uniqid(),
+                    'name' => 'Asset '.uniqid(),
                     'code' => strtoupper(substr(uniqid(), -6)),
                     'type' => 'mall',
                     'city' => 'Cairo',
@@ -48,14 +48,14 @@ class LeaseFactory extends Factory
                     'currency' => 'EGP',
                     'is_active' => true,
                 ])->id,
-                'code' => 'U-' . uniqid(),
+                'code' => 'U-'.uniqid(),
                 'area_sqm' => 100,
                 'status' => 'vacant',
                 'category' => 'retail',
             ])->id,
             'tenant_id' => fn () => Tenant::create([
-                'name' => 'Tenant ' . uniqid(),
-                'email' => uniqid() . '@t.test',
+                'name' => 'Tenant '.uniqid(),
+                'email' => uniqid().'@t.test',
                 'type' => 'company',
                 'status' => 'active',
             ])->id,

@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One row of a bank statement, as the bank wrote it.
@@ -49,7 +51,7 @@ class BankStatementLine extends Model
     }
 
     /** Unmatched, and older than $days. The worklist an operator should be shown, not a filter. */
-    public function scopeUnmatchedOlderThan(\Illuminate\Database\Eloquent\Builder $query, int $days): \Illuminate\Database\Eloquent\Builder
+    public function scopeUnmatchedOlderThan(Builder $query, int $days): Builder
     {
         return $query
             ->whereDoesntHave('matches')
@@ -62,7 +64,7 @@ class BankStatementLine extends Model
     }
 
     /** Several, because a bank can show one line for two cheques banked together. */
-    public function matches(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function matches(): HasMany
     {
         return $this->hasMany(BankMatch::class, 'bank_statement_line_id');
     }

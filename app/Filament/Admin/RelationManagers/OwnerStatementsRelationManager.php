@@ -7,6 +7,7 @@ use App\Models\OwnerStatement;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The per-owner statements a run produced — the module's actual output.
@@ -24,13 +25,13 @@ class OwnerStatementsRelationManager extends RelationManager
 {
     protected static string $relationship = 'statements';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.owner_statements.statements_title');
     }
 
     /** The same gate the run's PDF and send actions use — statements carry owner-level money. */
-    public static function canViewForRecord(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): bool
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
         return OwnerStatementRunResource::canViewStatements();
     }

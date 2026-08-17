@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Models\PropertySetting;
 use App\Settings\BillingSettings;
 
-
 /**
  * What a property answers differently from the portfolio.
  *

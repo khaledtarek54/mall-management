@@ -5,8 +5,11 @@ use App\Filament\Imports\FixedAssetImporter;
 use App\Models\FixedAsset;
 use App\Models\JournalEntry;
 use App\Models\User;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\DepreciationService;
 use Carbon\CarbonImmutable;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Validation\ValidationException;
 
@@ -31,9 +34,9 @@ use Illuminate\Validation\ValidationException;
  * reported every imported asset at cost on the balance-sheet schedule.
  */
 beforeEach(function () {
-    $this->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
-    $this->seed(\Database\Seeders\AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) now()->year);
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
 
     $this->asset = makeAsset(['code' => 'MALL']);
 

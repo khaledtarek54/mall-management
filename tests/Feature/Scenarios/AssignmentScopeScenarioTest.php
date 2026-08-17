@@ -1,7 +1,7 @@
 <?php
 
-use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\FacilityWorkOrder;
 use App\Support\AssignmentScope;
 use Database\Seeders\RolesPermissionsSeeder;

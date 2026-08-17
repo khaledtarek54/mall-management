@@ -1,9 +1,9 @@
 <?php
 
 use App\Models\ApprovalRule;
-use App\Models\InventoryItem;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderPart;
+use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;

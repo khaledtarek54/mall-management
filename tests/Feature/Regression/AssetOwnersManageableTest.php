@@ -2,6 +2,8 @@
 
 use App\Filament\Admin\RelationManagers\AssetOwnersRelationManager;
 use App\Filament\Admin\Resources\Assets\AssetResource;
+use Database\Seeders\RolesPermissionsSeeder;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * A real install must be able to record who owns a property.
@@ -66,14 +68,14 @@ it('gates managing owners on assets.edit, and refuses without it', function () {
     // assets.edit is the seeder's business and would make this test a duplicate of the seeder.
     // The real catalogue — `seedRoles()` (used by makeUser) creates ROLES only, so without this
     // `assets.edit` does not exist and the assertion below would pass for the wrong reason.
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
 
     $viewer = makeUser('viewer');
     expect($viewer->can('assets.edit'))->toBeFalse();
 
     // RolesPermissionsSeeder bulk-inserts the catalogue, which skips the `saved` hook that would
     // invalidate spatie's cache — the documented hazard of that optimisation.
-    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $viewer->givePermissionTo('assets.edit');
 

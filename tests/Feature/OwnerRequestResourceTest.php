@@ -40,10 +40,10 @@ it('owners can view + create but not respond; operators can respond', function (
     $this->actingAs(makeUser('owner'));
     expect(OwnerRequestResource::canViewAny())->toBeTrue()
         ->and(OwnerRequestResource::canCreate())->toBeTrue()
-        ->and(OwnerRequestResource::canEdit(new OwnerRequest()))->toBeFalse();
+        ->and(OwnerRequestResource::canEdit(new OwnerRequest))->toBeFalse();
 
     $this->actingAs(makeUser('manager'));
-    expect(OwnerRequestResource::canEdit(new OwnerRequest()))->toBeTrue();
+    expect(OwnerRequestResource::canEdit(new OwnerRequest))->toBeTrue();
 });
 
 it('lets an owner raise a request from the admin app', function () {

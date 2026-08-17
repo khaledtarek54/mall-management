@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FacilityWorkOrder;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -21,9 +22,9 @@ class FacilityWorkLogPdfService
      * the report can never show more than the list.
      *
      * @param  array<int>|null  $assetIds
-     * @return \Illuminate\Support\Collection<int, FacilityWorkOrder>
+     * @return Collection<int, FacilityWorkOrder>
      */
-    public function orders(string $from, string $to, ?array $assetIds): \Illuminate\Support\Collection
+    public function orders(string $from, string $to, ?array $assetIds): Collection
     {
         $fromDate = CarbonImmutable::parse($from)->startOfDay();
         $toDate = CarbonImmutable::parse($to)->endOfDay();

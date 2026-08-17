@@ -2,6 +2,10 @@
 
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\LedgerPoster;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -10,7 +14,6 @@ use Illuminate\Support\Facades\DB;
  * clean data, and exit non-zero (without mutating anything) the moment a stored
  * aggregate has drifted from its source.
  */
-
 beforeEach(function () {
     ensureAllPropertiesAsset();
 });
@@ -43,12 +46,12 @@ it('exits 0 and reports the books tie out on clean data', function () {
 });
 
 it('gates the close when the general ledger has drifted from the source', function () {
-    $this->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
-    $this->seed(\Database\Seeders\AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) now()->year);
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
 
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())));
-    app(\App\Services\Accounting\LedgerPoster::class)->sync($invoice->fresh()); // GL AR = total
+    app(LedgerPoster::class)->sync($invoice->fresh()); // GL AR = total
 
     // Cancel the invoice but leave the GL un-synced → the ledger overstates AR.
     $invoice->update(['status' => 'cancelled']);

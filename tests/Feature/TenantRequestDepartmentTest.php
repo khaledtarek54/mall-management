@@ -2,6 +2,7 @@
 
 use App\Models\Department;
 use App\Services\TenantRequestService;
+use Spatie\Activitylog\Models\Activity;
 
 // makeTenantRequest() is a shared global helper defined in
 // tests/Feature/Models/TenantRequestTest.php.
@@ -41,7 +42,7 @@ it('records the department change in the activity log', function () {
 
     app(TenantRequestService::class)->redirectToDepartment($req, $dept->id);
 
-    $activity = \Spatie\Activitylog\Models\Activity::query()
+    $activity = Activity::query()
         ->where('subject_type', $req->getMorphClass())
         ->where('subject_id', $req->id)
         ->where('event', 'updated')

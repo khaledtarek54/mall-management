@@ -21,6 +21,7 @@ use App\Filament\Admin\Resources\CamExpensePools\Pages\CreateCamExpensePool;
 use App\Models\CamExpensePool;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Database\QueryException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -83,5 +84,5 @@ it('enforces the (asset_id, period_year) uniqueness at the database level', func
         'total_actual_expense' => 1,
         'total_estimated_collected' => 1,
         'status' => 'draft',
-    ]))->toThrow(\Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 });

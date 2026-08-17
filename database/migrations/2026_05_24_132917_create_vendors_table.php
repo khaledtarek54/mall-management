@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('name', 200);
             $table->string('slug')->unique();
             $table->enum('type', ['contractor', 'supplier', 'service_provider', 'consultant', 'other'])
-                  ->default('service_provider');
+                ->default('service_provider');
             $table->enum('status', ['active', 'inactive', 'blacklisted'])->default('active');
             $table->string('legal_name', 200)->nullable();
             $table->string('tax_id', 50)->nullable();
@@ -69,10 +69,10 @@ return new class extends Migration
         // vendor that may also be involved.
         Schema::table('maintenance_requests', function (Blueprint $table) {
             $table->foreignId('assigned_to_vendor_id')
-                  ->nullable()
-                  ->after('assigned_to')
-                  ->constrained('vendors')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('assigned_to')
+                ->constrained('vendors')
+                ->nullOnDelete();
             $table->index('assigned_to_vendor_id');
         });
     }

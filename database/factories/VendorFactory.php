@@ -6,7 +6,7 @@ use App\Models\Vendor;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\Vendor>
+ * @extends Factory<Vendor>
  */
 class VendorFactory extends Factory
 {
@@ -31,7 +31,7 @@ class VendorFactory extends Factory
                 'other',
             ]),
             'status' => 'active',
-            'legal_name' => $name . ' LLC',
+            'legal_name' => $name.' LLC',
             'tax_id' => fake()->unique()->numerify('###-###-###'),
             'email' => fake()->unique()->companyEmail(),
             'phone' => fake()->numerify('+20 1## ### ####'),

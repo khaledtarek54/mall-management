@@ -6,7 +6,9 @@ use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
 use App\Support\ApprovalPolicy;
+use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Regression — the last two findings of the round-2 gap analysis: **F-84** (module 22) and
@@ -54,7 +56,7 @@ it('refuses a negative adjustment that would drive on-hand below zero', function
         'type' => 'adjustment', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->item->id, 'quantity' => -100,
         'moved_on' => now()->toDateString(),
-    ]))->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+    ]))->toThrow(HttpException::class);
 
     expect(flrOnHand())->toBe(5.0, 'stock cannot go negative');
 });
@@ -89,7 +91,7 @@ it('still refuses a consumption beyond on-hand — the original guard is intact'
         'type' => 'consumption', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->item->id, 'quantity' => 50,
         'moved_on' => now()->toDateString(),
-    ]))->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+    ]))->toThrow(HttpException::class);
 
     expect(flrOnHand())->toBe(5.0);
 });
@@ -120,7 +122,7 @@ it('takes the strictest covering band when bands overlap', function () {
 
 it('still resolves a clean, non-overlapping ladder unchanged', function () {
     // The seeded production ladder. The fix must not disturb it.
-    $this->seed(\Database\Seeders\ApprovalRulesSeeder::class);
+    $this->seed(ApprovalRulesSeeder::class);
     $module = ApprovalRule::MODULE_INVENTORY_DRAW;
 
     expect(ApprovalPolicy::permissionFor($module, 0.0))->toBe(ApprovalRule::TIER_1)

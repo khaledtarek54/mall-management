@@ -9,6 +9,8 @@ use App\Services\AssessSlaPenaltyService;
 use App\Services\AssetStaffRecipients;
 use App\Support\OpsLog;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
@@ -140,8 +142,8 @@ class ScanWorkOrderSlaBreachesCommand extends Command
         return $this->missingClocksQuery()->count();
     }
 
-    /** @return \Illuminate\Database\Eloquent\Builder<FacilityWorkOrder> */
-    private function missingClocksQuery(): \Illuminate\Database\Eloquent\Builder
+    /** @return Builder<FacilityWorkOrder> */
+    private function missingClocksQuery(): Builder
     {
         return FacilityWorkOrder::query()
             ->corrective()
@@ -280,7 +282,7 @@ class ScanWorkOrderSlaBreachesCommand extends Command
      * A failure here is MONEY: the vendor is not charged for missing its SLA. Containment
      * makes that silent, so each one is logged individually and counted into the summary.
      *
-     * @param  \Illuminate\Support\Collection<int, FacilityWorkOrder>  $overdue
+     * @param  Collection<int, FacilityWorkOrder>  $overdue
      * @return int the number of orders whose penalty could not be assessed
      */
     private function assessPenalties($overdue): int

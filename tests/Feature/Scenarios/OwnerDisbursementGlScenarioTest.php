@@ -2,7 +2,9 @@
 
 use App\Models\AccountingPeriod;
 use App\Models\Disbursement;
+use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Models\OwnerStatement;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
@@ -41,7 +43,7 @@ function dueToOwnerBalance($test): float
 }
 
 /** Build a finalised statement whose owner is owed `$net` (revenue = net + 4000, expense = 4000). */
-function finalisedOwnerStatement($test, float $net = 6000): App\Models\OwnerStatement
+function finalisedOwnerStatement($test, float $net = 6000): OwnerStatement
 {
     $asset = makeAsset();
     $owner = makeUser('owner');
@@ -72,7 +74,7 @@ it('pays the owner in full: Dr Due to Owner / Cr Bank, and Due to Owner nets to 
     $d = $this->disburse->markPaid($d, $this->operator, '2026-03-31', 'TRX-1');
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertSuccessful();
 
-    $entry = App\Models\JournalEntry::where('source_type', $d->getMorphClass())
+    $entry = JournalEntry::where('source_type', $d->getMorphClass())
         ->where('source_id', $d->id)->where('status', 'posted')->first();
     $lines = $entry->lines()->with('account')->get()->keyBy(fn ($l) => (string) $l->account->code);
     expect((float) $lines['21802001']->debit)->toBe(6000.0)   // Due to Owner cleared
@@ -149,5 +151,5 @@ it('is idempotent: re-running the sweep does not double-post a paid disbursement
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertSuccessful();
 
     expect(dueToOwnerBalance($this))->toBe(0.0)
-        ->and(App\Models\JournalEntry::where('source_type', $d->getMorphClass())->where('source_id', $d->id)->where('status', 'posted')->count())->toBe(1);
+        ->and(JournalEntry::where('source_type', $d->getMorphClass())->where('source_id', $d->id)->where('status', 'posted')->count())->toBe(1);
 });

@@ -2,6 +2,8 @@
 
 namespace Tests\Support;
 
+use App\Models\Asset;
+use Database\Seeders\DemoSeeder;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -195,10 +197,10 @@ final class FilterSweep
         // Seeded, not empty: an empty table would still catch bad SQL, but not a
         // formatter that trips over a real row, and every filter would trivially
         // "pass" by returning nothing.
-        $test->seed(\Database\Seeders\DemoSeeder::class);
+        $test->seed(DemoSeeder::class);
 
-        $asset = \App\Models\Asset::query()
-            ->where('code', '!=', \App\Models\Asset::ALL_PROPERTIES_CODE)
+        $asset = Asset::query()
+            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
             ->firstOrFail();
 
         $test->actingAs(makeUser('super_admin', [$asset->id]));

@@ -4,8 +4,10 @@ use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Admin\Resources\Employees\Pages\CreateEmployee;
 use App\Filament\Admin\Resources\Employees\Pages\ListEmployees;
 use App\Models\Employee;
+use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -49,7 +51,7 @@ it('hides the employee resource when the module is disabled', function () {
     $this->actingAs(makeUser('super_admin'));
     expect(EmployeeResource::canViewAny())->toBeTrue();
 
-    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings = app(ModulesSettings::class);
     $settings->employees = false;
     $settings->save();
 
@@ -138,5 +140,5 @@ it('rejects an out-of-scope asset_id and allows an in-scope one', function () {
     expect(true)->toBeTrue();
 
     expect(fn () => EmployeeResource::assertAssetInScope($assetB->id))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });

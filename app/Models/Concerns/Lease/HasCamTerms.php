@@ -4,6 +4,7 @@ namespace App\Models\Concerns\Lease;
 
 use App\Models\CamAllocation;
 use App\Models\LeaseCamTerm;
+use App\Services\CamReconciliationService;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * `camAllocations()` relation, which is why that relation stays on `Lease` — the two are not
  * coupled, despite the shared word.
  *
- * @see \App\Services\CamReconciliationService  the only real consumer
+ * @see CamReconciliationService  the only real consumer
  */
 trait HasCamTerms
 {

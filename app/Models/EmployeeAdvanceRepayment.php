@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\RecordAdvanceRepaymentService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -20,7 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'parent-managed: deleted to reverse a repayment')]
 #[PropertyOwned]
-#[PostingDateGuardedBy(guard: \App\Services\RecordAdvanceRepaymentService::class)]
+#[PostingDateGuardedBy(guard: RecordAdvanceRepaymentService::class)]
 class EmployeeAdvanceRepayment extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;

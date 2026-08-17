@@ -1,10 +1,12 @@
 <?php
 
 use App\Models\Area;
+use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\Lease;
 use App\Services\CamReconciliationService;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 
 /**
  * Several recovery pools per property-year (phase 8, story RC-02).
@@ -26,7 +28,7 @@ use Carbon\CarbonImmutable;
  */
 afterEach(fn () => CarbonImmutable::setTestNow());
 
-function poolFor(\App\Models\Asset $asset, array $attrs = []): CamExpensePool
+function poolFor(Asset $asset, array $attrs = []): CamExpensePool
 {
     return CamExpensePool::create(array_merge([
         'asset_id' => $asset->id,
@@ -38,7 +40,7 @@ function poolFor(\App\Models\Asset $asset, array $attrs = []): CamExpensePool
     ], $attrs));
 }
 
-function activeLeaseIn(\App\Models\Asset $asset, string $code, float $area, ?Area $zone = null): Lease
+function activeLeaseIn(Asset $asset, string $code, float $area, ?Area $zone = null): Lease
 {
     $unit = makeUnit($asset, ['code' => $code, 'area_sqm' => $area, 'area_id' => $zone?->id]);
 
@@ -84,7 +86,7 @@ it('still refuses two pools with the SAME code in a year', function () {
     poolFor($asset, ['pool_code' => 'cam']);
 
     expect(fn () => poolFor($asset, ['pool_code' => 'cam']))
-        ->toThrow(Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('charges a zone pool only to the leases in that zone', function () {

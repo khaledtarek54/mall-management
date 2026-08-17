@@ -109,12 +109,12 @@ it('portal: a portal login is scoped to its own tenant_id, invisible to another 
 
     // Drive the portal InvoiceResource query exactly as its ListInvoices page
     // builds it: getEloquentQuery() applies `where('tenant_id', Portal::tenantId())`.
-    $ids = \App\Filament\Portal\Resources\Invoices\InvoiceResource::getEloquentQuery()
+    $ids = App\Filament\Portal\Resources\Invoices\InvoiceResource::getEloquentQuery()
         ->pluck('tenant_id')->unique()->all();
 
     // Tenant-scoped, NOT asset-scoped: BOTH of tenantA's invoices (across two
     // properties) are visible, and nothing belongs to tenantB.
-    expect(\App\Filament\Portal\Resources\Invoices\InvoiceResource::getEloquentQuery()->count())->toBe(2);
+    expect(App\Filament\Portal\Resources\Invoices\InvoiceResource::getEloquentQuery()->count())->toBe(2);
     expect($ids)->toBe([$tenantA->id]);
 });
 

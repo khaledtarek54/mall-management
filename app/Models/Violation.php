@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Services\BillViolationFineService;
+use App\Services\SendViolationNoticeAction;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,11 +28,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * pinned to the mall where it happened).
  *
  * `fine_amount` RECORDS the money assessed (FR-REQ-15). It is billed to the tenant ONLY by an
- * explicit "Bill fine" action ({@see \App\Services\BillViolationFineService}) — never on create —
+ * explicit "Bill fine" action ({@see BillViolationFineService}) — never on create —
  * which issues a normal AR invoice (a VAT-exempt `violation_fine` line → misc_income) and stamps
  * `billed_invoice_id`. Recording a violation still touches no Invoice/GL; the money only enters the
  * books when the operator chooses to bill it. `notified_at` records when the operator sent the
- * tenant a notice (FR-REQ-17), also an explicit action ({@see \App\Services\SendViolationNoticeAction}).
+ * tenant a notice (FR-REQ-17), also an explicit action ({@see SendViolationNoticeAction}).
  * The lifecycle is intentionally minimal: `open` → `resolved`.
  */
 #[DeletionAllowed(reason: 'operational: force-delete is already blocked once a fine is billed')]

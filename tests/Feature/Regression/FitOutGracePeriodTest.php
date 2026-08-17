@@ -34,7 +34,7 @@ function fitOutLease(int $months, string $commencement = '2026-01-01'): Lease
         // payable); this file is specifically about the all-or-nothing behaviour the operator
         // chose in 2026-07-19, which existing leases keep. Net abatement has its own file:
         // tests/Feature/Regression/FitOutAbatementScopeTest.php.
-        'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS,
+        'fit_out_scope' => Lease::FIT_OUT_GROSS,
     ]);
     Charge::create(['lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent', 'amount' => 10000,
         'currency' => 'EGP', 'frequency' => 'monthly', 'vat_applicable' => false, 'vat_rate' => 0, 'start_date' => $commencement, 'is_active' => true]);

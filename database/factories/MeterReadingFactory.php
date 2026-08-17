@@ -8,7 +8,7 @@ use App\Models\UtilityMeter;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\MeterReading>
+ * @extends Factory<MeterReading>
  */
 class MeterReadingFactory extends Factory
 {
@@ -40,7 +40,7 @@ class MeterReadingFactory extends Factory
             // UtilityMeter has no factory; mirror the test setup (asset + meter).
             'utility_meter_id' => fn () => UtilityMeter::create([
                 'asset_id' => Asset::create([
-                    'name' => 'Asset ' . uniqid(),
+                    'name' => 'Asset '.uniqid(),
                     'code' => strtoupper(substr(uniqid(), -6)),
                     'type' => 'mall',
                     'city' => 'Cairo',
@@ -51,7 +51,7 @@ class MeterReadingFactory extends Factory
                     'is_active' => true,
                 ])->id,
                 'unit_id' => null,
-                'meter_number' => 'MTR-' . strtoupper(substr(uniqid(), -8)),
+                'meter_number' => 'MTR-'.strtoupper(substr(uniqid(), -8)),
                 'type' => fake()->randomElement(UtilityMeter::TYPES),
                 'status' => 'active',
                 'unit_of_measurement' => 'kWh',

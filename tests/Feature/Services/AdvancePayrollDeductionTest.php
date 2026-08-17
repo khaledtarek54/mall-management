@@ -6,9 +6,12 @@ use App\Models\JournalEntry;
 use App\Models\Payroll;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\LedgerPoster;
 use App\Services\PayrollService;
+use App\Services\RecordAdvanceRepaymentService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Advance repayment via payroll deduction (module 24, Phase 4b — closes the سلف loop).
@@ -47,7 +50,7 @@ function apdRun(int $assetId): Payroll
 /** The single posted (non-void) entry for a payroll run. */
 function apdEntry(Payroll $run): ?JournalEntry
 {
-    return app(\App\Services\Accounting\LedgerPoster::class)->sync($run->fresh());
+    return app(LedgerPoster::class)->sync($run->fresh());
 }
 
 it('deducts an installment: reduces net + credits Employee Advances, and the entry balances', function () {
@@ -142,9 +145,9 @@ it('a manual cash repayment respects payroll installments already taken', functi
     expect($advance->fresh()->outstanding())->toBe(1000.0);
 
     // A cash repayment of 2000 must be refused (only 1000 left) — the service aborts 422.
-    expect(fn () => app(\App\Services\RecordAdvanceRepaymentService::class)
+    expect(fn () => app(RecordAdvanceRepaymentService::class)
         ->record($advance->fresh(), ['amount' => 2000, 'repaid_on' => now()->toDateString(), 'method' => 'cash']))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
 });
 
 it('rejects a line whose installment drives net negative', function () {

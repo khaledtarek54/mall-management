@@ -24,6 +24,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Support\Search\SearchText;
 use App\Support\SearchPolicy;
 use Filament\Resources\Resource;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -267,7 +268,7 @@ it('registers every model that carries the blob', function () {
     foreach (glob(app_path('Models/*.php')) as $file) {
         $model = 'App\\Models\\'.basename($file, '.php');
 
-        if (! class_exists($model) || ! is_subclass_of($model, Illuminate\Database\Eloquent\Model::class)) {
+        if (! class_exists($model) || ! is_subclass_of($model, Model::class)) {
             continue;
         }
 

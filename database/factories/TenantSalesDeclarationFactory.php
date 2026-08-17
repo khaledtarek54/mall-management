@@ -3,12 +3,14 @@
 namespace Database\Factories;
 
 use App\Models\Lease;
+use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<\App\Models\TenantSalesDeclaration>
+ * @extends Factory<TenantSalesDeclaration>
  */
 class TenantSalesDeclarationFactory extends Factory
 {
@@ -30,7 +32,7 @@ class TenantSalesDeclarationFactory extends Factory
         // Anchor to the first day of a recent month and run to the last day,
         // so period_start is a clean monthly boundary that satisfies the
         // (lease_id, period_start) unique key when varied per call.
-        $periodStart = \Carbon\CarbonImmutable::parse(fake()->dateTimeBetween('-18 months', '-1 month'))
+        $periodStart = CarbonImmutable::parse(fake()->dateTimeBetween('-18 months', '-1 month'))
             ->startOfMonth();
         $periodEnd = $periodStart->endOfMonth();
 
@@ -67,7 +69,7 @@ class TenantSalesDeclarationFactory extends Factory
      */
     public function forPeriod(\DateTimeInterface|string $periodStart): static
     {
-        $start = \Carbon\CarbonImmutable::parse($periodStart)->startOfMonth();
+        $start = CarbonImmutable::parse($periodStart)->startOfMonth();
 
         return $this->state(fn (array $attributes) => [
             'period_start' => $start->toDateString(),
@@ -96,7 +98,7 @@ class TenantSalesDeclarationFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'locked',
-            'locked_at' => \Carbon\CarbonImmutable::parse($attributes['declared_at'] ?? now())->addDays(2),
+            'locked_at' => CarbonImmutable::parse($attributes['declared_at'] ?? now())->addDays(2),
             'locked_by_user_id' => $lockedBy?->getKey() ?? User::factory(),
         ]);
     }

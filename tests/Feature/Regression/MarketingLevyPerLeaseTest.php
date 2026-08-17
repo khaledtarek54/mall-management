@@ -9,7 +9,6 @@ use App\Services\MarketingLevyService;
  * defaulting to preserve today's behaviour (on, at the global rate). createLevyCharge() is the one
  * place that syncs the `marketing` charge; it respects has_marketing_levy + marketing_levy_rate.
  */
-
 function levyCharge($lease): ?Charge
 {
     return Charge::where('lease_id', $lease->id)->where('type', 'marketing')->first();

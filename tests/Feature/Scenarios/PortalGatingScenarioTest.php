@@ -1,8 +1,8 @@
 <?php
 
 use App\Filament\Portal\Resources\Invoices\Pages\ViewInvoice;
-use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Portal\Resources\TenantRequests\Pages\CreateTenantRequest;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use Filament\Facades\Filament;
 use Livewire\Livewire;

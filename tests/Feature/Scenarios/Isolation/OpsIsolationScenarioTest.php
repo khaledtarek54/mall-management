@@ -29,21 +29,22 @@
 */
 
 use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
-use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\MarketingBudget;
 use App\Models\TenantRequest;
 use App\Models\UtilityMeter;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 beforeEach(function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $this->all = ensureAllPropertiesAsset();
 
     // Two fully independent properties.

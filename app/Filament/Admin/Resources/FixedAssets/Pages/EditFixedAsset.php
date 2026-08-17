@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Services\DepreciationService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Validation\ValidationException;
 
 class EditFixedAsset extends EditRecord
 {
@@ -37,7 +38,7 @@ class EditFixedAsset extends EditRecord
                 (float) ($data['salvage_value'] ?? $this->getRecord()->salvage_value),
             );
         } catch (\DomainException $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'data.acquisition_cost' => $e->getMessage(),
             ]);
         }

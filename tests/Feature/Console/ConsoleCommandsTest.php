@@ -2,8 +2,12 @@
 
 use App\Jobs\ApplyLateFees;
 use App\Jobs\RunMonthlyBilling;
+use App\Models\CamAllocation;
+use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Services\LateFeeService;
+use App\Services\MonthlyBillingService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 
@@ -77,7 +81,7 @@ it('cam:reconcile generates allocations for draft pools', function () {
     $unit = makeUnit($asset, ['status' => 'occupied', 'area_sqm' => 100]);
     $lease = makeLease($unit);
 
-    \App\Models\CamExpensePool::create([
+    CamExpensePool::create([
         'asset_id' => $asset->id,
         'period_year' => 2026,
         'total_actual_expense' => 50000,
@@ -89,7 +93,7 @@ it('cam:reconcile generates allocations for draft pools', function () {
         ->expectsOutputToContain('1 allocations')
         ->assertExitCode(0);
 
-    expect(\App\Models\CamAllocation::where('lease_id', $lease->id)->count())->toBe(1);
+    expect(CamAllocation::where('lease_id', $lease->id)->count())->toBe(1);
 });
 
 it('cam:reconcile --auto-bill also creates charges', function () {
@@ -97,7 +101,7 @@ it('cam:reconcile --auto-bill also creates charges', function () {
     $unit = makeUnit($asset, ['status' => 'occupied', 'area_sqm' => 100]);
     $lease = makeLease($unit);
 
-    \App\Models\CamExpensePool::create([
+    CamExpensePool::create([
         'asset_id' => $asset->id,
         'period_year' => 2026,
         'total_actual_expense' => 50000,
@@ -115,13 +119,13 @@ it('cam:reconcile --auto-bill also creates charges', function () {
 /* ───────── Jobs (drive handle()) ───────── */
 
 it('ApplyLateFees job handle() runs the service for an explicit date', function () {
-    $stats = (new ApplyLateFees('2026-02-15'))->handle(app(\App\Services\LateFeeService::class));
+    $stats = (new ApplyLateFees('2026-02-15'))->handle(app(LateFeeService::class));
 
     expect($stats)->toHaveKeys(['considered', 'applied', 'skipped', 'failed']);
 });
 
 it('RunMonthlyBilling job handle() runs the service for a YYYY-MM period', function () {
-    $stats = (new RunMonthlyBilling('2026-02'))->handle(app(\App\Services\MonthlyBillingService::class));
+    $stats = (new RunMonthlyBilling('2026-02'))->handle(app(MonthlyBillingService::class));
 
     expect($stats)->toHaveKeys(['period', 'leases_considered', 'created', 'skipped', 'failed']);
     expect($stats['period'])->toBe('2026-02');

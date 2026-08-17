@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Filament\Admin\Resources\Areas\AreaResource;
+use App\Filament\Admin\Resources\BankAccounts\BankAccountResource;
 use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
@@ -13,27 +14,37 @@ use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
+use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
-use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
-use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
+use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
-use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
+use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
+use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
+use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
+use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Models\AccountMapping;
+use App\Models\Area;
 use App\Models\Asset;
+use App\Models\Department;
+use App\Models\DepositTransaction;
+use App\Models\Expense;
+use App\Models\JournalEntry;
+use App\Models\Payroll;
+use App\Models\VendorBill;
 use App\Support\PropertyIsolation;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -134,14 +145,14 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             // A unit sale is recorded against a mall the operator picks, and the unit Select reads
             // that FORM value rather than the panel's current property — so both the asset and the
             // unit under it are client-supplied and re-validated on create + edit.
-            'UnitOwnership' => \App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource::class,
-            'RentableItem' => \App\Filament\Admin\Resources\RentableItems\RentableItemResource::class,
+            'UnitOwnership' => UnitOwnershipResource::class,
+            'RentableItem' => RentableItemResource::class,
             'Violation' => ViolationResource::class,
             'SlaPolicy' => SlaPolicyResource::class,
             'Employee' => EmployeeResource::class,
             'FixedAsset' => FixedAssetResource::class,
             'Warehouse' => WarehouseResource::class,
-            'BankAccount' => \App\Filament\Admin\Resources\BankAccounts\BankAccountResource::class,
+            'BankAccount' => BankAccountResource::class,
             'FacilityWorkOrder' => FacilityWorkOrderResource::class,
             'ServicePlan' => ServicePlanResource::class,
             'PurchaseRequest' => PurchaseRequestResource::class,
@@ -155,7 +166,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             // runs in, so asset_id is client-supplied and auto-tenancy is off. Unlike
             // Announcement it is editable after creation, so the guard is on create AND save
             // (Filament stamps asset_id on create only).
-            'MarketingPost' => \App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource::class,
+            'MarketingPost' => MarketingPostResource::class,
             // Not auto-stamped (isScopedToTenant=false): asset_id / lease is client-supplied.
             'Expense' => ExpenseResource::class,
             'VendorBill' => VendorBillResource::class,
@@ -446,16 +457,16 @@ it('F: pins which models treat a null asset_id as portfolio-level', function () 
         // declared STRICT ownership while `departments.asset_id` is nullable and DepartmentResource
         // already scoped it as portfolio-wide. The declaration described neither the column nor the
         // resource, so converting that resource on it would have hidden every operator-wide row.
-        App\Models\Department::class,
-        App\Models\DepositTransaction::class,
-        App\Models\Expense::class,
-        App\Models\JournalEntry::class,
-        App\Models\Payroll::class,
-        App\Models\VendorBill::class,
+        Department::class,
+        DepositTransaction::class,
+        Expense::class,
+        JournalEntry::class,
+        Payroll::class,
+        VendorBill::class,
     ], 'The set of models whose null asset_id means "portfolio-level" changed. That is a money decision — confirm it deliberately, then update this list.');
 
     // A control, so the assertion above cannot pass by the flag being universally true.
-    expect(PropertyIsolation::portfolioRowsWhenNull(App\Models\Area::class))->toBeFalse();
+    expect(PropertyIsolation::portfolioRowsWhenNull(Area::class))->toBeFalse();
 })->group('conformance');
 
 it('F: records that only ONE of the two property-scoping paths can express the nullable rule', function () {

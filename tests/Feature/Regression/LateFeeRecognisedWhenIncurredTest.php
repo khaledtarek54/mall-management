@@ -1,9 +1,12 @@
 <?php
 
 use App\Models\AccountingPeriod;
+use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\LateFeeService;
+use App\Services\MonthlyBillingService;
 use App\Settings\BillingSettings;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
@@ -34,7 +37,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear(2026);
+    app(FiscalCalendar::class)->ensureYear(2026);
 
     $settings = app(BillingSettings::class);
     $settings->late_fee_percent = 5;
@@ -104,7 +107,7 @@ it('leaves the overdue invoice exactly as the tenant received it', function () {
 it('does not suppress that month\'s rent billing', function () {
     // The probe-exclusion trap, fixed in the SAME change that creates the standalone invoice rather
     // than after someone lost a month's rent to it.
-    \App\Models\Charge::create([
+    Charge::create([
         'lease_id' => $this->lease->id,
         'name' => 'Base rent',
         'type' => 'base_rent',
@@ -119,7 +122,7 @@ it('does not suppress that month\'s rent billing', function () {
 
     app(LateFeeService::class)->applyTo($this->overdue, $this->april);
 
-    $result = app(\App\Services\MonthlyBillingService::class)
+    $result = app(MonthlyBillingService::class)
         ->generateForLease($this->lease->fresh(), CarbonImmutable::create(2026, 4, 1));
 
     expect($result['status'])->toBe('created')

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\InventoryItems;
 
+use App\Filament\Admin\RelationManagers\StockMovementsRelationManager;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\InventoryItems\Pages\CreateInventoryItem;
@@ -84,7 +85,7 @@ class InventoryItemResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\StockMovementsRelationManager::class,
+            StockMovementsRelationManager::class,
         ];
     }
 

@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Services\SyncCamPoolFromLedgerService;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -17,7 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned]
 class CamExpensePool extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     public const STATUSES = ['draft', 'reconciling', 'reconciled', 'closed'];
 
@@ -187,9 +190,9 @@ class CamExpensePool extends Model
      * multi-unit lease whose master sits outside the zone but whose annexe sits inside it still
      * participates.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<Lease>
+     * @return Builder<Lease>
      */
-    public function participantLeaseQuery(): \Illuminate\Database\Eloquent\Builder
+    public function participantLeaseQuery(): Builder
     {
         return Lease::query()
             ->whereHas('unit', fn ($q) => $q->where('asset_id', $this->asset_id))
@@ -247,9 +250,9 @@ class CamExpensePool extends Model
      * Empty on every pool created before this existed, which is exactly why `expense_basis` defaults
      * to `stated`: a pool with no accounts and a ledger basis would recover nothing.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<LedgerAccount, $this>
+     * @return BelongsToMany<LedgerAccount, $this>
      */
-    public function ledgerAccounts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function ledgerAccounts(): BelongsToMany
     {
         return $this->belongsToMany(LedgerAccount::class, 'cam_pool_accounts')
             ->withPivot('cost_nature', 'is_controllable')
@@ -310,7 +313,7 @@ class CamExpensePool extends Model
     public function variableShare(): float
     {
         if ($this->expense_basis === self::BASIS_LEDGER && $this->ledgerAccounts->isNotEmpty()) {
-            return app(\App\Services\SyncCamPoolFromLedgerService::class)->variableShareFromLedger($this);
+            return app(SyncCamPoolFromLedgerService::class)->variableShareFromLedger($this);
         }
 
         return $this->variable_pct !== null ? (float) $this->variable_pct / 100 : 0.0;
@@ -329,7 +332,7 @@ class CamExpensePool extends Model
     public function controllableShare(): float
     {
         if ($this->expense_basis === self::BASIS_LEDGER && $this->ledgerAccounts->isNotEmpty()) {
-            return app(\App\Services\SyncCamPoolFromLedgerService::class)->controllableShareFromLedger($this);
+            return app(SyncCamPoolFromLedgerService::class)->controllableShareFromLedger($this);
         }
 
         return $this->controllable_pct !== null ? (float) $this->controllable_pct / 100 : 1.0;

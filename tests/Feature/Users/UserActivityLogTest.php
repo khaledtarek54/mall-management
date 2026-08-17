@@ -6,7 +6,7 @@ use Spatie\Activitylog\Models\Activity;
 it('logs activity rows for User create + name change', function () {
     $user = User::create([
         'name' => 'Original Name',
-        'email' => 'user-' . uniqid() . '@test.local',
+        'email' => 'user-'.uniqid().'@test.local',
         'password' => bcrypt('secret'),
     ]);
 
@@ -26,7 +26,7 @@ it('logs activity rows for User create + name change', function () {
 it('does not log a password-only change (password is not in the allowlist)', function () {
     $user = User::create([
         'name' => 'Q',
-        'email' => 'q-' . uniqid() . '@test.local',
+        'email' => 'q-'.uniqid().'@test.local',
         'password' => bcrypt('secret-one'),
     ]);
 
@@ -50,7 +50,7 @@ it('does not log a password-only change (password is not in the allowlist)', fun
 it('logs a deleted event when the user is removed', function () {
     $user = User::create([
         'name' => 'Departing User',
-        'email' => 'dep-' . uniqid() . '@test.local',
+        'email' => 'dep-'.uniqid().'@test.local',
         'password' => bcrypt('secret'),
     ]);
     $id = $user->id;

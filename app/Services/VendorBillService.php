@@ -6,6 +6,7 @@ use App\Models\SlaPenalty;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Support\PostingDate;
+use App\Support\WithholdingTax;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -76,7 +77,7 @@ class VendorBillService
             // `onBillPayment`, NOT `on`: the WHT base excludes VAT, and `$pay` is capped at the
             // balance, which comes from `total` — net PLUS VAT. Passing it to the primitive
             // over-withheld on every VAT-bearing bill (3,420 instead of 3,000 at 3% on 100,000).
-            $withheld = \App\Support\WithholdingTax::onBillPayment($pay, $bill);
+            $withheld = WithholdingTax::onBillPayment($pay, $bill);
 
             VendorBillPayment::create([
                 'vendor_bill_id' => $bill->id,

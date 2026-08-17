@@ -95,7 +95,7 @@ it('void() throws on a FULLY-applied note and leaves the invoice settlement inta
 
     // The rule: you cannot void an applied note — issue an offsetting note.
     expect(fn () => $svc->void($note->fresh()))
-        ->toThrow(\DomainException::class, 'Cannot void a credit note that has already been applied');
+        ->toThrow(DomainException::class, 'Cannot void a credit note that has already been applied');
 
     // recomputeTotals reflects NO reversal — the credit still settles the AR.
     $invoice->refresh();
@@ -118,7 +118,7 @@ it('void() throws on a PARTIALLY-applied note and the partial settlement is pres
         ->and((float) $note->fresh()->applied_amount)->toBe(1200.0)
         ->and((float) $note->fresh()->balance)->toBe(1800.0);
 
-    expect(fn () => $svc->void($note->fresh()))->toThrow(\DomainException::class);
+    expect(fn () => $svc->void($note->fresh()))->toThrow(DomainException::class);
 
     // Both sides are exactly as they were before the failed void.
     $noteAfter = $note->fresh();
@@ -142,7 +142,7 @@ it('the failed void of an applied note does not stamp voided_at or change status
 
     try {
         $svc->void($note->fresh(), 'attempted void');
-    } catch (\DomainException) {
+    } catch (DomainException) {
         // expected
     }
 

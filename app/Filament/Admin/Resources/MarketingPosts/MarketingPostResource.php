@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MarketingPosts;
 
+use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -29,7 +30,7 @@ use Illuminate\Support\Str;
  * they are the same record at different points in one workflow, and splitting them would mean two
  * places to look for "what are we running".
  *
- * Like {@see \App\Filament\Admin\Resources\Announcements\AnnouncementResource}, the target property
+ * Like {@see AnnouncementResource}, the target property
  * is CLIENT-SUPPLIED (the operator picks which mall a post runs in), so Filament's tenancy
  * ownership is deliberately off — its `creating` hook would force-associate `asset_id` with the
  * current panel tenant and silently move the post. Reads are scoped by `ScopesToProperty`;

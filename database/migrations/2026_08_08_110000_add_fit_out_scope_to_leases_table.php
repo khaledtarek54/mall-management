@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -30,7 +31,7 @@ return new class extends Migration
             $table->string('fit_out_scope', 16)->default('gross')->after('fit_out_months');
         });
 
-        \Illuminate\Support\Facades\DB::table('leases')->update(['fit_out_scope' => 'gross']);
+        DB::table('leases')->update(['fit_out_scope' => 'gross']);
     }
 
     public function down(): void

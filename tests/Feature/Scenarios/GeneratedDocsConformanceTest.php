@@ -18,6 +18,7 @@
 */
 
 use App\Console\Commands\DumpRegistriesCommand;
+use App\Services\Accounting\LedgerPoster;
 
 /** The exact text between a section's GENERATED markers, or null when the markers are absent. */
 function generatedBlock(string $path, string $marker): ?string
@@ -67,7 +68,7 @@ it('documents every GL posting source', function () {
 
     $undocumented = [];
 
-    foreach (array_keys(App\Services\Accounting\LedgerPoster::JOURNALIZERS) as $source) {
+    foreach (array_keys(LedgerPoster::JOURNALIZERS) as $source) {
         if (! str_contains($doc, class_basename($source))) {
             $undocumented[] = class_basename($source);
         }

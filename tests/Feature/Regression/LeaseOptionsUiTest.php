@@ -1,10 +1,12 @@
 <?php
+
 use App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Models\LeaseOption;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -44,7 +46,7 @@ it('refuses a read-only viewer resolving an option, and lets an authorised user 
         ->instance()->getTable()->getAction('exercise');
 
     expect(fn () => $action->call(['record' => $option]))
-        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(HttpException::class);
     expect($option->fresh()->status)->toBe('open');
 
     // Control: without this the refusal would pass just as happily if call() never ran the closure.

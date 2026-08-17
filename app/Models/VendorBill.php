@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Services\VendorBillService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
-use App\Models\Concerns\HasSearchText;
-use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,11 +30,10 @@ use Spatie\Activitylog\Support\LogOptions;
 // — an operator-wide bill is not hidden because someone picked a mall. Declared, not implied:
 // scoping this strictly would hide those rows from every screen and nothing would fail loudly.
 #[PropertyOwned(portfolioRowsWhenNull: true)]
-#[PostingDateGuardedBy(guard: \App\Services\VendorBillService::class)]
+#[PostingDateGuardedBy(guard: VendorBillService::class)]
 class VendorBill extends Model
 {
-    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
-
+    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const CATEGORIES = ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'];
@@ -178,7 +178,7 @@ class VendorBill extends Model
      * The test for membership here is **"does its journalizer read the parent?"** — not "does it
      * have its own row", which is what the single list conflated.
      *
-     * @return array<int, \Illuminate\Database\Eloquent\Relations\HasMany<SlaPenalty, self>>
+     * @return array<int, HasMany<SlaPenalty, self>>
      */
     protected function ledgerDerivedRelations(): array
     {

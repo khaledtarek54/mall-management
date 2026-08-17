@@ -2,9 +2,12 @@
 
 use App\Filament\Admin\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Admin\Resources\Payments\Pages\EditPayment;
+use App\Models\CreditNote;
+use App\Models\CreditNoteApplication;
 use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\CreditNoteService;
 use App\Services\VoidInvoiceService;
 use App\Services\VoidPaymentService;
 use Database\Seeders\AccountMappingSeeder;
@@ -12,6 +15,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 /**
  * GL integrity hardening — Phase 5: first-class void/cancel for AR documents. Now that a
@@ -50,7 +54,7 @@ it('refuses to void an invoice that has captured payments', function () {
     $payment->invoices()->attach($invoice->id, ['allocated_amount' => 5000]);
     $invoice->recomputeTotals();
 
-    expect(fn () => app(VoidInvoiceService::class)->void($invoice->fresh()))->toThrow(\DomainException::class);
+    expect(fn () => app(VoidInvoiceService::class)->void($invoice->fresh()))->toThrow(DomainException::class);
     expect($invoice->fresh()->status)->not->toBe('cancelled');
 });
 
@@ -58,7 +62,7 @@ it('refuses to void an invoice already filed with ETA (eta_status = valid)', fun
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())), ['total' => 5000, 'balance' => 5000]);
     $invoice->forceFill(['eta_status' => 'valid'])->saveQuietly(); // filed tax invoice
 
-    expect(fn () => app(VoidInvoiceService::class)->void($invoice->fresh()))->toThrow(\DomainException::class);
+    expect(fn () => app(VoidInvoiceService::class)->void($invoice->fresh()))->toThrow(DomainException::class);
     expect($invoice->fresh()->status)->not->toBe('cancelled');
 });
 
@@ -112,34 +116,34 @@ it('voids a payment through the edit-page action with a reason', function () {
 it('voids a credit-applied invoice by UN-APPLYING the original note exactly once (lock-safe, idempotent, no double-count)', function () {
     $lease = makeLease(makeUnit(makeAsset()));
     $invoice = makeInvoice($lease, ['total' => 5000, 'balance' => 5000]);
-    $note = \App\Models\CreditNote::create([
+    $note = CreditNote::create([
         'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
         'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
         'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000, 'applied_amount' => 0, 'balance' => 2000, 'currency' => 'EGP',
     ]);
-    app(\App\Services\CreditNoteService::class)->applyToInvoice($note, $invoice, 2000);
+    app(CreditNoteService::class)->applyToInvoice($note, $invoice, 2000);
     expect((float) $invoice->fresh()->credit_applied_amount)->toBe(2000.0);
 
-    $notesBefore = \App\Models\CreditNote::count();
+    $notesBefore = CreditNote::count();
 
     // Void, then re-void — the lock + re-read makes the second call a no-op (a racing second void
     // would otherwise un-apply twice; soft-deleted applications also make the un-apply idempotent).
-    app(\App\Services\VoidInvoiceService::class)->void($invoice->fresh(), 'error');
-    app(\App\Services\VoidInvoiceService::class)->void($invoice->fresh(), 'again');
+    app(VoidInvoiceService::class)->void($invoice->fresh(), 'error');
+    app(VoidInvoiceService::class)->void($invoice->fresh(), 'again');
 
     // No SECOND note is created (the old design double-counted the sales-return); the ORIGINAL note
     // is restored to available EXACTLY once — balance back to 2000, never 4000.
-    expect(\App\Models\CreditNote::count())->toBe($notesBefore)
+    expect(CreditNote::count())->toBe($notesBefore)
         ->and($invoice->fresh()->status)->toBe('cancelled')
         ->and((float) $invoice->fresh()->credit_applied_amount)->toBe(0.0)
         ->and($note->fresh()->status)->toBe('issued')
         ->and((float) $note->fresh()->balance)->toBe(2000.0)
-        ->and(\App\Models\CreditNoteApplication::where('credit_note_id', $note->id)->count())->toBe(0);
+        ->and(CreditNoteApplication::where('credit_note_id', $note->id)->count())->toBe(0);
 });
 
 it('grants the dedicated void permissions to accounting + super_admin but not viewer', function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
-    $has = fn (string $role, string $perm) => \Spatie\Permission\Models\Role::findByName($role, 'web')->hasPermissionTo($perm);
+    $this->seed(RolesPermissionsSeeder::class);
+    $has = fn (string $role, string $perm) => Role::findByName($role, 'web')->hasPermissionTo($perm);
 
     expect($has('accounting', 'invoices.void'))->toBeTrue()
         ->and($has('accounting', 'payments.void'))->toBeTrue()

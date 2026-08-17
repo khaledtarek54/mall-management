@@ -3,6 +3,7 @@
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\PostDatedCheque;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\BillBouncedChequeFeeService;
 use App\Services\PostDatedChequeService;
 use App\Settings\BillingSettings;
@@ -24,7 +25,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) now()->year);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
     app(BillingSettings::class)->nsf_fee_amount = 250.0;
 });
 

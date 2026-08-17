@@ -41,6 +41,7 @@ class EditRole extends EditRecord
         foreach (RolesPermissionsSeeder::PERMISSIONS as $module => $perms) {
             $data["permissions_module_{$module}"] = array_values(array_intersect($names, array_keys($perms)));
         }
+
         return $data;
     }
 

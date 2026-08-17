@@ -30,10 +30,10 @@ use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
@@ -43,8 +43,8 @@ use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Department;
 use App\Models\MarketingBudget;
 use App\Settings\ModulesSettings;
-use Spatie\Permission\Models\Role as SpatieRole;
 use Database\Seeders\RolesPermissionsSeeder;
+use Spatie\Permission\Models\Role as SpatieRole;
 
 beforeEach(function () {
     // Real permission sets — makeUser()'s seedRoles() only creates bare roles.
@@ -59,21 +59,21 @@ beforeEach(function () {
 function matrixResources(): array
 {
     return [
-        'Asset'             => AssetResource::class,
-        'Unit'              => UnitResource::class,
-        'Tenant'            => TenantResource::class,
-        'Lease'             => LeaseResource::class,
-        'TenantSales'       => TenantSalesDeclarationResource::class,
-        'Invoice'           => InvoiceResource::class,
-        'Payment'           => PaymentResource::class,
-        'CreditNote'        => CreditNoteResource::class,
-        'Cam'               => CamExpensePoolResource::class,
-        'Maintenance'       => TenantRequestResource::class,
-        'Vendor'            => VendorResource::class,
-        'UtilityMeter'      => UtilityMeterResource::class,
-        'MarketingBudget'   => MarketingBudgetResource::class,
-        'Role'              => RoleResource::class,
-        'Department'        => DepartmentResource::class,
+        'Asset' => AssetResource::class,
+        'Unit' => UnitResource::class,
+        'Tenant' => TenantResource::class,
+        'Lease' => LeaseResource::class,
+        'TenantSales' => TenantSalesDeclarationResource::class,
+        'Invoice' => InvoiceResource::class,
+        'Payment' => PaymentResource::class,
+        'CreditNote' => CreditNoteResource::class,
+        'Cam' => CamExpensePoolResource::class,
+        'Maintenance' => TenantRequestResource::class,
+        'Vendor' => VendorResource::class,
+        'UtilityMeter' => UtilityMeterResource::class,
+        'MarketingBudget' => MarketingBudgetResource::class,
+        'Role' => RoleResource::class,
+        'Department' => DepartmentResource::class,
     ];
 }
 
@@ -230,22 +230,22 @@ it('owner reads its property read-only, and cannot reach the operator\'s own bus
 it('leasing covers Properties(view) / Units / Tenants / Leases / TenantSales(view) and nothing else', function () {
     assertViewCreate($this, 'leasing', [
         // Owns: leasing group.
-        'Asset'       => [true, false],  // properties are view-only for leasing
-        'Unit'        => [true, true],
-        'Tenant'      => [true, true],
-        'Lease'       => [true, true],
+        'Asset' => [true, false],  // properties are view-only for leasing
+        'Unit' => [true, true],
+        'Tenant' => [true, true],
+        'Lease' => [true, true],
         'TenantSales' => [true, false],  // leasing has tenant_sales.view, NOT .create
         // Forbidden: other departments.
-        'Invoice'         => [false, false],
-        'Payment'         => [false, false],
-        'CreditNote'      => [false, false],
-        'Cam'             => [false, false],
-        'Maintenance'     => [false, false],
-        'Vendor'          => [false, false],
-        'UtilityMeter'    => [false, false],
+        'Invoice' => [false, false],
+        'Payment' => [false, false],
+        'CreditNote' => [false, false],
+        'Cam' => [false, false],
+        'Maintenance' => [false, false],
+        'Vendor' => [false, false],
+        'UtilityMeter' => [false, false],
         'MarketingBudget' => [false, false],
-        'Role'            => [false, false],
-        'Department'      => [false, false],
+        'Role' => [false, false],
+        'Department' => [false, false],
     ]);
 });
 
@@ -265,22 +265,22 @@ it('leasing can edit a lease but cannot delete it', function () {
 
 it('operations covers Maintenance / Vendors / UtilityMeters and nothing else', function () {
     assertViewCreate($this, 'operations', [
-        'Maintenance'   => [true, true],
-        'Vendor'        => [true, true],
-        'UtilityMeter'  => [true, true],
+        'Maintenance' => [true, true],
+        'Vendor' => [true, true],
+        'UtilityMeter' => [true, true],
         // Forbidden.
-        'Asset'           => [false, false],
-        'Unit'            => [false, false],
-        'Tenant'          => [false, false],
-        'Lease'           => [false, false],
-        'TenantSales'     => [false, false],
-        'Invoice'         => [false, false],
-        'Payment'         => [false, false],
-        'CreditNote'      => [false, false],
-        'Cam'             => [false, false],
+        'Asset' => [false, false],
+        'Unit' => [false, false],
+        'Tenant' => [false, false],
+        'Lease' => [false, false],
+        'TenantSales' => [false, false],
+        'Invoice' => [false, false],
+        'Payment' => [false, false],
+        'CreditNote' => [false, false],
+        'Cam' => [false, false],
         'MarketingBudget' => [false, false],
-        'Role'            => [false, false],
-        'Department'      => [false, false],
+        'Role' => [false, false],
+        'Department' => [false, false],
     ]);
 });
 
@@ -292,22 +292,22 @@ it('operations covers Maintenance / Vendors / UtilityMeters and nothing else', f
 
 it('accounting covers Invoices / Payments / CreditNotes / CAM and nothing else', function () {
     assertViewCreate($this, 'accounting', [
-        'Invoice'    => [true, true],
-        'Payment'    => [true, true],
+        'Invoice' => [true, true],
+        'Payment' => [true, true],
         'CreditNote' => [true, true],
-        'Cam'        => [true, true],
+        'Cam' => [true, true],
         // Forbidden.
-        'Asset'           => [false, false],
-        'Unit'            => [false, false],
-        'Tenant'          => [false, false],
-        'Lease'           => [false, false],
-        'TenantSales'     => [false, false],
-        'Maintenance'     => [false, false],
-        'Vendor'          => [false, false],
-        'UtilityMeter'    => [false, false],
+        'Asset' => [false, false],
+        'Unit' => [false, false],
+        'Tenant' => [false, false],
+        'Lease' => [false, false],
+        'TenantSales' => [false, false],
+        'Maintenance' => [false, false],
+        'Vendor' => [false, false],
+        'UtilityMeter' => [false, false],
         'MarketingBudget' => [false, false],
-        'Role'            => [false, false],
-        'Department'      => [false, false],
+        'Role' => [false, false],
+        'Department' => [false, false],
     ]);
 });
 
@@ -331,20 +331,20 @@ it('marketing covers MarketingBudgets and nothing else', function () {
         // budgets are auto-provisioned per property/year.
         'MarketingBudget' => [true, false],
         // Forbidden.
-        'Asset'        => [false, false],
-        'Unit'         => [false, false],
-        'Tenant'       => [false, false],
-        'Lease'        => [false, false],
-        'TenantSales'  => [false, false],
-        'Invoice'      => [false, false],
-        'Payment'      => [false, false],
-        'CreditNote'   => [false, false],
-        'Cam'          => [false, false],
-        'Maintenance'  => [false, false],
-        'Vendor'       => [false, false],
+        'Asset' => [false, false],
+        'Unit' => [false, false],
+        'Tenant' => [false, false],
+        'Lease' => [false, false],
+        'TenantSales' => [false, false],
+        'Invoice' => [false, false],
+        'Payment' => [false, false],
+        'CreditNote' => [false, false],
+        'Cam' => [false, false],
+        'Maintenance' => [false, false],
+        'Vendor' => [false, false],
         'UtilityMeter' => [false, false],
-        'Role'         => [false, false],
-        'Department'   => [false, false],
+        'Role' => [false, false],
+        'Department' => [false, false],
     ]);
 });
 
@@ -378,21 +378,21 @@ it('marketing can edit but not delete a marketing budget', function () {
 
 it('hr covers Roles + Departments (view) and is shut out of every operational module', function () {
     assertViewCreate($this, 'hr', [
-        'Role'       => [true, false], // hr has roles.view only, not roles.create
+        'Role' => [true, false], // hr has roles.view only, not roles.create
         'Department' => [true, false], // fixed set + view-only for hr
         // Forbidden: all operational modules.
-        'Asset'           => [false, false],
-        'Unit'            => [false, false],
-        'Tenant'          => [false, false],
-        'Lease'           => [false, false],
-        'TenantSales'     => [false, false],
-        'Invoice'         => [false, false],
-        'Payment'         => [false, false],
-        'CreditNote'      => [false, false],
-        'Cam'             => [false, false],
-        'Maintenance'     => [false, false],
-        'Vendor'          => [false, false],
-        'UtilityMeter'    => [false, false],
+        'Asset' => [false, false],
+        'Unit' => [false, false],
+        'Tenant' => [false, false],
+        'Lease' => [false, false],
+        'TenantSales' => [false, false],
+        'Invoice' => [false, false],
+        'Payment' => [false, false],
+        'CreditNote' => [false, false],
+        'Cam' => [false, false],
+        'Maintenance' => [false, false],
+        'Vendor' => [false, false],
+        'UtilityMeter' => [false, false],
         'MarketingBudget' => [false, false],
     ]);
 });

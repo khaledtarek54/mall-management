@@ -12,7 +12,9 @@ use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\ListFacilityWorkOrders
 use App\Filament\Admin\Resources\FacilityWorkOrders\Schemas\FacilityWorkOrderForm;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Tables\FacilityWorkOrdersTable;
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Models\Area;
 use App\Models\FacilityWorkOrder;
+use App\Models\Unit;
 use App\Support\AssignmentScope;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -146,18 +148,19 @@ class FacilityWorkOrderResource extends Resource
             abort(403);
         }
     }
+
     /**
      * Context under the title. A bare reference does not tell an operator whether the
      * row in front of them is the one they were hunting for.
      *
      * @param  FacilityWorkOrder  $record  Narrowed from Filament's Model signature so static analysis
-     *                    can see the columns — the alternative was ten baseline entries.
+     *                                     can see the columns — the alternative was ten baseline entries.
      */
     public static function getGlobalSearchResultDetails(Model $record): array
     {
-        /** @var \App\Models\Unit|null $unit */
+        /** @var Unit|null $unit */
         $unit = $record->unit;
-        /** @var \App\Models\Area|null $area */
+        /** @var Area|null $area */
         $area = $record->area;
 
         return [
@@ -175,5 +178,4 @@ class FacilityWorkOrderResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['unit', 'area']);
     }
-
 }

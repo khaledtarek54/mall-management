@@ -21,13 +21,13 @@
  * within one property's books).
  */
 
-use App\Support\MorphMap;
 use App\Filament\Admin\Resources\StockMovements\Pages\ListStockMovements;
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
+use App\Support\MorphMap;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
