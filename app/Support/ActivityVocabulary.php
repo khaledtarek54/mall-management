@@ -154,6 +154,11 @@ class ActivityVocabulary
         'tax_code.family' => 'admin.enums.tax_family',
         'tax_code.posting_role' => 'admin.posting_roles',
         'tax_code.treatment' => 'admin.enums.tax_treatment',
+        // Pointed at the group the FORM's Select reads from, which is the rule that stops a log
+        // and a form calling the same value two different things. The field-label gate demanded a
+        // LABEL for this column and was satisfied; it does not check that the VALUE resolves, so
+        // the log printed a raw `electric` beside a form that says "Electricity".
+        'utility_tariff.utility_type' => 'admin.enums.meter_type',
         'tenant.type' => 'admin.enums.tenant_type',
         'tenant_document.type' => 'admin.enums.tenant_document_type',
         'tenant_request.category' => 'admin.enums.tenant_request_subcategory',
