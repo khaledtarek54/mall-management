@@ -24,12 +24,22 @@ use Illuminate\Support\Carbon;
 beforeEach(fn () => Carbon::setTestNow('2026-06-29 10:00:00'));
 afterEach(fn () => Carbon::setTestNow());
 
-/** Build one draft pool of $year over an asset with two active leases (100 + 300 sqm). */
+/**
+ * Build one draft pool of $year over an asset with two active leases (100 + 300 sqm).
+ *
+ * The leases are dated to COVER $year. They used to take `makeLease`'s defaults — commencing
+ * 2026-01-01 — while the pool reconciled 2025, so the fixture asked the system to recover a year's
+ * common-area cost from two tenants who had not moved in yet. It passed, because the participant
+ * test was `status = active` and said nothing about when the lease existed; a test green over an
+ * impossible input is the whole reason that filter is now an occupancy overlap (2026-08-17).
+ */
 function camCommandFixture(int $year = 2025): CamExpensePool
 {
     $asset = makeAsset();
-    makeLease(makeUnit($asset, ['area_sqm' => 100]));
-    makeLease(makeUnit($asset, ['area_sqm' => 300]));
+    $covering = ['commencement_date' => "{$year}-01-01", 'expiry_date' => ($year + 3).'-12-31'];
+
+    makeLease(makeUnit($asset, ['area_sqm' => 100]), attrs: $covering);
+    makeLease(makeUnit($asset, ['area_sqm' => 300]), attrs: $covering);
 
     return CamExpensePool::create([
         'asset_id' => $asset->id,

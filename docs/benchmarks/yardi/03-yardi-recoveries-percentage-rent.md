@@ -95,7 +95,7 @@ the gross-up cannot disagree with the apportionment it feeds. **Refused on an `o
 denominator**, where the shares already sum to 100% and grossing up would recover more than the
 pool.
 
-## A4b. Occupancy proration within the recovery year — **OPEN DEVIATION**
+## A4b. Occupancy proration within the recovery year — **CLOSED 2026-08-17**
 
 Yardi computes a tenant's recovery on the days they occupied **within the recovery period**: a lease
 commencing 1 October carries roughly a quarter of a full-year share.
@@ -119,10 +119,19 @@ held window with the lease's own commencement/expiry, not only the pivot dates �
 denominator both narrow, so an `occupied` pool still sums to 100% and a `gla` pool correctly leaves
 the empty months with the landlord.
 
-The mirror case is the same defect: a lease that TERMINATES mid-year is excluded from the pool
-altogether (only active leases are allocation targets), so the months it did occupy are recovered
-from nobody. `MoveOutStatementService` already flags an unreconciled CAM year as a known-unknown at
-settlement, which is the right hook for it.
+The mirror case was the same defect: a lease that TERMINATED mid-year was excluded from the pool
+altogether (only active leases were allocation targets), so the months it did occupy were recovered
+from nobody.
+
+**Both are fixed.** `totalAreaSqmForPeriod()` narrows the window by the lease's own term — clamping
+the END only once the lease has ENDED, so a lease in holdover is not cut short — and
+`CamReconciliationService::participants()` selects leases that OVERLAP the reconciled year instead
+of leases that are `active` today. Numerator and denominator narrow together, so Σ allocated still
+equals the pool and the shares still sum to 100%; `CamProratesPartYearOccupancyTest` pins that
+alongside the two corrected shares, and both halves are proven by removal.
+
+Yardi parity for recoveries is now complete except the **adjusted denominator** (carve an anchor out
+of the denominator while it still participates), which has no equivalent here.
 
 ## A5. Caps, base years and expense stops
 

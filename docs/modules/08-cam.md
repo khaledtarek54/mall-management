@@ -6,7 +6,7 @@
 
 Mall owners (Jawad) collect estimated CAM charges monthly throughout a calendar year from tenants (retailers). Once the year ends, actual CAM expenses are reconciled against what was estimated. The difference (true-up) is allocated fairly to each tenant based on their proportional leased area.
 
-**CAM pools** capture the total actual and estimated amounts per property per year. **CAM allocations** distribute that variance pro-rata to each active lease. The system creates one-time charges on leases for any shortfall (tenant owes more) or credits for overpayment (tenant gets a credit). This ensures fair cost-sharing: a large retail tenant pays more than a small one, proportional to their footprint.
+**CAM pools** capture the total actual and estimated amounts per property per year. **CAM allocations** distribute that variance pro-rata to each lease that **occupied the property during the reconciled year** — weighted by the days it did. The system creates one-time charges on leases for any shortfall (tenant owes more) or credits for overpayment (tenant gets a credit). This ensures fair cost-sharing: a large retail tenant pays more than a small one, proportional to their footprint.
 
 ---
 
@@ -17,7 +17,7 @@ Mall owners (Jawad) collect estimated CAM charges monthly throughout a calendar 
 | Entity | Model | Key columns | Notes |
 |--------|-------|-------------|-------|
 | **CAM Expense Pool** | `CamExpensePool` | `id`, `asset_id` (FK), `period_year` (YYYY, 2020–2099), `total_actual_expense` (decimal:2), `total_estimated_collected` (decimal:2), `admin_fee_pct` (decimal:6,4, **nullable** — a FRACTION, 0.10 = 10%; null ⇒ no fee), `admin_fee_on_net` (bool, default true), `status` (enum), `notes`, `reconciled_at`, `reconciled_by_user_id`, `created_at`, `updated_at`, `deleted_at` (soft-delete) | A container for one year's CAM data on one property. Unique on `(asset_id, period_year)`. Index on `status`. |
-| **CAM Allocation** | `CamAllocation` | `id`, `cam_expense_pool_id` (FK), `lease_id` (FK), `pro_rata_share_pct` (decimal:7,4), `allocated_amount` (decimal:2, **UNCAPPED** — the tie-out basis), `estimated_paid` (decimal:2), `true_up_amount` (decimal:2, = `capped_cost − estimated`), `admin_fee_amount` (decimal:2, default 0), `admin_fee_vat_amount` (decimal:2, default 0), `cap_amount` (decimal:2, nullable — the resolved ceiling that applied), `capped_cost_amount` (decimal:2, nullable — `min(allocated, ceiling)`), `cap_absorbed_amount` (decimal:2, default 0 — landlord-absorbed excess), `exclusions` (JSON), `status` (enum), `billed_charge_id` (FK, nullable), `billed_credit_note_id` (FK, nullable), `billed_admin_fee_charge_id` (FK, nullable), `created_at`, `updated_at`, `deleted_at` | One per active lease per pool. Unique on `(pool_id, lease_id)`. Index on `status`. |
+| **CAM Allocation** | `CamAllocation` | `id`, `cam_expense_pool_id` (FK), `lease_id` (FK), `pro_rata_share_pct` (decimal:7,4), `allocated_amount` (decimal:2, **UNCAPPED** — the tie-out basis), `estimated_paid` (decimal:2), `true_up_amount` (decimal:2, = `capped_cost − estimated`), `admin_fee_amount` (decimal:2, default 0), `admin_fee_vat_amount` (decimal:2, default 0), `cap_amount` (decimal:2, nullable — the resolved ceiling that applied), `capped_cost_amount` (decimal:2, nullable — `min(allocated, ceiling)`), `cap_absorbed_amount` (decimal:2, default 0 — landlord-absorbed excess), `exclusions` (JSON), `status` (enum), `billed_charge_id` (FK, nullable), `billed_credit_note_id` (FK, nullable), `billed_admin_fee_charge_id` (FK, nullable), `created_at`, `updated_at`, `deleted_at` | One per participating lease per pool. Unique on `(pool_id, lease_id)`. Index on `status`. |
 | **Lease CAM Term** | `LeaseCamTerm` | `id`, `lease_id` (FK), `effective_year` (YYYY), `cap_type` (`absolute`/`yoy`/`both`), `cap_absolute_amount` (nullable), `base_year` (nullable), `base_year_amount` (nullable), `yoy_pct` (decimal:6,4, fraction, nullable), `compounding` (bool, default true), `notes`, `created_at`, `updated_at` | Effective-dated per-lease cap config. **HARD-delete** (forward-looking config, not a financial record) so a removed term frees its `(lease_id, effective_year)` unique slot for re-creation. Unique on `(lease_id, effective_year)`. `resolveCeiling(int $year)` returns the ceiling; `Lease::resolveCamCeiling($year)` picks the latest term ≤ that year. |
 
 ### Relationships
@@ -69,6 +69,32 @@ Each pool ties out on its own: `Σ allocated + landlord_unrecovered_amount = tot
 
 ### Core allocation formula
 ```
+> **⚠️ The share follows OCCUPANCY, not lease status (fixed 2026-08-17).** Yardi computes recovery on
+> the days a tenant occupied within the recovery period, and this got it wrong at both ends of a
+> lease, in opposite directions:
+>
+> - **Arriving:** the area basis weighted on the `lease_unit` pivot window, which is dated only when
+>   an expansion or contraction is recorded and is **null on an ordinary lease**. A lease commencing
+>   1 October drew a FULL year's share — on a 500,000 pool a 100 m² lease three months in took
+>   **23.81% / 119,048** against a correct **~6.2% / ~30,883**. It over-recovered from the newcomer
+>   *and* under-charged everyone else, because the denominator counted their full area too.
+> - **Leaving:** `participants()` filtered on `status = active`, so a tenant who traded January to
+>   August and left was not an allocation target at all — the common-area cost of the months they DID
+>   occupy was recovered from **nobody** and fell to the landlord silently. The old comment in that
+>   method had already noticed the asymmetry ("a departed tenant's estimate is still part of what the
+>   pool collected") without drawing the conclusion: if their estimate counts, so must their share.
+>
+> `Lease::totalAreaSqmForPeriod()` now narrows the window by the lease's own term via
+> `occupancyWindow()`, and `participants()` selects leases that OVERLAP the year. The END is clamped
+> only once the lease has **ended** — an `active` lease past its expiry is in **holdover**, still
+> trading, and clamping it would hand its months to nobody. Numerator and denominator narrow
+> together, so Σ allocated still equals the pool and the shares still sum to 100%.
+> `CamProratesPartYearOccupancyTest`, both halves proven by removal.
+>
+> *(Found by the Chapter 11 walkthrough measuring the live system against Yardi, not by a red test —
+> and `CamAnnualReconciliationCommandTest` had been green over a fixture that billed 2025's CAM to
+> two leases commencing in 2026.)*
+
 pro_rata_share_pct = (lease.totalAreaSqm() / total_leased_sqm) * 100   # ALL units on the lease
 allocated_amount    = pro_rata_share_pct% * pool.total_actual_expense
 estimated_paid      = pro_rata_share_pct% * pool.total_estimated_collected

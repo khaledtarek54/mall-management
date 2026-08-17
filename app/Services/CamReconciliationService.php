@@ -307,11 +307,30 @@ class CamReconciliationService
     private function participants(CamExpensePool $pool)
     {
         // The membership predicate lives on the pool so the billed-estimate query subtracts from
-        // exactly the set this allocates to. `active` stays HERE and not there: an allocation
-        // target must be a live lease, but a departed tenant's estimate is still part of what the
-        // pool collected during the year (see CamExpensePool::participantLeaseQuery()).
+        // exactly the set this allocates to. What stays HERE is the OCCUPANCY test — whether this
+        // agreement was in the centre during the year being reconciled.
+        //
+        // **It used to be `status = active`, and that lost money (2026-08-17).** A tenant who traded
+        // from January to August and left was not an allocation target at all, so the common-area
+        // cost of the months they DID occupy was recovered from nobody — it fell to the landlord
+        // silently, with nothing on any screen saying so. That is the same failure the unit-owner
+        // fix corrected from the other direction, and the older comment here even described the
+        // asymmetry ("a departed tenant's estimate is still part of what the pool collected")
+        // without drawing the conclusion: if their estimate counts, so must their share.
+        //
+        // A lease now participates when it OVERLAPS the reconciled year — and `totalAreaSqmForPeriod`
+        // weights it by the days it actually held its units, so a part-year tenant carries a
+        // part-year share on both sides of the fraction. `draft` / `pending_approval` / `cancelled`
+        // never occupied anything and are excluded outright.
+        $periodStart = CarbonImmutable::create((int) $pool->period_year, 1, 1)->startOfDay();
+        $periodEnd = $periodStart->endOfYear()->startOfDay();
+
         $leases = $pool->participantLeaseQuery()
-            ->where('status', 'active')
+            ->whereNotIn('status', ['draft', 'pending_approval', 'cancelled'])
+            ->whereDate('commencement_date', '<=', $periodEnd->toDateString())
+            ->where(fn ($q) => $q
+                ->whereNull('expiry_date')
+                ->orWhereDate('expiry_date', '>=', $periodStart->toDateString()))
             ->with('unit', 'units.areas')
             ->get();
 

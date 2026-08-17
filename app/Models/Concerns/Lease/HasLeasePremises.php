@@ -220,8 +220,21 @@ trait HasLeasePremises
      * over an annual pool that is the same thing as weighting each unit by the days it was held.
      *
      * For every lease whose pivot rows are unbounded — which is all of them until an expansion or
-     * contraction is recorded — this returns exactly `totalAreaSqm()`, so nothing that exists today
-     * changes basis.
+     * contraction is recorded — this returns exactly `totalAreaSqm()` **for a lease that ran the
+     * whole period**, so nothing that exists today changes basis.
+     *
+     * **The lease's OWN term narrows the window too (2026-08-17).** The weighting used to read the
+     * `lease_unit` pivot alone — and that pivot is dated only when an expansion or contraction is
+     * recorded, so it is null on an ordinary lease. A lease commencing 1 October therefore drew a
+     * FULL year's recovery share: measured on a 500,000 pool, a 100 m² lease three months in took
+     * 23.81% / 119,048 where the day-weighted answer is ~7.25% / ~36,232. It over-recovered from the
+     * arriving tenant and under-charged the sitting ones, because the denominator counted the
+     * newcomer's full area as well. Yardi computes recovery on the days occupied within the period;
+     * the mechanism here was half-wired rather than absent.
+     *
+     * The END is clamped only once the lease has actually ENDED. An `active` lease past its expiry
+     * date is in **holdover** — still trading, still consuming common area — and clamping it would
+     * hand its months to nobody.
      */
     public function totalAreaSqmForPeriod(CarbonImmutable $start, CarbonImmutable $end): float
     {
@@ -231,6 +244,17 @@ trait HasLeasePremises
 
         if ($days <= 0) {
             return $this->totalAreaSqmOn($start);
+        }
+
+        [$leaseFrom, $leaseTo] = $this->occupancyWindow();
+
+        // Narrow the requested period to the part of it this lease actually occupied, once, before
+        // the per-unit loop — every unit is held through the lease, never beyond it.
+        $start = $leaseFrom && $leaseFrom->greaterThan($start) ? $leaseFrom : $start;
+        $end = $leaseTo && $leaseTo->lessThan($end) ? $leaseTo : $end;
+
+        if ($end->lessThan($start)) {
+            return 0.0;     // the lease and the period do not overlap at all
         }
 
         $weighted = 0.0;
@@ -266,6 +290,25 @@ trait HasLeasePremises
         return $this->unit
             ? round($this->unit->areaSqmDaysBetween($start, $end) / $days, 4)
             : 0.0;
+    }
+
+    /**
+     * The window this lease actually occupied its premises: `[from, to]`, either side nullable.
+     *
+     * `to` is the expiry date ONLY once the lease has ended. Termination writes the termination date
+     * onto `expiry_date`, so a terminated lease's window is exactly what it occupied; an `active`
+     * lease past its expiry is in holdover and has no end yet.
+     *
+     * @return array{0: ?CarbonImmutable, 1: ?CarbonImmutable}
+     */
+    public function occupancyWindow(): array
+    {
+        $ended = in_array($this->status, ['terminated', 'expired', 'renewed', 'cancelled'], true);
+
+        return [
+            $this->commencement_date ? CarbonImmutable::instance($this->commencement_date) : null,
+            $ended && $this->expiry_date ? CarbonImmutable::instance($this->expiry_date) : null,
+        ];
     }
 
     /**
