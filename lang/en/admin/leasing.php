@@ -1,6 +1,28 @@
 <?php
 
 return [
+    'lease_summary' => [
+        'rent_today' => 'Rent today',
+        'not_billing_yet' => 'Not billing yet',
+        'next_step' => 'Next step :amount on :date',
+        'no_further_steps' => 'No further steps scheduled',
+        'premises' => 'Premises',
+        'area' => ':area m² let today',
+        'term' => 'Term',
+        'expires_in' => 'Expires in :days days',
+        'expired_ago' => 'Expired :days days ago',
+        'in_holdover' => 'Running on in holdover',
+        'no_expiry' => 'No expiry recorded',
+        'outstanding' => 'Outstanding',
+        'open_invoices' => ':count open invoices',
+        'overdue_invoices' => ':count overdue',
+        'deposit' => 'Deposit held',
+        'deposit_full' => 'Contractual :contractual — fully held',
+        'deposit_short' => 'Contractual :contractual — short by :shortfall',
+        'next_critical_date' => 'Next critical date',
+        'option_deadline' => ':type — :days days left',
+        'no_options' => 'No options recorded',
+    ],
     'lease_events' => [
         'title' => 'Lease history',
         'empty' => 'No commercial changes recorded yet.',

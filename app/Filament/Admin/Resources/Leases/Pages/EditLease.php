@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Leases\Pages;
 
 use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Models\Lease;
 use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
@@ -64,6 +65,18 @@ class EditLease extends EditRecord
         // Re-sync the marketing levy charge so a toggle/rate change on the form takes effect
         // (activates/deactivates + re-rates the `marketing` charge for the next monthly run).
         app(MarketingLevyService::class)->createLevyCharge($this->record);
+    }
+
+    /**
+     * The tenancy at a glance, above the tabs — UX-01's Summary.
+     *
+     * A header widget rather than a separate View page: the lease page already IS the record hub,
+     * and a second surface showing the same facts is one that drifts from it. Same reasoning that
+     * put the actions in one registry.
+     */
+    protected function getHeaderWidgets(): array
+    {
+        return [LeaseSummary::class];
     }
 
     protected function getHeaderActions(): array

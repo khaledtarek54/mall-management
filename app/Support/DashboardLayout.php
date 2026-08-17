@@ -7,6 +7,7 @@ use App\Filament\Admin\Widgets\ArAging;
 use App\Filament\Admin\Widgets\EnergyConsumptionTrend;
 use App\Filament\Admin\Widgets\EtaCompliance;
 use App\Filament\Admin\Widgets\ExpiringLeases;
+use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Filament\Admin\Widgets\LeasingPipeline;
 use App\Filament\Admin\Widgets\MallStats;
 use App\Filament\Admin\Widgets\MarketingPerformance;
@@ -173,6 +174,7 @@ final class DashboardLayout
      * @var array<class-string, string>
      */
     public const NOT_ON_DASHBOARD = [
+        LeaseSummary::class => 'The Summary half of the lease hub (UX-01) — it is meaningless without a lease, and its figures are that tenancy\'s rent, receivable and deposit. On a dashboard it would have no record, and publishing one tenant\'s AR and deposit shortfall to every role is exactly what this registry exists to prevent.',
         MonthlyCloseStats::class => 'Belongs to the Reports page, which drives it with a period picker. On the dashboard it had no period, silently defaulted to "now", and duplicated MallStats — while publishing the whole property\'s receivables to every role on the panel.',
     ];
 

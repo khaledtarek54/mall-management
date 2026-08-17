@@ -67,7 +67,21 @@ ships EN + AR keys in the same change.
 
 Priorities as elsewhere: 🔴 must · 🟠 should · 🟡 later.
 
-### UX-01 🔴 The Lease hub page
+### UX-01 ✅ The Lease hub page — **SHIPPED 2026-08-17**
+
+**What shipped.** The record hub: nine commercial actions moved off the LIST (where they hung on
+every row while this page carried one) into `App\Filament\Admin\Actions\LeaseActions`, grouped on
+the lease page as Money · Premises · Lease. The tabs cover Rent schedule (+ Billing forecast, which
+this story did not ask for), Money, Events, Options and Documents. `LeaseSummary` is the Summary,
+as a header widget rather than a separate View page — the lease page already IS the hub, and a
+second surface showing the same facts drifts from it.
+
+**Deviation, stated:** the story asked for a View page (infolist, not a form). Building one would
+have duplicated a surface that already exists and could disagree with it.
+
+---
+
+#### The original story
 **As a** Leasing Manager **I want** one page that shows me everything about a tenancy **so that** I
 stop hunting across five resources.
 
@@ -232,7 +246,7 @@ just record lookups. Keep the existing rule absolutely: authz + property isolati
 
 ---
 
-### UX-11 🟡 Saved views
+### UX-11 ✅ Saved views — **SHIPPED** *(this row read 🟡 until 2026-08-17; `SavesReportViews` is used by 21 pages)*
 Let a user save a table's filter+column state and set one as their default. The accountant's monthly
 pack becomes one click.
 

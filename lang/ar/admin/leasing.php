@@ -1,6 +1,28 @@
 <?php
 
 return [
+    'lease_summary' => [
+        'rent_today' => 'الإيجار اليوم',
+        'not_billing_yet' => 'لم تبدأ الفوترة بعد',
+        'next_step' => 'الزيادة التالية :amount في :date',
+        'no_further_steps' => 'لا توجد زيادات مجدولة',
+        'premises' => 'المساحة المؤجرة',
+        'area' => ':area م² مؤجرة اليوم',
+        'term' => 'المدة',
+        'expires_in' => 'ينتهي خلال :days يومًا',
+        'expired_ago' => 'انتهى منذ :days يومًا',
+        'in_holdover' => 'مستمر بعد انتهاء المدة',
+        'no_expiry' => 'لا يوجد تاريخ انتهاء مسجَّل',
+        'outstanding' => 'المستحق',
+        'open_invoices' => ':count فاتورة مفتوحة',
+        'overdue_invoices' => ':count متأخرة',
+        'deposit' => 'التأمين المحتجَز',
+        'deposit_full' => 'التعاقدي :contractual — محتجَز بالكامل',
+        'deposit_short' => 'التعاقدي :contractual — ناقص :shortfall',
+        'next_critical_date' => 'أقرب موعد حَرِج',
+        'option_deadline' => ':type — باقٍ :days يومًا',
+        'no_options' => 'لا توجد خيارات مسجَّلة',
+    ],
     'lease_events' => [
         'title' => 'تاريخ العقد',
         'empty' => 'لا توجد تغييرات تعاقدية مسجلة بعد.',

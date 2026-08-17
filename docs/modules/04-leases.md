@@ -2,6 +2,32 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ The lease hub is complete — the Summary landed (2026-08-17, UX-01).** Every tab already made
+> a fact *reachable*; none made the important ones *visible together*, and the story that asked for
+> this page said why in one line: **"so that I stop hunting across five resources."**
+>
+> [`LeaseSummary`](../../app/Filament/Admin/Widgets/LeaseSummary.php) is a header widget above the
+> tabs, carrying six stats: **rent today** (+ the next step) · **premises** as at today · **term**
+> (+ days to expiry, or holdover) · **outstanding** (+ how many overdue) · **deposit held vs
+> contractual, naming the shortfall** · **next critical date** from the open options.
+>
+> **It computes nothing of its own** — `ChargeScheduleService::pickInForce()` for the rent (the same
+> selection billing uses), `MoveOutStatementService::depositHeld()` for the deposit, the invoices
+> for the AR. A summary with its own arithmetic is a second opinion, and the first thing anyone
+> notices is that it disagrees with the tab underneath it.
+>
+> **One deliberate departure from `pickInForce()`**: it falls back to the latest active row when
+> nothing covers the date, which is right for a rent roll (a pre-schedule lease with one open-ended
+> row must not read as "no rent") and wrong here — this card answers *what is billing TODAY*, and a
+> lease that has not commenced is billing nothing. The lease's own commencement is the gate, which
+> is the same fact `isBillableForPeriod()` refuses on.
+>
+> A **header widget, not a separate View page**, though the story specified one: the lease page
+> already IS the record hub, and a second surface showing the same facts is one that drifts from it —
+> the same reasoning that put the actions in a single registry. Page-scoped and registered in
+> `DashboardLayout::NOT_ON_DASHBOARD`, because a widget nobody classified once published a
+> property's whole receivables ledger to every role on the panel. Pinned by `LeaseSummaryTest`.
+
 > **⚠️ Extending a term is an ACT now, not a typed date (2026-08-17).** `expiry_date` and
 > `term_months` were free text on the form, so a further term happened by typing a date: no reason,
 > no actor, no event, and nothing downstream able to tell an extension from a correction.
