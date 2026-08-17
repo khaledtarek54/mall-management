@@ -8,7 +8,6 @@ use Closure;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * The Select every picker that chooses a RECORD is built from.
@@ -256,18 +255,17 @@ class EntitySelect extends Select
         $this->applyingEntityWiring = true;
 
         try {
-            self::applyTo(
-                $this,
-                $this->entityModel,
-                $this->modifyOptionsQueryUsing,
-                $this->decorateOptionUsing,
-                $this->extraOptionRelations,
+            self::applyTo($this, new EntityPicker(
+                model: $this->entityModel,
+                modifyQuery: $this->modifyOptionsQueryUsing,
+                decorate: $this->decorateOptionUsing,
+                relations: $this->extraOptionRelations,
                 // First time: take the registry's answer. Every re-application: keep what the component
                 // holds now, which is either that answer or a `->preload()` the call site added since.
-                $this->entityWiringApplied ? $this->isPreloaded() : null,
-                $this->spansProperties,
-                $this->suggestUsing,
-            );
+                preload: $this->entityWiringApplied ? $this->isPreloaded() : null,
+                spansProperties: $this->spansProperties,
+                suggest: $this->suggestUsing,
+            ));
         } finally {
             $this->applyingEntityWiring = false;
         }
@@ -291,40 +289,18 @@ class EntitySelect extends Select
      * is a class-load error — i.e. every page in the panel goes down, not just the ones with a
      * picker. (`render()` is the same trap one method below.)
      *
-     * @param  class-string<Model>  $model
+     * Takes an `EntityPicker` rather than a parameter list. That list had reached eight — three of
+     * them added in one day — and `applyTo($this, $model, null, null, [], null, false, $suggest)`
+     * says nothing about what it configures. The options each earned their place; the signature did
+     * not.
      */
-    public static function applyTo(
-        Select $select,
-        string $model,
-        ?Closure $modifyOptionsQuery = null,
-        ?Closure $decorateOption = null,
-        array $extraRelations = [],
-        ?bool $preload = null,
-        bool $spansProperties = false,
-        ?Closure $suggest = null,
-    ): Select {
-        $modifier = ($modifyOptionsQuery === null && $extraRelations === [])
-            ? null
-            : function (Builder $query) use ($select, $modifyOptionsQuery, $extraRelations): ?Builder {
-                if ($extraRelations !== []) {
-                    $query->with($extraRelations);
-                }
+    public static function applyTo(Select $select, EntityPicker $picker): Select
+    {
+        $model = $picker->model;
+        $suggest = $picker->suggest;
+        $modifier = $picker->queryModifier($select);
 
-                return $modifyOptionsQuery
-                    // BOTH injections. Filament's `evaluate()` matches an untyped parameter by NAME,
-                    // so `fn ($q) => …` would receive null and the callback would fatal on a null
-                    // builder — a runtime error on one dropdown, in one form, that no static check
-                    // sees. The typed injection makes `fn (Builder $q)` work regardless of what the
-                    // author called it.
-                    ? $select->evaluate(
-                        $modifyOptionsQuery,
-                        ['query' => $query],
-                        [Builder::class => $query, QueryBuilder::class => $query->getQuery()],
-                    )
-                    : $query;
-            };
-
-        $decorate = $decorateOption === null
+        $decorate = $picker->decorate === null
             ? null
             // The option's model is injected BY TYPE only, never by the name `record`. Filament's
             // `evaluate()` resolves a named injection before a typed one, so naming it `record`
@@ -332,12 +308,12 @@ class EntitySelect extends Select
             // wants both (the Unit being offered AND the Lease being edited). By type they coexist:
             // `fn (RecordOption $option, Unit $unit, ?Lease $record)` gets all three.
             : fn (RecordOption $option, Model $model): RecordOption => $select->evaluate(
-                $decorateOption,
+                $picker->decorate,
                 ['option' => $option],
                 [Model::class => $model, $model::class => $model],
             ) ?? $option;
 
-        $preloads = $preload ?? OptionDisplay::shouldPreload($model);
+        $preloads = $picker->preloads();
 
         $select
             ->allowHtml()
@@ -366,7 +342,7 @@ class EntitySelect extends Select
                 search: $search,
                 modifyQuery: $modifier,
                 limit: $select->getOptionsLimit(),
-                scoped: ! $spansProperties,
+                scoped: $picker->isScoped(),
             ), $decorate),
         );
 
@@ -384,12 +360,12 @@ class EntitySelect extends Select
             $select
                 ->preload()
                 ->noOptionsMessage(fn (): string => OptionDisplay::searchPrompt($model))
-                ->options(function () use ($select, $model, $modifier, $decorate, $suggest, $spansProperties): array {
+                ->options(function () use ($select, $model, $modifier, $decorate, $suggest, $picker): array {
                     // Resolved BEFORE handing anything to OptionDisplay: `pickable()` reads a null
                     // return from a modifier as "no narrowing" and falls back to the whole scoped
                     // table — the exact opposite of "nothing worth suggesting". So the null case is
                     // answered here, with an empty list.
-                    $base = OptionDisplay::pickable($model, $modifier, scoped: ! $spansProperties);
+                    $base = OptionDisplay::pickable($model, $modifier, scoped: $picker->isScoped());
                     $narrowed = $select->evaluate($suggest, ['query' => $base], [Builder::class => $base]);
 
                     if (! $narrowed instanceof Builder) {
@@ -406,7 +382,7 @@ class EntitySelect extends Select
                 });
         } elseif ($preloads) {
             $select->options(fn (): array => self::toLabels(
-                OptionDisplay::options($model, $modifier, scoped: ! $spansProperties),
+                OptionDisplay::options($model, $modifier, scoped: $picker->isScoped()),
                 $decorate,
             ));
         } else {
@@ -415,14 +391,14 @@ class EntitySelect extends Select
 
         $select->getOptionLabelUsing(
             fn ($value): ?string => self::toLabel(
-                OptionDisplay::labels($model, [$value], $modifier, scoped: ! $spansProperties),
+                OptionDisplay::labels($model, [$value], $modifier, scoped: $picker->isScoped()),
                 $decorate,
             ),
         );
 
         $select->getOptionLabelsUsing(
             fn (array $values): array => self::toLabels(
-                OptionDisplay::labels($model, $values, $modifier, scoped: ! $spansProperties),
+                OptionDisplay::labels($model, $values, $modifier, scoped: $picker->isScoped()),
                 $decorate,
             ),
         );

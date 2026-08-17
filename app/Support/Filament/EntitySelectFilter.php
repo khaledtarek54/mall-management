@@ -106,6 +106,9 @@ class EntitySelectFilter extends SelectFilter
             return $field;
         }
 
-        return EntitySelect::applyTo($field, $this->entityModel, $this->modifyOptionsQueryUsing);
+        return EntitySelect::applyTo($field, new EntityPicker(
+            model: $this->entityModel,
+            modifyQuery: $this->modifyOptionsQueryUsing,
+        ));
     }
 }
