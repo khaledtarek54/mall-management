@@ -70,11 +70,13 @@ the terms defined in the lease")*.
 | Fixed / stated denominator | whoever the lease says; certainty for the tenant |
 | Adjusted (e.g. excluding anchors) | anchors carved out, in-line tenants share the rest |
 
-**Atriom is hard-coded to occupied area** — `sqm ÷ Σ active-lease sqm`
-([`CamReconciliationService.php:76`](../../../app/Services/CamReconciliationService.php#L76)) — so
-the landlord can never elect to absorb vacancy. In a mall at 80% occupancy that silently transfers
-20% of CAM onto the tenants who stayed. It may well be what Eltizam's leases say; it must not be an
-accident of the code.
+~~**Atriom is hard-coded to occupied area**~~ — **SHIPPED (RC-03).** `cam_expense_pools.denominator_basis`
+offers `occupied` (the default, and the legacy behaviour) · `gla` · `fixed` with
+`denominator_fixed_sqm`, resolved in `CamReconciliationService::resolveDenominator()`. A zone-scoped
+pool on a `gla` basis divides by the ZONE's leasable area, not the centre's. The landlord can now
+elect to absorb vacancy, and the choice is a pool field rather than an accident of the code.
+Yardi's *adjusted* denominator (carve an anchor out of the denominator while it still participates)
+has no direct equivalent — `participant_scope = area` expresses the zone case, not the carve-out.
 
 ## A4. Gross-up
 
@@ -85,13 +87,42 @@ restates *variable* expenses to what they would have been at an assumed occupanc
 then allocates on the same assumption. Fixed expenses are not grossed up — hence the per-account
 classification in A2.
 
-Atriom has no gross-up — **but the inputs already exist**, which makes this cheaper than it looks.
-`Asset` carries declared `total_area_sqm` and `leasable_area_sqm`, plus `totalUnitAreaSqm()` and
-`occupiedAreaSqm()` summed bottom-up from the units ([`Asset.php:262-280`](../../../app/Models/Asset.php#L262)),
-and `areaOccupancyRate()` is already the area-weighted occupancy a gross-up needs. **What is
-missing is that `CamReconciliationService` never looks at any of them** — it builds its own
-denominator from active leases. Gross-up and the configurable denominator (RC-03/RC-04) are wiring
-existing numbers into the recovery calculation, not producing new ones.
+~~Atriom has no gross-up~~ — **SHIPPED (RC-04).** `gross_up_pct` restates the VARIABLE share of the
+pool to an assumed occupancy; `variableShare()` reads the per-account `cost_nature` when the pool is
+ledger-synced and falls back to a stated percentage otherwise. Occupancy is measured as the
+participants' area over the denominator actually used — the same two numbers the shares divide, so
+the gross-up cannot disagree with the apportionment it feeds. **Refused on an `occupied`
+denominator**, where the shares already sum to 100% and grossing up would recover more than the
+pool.
+
+## A4b. Occupancy proration within the recovery year — **OPEN DEVIATION**
+
+Yardi computes a tenant's recovery on the days they occupied **within the recovery period**: a lease
+commencing 1 October carries roughly a quarter of a full-year share.
+
+Atriom weights the area basis by the **`lease_unit` pivot window** — which is dated only when an
+expansion or contraction is recorded, and is null on an ordinary lease. `totalAreaSqmForPeriod()`
+then clamps to the whole period, so **a lease that commenced mid-year takes a FULL year's share.**
+
+Measured on a 2026 pool of 500,000 with participants of 200 m² + 120 m², adding a 100 m² lease
+commencing **1 October**:
+
+| | share | cost |
+|---|---|---|
+| what Atriom produces | 23.81% | 119,048 |
+| prorated (3 of 12 months) | ~7.25% | ~36,232 |
+
+It over-recovers from the arriving tenant and under-charges the sitting ones, because the
+denominator also counts the newcomer's full area. The mechanism is half-wired rather than absent:
+the same function already day-weights a unit that was ADDED mid-year. The fix is to intersect the
+held window with the lease's own commencement/expiry, not only the pivot dates — numerator and
+denominator both narrow, so an `occupied` pool still sums to 100% and a `gla` pool correctly leaves
+the empty months with the landlord.
+
+The mirror case is the same defect: a lease that TERMINATES mid-year is excluded from the pool
+altogether (only active leases are allocation targets), so the months it did occupy are recovered
+from nobody. `MoveOutStatementService` already flags an unreconciled CAM year as a known-unknown at
+settlement, which is the right hook for it.
 
 ## A5. Caps, base years and expense stops
 
@@ -106,8 +137,10 @@ existing numbers into the recovery calculation, not producing new ones.
 `base_year_amount`, `yoy_pct`, `compounding`, effective-dated per year, with the tighter ceiling
 winning when both apply ([`LeaseCamTerm.php`](../../../app/Models/LeaseCamTerm.php)). The unrecovered
 difference is explicitly absorbed by the landlord (`cap_absorbed`) rather than silently
-redistributed — which is correct. **Missing:** controllable-only cap scoping (the cap applies to the
-whole share), and cumulative/unused-headroom carry-forward.
+redistributed — which is correct. ~~**Missing:** controllable-only cap scoping … and
+cumulative/unused-headroom carry-forward.~~ **Both SHIPPED**: `LeaseCamTerm::cap_scope`
+(`total` / `controllable`, with the pool's `controllable_pct` or its ledger-derived share setting
+the carve-out) and `cap_carry_forward` for banked headroom.
 
 ## A6. Admin / management fee
 
