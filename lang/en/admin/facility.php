@@ -139,7 +139,7 @@ return [
             'basis_hint' => 'What this vendor owes when a corrective job misses its SLA. The FRD does not fix this — agree it in the contract.',
             'rate' => 'Penalty rate',
             'rate_hint' => 'EGP for a flat fee, EGP per day late, or a percentage of the job value — depending on the basis.',
-            'statuses' => ['pending' => 'Accruing', 'final' => 'Chargeable', 'waived' => 'Waived'],
+            'statuses' => ['pending' => 'Accruing', 'final' => 'Chargeable', 'applied' => 'Charged to a bill', 'waived' => 'Waived'],
             'waive' => 'Waive penalty',
             'waive_hint' => 'Do not charge this. Recorded with your reason; the hourly scan will not revive it.',
             'waive_reason' => 'Reason',

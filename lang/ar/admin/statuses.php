@@ -38,6 +38,7 @@ return [
             'disputed' => 'متنازع عليها',
             'cancelled' => 'ملغية',
             'credited' => 'مدفوعة بإشعار دائن',
+            'written_off' => 'مُعدَمة',
         ],
         'payment' => [
             'initiated' => 'بدأت',

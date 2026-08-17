@@ -38,6 +38,7 @@ return [
             'disputed' => 'Disputed',
             'cancelled' => 'Cancelled',
             'credited' => 'Credited',
+            'written_off' => 'Written off',
         ],
         'payment' => [
             'initiated' => 'Initiated',
