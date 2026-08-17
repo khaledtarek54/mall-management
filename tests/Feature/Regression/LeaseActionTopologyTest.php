@@ -21,6 +21,7 @@
 use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Filament\Admin\Resources\Leases\Tables\LeasesTable;
+use App\Models\Lease;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 
@@ -72,3 +73,37 @@ it('keeps every registry entry a real, named action', function () {
             ->and($action->getName())->not->toBeEmpty();
     }
 });
+
+/*
+|--------------------------------------------------------------------------
+| Opening the modal (2026-08-17)
+|--------------------------------------------------------------------------
+| Every test above reads the SHAPE of the registry — names, groups, which file mentions what. None
+| of them ever ran an action's closures, and that is where the bug was: `renew` called
+| `app(ExerciseLeaseOptionService::class)` with no `use` statement, so the name resolved against
+| this file's own namespace and the container was asked for
+| `App\Filament\Admin\Actions\ExerciseLeaseOptionService`. Clicking Renew on any lease 500'd while
+| this file stayed green, because `fillForm()` only runs when an operator opens the modal.
+|
+| `mount()` is the seam Filament actually calls on open (Concerns\CanBeMounted::mount), so driving
+| it here is driving the operator's path. `UnresolvedClassReferenceConformanceTest` gates the
+| general property — that no file names a class it never imported — and this pins the specific one:
+| a lease's modals open.
+*/
+it('opens every action modal on a real lease', function () {
+    $lease = Lease::factory()->create();
+
+    foreach (LeaseActions::all() as $action) {
+        $action->record($lease);
+
+        // `fillForm()` is stored as the mount callback, so this evaluates it — the exact frame that
+        // threw (CanBeMounted.php:34 → LeaseActions.php:87). A null schema is what an action with no
+        // form gets, and `$schema?->fill()` handles it, so the closure still runs either way.
+        $action->mount(['schema' => null]);
+
+        // The other closure an operator triggers on open, and the other site that named the missing
+        // service (LeaseActions.php:70).
+        $action->getModalDescription();
+        $action->getModalHeading();
+    }
+})->throwsNoExceptions();

@@ -8,6 +8,7 @@ use App\Models\RentableItem;
 use App\Models\Unit;
 use App\Services\AssignRentableItemService;
 use App\Services\ConvertLeaseToHoldoverService;
+use App\Services\ExerciseLeaseOptionService;
 use App\Services\LeaseExtensionService;
 use App\Services\LeaseReliefService;
 use App\Services\LeaseRenewalService;
@@ -31,6 +32,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\Facades\DB;
 
 /**
  * **Everything you can DO to a lease, defined once.**
