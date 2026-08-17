@@ -130,6 +130,10 @@ class CheckIntegrationsCommand extends Command
                 '[mailersend] Key authenticated. Quota %s/%s remaining (resets %s). from=%s',
                 $response->json('remaining'), $response->json('quota'), $response->json('reset'), $from
             ));
+
+            if (! $this->probeSendPermission($key)) {
+                return false;
+            }
         } catch (Throwable $e) {
             $this->status(false, '[mailersend] '.$e->getMessage());
 
@@ -141,6 +145,51 @@ class CheckIntegrationsCommand extends Command
         }
 
         return $ok;
+    }
+
+    /**
+     * Prove the token may SEND, not merely that it authenticates.
+     *
+     * `/api-quota` answers 200 for any valid token regardless of its scopes, so
+     * a token created without the Email permission passed this check while every
+     * notification in the app failed with `403 Forbidden` — a green "Outbound
+     * email" row over an inbox that could never receive anything (found 2026-08-17,
+     * after a payment receipt failed to send on a box this command called healthy).
+     *
+     * MailerSend has no dry-run, so the probe is a deliberately EMPTY payload and
+     * the answer is read from WHICH refusal comes back: a token that may send is
+     * stopped by validation (422), one that may not is stopped by authorization
+     * (403). Nothing is delivered on either branch and the quota is untouched.
+     *
+     * Anything else passes with a note rather than failing — an unrecognised
+     * status means the probe has stopped being able to tell, and a check that
+     * cannot tell must not claim either answer.
+     */
+    private function probeSendPermission(string $key): bool
+    {
+        $probe = Http::withToken($key)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->timeout(10)
+            ->withBody('{}', 'application/json')
+            ->post('https://'.config('mailersend-driver.host', 'api.mailersend.com').'/'.config('mailersend-driver.api_path', 'v1').'/email');
+
+        if ($probe->status() === 403) {
+            $this->status(false, '[mailersend] The token authenticates but is NOT permitted to send: '
+                .trim((string) $probe->json('message', 'This action is unauthorized.'))
+                // ASCII on purpose: the console formatter eats "→" here, and an
+                // instruction with the arrow missing reads as two unrelated words.
+                .' Give the token "Email: Full access" in the MailerSend dashboard'
+                .' (Integrations > API tokens), or issue a new token.');
+
+            return false;
+        }
+
+        if ($probe->status() !== 422) {
+            $this->line("  <fg=yellow>! [mailersend] Send-permission probe returned {$probe->status()}, which it does not "
+                .'recognise — treating as inconclusive. Confirm with `php artisan mail:test <you@example.com>`.</>');
+        }
+
+        return true;
     }
 
     private function status(bool $ok, string $message): void
