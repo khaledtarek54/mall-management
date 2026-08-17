@@ -10,6 +10,7 @@ use App\Models\TenantRequest;
 use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Support\ActivityLogChangeRenderer;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
@@ -496,3 +498,75 @@ function filamentSources(): array
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Paymob callback helpers
+|--------------------------------------------------------------------------
+| Shared rather than file-scope: they were declared inside CallbackControllerTest, and Pest
+| parallelises per FILE — a worker that owns a different Paymob test file would not have loaded
+| them, and the run dies during collection with no output at all. `tests/Pest.php` is loaded by
+| every worker, which is what makes it the home for a helper more than one file needs.
+*/
+/**
+ * Spin up an 'initiated' Paymob payment for the test invoice the same way
+ * the Pay Now action would, then return the Payment model + the Paymob
+ * order_id used as its session anchor.
+ */
+function seedInitiatedPayment(Invoice $invoice, int $orderId = 8888): Payment
+{
+    Http::fake([
+        'sandbox.paymob.test/api/auth/tokens' => Http::response(['token' => 'BEARER']),
+        'sandbox.paymob.test/api/ecommerce/orders' => Http::response(['id' => $orderId]),
+        'sandbox.paymob.test/api/acceptance/payment_keys' => Http::response(['token' => 'PAY-KEY']),
+    ]);
+
+    app(PaymobPaymentInitiator::class)->start($invoice);
+
+    return Payment::where('gateway_transaction_id', "paymob:order:{$orderId}")->firstOrFail();
+}
+
+function paymobCallbackPayload(int $orderId, int $txnId, bool $success = true): array
+{
+    return [
+        'obj' => [
+            'amount_cents' => 120000,
+            'created_at' => '2026-06-01T10:00:00.000000Z',
+            'currency' => 'EGP',
+            'error_occured' => false,
+            'has_parent_transaction' => false,
+            'id' => $txnId,
+            'integration_id' => 123456,
+            'is_3d_secure' => true,
+            'is_auth' => false,
+            'is_capture' => true,
+            'is_refunded' => false,
+            'is_standalone_payment' => false,
+            'is_voided' => false,
+            'order' => ['id' => $orderId],
+            'owner' => 5,
+            'pending' => false,
+            'source_data' => ['pan' => '****', 'sub_type' => 'MasterCard', 'type' => 'card'],
+            'success' => $success,
+        ],
+    ];
+}
+
+function signPaymobPayload(array $payload, string $secret = 'TEST-HMAC-SECRET'): string
+{
+    $obj = $payload['obj'];
+    $boolStr = fn ($v) => $v ? 'true' : 'false';
+    $fields = [
+        $obj['amount_cents'], $obj['created_at'], $obj['currency'],
+        $boolStr($obj['error_occured']), $boolStr($obj['has_parent_transaction']),
+        $obj['id'], $obj['integration_id'],
+        $boolStr($obj['is_3d_secure']), $boolStr($obj['is_auth']),
+        $boolStr($obj['is_capture']), $boolStr($obj['is_refunded']),
+        $boolStr($obj['is_standalone_payment']), $boolStr($obj['is_voided']),
+        $obj['order']['id'], $obj['owner'], $boolStr($obj['pending']),
+        $obj['source_data']['pan'], $obj['source_data']['sub_type'], $obj['source_data']['type'],
+        $boolStr($obj['success']),
+    ];
+
+    return hash_hmac('sha512', implode('', $fields), $secret);
+}

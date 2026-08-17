@@ -191,12 +191,18 @@ it('settles the invoice exactly once when the same success callback is replayed'
         ->assertOk()
         ->assertJson(['status' => 'captured']);
 
-    // Second, identical delivery: the gateway_transaction_id was promoted to
-    // the txn:order form on capture, so the bare-order lookup misses → the
-    // controller acks 200 without re-touching anything.
+    // Second, identical delivery: the controller FINDS the payment, sees it is already captured,
+    // and declines to touch it.
+    //
+    // This used to assert `unknown_order`, and the comment described why as though it were the
+    // design: capture promoted `gateway_transaction_id` from `paymob:order:{id}` to
+    // `paymob:txn:{txn}:order:{id}`, so the lookup missed. Idempotency held by ACCIDENT — the
+    // controller never reached its own decision. The same miss discarded a successful retry after a
+    // decline, which was real money (2026-08-17, see PaymobRetryAfterDeclineTest). The property this
+    // test is named for is unchanged; what it now proves is that the controller decides it.
     scnPostCallback($payload)
         ->assertOk()
-        ->assertJson(['ok' => true, 'skipped' => 'unknown_order']);
+        ->assertJson(['ok' => true, 'skipped' => 'already_processed']);
 
     // Captured exactly once.
     expect(Payment::where('gateway', 'paymob')->where('status', 'captured')->count())->toBe(1);

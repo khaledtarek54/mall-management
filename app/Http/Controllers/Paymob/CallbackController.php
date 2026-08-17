@@ -59,35 +59,87 @@ class CallbackController
             return response()->json(['ok' => false, 'error' => 'missing_order_id'], 422);
         }
 
+        // Match on the ORDER, which never changes, and not on the exact string this controller is
+        // about to overwrite. `gateway_transaction_id` starts life as `paymob:order:{id}` and the
+        // first callback promotes it to `paymob:txn:{txn}:order:{id}` — so every LATER callback for
+        // the same order looked up a key that no longer existed and was filed as "unknown order".
+        //
+        // A Paymob order carries MANY transactions: a shopper whose card is declined and who presses
+        // "try again" on the same hosted page produces a second transaction under the same order. If
+        // that retry succeeds, the money is taken and this controller was dropping the news of it.
+        // Observed on 2026-08-17 — order 589424727, declined as txn 229844534, then txn 803955240
+        // one minute later, unmatched and discarded with no record of whether it had succeeded.
+        //
+        // The suffix match keeps rows that were ALREADY promoted reachable, so this repairs history
+        // rather than only new sessions. `$orderId` is an int, so the LIKE takes no operator input,
+        // and the pattern is anchored at the end — `%:order:12` cannot match `…:order:123`.
         $payment = Payment::where('gateway', 'paymob')
-            ->where('gateway_transaction_id', PaymobPaymentInitiator::orderRef($orderId))
+            ->where(fn ($q) => $q
+                ->where('gateway_transaction_id', PaymobPaymentInitiator::orderRef($orderId))
+                ->orWhere('gateway_transaction_id', 'like', '%:order:'.$orderId))
             ->first();
 
         if (! $payment) {
-            // Could be a duplicate retry after we've already promoted the
-            // gateway_transaction_id, or an unknown order. Either way we 200
-            // so Paymob doesn't retry indefinitely.
-            OpsLog::info('Paymob callback for unknown order — already processed?', [
+            // Genuinely unknown — most often an order from before a database reset, or a callback
+            // for a session this instance never created. We 200 so Paymob stops retrying.
+            //
+            // The OUTCOME is logged, not just the ids. A dropped failure is noise; a dropped SUCCESS
+            // is money taken with nowhere to put it, and until now the two were indistinguishable in
+            // the log — which is why the transaction above can no longer be adjudicated at all.
+            $success = (bool) data_get($obj, 'success', false);
+            $context = [
                 'order_id' => $orderId,
                 'txn_id' => $txnId,
-            ]);
+                'success' => $success,
+                'amount_cents' => (int) data_get($obj, 'amount_cents', 0),
+            ];
+
+            $success
+                ? OpsLog::warning('Paymob reported a SUCCESSFUL payment for an order we cannot match — money may have been taken', $context)
+                : OpsLog::info('Paymob callback for unknown order', $context);
 
             return response()->json(['ok' => true, 'skipped' => 'unknown_order']);
-        }
-
-        if (in_array($payment->status, ['captured', 'failed', 'refunded'], true)) {
-            return response()->json(['ok' => true, 'skipped' => 'already_processed']);
         }
 
         $success = (bool) data_get($obj, 'success', false);
         $voided = (bool) data_get($obj, 'is_voided', false);
         $isCapture = $success && ! $voided;
 
+        // Is this callback about the transaction we already recorded, or a different one?
+        $sameTxn = str_contains((string) $payment->gateway_transaction_id, ":txn:{$txnId}:");
+
+        // **A declined payment is not a closed one.** `failed` used to be terminal here, so even
+        // once the lookup above found the row, a shopper who was declined and retried successfully
+        // on the same Paymob page had their capture discarded as "already processed" — the money
+        // leaves their account and the invoice stays open.
+        //
+        // `captured` and `refunded` stay terminal, and deliberately: a late failure callback must
+        // never un-capture collected money, and a refund is an operator's decision that no gateway
+        // delivery may reverse.
+        $isRetryAfterDecline = $payment->status === 'failed' && $isCapture && ! $sameTxn;
+
+        if (! $isRetryAfterDecline && in_array($payment->status, ['captured', 'failed', 'refunded'], true)) {
+            // Skipping is right, but a SUCCESS we decline to record is worth a person's attention —
+            // a second successful transaction against an already-captured order is a double charge,
+            // and nothing else in the system would ever mention it.
+            if ($isCapture && ! $sameTxn) {
+                OpsLog::warning('Paymob reported a success for a payment already in a terminal state', [
+                    'payment_id' => $payment->id,
+                    'status' => $payment->status,
+                    'order_id' => $orderId,
+                    'txn_id' => $txnId,
+                    'amount_cents' => (int) data_get($obj, 'amount_cents', 0),
+                ]);
+            }
+
+            return response()->json(['ok' => true, 'skipped' => 'already_processed']);
+        }
+
         $alreadyProcessed = false;
 
         DB::transaction(function () use (&$payment, &$alreadyProcessed, $obj, $txnId, $orderId, $isCapture) {
             // Lock the row and re-read the status INSIDE the transaction. The check above is a fast
-            // path outside it, which makes this check-then-act: a gateway retry that overlaps a
+            // path outside it, which makes this check-then-act: a gateway delivery that overlaps a
             // still-running first delivery passes that check twice, and both callers proceed.
             //
             // Severity, stated honestly: this cannot double-collect. Both deliveries address the
@@ -97,7 +149,14 @@ class CallbackController
             // discipline every other check-then-act path here already follows.
             $locked = Payment::query()->lockForUpdate()->find($payment->getKey());
 
-            if (! $locked || in_array($locked->status, ['captured', 'failed', 'refunded'], true)) {
+            // Re-derived against the LOCKED row, not carried in from the pre-lock read — otherwise
+            // the retry allowance would be decided on a status that may have changed since.
+            $lockedIsRetry = $locked
+                && $locked->status === 'failed'
+                && $isCapture
+                && ! str_contains((string) $locked->gateway_transaction_id, ":txn:{$txnId}:");
+
+            if (! $locked || (! $lockedIsRetry && in_array($locked->status, ['captured', 'failed', 'refunded'], true))) {
                 $alreadyProcessed = true;
 
                 return;
@@ -113,7 +172,8 @@ class CallbackController
                 // collected, so accept the payment but clamp its allocation to what
                 // still fits — the excess stays unallocated (unearned), never
                 // over-allocating the invoice. Runs while status is still 'initiated'
-                // so this payment is excluded from the captured-allocation sum.
+                // so this payment is excluded from the captured-allocation sum. A retry after a
+                // decline is `failed` at this point, which is equally not a received status.
                 $payment->refitAllocationsToBalance();
             }
 
