@@ -57,14 +57,9 @@
 > annually means discovering a large receivable eleven months after it was earned, from a tenant who
 > may no longer be trading. Pinned by `PercentageRentBillingFrequencyTest`.
 >
-> **STILL OPEN — the third frequency.** Yardi also carries a *reporting* frequency (when the tenant
-> must declare). Atriom assumes monthly declarations throughout. Yardi carries three
-> separate settings (`docs/benchmarks/yardi/03`): *reporting* frequency (when the tenant declares),
-> *billing* frequency (when overage is charged — monthly, quarterly, or **annually in arrears**), and
-> the *calculation basis* (period vs cumulative). Atriom's `percentage_rent_frequency` is the basis
-> only, and billing is implicitly "on lock", i.e. monthly. A lease reading *"percentage rent payable
-> quarterly in arrears"* cannot be expressed. The benchmark calls this out in bold: *a system that
-> assumes they are the same cannot express the most common retail deal.*
+> **STILL OPEN — the third frequency.** Yardi carries a *reporting* frequency too: when the tenant
+> must declare. Atriom assumes monthly declarations everywhere, which is the standard, but a lease
+> that reports quarterly cannot say so.
 
 > **File-first submission (2026-07):** Tenants no longer type a sales figure. On both the mobile app and the web portal they **attach their sales report** (image/PDF). `declared_sales` is nullable and is **entered by staff** in the admin panel after reviewing the attachment, then Lock bills the percentage rent. The report file lives in the Spatie `sales_report` media collection on a **private** disk (it can carry commercial turnover figures) and is streamed only through authenticated, tenant-scoped endpoints.
 
