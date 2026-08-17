@@ -204,6 +204,37 @@ The corollary caught a real mismatch: the owner-request property picker was buil
 while `assertAssetInScope()` measured against `visibleAssetIds()`, so it **offered properties its own guard
 would 403**. Picker and guard now read the same source.
 
+### A picker reaches through relations — derived, not re-listed
+
+`HasSearchText`'s invariant is that a blob is a pure function of the row's OWN attributes, so a
+lease's blob holds `LSE-AW-2026-0001` and nothing else. Typing a tenant's name into the LEASE picker
+therefore found nothing — while typing it into the top search bar found the lease immediately,
+because `LeaseResource` declares `['search_text', 'tenant.search_text', 'unit.search_text']`.
+
+Two surfaces, one question, two answers. The resources were right; the pickers were the half that
+never read them. `OptionDisplay::searchRelations()` **derives** the paths from that declaration
+(17 resources already carry one), so a resource that adds a path tomorrow reaches its picker for
+free and the two can no longer disagree.
+
+Semantics match the rest of the system: **words AND, sources OR**. `cilantro a-04` narrows to the
+lease matching both — one word through the tenant's blob, one through the unit's.
+
+> **The hazard, and the test that must never be deleted.** Adding an OR to a scoped query is exactly
+> how a property leak gets written: `(scope AND ownBlob) OR relationBlob` binds AND-before-OR and the
+> OR branch escapes isolation. `PickersReachThroughRelationsTest` puts the SAME tenant in two
+> properties, so a leak is not hypothetical — the query that finds one finds the other unless the
+> grouping holds. Same trap already recorded for table search in `TableSearchTest`.
+
+### See narrow, find wide — `->suggest()`
+
+What you SEE when a picker opens and what you can FIND when you type are different questions, and
+collapsing them is a bug in both directions. Narrowing the options alone shows nothing (a
+search-only picker is empty until typed into). Narrowing the SEARCH refuses legitimate values —
+Filament rejects a value the picker cannot label.
+
+`EntitySelect::suggest()` narrows the browse list only. The tenant-request form opens on the
+reporting tenant's own units and still lets an operator type their way to the unit next door.
+
 ### The one exception: pickers that are ABOUT the portfolio
 
 `->acrossProperties()` drops the derived scope for a picker that is not filling in a record's own

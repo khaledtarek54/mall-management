@@ -87,6 +87,8 @@ class EntitySelect extends Select
 
     protected bool $spansProperties = false;
 
+    protected ?Closure $suggestUsing = null;
+
     /**
      * Re-entrancy guard.
      *
@@ -199,6 +201,34 @@ class EntitySelect extends Select
     }
 
     /**
+     * The likely answers, shown the moment the picker opens — without making the rest unreachable.
+     *
+     * The distinction this exists for is **what you SEE when you open** versus **what you can FIND
+     * when you type**, and collapsing the two is a real bug in both directions. Narrowing the
+     * options is not enough: a search-only picker shows nothing until a term is typed, so "the
+     * tenant's units" never appear. Narrowing the SEARCH is worse: the tenant-request form's own
+     * test is a complaint titled "Loud music next door" — a fault in a NEIGHBOURING unit — and a
+     * hard filter refuses it at validation, because a value the picker cannot label is a value
+     * Filament rejects.
+     *
+     * So: the callback narrows the browse list only. Search still reaches everything the property
+     * scope allows. Return `null` for "nothing worth suggesting" and the picker shows its search
+     * prompt rather than an empty list.
+     *
+     * ```php
+     * ->suggest(fn ($query, Get $get) => $get('tenant_id')
+     *     ? $query->whereHas('allLeases', fn ($l) => $l->where('leases.tenant_id', $get('tenant_id')))
+     *     : null)
+     * ```
+     */
+    public function suggest(?Closure $callback): static
+    {
+        $this->suggestUsing = $callback;
+
+        return $this->applyEntityBehaviour();
+    }
+
+    /**
      * Re-apply the entity wiring after Filament's own relationship setup has overwritten it.
      *
      * @see static::applyEntityBehaviour() for why this exists
@@ -236,6 +266,7 @@ class EntitySelect extends Select
                 // holds now, which is either that answer or a `->preload()` the call site added since.
                 $this->entityWiringApplied ? $this->isPreloaded() : null,
                 $this->spansProperties,
+                $this->suggestUsing,
             );
         } finally {
             $this->applyingEntityWiring = false;
@@ -270,6 +301,7 @@ class EntitySelect extends Select
         array $extraRelations = [],
         ?bool $preload = null,
         bool $spansProperties = false,
+        ?Closure $suggest = null,
     ): Select {
         $modifier = ($modifyOptionsQuery === null && $extraRelations === [])
             ? null
@@ -344,12 +376,42 @@ class EntitySelect extends Select
         // "No options available." — on a picker whose entire job is to be typed into. A static
         // empty list instead shows the search prompt, which is the sentence that tells them what
         // they may type. (Found by opening one in a browser; no test would have said a word.)
-        $preloads
-            ? $select->options(fn (): array => self::toLabels(
+        // A suggest callback puts the picker in browse mode: the options closure runs, narrowed to
+        // whatever it returns, while SEARCH stays on `$modifier` alone and still reaches the rest.
+        // `noOptionsMessage` becomes the search prompt, because "nothing to suggest yet" is an
+        // invitation to type, not a report that the table is empty.
+        if ($suggest !== null) {
+            $select
+                ->preload()
+                ->noOptionsMessage(fn (): string => OptionDisplay::searchPrompt($model))
+                ->options(function () use ($select, $model, $modifier, $decorate, $suggest, $spansProperties): array {
+                    // Resolved BEFORE handing anything to OptionDisplay: `pickable()` reads a null
+                    // return from a modifier as "no narrowing" and falls back to the whole scoped
+                    // table — the exact opposite of "nothing worth suggesting". So the null case is
+                    // answered here, with an empty list.
+                    $base = OptionDisplay::pickable($model, $modifier, scoped: ! $spansProperties);
+                    $narrowed = $select->evaluate($suggest, ['query' => $base], [Builder::class => $base]);
+
+                    if (! $narrowed instanceof Builder) {
+                        return [];
+                    }
+
+                    return self::toLabels(
+                        $narrowed->limit(OptionDisplay::LIMIT)->get()
+                            ->mapWithKeys(fn (Model $record): array => [
+                                $record->getKey() => [OptionDisplay::for($record), $record],
+                            ])->all(),
+                        $decorate,
+                    );
+                });
+        } elseif ($preloads) {
+            $select->options(fn (): array => self::toLabels(
                 OptionDisplay::options($model, $modifier, scoped: ! $spansProperties),
                 $decorate,
-            ))
-            : $select->options([]);
+            ));
+        } else {
+            $select->options([]);
+        }
 
         $select->getOptionLabelUsing(
             fn ($value): ?string => self::toLabel(

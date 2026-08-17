@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'invoice_tenant_derived' => 'Comes from the lease — change the lease to change who is billed.',
         'extend_term_current' => 'Currently runs to :date. The further term begins the day after.',
         'expiry_date_locked' => 'Locked — this lease has been invoiced. Use “Extend term”, or Terminate to end it early.',
         'additional_units_locked' => 'Use “Change premises” to add or give back space — it keeps the months already occupied.',

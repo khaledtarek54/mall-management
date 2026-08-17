@@ -64,6 +64,10 @@ class TenantRequestForm
                         EntitySelect::make('tenant_id')
                             ->label(__('admin.resources.tenant.singular'))
                             ->entity(Tenant::class)
+                            // Changing the tenant must clear a unit that is now someone else's —
+                            // leaving it set would submit a stale value the narrowed picker no
+                            // longer offers, and the operator would never see it happen.
+                            ->afterStateUpdated(fn (Set $set) => $set('unit_id', null))
                             // Resolve a stored tenant who now leases only in another property (excluded
                             // from the scoped options) so edit shows the name, not the raw id.
                             ->getOptionLabelUsing(fn ($value): ?string => Tenant::find($value)?->name)
@@ -94,6 +98,31 @@ class TenantRequestForm
                         EntitySelect::make('unit_id')
                             ->label(__('admin.fields.unit_label'))
                             ->entity(Unit::class)
+                            // SUGGESTED, not restricted. Once a tenant is chosen their own units
+                            // are what the picker opens on — the property's other two hundred were
+                            // noise the operator had to read past, and the portal's version of this
+                            // form has always narrowed while the admin one never did.
+                            //
+                            // It is a suggestion rather than a filter because a request is not
+                            // always about the reporter's own space: this form's own regression test
+                            // is a complaint titled "Loud music next door". Typing still reaches
+                            // every unit in the property.
+                            //
+                            // `allLeases` — the `lease_unit` PIVOT — not `leases`, which is a
+                            // hasMany on the denormalized `leases.unit_id` and finds only leases
+                            // where the unit is the MASTER. A retailer's additional units would be
+                            // missing, and they could not report a fault in half their own space.
+                            // (CLAUDE.md names this exact trap.)
+                            //
+                            // `null` when no tenant is chosen — a walk-in caller, which is what
+                            // `caller_name` exists for — so the picker shows its search prompt
+                            // instead of preloading the whole property.
+                            ->suggest(fn ($query, Get $get) => $get('tenant_id')
+                                ? $query->whereHas(
+                                    'allLeases',
+                                    fn ($lease) => $lease->where('leases.tenant_id', $get('tenant_id')),
+                                )
+                                : null)
                             ->required(),
                         Select::make('priority')
                             ->label(__('admin.fields.priority'))

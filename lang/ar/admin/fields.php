@@ -40,6 +40,7 @@ return [
         'cheque_date' => 'تاريخ الشيك',
         'code' => 'الكود',
         'tenant_code' => 'كود المستأجر',
+        'billed_to' => 'المدين',
         'vendor_code' => 'كود المورّد',
         'code_auto' => 'يُخصَّص عند الحفظ',
         'completed_at' => 'وقت الإنجاز',

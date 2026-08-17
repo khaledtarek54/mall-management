@@ -198,6 +198,23 @@ On `create()`, the service calls `defaultTargetResolution($priority)` to compute
 - Candidates: `status='resolved' && resolved_at ≤ now() - {days}`.
 - Closed via console command `maintenance:auto-close` (not automatic).
 
+### The unit picker SUGGESTS the tenant's own space, it does not restrict it
+
+Choosing a tenant makes the unit picker open on **that tenant's units** — through `allLeases`, the
+`lease_unit` pivot, not `leases` (a hasMany on the denormalized `leases.unit_id`, which finds only
+leases where the unit is the MASTER and would hide a retailer's additional space). Before
+2026-08-17 the admin form offered every unit in the property while the **portal** version had always
+narrowed, so the two intake paths disagreed.
+
+It is a **suggestion**, not a filter, and the distinction is load-bearing: a request is not always
+about the reporter's own space. This module's own regression test is a complaint titled *"Loud music
+next door"*. A hard filter refuses it at validation — a value the picker cannot label is a value
+Filament rejects — so typing still reaches every unit in the property.
+
+The mechanism is `EntitySelect::suggest()`: it narrows what you SEE on open and leaves what you can
+FIND by typing alone. Returning `null` (no tenant chosen — a walk-in caller, which is what
+`caller_name` exists for) shows the search prompt rather than preloading the whole property.
+
 ## 4. Lifecycle / state machine
 
 **Status enum** (MaintenanceRequest::STATUSES):

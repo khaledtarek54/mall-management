@@ -41,6 +41,7 @@ return [
         'cheque_date' => 'Cheque date',
         'code' => 'Code',
         'tenant_code' => 'Tenant code',
+        'billed_to' => 'Billed to',
         'vendor_code' => 'Supplier code',
         'code_auto' => 'Allocated on save',
         'completed_at' => 'Completed at',

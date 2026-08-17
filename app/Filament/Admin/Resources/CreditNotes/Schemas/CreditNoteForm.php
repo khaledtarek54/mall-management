@@ -117,7 +117,15 @@ class CreditNoteForm
                         EntitySelect::make('lease_id')
                             ->label(__('admin.fields.lease'))
                             ->disabled($locked)
-                            ->entity(Lease::class),
+                            ->entity(Lease::class)
+                            // Follows the tenant chosen above, like the invoice picker beside it.
+                            // Crediting is always about one tenant's document; offering the other
+                            // leases in the property invites the mismatch the invoice form has now
+                            // been closed against.
+                            ->modifyOptionsQuery(fn ($query, Get $get) => $query->when(
+                                $get('tenant_id'),
+                                fn ($q, $tenantId) => $q->where('tenant_id', $tenantId),
+                            )),
 
                         Select::make('reason')
                             ->label(__('admin.fields.credit_note_reason'))

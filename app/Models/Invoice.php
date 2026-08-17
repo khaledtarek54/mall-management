@@ -138,6 +138,47 @@ class Invoice extends Model
     }
 
     /**
+     * The debtor is the AGREEMENT's counterparty — an invoice may not name a different one.
+     *
+     * `tenant_id` is not an independent fact about an invoice. A lease has exactly one tenant and
+     * an ownership exactly one owner, so the debtor is derivable, and a document naming someone
+     * else is not an unusual invoice — it is a wrong one. It bills a party who never agreed to the
+     * charge, ages into THEIR AR, and posts to the GL under their name against another party's
+     * space.
+     *
+     * Nothing refused it before. The invoice form offered a free tenant picker beside the lease
+     * picker, so raising `INV-…` against Cilantro's lease and billing Zara was two clicks and no
+     * warning — demonstrated on the real database before this guard was written. Existing data was
+     * clean (0 of 8), which is why it could be closed rather than migrated around.
+     *
+     * At the model, not the form: a crafted Livewire request, an importer and five invoice-raising
+     * services all reach the same column, and the form is one caller.
+     *
+     * `withTrashed()` on both lookups — a soft-deleted tenant still owes what they owed, and an
+     * invoice must stay editable (void, credit) after the counterparty is deactivated.
+     *
+     * @throws \DomainException
+     */
+    public function assertTenantMatchesAgreement(): void
+    {
+        if ($this->tenant_id === null) {
+            return; // `assertBelongsToExactlyOneAgreement()` owns the "attached to nothing" case.
+        }
+
+        $expected = $this->lease_id !== null
+            ? Lease::withTrashed()->whereKey($this->lease_id)->value('tenant_id')
+            : UnitOwnership::withTrashed()->whereKey($this->unit_ownership_id)->value('tenant_id');
+
+        // A missing agreement row is not this rule's business — the FK and the agreement guard
+        // both speak to that, and inventing a refusal here would mask them.
+        if ($expected === null || (int) $expected === (int) $this->tenant_id) {
+            return;
+        }
+
+        throw new \DomainException(__('admin.errors.invoice_tenant_not_agreement_party'));
+    }
+
+    /**
      * The unit ownership this assessment was raised against — null for a lease invoice.
      *
      * @return BelongsTo<UnitOwnership, $this>
@@ -404,6 +445,7 @@ class Invoice extends Model
             // is the silent one: an invoice attached to nothing still ages and still duns, but no
             // screen that starts from an agreement will ever show it.
             $invoice->assertBelongsToExactlyOneAgreement();
+            $invoice->assertTenantMatchesAgreement();
 
             if ($invoice->asset_id === null) {
                 // Refused rather than defaulted. An invoice with no property is invisible to every
@@ -469,6 +511,12 @@ class Invoice extends Model
             // neither — the create-time invariant, applied again to the path that could undo it.
             if ($invoice->isDirty(['lease_id', 'unit_ownership_id'])) {
                 $invoice->assertBelongsToExactlyOneAgreement();
+            }
+
+            // Either side of the pair can break the match, so both are watched: re-pointing the
+            // agreement AND re-pointing the debtor reach the same wrong state.
+            if ($invoice->isDirty(['lease_id', 'unit_ownership_id', 'tenant_id'])) {
+                $invoice->assertTenantMatchesAgreement();
             }
 
             // Captured CASH blocks a cancel — on EVERY path, not just VoidInvoiceService, and

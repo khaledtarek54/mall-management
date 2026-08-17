@@ -32,10 +32,12 @@ use App\Support\TenantScope;
 use BackedEnum;
 use Closure;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Lang;
 use Spatie\Permission\Models\Role;
+use Throwable;
 
 /**
  * What a record looks like when it is being PICKED, and what an operator may type to find it.
@@ -175,6 +177,77 @@ class OptionDisplay
     /** @var array<class-string, Closure(Model): RecordOption>|null */
     private static ?array $presenters = null;
 
+    /** @var array<class-string, array<int, string>>|null */
+    private static ?array $relationPaths = null;
+
+    /**
+     * Related records whose blob a picker also matches — DERIVED from what each resource already
+     * declares for the top search bar, never re-listed here.
+     *
+     * **The gap this closes.** A lease's `search_text` is a pure function of the lease's OWN
+     * columns (`HasSearchText`'s one invariant — reach through a relation and renaming a tenant
+     * strands every blob quoting the old name). So the blob holds `LSE-AW-2026-0001` and nothing
+     * else, and typing a tenant's name into the LEASE picker found nothing — while typing it into
+     * the top search bar found the lease immediately, because `LeaseResource` declares
+     * `['search_text', 'tenant.search_text', 'unit.search_text']`.
+     *
+     * Two surfaces, one question, two different answers. The resources were right; the pickers
+     * were the half that never read them. Reading the declaration rather than copying it means a
+     * resource that adds a path tomorrow reaches its picker for free — and that the two can no
+     * longer disagree, which is the failure that was actually shipping.
+     *
+     * @return array<int, string> relation paths with the trailing `.search_text` stripped
+     */
+    public static function searchRelations(string $model): array
+    {
+        if (self::$relationPaths === null) {
+            self::$relationPaths = self::deriveRelationPaths();
+        }
+
+        return self::$relationPaths[$model] ?? [];
+    }
+
+    /**
+     * @return array<class-string, array<int, string>>
+     */
+    protected static function deriveRelationPaths(): array
+    {
+        $paths = [];
+
+        try {
+            // The ADMIN panel's resources are the authoritative declaration: the portal's are a
+            // subset over the same models, and a picker's reach should not shrink because the
+            // component happens to be rendered in the tenant portal.
+            $resources = Filament::getPanel('admin')->getResources();
+        } catch (Throwable) {
+            // No panels registered (a bare CLI boot, an early migration). A picker searching only
+            // its own blob is the previous behaviour, not a broken one.
+            return [];
+        }
+
+        foreach ($resources as $resource) {
+            if (! method_exists($resource, 'getGloballySearchableAttributes')) {
+                continue;
+            }
+
+            $relations = [];
+
+            foreach ($resource::getGloballySearchableAttributes() as $attribute) {
+                if (! str_ends_with($attribute, '.search_text')) {
+                    continue;
+                }
+
+                $relations[] = substr($attribute, 0, -strlen('.search_text'));
+            }
+
+            if ($relations !== []) {
+                $paths[$resource::getModel()] = array_values(array_unique($relations));
+            }
+        }
+
+        return $paths;
+    }
+
     /**
      * How each model introduces itself.
      *
@@ -245,12 +318,20 @@ class OptionDisplay
                 },
             ),
 
+            // WHO and WHERE lead; the contract code is the tag beside them. An operator raising an
+            // invoice is thinking "Cilantro, A-04", not "LSE-AW-2026-0001" — the reference is what
+            // they read off a filed contract afterwards, not what they hold in their head at the
+            // moment of picking. Yardi's lease lookup leads with the tenant for the same reason.
+            // The reference is still shown, still searched, still the thing that identifies the
+            // document; it is just not the headline.
             Lease::class => static fn (Lease $record): RecordOption => RecordOption::make(
-                title: $record->reference,
-                code: $record->unit?->code,
+                title: RecordOption::join([$record->tenant?->name, $record->unit?->code]),
+                code: $record->reference,
                 subtitle: RecordOption::join([
-                    $record->tenant?->name,
                     self::dateRange($record->commencement_date, $record->expiry_date),
+                    $record->base_rent_monthly !== null
+                        ? __('admin.search.option.per_month', ['amount' => self::money($record->base_rent_monthly)])
+                        : null,
                 ]),
                 badge: self::statusLabel('admin.statuses.lease', $record->status),
                 tone: self::tone($record->status),
@@ -791,8 +872,26 @@ class OptionDisplay
         }
 
         if (in_array(HasSearchText::class, class_uses_recursive($model), true)) {
+            $relations = self::searchRelations($model);
+
+            // Words AND, sources OR — the same semantics as the top search bar and every list, so
+            // "cilantro a-04" narrows to the lease that matches BOTH, one word through the tenant's
+            // blob and the other through the unit's.
             foreach ($words as $word) {
-                $query->where($query->qualifyColumn('search_text'), 'like', '%'.$word.'%');
+                $query->where(function (Builder $where) use ($word, $relations): void {
+                    $where->where($where->qualifyColumn('search_text'), 'like', '%'.$word.'%');
+
+                    foreach ($relations as $relation) {
+                        $where->orWhereHas(
+                            $relation,
+                            fn (Builder $related) => $related->where(
+                                $related->qualifyColumn('search_text'),
+                                'like',
+                                '%'.$word.'%',
+                            ),
+                        );
+                    }
+                });
             }
         } elseif ($columns !== []) {
             // No blob: fall back to the raw columns, still ANDing the words so a two-word query

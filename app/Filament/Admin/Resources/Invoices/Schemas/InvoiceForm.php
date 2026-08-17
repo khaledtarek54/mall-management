@@ -82,16 +82,22 @@ class InvoiceForm
                                 self::deriveDueDate($get, $set);
                             })
                             ->required(),
-                        // The property scope is no longer written here. It used to be, and it was
-                        // WRONG: `whereHas('leases.unit')` alone excludes a unit OWNER, who holds no
-                        // lease at all — so module 37 buyers could be invoiced by the services and
-                        // never picked on this form. OptionDisplay's tenant scope covers leases,
-                        // ownerships and the not-yet-affiliated in one place, which is the only way
-                        // this form and PaymentForm can be guaranteed to agree.
+                        // SHOWN, never chosen. An invoice is raised against a lease (or an
+                        // ownership), and each has exactly one counterparty — so the debtor is
+                        // derived, not decided. It was a free picker beside the lease picker, which
+                        // meant billing Zara against Cilantro's lease was two clicks and no warning;
+                        // `Invoice::assertTenantMatchesAgreement()` is what actually closes that,
+                        // since a crafted request never touches this form.
+                        //
+                        // Displayed rather than removed: the party being billed is the one fact on
+                        // an invoice nobody should have to infer, and Yardi shows it on the header
+                        // for the same reason. `dehydrated()` keeps the derived value saving.
                         EntitySelect::make('tenant_id')
-                            ->label(__('admin.resources.tenant.singular'))
-                            ->disabled($locked)
+                            ->label(__('admin.fields.billed_to'))
                             ->entity(Tenant::class)
+                            ->disabled()
+                            ->dehydrated()
+                            ->helperText(__('admin.helpers.invoice_tenant_derived'))
                             ->required(),
                         Select::make('status')
                             ->label(__('admin.tables.common.status'))
