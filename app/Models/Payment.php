@@ -218,10 +218,21 @@ class Payment extends Model
             );
 
             if ($allocated > round((float) $invoice->total, 2) + 0.01) {
+                // Name what THIS payment may allocate, not the invoice total. The refusal used to
+                // quote the total — so an operator over-allocating an invoice already part-settled
+                // by a credit note was told the cap was 240,300 when 60,200 was left, and the number
+                // they were given was one they had just been refused for exceeding. The form-level
+                // rule has always quoted the fittable figure; only this backstop disagreed with it.
+                $mine = round((float) $this->invoices()
+                    ->wherePivot('invoice_id', $invoice->id)
+                    ->sum('invoice_payment.allocated_amount'), 2);
+
+                $fittable = round(max((float) $invoice->total - ($allocated - $mine), 0), 2);
+
                 throw new \DomainException(
                     __('admin.payment.allocation_exceeds_balance', [
                         'invoice' => $invoice->number,
-                        'max' => 'EGP '.number_format((float) $invoice->total, 2),
+                        'max' => 'EGP '.number_format($fittable, 2),
                     ])
                 );
             }
