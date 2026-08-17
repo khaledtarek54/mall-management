@@ -434,6 +434,7 @@ return [
             'other' => 'Other',
         ],
         'meter_type' => [
+            'hours' => 'Running hours',
             'electric' => 'Electricity',
             'water' => 'Water',
             'gas' => 'Gas',

@@ -44,6 +44,7 @@ return [
             'priority' => 'Priority',
             'description' => 'Description', 'frequency' => 'Every', 'frequency_unit' => 'Unit',
             'frequency_value' => 'Interval', 'checklist' => 'Checklist', 'department' => 'Department',
+            'trigger_type' => 'Triggered by', 'usage_meter' => 'Usage counter', 'usage_threshold' => 'Service every',
             'vendor' => 'Vendor', 'next_due' => 'Next due', 'last_generated' => 'Last raised', 'active' => 'Active',
             'reference' => 'Ref.', 'status' => 'Status', 'scheduled_for' => 'Scheduled', 'completed_at' => 'Completed',
             'completed_by' => 'Completed by', 'plan' => 'Plan', 'notes' => 'Notes', 'label' => 'Item', 'done' => 'Done',
@@ -184,9 +185,14 @@ return [
             'assignee_hint' => 'Who is on the job. Internal jobs name a technician; external jobs name the vendor instead.',
         ],
         'frequency_units' => ['days' => 'day(s)', 'weeks' => 'week(s)', 'months' => 'month(s)', 'years' => 'year(s)'],
+        'trigger_types' => ['time' => 'A schedule (every N days/weeks/months)', 'usage' => 'A counter (running hours, consumption)'],
         'weekdays' => [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'],
         'area_hint' => 'The location the work is performed on (food court, parking level 2). Use it for cleaning, landscaping, pest control and other area-based services; leave blank for equipment or unit work.',
         'days_of_week_hint' => 'Restrict the round to these weekdays (e.g. Mon/Wed/Fri). Leave all unticked for any day. For several rounds in one day keep ONE daily schedule and list the rounds as checklist items.',
+        'trigger_type_hint' => 'A machine serviced on running hours is over-serviced when idle and under-serviced when worked hard — a counter tracks what the calendar cannot.',
+        'usage_meter_hint' => 'The cumulative counter to watch. Readings are entered on the meter as usual.',
+        'usage_threshold_hint' => 'How much the counter must move since the last service, in that meter\'s unit.',
+        'next_due_unused_on_usage' => 'Not used while this plan is counter-driven — the counter decides when it is due.',
         'plan_types' => ['routine' => 'Routine (recurring schedule)', 'fixed' => 'Fixed (per machine)'],
         'plan_type_hint' => 'Routine recurs on a schedule for the property or unit. Fixed targets one specific machine.',
         'equipment_hint' => 'The machine this plan services. Required for fixed maintenance.',
@@ -225,6 +231,7 @@ return [
         // The round still happens; only the assignment is withheld, and the order says why so a
         // coordinator is not left guessing at a blank vendor field.
         'vendor_not_dispatchable' => 'Raised unassigned: :vendor cannot be dispatched (blacklisted/inactive, or its insurance certificate has lapsed). Assign a compliant contractor before this work is carried out.',
+        'raised_by_usage' => 'Raised on usage: :usage :uom since the last service (meter :meter).',
     ],
 
     'fixed_assets' => [

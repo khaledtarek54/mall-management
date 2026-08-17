@@ -131,6 +131,8 @@ work order carries the vendor's quote for the `percent_of_value` basis.
 | `maintenance_type` | **FR-PPM-01** — `routine` (recurring schedule) \| `fixed` (per machine) |
 | `title` · `category` · `description` | what to do |
 | `frequency_unit` · `frequency_value` | how often (`days`\|`weeks`\|`months`\|**`years`** × N) |
+| `trigger_type` | **`time`** (the calendar) \| **`usage`** (a counter) — see *Usage-triggered plans* below |
+| `utility_meter_id` · `usage_threshold` · `usage_at_last_generation` | the counter a usage plan watches, how far it must move, and the reading it was last serviced at |
 | `checklist` (json) | the template check items |
 | `department_id` · `vendor_id` | default assignee |
 | `next_due_date` · `last_generated_at` · `is_active` | scheduling state |
@@ -459,6 +461,60 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    > item and was **unrecoverable in-app**: `done` is terminal, so the checklist froze with the
    > violation baked in. Post-fix the same probe has T2 block on the order lock until T1 commits,
    > then refuse (terminal).
+
+### Usage-triggered plans — running hours, not the calendar (2026-08-17)
+
+Every plan was time-driven. That is right for a statutory round ("extinguishers, annually") and
+wrong for the machines a mall runs: a chiller, a lift and a generator are serviced on **running
+hours**. A genset idle for six months needs nothing; one running double shifts needs servicing twice
+as often. **A calendar plan gets both wrong in opposite directions** — over-servicing the idle
+machine and under-servicing the hard-worked one, which is the failure the interval exists to prevent.
+
+**Usage is read from a meter**, because `meter_readings.reading_value` is already a cumulative
+counter with a per-property register, a reading workflow, an import path and property scoping around
+it. A separate "equipment runtime" table would duplicate all of that to hold the same shape of
+number. `utility_meters.type` gained **`hours`** in the same change — a one-line `ValueSets` edit now
+that no enum survives in the DDL. An hours meter is monitored and never recharged, which the
+recharge path already handles (no tariff + no override = 0, and a zero-cost recharge is refused).
+
+**`trigger_type` is an XOR.** "Every 500 hours OR every 12 months, whichever comes first" is a real
+CMMS pattern and is deliberately **not** built: it is a third mode with its own reset semantics (does
+the calendar clock restart when the usage trigger fires?) and nobody has said which answer they want
+— the same discipline this doc already applies to FR-PPM-01. It arrives as a third value in
+`ValueSets` plus one branch in the generator, with no migration.
+
+**The load-bearing line is `scopeDue()`'s `trigger_type` filter.** `next_due_date` is NOT NULL, so a
+usage plan carries one like every other row; without that clause it would match the time round *as
+well as* its counter and raise **two work orders for one service**. Pinned by
+*"never lets a usage plan also fire on its calendar"*.
+
+**The baseline is seeded, not zero.** A meter installed years ago reads 40,000 hours — measuring the
+first delta from zero would make a new plan instantly overdue by eighty thresholds and raise a
+backlog of services that were never missed. `ServicePlan::saving()` seeds
+`usage_at_last_generation` from the counter's current value when a plan starts watching a meter, or
+is pointed at a different one.
+
+**The baseline advances to the triggering READING, not by the threshold.** A machine that ran 700
+hours between reads has had 700 hours of wear; crediting it with only 500 would leave 200 banked and
+raise a second, immediately-due job for work just scheduled.
+
+Other decisions worth knowing:
+
+- **A rolled-over or replaced counter reads LOWER than the baseline.** Clamped at 0, so the plan is
+  simply not due and the operator re-baselines by saving it. Reported negative, the arithmetic would
+  go true again the moment the counter passed the *old* baseline — months of wear too late.
+- **"Unknown" is not "zero".** No meter, no reading or no baseline returns `null` from
+  `usageSinceLastGeneration()`, never `0.0` — zero would read as "not due yet" forever on a plan that
+  is actually misconfigured, the silent-failure shape `last_generation_failed_at` already exists to
+  avoid.
+- **Due-ness is decided in PHP, not SQL.** `scopeUsageTriggered()` is only a cheap pre-filter; the
+  real test is `isDueByUsage()`, re-run under the row lock. A join that decided it would be a second
+  copy of the rule, and the scan would be the only thing that knew it.
+- **The order says the counter raised it** (`admin.service_plans.raised_by_usage` in the notes), so a
+  technician knows it was hours and not the calendar — and it still says so after the plan is edited
+  or deleted.
+
+Tests: `tests/Feature/Regression/ServicePlanTriggersOnUsageTest.php`.
 
 ### Assignment is an XOR on a CORRECTIVE order, and deliberately not on a plan
 

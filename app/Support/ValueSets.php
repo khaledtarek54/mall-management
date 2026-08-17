@@ -161,8 +161,9 @@ class ValueSets
         'unit_ownerships.tenure_type' => UnitTenureType::class,
         'units.category' => ['retail', 'food_beverage', 'wellness', 'service', 'kiosk', 'office', 'storage'],
         'units.status' => ['vacant', 'reserved', 'occupied', 'maintenance'],
+        'service_plans.trigger_type' => ['time', 'usage'],
         'utility_meters.status' => ['active', 'inactive', 'faulty'],
-        'utility_meters.type' => ['electric', 'water', 'gas'],
+        'utility_meters.type' => ['electric', 'water', 'gas', 'hours'],
         // The SAME set as `utility_meters.type`, and deliberately spelled out rather than
         // referenced: these two must agree, because a tariff is only offered for meters of its own
         // utility. Widening one without the other is what the listener would then refuse on save.

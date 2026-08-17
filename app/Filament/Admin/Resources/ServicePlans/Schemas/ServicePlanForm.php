@@ -7,6 +7,7 @@ use App\Models\Asset;
 use App\Models\Department;
 use App\Models\ServicePlan;
 use App\Models\Unit;
+use App\Models\UtilityMeter;
 use App\Models\Vendor;
 use App\Support\EquipmentPicker;
 use App\Support\Filament\EntitySelect;
@@ -111,16 +112,54 @@ class ServicePlanForm
                     ])->columns(2),
 
                     FormTab::make('admin.facility.tabs.schedule', [
+                        // What makes this plan due. A machine serviced on running hours is the case
+                        // the calendar gets wrong in both directions — an idle genset over-serviced,
+                        // a hard-worked one under-serviced.
+                        Select::make('trigger_type')
+                            ->label(__('admin.facility.fields.trigger_type'))
+                            ->options(fn () => __('admin.facility.trigger_types'))
+                            ->default(ServicePlan::TRIGGER_TIME)
+                            ->required()
+                            ->native(false)
+                            ->live()
+                            ->columnSpanFull()
+                            ->helperText(__('admin.facility.trigger_type_hint')),
+
+                        // A record picker, so EntitySelect. Narrowed with ->suggest() to the plan's
+                        // own property: a hard filter would refuse a legitimate value at validation,
+                        // and Filament rejects what the picker cannot label.
+                        EntitySelect::make('utility_meter_id')
+                            ->label(__('admin.facility.fields.usage_meter'))
+                            ->entity(UtilityMeter::class)
+                            ->suggest(fn ($query, Get $get) => $get('asset_id')
+                                ? $query->where('asset_id', $get('asset_id'))
+                                : null)
+                            ->preload()
+                            ->visible(fn (Get $get) => $get('trigger_type') === ServicePlan::TRIGGER_USAGE)
+                            ->required(fn (Get $get) => $get('trigger_type') === ServicePlan::TRIGGER_USAGE)
+                            ->helperText(__('admin.facility.usage_meter_hint')),
+
+                        TextInput::make('usage_threshold')
+                            ->label(__('admin.facility.fields.usage_threshold'))
+                            ->numeric()
+                            ->minValue(0.01)
+                            ->step('0.01')
+                            ->visible(fn (Get $get) => $get('trigger_type') === ServicePlan::TRIGGER_USAGE)
+                            ->required(fn (Get $get) => $get('trigger_type') === ServicePlan::TRIGGER_USAGE)
+                            ->helperText(__('admin.facility.usage_threshold_hint')),
+
                         TextInput::make('frequency_value')
                             ->label(__('admin.facility.fields.frequency_value'))
                             ->numeric()
                             ->minValue(1)
                             ->default(1)
+                            ->visible(fn (Get $get) => $get('trigger_type') !== ServicePlan::TRIGGER_USAGE)
                             ->required(),
                         Select::make('frequency_unit')
                             ->label(__('admin.facility.fields.frequency_unit'))
                             ->options(fn () => __('admin.facility.frequency_units'))
                             ->default('months')
+                            ->visible(fn (Get $get) => $get('trigger_type') !== ServicePlan::TRIGGER_USAGE)
                             ->required()
                             ->native(false),
                         // Soft-service rounds usually land on set weekdays ("every Mon/Wed/Fri"). Leave all
@@ -135,7 +174,13 @@ class ServicePlanForm
                             ->label(__('admin.facility.fields.next_due'))
                             ->default(now())
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            // NOT hidden on a usage plan: the column is NOT NULL, and hiding a
+                            // required field fails validation with nothing on screen to explain it.
+                            // It is stated as unused instead.
+                            ->helperText(fn (Get $get) => $get('trigger_type') === ServicePlan::TRIGGER_USAGE
+                                ? __('admin.facility.next_due_unused_on_usage')
+                                : null),
                         Toggle::make('is_active')
                             ->label(__('admin.facility.fields.active'))
                             ->default(true),

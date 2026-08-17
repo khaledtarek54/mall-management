@@ -41,24 +41,21 @@ class GeneratePreventiveWorkOrdersService
         $this->failures = [];
         $this->raisedOrderIds = [];
 
+        // TIME plans — the calendar round. `due()` filters on `trigger_type` so a usage plan,
+        // which carries a NOT-NULL `next_due_date` like every other row, cannot also match here.
         ServicePlan::due($due)->select('id')->get()->each(function ($row) use ($due, &$created) {
             // Per-plan containment, mirroring ScanTenantRequestSlaBreachesCommand's per-row
             // catch. Without it one corrupt plan aborts the nightly run and every property
             // silently stops getting work orders.
-            try {
-                $this->generateFor((int) $row->id, $due, $created);
-            } catch (\Throwable $e) {
-                $this->failures[(int) $row->id] = $e->getMessage();
+            $created += $this->attempt((int) $row->id, fn (): int => $this->generateFor((int) $row->id, $due));
+        });
 
-                Log::warning('Preventive generation failed for a plan', [
-                    'service_plan_id' => $row->id,
-                    'error' => $e->getMessage(),
-                ]);
-
-                // Outside the rolled-back transaction, deliberately: the stamp is the only surviving
-                // trace of an attempt that undid everything else it did.
-                $this->recordFailure((int) $row->id, $e->getMessage());
-            }
+        // USAGE plans — the counter round. Evaluated in PHP rather than filtered in SQL because
+        // due-ness compares the meter's latest reading against the plan's baseline, and putting
+        // that comparison in a join here would be a second copy of the rule that
+        // `ServicePlan::isDueByUsage()` already owns.
+        ServicePlan::usageTriggered()->select('id')->get()->each(function ($row) use ($due, &$created) {
+            $created += $this->attempt((int) $row->id, fn (): int => $this->generateForUsage((int) $row->id, $due));
         });
 
         // FRD MNT-2 — a scheduled service must NOT be raised silently. Notify AFTER the
@@ -68,6 +65,42 @@ class GeneratePreventiveWorkOrdersService
         $this->notifyRaised();
 
         return $created;
+    }
+
+    /**
+     * Per-plan failure containment, shared by both trigger rounds.
+     *
+     * One corrupt plan must never stop every other property's maintenance from being raised —
+     * the reason this exists at all, and the reason it is a helper now rather than a copied
+     * try/catch: a second round with its own catch is a second place for the containment to be
+     * subtly different.
+     *
+     * Returns the number of orders the attempt raised — 0 on failure. It RETURNS rather than
+     * incrementing a by-reference counter because the call sites pass `fn () =>`, and an arrow
+     * function captures by VALUE: the count incremented inside a copy and `run()` reported 0 orders
+     * raised on a run that raised plenty. Caught by the time-plan control test, which is what a
+     * control is for.
+     *
+     * @param  callable(): int  $work
+     */
+    private function attempt(int $planId, callable $work): int
+    {
+        try {
+            return $work();
+        } catch (\Throwable $e) {
+            $this->failures[$planId] = $e->getMessage();
+
+            Log::warning('Preventive generation failed for a plan', [
+                'service_plan_id' => $planId,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Outside the rolled-back transaction, deliberately: the stamp is the only surviving
+            // trace of an attempt that undid everything else it did.
+            $this->recordFailure($planId, $e->getMessage());
+
+            return 0;
+        }
     }
 
     /**
@@ -137,21 +170,21 @@ class GeneratePreventiveWorkOrdersService
         }
     }
 
-    private function generateFor(int $planId, string $due, int &$created): void
+    private function generateFor(int $planId, string $due): int
     {
-        DB::transaction(function () use ($planId, $due, &$created) {
+        return (int) DB::transaction(function () use ($planId, $due): int {
             /** @var ServicePlan|null $plan */
             $plan = ServicePlan::whereKey($planId)->lockForUpdate()->first();
 
             if (! $plan || ! $plan->is_active) {
-                return;
+                return 0;
             }
 
             // Re-check due under the lock (string compare is correct for ISO dates).
             $scheduledFor = $plan->next_due_date->toDateString();
 
             if ($scheduledFor > $due) {
-                return;
+                return 0;
             }
 
             // Idempotency backstop: never raise two orders for the same plan cycle.
@@ -160,64 +193,151 @@ class GeneratePreventiveWorkOrdersService
                 $plan->forceFill(['last_generation_failed_at' => null, 'last_generation_error' => null]);
                 $plan->save();
 
-                return;
+                return 0;
             }
 
-            // A contractor who cannot be dispatched must not stop the round HAPPENING.
-            //
-            // `FacilityWorkOrder::saving()` refuses a non-dispatchable vendor, which is right —
-            // an uninsured contractor on the mall floor is the operator's liability. But that throw
-            // rolled back the whole cycle, so a lapsed COI silently cancelled the plan's statutory
-            // inspection rather than merely its assignment. The compliance gate governs who is sent,
-            // not whether the work exists: raise it unassigned, say why on the order, and let a
-            // coordinator pick somebody compliant. This is what the FM specialists do.
-            $vendorId = $plan->vendor_id;
-            $complianceNote = null;
-            if ($vendorId !== null && ! Vendor::query()->whereKey($vendorId)->assignable()->exists()) {
-                $vendorId = null;
-                $complianceNote = __('admin.service_plans.vendor_not_dispatchable', [
-                    'vendor' => (string) Vendor::withTrashed()->whereKey($plan->vendor_id)->value('name'),
-                ]);
-            }
-
-            /** @var FacilityWorkOrder $order */
-            $order = $plan->workOrders()->create([
-                'asset_id' => $plan->asset_id,
-                'unit_id' => $plan->unit_id,
-                // The location a soft-service round is performed on (cleaning, landscaping). Carried
-                // onto the order so it still says where after the plan is edited or deleted.
-                'area_id' => $plan->area_id,
-                // Carried onto the order so the job records which machine it was against,
-                // and keeps saying so after the plan is edited or deleted (FR-PPM-03).
-                'equipment_id' => $plan->equipment_id,
-                'title' => $plan->title,
-                'category' => $plan->category,
-                'status' => 'open',
-                // A routine round on a critical machine is still a critical machine. Without this
-                // the generator fell to the column default and every plan produced `medium`,
-                // whatever it was servicing.
-                'priority' => ($eq = $plan->getRelationValue('equipment')) instanceof Equipment
-                    ? $eq->defaultWorkOrderPriority()
-                    : 'medium',
-                'scheduled_for' => $scheduledFor,
-                'department_id' => $plan->department_id,
-                'vendor_id' => $vendorId,
-                'notes' => trim(implode("\n\n", array_filter([(string) $plan->description, $complianceNote]))) ?: null,
-            ]);
-
-            foreach ((array) $plan->checklist as $label) {
-                if (trim((string) $label) !== '') {
-                    $order->items()->create(['label' => $label]);
-                }
-            }
+            $this->raiseOrder($plan, $scheduledFor);
 
             $plan->advanceDue();
             // A plan that generates is no longer stuck. Cleared inside the same transaction as the
             // order it raised, so the stamp can never outlive the failure it describes.
             $plan->forceFill(['last_generation_failed_at' => null, 'last_generation_error' => null]);
             $plan->save();
-            $created++;
-            $this->raisedOrderIds[] = $order->id;
+
+            return 1;
         });
+    }
+
+    /**
+     * Raise a job for a plan whose COUNTER has passed its threshold.
+     *
+     * Same lock-and-re-check discipline as the time round, and for the same reason: the due-ness
+     * test is re-run under the row lock, so an overlapping scan (or a re-run of the command) cannot
+     * raise two jobs for one service.
+     *
+     * **What advances is the baseline, not a date.** `usage_at_last_generation` moves to the reading
+     * the job was raised at — so the next job needs another full threshold of movement, and a meter
+     * read twice on the same day does not raise two.
+     */
+    private function generateForUsage(int $planId, string $due): int
+    {
+        return (int) DB::transaction(function () use ($planId, $due): int {
+            /** @var ServicePlan|null $plan */
+            $plan = ServicePlan::whereKey($planId)->lockForUpdate()->first();
+
+            if (! $plan) {
+                return 0;
+            }
+
+            // Re-checked under the lock. `isDueByUsage()` re-reads the meter, so this is the real
+            // guard and the scope above is only a cheap pre-filter.
+            if (! $plan->isDueByUsage()) {
+                return 0;
+            }
+
+            $reading = $plan->latestUsageReading();
+
+            // The job is dated the day the scan runs, not a schedule date the plan does not have.
+            // Idempotency backstop mirroring the time round: never two orders for one plan on one
+            // day, whatever the counter says.
+            if ($plan->workOrders()->whereDate('scheduled_for', $due)->exists()) {
+                $plan->forceFill([
+                    'usage_at_last_generation' => $reading,
+                    'last_generation_failed_at' => null,
+                    'last_generation_error' => null,
+                ])->save();
+
+                return 0;
+            }
+
+            $this->raiseOrder($plan, $due);
+
+            // The baseline moves to the reading that triggered this job — NOT to
+            // `baseline + threshold`. A machine that ran 700 hours between reads has had 700 hours
+            // of wear, and crediting it with only 500 would raise a second, immediately-due job for
+            // a service that has just been scheduled.
+            $plan->forceFill([
+                'usage_at_last_generation' => $reading,
+                'last_generation_failed_at' => null,
+                'last_generation_error' => null,
+            ])->save();
+
+            return 1;
+        });
+    }
+
+    /**
+     * Create the work order + its checklist for a plan. Shared by both triggers, so a job raised on
+     * running hours is the same job in every respect except what made it due.
+     */
+    private function raiseOrder(ServicePlan $plan, string $scheduledFor): FacilityWorkOrder
+    {
+        // A contractor who cannot be dispatched must not stop the round HAPPENING.
+        //
+        // `FacilityWorkOrder::saving()` refuses a non-dispatchable vendor, which is right —
+        // an uninsured contractor on the mall floor is the operator's liability. But that throw
+        // rolled back the whole cycle, so a lapsed COI silently cancelled the plan's statutory
+        // inspection rather than merely its assignment. The compliance gate governs who is sent,
+        // not whether the work exists: raise it unassigned, say why on the order, and let a
+        // coordinator pick somebody compliant. This is what the FM specialists do.
+        $vendorId = $plan->vendor_id;
+        $complianceNote = null;
+        if ($vendorId !== null && ! Vendor::query()->whereKey($vendorId)->assignable()->exists()) {
+            $vendorId = null;
+            $complianceNote = __('admin.service_plans.vendor_not_dispatchable', [
+                'vendor' => (string) Vendor::withTrashed()->whereKey($plan->vendor_id)->value('name'),
+            ]);
+        }
+
+        // What made this job due, on the job itself. A technician holding a work order for a
+        // machine serviced on running hours needs to know it was the counter and not the calendar —
+        // and after the plan is edited or deleted, the order is the only thing that still says so.
+        $usageNote = null;
+        if ($plan->isUsageTriggered()) {
+            $usageNote = __('admin.service_plans.raised_by_usage', [
+                'usage' => rtrim(rtrim(number_format((float) ($plan->usageSinceLastGeneration() ?? 0), 2), '0'), '.'),
+                'uom' => (string) ($plan->utilityMeter?->unit_of_measurement ?? ''),
+                'meter' => (string) ($plan->utilityMeter?->meter_number ?? ''),
+            ]);
+        }
+
+        /** @var FacilityWorkOrder $order */
+        $order = $plan->workOrders()->create([
+            'asset_id' => $plan->asset_id,
+            'unit_id' => $plan->unit_id,
+            // The location a soft-service round is performed on (cleaning, landscaping). Carried
+            // onto the order so it still says where after the plan is edited or deleted.
+            'area_id' => $plan->area_id,
+            // Carried onto the order so the job records which machine it was against,
+            // and keeps saying so after the plan is edited or deleted (FR-PPM-03).
+            'equipment_id' => $plan->equipment_id,
+            'title' => $plan->title,
+            'category' => $plan->category,
+            'status' => 'open',
+            // A routine round on a critical machine is still a critical machine. Without this
+            // the generator fell to the column default and every plan produced `medium`,
+            // whatever it was servicing.
+            'priority' => ($eq = $plan->getRelationValue('equipment')) instanceof Equipment
+                ? $eq->defaultWorkOrderPriority()
+                : 'medium',
+            'scheduled_for' => $scheduledFor,
+            'department_id' => $plan->department_id,
+            'vendor_id' => $vendorId,
+            'notes' => trim(implode("\n\n", array_filter([
+                (string) $plan->description,
+                $usageNote,
+                $complianceNote,
+            ]))) ?: null,
+        ]);
+
+        foreach ((array) $plan->checklist as $label) {
+            if (trim((string) $label) !== '') {
+                $order->items()->create(['label' => $label]);
+            }
+        }
+
+        $this->raisedOrderIds[] = $order->id;
+
+        return $order;
     }
 }

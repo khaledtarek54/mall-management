@@ -46,6 +46,20 @@ class ServicePlan extends Model
 
     public const MAINTENANCE_TYPES = [self::MAINTENANCE_TYPE_ROUTINE, self::MAINTENANCE_TYPE_FIXED];
 
+    /**
+     * What makes this plan due: the calendar, or a counter.
+     *
+     * An XOR, and the reason is in the migration. "Whichever comes first" is a real CMMS pattern
+     * and is deliberately NOT built — it needs its own reset semantics (does the calendar restart
+     * when the usage trigger fires?) and nobody has said which answer they want. It arrives as a
+     * third value here plus one branch in the generator, with no migration.
+     */
+    public const TRIGGER_TIME = 'time';
+
+    public const TRIGGER_USAGE = 'usage';
+
+    public const TRIGGERS = [self::TRIGGER_TIME, self::TRIGGER_USAGE];
+
     protected $fillable = [
         'asset_id',
         'unit_id',
@@ -55,6 +69,9 @@ class ServicePlan extends Model
         'title',
         'category',
         'plan_type',
+        'trigger_type',
+        'utility_meter_id',
+        'usage_threshold',
         'description',
         'frequency_unit',
         'frequency_value',
@@ -76,11 +93,17 @@ class ServicePlan extends Model
         'last_generation_failed_at' => 'datetime',
         'is_active' => 'boolean',
         'frequency_value' => 'integer',
+        'usage_threshold' => 'decimal:2',
+        // Written by the generator and by the baseline hook, never by a form: it is the plan's
+        // record of what the counter read when it was last serviced, and an operator editing it by
+        // hand would move the next service without meaning to.
+        'usage_at_last_generation' => 'decimal:2',
     ];
 
     /** NOT-NULL with a DB default — never let a blank form field send null. */
     protected $attributes = [
         'plan_type' => self::MAINTENANCE_TYPE_ROUTINE,
+        'trigger_type' => self::TRIGGER_TIME,
     ];
 
     /**
@@ -148,11 +171,34 @@ class ServicePlan extends Model
         return $query->where('is_active', true);
     }
 
-    /** Active plans whose next occurrence is on/before the given date (default today). */
+    /**
+     * Active TIME plans whose next occurrence is on/before the given date (default today).
+     *
+     * **The `trigger_type` filter is load-bearing.** `next_due_date` is NOT NULL, so a usage plan
+     * carries one too — without this clause it would match here as well as on its counter and raise
+     * two work orders for one service. Time plans are unaffected: the column defaults to `time`.
+     */
     public function scopeDue(Builder $query, ?string $onOrBefore = null): Builder
     {
         return $query->where('is_active', true)
+            ->where('trigger_type', self::TRIGGER_TIME)
             ->whereDate('next_due_date', '<=', $onOrBefore ?? now()->toDateString());
+    }
+
+    /**
+     * Active USAGE plans that are wired up enough to be evaluated.
+     *
+     * Deliberately does NOT decide due-ness in SQL. That comparison needs the meter's latest
+     * reading against the plan's baseline, which is a per-row lookup, and doing it in a join here
+     * would put the rule in two places — the scan would then be the only thing that knew it, and
+     * {@see isDueByUsage()} could drift from it without any test noticing.
+     */
+    public function scopeUsageTriggered(Builder $query): Builder
+    {
+        return $query->where('is_active', true)
+            ->where('trigger_type', self::TRIGGER_USAGE)
+            ->whereNotNull('utility_meter_id')
+            ->where('usage_threshold', '>', 0);
     }
 
     /**
@@ -175,6 +221,79 @@ class ServicePlan extends Model
     public function generationIsFailing(): bool
     {
         return $this->last_generation_failed_at !== null;
+    }
+
+    /** @return BelongsTo<UtilityMeter, $this> */
+    public function utilityMeter(): BelongsTo
+    {
+        return $this->belongsTo(UtilityMeter::class);
+    }
+
+    public function isUsageTriggered(): bool
+    {
+        return $this->trigger_type === self::TRIGGER_USAGE;
+    }
+
+    /**
+     * The counter's latest value, or null when nothing has been read yet.
+     *
+     * `withTrashed()` on the meter for the reason every journalizer parent-lookup has it: a
+     * soft-deleted meter would null the relation, the plan would silently stop evaluating, and a
+     * statutory service would stop happening with nothing on screen to say so. A retired meter is a
+     * reason to fix the plan, not to make it quietly inert.
+     */
+    public function latestUsageReading(): ?float
+    {
+        $meterId = $this->utility_meter_id;
+
+        if ($meterId === null) {
+            return null;
+        }
+
+        $value = MeterReading::query()
+            ->where('utility_meter_id', $meterId)
+            ->orderByDesc('reading_date')
+            ->orderByDesc('id')
+            ->value('reading_value');
+
+        return $value === null ? null : (float) $value;
+    }
+
+    /**
+     * How much the counter has moved since this plan was last serviced.
+     *
+     * Null when it cannot be answered — no meter, no reading, or no baseline — because "unknown" and
+     * "zero" must not look the same here: zero would read as "not due yet" forever on a plan that is
+     * actually misconfigured, and that is the silent-failure shape module 26 already learned to
+     * avoid with `last_generation_failed_at`.
+     */
+    public function usageSinceLastGeneration(): ?float
+    {
+        $latest = $this->latestUsageReading();
+        $baseline = $this->usage_at_last_generation;
+
+        if ($latest === null || $baseline === null) {
+            return null;
+        }
+
+        // A meter that rolled over or was replaced reads LOWER than the baseline. Clamped at 0
+        // rather than reported negative: the plan is not due, and the operator re-baselines by
+        // saving the plan. Returning a negative would make the arithmetic below silently true the
+        // moment the counter passed the old baseline again.
+        return max(0.0, $latest - (float) $baseline);
+    }
+
+    /** Has the counter moved far enough to raise the next service? */
+    public function isDueByUsage(): bool
+    {
+        if (! $this->isUsageTriggered() || ! $this->is_active) {
+            return false;
+        }
+
+        $threshold = (float) ($this->usage_threshold ?? 0);
+        $since = $this->usageSinceLastGeneration();
+
+        return $threshold > 0 && $since !== null && $since >= $threshold;
     }
 
     public function advanceDue(): void
@@ -208,6 +327,22 @@ class ServicePlan extends Model
 
     protected static function booted(): void
     {
+        // Seed (and re-seed) the usage baseline from the counter's current value whenever a plan
+        // starts watching a meter, or is pointed at a different one. Without it the first delta is
+        // measured from zero against a meter that has been counting for years, and the first
+        // nightly run raises a backlog of services that were never actually missed.
+        static::saving(function (self $plan): void {
+            if ($plan->trigger_type !== self::TRIGGER_USAGE || $plan->utility_meter_id === null) {
+                return;
+            }
+
+            if ($plan->usage_at_last_generation !== null && ! $plan->isDirty('utility_meter_id')) {
+                return;
+            }
+
+            $plan->usage_at_last_generation = $plan->latestUsageReading() ?? 0.0;
+        });
+
         static::saving(function (self $plan) {
             // frequency_value must be at least 1, else the plan would never advance.
             if ((int) $plan->frequency_value < 1) {

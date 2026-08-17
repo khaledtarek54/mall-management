@@ -63,9 +63,14 @@ final class ConcurrencyPolicy
                 'settlement channels; two applications reading the same balance would both spend it.',
         ],
         'app/Services/GeneratePreventiveWorkOrdersService.php' => [
-            'locks' => 1,
-            'protects' => 'The plan row, re-checked under the lock before `advanceDue()`. Two overlapping '.
-                'sweeps would raise two work orders for the same cycle.',
+            // Two rounds, one lock each: the calendar round and the counter round. Both re-check
+            // due-ness under the lock, because the pre-filtering scope is only a scope.
+            'locks' => 2,
+            'protects' => 'The plan row, re-checked under the lock before `advanceDue()` (time round) '.
+                'or before the usage baseline moves (counter round). Two overlapping sweeps would '.
+                'otherwise raise two work orders for the same service — and on a usage plan the '.
+                'baseline is what makes the job non-repeating, so an unlocked read-then-write there '.
+                'is the same defect wearing a different name.',
         ],
         'app/Services/FacilityWorkOrderService.php' => [
             'locks' => 1,

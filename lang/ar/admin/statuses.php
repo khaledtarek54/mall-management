@@ -434,6 +434,7 @@ return [
             'other' => 'أخرى',
         ],
         'meter_type' => [
+            'hours' => 'ساعات التشغيل',
             'electric' => 'كهرباء',
             'water' => 'مياه',
             'gas' => 'غاز',
