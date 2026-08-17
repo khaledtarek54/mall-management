@@ -513,7 +513,12 @@ class InvoiceForm
             return;
         }
 
-        $items = $charges->map(function ($charge) {
+        // `use ($get)` — a closure does NOT inherit the enclosing scope in PHP. Without it,
+        // `$get('issue_date')` inside here was an undefined variable, which under PHP 8 is an
+        // ErrorException: picking a lease on the invoice form 500'd, on the primary path for
+        // raising a manual invoice. It shipped in 72c2c007 and no test caught it because every
+        // test that prefills items calls the service, not the form callback.
+        $items = $charges->map(function ($charge) use ($get) {
             // The charge's OWN stored rate, not the catalogue's: a charge schedule was rated when
             // it was opened and re-rating it here would quietly change what a recurring line bills.
             // The tax code comes from the charge's type, so the line is still classified — and if
