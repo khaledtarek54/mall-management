@@ -616,6 +616,42 @@ class Invoice extends Model
     }
 
     /**
+     * What period this invoice covers, in words — the SPAN, never just the month it opens in.
+     *
+     * A quarterly lease raises one invoice for three months, and a statement that printed
+     * `period_start` alone showed "Apr 2026" against 240,300 of April–June rent. The tenant reads
+     * that as one month's rent at three times the rate and disputes it; the operator has to open the
+     * invoice to explain a document that should have explained itself.
+     *
+     * Kept on the model rather than in the Blade because the portal, the mobile API and the invoice
+     * PDF all answer the same question, and three copies of a date rule drift into three answers.
+     */
+    public function periodLabel(): string
+    {
+        if (! $this->period_start) {
+            return '—';
+        }
+
+        $locale = app()->getLocale();
+        $start = $this->period_start->locale($locale);
+
+        if (! $this->period_end) {
+            return $start->isoFormat('MMM YYYY');
+        }
+
+        $end = $this->period_end->locale($locale);
+
+        return match (true) {
+            // One month — "Apr 2026", the only case the old label was right about.
+            $start->isSameMonth($end) => $start->isoFormat('MMM YYYY'),
+            // Within one year the year is stated once: "Apr – Jun 2026".
+            $start->year === $end->year => $start->isoFormat('MMM').' – '.$end->isoFormat('MMM YYYY'),
+            // An annual cycle straddling December needs both: "Dec 2026 – Feb 2027".
+            default => $start->isoFormat('MMM YYYY').' – '.$end->isoFormat('MMM YYYY'),
+        };
+    }
+
+    /**
      * Recompute paid_amount / balance / status. **The single source of truth for AR balances.**
      *
      * `paid_amount` is the sum of FOUR channels — captured payments, applied credit notes, applied

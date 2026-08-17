@@ -211,20 +211,26 @@
         <table class="data">
             <thead>
                 <tr>
-                    <th style="width:20%;">{{ __('admin.tables.invoice.number') }}</th>
-                    <th style="width:18%;">{{ __('admin.tables.invoice.period') }}</th>
-                    <th style="width:14%;">{{ __('admin.tables.invoice.due_date') }}</th>
+                    <th style="width:18%;">{{ __('admin.tables.invoice.number') }}</th>
+                    <th style="width:16%;">{{ __('admin.tables.invoice.period') }}</th>
+                    <th style="width:12%;">{{ __('admin.tables.invoice.due_date') }}</th>
                     <th class="num" style="width:14%;">{{ __('admin.tables.invoice.total') }}</th>
                     <th class="num" style="width:12%;">{{ __('admin.tables.invoice.paid') }}</th>
                     <th class="num" style="width:14%;">{{ __('admin.tables.invoice.balance') }}</th>
-                    <th style="width:8%;">{{ __('admin.tables.common.status') }}</th>
+                    {{-- 8% could not hold "Partially paid": the header broke to "STATU S" and the pill
+                         to "PARTIAL LY PAID" on the document the tenant receives. --}}
+                    <th style="width:14%;">{{ __('admin.tables.common.status') }}</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($openInvoices as $inv)
                     <tr>
                         <td style="font-family:monospace;font-size:8.5pt;">{{ $inv->number }}</td>
-                        <td>{{ $inv->period_start?->locale(app()->getLocale())->isoFormat('MMM YYYY') }}</td>
+                        {{-- The SPAN, not the first month. This printed "Apr 2026" against a 240,300
+                             quarterly invoice covering April–June, so the tenant reads a quarter's
+                             rent as one month's and disputes it. Only a single-month period collapses
+                             to one label. --}}
+                        <td>{{ $inv->periodLabel() }}</td>
                         <td>{{ $inv->due_date->format('d/m/Y') }}</td>
                         <td class="num">{{ number_format((float) $inv->total, 2) }}</td>
                         <td class="num">{{ number_format((float) $inv->paid_amount, 2) }}</td>
@@ -238,6 +244,42 @@
                     <td colspan="5" class="num">{{ __('admin.statement.total_outstanding') }}</td>
                     <td class="num" style="color:#B85C38;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
                     <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    @endif
+
+    {{-- Credits settle an invoice exactly as a payment does, and they were counted in Total Settled
+         while appearing nowhere on the page. Only rendered when there are any: an empty "Credits"
+         table on every ordinary statement is noise, and unlike payments a tenant does not expect
+         one. --}}
+    @if($credits->isNotEmpty())
+        <div class="section-title">{{ __('admin.statement.credits_applied') }} ({{ $credits->count() }})</div>
+        <table class="data">
+            <thead>
+                <tr>
+                    <th style="width:18%;">{{ __('admin.tables.credit_note.number') }}</th>
+                    <th style="width:14%;">{{ __('admin.tables.payment.date') }}</th>
+                    <th style="width:20%;">{{ __('admin.tables.invoice.number') }}</th>
+                    <th style="width:30%;">{{ __('admin.fields.reason') }}</th>
+                    <th class="num" style="width:18%;">{{ __('admin.tables.credit_note.applied') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($credits as $cn)
+                    <tr>
+                        <td style="font-family:monospace;font-size:8.5pt;">{{ $cn->number }}</td>
+                        <td>{{ $cn->issue_date?->format('d/m/Y') ?? '—' }}</td>
+                        <td style="font-family:monospace;font-size:8.5pt;">{{ $cn->invoice?->number ?? '—' }}</td>
+                        <td>{{ $cn->reason ?: '—' }}</td>
+                        <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $cn->applied_amount, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="num">{{ __('admin.statement.total_credited') }}</td>
+                    <td class="num" style="color:#2D6B3F;">EGP {{ number_format((float) $credits->sum('applied_amount'), 2) }}</td>
                 </tr>
             </tfoot>
         </table>

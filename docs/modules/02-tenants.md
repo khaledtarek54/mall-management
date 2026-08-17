@@ -120,12 +120,34 @@ file"), not the vaguer "any document at all".
 
 ### TenantStatementPdfService
 **Location:** `app/Services/TenantStatementPdfService`
-**Signature:** `build(Tenant $tenant): string` (returns mPDF binary), `filename(Tenant $tenant): string`
+**Signature:** `build(Tenant $tenant, ?array $visibleAssetIds = null, $from = null, $to = null): string` (returns mPDF binary) · `data(...)` (the same figures, before rendering) · `filename(Tenant $tenant): string`
 **What it does:**
-- Generates a 12-month statement PDF for a tenant: outstanding invoices (open balance, by due date), recent invoices (last 12 months, sorted by issue date), recent payments (captured status only), summary (outstanding/overdue/total_billed/total_paid/open_count).
+- Generates a 12-month statement PDF for a tenant: outstanding invoices (open balance, by due date), recent invoices (last 12 months, sorted by issue date), recent payments (captured status only), **applied credit notes**, summary (outstanding/overdue/total_billed/total_paid/open_count).
 - Loads tenant leases + units + assets for context.
 - Uses mPDF library with RTL/LTR rendering based on `app()->getLocale()`.
 - Renders via Blade view `tenants.statement`.
+
+**⚠️ The statement must explain its own arithmetic (fixed 2026-08-17).** An invoice's balance falls
+through **four** channels and this document listed exactly one of them — payments — while its
+`total_paid` figure counted all four. Read off a real statement after a termination: Total Billed
+532,600, Total Settled 232,100, Total Received 152,000, and the missing **80,100 was an applied
+credit note printed nowhere on the page**. A tenant cannot query a number they cannot see, and this
+is the page they are sent when they ask what they owe. Credits now render as their own section, so
+`payments + credits == total_paid` is checkable on the page — and that equality is what
+`StatementExplainsEverySettlementTest` asserts, because a test that only checked a credits section
+exists would pass on an empty one. The stat is labelled **Total Settled** (`admin.statement.total_paid`,
+shared with the asset statement, which sums the same column) rather than Total Paid: a credit note is
+not a payment. Credits go through **`visibleToTenant()`** for the same reason the invoice query does
+— the portal and `/api/v1` render this same service, and `credit_notes.status` DEFAULTS to draft at
+the column; `void` notes are excluded too, since they settle nothing.
+
+**Two smaller defects on the same page, same date.** The period column printed `period_start` alone,
+so a 240,300 April–June **quarterly** invoice read "Apr 2026" — one month's rent at three times the
+rate, which is a dispute waiting to happen. It now calls `Invoice::periodLabel()` (on the MODEL, so
+the portal, the API and the invoice PDF cannot drift into three different date rules): a single month
+collapses to "Jul 2026", a same-year span reads "Apr – Jun 2026", and a span crossing December states
+both years. And the status column was 8% wide, breaking the header to "STATU S" and the pill to
+"PARTIAL LY PAID" on the document the tenant receives.
 
 **Called by:**
 - TenantsTable record action "Statement" (available to all authorized users; downloads the PDF).

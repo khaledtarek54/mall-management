@@ -1,0 +1,166 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| A statement must explain its own arithmetic (2026-08-17)
+|--------------------------------------------------------------------------
+| An invoice's balance falls through FOUR channels. The statement listed exactly one of them —
+| payments — while its "Total Paid" figure counted all four. Produced from real data after a
+| termination:
+|
+|     Total Billed     532,600
+|     Total Settled    232,100
+|     Total Received   152,000     ← the only settlements printed anywhere
+|
+| The missing 80,100 was an applied credit note that appeared on no line of the document. A tenant
+| cannot query a number they cannot see, and this is the page they are sent when they ask what they
+| owe.
+|
+| Two smaller defects on the same page, both found by reading the rendered PDF:
+|   · the period column printed `period_start` alone, so a 240,300 April–June quarterly invoice read
+|     "Apr 2026" — one month's rent at three times the rate
+|   · the status column was 8% wide, breaking "Partially paid" across lines as "PARTIAL LY PAID"
+|
+| The draft rule is tested here rather than assumed: this same service renders the PORTAL and the
+| mobile API statement, and `credit_notes.status` DEFAULTS to draft at the column.
+*/
+
+use App\Models\CreditNote;
+use App\Models\Invoice;
+use App\Services\TenantStatementPdfService;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\View;
+
+beforeEach(function () {
+    ensureAllPropertiesAsset();
+    $this->asset = makeAsset();
+    $this->tenant = makeTenant();
+    $this->unit = makeUnit($this->asset);
+    $this->lease = makeLease($this->unit, $this->tenant, ['status' => 'active']);
+    $this->svc = app(TenantStatementPdfService::class);
+    CarbonImmutable::setTestNow('2026-08-17');
+});
+
+afterEach(fn () => CarbonImmutable::setTestNow());
+
+/** An issued invoice with an applied credit note against it. */
+function statementInvoiceWithCredit($ctx, float $total, float $credited): Invoice
+{
+    $invoice = makeInvoice($ctx->lease, [
+        'asset_id' => $ctx->asset->id,
+        'status' => 'partially_paid',
+        'issue_date' => '2026-07-01',
+        'period_start' => '2026-07-01',
+        'period_end' => '2026-09-30',
+        'total' => $total,
+        'credit_applied_amount' => $credited,
+        'paid_amount' => $credited,
+        'balance' => $total - $credited,
+    ]);
+
+    CreditNote::create([
+        'tenant_id' => $ctx->tenant->id,
+        'invoice_id' => $invoice->id,
+        'asset_id' => $ctx->asset->id,
+        'status' => 'applied',
+        'issue_date' => '2026-08-31',
+        'subtotal' => $credited,
+        'total' => $credited,
+        'applied_amount' => $credited,
+        'balance' => 0,
+        'reason' => 'Unearned billing on termination',
+    ]);
+
+    return $invoice;
+}
+
+it('lists an applied credit note, so Total Settled can be reconciled from the page', function () {
+    statementInvoiceWithCredit($this, 240300, 80100);
+
+    $data = $this->svc->data($this->tenant);
+
+    // The gap this closes: settled (80,100) with nothing received, and until now nothing printed.
+    expect($data['summary']['total_paid'])->toBe(80100.0)
+        ->and($data['payments'])->toHaveCount(0)
+        ->and($data['credits'])->toHaveCount(1)
+        ->and((float) $data['credits']->first()->applied_amount)->toBe(80100.0);
+
+    // Settled must equal what the page itself accounts for — payments plus credits. That equality
+    // IS the fix; asserting only that a credits key exists would pass on an empty collection.
+    $accountedFor = (float) $data['payments']->sum('amount') + (float) $data['credits']->sum('applied_amount');
+    expect($accountedFor)->toBe($data['summary']['total_paid']);
+});
+
+it('never shows a DRAFT credit note — the portal and the API render this same statement', function () {
+    statementInvoiceWithCredit($this, 240300, 80100);
+
+    CreditNote::create([
+        'tenant_id' => $this->tenant->id,
+        'asset_id' => $this->asset->id,
+        // Not passed at all in the real path: the column DEFAULTS to draft, which is how this leaks.
+        'issue_date' => '2026-08-15',
+        'subtotal' => 50000,
+        'total' => 50000,
+        'applied_amount' => 0,
+        'balance' => 50000,
+        'reason' => 'Being considered',
+    ]);
+
+    $numbers = $this->svc->data($this->tenant)['credits']->pluck('number');
+
+    // Paired with the control above (the applied note IS listed) — a scope that hid everything would
+    // satisfy this refusal on its own and read as a pass.
+    expect($numbers)->toHaveCount(1)
+        ->and(CreditNote::where('tenant_id', $this->tenant->id)->count())->toBe(2);
+});
+
+it('leaves a VOID credit note off — it settles nothing', function () {
+    statementInvoiceWithCredit($this, 240300, 80100);
+
+    CreditNote::create([
+        'tenant_id' => $this->tenant->id,
+        'asset_id' => $this->asset->id,
+        'status' => 'void',
+        'issue_date' => '2026-08-10',
+        'subtotal' => 9000,
+        'total' => 9000,
+        'applied_amount' => 0,
+        'balance' => 0,
+        'reason' => 'Raised in error',
+    ]);
+
+    expect($this->svc->data($this->tenant)['credits'])->toHaveCount(1);
+});
+
+it('states the period a multi-month invoice covers, not the month it opens in', function () {
+    $quarter = statementInvoiceWithCredit($this, 240300, 0);
+
+    // "Apr 2026" against a quarter is how a tenant comes to believe one month costs 240,300.
+    expect($quarter->periodLabel())->toBe('Jul – Sep 2026');
+
+    $monthly = makeInvoice($this->lease, [
+        'asset_id' => $this->asset->id,
+        'period_start' => '2026-07-01', 'period_end' => '2026-07-31',
+    ]);
+    expect($monthly->periodLabel())->toBe('Jul 2026');
+
+    // An annual cycle straddling December needs both years or it reads as a 2-month period.
+    $annual = makeInvoice($this->lease, [
+        'asset_id' => $this->asset->id,
+        'period_start' => '2026-12-01', 'period_end' => '2027-11-30',
+    ]);
+    expect($annual->periodLabel())->toBe('Dec 2026 – Nov 2027');
+});
+
+it('renders the credits section into the document itself', function () {
+    statementInvoiceWithCredit($this, 240300, 80100);
+
+    // The service can hold the figures and the template still drop them — which is precisely how the
+    // settlement went missing. Render the real view.
+    $html = View::make('tenants.statement', $this->svc->data($this->tenant))->render();
+
+    expect($html)->toContain(__('admin.statement.credits_applied'))
+        ->and($html)->toContain('80,100.00')
+        ->and($html)->toContain('Unearned billing on termination')
+        ->and($html)->toContain('Jul – Sep 2026');
+});
