@@ -293,6 +293,12 @@ class LeaseForm
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveExpiry($get, $set)),
                         TextInput::make('term_months')
                             ->label(__('admin.fields.term_months'))
+                            // Locked once invoiced, with the expiry below: from the first invoice
+                            // onward, lengthening a term is an EXTENSION — a commercial act with a
+                            // reason and an actor — and shortening one is a TERMINATION, which
+                            // settles the deposit and credits unearned billing. Typing either here
+                            // did neither and recorded nothing.
+                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
                             ->numeric()
                             ->default(fn () => max(1, (int) app(AccountingSettings::class)->default_lease_term_months))
                             ->required()
@@ -306,10 +312,13 @@ class LeaseForm
                             ->label(__('admin.fields.expiry_date'))
                             ->required()
                             ->after('commencement_date')
+                            ->disabled(fn (?Lease $record): bool => self::isInvoiced($record))
                             ->native(false)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveTerm($get, $set))
-                            ->helperText(__('admin.helpers.expiry_date_derived')),
+                            ->helperText(fn (?Lease $record): string => self::isInvoiced($record)
+                                ? __('admin.helpers.expiry_date_locked')
+                                : __('admin.helpers.expiry_date_derived')),
                     ])->columns(3),
 
                     FormTab::make('admin.sections.financial_terms', [

@@ -2,6 +2,8 @@
 
 return [
     'helpers' => [
+        'extend_term_current' => 'Currently runs to :date. The further term begins the day after.',
+        'expiry_date_locked' => 'Locked — this lease has been invoiced. Use “Extend term”, or Terminate to end it early.',
         'additional_units_locked' => 'Use “Change premises” to add or give back space — it keeps the months already occupied.',
         'gross_sales' => 'The figure on the tenant’s own certificate, before any deduction.',
         'gross_includes_vat' => 'Adds the VAT contained in the figure as a deduction, at today’s standard rate.',

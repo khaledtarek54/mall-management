@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'document_reference' => 'مرجع المستند',
         'unit_ownership' => 'المالك (الوحدة مباعة)',
         'party_type' => 'نوع الطرف',
         'tenure_type' => 'نوع الملكية',

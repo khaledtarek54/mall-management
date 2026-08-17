@@ -8,6 +8,7 @@ use App\Models\RentableItem;
 use App\Models\Unit;
 use App\Services\AssignRentableItemService;
 use App\Services\ConvertLeaseToHoldoverService;
+use App\Services\LeaseExtensionService;
 use App\Services\LeaseReliefService;
 use App\Services\LeaseRenewalService;
 use App\Services\LeaseRentChangeService;
@@ -711,6 +712,57 @@ class LeaseActions
                         ->warning()
                         ->send();
                 }),
+            // ── Extend the term — the last commercial change with no act behind it ────────────
+            // `expiry_date` was free text on the form, so a further term happened by typing a date:
+            // no reason, no actor, no event, and nothing able to tell an extension from a typo.
+            // `LeaseEvent::TYPE_EXTENSION` had been declared and never written.
+            Action::make('extendTerm')
+                ->label(__('admin.actions.extend_term'))
+                ->icon('heroicon-o-calendar-days')
+                ->color('gray')
+                ->visible(fn (Lease $record): bool => in_array($record->status, ['active', 'pending_approval'], true)
+                    && LeaseResource::canEdit($record))
+                ->authorize(fn (Lease $record): bool => LeaseResource::canEdit($record))
+                ->modalHeading(fn (Lease $record) => __('admin.actions.extend_term_heading', ['ref' => $record->reference]))
+                ->modalDescription(__('admin.actions.extend_term_description'))
+                ->schema([
+                    DatePicker::make('new_expiry_date')
+                        ->label(__('admin.fields.expiry_date'))
+                        ->required()
+                        ->native(false)
+                        // Only forwards. Pulling an expiry backwards ends a tenancy early, which is
+                        // a TERMINATION — it settles the deposit and credits unearned billing, and
+                        // none of that would happen here.
+                        ->after(fn (Lease $record) => $record->expiry_date)
+                        ->helperText(fn (Lease $record) => __('admin.helpers.extend_term_current', [
+                            'date' => $record->expiry_date?->format('d/m/Y') ?? '—',
+                        ])),
+                    Textarea::make('reason')
+                        ->label(__('admin.actions.change_rent_reason'))
+                        ->required()
+                        ->rows(2)
+                        ->placeholder(__('admin.actions.extend_term_reason_placeholder')),
+                    TextInput::make('document_reference')
+                        ->label(__('admin.fields.document_reference'))
+                        ->maxLength(120),
+                ])
+                ->action(function (array $data, Lease $record): void {
+                    // The real gate — `visible()` is the UI.
+                    abort_unless(LeaseResource::canEdit($record), 403);
+
+                    $extended = app(LeaseExtensionService::class)->extend($record, $data);
+
+                    Notification::make()
+                        ->title(__('admin.actions.extend_term_done'))
+                        ->body(__('admin.actions.extend_term_done_body', [
+                            'ref' => $extended->reference,
+                            'date' => $extended->expiry_date->format('d/m/Y'),
+                            'months' => $extended->term_months,
+                        ]))
+                        ->success()
+                        ->send();
+                }),
+
         ];
     }
 
@@ -754,7 +806,7 @@ class LeaseActions
                 ->label(__('admin.actions.groups.premises'))
                 ->icon('heroicon-o-building-storefront')
                 ->button(),
-            ActionGroup::make(self::only(['renew', 'convertToHoldover', 'terminate', 'finalAccount']))
+            ActionGroup::make(self::only(['renew', 'extendTerm', 'convertToHoldover', 'terminate', 'finalAccount']))
                 ->label(__('admin.actions.groups.lifecycle'))
                 ->icon('heroicon-o-arrow-path')
                 ->button(),

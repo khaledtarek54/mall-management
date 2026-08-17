@@ -225,6 +225,7 @@ return [
     ],
 
     'filters' => [
+        'without_options' => 'بدون خيارات مسجَّلة',
         'lease_type' => 'نوع العقد',
         'posting_role_group' => 'التصنيف المحاسبي',
         'posting_map_scope' => 'النطاق',

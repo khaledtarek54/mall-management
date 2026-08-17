@@ -136,7 +136,11 @@ class DerivedFields
         ],
         'app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php' => [
             'verdict' => 'DERIVES',
-            'note' => 'The RENEW action. `new_expiry_preview` is a live Placeholder over `LeaseTerm::expiryFrom(commencement, new_term_months)` and `LeaseRenewalService` derives the stored value from the same two — read-only on purpose, because there is nothing for the operator to type.',
+            'note' => 'What is left here after the record actions moved to LeaseActions (2026-08-17): the Quick new lease wizard, which asks commencement + term_months and never an expiry — `LeaseCreationService` derives the stored expiry through `LeaseTerm`, so there is no second field to disagree with it.',
+        ],
+        'app/Filament/Admin/Actions/LeaseActions.php' => [
+            'verdict' => 'DERIVES',
+            'note' => 'Two actions, both deriving. RENEW: `new_expiry_preview` is a live Placeholder over `LeaseTerm::expiryFrom(commencement, new_term_months)` and `LeaseRenewalService` derives the stored value from the same two — read-only, because there is nothing for the operator to type. EXTEND TERM: the operator states the new expiry alone and `LeaseExtensionService` re-derives `term_months` from it via `LeaseTerm::monthsSpanning`, which is the same rule the lease form applies in reverse — a further term is negotiated to a DATE (a financial year end, the neighbour\'s fit-out), so the date is the fact and the month count describes it.',
         ],
         'app/Filament/Admin/Resources/PostDatedCheques/Pages/ListPostDatedCheques.php' => [
             'verdict' => 'DERIVES',

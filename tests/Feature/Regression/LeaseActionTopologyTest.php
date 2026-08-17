@@ -28,7 +28,7 @@ it('defines every commercial act exactly once', function () {
     $names = LeaseActions::names();
 
     expect($names)->toBe(array_unique($names))
-        ->and($names)->toContain('renew', 'changeRent', 'grantRelief', 'changePremises', 'terminate');
+        ->and($names)->toContain('renew', 'extendTerm', 'changeRent', 'grantRelief', 'changePremises', 'terminate');
 });
 
 it('groups the record page into a handful of dropdowns, not a wall of verbs', function () {

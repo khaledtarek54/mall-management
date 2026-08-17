@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'document_reference' => 'Document reference',
         'unit_ownership' => 'Owner (unit is sold)',
         'party_type' => 'Party type',
         'tenure_type' => 'Tenure',

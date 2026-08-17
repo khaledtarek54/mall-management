@@ -225,6 +225,7 @@ return [
     ],
 
     'filters' => [
+        'without_options' => 'No options recorded',
         'lease_type' => 'Lease type',
         'posting_role_group' => 'Statement class',
         'posting_map_scope' => 'Scope',

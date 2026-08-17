@@ -2,6 +2,12 @@
 
 return [
     'actions' => [
+        'extend_term' => 'Extend term',
+        'extend_term_heading' => 'Extend the term of :ref',
+        'extend_term_description' => 'Keeps this contract running longer on the same terms — a further term, not a new lease. A renewal ends this tenancy and starts another; use Renew for that.',
+        'extend_term_reason_placeholder' => 'e.g. extension option exercised · further term agreed pending renewal negotiation',
+        'extend_term_done' => 'Term extended',
+        'extend_term_done_body' => ':ref now runs to :date — :months months.',
         'groups' => [
             'money' => 'Money',
             'premises' => 'Premises',

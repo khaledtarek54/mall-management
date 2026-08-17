@@ -2,6 +2,12 @@
 
 return [
     'actions' => [
+        'extend_term' => 'تمديد المدة',
+        'extend_term_heading' => 'تمديد مدة العقد :ref',
+        'extend_term_description' => 'يُبقي العقد نفسه ساريًا لمدة أطول بنفس الشروط — مدة إضافية، وليس عقدًا جديدًا. التجديد يُنهي هذه الإجارة ويبدأ غيرها؛ استخدم «تجديد» لذلك.',
+        'extend_term_reason_placeholder' => 'مثال: تم استخدام حق التمديد · مدة إضافية متفق عليها لحين التفاوض على التجديد',
+        'extend_term_done' => 'تم تمديد المدة',
+        'extend_term_done_body' => ':ref أصبح ساريًا حتى :date — :months شهرًا.',
         'groups' => [
             'money' => 'المالية',
             'premises' => 'المساحة',

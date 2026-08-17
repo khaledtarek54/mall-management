@@ -2,6 +2,37 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ Extending a term is an ACT now, not a typed date (2026-08-17).** `expiry_date` and
+> `term_months` were free text on the form, so a further term happened by typing a date: no reason,
+> no actor, no event, and nothing downstream able to tell an extension from a correction.
+> `LeaseEvent::TYPE_EXTENSION` had been declared and **never written by anything** — the same shape
+> `relocation` still has. This was the last commercially-significant field with no act behind it.
+>
+> [`LeaseExtensionService`](../../app/Services/LeaseExtensionService.php) + the **Extend term**
+> action; both date fields lock once the lease has been invoiced.
+>
+> **An extension is not a renewal, and keeping them apart is the point.** A renewal ENDS this
+> tenancy and starts a new lease with its own reference, its own negotiated terms and its own
+> document (`previous_lease_id` is the chain). An extension leaves the SAME contract running longer
+> on the same terms — a "further term", or an exercised extension option. Modelling one as the other
+> loses which happened, and Yardi keeps them separate for the same reason.
+>
+> Three behaviours worth knowing: it **refuses to pull an expiry backwards**, because ending a
+> tenancy early is a *termination* — which settles the deposit, credits unearned billing and closes
+> the schedule, none of which this does; it **does not re-date the charge rows**, because they are
+> open-ended and a longer term simply keeps billing them (re-dating would be the bug); and it **does
+> re-project the escalation ladder**, because anniversaries that fell past the old expiry now fall
+> inside the term, and a lease must not run two more years with its future rent recorded nowhere.
+> `term_months` is re-derived from the new date via `LeaseTerm::monthsSpanning` — a further term is
+> negotiated to a DATE, so the date is the fact and the month count describes it. Pinned by
+> `LeaseTermExtensionTest`.
+>
+> **And an unrecorded option is now a portfolio question.** `leases:scan-option-windows` reads
+> `lease_options` and nothing else, so a clause nobody abstracted is a right nothing will ever alert
+> on — inherent, and true of Yardi too. The lease's own panel already said so when empty; the
+> leases list now carries a **"No options recorded"** filter, which turns "which contracts have not
+> been abstracted yet" from a question nobody could put to the system into one click.
+
 > **⚠️ The list FINDS, the record ACTS (2026-08-17).** Nine commercial actions hung off every row of
 > the leases list while the lease's own page carried one — so an operator who opened a lease had to
 > go back to the list to do anything to it. That is backwards from the record-hub information

@@ -177,6 +177,15 @@ class LeasesTable
                         Lease::TYPE_NEW => $query->whereNull('previous_lease_id'),
                         default => $query,
                     }),
+                // An option nobody recorded is an option nothing will ever remind anyone about —
+                // `leases:scan-option-windows` reads these rows and nothing else. The lease's own
+                // panel says so when it is empty; this is the same fact asked of the PORTFOLIO, so
+                // "which contracts have not been abstracted yet" is one click rather than a
+                // question nobody can put to the system.
+                Filter::make('without_options')
+                    ->label(__('admin.filters.without_options'))
+                    ->toggle()
+                    ->query(fn ($query) => $query->whereDoesntHave('options')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.lease'))->except('cancelled')->all()),
