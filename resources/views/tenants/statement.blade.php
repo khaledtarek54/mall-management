@@ -246,8 +246,10 @@
             <tfoot>
                 <tr>
                     <td colspan="5" class="num">{{ __('admin.statement.total_outstanding') }}</td>
-                    <td class="num" style="color:#B85C38;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
-                    <td></td>
+                    {{-- Spans the balance AND status columns. The total carries an "EGP " prefix the
+                         body cells do not, so it needs more room than the column it sits under — at
+                         13% it wrapped to "EGP / 300,500.00" while every row above it fitted. --}}
+                    <td colspan="2" class="num" style="color:#B85C38;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
                 </tr>
             </tfoot>
         </table>

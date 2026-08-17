@@ -81,6 +81,40 @@ it('gives every column of the open-invoices table room for its widest content', 
         .implode("\n  ", $tooNarrow));
 });
 
+it('gives each table TOTAL room for its figure — the row the body measurements miss', function () {
+    $mpdf = new Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'tempDir' => storage_path('app/mpdf')]);
+
+    $usable = statementUsableWidthMm();
+    $padding = 2 * (6 / 96 * 25.4);
+
+    // A totals cell is NOT the column above it: it carries an "EGP " prefix, renders bold, and may
+    // span columns. Measuring the body alone passed while "Total Outstanding" wrapped to
+    // "EGP / 300,500.00" directly beneath two rows that fitted.
+    $totals = [
+        // label                 spanned width%   sample
+        ['total outstanding',    13 + 17,        'EGP 1,300,500.00'],
+        ['total credited',       18,             'EGP 1,080,100.00'],
+        ['total received',       18,             'EGP 1,152,000.00'],
+    ];
+
+    $tooNarrow = [];
+
+    foreach ($totals as [$label, $pct, $sample]) {
+        $available = $usable * $pct / 100 - $padding;
+        // Bold is wider than regular; mPDF resolves the bold metrics from the same family.
+        $mpdf->SetFont('dejavusans', 'B', 8.5);
+        $needed = $mpdf->GetStringWidth($sample);
+
+        if ($needed > $available) {
+            $tooNarrow[] = sprintf('%s: needs %.1fmm, has %.1fmm (%d%%) — "%s"',
+                $label, $needed, $available, $pct, $sample);
+        }
+    }
+
+    expect($tooNarrow)->toBe([], "These totals will wrap on the tenant's statement:\n  "
+        .implode("\n  ", $tooNarrow));
+});
+
 it('holds the longest status label on one line, in both languages', function () {
     $mpdf = new Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'tempDir' => storage_path('app/mpdf')]);
 
