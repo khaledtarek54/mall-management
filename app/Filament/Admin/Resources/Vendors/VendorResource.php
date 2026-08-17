@@ -2,16 +2,20 @@
 
 namespace App\Filament\Admin\Resources\Vendors;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Vendors\Pages\CreateVendor;
 use App\Filament\Admin\Resources\Vendors\Pages\EditVendor;
 use App\Filament\Admin\Resources\Vendors\Pages\ListVendors;
 use App\Filament\Admin\Resources\Vendors\RelationManagers\ContactsRelationManager;
 use App\Filament\Admin\Resources\Vendors\RelationManagers\ContractsRelationManager;
+use App\Filament\Admin\Resources\Vendors\RelationManagers\DocumentsRelationManager;
 use App\Filament\Admin\Resources\Vendors\Schemas\VendorForm;
 use App\Filament\Admin\Resources\Vendors\Tables\VendorsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Vendor;
+use App\Models\VendorContract;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -74,8 +78,8 @@ class VendorResource extends Resource
         return [
             ContactsRelationManager::class,
             ContractsRelationManager::class,
-            \App\Filament\Admin\Resources\Vendors\RelationManagers\DocumentsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            DocumentsRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -118,6 +122,8 @@ class VendorResource extends Resource
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
+            // See TenantResource — searchable but unshown is a hit that cannot confirm itself.
+            __('admin.fields.vendor_code') => $record->code,
             __('admin.tables.vendor.type') => __("admin.enums.vendor_type.{$record->type}"),
             __('admin.tables.vendor.phone') => $record->phone,
             __('admin.tables.common.status') => __("admin.statuses.vendor.{$record->status}"),
@@ -132,13 +138,13 @@ class VendorResource extends Resource
         // operator is scoped to a specific property they see only that
         // property's expiring contracts. ALL pseudo-asset bypasses the
         // filter and returns the portfolio-wide count.
-        $query = \App\Models\VendorContract::query()
+        $query = VendorContract::query()
             ->where('status', 'active')
             ->whereNotNull('end_date')
             ->whereDate('end_date', '<=', now()->addDays(30))
             ->whereDate('end_date', '>=', now());
 
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
+        if ($assetId = TenantScope::currentAssetId()) {
             $query->where('asset_id', $assetId);
         }
 

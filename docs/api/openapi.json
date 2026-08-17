@@ -4996,6 +4996,13 @@
                     "id": {
                         "type": "integer"
                     },
+                    "code": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The retailer's own number. They are the party who gets asked to quote it, so\nwithholding it from `GET /me` left the mobile app unable to show them the one\nidentifier the mall will ask for on the phone. Nullable like `legal_name`: rows\npredating the code carry none until the backfill has run."
+                    },
                     "name": {
                         "type": "string"
                     },
@@ -5065,6 +5072,7 @@
                 },
                 "required": [
                     "id",
+                    "code",
                     "name",
                     "legalName",
                     "type",

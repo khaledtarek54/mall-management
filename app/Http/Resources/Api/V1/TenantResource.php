@@ -14,6 +14,11 @@ class TenantResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // The retailer's own number. They are the party who gets asked to quote it, so
+            // withholding it from `GET /me` left the mobile app unable to show them the one
+            // identifier the mall will ask for on the phone. Nullable like `legal_name`: rows
+            // predating the code carry none until the backfill has run.
+            'code' => $this->code,
             'name' => $this->name,
             'legal_name' => $this->legal_name,
             'type' => $this->type,

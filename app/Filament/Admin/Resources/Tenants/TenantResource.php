@@ -4,18 +4,18 @@ namespace App\Filament\Admin\Resources\Tenants;
 
 use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
-use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
-use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
-use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantInvoicesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
+use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
-use App\Filament\Admin\Resources\Tenants\RelationManagers\DocumentsRelationManager;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
+use App\Filament\Admin\Resources\Tenants\RelationManagers\DocumentsRelationManager;
 use App\Filament\Admin\Resources\Tenants\Schemas\TenantForm;
 use App\Filament\Admin\Resources\Tenants\Schemas\TenantInfolist;
 use App\Filament\Admin\Resources\Tenants\Tables\TenantsTable;
@@ -173,6 +173,9 @@ class TenantResource extends Resource
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
+            // The code leads. It is searchable — the blob carries it — so an operator who typed
+            // `TN-0000001` and got this hit was being shown everything EXCEPT the thing they typed.
+            __('admin.fields.tenant_code') => $record->code,
             __('admin.tables.tenant.phone') => $record->phone,
             __('admin.tables.tenant.email') => $record->email,
             __('admin.tables.common.status') => __("admin.statuses.tenant.{$record->status}"),

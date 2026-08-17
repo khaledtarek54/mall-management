@@ -6,7 +6,13 @@ it('returns the authenticated tenant profile', function () {
     $this->getJson('/api/v1/me', apiHeaders($tenant))
         ->assertOk()
         ->assertJsonPath('data.id', $tenant->id)
-        ->assertJsonPath('data.name', 'Acme Co');
+        ->assertJsonPath('data.name', 'Acme Co')
+        // The retailer's own number. They are the party asked to quote it, so the app has to be
+        // able to show it — and `code` is allocated on create, so a profile fetched straight after
+        // registration already carries one. Typed as a string on the wire: the Dart client throws
+        // on a type it did not expect, which is why the shape is asserted and not just presence.
+        ->assertJsonPath('data.code', $tenant->code)
+        ->assertJsonPath('data.code', fn ($code) => is_string($code) && $code !== '');
 });
 
 it('rejects an unauthenticated profile request', function () {
