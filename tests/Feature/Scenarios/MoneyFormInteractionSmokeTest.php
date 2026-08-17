@@ -1,15 +1,25 @@
 <?php
 
+use App\Filament\Admin\Resources\CamExpensePools\Pages\CreateCamExpensePool;
 use App\Filament\Admin\Resources\CreditNotes\Pages\CreateCreditNote;
+use App\Filament\Admin\Resources\Expenses\Pages\CreateExpense;
+use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\CreateFacilityWorkOrder;
 use App\Filament\Admin\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
 use App\Filament\Admin\Resources\PostDatedCheques\Pages\CreatePostDatedCheque;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
+use App\Filament\Admin\Resources\Units\Pages\CreateUnit;
 use App\Filament\Admin\Resources\VendorBills\Pages\CreateVendorBill;
+use App\Models\Area;
+use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\Equipment;
+use App\Models\TaxCode;
 use App\Models\Vendor;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Database\Seeders\TaxCodeSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
@@ -36,12 +46,22 @@ use Livewire\Livewire;
  * path executes at all.**
  *
  * The forms chosen are the ones where a 500 is most expensive — every document that moves money or
- * lands in the general ledger.
+ * lands in the general ledger — plus the two cascades reworked on 2026-08-17 (the tenant-request
+ * unit suggestion and the unit form's property → zone reset), which are new code and therefore the
+ * least proven.
+ *
+ * There is no generic sweep of every `->live()` field, and that is a decision rather than an
+ * omission. Most of these callbacks open with `if (! $state) return;` — the invoice one did — so a
+ * sweep that set every live field to null would run the guard clause, touch nothing, and report
+ * coverage it does not have. Driving a cascade needs a REAL value, and a real value needs a fixture.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
+    // The tax catalogue: the expense form derives its VAT from it, and without the rows the
+    // cascade runs, resolves nothing and leaves a zero — a green test over a dead branch.
+    $this->seed(TaxCodeSeeder::class);
 
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->asset = makeAsset(['code' => 'MF']);
@@ -112,4 +132,80 @@ it('survives picking a vendor on the vendor-bill form', function () {
         ->set('data.vendor_id', Vendor::query()->value('id'))  // narrows contract + purchase pickers
         ->assertOk()
         ->assertHasNoFormErrors();
+});
+
+it('survives picking a tax code on the expense form', function () {
+    // The cascade derives VAT from the catalogue for the DOCUMENT's date and re-totals — three
+    // `$get`s and a support class, in a closure, on a document that posts to the GL.
+    $page = Livewire::test(CreateExpense::class)
+        ->set('data.expense_date', '2026-04-05')
+        ->set('data.amount', 1000)
+        ->set('data.tax_code', TaxCode::query()->where('direction', TaxCode::PURCHASES)->value('code'))
+        ->assertOk()
+        ->assertHasNoFormErrors();
+
+    // It reached the end: the catalogue answered, and the total picked the tax up.
+    expect((float) $page->get('data')['vat_amount'])->toBeGreaterThan(0)
+        ->and((float) $page->get('data')['total'])->toBeGreaterThan(1000);
+});
+
+it('survives picking equipment on the work-order form', function () {
+    $equipment = Equipment::create([
+        'asset_id' => $this->asset->id, 'code' => 'ESC-99',
+        'name_en' => 'Escalator', 'name_ar' => 'سلم', 'criticality' => Equipment::CRITICAL,
+    ]);
+
+    // Picking the machine re-grades the priority from its criticality — on create only.
+    $page = Livewire::test(CreateFacilityWorkOrder::class)
+        ->set('data.asset_id', $this->asset->id)
+        ->set('data.equipment_id', $equipment->id)
+        ->assertOk()
+        ->assertHasNoFormErrors();
+
+    expect($page->get('data')['priority'])->toBe($equipment->defaultWorkOrderPriority());
+});
+
+it('survives changing the pool code on the CAM form', function () {
+    // Moving off `cam` resets the estimate basis — the callback that stops a tax pool inheriting
+    // CAM's assumptions and subtracting a tenant's whole year of service charge.
+    $page = Livewire::test(CreateCamExpensePool::class)
+        ->set('data.asset_id', $this->asset->id)
+        ->set('data.estimate_basis', CamExpensePool::BASIS_BILLED)
+        ->set('data.pool_code', 'insurance')
+        ->assertOk();
+
+    expect($page->get('data')['estimate_basis'])->toBe(CamExpensePool::BASIS_STATED);
+});
+
+it('survives picking a tenant on the request form, and clears a unit that is now someone else\'s', function () {
+    // Reworked 2026-08-17: the tenant drives the unit SUGGESTIONS, and changing it clears a unit
+    // the new tenant does not hold — a stale value the narrowed picker would no longer offer and
+    // the operator would never see.
+    $other = makeTenant(['name' => 'Second Retailer']);
+    $otherUnit = makeUnit($this->asset, ['code' => 'M-02']);
+    makeLease($otherUnit, $other);
+
+    $page = Livewire::test(CreateTenantRequest::class)
+        ->set('data.tenant_id', $other->id)
+        ->set('data.unit_id', $otherUnit->id)
+        // Switching the reporter must not leave the previous tenant's unit selected.
+        ->set('data.tenant_id', $this->tenant->id)
+        ->assertOk();
+
+    expect($page->get('data')['unit_id'])->toBeNull();
+});
+
+it('survives changing the property on the unit form, and clears a now-foreign zone', function () {
+    // Also reworked 2026-08-17. `area_id` is scoped to the chosen property, so switching the
+    // property has to drop a zone that belongs to the old one.
+    $other = makeAsset(['code' => 'MF2']);
+    $zone = Area::create(['asset_id' => $this->asset->id, 'name' => 'Food Court', 'code' => 'FC', 'is_active' => true]);
+
+    $page = Livewire::test(CreateUnit::class)
+        ->set('data.asset_id', $this->asset->id)
+        ->set('data.area_id', $zone->id)
+        ->set('data.asset_id', $other->id)
+        ->assertOk();
+
+    expect($page->get('data')['area_id'])->toBeNull();
 });
