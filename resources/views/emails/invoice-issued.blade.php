@@ -1,6 +1,7 @@
 @php
     $locale = app()->getLocale();
-    $dir = $locale === 'ar' ? 'rtl' : 'ltr';
+    $isRtl = $locale === 'ar';
+    $dir = $isRtl ? 'rtl' : 'ltr';
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $locale }}" dir="{{ $dir }}">
@@ -10,18 +11,20 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Arial, sans-serif; color: #18181b; background: #fafafa; margin: 0; padding: 32px; }
         .card { max-width: 560px; margin: 0 auto; background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 32px; }
-        .brand { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+        {{-- The brand is now the MALL's name, which in Arabic is a cursive run: letter-spacing
+             pulls the glyphs apart and breaks the joins. --}}
+        .brand { font-weight: 700; font-size: 18px; letter-spacing: {{ $isRtl ? '0' : '-0.02em' }}; }
         .muted { color: #71717a; font-size: 13px; }
         .amount { font-size: 28px; font-weight: 600; margin: 16px 0; }
         table { width: 100%; border-collapse: collapse; margin: 24px 0; }
-        th, td { padding: 8px 0; text-align: {{ $dir === 'rtl' ? 'right' : 'left' }}; border-bottom: 1px solid #f4f4f5; }
-        th { color: #71717a; font-weight: 500; font-size: 12px; text-transform: uppercase; }
+        th, td { padding: 8px 0; text-align: {{ $isRtl ? 'right' : 'left' }}; border-bottom: 1px solid #f4f4f5; }
+        th { color: #71717a; font-weight: 500; font-size: 12px; text-transform: {{ $isRtl ? 'none' : 'uppercase' }}; }
         .btn { display: inline-block; padding: 10px 18px; background: #18181b; color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px; }
     </style>
 </head>
 <body>
 <div class="card">
-    <div class="brand">Atriom</div>
+    <div class="brand">{{ $issuerName }}</div>
     <p>{{ __('admin.email.greeting', ['name' => $tenant->name]) }}</p>
     <p>{{ __('admin.email.invoice_issued_body', ['number' => $invoice->number, 'due_date' => $invoice->due_date->format('d M Y')]) }}</p>
 

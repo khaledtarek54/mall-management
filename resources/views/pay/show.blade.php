@@ -1,11 +1,11 @@
-@php $rtl = app()->getLocale() === 'ar'; @endphp
+@php $isRtl = app()->getLocale() === 'ar'; @endphp
 <!DOCTYPE html>
-<html lang="{{ app()->getLocale() }}" dir="{{ $rtl ? 'rtl' : 'ltr' }}">
+<html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>{{ __('pay.title', ['number' => $invoice->number]) }} · Atriom</title>
+    <title>{{ __('pay.title', ['number' => $invoice->number]) }} · {{ $issuerName }}</title>
     <style>
         :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#0f766e; --bg:#f1f5f9; }
         * { box-sizing: border-box; }
@@ -13,7 +13,7 @@
         .wrap { min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px; }
         .card { background:#fff; width:100%; max-width:420px; border-radius:18px; box-shadow:0 10px 40px rgba(2,6,23,.08); overflow:hidden; }
         .head { padding:22px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
-        .brand { font-weight:800; letter-spacing:.3px; color:var(--brand); font-size:18px; }
+        .brand { font-weight:800; letter-spacing:{{ $isRtl ? '0' : '.3px' }}; color:var(--brand); font-size:18px; }
         .body { padding:24px; }
         .label { font-size:13px; color:var(--muted); }
         .amount { font-size:40px; font-weight:800; margin:4px 0 2px; }
@@ -32,7 +32,7 @@
 <body>
 <div class="wrap">
     <div class="card">
-        <div class="head"><span class="brand">Atriom</span><span style="color:var(--muted);font-size:13px;">{{ __('pay.secure_payment') }}</span></div>
+        <div class="head"><span class="brand">{{ $issuerName }}</span><span style="color:var(--muted);font-size:13px;">{{ __('pay.secure_payment') }}</span></div>
         <div class="body">
             @if (session('error'))
                 <div class="err">{{ session('error') }}</div>

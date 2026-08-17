@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Support\IssuingEntity;
 use App\Support\OpsLog;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -51,8 +52,13 @@ class PaymentLinkController
         }
 
         return view('pay.show', [
-            'invoice' => $invoice->loadMissing('tenant', 'items'),
+            'invoice' => $invoice->loadMissing('tenant', 'items', 'asset'),
             'token' => $token,
+            // The mall, not the software. A cardholder is about to enter card details on this page
+            // and should recognise the merchant they are paying — "Atriom" is a name the tenant has
+            // never seen on a lease or an invoice, and an unrecognised merchant is what a
+            // chargeback starts as.
+            ...IssuingEntity::forView($invoice->asset),
             'paymentEnabled' => (bool) config('integrations.paymob.enabled'),
             'applePayEnabled' => (bool) config('integrations.paymob.apple_pay_integration_id'),
         ]);
@@ -107,8 +113,9 @@ class PaymentLinkController
         $amount = $payment !== null ? (float) $payment->amount : (float) $invoice->balance;
 
         return view('pay.status', [
-            'invoice' => $invoice,
+            'invoice' => $invoice->loadMissing('asset'),
             'token' => $token,
+            ...IssuingEntity::forView($invoice->asset),
             'state' => $state,
             'amount' => $amount,
             'appDeepLink' => config('integrations.app_deep_link'),

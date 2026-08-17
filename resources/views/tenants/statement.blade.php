@@ -143,7 +143,7 @@
         <table>
             <tr>
                 <td style="width:60%;">
-                    <div class="brand-name">{{ $asset?->name ?? 'Atriom' }}</div>
+                    <div class="brand-name">{{ $issuerName }}</div>
                     <div class="brand-sub">
                         @if($asset?->address){{ $asset->address }}@endif
                         @if($asset?->city), {{ $asset->city }}@endif

@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Invoice;
 use App\Services\InvoicePdfService;
+use App\Support\IssuingEntity;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -30,6 +31,7 @@ class InvoiceIssuedNotification extends Notification
                 'invoice' => $this->invoice,
                 'tenant' => $this->invoice->tenant,
                 'lease' => $this->invoice->lease,
+                ...IssuingEntity::forView($this->invoice->asset),
             ])
             ->attach(
                 Attachment::fromData(fn () => $pdfService->build($this->invoice), $pdfService->filename($this->invoice))

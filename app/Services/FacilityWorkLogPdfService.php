@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FacilityWorkOrder;
+use App\Support\IssuingEntity;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\View;
@@ -63,6 +64,9 @@ class FacilityWorkLogPdfService
             'from' => CarbonImmutable::parse($from),
             'to' => CarbonImmutable::parse($to),
             'scopeLabel' => $scopeLabel,
+            // No asset: the log may span the whole portfolio, and `$scopeLabel` already states
+            // which properties it covers.
+            ...IssuingEntity::forView(),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

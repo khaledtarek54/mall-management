@@ -2,8 +2,9 @@
 
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
-use App\Services\InvoicePdfService;
 use App\Settings\TaxSettings;
+use App\Support\IssuingEntity;
+use App\Support\VatSummary;
 use Illuminate\Support\Facades\View;
 use Tests\Support\TaxCatalogue;
 
@@ -27,22 +28,16 @@ use Tests\Support\TaxCatalogue;
 function taxInvoiceHtml(Invoice $invoice): string
 {
     $invoice->loadMissing(['items', 'tenant', 'lease.unit.asset']);
-    $tax = app(TaxSettings::class);
+    $asset = $invoice->lease?->unit?->asset;
 
     return View::make('invoices.pdf', [
         'invoice' => $invoice,
         'tenant' => $invoice->tenant,
         'lease' => $invoice->lease,
         'unit' => $invoice->lease?->unit,
-        'asset' => $invoice->lease?->unit?->asset,
-        'sellerTrn' => trim($tax->seller_tax_registration_number),
-        'sellerLegalName' => trim($tax->seller_legal_name),
-        'vatSummary' => (function () use ($invoice) {
-            $m = new ReflectionMethod(InvoicePdfService::class, 'vatSummary');
-            $m->setAccessible(true);
-
-            return $m->invoke(null, $invoice);
-        })(),
+        'asset' => $asset,
+        ...IssuingEntity::forView($asset),
+        'vatSummary' => VatSummary::forItems($invoice->items),
     ])->render();
 }
 
@@ -106,9 +101,7 @@ it('splits the taxable value by rate, so the tenant can claim the right input ta
 it('sums the rate summary back to the invoice totals', function () {
     // The arithmetic that makes the summary trustworthy: if these ever disagree with the header,
     // the tenant is looking at two contradictory statements of the same tax.
-    $m = new ReflectionMethod(InvoicePdfService::class, 'vatSummary');
-    $m->setAccessible(true);
-    $summary = $m->invoke(null, $this->invoice->fresh()->load('items'));
+    $summary = VatSummary::forItems($this->invoice->fresh()->load('items')->items);
 
     expect(round(array_sum(array_column($summary, 'base')), 2))->toBe(20000.0)
         ->and(round(array_sum(array_column($summary, 'vat')), 2))->toBe(1400.0);
@@ -135,9 +128,7 @@ it('reads each line\'s OWN rate rather than today\'s standard rate', function ()
     // the origination-only rule that governs VAT everywhere else in this codebase.
     TaxCatalogue::setStandardRate(20.0);
 
-    $m = new ReflectionMethod(InvoicePdfService::class, 'vatSummary');
-    $m->setAccessible(true);
-    $summary = $m->invoke(null, $this->invoice->fresh()->load('items'));
+    $summary = VatSummary::forItems($this->invoice->fresh()->load('items')->items);
 
     expect(collect($summary)->pluck('rate')->all())->toBe([14.0, 0.0]);
 });

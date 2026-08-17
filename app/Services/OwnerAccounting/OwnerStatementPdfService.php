@@ -3,6 +3,7 @@
 namespace App\Services\OwnerAccounting;
 
 use App\Models\OwnerStatement;
+use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -25,6 +26,10 @@ class OwnerStatementPdfService
             'run' => $statement->run,
             'asset' => $statement->run->asset,
             'owner' => $statement->owner,
+            // No asset: the statement is issued BY the managing agent ABOUT the property, and the
+            // property is already named in the party block. The owner needs to see whose account of
+            // their money this is.
+            ...IssuingEntity::forView(),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

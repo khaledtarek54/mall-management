@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Lease;
+use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -56,6 +57,7 @@ class CamStatementPdfService
             'asset' => $pool?->asset ?? $lease?->unit?->asset,
             'facts' => $this->facts($allocation),
             'isRtl' => $isRtl,
+            ...IssuingEntity::forView($pool?->asset ?? $lease?->unit?->asset),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

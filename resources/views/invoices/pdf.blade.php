@@ -166,7 +166,7 @@
         <table>
             <tr>
                 <td style="width:60%;">
-                    <div class="brand-name">{{ $asset?->name ?? 'Atriom' }}</div>
+                    <div class="brand-name">{{ $issuerName }}</div>
                     <div class="brand-sub">
                         {{-- The registered entity, when it differs from the mall's trading name.
                              The seller for VAT purposes is the operator, not the building. --}}

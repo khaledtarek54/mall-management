@@ -65,7 +65,7 @@
     <table>
         <tr>
             <td style="width:55%">
-                <div class="brand-name">{{ $asset?->name ?? config('app.name') }}</div>
+                <div class="brand-name">{{ $issuerName }}</div>
                 <div class="brand-sub">{{ $asset?->code }}</div>
             </td>
             <td style="width:45%">

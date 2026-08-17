@@ -76,6 +76,13 @@ class ConfigurationHealth
      * this is the operator's compliance problem arriving as their tenants' complaint. The PDF prints
      * the line only when it is set, which makes an unconfigured install silently incomplete rather
      * than confidently wrong; this is what stops "silently" meaning "unnoticed".
+     *
+     * **Two documents depend on it, not one** (2026-08-17): the credit note carries the same
+     * particulars, because it is what the tenant uses to REVERSE input tax they already claimed.
+     * Its sibling setting `seller_legal_name` is not blocking but is not cosmetic either — it is the
+     * name every generated document leads with (`App\Support\IssuingEntity`), including the hosted
+     * payment page a cardholder reads before entering their card details. Unset, all of them fall
+     * back to "Atriom", which is the software.
      */
     private static function sellerTaxIdentity(): array
     {

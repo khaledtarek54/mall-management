@@ -38,7 +38,7 @@
         <table>
             <tr>
                 <td>
-                    <div class="brand-name">Atriom</div>
+                    <div class="brand-name">{{ $issuerName }}</div>
                     <div style="color:#8C8478;font-size:9pt;">{{ $scopeLabel }}</div>
                 </td>
                 <td>

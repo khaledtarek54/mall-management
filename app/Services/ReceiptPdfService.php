@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payment;
+use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -30,6 +31,7 @@ class ReceiptPdfService
             'tenant' => $payment->tenant,
             'asset' => $asset,
             'isRtl' => $isRtl,
+            ...IssuingEntity::forView($asset),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

@@ -43,7 +43,11 @@
         <table>
             <tr>
                 <td>
-                    <div class="brand-name">Atriom</div>
+                    {{-- The OPERATOR, who prepared this statement — not the property, which is
+                         named in the party block below, and not "Atriom", which is the software.
+                         The owner is being told what their managing agent collected and spent on
+                         their behalf; the agent's name is the one that belongs at the top. --}}
+                    <div class="brand-name">{{ $issuerName }}</div>
                     <div class="brand-sub">{{ __('admin.owner_statements.plural') }}</div>
                 </td>
                 <td>

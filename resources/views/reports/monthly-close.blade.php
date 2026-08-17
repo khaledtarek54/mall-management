@@ -105,7 +105,7 @@
     <table>
         <tr>
             <td style="width: 50%;">
-                <div class="brand-name">Atriom</div>
+                <div class="brand-name">{{ $issuerName }}</div>
                 <div class="brand-sub">{{ __('admin.reports.brand_sub') }}</div>
             </td>
             <td style="width: 50%;">

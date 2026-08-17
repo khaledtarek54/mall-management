@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Support\IssuingEntity;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
@@ -69,7 +70,11 @@ class LedgerReportPdfService
     private function render(string $view, array $data): string
     {
         $isRtl = app()->getLocale() === 'ar';
-        $html = View::make($view, $data)->render();
+        // One seam for all four statements — they share `accounting.pdf.layout`, so the issuer is
+        // stated here rather than in each of balanceSheet()/incomeStatement()/trialBalance()/
+        // cashFlow(). No asset: the scope is already in `$meta['property']`, which may be the
+        // portfolio.
+        $html = View::make($view, [...$data, ...IssuingEntity::forView()])->render();
 
         $tempDir = storage_path('app/mpdf');
         if (! is_dir($tempDir)) {

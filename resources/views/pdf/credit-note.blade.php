@@ -155,11 +155,23 @@
         <table>
             <tr>
                 <td style="width:60%;">
-                    <div class="brand-name">{{ $asset?->name ?? 'Atriom' }}</div>
+                    <div class="brand-name">{{ $issuerName }}</div>
                     <div class="brand-sub">
+                        {{-- The registered entity, when it differs from the mall's trading name.
+                             The seller for VAT purposes is the operator, not the building. --}}
+                        @if($sellerLegalName)<div>{{ $sellerLegalName }}</div>@endif
                         @if($asset?->address){{ $asset->address }}@endif
                         @if($asset?->city), {{ $asset->city }}@endif
                         @if($asset?->country), {{ $asset->country }}@endif
+                        {{-- A credit note adjusts a tax invoice, so it carries the seller's
+                             registration number for the same reason the invoice does — the tenant
+                             uses this document to REVERSE input VAT they already claimed, and
+                             cannot substantiate that against an unidentified supplier. Printed
+                             only when configured: a placeholder here would look valid, be filed,
+                             and fail on audit. --}}
+                        @if($sellerTrn)
+                            <div style="margin-top:2px;"><strong>{{ __('admin.pdf.seller_trn') }}:</strong> {{ $sellerTrn }}</div>
+                        @endif
                     </div>
                 </td>
                 <td style="width:40%;">
@@ -229,6 +241,34 @@
             @endforeach
         </tbody>
     </table>
+
+    {{-- Taxable value and tax, BY RATE — the same split the tax invoice carries, and needed here for
+         the mirror-image reason. A credit note against a mixed invoice reverses exempt base rent and
+         standard-rated service charge together; one "VAT" total leaves the tenant's accountant
+         guessing how much input tax to give back. Suppressed on a single-rate note, where the totals
+         block below already says it. --}}
+    @if(count($vatSummary) > 1)
+        <table class="items" style="margin-top:10px;">
+            <thead>
+                <tr>
+                    <th style="width:48%;">{{ __('admin.pdf.vat_summary') }}</th>
+                    <th class="num" style="width:18%;">{{ __('admin.pdf.taxable_value') }}</th>
+                    <th class="num" style="width:14%;">{{ __('admin.pdf.vat_pct') }}</th>
+                    <th class="num" style="width:20%;">{{ __('admin.pdf.vat') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($vatSummary as $row)
+                    <tr>
+                        <td>{{ $row['rate'] > 0 ? __('admin.pdf.standard_rated') : __('admin.pdf.exempt_or_zero') }}</td>
+                        <td class="num">{{ number_format($row['base'], 2) }}</td>
+                        <td class="num">{{ rtrim(rtrim(number_format($row['rate'], 2), '0'), '.') }}%</td>
+                        <td class="num">{{ number_format($row['vat'], 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 
     <table class="totals">
         <tr>

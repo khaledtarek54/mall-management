@@ -346,11 +346,49 @@ public function build(CarbonImmutable $period): string
 - Renders `resources/views/reports/monthly-close.blade.php`.
 - RTL-aware: switches font + directionality when locale is 'ar'.
 - mPDF temp dir: `storage/app/mpdf`.
+- Header names the **operator** via `App\Support\IssuingEntity`, not a literal — see below.
 
 #### `filename(CarbonImmutable $period): string`
 **Returns:** e.g., `atriom-monthly-close-2026-02.pdf`.
 
 **Idempotency:** Fully deterministic; same period → identical PDF bytes each time.
+
+---
+
+### PDF sweep (2026-08-17) — two defects that spanned the report PDFs
+
+**RTL-aware at the service layer was not RTL-correct at the template layer.** Every one of the twelve
+PDF services already switched font and directionality for Arabic; the drift was entirely in the
+markup, where nothing throws and the document still prints.
+
+`resources/views/accounting/pdf/layout.blade.php` — the shared layout behind the **balance sheet,
+income statement, trial balance and cash flow** — applied `letter-spacing: .04em` and
+`text-transform: uppercase` *unconditionally* on its table headers. **Arabic is a cursive script:
+letter-spacing pulls the glyphs apart and breaks the joins**, so the four documents the accountant
+most reads in Arabic printed with disconnected letters. Every other template in the set guards both
+on `$isRtl`; this layout predates that convention and was never revisited.
+
+**Five of twelve documents printed "Atriom" — the software's name — where the issuing entity
+belongs:** the owner statement, the payslip, the monthly-close pack, the facility work log, and the
+four financial statements above. The fallback was spelled three different ways across the set
+(`'Atriom'`, `config('app.name')`, and a bare literal), which is how it never read as a decision
+anyone had made. It is now one call to `App\Support\IssuingEntity`, which resolves the operator's
+registered name from `TaxSettings::seller_legal_name`.
+
+The two questions the registry keeps apart, because the documents answer them differently:
+
+- `tradingName($asset)` — the property leads, for a document a **counterparty** reads (invoice,
+  receipt, credit note, tenant/property statement, CAM statement, purchase order). A tenant knows
+  "Atriom Walk" and may never have heard the operator's registered name; the registered name goes
+  underneath.
+- `name()` / `legalName()` — the operator leads, for a document **about** a property rather than from
+  one: an owner statement names its property in the party block already, a payslip's issuer is the
+  employer, and the close pack and work log may span the whole portfolio.
+
+Gate: `tests/Feature/Scenarios/PdfDocumentConformanceTest.php`. It derives the template list from the
+PDF services (and follows `@extends`, which is where the RTL defect actually lived) rather than
+hand-listing it, so a thirteenth document is covered the day it ships — and it asserts the discovery
+found something first, because a sweep whose regex matches nothing passes every check after it.
 
 ---
 

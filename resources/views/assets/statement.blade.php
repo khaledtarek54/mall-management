@@ -96,7 +96,7 @@
         <table>
             <tr>
                 <td style="width:60%;">
-                    <div class="brand-name">{{ $asset->name }}</div>
+                    <div class="brand-name">{{ $issuerName }}</div>
                     <div class="brand-sub">
                         @if($asset->code)<strong>{{ $asset->code }}</strong> · @endif
                         @if($asset->address){{ $asset->address }}@endif

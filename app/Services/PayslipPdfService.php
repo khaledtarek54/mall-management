@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PayrollLine;
+use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -24,6 +25,9 @@ class PayslipPdfService
             'payroll' => $line->payroll,
             'employee' => $line->employee,
             'asset' => $line->payroll?->asset,
+            // No asset: a payslip is issued by the EMPLOYER, so the header names the registered
+            // entity and the property the employee is posted to stays in the sub-line.
+            ...IssuingEntity::forView(),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

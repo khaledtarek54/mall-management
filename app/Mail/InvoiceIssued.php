@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Invoice;
+use App\Support\IssuingEntity;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -32,6 +33,10 @@ class InvoiceIssued extends Mailable
                 'invoice' => $this->invoice,
                 'tenant' => $this->invoice->tenant,
                 'lease' => $this->invoice->lease,
+                // Two senders render this one template — this Mailable and
+                // InvoiceIssuedNotification. Both must state the issuer or the other one throws on
+                // an undefined variable, which is why the conformance gate sweeps mail views too.
+                ...IssuingEntity::forView($this->invoice->asset),
             ],
         );
     }

@@ -320,6 +320,51 @@ The form's `recomputeTotals()` and `recomputeItem()` are form-level aggregations
 ### Invoice Transition to 'paid'
 When `applyToInvoice()` fully covers an invoice, the invoice transitions to `status='paid'` via `recomputeTotals()`. This is automatic. A later manual payment recompute could flip it back to 'partially_paid' if a payment is reversed; the credit is not affected (it stays in `credit_applied_amount`).
 
+### The PDF is a TAX document (FIXED 2026-08-17)
+
+A credit note adjusts a tax invoice, so under the VAT Law 67/2016 executive regulations it must carry
+the same seller particulars the invoice does. It carried **none** of them.
+
+The invoice was given the seller's tax registration number, registered legal name and
+taxable-value-by-rate summary on 2026-08-12, on the reasoning that *a tenant cannot support an
+input-VAT deduction from a document with no supplier registration number on it*. Its peer got none of
+the three — the mirror-image failure, and arguably the worse one: **a credit note is what the tenant
+uses to REVERSE input tax they have already claimed**, so an unidentifiable one left them unable to
+substantiate the adjustment in either direction. This is the "enumerate ALL peers" miss this codebase
+has made before (see the VendorBill note in [21-general-ledger.md](21-general-ledger.md)).
+
+Two shared registries now answer both documents, so the pair cannot drift again:
+
+- **`App\Support\IssuingEntity`** — whose name is on a generated document. Reads
+  `TaxSettings::seller_legal_name` / `seller_tax_registration_number`, never a template literal.
+  Both default to empty deliberately, and the PDFs print those lines only when they are set: a
+  plausible placeholder TRN reads as valid, gets filed, and fails on audit. Setting them is a
+  go-live gate item.
+- **`App\Support\VatSummary`** — taxable value and tax grouped by the rate each LINE was billed at.
+  Read off the lines, never re-derived from today's catalogue: VAT here is origination-only, so
+  re-deriving would restate history the day a rate rise takes effect and would credit back tax that
+  was never charged. Suppressed on a single-rate note, where the totals block already says it.
+
+### The PDF walked a dead relation chain (FIXED 2026-08-17)
+
+`CreditNotePdfService` resolved the property through `$note->lease?->unit?->asset` — **the exact
+chain migration `2026_08_15_130000_credit_notes_carry_their_own_property` replaced with a
+denormalized `asset_id`, because it answers NULL** for a note whose `lease_id` is null (a note
+against a unit-owner assessment, or any standalone note — see *Scoping* above, where that case is
+documented as normal). The model was corrected; this reader was not. Exactly those notes printed
+with no property name and an empty address block, so nothing on the page said which mall issued the
+credit. It now reads `$note->asset`.
+
+`CreditNotePdfService` also gained a `data()` method separate from `build()`, mirroring
+`TenantStatementPdfService`: a test that has to parse mpdf output to discover whether the seller's
+registration number reached the page will not get written, and both of this document's defects were
+about what it failed to SAY.
+
+Tests: `tests/Feature/Regression/CreditNoteIsATaxDocumentTest.php` (drives the real service's
+`data()`; pairs the "omits the summary" refusal with a control that must render one),
+`tests/Feature/Scenarios/PdfDocumentConformanceTest.php` (the gate — derives the template list from
+the PDF services so a thirteenth document is covered the day it ships).
+
 ### No Audit Trail for Apply Calls
 The model logs status/balance changes via ActivityLog. But individual apply calls are not logged separately; only the final state of `applied_amount` and `balance` are in the log. Consider adding a separate `credit_note_applies` table or event if audit of each apply is needed.
 
@@ -368,7 +413,7 @@ The property+facility close-out (see [gap-analysis](../gap-analysis/PROPERTY-FAC
 - **`deleting` guard**: refuses deleting a note with `applied_amount > 0` (Filament Delete doesn't route through `void()`, which is hidden for applied notes) — else `credit_applied_amount` strands. Force-delete is exempt.
 
 ### Completeness
-- **`CreditNotePdfService`** + `resources/views/pdf/credit-note.blade.php` — a printable إشعار دائن; download from the list row + the edit header (gated `credit_notes.view`).
+- **`CreditNotePdfService`** + `resources/views/pdf/credit-note.blade.php` — a printable إشعار دائن; download from the list row + the edit header (gated `credit_notes.view`). Since 2026-08-17 it carries the seller particulars and per-rate VAT split that make it a usable tax document — see *The PDF is a TAX document* in §9.
 - **`CreditNoteExporter`** + an `issue_date` range filter on the table (accountant's register/close).
 - **VAT inheritance**: selecting an invoice on the form prefills the note's lines from the invoice's items (description/amount/vat_rate) when none are entered — so a 14% charge reverses 14%.
 - **Reverse action** (`EditCreditNote`, double-gated `credit_notes.apply`): the supported way to undo an applied note (the applied-note Void dead-end).

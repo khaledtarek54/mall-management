@@ -13,7 +13,15 @@
         .meta { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 8.5pt; color: #6B7280; }
         .meta td { padding: 1px 0; }
         table.report { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
-        table.report th { color: #6B7280; font-size: 8pt; text-transform: uppercase; letter-spacing: .04em; padding: 4px 6px; border-bottom: 1px solid #D1D5DB; text-align: {{ $isRtl ? 'right' : 'left' }}; }
+        {{-- Arabic is a CURSIVE script: letter-spacing pulls the glyphs apart and breaks the joins,
+             so a header that reads «الحساب» in the panel prints as disconnected letters here. Every
+             other PDF in this system guards both of these on $isRtl; this layout — which renders the
+             balance sheet, income statement, trial balance and cash flow, i.e. the four documents
+             the accountant actually reads in Arabic — was never updated. `uppercase` is a no-op on
+             Arabic rather than a defect, but it is turned off with the same switch: the two travel
+             together everywhere else and splitting them here would just invite the next edit to
+             restore both. --}}
+        table.report th { color: #6B7280; font-size: 8pt; text-transform: {{ $isRtl ? 'none' : 'uppercase' }}; letter-spacing: {{ $isRtl ? '0' : '.04em' }}; padding: 4px 6px; border-bottom: 1px solid #D1D5DB; text-align: {{ $isRtl ? 'right' : 'left' }}; }
         table.report td { padding: 4px 6px; border-bottom: 1px solid #F3F4F6; }
         .num { text-align: {{ $isRtl ? 'left' : 'right' }}; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .code { font-family: monospace; font-size: 8pt; color: #6B7280; }
@@ -25,7 +33,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="brand">Atriom</div>
+        <div class="brand">{{ $issuerName }}</div>
         <div class="title">@yield('report_title')</div>
         <table class="meta">
             <tr>

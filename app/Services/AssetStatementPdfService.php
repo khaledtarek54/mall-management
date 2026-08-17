@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\IssuingEntity;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
@@ -90,6 +91,7 @@ class AssetStatementPdfService
             'recentInvoices' => $recentInvoices,
             'payments' => $payments,
             'delinquentTenants' => $delinquentTenants,
+            ...IssuingEntity::forView($asset),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

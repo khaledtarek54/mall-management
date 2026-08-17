@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Support\IssuingEntity;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\View;
@@ -144,9 +145,12 @@ class TenantStatementPdfService
             'open_count' => $openInvoices->count(),
         ];
 
+        $asset = $tenant->leases->first()?->unit?->asset;
+
         return [
             'tenant' => $tenant,
-            'asset' => $tenant->leases->first()?->unit?->asset,
+            'asset' => $asset,
+            ...IssuingEntity::forView($asset),
             'asOf' => $asOf,
             'since' => $since,
             'summary' => $summary,

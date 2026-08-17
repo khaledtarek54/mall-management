@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PurchaseRequest;
+use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -28,6 +29,7 @@ class PurchaseOrderPdfService
             'asset' => $request->asset,
             'vendor' => $request->vendor,
             'isRtl' => $isRtl,
+            ...IssuingEntity::forView($request->asset),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

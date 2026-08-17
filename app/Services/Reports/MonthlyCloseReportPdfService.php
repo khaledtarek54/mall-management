@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Support\IssuingEntity;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
@@ -21,6 +22,8 @@ class MonthlyCloseReportPdfService
             'period' => $period,
             'isRtl' => $isRtl,
             'generatedAt' => CarbonImmutable::now(),
+            // No asset: the close pack is portfolio-wide.
+            ...IssuingEntity::forView(),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

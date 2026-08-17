@@ -21,7 +21,7 @@
     @if ($state === 'processing')
         <meta http-equiv="refresh" content="4">
     @endif
-    <title>{{ $title }} · Atriom</title>
+    <title>{{ $title }} · {{ $issuerName }}</title>
     <style>
         * { box-sizing:border-box; }
         body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:#f1f5f9; color:#0f172a; }
