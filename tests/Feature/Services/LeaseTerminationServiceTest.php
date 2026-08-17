@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Charge;
 use App\Services\LeaseTerminationService;
 
 beforeEach(function () {
@@ -15,7 +16,7 @@ it('refuses to terminate a lease that is not active', function () {
 })->throws(InvalidArgumentException::class);
 
 it('marks lease terminated, frees the unit, deactivates charges', function () {
-    \App\Models\Charge::create([
+    Charge::create([
         'lease_id' => $this->lease->id, 'name' => 'Rent', 'type' => 'base_rent',
         'amount' => 5000, 'currency' => 'EGP', 'frequency' => 'monthly',
         'vat_applicable' => false, 'vat_rate' => 0,
@@ -35,6 +36,12 @@ it('marks lease terminated, frees the unit, deactivates charges', function () {
 it('cancels only unpaid open invoices when asked, never orphaning partial payments', function () {
     // Three invoices: unpaid (cancellable), partially-paid (must NOT cancel),
     // fully-paid (already closed, untouched).
+    //
+    // All three sit in the helper's default February period, and the lease is terminated on 31
+    // January — so every one of them covers time the tenant never occupied. That isolates the rule
+    // under test to the PAYMENT: cancellation is also refused for an earned period, and leaving the
+    // date implicit would let that second rule decide the outcome here
+    // (`TerminationKeepsEarnedRevenueTest` owns it).
     $unpaid = makeInvoice($this->lease, [
         'status' => 'issued', 'paid_amount' => 0, 'balance' => 1000,
     ]);
@@ -46,6 +53,7 @@ it('cancels only unpaid open invoices when asked, never orphaning partial paymen
     ]);
 
     app(LeaseTerminationService::class)->terminate($this->lease, [
+        'termination_date' => '2026-01-31',
         'cancel_open_invoices' => true,
     ]);
 

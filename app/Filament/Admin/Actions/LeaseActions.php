@@ -32,6 +32,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -690,6 +691,19 @@ class LeaseActions
                         ->label(__('admin.actions.termination_reason'))
                         ->placeholder(__('admin.actions.termination_reason_placeholder'))
                         ->rows(2),
+                    // The service has honoured `credit_unearned` since MF-02 shipped and this modal
+                    // never sent it, so it silently defaulted to true — right in almost every case,
+                    // and unusable in the one the flag exists for. The credit note posts ON the
+                    // termination date, so terminating into a CLOSED period is refused inside a
+                    // best-effort job: the operator needs a way through that is not "reopen the
+                    // books". A documented escape hatch nobody can reach is not an escape hatch.
+                    Toggle::make('credit_unearned')
+                        ->label(__('admin.actions.credit_unearned'))
+                        // Sorted the way `FieldHelp` sorts everything: the visible line is the
+                        // CONSTRAINT (when to switch it off), the reason it exists is one hover away.
+                        ->helperText(__('admin.actions.credit_unearned_helper'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.credit_unearned'))
+                        ->default(true),
                     Toggle::make('cancel_open_invoices')
                         ->label(__('admin.actions.cancel_open_invoices'))
                         ->helperText(__('admin.actions.cancel_open_invoices_helper'))

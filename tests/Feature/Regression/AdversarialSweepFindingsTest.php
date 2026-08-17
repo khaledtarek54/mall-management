@@ -10,13 +10,10 @@
 
 use App\Filament\Admin\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
-use App\Jobs\SyncDocumentToLedger;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Invoice;
-use App\Models\JournalEntry;
-use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\CamReconciliationService;
 use App\Services\CreditNoteService;
@@ -24,8 +21,6 @@ use App\Services\LateFeeService;
 use App\Services\LeaseTerminationService;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountMappingSeeder;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
@@ -132,7 +127,14 @@ it('leaves an ETA-filed invoice untouched when terminating a lease', function ()
     $filed = makeInvoice($lease, ['status' => 'issued', 'balance' => 5000, 'paid_amount' => 0, 'eta_status' => 'valid']);
     $plain = makeInvoice($lease, ['status' => 'issued', 'balance' => 3000, 'paid_amount' => 0, 'eta_status' => null]);
 
-    app(LeaseTerminationService::class)->terminate($lease, ['cancel_open_invoices' => true]);
+    // Both invoices cover the helper's default February period and the lease ends 31 January, so
+    // neither was earned. The only difference left between them is the filing — which is the whole
+    // claim. Without the explicit date, "period already earned" would refuse both and the test would
+    // pass without ever exercising the ETA guard.
+    app(LeaseTerminationService::class)->terminate($lease, [
+        'termination_date' => '2026-01-31',
+        'cancel_open_invoices' => true,
+    ]);
 
     expect($filed->fresh()->status)->toBe('issued')      // tax-filed → preserved
         ->and($plain->fresh()->status)->toBe('cancelled'); // ordinary → cancelled

@@ -253,6 +253,18 @@
 > it. One-off lines are never clawed back — a utility recharge or a fine is earned for something
 > that already happened.
 >
+> **Two defects made that unreachable in practice, both fixed 2026-08-17.** The toggle described
+> above **had no screen**: `terminate()` read `credit_unearned`, and the modal offered only date,
+> reason and "cancel open invoices" — so the documented opt-out could not be exercised, and the
+> default was invisible rather than merely on. Worse, `cancel_open_invoices` filtered on **balance
+> alone**, cancelling every fully-unpaid invoice on the lease regardless of the period it covered.
+> On a system that bills in advance that is a money defect twice over: it wipes revenue already
+> earned (a quarterly lease terminating mid-quarter lost the whole quarter, and the two percentage-
+> rent invoices for months entirely in the past — 463,260 in the reproduction), and it deletes the
+> very document step 5 was going to credit, so **no credit note is produced and none is missing
+> from anywhere an operator would look**. Cancellation is now scoped to invoices whose period
+> starts *after* the termination; a straddling invoice is left for the credit.
+>
 > **The move-out final account** (`MoveOutStatementService` + `SettleMoveOutService`, story MF-03)
 > is the document that settles the tenancy: deposit held vs contractual, open AR, credit owed back,
 > itemised deductions, and the true-ups that are **not knowable yet** (an unreconciled CAM year,
@@ -717,6 +729,24 @@ foreach lease in unit.allLeases():
 4. Deactivates all Charges: is_active=false, end_date=termination_date (stops monthly billing).
 5. Optionally cancels unpaid invoices (status in [draft, issued, partially_paid, overdue], balance > 0, paid_amount = 0). Sets status='cancelled', balance=0.
    - **Important:** Partially-paid invoices are NOT cancelled (would orphan paid_amount); operator must issue credit notes.
+   - **…and only for a period that never happened (2026-08-17).** The filter used to be balance-only,
+     so it cancelled every fully-unpaid open invoice on the lease *whatever period it covered* — and
+     on a system that bills IN ADVANCE that destroys revenue the landlord already earned. Found by
+     running the Chapter 8 exercise on real data: a quarterly lease terminated on 15 November lost
+     the Oct–Dec invoice (253,260, of which 126,630 was earned), October's percentage rent (70,000, a
+     month entirely in the past) and November's — 463,260 of receivables gone, with the tenant having
+     occupied and traded from the space. Step 6 exists precisely to credit the straddling case, so
+     cancelling the whole document first left it nothing to credit: the two steps were not merely
+     ordered wrongly, **the first made the second unreachable** (which is why no credit note appeared).
+     The rule is now the PERIOD, not the balance — starts after the termination → cancel; straddles
+     it → leave it, step 6 credits the unearned share; ends before it → leave it owing.
+     `TerminationKeepsEarnedRevenueTest` pins all three, and the two older tests that asserted
+     cancellation now state their termination date explicitly, so the period rule cannot decide an
+     outcome their claim (ETA filing / partial payment) is really about.
+6. Optionally credits the unearned share of a straddling invoice (`credit_unearned`, default **true**).
+   - The toggle is now **on the terminate modal**. `terminate()` had read `credit_unearned` since
+     phase 4, but no screen ever sent it — the opt-out the docs described was unreachable, and an
+     operator who had to terminate into a closed period had no way through but to reopen the books.
 
 ---
 

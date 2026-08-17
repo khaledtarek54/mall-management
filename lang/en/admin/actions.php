@@ -2,6 +2,8 @@
 
 return [
     'actions' => [
+        'credit_unearned' => 'Credit back what was billed in advance',
+        'credit_unearned_helper' => 'Switch off only if the termination date falls inside a closed accounting period.',
         'extend_term' => 'Extend term',
         'extend_term_heading' => 'Extend the term of :ref',
         'extend_term_description' => 'Keeps this contract running longer on the same terms — a further term, not a new lease. A renewal ends this tenancy and starts another; use Renew for that.',

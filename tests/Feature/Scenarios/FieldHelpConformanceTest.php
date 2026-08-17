@@ -35,6 +35,37 @@ it('A: keeps every always-visible helper to one readable line', function () {
         }
     }
 
+    // The same budget, one catalogue over. A field inside an ACTION MODAL takes its helper from
+    // `admin.actions.*_helper`, not `admin.helpers.*` — so it rendered permanently under the field
+    // exactly like the strings above while being measured by nothing. Caught the day a 37-word
+    // paragraph went under the terminate modal's `credit_unearned` toggle and this gate passed.
+    // Six keys, and the budget already held for five of them: the standard was never in doubt, only
+    // the measurement.
+    // Flattened rather than walked two levels deep: the catalogue nests unevenly (`actions.groups.*`
+    // is three deep) and a fixed depth would skip whatever someone nests tomorrow.
+    $flatten = function (array $tree, string $prefix = '') use (&$flatten): array {
+        $flat = [];
+
+        foreach ($tree as $key => $value) {
+            $path = $prefix === '' ? (string) $key : "{$prefix}.{$key}";
+            $flat += is_array($value) ? $flatten($value, $path) : [$path => $value];
+        }
+
+        return $flat;
+    };
+
+    foreach ($flatten(require lang_path('en/admin/actions.php')) as $key => $text) {
+        if (! is_string($text) || ! str_contains($key, 'helper')) {
+            continue;
+        }
+
+        $words = str_word_count($text);
+
+        if ($words > FieldHelp::WORD_BUDGET && ! FieldHelp::isExempt($key)) {
+            $tooLong[] = "{$key} ({$words} words)";
+        }
+    }
+
     expect($tooLong)->toBe([], "These sit permanently under a field and have grown into paragraphs.\n"
         ."Keep the line that changes what the operator types, move the WHY to `admin.hints.*`\n"
         ."behind a ->hintIcon(), or register the string in `App\\Support\\FieldHelp::LONG_BY_DESIGN`\n"

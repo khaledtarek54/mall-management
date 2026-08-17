@@ -21,7 +21,7 @@ class LeaseTerminationService
      * - Optionally cancels open invoices (status = 'cancelled', balance = 0)
      * - Credits back the unearned part of any invoice billed past the termination date (MF-02)
      *
-     * @param array{termination_date:string|\DateTimeInterface|null, reason:string|null, cancel_open_invoices?:bool, credit_unearned?:bool} $data
+     * @param  array{termination_date:string|\DateTimeInterface|null, reason:string|null, cancel_open_invoices?:bool, credit_unearned?:bool}  $data
      */
     public function terminate(Lease $lease, array $data): Lease
     {
@@ -39,13 +39,13 @@ class LeaseTerminationService
 
         return DB::transaction(function () use ($lease, $terminationDate, $reason, $cancelOpenInvoices, $creditUnearned) {
             // 1. Lease itself
-            $existingNotes = $lease->notes ? rtrim($lease->notes) . "\n\n" : '';
+            $existingNotes = $lease->notes ? rtrim($lease->notes)."\n\n" : '';
             $stamp = $terminationDate->format('Y-m-d');
             $reasonLine = $reason !== '' ? "Terminated on {$stamp}: {$reason}" : "Terminated on {$stamp}.";
             $lease->update([
                 'status' => 'terminated',
                 'expiry_date' => $terminationDate,
-                'notes' => $existingNotes . $reasonLine,
+                'notes' => $existingNotes.$reasonLine,
             ]);
 
             // 2. Unit status is recomputed by LeaseObserver from step 1.
@@ -62,11 +62,36 @@ class LeaseTerminationService
             // record that no longer claims any balance). Operators who want
             // to void a partially-paid invoice must issue a credit note for
             // the paid portion explicitly — that keeps the AR ledger honest.
+            //
+            // ── AND ONLY WHAT WAS NEVER EARNED ─────────────────────────────────────────────────
+            // This used to cancel every fully-unpaid open invoice on the lease, whatever period it
+            // covered — which on a system that bills IN ADVANCE destroys revenue the landlord has
+            // already earned. Reproduced on a quarterly lease terminating mid-quarter: the Oct–Dec
+            // invoice (253,260, of which 126,630 was earned by 15 November), October's percentage
+            // rent (70,000, a month entirely in the past) and November's were all cancelled to a
+            // zero balance. The tenant occupied the space and traded from it, and owed nothing.
+            //
+            // Step 5 below exists precisely to handle the straddling case — it credits the unearned
+            // fraction using the same month-share rule the invoice was billed on. Cancelling the
+            // whole document first left it nothing to credit, so the two steps were not merely
+            // ordered wrongly: the first made the second unreachable.
+            //
+            // The rule is the period, not the balance:
+            //   period starts AFTER the termination  → nothing was earned  → cancel
+            //   period STRADDLES the termination     → partly earned       → leave it; step 5 credits
+            //   period ends BEFORE the termination   → fully earned        → leave it owing
+            //
+            // The `whereNotNull` is belt-and-braces: `invoices.period_start` is NOT NULL today, so
+            // that state is unreachable and deliberately has no test — a test over an impossible
+            // input is green over dead code. The guard stays because the rule it expresses is the
+            // safe one: never wipe a receivable that cannot be proven unearned.
             if ($cancelOpenInvoices) {
                 Invoice::where('lease_id', $lease->id)
                     ->whereIn('status', ['draft', 'issued', 'partially_paid', 'overdue'])
                     ->where('balance', '>', 0)
                     ->where('paid_amount', '=', 0)
+                    ->whereNotNull('period_start')
+                    ->whereDate('period_start', '>', $terminationDate->toDateString())
                     // Never silently cancel an invoice already filed with the tax authority
                     // (eta_status = 'valid') — every other cancel path (VoidInvoiceService,
                     // EditInvoice, InvoicesTable) refuses it; the operator must handle a

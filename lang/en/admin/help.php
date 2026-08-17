@@ -156,6 +156,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'credit_unearned' => 'The credit note posts ON the termination date, so a closed period refuses it — leaving the tenant billed for time they will not occupy.',
         'gross_sales' => 'Leave blank to record a net figure directly, as before. Filled, it becomes a certificate: gross, the deductions, and the net percentage rent is charged on.',
         'percentage_rent_sales_exclusions' => 'Every retail lease defines Gross Sales with an exclusion list, and it is the most disputed clause in retail leasing. VAT needs no grant — a shop collects it for the state — but returns, gift cards, inter-store transfers and employee discounts are all concessions a landlord agreed to.',
         'security_deposit_months' => 'A deposit agreed as “three months’ rent” must stay three months’ rent. Left flat, a 7% escalation clause erodes a 3× deposit to 2.29× by year five — the security shrinks exactly as the risk grows.',
