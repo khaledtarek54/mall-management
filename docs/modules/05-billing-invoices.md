@@ -447,30 +447,29 @@ in module 25. Tests: `DepositReceiptFrozenOnceUsedTest`.
 14. InvoiceItem.invoice_id is CASCADE on delete (items are purged with invoice)
 15. Charge.lease_id is CASCADE on delete (charges are purged with lease)
 
-### The debtor comes from the agreement — it is not a second decision
+### The debtor is derived on the FORM — and deliberately not an invariant of the model
 
-`tenant_id` is not an independent fact about an invoice. A lease has exactly one tenant and an
-ownership exactly one owner, so the debtor is **derived**, and a document naming someone else is not
-an unusual invoice — it is a wrong one: it bills a party who never agreed to the charge, ages into
-**their** AR, and posts to the GL under their name against another party's space.
+The invoice form shows `tenant_id` read-only beside the lease picker, and `CreateInvoice` re-derives
+it from the lease on save. A disabled field's value still arrives in the Livewire payload, so
+trusting it would let a crafted request bill a party who never agreed to the charge — and until
+2026-08-17 a free tenant picker made that two clicks in the UI, with nothing refusing it. Yardi puts
+the debtor on the invoice header for the same reason: it is the one fact on the document nobody
+should have to infer, so it is shown rather than removed.
 
-Nothing refused it until 2026-08-17. The invoice form offered a free tenant picker beside the lease
-picker, so raising a document against Cilantro's lease and billing Zara was two clicks and no
-warning — demonstrated on the real database before the guard was written. Existing data was clean
-(0 of 8), which is why it could be closed rather than migrated around.
+> **Do not promote this to a model-level equality rule.** It was tried on 2026-08-17
+> (`Invoice::assertTenantMatchesAgreement()`) and the full suite refused it within one run, on two
+> deliberate behaviours:
+>
+> - **`IssueInvoiceService::issue()` takes an explicit `$tenantId`.** A violation fine, a
+>   bounced-cheque fee and a late fee carry the debtor stated on their **source document** rather
+>   than inferred from the lease — documented in that service, asserted by its own test.
+> - **A draft invoice may be freely re-homed** to another lease before it is issued; a draft is a
+>   scratch document and the immutability guard is finalized-only.
+>
+> So "`invoices.tenant_id` equals the agreement's party" is NOT a rule this system holds. It holds
+> on the admin form, which never states a debtor, and that is where it is enforced.
 
-- `Invoice::assertTenantMatchesAgreement()` refuses it, on **create and on edit**, watching
-  `lease_id`, `unit_ownership_id` **and** `tenant_id` — either side of the pair reaches the same
-  wrong state.
-- At the MODEL, not the form: a crafted Livewire request, the importer and five invoice-raising
-  services all reach the same column, and the form is one caller.
-- `withTrashed()` on both lookups — a soft-deleted tenant still owes what they owed, and an invoice
-  must stay voidable and creditable after the counterparty is deactivated.
-- The form now **shows** the debtor read-only rather than offering it (Yardi puts it on the header
-  for the same reason: the party being billed is the one fact on an invoice nobody should have to
-  infer). Removing the field entirely was rejected — an operator would commit without seeing it.
-
-## 4. Lifecycle / state machine
+## 4. Lifecycle / state machine## 4. Lifecycle / state machine
 
 | Status | Transition trigger | Next state(s) | Terminal? | Mutable via UI? |
 |--------|-------------------|---------------|-----------|-----------------|

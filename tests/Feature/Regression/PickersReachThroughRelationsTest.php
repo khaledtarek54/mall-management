@@ -1,11 +1,13 @@
 <?php
 
+use App\Filament\Admin\Resources\Invoices\Pages\CreateInvoice;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Support\Search\OptionDisplay;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Livewire\Livewire;
 
 /**
  * **A picker finds a record by what the operator knows about it — including what lives on a
@@ -21,6 +23,9 @@ use Filament\Facades\Filament;
  * Two surfaces, one question, two answers. The resources were right; the pickers never read them.
  * `OptionDisplay::searchRelations()` now DERIVES the paths from that declaration rather than
  * carrying a second list, so the two cannot disagree again.
+ *
+ * It also covers the invoice DEBTOR, which is derived from the lease on create rather than trusted
+ * from the payload — see the two cases at the end, and the correction recorded there.
  *
  * THE HAZARD THIS FILE EXISTS FOR. Adding an OR to a scoped query is exactly how a property leak
  * gets written: `(scope AND ownBlob) OR relationBlob` binds AND-before-OR and the OR branch escapes
@@ -106,40 +111,60 @@ it('finds an invoice by its tenant, not only by its number', function () {
         ->and(array_keys(OptionDisplay::search(Invoice::class, $invoice->number)))->toContain($invoice->id);
 });
 
-it('refuses an invoice billed to someone other than the agreement\'s party', function () {
-    // Proven reachable before the guard existed: the invoice form offered a free tenant picker
-    // beside the lease picker, so raising a document against Cilantro's lease and billing another
-    // retailer was two clicks and no warning. It bills a party who never agreed to the charge and
-    // ages into THEIR receivables.
-    $other = makeTenant(['name' => 'Someone Else']);
+it('derives the invoice debtor from the lease on create, rather than trusting the payload', function () {
+    // The form shows the debtor read-only beside the lease picker — but a disabled field's value
+    // still arrives in the Livewire payload, so a crafted request could name a different party and
+    // bill someone who never agreed to the charge. The create page derives it instead of trusting
+    // it.
+    //
+    // A DERIVATION, not a refusal, and that distinction was learned the hard way: an equality rule
+    // on the model broke two deliberate behaviours the full suite caught —
+    //   * `IssueInvoiceService` takes an explicit `$tenantId` so a violation fine, a bounced-cheque
+    //     fee and a late fee carry the debtor stated on their SOURCE document; and
+    //   * a DRAFT invoice may be freely re-homed to another lease before it is issued.
+    // Both are documented decisions. The rule belongs on the one path where "the form never states
+    // a debtor" is unambiguously true, not on the model where it is not.
+    $other = makeTenant(['name' => 'Not The Lessee']);
 
-    $attributes = [
-        'lease_id' => $this->lease->id,
-        'asset_id' => $this->here->id,
-        'status' => 'draft',
-        'issue_date' => '2026-03-01',
-        'due_date' => '2026-03-15',
-        'period_start' => '2026-03-01',
-        'period_end' => '2026-03-31',
-        'subtotal' => 0, 'vat_amount' => 0, 'total' => 0, 'paid_amount' => 0, 'balance' => 0,
-    ];
+    $page = Livewire::test(CreateInvoice::class)
+        ->set('data.lease_id', $this->lease->id)
+        // Tamper: name a party who is not the lease's.
+        ->set('data.tenant_id', $other->id)
+        ->set('data.status', 'draft')
+        ->set('data.issue_date', '2026-03-01')
+        ->set('data.due_date', '2026-03-15')
+        ->set('data.period_start', '2026-03-01')
+        ->set('data.period_end', '2026-03-31')
+        ->set('data.items', [[
+            'type' => 'base_rent', 'description' => 'Rent', 'amount' => 1000,
+            'vat_rate' => 0, 'total' => 1000,
+        ]])
+        ->call('create');
 
-    expect(fn () => Invoice::create($attributes + ['tenant_id' => $other->id]))
-        ->toThrow(DomainException::class);
+    $page->assertHasNoFormErrors();
 
-    // The control: the agreement's own party is accepted, so the guard refuses the wrong thing
-    // rather than everything.
-    $ok = Invoice::create($attributes + ['tenant_id' => $this->tenant->id]);
-    expect($ok->exists)->toBeTrue();
+    $invoice = Invoice::query()->latest('id')->first();
+
+    expect((int) $invoice->tenant_id)->toBe((int) $this->tenant->id)
+        ->and((int) $invoice->tenant_id)->not->toBe((int) $other->id);
 });
 
-it('refuses re-pointing a saved invoice at a different party', function () {
-    // The edit path that could undo the create-time rule. Both sides of the pair are watched,
-    // because re-pointing the AGREEMENT reaches the same wrong state as re-pointing the debtor.
-    $invoice = makeInvoice($this->lease);
-    $other = makeTenant(['name' => 'Late Arrival']);
+it('still lets a service state the debtor from a source document', function () {
+    // The control for the rule above, and the reason it is not on the model. A late fee, a bounced
+    // cheque and a violation fine all carry the debtor named on the document that caused them —
+    // `IssueInvoiceService::issue()` documents it, and a blanket equality rule refused it.
+    $other = makeTenant(['name' => 'Stated On The Document']);
 
-    expect(fn () => $invoice->update(['tenant_id' => $other->id]))->toThrow(DomainException::class);
+    $invoice = Invoice::create([
+        'lease_id' => $this->lease->id,
+        'tenant_id' => $other->id,
+        'asset_id' => $this->here->id,
+        'status' => 'draft',
+        'issue_date' => '2026-03-01', 'due_date' => '2026-03-15',
+        'period_start' => '2026-03-01', 'period_end' => '2026-03-31',
+        'subtotal' => 0, 'vat_amount' => 0, 'total' => 0, 'paid_amount' => 0, 'balance' => 0,
+    ]);
 
-    expect((int) $invoice->fresh()->tenant_id)->toBe((int) $this->tenant->id);
+    expect($invoice->exists)->toBeTrue()
+        ->and((int) $invoice->tenant_id)->toBe((int) $other->id);
 });
