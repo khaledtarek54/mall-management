@@ -44,6 +44,7 @@ use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationR
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
+use App\Filament\Admin\Resources\UtilityTariffs\UtilityTariffResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
@@ -226,6 +227,7 @@ class SearchPolicy
         BankStatementResource::class => 'A statement is found by its account and period, both of which are the whole table — nobody types a statement\'s name because it does not have one. Reached from the account, or from the reconciliation work itself.',
         ApprovalRuleResource::class => 'The approval ladder — a dozen rows of amount bands under Settings, maintained by scrolling rather than searching. Nothing on it has a name or a number anyone would type: the identity of a band IS its module and its range, both of which are on screen.',
         TaxCodeResource::class => 'The tax catalogue, reached from the General Ledger group. Rows an accountant maintains — found by scrolling, not by searching. Nobody types "VAT_14" to find a record; they go to the screen to change a rate.',
+        UtilityTariffResource::class => 'The utility price list, reached from Energy. A handful of rows an operator maintains — found by scrolling, not by searching. Nobody types "EGPC-COMM" to find a record; they open the screen to enter a decreed price change.',
         ChargeCodeResource::class => 'The billing vocabulary, reached from the General Ledger group. A dozen rows an accountant maintains — found by scrolling, not by searching, and its codes are already searchable where they are billed.',
         AccountMappingResource::class => 'The posting map, reached from the General Ledger group. A row has no identifier of its own — it is a role picked from a fixed list against an account, and both are already searchable where they live.',
 

@@ -2,6 +2,12 @@
 
 return [
     'fields' => [
+        'utility_type' => 'Utility',
+        'utility_tariff_id' => 'Tariff',
+        'provider' => 'Provider',
+        'utility_tariff' => 'Tariff',
+        'utility_tariff_placeholder' => 'No tariff — use the override below, or leave both blank',
+        'rate_per_unit_override' => 'Rate override (per unit)',
         'document_reference' => 'Document reference',
         'unit_ownership' => 'Owner (unit is sold)',
         'party_type' => 'Party type',

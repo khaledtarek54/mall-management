@@ -4,11 +4,13 @@ namespace App\Filament\Admin\Resources\UtilityMeters\Schemas;
 
 use App\Models\Asset;
 use App\Models\Unit;
+use App\Models\UtilityTariff;
 use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -61,10 +63,28 @@ class UtilityMeterForm
                         ->label(__('admin.fields.unit_of_measurement'))
                         ->maxLength(16)
                         ->placeholder('kWh / m³'),
-                    // The tariff that turns consumption into money. Leave blank for a meter that is
-                    // monitored but never recharged (e.g. a landlord/common-area meter).
+                    // The published price this meter follows. Narrowed to the meter's OWN utility —
+                    // ->suggest() rather than a hard filter, because a hard filter refuses a
+                    // legitimate value at validation and Filament rejects what the picker cannot
+                    // label. A record picker, so EntitySelect: the operator searches it by code,
+                    // by name in either language, and by provider.
+                    EntitySelect::make('utility_tariff_id')
+                        ->label(__('admin.fields.utility_tariff'))
+                        ->entity(UtilityTariff::class)
+                        ->suggest(fn ($query, Get $get) => $get('type')
+                            ? $query->where('utility_type', $get('type'))->where('is_active', true)
+                            : null)
+                        ->preload()
+                        ->placeholder(__('admin.fields.utility_tariff_placeholder'))
+                        ->helperText(__('admin.helpers.utility_tariff'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.utility_tariff')),
+                    // The per-meter OVERRIDE, and null is now the normal state. Set, it WINS over
+                    // the tariff — for a rate negotiated with one tenant or a sub-meter billed at a
+                    // blended figure. Blank means "follow the tariff"; blank with no tariff means
+                    // monitored but never recharged (a landlord / common-area meter), which costs 0
+                    // and which `BillMeterReadingService` refuses to bill.
                     TextInput::make('rate_per_unit')
-                        ->label(__('admin.fields.rate_per_unit'))
+                        ->label(__('admin.fields.rate_per_unit_override'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)

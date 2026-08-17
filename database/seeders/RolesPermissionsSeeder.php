@@ -179,6 +179,12 @@ class RolesPermissionsSeeder extends Seeder
             // invented line item, which is the same money made unclassifiable.
             'tax_codes.override' => 'Type a tax rate by hand on an invoice or credit-note line, departing from the catalogue',
         ],
+        'utility_tariffs' => [
+            'utility_tariffs.view' => 'View the utility price list (rates and the dates they came into force)',
+            'utility_tariffs.create' => 'Add a utility tariff',
+            'utility_tariffs.edit' => 'Edit a tariff, and add or change a price on its ladder',
+            'utility_tariffs.delete' => 'Remove a tariff no meter is priced by',
+        ],
         'account_mappings' => [
             'account_mappings.view' => 'View the posting map (which account each role posts to)',
             'account_mappings.create' => 'Add a posting-map row or a per-property override',
@@ -609,6 +615,9 @@ class RolesPermissionsSeeder extends Seeder
             'violations.view', 'violations.create', 'violations.edit', 'violations.notify',
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
+            // Read-only on purpose: operations maintains meters and needs to see what one is
+            // priced at, but moving a price is a money decision that sits with accounting.
+            'utility_tariffs.view',
             'inventory.view', 'inventory.create', 'inventory.edit',
             // Procurement: operations raises the need and receives the goods. Deciding it is
             // withheld — manager inherits that via the blanket non-delete grant.
@@ -692,6 +701,11 @@ class RolesPermissionsSeeder extends Seeder
             // is theirs to enter on the day the law says, not a deploy to schedule.
             'tax_codes.view', 'tax_codes.create', 'tax_codes.edit', 'tax_codes.delete',
             'tax_codes.override',
+            // The utility price list is the same shape of decision as a tax rate: a published
+            // figure that decides what a tenant is billed, changed by decree on a date somebody
+            // outside this building chose.
+            'utility_tariffs.view', 'utility_tariffs.create', 'utility_tariffs.edit',
+            'utility_tariffs.delete',
             'account_mappings.view', 'account_mappings.create', 'account_mappings.edit',
             'account_mappings.delete',
             'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',

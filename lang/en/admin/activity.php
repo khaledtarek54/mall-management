@@ -20,6 +20,8 @@ return [
             'property_setting' => 'Property setting',
             'tax_code' => 'Tax code',
             'tax_rate' => 'Tax rate',
+            'utility_tariff' => 'Utility tariff',
+            'utility_tariff_rate' => 'Utility price',
             'bank_match' => 'Bank match',
             'bank_account' => 'Bank account',
             'bank_statement' => 'Bank statement',

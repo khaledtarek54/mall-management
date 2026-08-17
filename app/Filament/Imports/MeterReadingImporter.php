@@ -76,13 +76,19 @@ class MeterReadingImporter extends Importer
                         return;
                     }
 
-                    // Same rule as the readings form: consumption × tariff. A meter with no tariff
-                    // leaves 0, and BillMeterReadingService refuses to raise a zero-cost recharge —
-                    // so the reading is on file and visibly unbillable rather than billed at a guess.
-                    $rate = (float) ($record->meter->rate_per_unit ?? 0);
-                    $record->cost = $rate > 0
-                        ? round((float) $record->consumption * $rate, 2)
-                        : 0.0;
+                    // Same rule as the readings form: consumption × the rate in force ON THE
+                    // READING'S DATE. An import is the case that makes the date matter most — a
+                    // month of back-filled readings spanning a tariff rise must price each row at
+                    // the figure that was in force when it was consumed, not at whatever the rate is
+                    // on the day of the upload.
+                    //
+                    // A meter with neither an override nor a tariff resolves to 0, and
+                    // BillMeterReadingService refuses to raise a zero-cost recharge — so the reading
+                    // is on file and visibly unbillable rather than billed at a guess.
+                    $record->cost = $record->meter?->costFor(
+                        (float) $record->consumption,
+                        $record->reading_date,
+                    ) ?? 0.0;
                 }),
 
             ImportColumn::make('notes')

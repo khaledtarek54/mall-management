@@ -20,6 +20,8 @@ return [
             'property_setting' => 'إعداد عقار',
             'tax_code' => 'كود ضريبي',
             'tax_rate' => 'نسبة ضريبية',
+            'utility_tariff' => 'تعريفة مرافق',
+            'utility_tariff_rate' => 'سعر مرافق',
             'bank_match' => 'مطابقة بنكية',
             'bank_account' => 'حساب بنكي',
             'bank_statement' => 'كشف بنكي',

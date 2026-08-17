@@ -219,6 +219,25 @@ return [
         ],
     ],
 
+    'utility_tariffs' => [
+        'purpose' => 'The published price of electricity, water and gas — and the day each price came into force.',
+        'steps' => [
+            'Add the tariff with its English and Arabic name, and say which utility it prices.',
+            'Open its price ladder and add the price, with the day it starts and the decree it comes from.',
+            'On each meter, pick this tariff and clear the meter\'s own rate override so it follows the list.',
+        ],
+        'affects' => [
+            'Every meter on this tariff prices its NEW readings from it, so a decreed rise is entered once instead of re-typed on every meter.',
+            'A reading is priced at the rate in force on the READING\'s date, so a reading you back-fill from last month keeps last month\'s price.',
+            'Readings already entered keep the cost they were saved with — nothing you do here re-prices a recharge that has already been raised.',
+        ],
+        'rules' => [
+            'A price change is a new rung on the ladder, never an edit to the old one — that is what keeps a past reading explicable.',
+            'A rung runs until the next one starts. There is no end date, so two prices can never both be in force on one day.',
+            'A rate typed on the meter itself WINS over the tariff. Leave it blank unless that meter genuinely has its own negotiated price.',
+            'A tariff with no price prices its meters at 0, and a zero-cost reading cannot be billed — which is the safe direction, not a silent free supply.',
+        ],
+    ],
     'tax_codes' => [
         'purpose' => 'Every tax you can charge or be charged, and the rate each one carries from a given day.',
         'steps' => [

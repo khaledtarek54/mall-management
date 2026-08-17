@@ -42,7 +42,8 @@ Since 2026-07, the module also **recharges** metered consumption to tenants: a p
 | provider | varchar | nullable | Utility company (e.g. "National Grid") |
 | status | enum('active','inactive','faulty') | default 'active' | Operational state |
 | unit_of_measurement | varchar(16) | nullable | Display unit (kWh, m³, etc.) |
-| rate_per_unit | decimal(12,4) | nullable | Recharge tariff (EGP per kWh/m³). Null = monitored but not recharged (e.g. a landlord/common-area meter) |
+| utility_tariff_id | FK nullable | → utility_tariffs | The published price list this meter follows. Null = no tariff |
+| rate_per_unit | decimal(12,4) | nullable | **Per-meter OVERRIDE**, and null is the normal state since 2026-08-17. Set, it WINS over the tariff. Null + null tariff = monitored but not recharged (a landlord/common-area meter) |
 | created_at, updated_at, deleted_at | timestamp | — | Lifecycle timestamps; soft-deletes |
 
 **Key indexes:** `[asset_id, type]`, `[status]`
@@ -248,6 +249,62 @@ $set('consumption', round($delta, 2));
 - **Meter reading reminder** (monthly, to ops email): "Log readings for all active meters before month close."
 - **Consumption anomaly alert:** If consumption > prior month by >20%, notify ops.
 - **Integration with smart meters:** Sync readings hourly from a telemetry provider (if connected).
+
+## 7b. Tariffs — what a unit costs, and the day that price came into force (2026-08-17)
+
+`rate_per_unit` was a single number per meter with no date attached, and that is the wrong shape for
+the same two reasons `TaxSettings::vat_standard_rate` was (see
+[21-general-ledger.md](21-general-ledger.md) and the tax-catalogue migration, whose reasoning this
+follows deliberately rather than inventing a second one):
+
+1. **A price has a date.** Egyptian utility tariffs move by decree, announced ahead of the day they
+   take effect. With one number per meter there was nowhere to put a rise until the morning it
+   started — so the operator had to edit every affected meter on that morning, and a reading keyed
+   the evening before or the morning after cost the wrong amount.
+2. **A tariff is not a property of one meter.** Four hundred meters on the same public tariff held
+   four hundred copies of one number. A decree meant four hundred edits with no way to tell which
+   had been done, and a half-applied sweep bills two tenants differently for the same supply on the
+   same day.
+
+**Tables.** `utility_tariffs` is the stable identity a meter points at; `utility_tariff_rates` is its
+price over time. **No `effective_to`** — a rung runs until the next one starts, which makes
+overlapping and missing windows unrepresentable. That is not theory: overlapping charge-schedule rows
+**bill nothing**, which is what `atriom:audit-charge-schedules` exists to find.
+
+**`UtilityMeter::resolvedRatePerUnit($on)` is the ONE place that answers what a meter charges on a
+date**, and every origination point calls it:
+
+1. `rate_per_unit` — the per-meter **override**. Set means somebody chose this price for this meter
+   (a rate negotiated with one tenant, a sub-meter on a blended figure), and a chosen price beats a
+   published one.
+2. the tariff's rung in force **on `$on`** — resolved for the date the consumption is being priced
+   at, not for today.
+3. `0.0` — monitored but not recharged. `BillMeterReadingService` refuses a zero-cost recharge, so a
+   reading nobody priced cannot quietly bill a tenant nothing.
+
+This mirrors `Charge::resolvedVatRate($on)` against the tax catalogue exactly — same override-wins
+shape, same "null is the normal state". **A call site that reads `rate_per_unit` directly cannot see
+the tariff and prices a tariffed meter at 0.**
+
+**Pass the READING's date, never `now()`.** A reading keyed a week late, or a month back-filled
+across a rise, must be priced at what the supply cost when it was consumed. Both origination points
+do: `ReadingsRelationManager::deriveCost()` and `MeterReadingImporter`.
+
+**History is untouched and stays that way.** `meter_readings.cost` is computed and STORED at entry
+(§3, *Cost dehydration*), so no rung ever re-prices a recharge that has been raised. That is what
+makes the ladder freely editable — the same origination-only rule VAT runs on.
+
+**Tiered (شرائح) bands are deliberately not built.** Egyptian domestic electricity is banded, and
+bands would need `tier_from`/`tier_to` on the rung plus a consumption-splitting rule in the resolver.
+Whether Eltizam recharges in bands or at a single commercial rate is a question for the operator, and
+shipping unused nullable tier columns would be a schema documenting a decision nobody made. The rung
+table is additive, so bands cost one migration when the answer arrives.
+
+**Screen:** `/admin/utility-tariffs` (`utility_tariffs.*` RBAC — accounting maintains it, operations
+reads it, for the same reason accounting owns the tax catalogue: a price change is money).
+Portfolio-shared, not property-scoped; a property with its own price gets its own tariff row.
+
+Tests: `tests/Feature/Regression/UtilityTariffIsDatedTest.php`.
 
 ## 8. Extension points — how to change/SAFELY
 

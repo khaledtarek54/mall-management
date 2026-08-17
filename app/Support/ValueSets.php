@@ -163,6 +163,10 @@ class ValueSets
         'units.status' => ['vacant', 'reserved', 'occupied', 'maintenance'],
         'utility_meters.status' => ['active', 'inactive', 'faulty'],
         'utility_meters.type' => ['electric', 'water', 'gas'],
+        // The SAME set as `utility_meters.type`, and deliberately spelled out rather than
+        // referenced: these two must agree, because a tariff is only offered for meters of its own
+        // utility. Widening one without the other is what the listener would then refuse on save.
+        'utility_tariffs.utility_type' => ['electric', 'water', 'gas'],
         'vendor_bill_payments.method' => ['cash', 'bank_transfer', 'cheque', 'card', 'other'],
         'vendor_bills.status' => ['draft', 'approved', 'partially_paid', 'paid', 'cancelled'],
         'vendor_contracts.sla_penalty_basis' => ['none', 'flat', 'per_day', 'percent_of_value'],

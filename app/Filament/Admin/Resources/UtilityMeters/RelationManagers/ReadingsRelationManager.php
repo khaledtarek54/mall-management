@@ -49,11 +49,26 @@ class ReadingsRelationManager extends RelationManager
             && (auth()->user()?->can('invoices.create') ?? false);
     }
 
-    /** consumption × the meter's tariff → cost (blank tariff leaves the operator's figure alone). */
-    protected function deriveCost(mixed $consumption, callable $set): void
+    /**
+     * consumption × the meter's rate ON THE READING'S DATE → cost.
+     *
+     * The date is the point. A tariff is a dated ladder, so a reading keyed a week late — or
+     * back-filled after a decreed rise — must be priced at what the supply cost when it was
+     * consumed, not at what it costs today. `resolvedRatePerUnit()` is the one place that answers
+     * that; reading `rate_per_unit` here directly would price a tariffed meter at 0.
+     *
+     * A meter with no rate at all leaves the operator's figure alone (rate 0 → no derivation), which
+     * is the existing behaviour for a monitored-but-not-recharged meter.
+     */
+    protected function deriveCost(mixed $consumption, callable $set, mixed $readingDate = null): void
     {
-        $rate = (float) ($this->ownerRecord->rate_per_unit ?? 0);
-        if ($rate > 0 && is_numeric($consumption)) {
+        $meter = $this->ownerRecord;
+        if (! $meter instanceof UtilityMeter || ! is_numeric($consumption)) {
+            return;
+        }
+
+        $rate = $meter->resolvedRatePerUnit($readingDate ?: null);
+        if ($rate > 0) {
             $set('cost', round((float) $consumption * $rate, 2));
         }
     }
@@ -115,7 +130,7 @@ class ReadingsRelationManager extends RelationManager
                         return; // meter rolled or reset — let operator key it
                     }
                     $set('consumption', round($delta, 2));
-                    $this->deriveCost(round($delta, 2), $set);
+                    $this->deriveCost(round($delta, 2), $set, $candidateDate);
                 }),
             TextInput::make('consumption')
                 ->label(__('admin.fields.consumption'))
@@ -128,7 +143,7 @@ class ReadingsRelationManager extends RelationManager
                 // Cost now DERIVES from the meter's tariff (consumption × rate) — it was a free
                 // NOT-NULL field the operator computed mentally. Still editable for a corrected figure.
                 ->live(onBlur: true)
-                ->afterStateUpdated(fn ($state, $set) => $this->deriveCost($state, $set)),
+                ->afterStateUpdated(fn ($state, $get, $set) => $this->deriveCost($state, $set, $get('reading_date'))),
             TextInput::make('cost')
                 ->label(__('admin.fields.cost'))
                 ->numeric()
@@ -136,9 +151,12 @@ class ReadingsRelationManager extends RelationManager
                 ->step('0.01')
                 ->prefix('EGP')
                 ->disabled($lockedIfBilled)
-                ->helperText(function () {
+                // Live feedback, which is what earns a helperText: the rate quoted here is the one
+                // resolved for the reading's OWN date, so an operator back-filling a reading from
+                // before a tariff rise can see that it is being priced at the old figure.
+                ->helperText(function ($get) {
                     $meter = $this->ownerRecord instanceof UtilityMeter ? $this->ownerRecord : null;
-                    $rate = $meter ? (float) $meter->rate_per_unit : 0.0;
+                    $rate = $meter ? $meter->resolvedRatePerUnit($get('reading_date') ?: null) : 0.0;
 
                     return $rate > 0
                         ? __('admin.helpers.cost_derived', [

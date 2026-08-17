@@ -468,6 +468,12 @@
         "guide": "utility_meters"
     },
     {
+        "screen": "UtilityTariffResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "utility_tariffs"
+    },
+    {
         "screen": "VatReturn",
         "panel": "admin",
         "kind": "page",

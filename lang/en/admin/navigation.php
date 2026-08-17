@@ -6,6 +6,7 @@ return [
         'vat_return' => 'VAT return',
         'charge_codes' => 'Charge Codes',
         'tax_codes' => 'Tax Codes',
+        'utility_tariffs' => 'Utility Tariffs',
         'approval_rules' => 'Approval Bands',
         'bank_accounts' => 'Bank Accounts',
         'bank_statements' => 'Bank Statements',
@@ -61,6 +62,10 @@ return [
     ],
 
     'resources' => [
+        'utility_tariff' => [
+            'singular' => 'Utility Tariff',
+            'plural' => 'Utility Tariffs',
+        ],
         'bank_statement' => ['singular' => 'Bank Statement', 'plural' => 'Bank Statements'],
         'bank_account' => ['singular' => 'Bank Account', 'plural' => 'Bank Accounts'],
         'approval_rule' => ['singular' => 'Approval Band', 'plural' => 'Approval Bands'],
@@ -115,6 +120,7 @@ return [
         'bank_accounts' => 'Bank accounts',
         'charge_codes' => 'Charge codes',
         'tax_codes' => 'Tax codes',
+        'utility_tariffs' => 'Utility tariffs',
         'account_mappings' => 'Posting map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',

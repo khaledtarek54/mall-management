@@ -552,6 +552,18 @@
         "note": null
     },
     {
+        "model": "UtilityTariff",
+        "label": "Utility Tariff",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "UtilityTariffRate",
+        "label": "Utility Tariff Rate",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "Vendor",
         "label": "Vendor",
         "classification": "shared",

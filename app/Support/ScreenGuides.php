@@ -75,6 +75,7 @@ use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
+use App\Filament\Admin\Resources\UtilityTariffs\UtilityTariffResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
@@ -200,6 +201,7 @@ class ScreenGuides
         // ── Configuration & access ────────────────────────────────────────────────────────────
         ChargeCodeResource::class => 'charge_codes',
         TaxCodeResource::class => 'tax_codes',
+        UtilityTariffResource::class => 'utility_tariffs',
         ApprovalRuleResource::class => 'approval_rules',
         UserResource::class => 'users',
         RoleResource::class => 'roles',

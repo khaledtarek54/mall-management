@@ -6,6 +6,7 @@ return [
         'vat_return' => 'الإقرار الضريبي',
         'charge_codes' => 'أكواد الرسوم',
         'tax_codes' => 'الأكواد الضريبية',
+        'utility_tariffs' => 'تعريفة المرافق',
         'approval_rules' => 'حدود الاعتماد',
         'bank_accounts' => 'الحسابات البنكية',
         'bank_statements' => 'كشوف البنك',
@@ -61,6 +62,7 @@ return [
     ],
 
     'resources' => [
+        'utility_tariff' => ['singular' => 'تعريفة مرافق', 'plural' => 'تعريفات المرافق'],
         'bank_statement' => ['singular' => 'كشف بنكي', 'plural' => 'كشوف البنك'],
         'bank_account' => ['singular' => 'حساب بنكي', 'plural' => 'الحسابات البنكية'],
         'approval_rule' => ['singular' => 'حد اعتماد', 'plural' => 'حدود الاعتماد'],
@@ -115,6 +117,7 @@ return [
         'bank_accounts' => 'الحسابات البنكية',
         'charge_codes' => 'أكواد الرسوم',
         'tax_codes' => 'الأكواد الضريبية',
+        'utility_tariffs' => 'تعريفة المرافق',
         'account_mappings' => 'خريطة الترحيل',
         'ledger_accounts' => 'دليل الحسابات',
         'journal_entries' => 'قيود اليومية',

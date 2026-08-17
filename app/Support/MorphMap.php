@@ -94,6 +94,8 @@ use App\Models\UnitArea;
 use App\Models\UnitOwnership;
 use App\Models\User;
 use App\Models\UtilityMeter;
+use App\Models\UtilityTariff;
+use App\Models\UtilityTariffRate;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
@@ -243,6 +245,8 @@ class MorphMap
         'unit_ownership' => UnitOwnership::class,
         'user' => User::class,
         'utility_meter' => UtilityMeter::class,
+        'utility_tariff' => UtilityTariff::class,
+        'utility_tariff_rate' => UtilityTariffRate::class,
         'vendor' => Vendor::class,
         'vendor_bill' => VendorBill::class,
         'vendor_bill_payment' => VendorBillPayment::class,

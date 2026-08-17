@@ -73,6 +73,7 @@ class OwnerVisibility
         'post_dated_cheques' => 'Cheques held against their leases.',
         'cam' => 'The recovery pool their tenants fund and the annual true-up.',
         'utility_meters' => 'Consumption recharged on their property.',
+        'utility_tariffs' => 'The published price behind a utility recharge on their property — the number that explains the figure.',
         'expenses' => 'Property opex — the statement charges it to them, so they may see it.',
         'vendor_bills' => 'Property AP, for the same reason: it lands in their statement. Yardi owner portals expose property AP too.',
         'marketing' => 'The fund 5% of their base rent pays into.',

@@ -2,6 +2,14 @@
 
 return [
     'helpers' => [
+        'utility_tariff' => 'The published price this meter follows. A rate below overrides it.',
+        'utility_tariff_code' => 'Short identifier for this price list, e.g. EGPC-COMM.',
+        'utility_tariff_type' => 'Only meters of this utility can be priced by this tariff.',
+        'utility_tariff_provider' => 'Who publishes this price — the distribution company or authority.',
+        'utility_tariff_uom' => 'The unit this price is per: kWh, m³. Should match the meters on it.',
+        'utility_tariff_active' => 'Inactive tariffs leave the meter picker but still explain past readings.',
+        'utility_effective_from' => 'The day this price starts. Enter a decreed rise ahead of time.',
+        'utility_rate_note' => 'The decree or circular this price came from.',
         'invoice_tenant_derived' => 'Comes from the lease — change the lease to change who is billed.',
         'extend_term_current' => 'Currently runs to :date. The further term begins the day after.',
         'expiry_date_locked' => 'Locked — this lease has been invoiced. Use “Extend term”, or Terminate to end it early.',
@@ -156,6 +164,9 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'utility_tariff' => 'A meter follows a tariff so a decreed price change is entered once, not re-typed on every meter. Readings are priced at the rate in force on the reading\'s own date, so a back-filled reading keeps the old price.',
+        'utility_effective_from' => 'A price change is a new rung, never an edit to the old one — that is what keeps a past reading explicable. A rung stays in force until the next one starts, so there is no end date to get wrong.',
+        'utility_tariff_active' => 'Deactivating removes the tariff from the meter picker without touching the meters already on it, or the readings it has already priced.',
         'credit_unearned' => 'The credit note posts ON the termination date, so a closed period refuses it — leaving the tenant billed for time they will not occupy.',
         'gross_sales' => 'Leave blank to record a net figure directly, as before. Filled, it becomes a certificate: gross, the deductions, and the net percentage rent is charged on.',
         'percentage_rent_sales_exclusions' => 'Every retail lease defines Gross Sales with an exclusion list, and it is the most disputed clause in retail leasing. VAT needs no grant — a shop collects it for the state — but returns, gift cards, inter-store transfers and employee discounts are all concessions a landlord agreed to.',

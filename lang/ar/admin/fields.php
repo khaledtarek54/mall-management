@@ -2,6 +2,12 @@
 
 return [
     'fields' => [
+        'utility_type' => 'المرفق',
+        'utility_tariff_id' => 'التعريفة',
+        'provider' => 'مزود الخدمة',
+        'utility_tariff' => 'التعريفة',
+        'utility_tariff_placeholder' => 'بدون تعريفة — استخدم السعر الخاص أدناه أو اتركهما فارغين',
+        'rate_per_unit_override' => 'سعر خاص للعداد (للوحدة)',
         'document_reference' => 'مرجع المستند',
         'unit_ownership' => 'المالك (الوحدة مباعة)',
         'party_type' => 'نوع الطرف',

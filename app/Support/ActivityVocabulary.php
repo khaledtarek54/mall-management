@@ -27,6 +27,7 @@ use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\UtilityTariff;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\Warehouse;
@@ -205,6 +206,7 @@ class ActivityVocabulary
         'owner_statement_run_id' => OwnerStatementRun::class,
         'parent_work_order_id' => FacilityWorkOrder::class,
         'tax_code_id' => TaxCode::class,
+        'utility_tariff_id' => UtilityTariff::class,
         'tenant_id' => Tenant::class,
         'tenant_request_id' => TenantRequest::class,
         'unit_id' => Unit::class,
