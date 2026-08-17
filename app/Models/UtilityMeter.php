@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\ValueSets;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,9 +19,27 @@ class UtilityMeter extends Model
 {
     use HasFactory, HasSearchText, SoftDeletes;
 
-    public const TYPES = ['electric', 'water', 'gas'];
+    /**
+     * What a meter can BE — derived from `ValueSets`, never re-listed.
+     *
+     * It was a hand-written copy until 2026-08-17, and adding `hours` to the registry left this
+     * saying three when the column accepted four. Nothing failed: the meter FORM reads the
+     * translation group, so the new type appeared there while every reader of this constant kept
+     * getting the old answer. A second source of truth that agrees on the day it is written is the
+     * only kind anyone ever writes.
+     *
+     * @return list<string>
+     */
+    public static function types(): array
+    {
+        return ValueSets::allowed('utility_meters', 'type') ?? [];
+    }
 
-    public const STATUSES = ['active', 'inactive', 'faulty'];
+    /** @return list<string> */
+    public static function statuses(): array
+    {
+        return ValueSets::allowed('utility_meters', 'status') ?? [];
+    }
 
     protected $fillable = [
         'asset_id',
@@ -70,6 +89,19 @@ class UtilityMeter extends Model
     public function isCommonArea(): bool
     {
         return $this->unit_id === null;
+    }
+
+    /**
+     * How a meter names itself in an activity diff and a picker.
+     *
+     * Needed explicitly: `ActivityVocabulary`'s fallback chain is
+     * `reference` / `number` / `name` / `code` / `title`, and a meter's identifier is
+     * `meter_number` — none of those. Without this, a service plan's "Usage counter" diff prints a
+     * row id instead of the number stamped on the machine.
+     */
+    public function label(): string
+    {
+        return (string) $this->meter_number;
     }
 
     /** @return BelongsTo<UtilityTariff, $this> */

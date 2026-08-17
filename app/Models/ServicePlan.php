@@ -123,7 +123,7 @@ class ServicePlan extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'plan_type', 'frequency_unit', 'frequency_value', 'days_of_week', 'next_due_date', 'is_active'])
+            ->logOnly(['asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'plan_type', 'trigger_type', 'utility_meter_id', 'usage_threshold', 'frequency_unit', 'frequency_value', 'days_of_week', 'next_due_date', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('service_plan');

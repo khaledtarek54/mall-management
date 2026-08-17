@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\Resources\UtilityTariffs\Schemas;
 
-use App\Models\UtilityMeter;
+use App\Support\ValueSets;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -28,12 +28,14 @@ class UtilityTariffForm
                         ->helperText(__('admin.helpers.utility_tariff_code')),
 
                     // A VALUE picker, not a record picker — so a plain Select is correct here and
-                    // EntitySelect would be wrong. The set is `utility_meters.type`, registered once
-                    // in ValueSets and shared so a tariff can only ever be offered for meters of its
-                    // own utility.
+                    // EntitySelect would be wrong.
+                    //
+                    // Reads the TARIFF's own set, which is deliberately NARROWER than a meter's:
+                    // `hours` is a meter type but never a tariff, because a run-hours counter is
+                    // monitored and never recharged. Two sets, one registry, no re-listing.
                     Select::make('utility_type')
                         ->label(__('admin.fields.meter_type'))
-                        ->options(fn () => collect(UtilityMeter::TYPES)
+                        ->options(fn () => collect(ValueSets::allowed('utility_tariffs', 'utility_type') ?? [])
                             ->mapWithKeys(fn (string $t) => [$t => __("admin.enums.meter_type.{$t}")])
                             ->all())
                         ->required()

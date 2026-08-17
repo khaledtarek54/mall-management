@@ -27,6 +27,7 @@ use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\UtilityMeter;
 use App\Models\UtilityTariff;
 use App\Models\Vendor;
 use App\Models\VendorBill;
@@ -158,6 +159,7 @@ class ActivityVocabulary
         // and a form calling the same value two different things. The field-label gate demanded a
         // LABEL for this column and was satisfied; it does not check that the VALUE resolves, so
         // the log printed a raw `electric` beside a form that says "Electricity".
+        'service_plan.trigger_type' => 'admin.facility.trigger_types',
         'utility_tariff.utility_type' => 'admin.enums.meter_type',
         'tenant.type' => 'admin.enums.tenant_type',
         'tenant_document.type' => 'admin.enums.tenant_document_type',
@@ -212,6 +214,7 @@ class ActivityVocabulary
         'parent_work_order_id' => FacilityWorkOrder::class,
         'tax_code_id' => TaxCode::class,
         'utility_tariff_id' => UtilityTariff::class,
+        'utility_meter_id' => UtilityMeter::class,
         'tenant_id' => Tenant::class,
         'tenant_request_id' => TenantRequest::class,
         'unit_id' => Unit::class,

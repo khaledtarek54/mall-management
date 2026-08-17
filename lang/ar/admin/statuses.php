@@ -434,10 +434,10 @@ return [
             'other' => 'أخرى',
         ],
         'meter_type' => [
-            'hours' => 'ساعات التشغيل',
             'electric' => 'كهرباء',
             'water' => 'مياه',
             'gas' => 'غاز',
+            'hours' => 'ساعات التشغيل',
         ],
         'percentage_rent_calculation_type' => [
             'tiered' => 'شرائح',

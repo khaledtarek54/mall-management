@@ -434,10 +434,10 @@ return [
             'other' => 'Other',
         ],
         'meter_type' => [
-            'hours' => 'Running hours',
             'electric' => 'Electricity',
             'water' => 'Water',
             'gas' => 'Gas',
+            'hours' => 'Running hours',
         ],
         'percentage_rent_calculation_type' => [
             'tiered' => 'Tiered bands',

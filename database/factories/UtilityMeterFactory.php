@@ -30,7 +30,7 @@ class UtilityMeterFactory extends Factory
      */
     public function definition(): array
     {
-        $type = fake()->randomElement(UtilityMeter::TYPES);
+        $type = fake()->randomElement(UtilityMeter::types());
 
         return [
             'asset_id' => Asset::factory(),

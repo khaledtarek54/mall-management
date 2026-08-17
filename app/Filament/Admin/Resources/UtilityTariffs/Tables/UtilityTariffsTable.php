@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\UtilityTariffs\Tables;
 
 use App\Filament\Admin\Resources\UtilityTariffs\UtilityTariffResource;
-use App\Models\UtilityMeter;
 use App\Models\UtilityTariff;
+use App\Support\ValueSets;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -89,7 +89,7 @@ class UtilityTariffsTable
             ->filters([
                 SelectFilter::make('utility_type')
                     ->label(__('admin.fields.meter_type'))
-                    ->options(fn () => collect(UtilityMeter::TYPES)
+                    ->options(fn () => collect(ValueSets::allowed('utility_tariffs', 'utility_type') ?? [])
                         ->mapWithKeys(fn (string $t) => [$t => __("admin.enums.meter_type.{$t}")])
                         ->all()),
 

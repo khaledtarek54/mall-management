@@ -52,7 +52,7 @@ class MeterReadingFactory extends Factory
                 ])->id,
                 'unit_id' => null,
                 'meter_number' => 'MTR-'.strtoupper(substr(uniqid(), -8)),
-                'type' => fake()->randomElement(UtilityMeter::TYPES),
+                'type' => fake()->randomElement(UtilityMeter::types()),
                 'status' => 'active',
                 'unit_of_measurement' => 'kWh',
             ])->id,

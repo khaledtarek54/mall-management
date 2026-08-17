@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'trigger_type' => 'يُستدعى بواسطة',
+        'usage_threshold' => 'صيانة كل',
+        'utility_meter_id' => 'عداد الاستهلاك',
         'utility_type' => 'المرفق',
         'utility_tariff_id' => 'التعريفة',
         'provider' => 'مزود الخدمة',

@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'trigger_type' => 'Triggered by',
+        'usage_threshold' => 'Service every',
+        'utility_meter_id' => 'Usage counter',
         'utility_type' => 'Utility',
         'utility_tariff_id' => 'Tariff',
         'provider' => 'Provider',

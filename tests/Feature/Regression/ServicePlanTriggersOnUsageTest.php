@@ -4,6 +4,8 @@ use App\Models\MeterReading;
 use App\Models\ServicePlan;
 use App\Models\UtilityMeter;
 use App\Services\GeneratePreventiveWorkOrdersService;
+use App\Support\ActivityVocabulary;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A preventive plan can fire on running hours, not only on the calendar.
@@ -228,4 +230,58 @@ it('treats a rolled-over or replaced counter as not-due rather than instantly du
 it('refuses a trigger_type outside the value set', function () {
     expect(fn () => usagePlanFixture(['trigger_type' => 'whenever']))
         ->toThrow(DomainException::class);
+});
+
+it('records a switch between the calendar and the counter in the audit trail', function () {
+    // Changing what makes a machine due for service is exactly the change an auditor asks about,
+    // and none of the three columns that decide it were logged when the feature shipped —
+    // `logOnly()` is an allowlist, so a new column is invisible until it is named.
+    // Starts as a plain calendar plan with no counter, so all three columns are genuinely dirty on
+    // the switch. `logOnlyDirty()` would otherwise (correctly) omit a value that did not move.
+    [, $meter, $plan] = usagePlanFixture([
+        'trigger_type' => ServicePlan::TRIGGER_TIME,
+        'utility_meter_id' => null,
+        'usage_threshold' => null,
+    ]);
+
+    $plan->update([
+        'trigger_type' => ServicePlan::TRIGGER_USAGE,
+        'utility_meter_id' => $meter->id,
+        'usage_threshold' => 500,
+    ]);
+
+    // `attribute_changes`, NOT `properties` — spatie stores the before/after diff in its own
+    // column and leaves `properties` empty for an ordinary model change. Reading `properties` shows
+    // `[]` for every model in the system and reads exactly like a broken audit trail; it isn't one.
+    $changes = json_decode(
+        (string) DB::table('activity_log')->where('log_name', 'service_plan')->latest('id')->value('attribute_changes'),
+        true,
+    );
+
+    expect($changes['attributes'] ?? [])->toHaveKeys(['trigger_type', 'utility_meter_id', 'usage_threshold'])
+        ->and($changes['old']['trigger_type'] ?? null)->toBe(ServicePlan::TRIGGER_TIME)
+        ->and($changes['attributes']['trigger_type'] ?? null)->toBe(ServicePlan::TRIGGER_USAGE);
+});
+
+it('reads the trigger and the counter as words, not as raw data', function () {
+    // The lesson from the tariff sweep: a field LABEL satisfies the conformance gate while the
+    // VALUE still renders raw. Both halves are asserted, in both languages, because `Lang::has()`
+    // falls back to English and a parity check written the obvious way passes on a missing key.
+    [, $meter] = usagePlanFixture();
+    $vocab = app(ActivityVocabulary::class);
+
+    expect($vocab->value('service_plan', 'service_plan', 'trigger_type', 'usage'))
+        ->toBe('A counter (running hours, consumption)')
+        // The FK must NAME the meter — `meter_number` is not in the fallback chain, so this only
+        // works because `UtilityMeter::label()` exists.
+        ->and($vocab->value('service_plan', 'service_plan', 'utility_meter_id', $meter->id))
+        ->toBe('CHILLER-HRS');
+
+    app()->setLocale('ar');
+
+    try {
+        expect($vocab->field('service_plan', 'trigger_type'))->toBe('يُستدعى بواسطة');
+    } finally {
+        app()->setLocale('en');
+    }
 });
