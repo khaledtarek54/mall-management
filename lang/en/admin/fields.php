@@ -483,6 +483,7 @@ return [
         'percentage_rent_rate' => 'Rate',
         'percentage_rent_calculation_type' => 'Calculation Method',
         'percentage_rent_frequency' => 'Breakpoint Frequency',
+        'percentage_rent_billing_frequency' => 'Percentage rent billed',
         'percentage_rent_threshold_annual' => 'Annual Threshold (whole year)',
         'note_channel' => 'Channel',
         'note_subject' => 'Subject',

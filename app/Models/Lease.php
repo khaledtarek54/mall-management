@@ -336,6 +336,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'percentage_rent_rate',
         'percentage_rent_calculation_type',
         'percentage_rent_frequency',
+        'percentage_rent_billing_frequency',
         'percentage_rent_deductible_types',
         'billing_day',
         'payment_terms_days',
@@ -359,6 +360,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'fit_out_scope' => self::FIT_OUT_RENT_ONLY,
         'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
         'percentage_rent_frequency' => 'monthly', // fresh monthly breakpoint unless set to annual (cumulative)
+        'percentage_rent_billing_frequency' => 'monthly', // WHEN the overage is charged — a separate term from the basis above
         'security_deposit_received' => false,
     ];
 
@@ -440,6 +442,23 @@ class Lease extends Model implements BillableAgreement, HasMedia
      * `cpi` counts as configured because its rate is what arms the anniversary and what the collar
      * clamps — `RentEscalationService` still declines to invent an index figure when the night comes.
      */
+    /**
+     * Months in one percentage-rent BILLING period: monthly=1, quarterly=3, annual=12.
+     *
+     * Separate from `billingCycleMonths()` (base rent) and from `percentage_rent_frequency` (the
+     * calculation basis) on purpose — all three are independent lease terms, and a lease routinely
+     * states a different cadence for each: rent quarterly in advance, sales declared monthly,
+     * overage settled annually in arrears.
+     */
+    public function percentageRentBillingMonths(): int
+    {
+        return match ((string) $this->percentage_rent_billing_frequency) {
+            'quarterly' => 3,
+            'annual' => 12,
+            default => 1,
+        };
+    }
+
     public function escalatesContractually(): bool
     {
         return match ($this->escalation_type) {

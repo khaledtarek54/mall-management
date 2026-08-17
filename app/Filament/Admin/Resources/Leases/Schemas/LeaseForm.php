@@ -631,6 +631,18 @@ class LeaseForm
                             ->helperText(__('admin.helpers.percentage_rent_frequency'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_frequency'))
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
+                        // WHEN the overage is charged — a different term from the basis above, and
+                        // the pair is constantly confused. Yardi carries them separately, and a
+                        // clause reading "payable quarterly in arrears" could not be expressed while
+                        // billing was hard-wired to the moment a declaration was locked.
+                        Select::make('percentage_rent_billing_frequency')
+                            ->label(__('admin.fields.percentage_rent_billing_frequency'))
+                            ->options(fn () => __('admin.enums.percentage_rent_billing_frequency'))
+                            ->default('monthly')
+                            ->native(false)
+                            ->helperText(__('admin.helpers.percentage_rent_billing_frequency'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_billing_frequency'))
+                            ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                         TextInput::make('percentage_rent_threshold')
                             // Label + helper switch so it is unmistakable that an ANNUAL lease's threshold is
                             // a WHOLE-YEAR figure — the single easiest thing to get wrong (a monthly figure

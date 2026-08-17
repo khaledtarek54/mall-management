@@ -105,6 +105,11 @@ class ValueSets
         'journal_entries.status' => ['draft', 'posted', 'void'],
         'leases.billing_frequency' => ['monthly', 'quarterly', 'semiannual', 'annual'],
         'leases.percentage_rent_calculation_type' => ['natural_breakpoint', 'artificial', 'tiered'],
+        // The two halves of a percentage-rent clause that are constantly confused for each other:
+        // how the overage is WORKED OUT, and when it is CHARGED. The first was an enumerated string
+        // column with nothing guarding it until now.
+        'leases.percentage_rent_frequency' => ['monthly', 'annual'],
+        'leases.percentage_rent_billing_frequency' => ['monthly', 'quarterly', 'annual'],
         'leases.status' => ['draft', 'pending_approval', 'active', 'expired', 'renewed', 'terminated', 'cancelled'],
         'ledger_accounts.normal_balance' => ['debit', 'credit'],
         'ledger_accounts.type' => ['asset', 'liability', 'equity', 'revenue', 'expense'],

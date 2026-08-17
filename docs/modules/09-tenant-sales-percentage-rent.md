@@ -29,7 +29,36 @@
 > a contract question needing a per-lease setting, and with proration the two readings now agree
 > everywhere except the boundary month. Pinned by `PercentageRentShortYearTest`.
 >
-> **STILL OPEN — billing frequency is not the same thing as calculation basis.** Yardi carries three
+> **⚠️ SHIPPED 2026-08-17 — billing frequency is now its own lease term.** `percentage_rent_frequency`
+> is the calculation BASIS; the new `percentage_rent_billing_frequency` is WHEN the overage is
+> charged — **monthly / quarterly / annual, always in arrears**. Billing had not been modelled at all:
+> the overage was invoiced the moment a declaration was locked, so every tenancy charged monthly
+> whatever its contract said, and a clause reading *"percentage rent payable quarterly in arrears"*
+> could not be expressed. Yardi carries the two separately (plus reporting frequency, a third), and
+> the benchmark says it in bold: *a system that assumes they are the same cannot express the most
+> common retail deal.*
+>
+> **The split:** the basis decides what each month OWES (`calculated_percentage_rent`, unchanged); the
+> new `settleBillingPeriods()` decides when — and how many months share — the invoice. Both bases feed
+> it, so a lease can be cumulative-annual in its arithmetic and quarterly in its billing, which is a
+> real and common combination.
+>
+> **In arrears means in arrears.** A period is raised only once **every month of it that the lease
+> traded** has been locked — a quarter cannot be settled while a month of it is unknown. A part-traded
+> quarter settles on the months the lease actually traded, so a November commencement does not wait
+> for an October it never had. The invoice is anchored on the period's FIRST locked month, which is
+> what `reverseOverage()` keys on, so voiding any month of a settled period reverses that period's one
+> invoice and either re-raises it at the new total or leaves the period un-settled.
+>
+> **The operational hazard, stated:** with a non-monthly cadence, one missing declaration holds the
+> whole period. `sales:scan-missing-declarations` chases it and `sales:estimate-missing` can fill it;
+> neither is automatic. **Default is `monthly`, so no existing lease moved** — all 78 percentage-rent
+> cases passed unchanged. Recommended default for Egypt: keep monthly even on an annual basis. Billing
+> annually means discovering a large receivable eleven months after it was earned, from a tenant who
+> may no longer be trading. Pinned by `PercentageRentBillingFrequencyTest`.
+>
+> **STILL OPEN — the third frequency.** Yardi also carries a *reporting* frequency (when the tenant
+> must declare). Atriom assumes monthly declarations throughout. Yardi carries three
 > separate settings (`docs/benchmarks/yardi/03`): *reporting* frequency (when the tenant declares),
 > *billing* frequency (when overage is charged — monthly, quarterly, or **annually in arrears**), and
 > the *calculation basis* (period vs cumulative). Atriom's `percentage_rent_frequency` is the basis

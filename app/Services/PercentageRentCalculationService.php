@@ -13,6 +13,7 @@ use App\Notifications\SalesDeclarationLockedNotification;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -386,16 +387,111 @@ class PercentageRentCalculationService
             if ((float) $decl->calculated_percentage_rent !== $marginal) {
                 $decl->update(['calculated_percentage_rent' => $marginal]);
             }
+        }
 
-            if (abs($this->billedOverageForPeriod($decl) - $marginal) < 0.005) {
+        // Computing what each month OWES and deciding when it is CHARGED are two steps now.
+        $this->settleBillingPeriods($lease, $year);
+    }
+
+    /**
+     * Turn the months' owed figures into invoices, one per **billing period**.
+     *
+     * Splitting this out is what let billing frequency exist at all. It used to be fused into the
+     * re-true loop, one invoice per month, so *when* overage was charged was not a term of the lease
+     * but a property of the code — every tenancy billed monthly whatever its contract said. Yardi
+     * carries reporting, billing and calculation basis as three separate settings, and the project's
+     * own benchmark says a system conflating them "cannot express the most common retail deal".
+     *
+     * Both bases feed this: the annual basis writes canonical marginals above, the monthly basis
+     * writes each month's own overage at lock. Either way this reads `calculated_percentage_rent`
+     * and never recomputes it — the basis decides WHAT is owed, this decides WHEN it is raised.
+     *
+     * **In arrears, always.** A period is invoiced only once every month of it that the lease traded
+     * has been locked; until then the figures stand and nothing is raised. That is what "quarterly in
+     * arrears" means, and it is also the honest answer — a quarter cannot be settled while a month of
+     * it is still unknown.
+     *
+     * The invoice is anchored on the period's FIRST locked month, which is what `reverseOverage()`
+     * keys on, so re-locking or voiding any month of a period reverses that period's one invoice and
+     * re-raises it at the new total.
+     */
+    private function settleBillingPeriods(Lease $lease, int $year): void
+    {
+        $locked = TenantSalesDeclaration::query()
+            ->where('lease_id', $lease->getKey())
+            ->where('status', 'locked')
+            ->whereYear('period_start', $year)
+            ->orderBy('period_start')
+            ->get();
+
+        $months = $lease->percentageRentBillingMonths();
+
+        foreach ($locked->groupBy(fn (TenantSalesDeclaration $d): int => intdiv(Carbon::parse($d->period_start)->month - 1, $months)) as $group) {
+            /** @var TenantSalesDeclaration $anchor */
+            $anchor = $group->first();
+            $billed = $this->billedOverageForPeriod($anchor);
+
+            if (! $this->billingPeriodIsSettled($lease, $group, $year, $months)) {
+                // Not due yet. Anything already raised for it must come back off — a month voided
+                // out of a settled quarter un-settles that quarter.
+                if ($billed > 0) {
+                    $this->reverseOverage($anchor);
+                }
+
+                continue;
+            }
+
+            $target = round((float) $group->sum('calculated_percentage_rent'), 2);
+
+            if (abs($billed - $target) < 0.005) {
                 continue; // already invoiced correctly — leave it (and any payment) untouched
             }
 
-            $this->reverseOverage($decl); // throws on a PAID invoice → the whole retrue rolls back
-            if ($marginal > 0) {
-                $this->billOverageImmediately($decl, $marginal);
+            $this->reverseOverage($anchor); // throws on a PAID invoice → the whole operation rolls back
+            if ($target > 0) {
+                $this->billOverageForPeriod($anchor, $group->last(), $target);
             }
         }
+    }
+
+    /**
+     * Has every month of this billing period that the lease actually traded been locked?
+     *
+     * Monthly cadence: trivially yes — the group is that one month, and it is locked by definition.
+     * So this is a no-op for every lease that existed before billing frequency did.
+     *
+     * The clip to the lease term is what makes a part-traded quarter settleable: a lease commencing
+     * in November owes for Nov–Dec of Q4 and is not waiting for an October it never traded.
+     *
+     * @param  Collection<int, TenantSalesDeclaration>  $group
+     */
+    private function billingPeriodIsSettled(Lease $lease, $group, int $year, int $months): bool
+    {
+        if ($months === 1) {
+            return true;
+        }
+
+        $firstMonth = intdiv(Carbon::parse($group->first()->period_start)->month - 1, $months) * $months + 1;
+        $periodStart = CarbonImmutable::create($year, $firstMonth, 1);
+        $periodEnd = $periodStart->addMonths($months - 1)->endOfMonth();
+
+        $from = filled($lease->commencement_date)
+            ? CarbonImmutable::instance($lease->commencement_date)->startOfMonth()
+            : $periodStart;
+        $from = $from->greaterThan($periodStart) ? $from : $periodStart;
+
+        $to = filled($lease->expiry_date)
+            ? CarbonImmutable::instance($lease->expiry_date)->endOfMonth()
+            : $periodEnd;
+        $to = $to->lessThan($periodEnd) ? $to : $periodEnd;
+
+        if ($to->lessThan($from)) {
+            return false;
+        }
+
+        $expected = ($to->year - $from->year) * 12 + ($to->month - $from->month) + 1;
+
+        return $group->count() >= $expected;
     }
 
     /**
@@ -455,14 +551,12 @@ class PercentageRentCalculationService
                     // month) so the live overage invoices always sum to overage(cumulative year sales),
                     // whatever order months were locked in.
                     $this->retrueAnnualYear($fresh->lease_id, Carbon::parse($fresh->period_start)->year);
-                } else {
-                    // Re-lock safety: reverse any prior overage for this lease+period before billing the
-                    // fresh one, so a re-lock can never double-bill.
-                    $this->reverseOverage($fresh);
-                    $owed = (float) $fresh->calculated_percentage_rent;
-                    if ($owed > 0) {
-                        $this->billOverageImmediately($fresh, $owed);
-                    }
+                } elseif ($lease instanceof Lease) {
+                    // Monthly BASIS: this month's own overage was written above. Settling is then the
+                    // same step for both bases — it is the billing FREQUENCY, not the basis, that
+                    // decides which invoice it lands on, and re-lock safety comes with it (a period
+                    // whose total is unchanged is left alone, payment and all).
+                    $this->settleBillingPeriods($lease, Carbon::parse($fresh->period_start)->year);
                 }
 
                 return [$fresh->refresh(), true];
@@ -544,11 +638,17 @@ class PercentageRentCalculationService
             // (the exact stale-invoice bug a per-period void produced). Re-truing may reverse another
             // month's now-too-large invoice; if that invoice is PAID it throws and the void is refused.
             $lease = $declaration->lease;
+            $year = Carbon::parse($declaration->period_start)->year;
+
             if ($lease instanceof Lease && $lease->percentage_rent_frequency === 'annual') {
-                $this->retrueAnnualYear(
-                    $declaration->lease_id,
-                    Carbon::parse($declaration->period_start)->year
-                );
+                $this->retrueAnnualYear($declaration->lease_id, $year);
+            } elseif ($lease instanceof Lease) {
+                // Monthly BASIS still needs the period re-settled whenever billing is not monthly:
+                // the reverse above keys on THIS month, but a quarter's invoice is anchored on the
+                // quarter's FIRST month, so voiding a middle month would otherwise leave the whole
+                // quarter billed at a total that includes sales now withdrawn. Re-settling also
+                // un-settles the period — a quarter missing a month is no longer due.
+                $this->settleBillingPeriods($lease, $year);
             }
 
             return $declaration->refresh();
@@ -571,8 +671,14 @@ class PercentageRentCalculationService
     private function runSerializedPerLease(TenantSalesDeclaration $declaration, callable $txn): TenantSalesDeclaration
     {
         $lease = $declaration->lease;
-        if (! $lease instanceof Lease || $lease->percentage_rent_frequency !== 'annual') {
-            return $txn(); // monthly lease (or a null default) — each month is independent, no lock
+
+        // Two reasons a lock is needed, and either is enough: an annual BASIS reads every other
+        // month's sales, and a non-monthly BILLING period reads every other month's owed figure to
+        // total the period. Only a monthly-basis, monthly-billed lease is genuinely independent per
+        // month — anything else can interleave two locks and mis-bill under REPEATABLE READ.
+        if (! $lease instanceof Lease
+            || ($lease->percentage_rent_frequency !== 'annual' && $lease->percentageRentBillingMonths() === 1)) {
+            return $txn();
         }
 
         return Cache::lock('pct-rent:lock:lease:'.$declaration->lease_id, 10)->block(10, $txn);
@@ -586,12 +692,20 @@ class PercentageRentCalculationService
      * start_date = period_start); the money lives on the invoice, posting to the GL as
      * percentage_rent_revenue via the invoice item's `percentage_rent` type.
      */
-    private function billOverageImmediately(TenantSalesDeclaration $declaration, float $amount): Charge
+    private function billOverageForPeriod(TenantSalesDeclaration $declaration, TenantSalesDeclaration $last, float $amount): Charge
     {
         /** @var Lease $lease */
         $lease = $declaration->lease;
         $now = now();
-        $label = 'Percentage Rent — '.$declaration->periodLabel();
+
+        // One invoice can now cover several declared months, so the label and the invoice period
+        // span the BILLING period rather than the single month that anchors it. The anchor is still
+        // the first month — `reverseOverage()` keys on it.
+        $label = 'Percentage Rent — '.($declaration->is($last)
+            ? $declaration->periodLabel()
+            : $declaration->periodLabel().' – '.$last->periodLabel());
+
+        $periodEnd = $last->period_end;
 
         // Overage rent follows base rent: it is rent, and rent is outside the scope of VAT. Read
         // from the catalogue so the charge, the invoice line and a hand-typed one agree.
@@ -611,7 +725,7 @@ class PercentageRentCalculationService
             'vat_applicable' => $vatRate > 0,
             'vat_rate' => $vatRate,
             'start_date' => $declaration->period_start,
-            'end_date' => $declaration->period_end,
+            'end_date' => $periodEnd,
             'is_active' => false,
         ]);
 
@@ -633,7 +747,7 @@ class PercentageRentCalculationService
             ]],
             issueDate: $now,
             periodStart: $declaration->period_start,
-            periodEnd: $declaration->period_end,
+            periodEnd: $periodEnd,
         );
 
         return $charge;

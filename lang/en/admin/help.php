@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'percentage_rent_billing_frequency' => 'When the overage is invoiced. Sales are still declared every month.',
         'lease_under_ownership' => 'The owner lets this unit himself. He still owes the service charge.',
         'due_date_derived' => 'Derived from the issue date and the lease’s payment terms. Override only for a one-off arrangement.',
         'expiry_date_derived' => 'Derived from the commencement date and the term. Override only when the contract states a different end date.',
@@ -144,6 +145,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'percentage_rent_billing_frequency' => 'A separate lease term from the calculation basis. Quarterly and annual settle in arrears: the invoice is raised only once every month of the period has been locked.',
         'announcement_category' => 'Sorts the notice in the tenant\'s feed and colours an emergency red on their phone.',
         'announcement_pinned' => 'Holds the notice at the top of the tenant feed regardless of its date.',
         'unit_owner_party' => 'A unit owner is a party record, like a retailer — that is what lets us invoice them, take their payments and give them the portal.',

@@ -482,6 +482,7 @@ return [
         'percentage_rent_rate' => 'النسبة',
         'percentage_rent_calculation_type' => 'طريقة الحساب',
         'percentage_rent_frequency' => 'دورية نقطة الاحتساب',
+        'percentage_rent_billing_frequency' => 'فوترة نسبة المبيعات',
         'percentage_rent_threshold_annual' => 'الحد السنوي (للسنة كاملة)',
         'note_channel' => 'القناة',
         'note_subject' => 'الموضوع',

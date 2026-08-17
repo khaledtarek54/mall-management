@@ -438,6 +438,11 @@ return [
             'monthly' => 'Monthly — a fresh breakpoint each declared month',
             'annual' => 'Annual — a yearly breakpoint, trued up as the year builds',
         ],
+        'percentage_rent_billing_frequency' => [
+            'monthly' => 'Monthly, in arrears',
+            'quarterly' => 'Quarterly, in arrears',
+            'annual' => 'Annually, in arrears',
+        ],
         'note_channel' => [
             'call' => 'Phone Call',
             'whatsapp' => 'WhatsApp',
