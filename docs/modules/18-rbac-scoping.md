@@ -20,6 +20,38 @@ The platform is a multi-property ERP: a single operator runs multiple malls, and
 
 Implemented via Spatie Laravel Permission (roles × permissions), Filament per-property tenancy (`Asset` as tenant), and scoped queries using `TenantScope` / `AssignedAssets` helpers.
 
+
+### You cannot grant access you do not hold (2026-08-17)
+
+`users.create` / `users.edit` are held by **`manager`, `hr` and `mall_admin`** as well as super_admin,
+and the user form's *Assigned properties* field is what grants access to a mall. Nothing checked the
+GRANTOR — so a manager pinned to Mall A could open their own user record, add Mall B, and see Mall B.
+Privilege escalation through an ordinary CRUD screen, demonstrated through the real form before the
+guard was written.
+
+`UserResource::enforceGrantableAssetsRule()` closes it, deliberately mirroring
+`enforceProtectedRolesRule()` — the same screen already used that shape for the same class of problem:
+
+- **Both directions.** A restricted grantor can neither grant a property they cannot see nor
+  **revoke** one — stripping someone's Mall B access from Mall A is the same overreach with the sign
+  flipped.
+- **Reverted and logged**, not refused. The attempt lands in `AccessControlAudit` as
+  `property_access_change_blocked`; a probe, even a reverted one, is what a reviewer wants in the
+  trail.
+- **In `afterCreate`/`afterSave`.** `assignedAssets` is a relationship Select, which saves from
+  component state through `saveRelationships()` and never reads mutated form data — a guard in a
+  `mutateFormData…` hook would be inspecting a value the save does not use.
+- **Against `AssignedAssets::idsForCurrentUser()`, not `TenantScope::visibleAssetIds()`.** The latter
+  collapses to the SELECTED property, so an hr user holding two malls and working in one could not
+  grant the other — legitimate, and it would read as a bug.
+- The picker stays portfolio-wide (`EntitySelect::acrossProperties()`). A narrowed option list is not
+  a gate: the assignment arrives as a Livewire payload and a crafted request never opens the dropdown.
+  The create DEFAULT is now the grantor's own set, which previously proposed exactly the assignment
+  the save blocks.
+
+**Not decided here:** whether `hr` and `mall_admin` should hold `users.edit` at all is the operator's
+call. This makes the permission they hold safe; it does not re-cut the catalogue.
+
 ## 2. Domain model
 
 **RBAC tables** (Spatie Permission):

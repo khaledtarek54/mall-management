@@ -8,8 +8,10 @@ use App\Filament\Admin\Resources\Users\Pages\ListUsers;
 use App\Filament\Admin\Resources\Users\Schemas\UserForm;
 use App\Filament\Admin\Resources\Users\Tables\UsersTable;
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Models\Asset;
 use App\Models\User;
 use App\Support\AccessControlAudit;
+use App\Support\AssignedAssets;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -149,6 +151,69 @@ class UserResource extends Resource
      *
      * @param  array<int, string>  $rolesBefore  role names the user held before the save
      */
+    /**
+     * A grantor may not move property access they do not hold themselves.
+     *
+     * `users.create` and `users.edit` are held by `manager`, `hr` and `mall_admin` as well as
+     * super_admin, and "Assigned properties" is the field that grants access to a mall. The picker
+     * spans properties deliberately — it is about the portfolio, not about one record's own
+     * property — and nothing checked the GRANTOR. So a manager restricted to Mall A could open
+     * their OWN user record, add Mall B, and see Mall B: privilege escalation through an ordinary
+     * CRUD screen. Demonstrated through the real form before this was written.
+     *
+     * Both directions are blocked, for the same reason the role rule blocks both: a restricted
+     * grantor can neither GRANT access to a property they cannot see nor REVOKE it, and stripping
+     * someone's Mall B access from Mall A is the same overreach wearing a different sign.
+     *
+     * REVERTED AND LOGGED rather than refused, mirroring `enforceProtectedRolesRule()` — the shape
+     * this screen already uses. It also has to run after the save: `assignedAssets` is a
+     * relationship Select, which saves from component state through `saveRelationships()` rather
+     * than from mutated form data, so a guard in a `mutateFormData…` hook would be reading a value
+     * the save does not use. (That trap is recorded in this project's notes and has bitten before.)
+     *
+     * `AssignedAssets::idsForCurrentUser()`, NOT `TenantScope::visibleAssetIds()`. The latter
+     * collapses to the SELECTED property, so an hr user assigned to two malls and working in one
+     * would be unable to grant the other — legitimate, and it would read as a bug.
+     *
+     * @param  array<int, int>  $assetsBefore  ids held before this save (empty on create)
+     */
+    public static function enforceGrantableAssetsRule(User $user, array $assetsBefore): void
+    {
+        $grantable = AssignedAssets::idsForCurrentUser();
+
+        if ($grantable === null) {
+            return; // super_admin / unconstrained — this is what keeps the FIRST assignment possible
+        }
+
+        $after = $user->assignedAssets()->pluck('assets.id')->map(fn ($id): int => (int) $id)->all();
+        $assetsBefore = array_map(fn ($id): int => (int) $id, $assetsBefore);
+
+        $blocked = [];
+
+        foreach (array_unique([...array_diff($after, $grantable), ...array_diff($assetsBefore, $grantable)]) as $assetId) {
+            $had = in_array($assetId, $assetsBefore, true);
+            $has = in_array($assetId, $after, true);
+
+            if ($had === $has) {
+                continue; // untouched — a property outside their reach they simply did not move
+            }
+
+            $code = Asset::withTrashed()->whereKey($assetId)->value('code') ?? (string) $assetId;
+
+            if ($had) {
+                $user->assignedAssets()->syncWithoutDetaching([$assetId => ['assigned_at' => now()]]);
+                $blocked[] = 'attempted revoke: '.$code;
+            } else {
+                $user->assignedAssets()->detach($assetId);
+                $blocked[] = 'attempted grant: '.$code;
+            }
+        }
+
+        // A privilege-escalation probe, even a reverted one, is exactly what a security reviewer
+        // wants in the trail — the same reasoning as the protected-role rule below.
+        AccessControlAudit::log($user, 'property_access_change_blocked', $blocked);
+    }
+
     public static function enforceProtectedRolesRule(User $user, array $rolesBefore): void
     {
         if (Auth::user()?->hasRole('super_admin')) {

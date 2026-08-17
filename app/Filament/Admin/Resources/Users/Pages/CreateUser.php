@@ -16,6 +16,9 @@ class CreateUser extends CreateRecord
         // protected role (super_admin / manager).
         UserResource::enforceProtectedRolesRule($this->record, []);
 
+        // A new user held nothing, so every assignment is a grant.
+        UserResource::enforceGrantableAssetsRule($this->record, []);
+
         AccessControlAudit::logRoleDiff(
             $this->record,
             [],

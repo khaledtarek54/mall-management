@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Users\Schemas;
 
 use App\Models\Asset;
+use App\Support\AssignedAssets;
 use App\Support\Filament\EntitySelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -54,28 +55,39 @@ class UserForm
                 ->description(__('admin.users.properties_helper'))
                 ->components([
                     // ACROSS properties, deliberately. This field is not "which property does this
-                    // record belong to" — it is the field that GRANTS access to properties, and it
-                    // defaults to every real one, so scoping it to the mall the grantor happens to be
-                    // working in would make the form's own default fail its own validation.
+                    // record belong to" — it is the field that GRANTS access to properties, so the
+                    // OPTIONS span the portfolio. What stops a restricted grantor handing out access
+                    // they do not hold is `UserResource::enforceGrantableAssetsRule()`, on save:
+                    // a narrowed option list is not a gate, because the assignment arrives as a
+                    // Livewire payload and a crafted request never opens the dropdown.
                     //
                     // Dropping the "All Properties" pseudo-asset — which is all the old callback here
                     // did — is `OptionDisplay`'s job either way.
-                    //
-                    // Open question, unchanged by this and not silently decided here: `hr` holds
-                    // `users.create`, so an HR user assigned to one mall can grant another mall's
-                    // access from this screen. That is a permissions decision, not a search one.
                     EntitySelect::make('assignedAssets')
                         ->label(__('admin.users.assigned_properties'))
                         ->entity(Asset::class)
                         ->acrossProperties()
                         ->relationship('assignedAssets')
                         ->multiple()
-                        // New users get every real property selected by default —
-                        // it's easier to deselect than to remember to add them all.
-                        // On edit, the existing pivot drives the value.
-                        ->default(fn (string $operation): array => $operation === 'create'
-                            ? Asset::where('code', '!=', Asset::ALL_PROPERTIES_CODE)->pluck('id')->all()
-                            : [])
+                        // New users get every property THE GRANTOR HOLDS selected by default — it is
+                        // easier to deselect than to remember to add them all. It used to default to
+                        // every real property regardless of who was creating, which for a restricted
+                        // grantor meant the form proposed precisely the assignment the save then
+                        // blocks. `idsForCurrentUser()` returns null for super_admin, so an
+                        // unconstrained grantor still gets the whole portfolio.
+                        ->default(function (string $operation): array {
+                            if ($operation !== 'create') {
+                                return []; // on edit the existing pivot drives the value
+                            }
+
+                            $grantable = AssignedAssets::idsForCurrentUser();
+
+                            return Asset::query()
+                                ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
+                                ->when($grantable !== null, fn ($query) => $query->whereIn('id', $grantable))
+                                ->pluck('id')
+                                ->all();
+                        })
                         ->columnSpanFull(),
                 ]),
         ]);
