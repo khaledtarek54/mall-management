@@ -2,6 +2,11 @@
 
 return [
     'actions' => [
+        'groups' => [
+            'money' => 'Money',
+            'premises' => 'Premises',
+            'lifecycle' => 'Lease',
+        ],
         'reconciliation' => 'Reconciliation',
         'import_statement_lines' => 'Import',
         'match_line' => 'Match',

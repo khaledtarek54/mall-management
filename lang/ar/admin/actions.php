@@ -2,6 +2,11 @@
 
 return [
     'actions' => [
+        'groups' => [
+            'money' => 'المالية',
+            'premises' => 'المساحة',
+            'lifecycle' => 'العقد',
+        ],
         'reconciliation' => 'التسوية',
         'import_statement_lines' => 'استيراد',
         'match_line' => 'مطابقة',

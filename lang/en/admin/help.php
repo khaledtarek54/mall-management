@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'additional_units_locked' => 'Use “Change premises” to add or give back space — it keeps the months already occupied.',
         'gross_sales' => 'The figure on the tenant’s own certificate, before any deduction.',
         'gross_includes_vat' => 'Adds the VAT contained in the figure as a deduction, at today’s standard rate.',
         'sales_exclusions' => 'Only what this lease’s clause grants. VAT is always allowed.',

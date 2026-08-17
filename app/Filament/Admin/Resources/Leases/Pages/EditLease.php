@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Leases\Pages;
 
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
 use App\Services\MarketingLevyService;
@@ -67,8 +68,15 @@ class EditLease extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        // The record hub: everything you can DO to this tenancy lives here, grouped by the question
+        // being asked. The leases LIST used to carry nine commercial actions and this page one, so
+        // an operator who opened a lease had to go back to the list to act on it — backwards from
+        // the record-hub architecture this project took from Yardi. See
+        // App\Filament\Admin\Actions\LeaseActions, which is now the single definition both
+        // surfaces compose from, so they cannot drift the way they already had.
         return [
             $this->generateInvoiceAction(),
+            ...LeaseActions::grouped(),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),

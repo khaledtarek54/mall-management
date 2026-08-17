@@ -2,6 +2,32 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ The list FINDS, the record ACTS (2026-08-17).** Nine commercial actions hung off every row of
+> the leases list while the lease's own page carried one — so an operator who opened a lease had to
+> go back to the list to do anything to it. That is backwards from the record-hub information
+> architecture this project took from Yardi ([benchmark 08](../benchmarks/yardi/08-yardi-ui-ux.md)),
+> and a row of nine equally-weighted verbs reads as noise rather than as choices.
+>
+> Worse, with the definitions living in one surface only the two could never be kept in step: an
+> action added in one place silently left the other behind, which is what had happened.
+>
+> **[`App\Filament\Admin\Actions\LeaseActions`](../../app/Filament/Admin/Actions/LeaseActions.php)
+> is now the single definition**, and both surfaces compose from it by name — possible without a
+> wrapper because `Filament\Actions\Action` is one class for a table row and a page header in v4.
+> The table keeps **View + Edit**; the lease page carries three grouped dropdowns — **Money**
+> (change rent, grant relief) · **Premises** (change premises, let/give back a bay) · **Lease**
+> (renew, holdover, terminate, final account) — beside Generate invoice.
+> `LeaseActionTopologyTest` fails the build if a bespoke `Action::make()` reappears on a row, or if a
+> group smuggles in an action the registry does not own.
+>
+> **And the premises field stopped being a second, lossy path.** `EditLease::afterSave()` feeds
+> `additional_unit_ids` to `syncUnits()`, which is a `sync()` — so REMOVING a unit there **detached
+> its `lease_unit` row**. That row carries the `effective_from`/`effective_to` that
+> `totalAreaSqmForPeriod()` allocates CAM on, so the deletion did not end the tenant's occupancy: it
+> erased the months they genuinely held the space, silently restating a reconciliation that may
+> already be closed. Two clicks, no warning. The field is read-only on Edit now, and **Change
+> premises** — which CLOSES the row — is the only path.
+
 > **⚠️ A deposit agreed as "three months' rent" now STAYS three months' rent (2026-08-17).**
 > `security_deposit` is a flat figure and rent escalates. On a 7% clause a deposit agreed at 3×
 > covers **2.62 months by year three and 2.29 by year five** — the landlord's security against a

@@ -198,7 +198,22 @@ class LeaseForm
                             })
                             // Live so a rate-priced lease re-derives its rent the moment the let area
                             // changes (LS-04) — the operator sees the money move as they pick space.
-                            ->live(),
+                            ->live()
+                            // ── Read-only once the lease exists, and this one is not tidiness ────
+                            // `EditLease::afterSave()` calls `syncUnits()` with whatever this field
+                            // holds, and `syncUnits()` is a `sync()` — so REMOVING a unit here
+                            // DETACHED its `lease_unit` row outright. That row carries
+                            // `effective_from`/`effective_to`, and CAM allocates on
+                            // `totalAreaSqmForPeriod()`, which reads exactly those dates: deleting
+                            // it does not end the tenant's occupancy, it erases the months they
+                            // genuinely held the space, silently restating a reconciliation that
+                            // may already be closed. `LeaseSpaceChangeService` CLOSES the row
+                            // instead, which is why Change premises exists and why this field can
+                            // no longer be a second, lossy path to the same act.
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->helperText(fn (string $operation): string => $operation === 'edit'
+                                ? __('admin.helpers.additional_units_locked')
+                                : __('admin.fields.additional_units_helper')),
                         // The picker reach — this property's tenants plus the not-yet-affiliated —
                         // is OptionDisplay's, and stricter than the version written here: the old
                         // `orWhereDoesntHave('leases')` offered a tenant who owns a unit in ANOTHER

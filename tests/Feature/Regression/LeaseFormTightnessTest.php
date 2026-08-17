@@ -231,8 +231,14 @@ it('locks the master unit and the tenant once the lease exists', function () {
     Livewire::test(EditLease::class, ['record' => $lease->getKey()])
         ->assertFormFieldIsDisabled('unit_id')
         ->assertFormFieldIsDisabled('tenant_id')
-        // The premises themselves stay negotiable — expansion and contraction are ordinary.
-        ->assertFormFieldIsEnabled('additional_unit_ids');
+        // Additional units were left editable here when this test was first written, on the
+        // reasoning that expanding and contracting premises is ordinary. It IS ordinary — but this
+        // field was a LOSSY way to do it: `EditLease::afterSave()` feeds it to `syncUnits()`, which
+        // is a `sync()`, so removing a unit DETACHED its `lease_unit` row. That row carries the
+        // effective dates CAM allocates on, so the deletion did not end the tenant's occupancy — it
+        // erased the months they actually held the space. `LeaseSpaceChangeService` closes the row
+        // instead, and Change premises is the only path to it now.
+        ->assertFormFieldIsDisabled('additional_unit_ids');
 });
 
 it('leaves the term dates editable until the lease has been invoiced, then locks them', function () {
