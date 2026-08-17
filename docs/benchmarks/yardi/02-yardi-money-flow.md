@@ -167,9 +167,22 @@ A charge code flagged as a **deposit** behaves differently all the way down:
   ***(verify — jurisdiction packs)***
 
 **Atriom has the liability treatment right** (`DepositTransaction` → `Dr Cash|Bank / Cr Deposits
-Held`, with refund and forfeit paths, all journalized). What it lacks is the **single itemised
-disposition** — refund and forfeit are two separate manual events — and any **reconciliation of
-the lease's contractual `security_deposit` against the balance actually held**.
+Held`, with refund and forfeit paths, all journalized). ~~What it lacks is the single itemised
+disposition — refund and forfeit are two separate manual events — and any reconciliation of the
+lease's contractual `security_deposit` against the balance actually held.~~ **Both SHIPPED (MF-03).**
+`MoveOutStatementService::for()` is the itemised disposition — deposit held, contractual, **and the
+`deposit_shortfall` between them**, open AR, tenant credit owed back, the true-ups not knowable yet,
+and the net — and `SettleMoveOutService::settle()` disposes of it in ONE act, freezing the statement
+as the termination event's payload so re-deriving it a year later cannot show today's numbers
+instead of the ones that were signed. Settlement follows Voyager's order: **arrears netted off the
+deposit first**, then the operator's itemised deductions forfeited, then the remainder refunded.
+
+Yardi's four register states are all present, split across two models rather than one enum: `held` /
+`refunded` / `forfeited` are `DepositTransaction.type`, and `applied` is `DepositApplication` — a
+link to the invoice it settled, which is what makes it one of the four AR settlement channels.
+
+Interest-bearing and segregated/escrow deposits are **deliberately absent**: Egyptian commercial
+leases do not require them, and Yardi ships them as jurisdiction packs rather than core.
 
 ---
 
