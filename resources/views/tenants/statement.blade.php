@@ -86,23 +86,27 @@
             background: #0F1419;
             color: #F5F0E8;
             text-align: {{ $isRtl ? 'right' : 'left' }};
-            padding: 8px 10px;
-            font-size: 8.5pt;
+            /* 8px/10px at 9.5pt could not fit seven columns across A4: widening the status column
+               pushed the wrap into the invoice number, the due date and the paid figure instead.
+               Measured against mPDF's own font metrics, not guessed — see
+               StatementColumnsFitTest. */
+            padding: 6px 6px;
+            font-size: 8pt;
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
             letter-spacing: {{ $isRtl ? '0' : '1px' }};
             font-weight: normal;
         }
         table.data thead th.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
         table.data tbody td {
-            padding: 8px 10px;
+            padding: 6px 6px;
             border-bottom: 1px solid #E5E0D5;
             vertical-align: top;
-            font-size: 9.5pt;
+            font-size: 8.5pt;
         }
         table.data tbody td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
         table.data tbody td.muted { color: #8C8478; }
         table.data tfoot td {
-            padding: 8px 10px;
+            padding: 6px 6px;
             font-weight: bold;
             border-top: 2px solid #0F1419;
             background: #FAFAF8;
@@ -111,9 +115,9 @@
 
         .status-pill {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 8px;
-            font-size: 7.5pt;
+            font-size: 7pt;
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
             letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
         }
@@ -211,21 +215,21 @@
         <table class="data">
             <thead>
                 <tr>
-                    <th style="width:18%;">{{ __('admin.tables.invoice.number') }}</th>
-                    <th style="width:16%;">{{ __('admin.tables.invoice.period') }}</th>
+                    <th style="width:19%;">{{ __('admin.tables.invoice.number') }}</th>
+                    <th style="width:14%;">{{ __('admin.tables.invoice.period') }}</th>
                     <th style="width:12%;">{{ __('admin.tables.invoice.due_date') }}</th>
-                    <th class="num" style="width:14%;">{{ __('admin.tables.invoice.total') }}</th>
+                    <th class="num" style="width:13%;">{{ __('admin.tables.invoice.total') }}</th>
                     <th class="num" style="width:12%;">{{ __('admin.tables.invoice.paid') }}</th>
-                    <th class="num" style="width:14%;">{{ __('admin.tables.invoice.balance') }}</th>
+                    <th class="num" style="width:13%;">{{ __('admin.tables.invoice.balance') }}</th>
                     {{-- 8% could not hold "Partially paid": the header broke to "STATU S" and the pill
                          to "PARTIAL LY PAID" on the document the tenant receives. --}}
-                    <th style="width:14%;">{{ __('admin.tables.common.status') }}</th>
+                    <th style="width:17%;">{{ __('admin.tables.common.status') }}</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($openInvoices as $inv)
                     <tr>
-                        <td style="font-family:monospace;font-size:8.5pt;">{{ $inv->number }}</td>
+                        <td style="font-family:monospace;font-size:8pt;">{{ $inv->number }}</td>
                         {{-- The SPAN, not the first month. This printed "Apr 2026" against a 240,300
                              quarterly invoice covering April–June, so the tenant reads a quarter's
                              rent as one month's and disputes it. Only a single-month period collapses
@@ -268,10 +272,10 @@
             <tbody>
                 @foreach($credits as $cn)
                     <tr>
-                        <td style="font-family:monospace;font-size:8.5pt;">{{ $cn->number }}</td>
+                        <td style="font-family:monospace;font-size:8pt;">{{ $cn->number }}</td>
                         <td>{{ $cn->issue_date?->format('d/m/Y') ?? '—' }}</td>
-                        <td style="font-family:monospace;font-size:8.5pt;">{{ $cn->invoice?->number ?? '—' }}</td>
-                        <td>{{ $cn->reason ?: '—' }}</td>
+                        <td style="font-family:monospace;font-size:8pt;">{{ $cn->invoice?->number ?? '—' }}</td>
+                        <td>{{ $cn->reason ? __('admin.enums.credit_note_reason.'.$cn->reason, [], $cn->reason) : '—' }}</td>
                         <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $cn->applied_amount, 2) }}</td>
                     </tr>
                 @endforeach
@@ -301,7 +305,7 @@
             <tbody>
                 @foreach($payments as $p)
                     <tr>
-                        <td style="font-family:monospace;font-size:8.5pt;">{{ $p->reference }}</td>
+                        <td style="font-family:monospace;font-size:8pt;">{{ $p->reference }}</td>
                         <td>{{ $p->payment_date->format('d/m/Y') }}</td>
                         <td>{{ __("admin.enums.method.{$p->method}") }}</td>
                         <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $p->amount, 2) }}</td>
