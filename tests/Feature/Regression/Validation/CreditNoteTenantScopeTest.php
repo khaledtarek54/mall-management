@@ -5,7 +5,7 @@
 | Guard — Credit Note form tenant select is property-scoped (cross-property IDOR)
 |--------------------------------------------------------------------------
 | The admin CreditNote form 'tenant_id' select is sourced from
-| App\Support\TenantScope::selectableTenantOptions(), which constrains the
+| App\Support\Search\OptionDisplay's tenant PICKER_SCOPE, which constrains the
 | offered tenants to the current user's visible properties via
 | leases.unit.asset_id. With propertyA as the active Filament tenant and a
 | restricted (non-super_admin) accounting user, the tenant select must offer
@@ -17,8 +17,10 @@
 */
 
 use App\Filament\Admin\Resources\CreditNotes\Pages\CreateCreditNote;
+use App\Models\CreditNote;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -45,7 +47,7 @@ beforeEach(function () {
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 /** Resolve the option keys for the tenant_id select on a mounted CreateCreditNote page. */
-function creditNoteTenantOptionKeys(\Livewire\Features\SupportTesting\Testable $page): array
+function creditNoteTenantOptionKeys(Testable $page): array
 {
     $component = $page->instance()->form->getComponent('tenant_id');
 
@@ -89,7 +91,7 @@ it('recomputes the note total from its items on create — a tampered header tot
         ->call('create')
         ->assertHasNoFormErrors();
 
-    $note = \App\Models\CreditNote::where('tenant_id', $this->tenantA->id)->latest('id')->first();
+    $note = CreditNote::where('tenant_id', $this->tenantA->id)->latest('id')->first();
     expect((float) $note->total)->toBe(100.0)      // re-derived from items, NOT the tampered 999,999
         ->and((float) $note->subtotal)->toBe(100.0)
         ->and((float) $note->balance)->toBe(100.0);

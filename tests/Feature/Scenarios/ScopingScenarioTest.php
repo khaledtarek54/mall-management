@@ -24,7 +24,11 @@ use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Asset;
 use App\Models\Department;
+use App\Models\Lease;
+use App\Models\Tenant;
+use App\Models\Unit;
 use App\Support\AssignedAssets;
+use App\Support\Search\OptionDisplay;
 use App\Support\TenantScope;
 use Filament\Facades\Filament;
 
@@ -126,10 +130,10 @@ describe('manager assigned only to property A', function () {
         asTenant($f['all'], function () use ($f) {
             $ids = TenantScope::visibleAssetIds();
 
-            $unitCodes = \App\Models\Unit::query()->whereIn('asset_id', $ids)->pluck('code')->all();
+            $unitCodes = Unit::query()->whereIn('asset_id', $ids)->pluck('code')->all();
             expect($unitCodes)->toContain('A-01')->not->toContain('B-01');
 
-            $leaseIds = \App\Models\Lease::query()
+            $leaseIds = Lease::query()
                 ->whereHas('unit', fn ($q) => $q->whereIn('asset_id', $ids))
                 ->pluck('id')->all();
             expect($leaseIds)->toContain($f['aLease']->id)->not->toContain($f['bLease']->id);
@@ -224,13 +228,14 @@ describe('selectable picker options for a restricted user', function () {
         });
     });
 
-    it('selectableTenantOptions hides B-leased tenants but keeps lease-less ones', function () {
+    it('the tenant picker hides B-leased tenants but keeps lease-less ones', function () {
         $f = scopingFixtures();
         $user = makeUser('manager', [$f['a']->id]);
         $this->actingAs($user);
 
         asTenant($f['a'], function () use ($f) {
-            $options = TenantScope::selectableTenantOptions();
+            // See the note in TenantScopeTest: the helper moved to OptionDisplay, the rule did not.
+            $options = OptionDisplay::options(Tenant::class);
             expect($options)->toHaveKey($f['aTenant']->id)        // leased in A → shown
                 ->and($options)->toHaveKey($f['orphanTenant']->id) // no lease → safe everywhere
                 ->and($options)->not->toHaveKey($f['bTenant']->id); // leased only in B → hidden

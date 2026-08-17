@@ -1,6 +1,8 @@
 <?php
 
 use App\Filament\Admin\Pages\ActivityLog;
+use App\Models\Tenant;
+use App\Support\Search\OptionDisplay;
 use App\Support\TenantScope;
 use Filament\Facades\Filament;
 
@@ -22,7 +24,7 @@ it('scopes tenant options to the current property (no cross-property leak)', fun
     $this->actingAs(makeUser('super_admin'));
     Filament::setTenant($hw);
 
-    $options = TenantScope::selectableTenantOptions();
+    $options = OptionDisplay::options(Tenant::class);
 
     expect($options)->toHaveKey($hwTenant->id)            // leased in HW → shown
         ->and($options)->toHaveKey($leaseless->id)        // unaffiliated → safe to show

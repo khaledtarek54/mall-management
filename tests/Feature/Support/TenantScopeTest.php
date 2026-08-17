@@ -15,6 +15,8 @@
 */
 
 use App\Models\Asset;
+use App\Models\Tenant;
+use App\Support\Search\OptionDisplay;
 use App\Support\TenantScope;
 use Filament\Facades\Filament;
 
@@ -113,10 +115,10 @@ it('selectableAssetOptions caps a restricted user to their assigned set and drop
 });
 
 /* =========================================================================
- | (c) selectableTenantOptions()
+ | (c) the tenant picker's reach — now `OptionDisplay::options(Tenant::class)`
  ========================================================================= */
 
-it('selectableTenantOptions surfaces only tenants leased within the visible assets', function () {
+it('the tenant picker surfaces only tenants leased within the visible assets', function () {
     $a = makeAsset(['code' => 'AAA']);
     $b = makeAsset(['code' => 'BBB']);
 
@@ -132,7 +134,11 @@ it('selectableTenantOptions surfaces only tenants leased within the visible asse
     $this->actingAs(makeUser('manager', [$a->id]));
 
     asTenant($a, function () use ($aTenant, $bTenant, $leaseless) {
-        $options = TenantScope::selectableTenantOptions();
+        // `OptionDisplay::options(Tenant::class)`, not `TenantScope::selectableTenantOptions()` — that
+        // helper was deleted 2026-08-17 once every tenant picker moved to `EntitySelect`. The
+        // invariant is unchanged and still worth pinning here; only the seam that owns it moved,
+        // to `OptionDisplay::PICKER_SCOPES`.
+        $options = OptionDisplay::options(Tenant::class);
 
         expect($options)->toHaveKey($aTenant->id)          // leased in A → shown
             ->and($options)->toHaveKey($leaseless->id)      // no lease → safe everywhere
@@ -140,7 +146,7 @@ it('selectableTenantOptions surfaces only tenants leased within the visible asse
     });
 });
 
-it('selectableTenantOptions is unconstrained for super_admin in All-Properties mode', function () {
+it('the tenant picker is unconstrained for super_admin in All-Properties mode', function () {
     $a = makeAsset(['code' => 'AAA']);
     $b = makeAsset(['code' => 'BBB']);
 
@@ -153,14 +159,14 @@ it('selectableTenantOptions is unconstrained for super_admin in All-Properties m
     $this->actingAs(makeUser('super_admin'));
 
     asTenant($this->all, function () use ($aTenant, $bTenant) {
-        $options = TenantScope::selectableTenantOptions();
+        $options = OptionDisplay::options(Tenant::class);
 
         expect($options)->toHaveKey($aTenant->id)
             ->and($options)->toHaveKey($bTenant->id);
     });
 });
 
-it('selectableTenantOptions on a real property hides tenants leased only elsewhere', function () {
+it('the tenant picker on a real property hides tenants leased only elsewhere', function () {
     $a = makeAsset(['code' => 'AAA']);
     $b = makeAsset(['code' => 'BBB']);
 
@@ -175,7 +181,7 @@ it('selectableTenantOptions on a real property hides tenants leased only elsewhe
     $this->actingAs(makeUser('super_admin'));
 
     asTenant($a, function () use ($aTenant, $bTenant) {
-        $options = TenantScope::selectableTenantOptions();
+        $options = OptionDisplay::options(Tenant::class);
 
         expect($options)->toHaveKey($aTenant->id)
             ->and($options)->not->toHaveKey($bTenant->id);

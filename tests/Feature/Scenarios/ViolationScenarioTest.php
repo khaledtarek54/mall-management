@@ -2,13 +2,14 @@
 
 use App\Filament\Admin\Resources\Violations\Pages\ListViolations;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
+use App\Models\Asset;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Tenant;
 use App\Models\Violation;
 use App\Notifications\ViolationNoticeNotification;
-use App\Support\TenantScope;
+use App\Support\Search\OptionDisplay;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
@@ -32,7 +33,7 @@ beforeEach(function () {
 });
 
 /** A tenant leasing in the given property (so the scoped select would offer it). */
-function tenantLeasingIn(App\Models\Asset $asset): Tenant
+function tenantLeasingIn(Asset $asset): Tenant
 {
     $tenant = makeTenant();
     makeLease(makeUnit($asset), $tenant);
@@ -155,7 +156,7 @@ it('rejects an out-of-scope asset_id on write', function () {
 
 it('does not offer cross-property tenants to a restricted user in the tenant select', function () {
     // A tenant leasing only in another mall must never appear in the picker for a
-    // user restricted to $this->asset (the select uses TenantScope::selectableTenantOptions).
+    // user restricted to $this->asset (the picker's reach is OptionDisplay::PICKER_SCOPES).
     $mine = tenantLeasingIn($this->asset);
 
     $otherMall = makeAsset(['code' => 'VOD']);
@@ -164,7 +165,7 @@ it('does not offer cross-property tenants to a restricted user in the tenant sel
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($mine, $theirs) {
-        $options = TenantScope::selectableTenantOptions();
+        $options = OptionDisplay::options(Tenant::class);
         expect($options)->toHaveKey($mine->id)
             ->and($options)->not->toHaveKey($theirs->id);
     });
