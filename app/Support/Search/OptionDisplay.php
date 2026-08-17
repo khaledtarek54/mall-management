@@ -67,7 +67,7 @@ use Throwable;
  *   - `InvoiceForm`  — `whereHas('leases.unit')`. A unit OWNER holds no lease, so owners could be
  *                      invoiced by the billing services but never picked on the invoice form.
  *   - `PaymentForm`  — `leases.unit` OR `unitOwnerships.unit`. The correct one.
- *   - `TenantScope::selectableTenantOptions()` — `leases.unit` OR `doesntHave('leases')`, which
+ *   - `TenantScope::selectableTenantOptions()` (since DELETED) — `leases.unit` OR `doesntHave('leases')`, which
  *                      offered a tenant with no lease but WITH an ownership in another property
  *                      to every property in the portfolio. That is a cross-property leak, and it
  *                      is invisible until a tenant happens to be both.

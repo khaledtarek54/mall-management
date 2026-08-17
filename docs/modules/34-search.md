@@ -320,5 +320,6 @@ relation name each fail the specific assertion that claims to cover them.
   `->relationship('tenant')`, and the mismatch is a **fatal at class load**: the filter form is built lazily
   inside the table's Blade, so the page 500s on opening the filter popover and every test that never opens one
   stays green.
+- **`TenantScope::selectableTenantOptions()` was deleted 2026-08-17**, once every tenant picker moved to `EntitySelect`. It was the third of the three divergent tenant scopes and the one that leaked (`orWhereDoesntHave('leases')` offered a tenant who owned a unit in another mall to every property). `selectableAssetOptions()` REMAINS and is still correct — the ledger reports use it for the asset DIMENSION, which is a posting concept rather than a place.
 - `ViolationResource::$recordTitleAttribute` is still `reference`, an accessor. That is safe **because** the
   searchable attributes are explicit — it is used for display only. Do not "simplify" it back into a search key.

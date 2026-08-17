@@ -252,26 +252,4 @@ class TenantScope
 
         return $query->orderBy('name')->pluck('name', 'id')->all();
     }
-
-    /**
-     * Tenant-picker options (id => name) scoped to the current user's
-     * visible properties via leases -> unit -> asset_id. Unconstrained for
-     * super_admin in All-Properties mode.
-     *
-     * @return array<int, string>
-     */
-    public static function selectableTenantOptions(): array
-    {
-        $ids = self::visibleAssetIds();
-
-        return Tenant::query()
-            ->when($ids !== null, fn ($q) => $q->where(fn ($w) => $w
-                ->whereHas('leases.unit', fn ($u) => $u->whereIn('asset_id', (array) $ids))
-                // Unaffiliated tenants (no lease yet) belong to no property,
-                // so they're safe to offer everywhere — not a cross-property leak.
-                ->orWhereDoesntHave('leases')))
-            ->orderBy('name')
-            ->pluck('name', 'id')
-            ->all();
-    }
 }
