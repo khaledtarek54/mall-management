@@ -463,6 +463,20 @@ class LeaseForm
                                 ? __('admin.helpers.billing_frequency_locked')
                                 : __('admin.helpers.billing_frequency'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_frequency')),
+                        // The MULTIPLE, where the deposit was negotiated as one. Blank = a flat sum
+                        // that never moves; filled = the deposit tracks the rent, so an escalation
+                        // no longer erodes the landlord's security (3× becomes 2.29× by year five
+                        // on a 7% clause, silently).
+                        TextInput::make('security_deposit_months')
+                            ->label(__('admin.fields.security_deposit_months'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(24)
+                            ->step('0.5')
+                            ->live(onBlur: true)
+                            ->suffix(__('admin.fields.months'))
+                            ->helperText(__('admin.helpers.security_deposit_months'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.security_deposit_months')),
                         TextInput::make('security_deposit')
                             ->label(__('admin.fields.security_deposit'))
                             ->prefix('EGP')
@@ -470,7 +484,14 @@ class LeaseForm
                             ->minValue(0)
                             ->default(0)
                             ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            ->helperText(__('admin.helpers.security_deposit')),
+                            // Derived once a multiple is stated — the same rule as a rate-priced
+                            // rent, and for the same reason: two editable fields that derive from
+                            // each other is how they end up disagreeing.
+                            ->disabled(fn (Get $get): bool => filled($get('security_deposit_months')))
+                            ->dehydrated()
+                            ->helperText(fn (Get $get): string => filled($get('security_deposit_months'))
+                                ? __('admin.helpers.security_deposit_derived')
+                                : __('admin.helpers.security_deposit')),
                         // ── Escalation: the TYPE is asked first, and it is the only field always on
                         // screen ─────────────────────────────────────────────────────────────────
                         // Every other field here belongs to exactly one type, so each appears only

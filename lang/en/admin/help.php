@@ -2,6 +2,8 @@
 
 return [
     'helpers' => [
+        'security_deposit_months' => 'Blank keeps the deposit a flat sum. Filled, it tracks the rent through every escalation.',
+        'security_deposit_derived' => 'Derived from the rent and the months above.',
         'percentage_rent_billing_frequency' => 'When the overage is invoiced. Sales are still declared every month.',
         'lease_under_ownership' => 'The owner lets this unit himself. He still owes the service charge.',
         'due_date_derived' => 'Derived from the issue date and the lease’s payment terms. Override only for a one-off arrangement.',
@@ -145,6 +147,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'security_deposit_months' => 'A deposit agreed as “three months’ rent” must stay three months’ rent. Left flat, a 7% escalation clause erodes a 3× deposit to 2.29× by year five — the security shrinks exactly as the risk grows.',
         'percentage_rent_billing_frequency' => 'A separate lease term from the calculation basis. Quarterly and annual settle in arrears: the invoice is raised only once every month of the period has been locked.',
         'announcement_category' => 'Sorts the notice in the tenant\'s feed and colours an emergency red on their phone.',
         'announcement_pinned' => 'Holds the notice at the top of the tenant feed regardless of its date.',

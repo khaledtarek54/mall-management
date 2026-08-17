@@ -293,6 +293,7 @@ return [
         'rent_commencement_date' => 'Rent commences',
         'billing_frequency' => 'Billing frequency',
         'security_deposit' => 'Security Deposit',
+        'security_deposit_months' => 'Deposit as months of rent',
         'security_deposit_received' => 'Security deposit received',
         'escalation_rate' => 'Annual Escalation',
         'escalation_type' => 'Escalation Type',

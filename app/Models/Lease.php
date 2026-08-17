@@ -218,6 +218,32 @@ class Lease extends Model implements BillableAgreement, HasMedia
             }
         });
 
+        // ── A deposit agreed as "three months' rent" stays three months' rent ──────────────────
+        // `security_deposit` is a flat figure and rent escalates, so on a 7% clause a 3× deposit
+        // covers 2.62 months by year three and 2.29 by year five: the landlord's security erodes by
+        // nearly a quarter over a term, silently, and precisely as a tenant becomes more likely to
+        // default. Yardi tracks the requirement against rent for this reason.
+        //
+        // In the MODEL, beside the rate derivation above and for the same reason: the escalation
+        // sweep, the Change Rent action, a renewal (which copies `security_deposit` forward while
+        // setting a NEW rent — the same erosion, one renewal at a time), the importer and the API
+        // all write leases, and only one of them is a form. One seam covers them all.
+        //
+        // **Null means flat, and nothing moves.** A deposit agreed as a sum unrelated to rent is a
+        // real deal; inferring a multiple by dividing the deposit by the rent would invent a term
+        // nobody agreed to.
+        static::saving(function (self $lease) {
+            if ($lease->security_deposit_months === null) {
+                return;
+            }
+
+            $required = round((float) $lease->base_rent_monthly * (float) $lease->security_deposit_months, 2);
+
+            if ((float) $lease->security_deposit !== $required) {
+                $lease->security_deposit = $required;
+            }
+        });
+
         // ── Terminal leases are immutable ──────────────────────────────────────────────────────
         // Once a lease is terminated/expired/cancelled/renewed its fields can't change — only
         // soft-delete/restore (deleted_at). The transition INTO a terminal state is allowed (checked
@@ -324,6 +350,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'billing_frequency',
         'currency',
         'security_deposit',
+        'security_deposit_months',
         'security_deposit_received',
         'escalation_rate',
         'escalation_amount',
@@ -380,6 +407,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'base_rent_monthly' => 'decimal:2',
         'service_charge_monthly' => 'decimal:2',
         'security_deposit' => 'decimal:2',
+        'security_deposit_months' => 'decimal:2',
         // Cast declared purely so static analysis reads the column as a string. It was created as a
         // DB-level `enum('none','fixed_percent','cpi')` in 2024, and larastan derives the attribute
         // type from that migration while ignoring the `->change()` that converted it to a varchar —

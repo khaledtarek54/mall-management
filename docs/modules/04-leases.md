@@ -2,6 +2,29 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ A deposit agreed as "three months' rent" now STAYS three months' rent (2026-08-17).**
+> `security_deposit` is a flat figure and rent escalates. On a 7% clause a deposit agreed at 3×
+> covers **2.62 months by year three and 2.29 by year five** — the landlord's security against a
+> defaulting tenant erodes by nearly a quarter over a term, silently, and precisely as the tenant
+> becomes more likely to default. Yardi tracks the requirement against rent; the Yardi gap analysis
+> carried this as a 🟡 *"note only"*.
+>
+> `leases.security_deposit_months` records the negotiated MULTIPLE, and the deposit is derived from
+> it in **`Lease::saving`** — beside the rate-priced rent derivation and for the same reason: the
+> escalation sweep, the Change Rent action, a **renewal** (which copies `security_deposit` forward
+> while setting a NEW rent — the same erosion, one renewal at a time), the importer and the API all
+> write leases, and only one of them is a form. The form's amount field goes read-only once a
+> multiple is stated, exactly as a rate-priced rent does.
+>
+> **Null means FLAT, and nothing moves.** A deposit agreed as a sum unrelated to rent is a real deal;
+> inferring a multiple by dividing the deposit by the rent would invent a term nobody agreed to.
+> Existing leases are all null, so nothing moved. Pinned by `DepositTracksRentTest`.
+>
+> **Not billed automatically, deliberately.** The top-up changes the CONTRACTUAL requirement; the
+> money still moves through `deposit_transactions`, because a deposit is a liability (Dr Cash / Cr
+> Deposits Held) and invoicing it as an ordinary charge would post it as revenue. The shortfall is
+> already surfaced where it settles — `MoveOutStatementService` reports `deposit_shortfall`.
+
 > **⚠️ NEW 2026-08-16 — "Billing forecast", the per-lease forward view.** A **tab beside the Charge
 > schedule**: what this tenancy will be invoiced, period by period, for the next 24 months.
 >

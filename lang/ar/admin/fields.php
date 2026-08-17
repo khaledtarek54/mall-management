@@ -292,6 +292,7 @@ return [
         'rent_commencement_date' => 'بدء احتساب الإيجار',
         'billing_frequency' => 'دورية الفوترة',
         'security_deposit' => 'مبلغ التأمين',
+        'security_deposit_months' => 'التأمين بعدد شهور الإيجار',
         'security_deposit_received' => 'تم استلام مبلغ التأمين',
         'escalation_rate' => 'نسبة الزيادة السنوية',
         'escalation_type' => 'نوع الزيادة',

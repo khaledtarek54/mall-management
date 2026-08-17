@@ -400,7 +400,8 @@ to phase 3, UX-06 to phase 7, UX-08 to phase 6.
 
 ### Phase 7 — The reports that make it visible ➕ — **7a SHIPPED 2026-08-09**
 
-**Stories:** RR-01 ✅, RR-02 ✅, RR-04 ✅, RR-05 ✅ · remaining: RR-03 only (blocked on MF-06).
+**Stories:** RR-01 ✅, RR-02 ✅, RR-03 ✅, RR-04 ✅, RR-05 ✅ — **phase 7 is COMPLETE (RR-03 closed
+2026-08-17 in the record; MF-06 and the page both shipped earlier).**
 
 **What shipped:** the rent roll (phase 1), the **lease expiration schedule** — expiries bucketed by
 year with each bucket's share of the mall's area and income, holdovers first in their own bucket —
@@ -408,8 +409,11 @@ and **occupancy cost %**, billed cost over declared sales on a rolling 12 months
 excluded, no-sales reported as unknown rather than zero. Both property-scoped, CSV-exportable,
 EN + AR, native Filament.
 
-**RR-03 stays blocked**, not deferred: aging by charge type needs charge-level AR (MF-06), which is
-not built. Splitting the aging bucket without it would report a guess.
+**RR-03 is no longer blocked — it shipped.** This paragraph said otherwise until 2026-08-17, by
+which time both halves existed: `App\Support\InvoiceItemSettlement` derives every per-line figure
+from `paid_amount` (MF-06), and `ArAgingByType` is a live page in the Receivables group. A benchmark
+that still lists a shipped item as blocked is worse than one that lists nothing: it invites the work
+to be re-scoped.
 
 Once the schedule exists, the rent roll is close to a view over it. **RR-04 (occupancy cost %) needs
 no new data at all** — invoices and `TenantSalesDeclaration` already hold every input — and it is the
