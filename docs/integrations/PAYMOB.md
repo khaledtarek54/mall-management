@@ -832,8 +832,20 @@ Paymob and charges nothing.
 
 **Sandbox cards:** take the current list from Paymob's own dashboard/docs —
 they change. The long-standing approved test card is `5123 4567 8901 2346`,
-CVV `100`, expiry `12/25`. Verify the declined and 3DS numbers against Paymob
-before relying on them.
+CVV `100`, with any future expiry. Verify the declined and 3DS numbers against
+Paymob before relying on them.
+
+**A local box never receives the S2S callback** — Paymob cannot reach a `.test`
+host, so the browser bounce-back lands on the status page reading *processing*
+and it stays there. That is delivery, not a bug in the capture path. Either
+tunnel a public URL into the dashboard's *transaction processed* hook, or post a
+signed callback at yourself: build the 20 signed fields in the order
+[§8](#8-hmac-verification--get-this-exactly-right) gives, HMAC-SHA512 them with
+the merchant secret, and
+POST to `/paymob/callback?hmac=…`. That exercises the whole real path (verify →
+order lookup → row lock → refit → capture → recompute → receipt). Keep such a
+helper OUT of the repo — a shipped tool that fabricates a captured payment is
+the `pay-demo` footgun again ([modules/06 §8](../modules/06-payments.md)).
 
 ---
 

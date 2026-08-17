@@ -110,10 +110,18 @@ or Herd's share feature — and use the public URL.
 
 Sandbox cards (no real charge):
 
-| Card                     | Number              | CVV | Expiry  |
-|--------------------------|---------------------|-----|---------|
-| Approved transaction     | 5123 4567 8901 2346 | 100 | 12/25   |
-| Declined transaction     | 4000 0000 0000 0002 | 100 | 12/25   |
+| Card                     | Number              | CVV | Expiry           |
+|--------------------------|---------------------|-----|------------------|
+| Approved transaction     | 5123 4567 8901 2346 | 100 | any future date  |
+| Declined transaction     | 4000 0000 0000 0002 | 100 | any future date  |
+
+Cardholder name: anything. If a 3DS step appears, the sandbox OTP is `123456`.
+
+**Confirm the account is in TEST mode before typing a card.** Paymob uses the
+same host for sandbox and live and switches on the account, not the URL, so
+nothing in `.env` — or in the API key, which carries only a merchant profile id
+— tells you which one you are pointed at. On a live profile these numbers simply
+decline, and a real card would really be charged.
 
 Steps:
 
