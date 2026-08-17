@@ -69,6 +69,24 @@ Each pool ties out on its own: `Σ allocated + landlord_unrecovered_amount = tot
 
 ### Core allocation formula
 ```
+> **⚠️ A derived total says when it has never been sourced (2026-08-17).** `expense_basis = ledger`
+> and `estimate_basis = billed` mean the column is COMPUTED from documents — but only when someone
+> runs **Sync from ledger**. Until then it holds whatever it was created with, and `variance()`
+> subtracts it regardless. Found on a live pool: `estimate_basis = billed` with
+> `total_estimated_collected = 0` while its three tenants had been invoiced 346,000, so the list
+> read *actual 500,000 · estimated 0 · variance 500,000* against a true variance of **154,000**. The
+> allocations were right throughout — they derive each lease's estimate from its own invoices — so
+> only the header lied, which is the harder kind of wrong to see. `CamExpensePool::needsSourcing()`
+> (derived AND `expense_synced_at IS NULL`) now colours the estimate and variance columns danger with
+> a tooltip, adds a toggleable **Sourced at** column, and puts the timestamp on the form. It reads
+> `isDerived()` — the same predicate the Sync action's own visibility uses, so the warning cannot
+> point at a pool the action would not offer. **It reports, it does not correct**: substituting a
+> computed figure for the stored one would make the column and the screen disagree.
+> *Limit, stated rather than implied:* this catches "never sourced", not "sourced in January and
+> since gone stale" — that needs a per-row comparison against the newest contributing document.
+> `CamDerivedTotalsSayWhenTheyAreStaleTest`. **Caught by an operator's instinct that the pool
+> "wasn't configured right", which is not a detection mechanism anyone should rely on.**
+
 > **⚠️ The share follows OCCUPANCY, not lease status (fixed 2026-08-17).** Yardi computes recovery on
 > the days a tenant occupied within the recovery period, and this got it wrong at both ends of a
 > lease, in opposite directions:

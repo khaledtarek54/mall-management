@@ -361,6 +361,34 @@ class CamExpensePool extends Model
         return (float) $this->total_actual_expense - (float) $this->total_estimated_collected;
     }
 
+    /**
+     * Are this pool's headline totals DERIVED but never sourced?
+     *
+     * `expense_basis = ledger` and `estimate_basis = billed` both mean "this column is computed from
+     * documents, not typed" — and the computation only happens when someone runs Sync from ledger.
+     * Until then the column holds whatever it was created with, and `variance()` subtracts it anyway.
+     *
+     * Found the hard way (2026-08-17): a pool on `estimate_basis = billed` sat at
+     * `total_estimated_collected = 0` while its three tenants had been invoiced 346,000 of service
+     * charge, so the list reported a variance of 500,000 against a true 154,000. Nothing on any
+     * screen said the figure had never been sourced — `expense_synced_at` was null and appeared on
+     * neither the list nor the form. The ALLOCATIONS were right the whole time, because they derive
+     * each lease's estimate from its own invoices; only the header lied, which is the harder kind of
+     * wrong to notice.
+     *
+     * Limit, stated rather than implied: this answers "never sourced", not "sourced and since gone
+     * stale". A pool synced in January and reconciled in December reads as fine here. Detecting that
+     * means comparing against the newest contributing document per row, which is a query per row on
+     * a list — worth doing when someone is actually bitten by it.
+     */
+    public function needsSourcing(): bool
+    {
+        // `isDerived()` is the one definition of "these columns are computed" — the Sync action's
+        // own visibility reads it, so warning about a pool the action would not even offer is not a
+        // state that can exist.
+        return $this->isDerived() && $this->expense_synced_at === null;
+    }
+
     public function isReconciled(): bool
     {
         return in_array($this->status, ['reconciled', 'closed']);

@@ -14,6 +14,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -70,15 +71,31 @@ class CamExpensePoolsTable
                     ->money('EGP', divideBy: 1)
                     ->sortable()
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
+                // The warning rides the FIGURES, not a corner of the row. A derived total that was
+                // never sourced is not missing — it is present, wrong, and subtracted anyway: a pool
+                // on `estimate_basis = billed` read 0 collected / 500,000 variance while its tenants
+                // had been invoiced 346,000, and the true variance was 154,000. Nothing said so.
                 TextColumn::make('total_estimated_collected')
                     ->label(__('admin.tables.cam.estimated'))
                     ->money('EGP', divideBy: 1)
+                    ->icon(fn (CamExpensePool $record) => $record->needsSourcing() ? Heroicon::OutlinedExclamationTriangle : null)
+                    ->color(fn (CamExpensePool $record) => $record->needsSourcing() ? 'danger' : null)
+                    ->tooltip(fn (CamExpensePool $record) => $record->needsSourcing() ? __('admin.cam.never_sourced') : null)
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('variance')
                     ->label(__('admin.tables.cam.variance'))
                     ->getStateUsing(fn (CamExpensePool $record) => $record->variance())
                     ->money('EGP', divideBy: 1)
-                    ->color(fn ($state) => $state > 0 ? 'warning' : ($state < 0 ? 'success' : 'gray')),
+                    ->tooltip(fn (CamExpensePool $record) => $record->needsSourcing() ? __('admin.cam.never_sourced') : null)
+                    ->color(fn ($state, CamExpensePool $record) => $record->needsSourcing()
+                        ? 'danger'
+                        : ($state > 0 ? 'warning' : ($state < 0 ? 'success' : 'gray'))),
+                TextColumn::make('expense_synced_at')
+                    ->label(__('admin.tables.cam.sourced_at'))
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder(__('admin.cam.never'))
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->sortable(),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

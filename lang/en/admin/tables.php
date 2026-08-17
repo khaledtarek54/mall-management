@@ -183,7 +183,8 @@ return [
             'allocations' => 'Allocations',
             'actual' => 'Actual Expense',
             'estimated' => 'Estimated Collected',
-            'variance' => 'Variance',
+            'sourced_at' => 'Sourced at',
+        'variance' => 'Variance',
             'reconciled_at' => 'Reconciled',
         ],
         'meter' => [

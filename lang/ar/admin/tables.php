@@ -183,7 +183,8 @@ return [
             'allocations' => 'التوزيعات',
             'actual' => 'المصروفات الفعلية',
             'estimated' => 'المُحصَّل التقديري',
-            'variance' => 'الفرق',
+            'sourced_at' => 'تاريخ الاستخراج',
+        'variance' => 'الفرق',
             'reconciled_at' => 'تاريخ التسوية',
         ],
         'meter' => [

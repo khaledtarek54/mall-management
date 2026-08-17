@@ -314,6 +314,8 @@ return [
     ],
     'cam' => [
         'estimate_event_reason' => 'Service-charge estimate re-based from the :year recovery reconciliation to :amount a month.',
+        'never_sourced' => 'Never sourced — run Sync from ledger; this figure is not yet derived',
+        'never' => 'Never',
         'sync_from_ledger' => 'Re-source from the ledger',
         'synced' => 'Pool re-sourced',
         'synced_body' => 'Actual expense :expense · estimates billed :estimate. Derived from posted entries, not typed.',

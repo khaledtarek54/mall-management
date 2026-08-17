@@ -11,6 +11,7 @@ use App\Models\LedgerAccount;
 use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use App\Support\Vat;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -290,8 +291,22 @@ class CamExpensePoolForm
                         ->helperText(__('admin.helpers.cam_estimated_collected'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cam_estimated_collected'))
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
-                        ->hintColor('warning')
-                        ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
+                        // Two different warnings, and the more urgent one wins. "Frozen" says you may
+                        // not change this; "never sourced" says the figure beside it is not yet the
+                        // answer to anything — a derived column still holding whatever it was created
+                        // with, which `variance()` subtracts regardless.
+                        ->hintColor(fn (?CamExpensePool $record) => $record?->needsSourcing() ? 'danger' : 'warning')
+                        ->hint(fn (?CamExpensePool $record) => match (true) {
+                            (bool) $record?->needsSourcing() => __('admin.cam.never_sourced'),
+                            self::basisFrozen($record) => __('admin.helpers.cam_basis_frozen'),
+                            default => null,
+                        }),
+                    Placeholder::make('expense_synced_at')
+                        ->label(__('admin.tables.cam.sourced_at'))
+                        ->visible(fn (?CamExpensePool $record) => (bool) $record?->isDerived())
+                        ->content(fn (?CamExpensePool $record) => $record?->expense_synced_at
+                            ?->locale(app()->getLocale())->isoFormat('D MMMM YYYY, HH:mm')
+                            ?? __('admin.cam.never')),
                     // Admin fee % is stored as a FRACTION (0.10) but operators think in percent (10).
                     // formatStateUsing (×100) runs on hydrate — INCLUDING on the default — so the
                     // default is expressed in the field's raw (pre-format) space, the fraction 0.10,
