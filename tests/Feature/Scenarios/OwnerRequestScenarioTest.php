@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\OwnerRequests\Pages\ListOwnerRequests;
 use App\Models\OwnerRequest;
 use App\Notifications\OwnerRequestNotification;
 use App\Services\OwnerRequestService;
+use App\Support\TenantScope;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Notification;
@@ -271,12 +272,24 @@ it('scopes the asset_id picker to the OWNER\'s owned properties only', function 
         ->and(collect($options))->not->toContain('All Properties'); // synthetic row excluded
 });
 
-it('includes a property the owner is staff-assigned to (accessibleAssets union)', function () {
-    // accessibleAssets() unions ownedAssets + assignedAssets; the picker honours
-    // both. Assigning a property to the owner makes it pickable too.
+/*
+| The picker offers exactly what the write guard accepts — and until 2026-08-17 it did not.
+|
+| `CreateOwnerRequest::mutateFormDataBeforeCreate()` calls `assertAssetInScope()`, which measures
+| against `TenantScope::visibleAssetIds()`. With a property SELECTED that is `[currentAssetId]` —
+| the selected property is the scope, which is the whole premise of a property-first panel. The
+| picker, meanwhile, was built from `accessibleAssets()`: every mall the user owns or is assigned
+| to. So an owner holding two malls was OFFERED the other one and got a 403 on save, and a
+| super_admin was offered every property in the portfolio for the same refusal.
+|
+| Both sides now read the same source (`App\Support\Search\OptionDisplay::scope()`), so the two
+| tests below assert the agreement rather than either half of it. Filing a request about a property
+| is done from that property, like every other create in this panel.
+*/
+it('offers only properties the write guard would accept — for an owner holding several', function () {
     $owned = makeAsset(['code' => 'OWN', 'name' => 'Owned Mall']);
-    $assigned = makeAsset(['code' => 'ASGN', 'name' => 'Assigned Mall']);
-    $owner = makeUser('owner', [$assigned->id]);
+    $alsoOwned = makeAsset(['code' => 'ASGN', 'name' => 'Assigned Mall']);
+    $owner = makeUser('owner', [$alsoOwned->id]);
     $owner->ownedAssets()->attach($owned->id, ['ownership_percentage' => 100]);
 
     $this->actingAs($owner);
@@ -289,11 +302,19 @@ it('includes a property the owner is staff-assigned to (accessibleAssets union)'
         ->getComponent('asset_id')
         ->getOptions();
 
+    // Offered: the property being worked in — and the control that must succeed, so a picker that
+    // had simply broken would not read as a pass.
     expect($options)->toHaveKey($owned->id)
-        ->and($options)->toHaveKey($assigned->id);
+        // Not offered: the owner's OTHER mall, which `assertAssetInScope()` would 403 from here.
+        ->and($options)->not->toHaveKey($alsoOwned->id);
+
+    // The agreement itself, stated rather than implied.
+    foreach (array_keys($options) as $assetId) {
+        expect(TenantScope::visibleAssetIds())->toContain((int) $assetId);
+    }
 });
 
-it('lets super_admin pick any real property (no owner scoping)', function () {
+it('offers only the selected property to super_admin too, matching the guard', function () {
     $a = makeAsset(['code' => 'AAA', 'name' => 'Mall A']);
     $b = makeAsset(['code' => 'BBB', 'name' => 'Mall B']);
 
@@ -307,7 +328,9 @@ it('lets super_admin pick any real property (no owner scoping)', function () {
         ->getComponent('asset_id')
         ->getOptions();
 
+    // `visibleAssetIds()` collapses to the selected property BEFORE the super_admin check, so the
+    // guard refuses Mall B here whoever is asking. The picker now says so up front.
     expect($options)->toHaveKey($a->id)
-        ->and($options)->toHaveKey($b->id)
+        ->and($options)->not->toHaveKey($b->id)
         ->and(collect($options))->not->toContain('All Properties');
 });

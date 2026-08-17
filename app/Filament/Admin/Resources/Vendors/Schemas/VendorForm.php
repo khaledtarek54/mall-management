@@ -20,6 +20,12 @@ class VendorForm
             Section::make(__('admin.sections.vendor_details'))
                 ->columns(2)
                 ->components([
+                    // See TenantForm — allocated, shown, never typed.
+                    TextInput::make('code')
+                        ->label(__('admin.fields.vendor_code'))
+                        ->placeholder(__('admin.fields.code_auto'))
+                        ->disabled()
+                        ->dehydrated(),
                     TextInput::make('name')
                         ->label(__('admin.tables.vendor.name'))
                         ->required()

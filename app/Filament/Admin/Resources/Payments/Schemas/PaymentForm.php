@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Payments\Schemas;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
@@ -48,29 +49,15 @@ class PaymentForm
                             ->placeholder(__('admin.fields.reference_auto'))
                             ->disabled()
                             ->dehydrated(false),
-                        Select::make('tenant_id')
+                        // The lease-OR-ownership scope this form used to spell out by hand is now
+                        // OptionDisplay's, so the invoice form (which had the narrower, wrong version)
+                        // and this one cannot drift apart again. The searchable set widened with it:
+                        // name/legal_name/email/phone became the whole folded blob, i.e. also the
+                        // tenant code, WhatsApp, tax ID, commercial register and Arabic trade name.
+                        EntitySelect::make('tenant_id')
                             ->label(__('admin.resources.tenant.singular'))
                             ->disabled($locked)
-                            ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
-                                // Scope to tenants of the current property — a
-                                // property-restricted user must not allocate a
-                                // payment to another property's tenant/invoices.
-                                //
-                                // A unit OWNER holds no lease at all (module 37 — they bought the
-                                // unit and pay صيانة against an assessment invoice), so scoping on
-                                // leases alone made every owner unpickable here: their assessments
-                                // could be raised and shown, but never paid. The ownership branch is
-                                // kept exactly as narrow as the lease one — `orWhereDoesntHave('leases')`
-                                // would have cleared the symptom by exposing every unaffiliated tenant
-                                // in the portfolio, which is the isolation this callback exists for.
-                                $ids = TenantScope::visibleAssetIds();
-
-                                return $query->when($ids !== null, fn ($q) => $q->where(fn ($w) => $w
-                                    ->whereHas('leases.unit', fn ($u) => $u->whereIn('asset_id', $ids))
-                                    ->orWhereHas('unitOwnerships.unit', fn ($u) => $u->whereIn('asset_id', $ids))));
-                            })
-                            ->searchable(['name', 'legal_name', 'email', 'phone'])
-                            ->preload()
+                            ->entity(Tenant::class)
                             ->required()
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -155,16 +142,17 @@ class PaymentForm
                             ->minItems(1)
                             ->live()
                             ->schema([
-                                Select::make('invoice_id')
+                                EntitySelect::make('invoice_id')
                                     ->label(__('admin.resources.invoice.singular'))
                                     ->required()
-                                    ->options(function (Get $get) {
+                                    ->entity(Invoice::class)
+                                    ->modifyOptionsQuery(function ($query, Get $get) {
                                         $tenantId = $get('../../tenant_id');
                                         if (! $tenantId) {
-                                            return [];
+                                            return $query->whereRaw('1 = 0');
                                         }
 
-                                        return Invoice::query()
+                                        return $query
                                             ->where('tenant_id', $tenantId)
                                             ->where('balance', '>', 0)
                                             // `balance > 0` is not "still collectable". A written-off
@@ -177,20 +165,19 @@ class PaymentForm
                                             // collected. The sibling picker in PostDatedChequeForm
                                             // has always filtered status; this one never did.
                                             ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
-                                            ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
-                                            ->orderBy('due_date')
-                                            ->get()
-                                            ->mapWithKeys(fn (Invoice $i) => [$i->id => self::invoiceOptionLabel($i)])
-                                            ->all();
+                                            // Oldest due first: an allocation screen works the
+                                            // arrears, so the invoice that has been outstanding
+                                            // longest belongs at the top.
+                                            ->reorder('due_date', 'asc');
                                     })
-                                    // The options() list is scoped to balance > 0, so an invoice this
-                                    // payment already fully PAID (balance now 0) is not in it. On the
+                                    // The options are scoped to balance > 0, so an invoice this
+                                    // payment already fully PAID (balance now 0) is not in them. On the
                                     // edit page that stored value would otherwise render as a raw id
-                                    // ("6"); resolve ANY invoice's label so the row shows its number.
+                                    // ("6"); resolve ANY invoice so the row shows its number. After
+                                    // `->entity()`, which installs its own narrowed resolver.
                                     ->getOptionLabelUsing(fn ($value): ?string => ($i = Invoice::find($value))
                                         ? self::invoiceOptionLabel($i)
                                         : null)
-                                    ->searchable()
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         if (! $state) {

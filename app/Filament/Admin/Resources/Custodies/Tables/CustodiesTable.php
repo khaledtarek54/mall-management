@@ -5,6 +5,8 @@ namespace App\Filament\Admin\Resources\Custodies\Tables;
 use App\Filament\Admin\Resources\Custodies\CustodyResource;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
+use App\Models\Employee;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -94,11 +96,10 @@ class CustodiesTable
                             ->selectRaw('coalesce(sum(amount), 0)')
                             ->whereColumn('custody_id', 'custodies.id')
                     )),
-                SelectFilter::make('employee_id')
+                EntitySelectFilter::make('employee_id')
                     ->label(__('admin.custodies.fields.custodian'))
-                    ->relationship('employee', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('employee')
+                    ->entity(Employee::class),
                 SelectFilter::make('paid_from')
                     ->label(__('admin.custodies.fields.paid_from'))
                     ->options(fn (): array => [

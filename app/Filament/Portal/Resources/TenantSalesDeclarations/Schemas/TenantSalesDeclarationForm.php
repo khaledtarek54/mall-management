@@ -4,6 +4,8 @@ namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas;
 
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
+use App\Support\Filament\EntitySelect;
+use App\Support\Portal;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -22,18 +24,17 @@ class TenantSalesDeclarationForm
                 ->description(__('admin.sections.tenant_sales_submit_description'))
                 ->columns(2)
                 ->components([
-                    Select::make('lease_id')
+                    EntitySelect::make('lease_id')
                         ->label(__('admin.resources.lease.singular'))
-                        ->options(fn () => Lease::with('unit')
-                            ->where('tenant_id', \App\Support\Portal::tenantId())
+                        ->entity(Lease::class)
+                        // This retailer's own percentage-rent leases. The portal has no property
+                        // scope of its own (`visibleAssetIds()` is null for a TenantUser), so the
+                        // tenant clamp here is the isolation, not an addition to it.
+                        ->modifyOptionsQuery(fn ($query) => $query
+                            ->where('tenant_id', Portal::tenantId())
                             ->where('status', 'active')
-                            ->where('has_percentage_rent', true)
-                            ->get()
-                            ->mapWithKeys(fn (Lease $l) => [
-                                $l->id => sprintf('%s — %s', $l->reference, $l->unit?->code),
-                            ]))
-                        ->required()
-                        ->native(false),
+                            ->where('has_percentage_rent', true))
+                        ->required(),
                     TextEntry::make('period_info')
                         ->label(__('admin.fields.period'))
                         ->state(fn () => now()->subMonth()->isoFormat('MMMM YYYY')),
@@ -50,7 +51,7 @@ class TenantSalesDeclarationForm
                         // ANOTHER retailer's lease (Portal::clampLeaseId).
                         ->unique(
                             table: TenantSalesDeclaration::class,
-                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', \App\Support\Portal::clampLeaseId($get('lease_id'))),
+                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', Portal::clampLeaseId($get('lease_id'))),
                         )
                         ->validationMessages([
                             'unique' => __('api.sales_declaration_duplicate'),

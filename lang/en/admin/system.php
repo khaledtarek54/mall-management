@@ -255,6 +255,44 @@ return [
      */
     'search' => [
         'table_placeholder' => 'Search by name, number or reference…',
+
+        /*
+         | Dropdown search prompts. Shown INSIDE an open picker before anything is typed, and they
+         | exist to answer a question the operator otherwise answers by guessing: what may I type
+         | here? Every one of these fields has been searchable for as long as the record has had a
+         | `search_text` blob — the phone, the tax ID, the trade name — and none of it was ever
+         | discovered, because the box said "Search". Naming the fields is the whole feature.
+         |
+         | Keyed by the model's snake_case basename (App\Support\Search\OptionDisplay::searchPrompt);
+         | anything unlisted falls back to `default`, which is honest rather than specific.
+        */
+        'prompts' => [
+            'default' => 'Search by name, code or number…',
+            'tenant' => 'Search by name, code, phone, tax ID or commercial register…',
+            'vendor' => 'Search by name, code, phone or tax ID…',
+            'unit' => 'Search by unit code, floor or zone…',
+            'lease' => 'Search by lease reference, tenant or unit…',
+            'invoice' => 'Search by invoice number or tenant…',
+            'vendor_bill' => 'Search by bill number, vendor or reference…',
+            'employee' => 'Search by name, staff number or national ID…',
+            'user' => 'Search by name or email…',
+            'ledger_account' => 'Search by account code or name…',
+            'inventory_item' => 'Search by item name or SKU…',
+            'equipment' => 'Search by asset code, name or location…',
+            'unit_ownership' => 'Search by reference, owner or unit…',
+        ],
+
+        /*
+         | The chrome around a dropdown option — the words that are not the record itself.
+        */
+        'option' => [
+            'searching' => 'Searching…',
+            'no_results' => 'Nothing matches that. Try a phone number, a code, or fewer words.',
+            'and_more' => '+:count more',
+            'outstanding' => ':amount outstanding',
+            'header_account' => 'Header — not postable',
+            'inactive' => 'Inactive',
+        ],
     ],
 
     'email' => [

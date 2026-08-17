@@ -4,7 +4,9 @@ namespace App\Filament\Admin\Resources\Announcements\Tables;
 
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
+use App\Models\User;
 use App\Services\SendAnnouncementAction;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -106,11 +108,10 @@ class AnnouncementsTable
                     ->options(fn () => collect(Announcement::CATEGORIES)
                         ->mapWithKeys(fn (string $c) => [$c => __("admin.announcements.categories.{$c}")])),
 
-                SelectFilter::make('created_by')
+                EntitySelectFilter::make('created_by')
                     ->label(__('admin.announcements.fields.created_by'))
-                    ->relationship('creator', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('creator')
+                    ->entity(User::class),
 
                 Filter::make('sent_at')
                     ->label(__('admin.announcements.fields.sent_at'))

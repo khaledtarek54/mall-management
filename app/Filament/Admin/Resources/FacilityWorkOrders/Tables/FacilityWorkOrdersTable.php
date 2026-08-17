@@ -11,6 +11,7 @@ use App\Services\AssessSlaPenaltyService;
 use App\Services\AttributeWorkOrderFaultService;
 use App\Services\FacilityWorkOrderService;
 use App\Services\RaiseCorrectiveWorkOrderService;
+use App\Support\Filament\EntitySelect;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -356,29 +357,22 @@ class FacilityWorkOrdersTable
                         && FacilityWorkOrderResource::canEdit($record))
                     ->authorize(fn (FacilityWorkOrder $record) => FacilityWorkOrderResource::canEdit($record))
                     ->schema(fn (FacilityWorkOrder $record) => [
-                        Select::make('vendor_bill_id')
+                        EntitySelect::make('vendor_bill_id')
                             ->label(__('admin.facility.penalty.bill'))
+                            ->entity(VendorBill::class)
                             // Scoped to the work order's OWN property, not just the vendor.
                             // A vendor serves several malls, so without this the dropdown
                             // both leaked other properties' bill numbers + balances to a
                             // user scoped to this one, and let a penalty earned here be
                             // charged there (ApplySlaPenaltyService re-checks server-side —
                             // this list is UX, that is the gate).
-                            ->options(fn () => VendorBill::query()
+                            ->modifyOptionsQuery(fn ($query) => $query
                                 ->where('vendor_id', $record->vendor_id)
                                 ->where('asset_id', $record->asset_id)
                                 ->whereNotIn('status', ['draft', 'cancelled'])
-                                ->where('balance', '>=', $record->penalty?->amount ?? 0)
-                                ->orderByDesc('bill_date')
-                                ->get()
-                                ->mapWithKeys(fn (VendorBill $b) => [
-                                    $b->id => $b->number.' — '.number_format((float) $b->balance, 2).' EGP',
-                                ])
-                                ->all())
+                                ->where('balance', '>=', $record->penalty?->amount ?? 0))
                             ->placeholder(__('admin.facility.penalty.no_eligible_bill'))
-                            ->required()
-                            ->searchable()
-                            ->native(false),
+                            ->required(),
                     ])
                     ->action(function (FacilityWorkOrder $record, array $data): void {
                         abort_unless(FacilityWorkOrderResource::canEdit($record), 403);

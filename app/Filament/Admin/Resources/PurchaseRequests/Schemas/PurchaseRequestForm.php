@@ -2,10 +2,11 @@
 
 namespace App\Filament\Admin\Resources\PurchaseRequests\Schemas;
 
+use App\Models\Asset;
 use App\Models\PurchaseRequest;
 use App\Models\Warehouse;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Schema;
 
@@ -14,9 +15,9 @@ class PurchaseRequestForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('asset_id')
+            EntitySelect::make('asset_id')
                 ->label(__('admin.procurement.fields.asset'))
-                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->entity(Asset::class)
                 ->required()
                 ->live()
                 ->native(false)
@@ -34,18 +35,15 @@ class PurchaseRequestForm
                 ->columnSpanFull()
                 ->disabled(fn (?PurchaseRequest $record) => $record !== null && $record->status !== PurchaseRequest::STATUS_REQUESTED),
 
-            Select::make('warehouse_id')
+            EntitySelect::make('warehouse_id')
                 ->label(__('admin.procurement.fields.warehouse'))
                 ->helperText(__('admin.procurement.fields.warehouse_hint'))
+                ->entity(Warehouse::class)
                 // The requesting mall's warehouses only — goods are received into the mall that
                 // asked for them. The service re-checks this on receipt; the form is one caller.
-                ->options(fn (callable $get) => Warehouse::query()
+                ->modifyOptionsQuery(fn ($query, callable $get) => $query
                     ->where('asset_id', TenantScope::clampAssetId($get('asset_id')))
-                    ->where('is_active', true)
-                    ->orderBy('name')
-                    ->pluck('name', 'id')
-                    ->all())
-                ->native(false)
+                    ->where('is_active', true))
                 // Frozen once the request leaves `requested` — moving where the goods land after
                 // the PO is out would strand the receipt from the movement (audit M29-1).
                 ->disabled(fn (?PurchaseRequest $record) => $record !== null && $record->status !== PurchaseRequest::STATUS_REQUESTED),

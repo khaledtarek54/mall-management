@@ -2,6 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Areas\Schemas;
 
+use App\Models\Asset;
+use App\Models\User;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -52,10 +55,10 @@ class AreaForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            Select::make('asset_id')
+            EntitySelect::make('asset_id')
                 ->label(__('admin.areas.fields.property'))
                 // Scoped to the user's visible properties (never leaks another mall).
-                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->entity(Asset::class)
                 ->default(fn () => TenantScope::currentAssetId())
                 ->disabled(fn () => TenantScope::currentAssetId() !== null)
                 ->dehydrated()
@@ -83,19 +86,19 @@ class AreaForm
                 ->label(__('admin.areas.fields.active'))
                 ->default(true),
 
-            Select::make('supervisors')
+            EntitySelect::make('supervisors')
                 ->label(__('admin.areas.fields.supervisors'))
                 ->helperText(__('admin.areas.supervisors_hint'))
+                ->entity(User::class)
                 // Scoped to the selected property's staff so a restricted user never sees
                 // another mall's roster (mirrors CorrectiveWorkOrderForm::technicianOptions):
                 // users assigned to this property, plus property-less users (super_admin /
                 // single-mall back-compat). Grouped deliberately — an ungrouped
                 // whereHas()->orWhereDoesntHave() would let the OR escape once the outer
                 // asset scope is applied, handing every property's roster to the picker.
-                ->relationship('supervisors', 'name', modifyQueryUsing: fn (Builder $query, Get $get) => self::applySupervisorScope($query, self::inScopeAssetId($get)))
+                ->relationship('supervisors')
+                ->modifyOptionsQuery(fn (Builder $query, Get $get) => self::applySupervisorScope($query, self::inScopeAssetId($get)))
                 ->multiple()
-                ->searchable()
-                ->preload()
                 ->native(false)
                 ->columnSpanFull(),
 

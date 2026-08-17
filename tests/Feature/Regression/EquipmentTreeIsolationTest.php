@@ -6,6 +6,8 @@ use App\Models\Equipment;
 use App\Models\FixedAsset;
 use App\Models\Unit;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Database\QueryException;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 /**
@@ -99,6 +101,20 @@ it('allows moving a leaf once it is detached from its parent', function () {
 
 /* ---- R2: the pickers must not enumerate an invisible property ---------- */
 
+/**
+ * What a picker would OFFER for a typed query.
+ *
+ * `getSearchResults()`, not `getOptions()`. Since 2026-08-17 these are `EntitySelect`s: they search
+ * server-side and hold no options until something is typed, because equipment registers and unit
+ * lists grow. Asserting on `getOptions()` would make the refusal below pass for every field whether
+ * or not the scope existed — which is precisely what happened, and is why the control that must
+ * SUCCEED sits directly underneath it.
+ */
+function equipmentPickerOffers(Testable $page, string $field, string $query): array
+{
+    return $page->instance()->form->getComponent($field)->getSearchResults($query);
+}
+
 it('offers no options from a property the user cannot see, even if asset_id is tampered', function () {
     // Populate the property the user must not learn about.
     equip($this->theirs->id, ['code' => 'SECRET-ESC', 'name_en' => 'Secret escalator']);
@@ -116,8 +132,8 @@ it('offers no options from a property the user cannot see, even if asset_id is t
             // Tamper: point the live asset_id at a property outside the user's set.
             ->fillForm(['asset_id' => $this->theirs->id]);
 
-        foreach (['parent_id', 'unit_id', 'fixed_asset_id'] as $field) {
-            $form->assertFormFieldExists($field, fn ($f) => $f->getOptions() === []);
+        foreach ([['parent_id', 'SECRET-ESC'], ['unit_id', 'SECRET-U1'], ['fixed_asset_id', 'SECRET-FA']] as [$field, $needle]) {
+            expect(equipmentPickerOffers($form, $field, $needle))->toBe([]);
         }
     });
 });
@@ -178,7 +194,7 @@ it('frees a burned code once the record is force-deleted', function () {
     $e->delete();
 
     expect(fn () => equip($this->mine->id, ['code' => 'TYPO-02']))
-        ->toThrow(Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 
     $e->forceDelete();
 
@@ -186,7 +202,8 @@ it('frees a burned code once the record is force-deleted', function () {
 });
 
 it('still offers options for a property the user can see', function () {
-    // The guard must not break the normal case.
+    // The control for the refusal above. Without it, a picker that offered NOTHING to anyone would
+    // satisfy every assertion in that test and read as airtight isolation.
     equip($this->mine->id, ['code' => 'ESC-01']);
     Unit::create(['asset_id' => $this->mine->id, 'code' => 'U-1', 'category' => 'retail', 'area_sqm' => 30, 'status' => 'vacant']);
 
@@ -194,9 +211,10 @@ it('still offers options for a property the user can see', function () {
     $this->actingAs(makeUser('operations', [$this->mine->id]));
 
     asTenant($all, function () {
-        Livewire::test(CreateEquipment::class)
-            ->fillForm(['asset_id' => $this->mine->id])
-            ->assertFormFieldExists('parent_id', fn ($f) => $f->getOptions() !== [])
-            ->assertFormFieldExists('unit_id', fn ($f) => $f->getOptions() !== []);
+        $form = Livewire::test(CreateEquipment::class)
+            ->fillForm(['asset_id' => $this->mine->id]);
+
+        expect(equipmentPickerOffers($form, 'parent_id', 'ESC-01'))->not->toBe([])
+            ->and(equipmentPickerOffers($form, 'unit_id', 'U-1'))->not->toBe([]);
     });
 });

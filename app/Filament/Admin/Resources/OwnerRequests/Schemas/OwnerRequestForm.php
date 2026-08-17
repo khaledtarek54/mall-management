@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\OwnerRequests\Schemas;
 use App\Models\Asset;
 use App\Models\OwnerRequest;
 use App\Models\User;
+use App\Support\Filament\EntitySelect;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -31,30 +32,21 @@ class OwnerRequestForm
                         ->required()
                         ->live()
                         ->native(false),
-                    Select::make('assigned_to_user_id')
+                    EntitySelect::make('assigned_to_user_id')
                         ->label(__('admin.tables.owner_request.assigned_owner'))
-                        ->options(fn () => User::query()
+                        ->entity(User::class)
+                        ->modifyOptionsQuery(fn ($query) => $query
                             ->whereHas('roles', fn ($q) => $q->where('name', 'owner'))
-                            ->where('id', '!=', Auth::id())
-                            ->orderBy('name')
-                            ->pluck('name', 'id'))
-                        ->searchable()
+                            ->where('id', '!=', Auth::id()))
                         ->visible(fn ($get) => $get('recipient') === 'owner')
                         ->required(fn ($get) => $get('recipient') === 'owner'),
-                    Select::make('asset_id')
+                    // Scoped to the user's own properties — an owner picks only what they own,
+                    // super_admin sees all. Both halves (drop the ALL pseudo-asset, restrict to the
+                    // visible set) are OptionDisplay's; `accessibleAssets()` and `visibleAssetIds()`
+                    // resolve to the same set for an owner.
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.tables.owner_request.property'))
-                        ->options(function () {
-                            $user = Auth::user();
-                            $query = Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE);
-                            // Scope to the user's own properties — an owner picks
-                            // only what they own; super_admin sees all.
-                            if ($user && ! $user->hasRole('super_admin')) {
-                                $query->whereIn('id', $user->accessibleAssets()->pluck('id'));
-                            }
-
-                            return $query->orderBy('name')->pluck('name', 'id');
-                        })
-                        ->searchable()
+                        ->entity(Asset::class)
                         ->placeholder('—'),
                     Select::make('priority')
                         ->label(__('admin.tables.owner_request.priority'))

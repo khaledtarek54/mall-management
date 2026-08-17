@@ -22,6 +22,7 @@
 use App\Filament\Admin\Resources\Invoices\Pages\CreateInvoice;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -47,11 +48,13 @@ beforeEach(function () {
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 /** Resolve the option keys for the tenant_id select on a mounted CreateInvoice page. */
-function invoiceTenantOptionKeys(\Livewire\Features\SupportTesting\Testable $page): array
+function invoiceTenantOptionKeys(Testable $page, string $query): array
 {
+    // The SEARCH path, not `getOptions()` — the tenant picker is server-searched and holds no
+    // options until something is typed (see PaymentFormPropertyScopeTest for the full reason).
     $component = $page->instance()->form->getComponent('tenant_id');
 
-    return array_map('intval', array_keys($component->getOptions()));
+    return array_map('intval', array_keys($component->getSearchResults($query)));
 }
 
 function fillScopedInvoice(array $overrides = []): array
@@ -71,10 +74,8 @@ function fillScopedInvoice(array $overrides = []): array
 it('offers the current property tenant and excludes another property tenant in the invoice form', function () {
     $page = Livewire::test(CreateInvoice::class)->assertOk();
 
-    $options = invoiceTenantOptionKeys($page);
-
-    expect($options)->toContain($this->tenantA->id)      // property A tenant — offered
-        ->and($options)->not->toContain($this->tenantB->id); // property B tenant — excluded (no IDOR)
+    expect(invoiceTenantOptionKeys($page, $this->tenantA->name))->toContain($this->tenantA->id)
+        ->and(invoiceTenantOptionKeys($page, $this->tenantB->name))->not->toContain($this->tenantB->id);
 });
 
 it('rejects an out-of-scope (other property) tenant_id on the invoice form', function () {

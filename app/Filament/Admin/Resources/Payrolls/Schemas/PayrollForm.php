@@ -2,7 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Payrolls\Schemas;
 
+use App\Models\Asset;
 use App\Models\Payroll;
+use App\Support\Filament\EntitySelect;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -34,10 +37,10 @@ class PayrollForm
                         ->dehydrated(false)
                         ->placeholder(__('admin.fields.auto_generated')),
 
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.fields.property'))
-                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->entity(Asset::class)
+                        ->default(fn () => TenantScope::currentAssetId())
                         ->searchable()
                         ->preload()
                         ->placeholder(__('admin.fields.property_consolidated'))

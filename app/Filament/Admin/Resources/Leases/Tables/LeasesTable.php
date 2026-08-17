@@ -20,8 +20,9 @@ use App\Services\LeaseTerminationService;
 use App\Services\MoveOutStatementService;
 use App\Services\SettleMoveOutService;
 use App\Settings\BillingSettings;
+use App\Support\Filament\EntitySelect;
+use App\Support\Filament\EntitySelectFilter;
 use App\Support\LeaseTerm;
-use App\Support\TenantScope;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -194,16 +195,14 @@ class LeasesTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.lease'))->except('cancelled')->all()),
-                SelectFilter::make('tenant_id')
+                EntitySelectFilter::make('tenant_id')
                     ->label(__('admin.filters.tenant'))
-                    ->relationship('tenant', 'name')
-                    ->searchable()
-                    ->preload(),
-                SelectFilter::make('unit_id')
+                    ->relationship('tenant')
+                    ->entity(Tenant::class),
+                EntitySelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
-                    ->relationship('unit', 'code')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('unit')
+                    ->entity(Unit::class),
                 // The percentage-rent basis is a term in each contract, and the system cannot know
                 // which applies. This makes "show me every lease still on the monthly basis" one
                 // click, so the clause review is a filter rather than a database query.
@@ -338,9 +337,9 @@ class LeasesTable
                                         ->required()
                                         ->live()
                                         ->columnSpanFull(),
-                                    Select::make('tenant_id')
+                                    EntitySelect::make('tenant_id')
                                         ->label(__('admin.fields.pick_existing_tenant'))
-                                        ->options(fn () => TenantScope::selectableTenantOptions())
+                                        ->entity(Tenant::class)
                                         ->searchable()
                                         ->required()
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'existing')
@@ -388,27 +387,17 @@ class LeasesTable
                                         ->dehydrated(false)
                                         ->default(false)
                                         ->columnSpanFull(),
-                                    Select::make('lease.unit_id')
+                                    EntitySelect::make('lease.unit_id')
                                         ->label(__('admin.fields.unit_label'))
-                                        ->options(fn (Get $get) => Unit::with('asset')
-                                            // Property isolation: never offer a unit outside the
-                                            // user's visible set (null = super_admin/portfolio).
-                                            ->when(
-                                                TenantScope::visibleAssetIds(),
-                                                fn ($q, $ids) => $q->whereIn('asset_id', $ids),
-                                            )
-                                            ->when(
-                                                ! $get('lease.show_occupied_units'),
-                                                fn ($q) => $q->where('status', 'vacant'),
-                                            )
-                                            ->get()
-                                            ->mapWithKeys(fn (Unit $u) => [$u->id => sprintf(
-                                                '%s · %s · %s',
-                                                $u->fullName(),
-                                                __("admin.enums.category.{$u->category}"),
-                                                __("admin.statuses.unit.{$u->status}"),
-                                            )]))
-                                        ->searchable()
+                                        ->entity(Unit::class)
+                                        ->preload()
+                                        // Property isolation is OptionDisplay's; what stays is this
+                                        // screen's own rule — vacant space unless the operator asks
+                                        // to see the rest.
+                                        ->modifyOptionsQuery(fn ($query, Get $get) => $query->when(
+                                            ! $get('lease.show_occupied_units'),
+                                            fn ($q) => $q->where('status', 'vacant'),
+                                        ))
                                         ->required()
                                         ->columnSpanFull()
                                         ->helperText(fn (Get $get): string => $get('lease.show_occupied_units')
@@ -957,29 +946,35 @@ class LeasesTable
                             ->default('expand')
                             ->live()
                             ->required(),
-                        Select::make('unit_ids')
+                        EntitySelect::make('unit_ids')
                             ->label(__('admin.actions.premises_units'))
+                            ->entity(Unit::class)
+                            ->preload()
                             ->multiple()
                             ->required()
-                            // Expanding offers vacant units in THIS lease's property only —
-                            // scoped through TenantScope, never a bare Unit::all().
-                            ->options(function (Get $get, Lease $record) {
+                            // CONTRACTING picks from the units this lease currently holds; EXPANDING
+                            // picks from unlet space in THIS lease's own property. The visible-set
+                            // half of the old scope is OptionDisplay's now (`Unit` is
+                            // `#[PropertyOwned]`), so what stays here is the part that is about this
+                            // ACT rather than about isolation.
+                            ->modifyOptionsQuery(function ($query, Get $get, Lease $record) {
                                 if ($get('direction') === 'contract') {
-                                    return $record->unitsOn(CarbonImmutable::now())
-                                        ->reject(fn (Unit $u) => (int) $u->id === (int) $record->unit_id)
-                                        ->pluck('code', 'id')
-                                        ->all();
+                                    return $query
+                                        ->whereIn('id', $record->unitsOn(CarbonImmutable::now())->pluck('id'))
+                                        ->where('id', '!=', $record->unit_id);
                                 }
 
-                                return Unit::query()
-                                    ->whereIn('asset_id', TenantScope::visibleAssetIds())
+                                return $query
                                     ->when($record->unit?->asset_id, fn ($q, $id) => $q->where('asset_id', $id))
                                     ->whereNotIn('id', $record->units->pluck('id'))
-                                    ->orderBy('code')
-                                    ->get()
-                                    ->reject(fn (Unit $u) => $u->isActivelyLeased($record->id))
-                                    ->pluck('code', 'id')
-                                    ->all();
+                                    // `isActivelyLeased()` reads a relation, so it cannot be a where.
+                                    // The set is one property's units — small enough to reject over,
+                                    // and this replaces a post-query `reject()` that did the same.
+                                    ->whereNotIn('id', Unit::query()
+                                        ->when($record->unit?->asset_id, fn ($q, $id) => $q->where('asset_id', $id))
+                                        ->get()
+                                        ->filter(fn (Unit $u) => $u->isActivelyLeased($record->id))
+                                        ->pluck('id'));
                             }),
                         DatePicker::make('effective_from')
                             ->label(__('admin.actions.premises_effective_from'))

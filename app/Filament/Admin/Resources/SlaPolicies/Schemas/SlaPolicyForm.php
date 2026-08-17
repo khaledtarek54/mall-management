@@ -2,7 +2,8 @@
 
 namespace App\Filament\Admin\Resources\SlaPolicies\Schemas;
 
-use App\Models\SlaPolicy;
+use App\Models\Asset;
+use App\Support\Filament\EntitySelect;
 use App\Support\SlaResolver;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
@@ -17,9 +18,9 @@ class SlaPolicyForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            Select::make('asset_id')
+            EntitySelect::make('asset_id')
                 ->label(__('admin.facility.fields.property'))
-                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->entity(Asset::class)
                 ->default(fn () => TenantScope::currentAssetId())
                 ->disabled(fn () => TenantScope::currentAssetId() !== null)
                 ->dehydrated()

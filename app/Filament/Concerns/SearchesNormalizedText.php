@@ -2,9 +2,11 @@
 
 namespace App\Filament\Concerns;
 
+use App\Support\Search\OptionDisplay;
 use App\Support\Search\SearchText;
 use App\Support\SearchPolicy;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Makes a Filament resource search the fold-normalized `search_text` blob rather
@@ -49,6 +51,49 @@ trait SearchesNormalizedText
     public static function getGlobalSearchResultsLimit(): int
     {
         return SearchPolicy::RESULTS_PER_RESOURCE;
+    }
+
+    /**
+     * What a search hit says about itself under its title — from the SAME registry the dropdowns
+     * read (`App\Support\Search\OptionDisplay`).
+     *
+     * The details were per-resource before this and, predictably, present on some and missing on
+     * others: 21 of ~35 searchable resources defined them, so an operator searching "Zara" got a
+     * phone number and a status under a tenant and a bare title under a lease. Same registry, same
+     * subtitle, everywhere — and adding a fact to a record's presenter now reaches the picker, the
+     * chosen value AND the search bar in one edit.
+     *
+     * Returned as a LIST, not a map. Filament renders `label: value` for an associative array and
+     * bare values for a list (`Arr::isAssoc`), and the subtitle is one composite line — inventing a
+     * label for "A-114 · Atriom Walk · 0100 123 4567" would be worse than showing it plainly.
+     *
+     * A trait method loses to one declared on the class, which is the layering we want: a resource
+     * that has already written its own details keeps them, and the other fourteen stop being blank.
+     *
+     * @return array<int, string>
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        $option = OptionDisplay::for($record);
+
+        return array_values(array_filter([
+            $option->code,
+            $option->subtitle,
+            $option->badge,
+        ]));
+    }
+
+    /**
+     * Eager-load exactly what the details above reach for.
+     *
+     * Without this every search keystroke costs one query per result per relation — the N+1 that is
+     * invisible on demo data and is the first thing an operator notices on a real portfolio, on the
+     * one control they use most.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()
+            ->with(OptionDisplay::EAGER[static::getModel()] ?? []);
     }
 
     protected static function applyGlobalSearchAttributeConstraints(Builder $query, string $search): void

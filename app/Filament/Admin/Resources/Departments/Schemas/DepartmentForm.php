@@ -2,11 +2,12 @@
 
 namespace App\Filament\Admin\Resources\Departments\Schemas;
 
-use Filament\Forms\Components\Select;
+use App\Models\Asset;
+use App\Models\User;
+use App\Support\Filament\EntitySelect;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use App\Support\TenantScope;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -27,20 +28,17 @@ class DepartmentForm
                         ->label(__('admin.tables.department.code'))
                         ->disabled()
                         ->dehydrated(false),
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.tables.department.scope'))
                         // Scoped to the user's visible properties (null = global dept).
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->searchable()
                         ->preload()
                         ->placeholder(__('admin.tables.department.global'))
                         ->native(false),
-                    Select::make('head_user_id')
+                    EntitySelect::make('head_user_id')
                         ->label(__('admin.tables.department.head'))
-                        ->relationship('head', 'name')
-                        ->searchable()
-                        ->preload()
-                        ->native(false),
+                        ->entity(User::class),
                     Toggle::make('is_active')
                         ->label(__('admin.tables.department.active'))
                         ->default(true),

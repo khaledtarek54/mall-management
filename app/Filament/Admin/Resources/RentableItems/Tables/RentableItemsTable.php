@@ -3,7 +3,9 @@
 namespace App\Filament\Admin\Resources\RentableItems\Tables;
 
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
+use App\Models\Floor;
 use App\Models\RentableItem;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -66,9 +68,10 @@ class RentableItemsTable
                 SelectFilter::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->options(fn () => __('admin.enums.rentable_item_status')),
-                SelectFilter::make('floor_id')
+                EntitySelectFilter::make('floor_id')
                     ->label(__('admin.pdf.floor'))
-                    ->relationship('floor', 'code'),
+                    ->relationship('floor')
+                    ->entity(Floor::class),
             ])
             // Clicking the row EDITS. Letting a bay is the reason an operator opens this screen, so
             // the read-only view would be a stop on the way to the thing they came to do. It stays

@@ -3,17 +3,17 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\ApprovalRule;
-use App\Models\InventoryItem;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderPart;
+use App\Models\InventoryItem;
 use App\Models\Vendor;
 use App\Models\Warehouse;
 use App\Services\WorkOrderPartService;
 use App\Support\ApprovalPolicy;
+use App\Support\Filament\EntitySelect;
 use App\Support\Modules;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -75,6 +75,9 @@ class WorkOrderPartsRelationManager extends RelationManager
     {
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['item', 'warehouse', 'vendor', 'requestedBy', 'decidedBy']))
+            // The parts on ONE work order. Every column is derived — `label()`, a badge, a money
+            // figure — so a search box here could never match anything an operator typed.
+            ->searchable(false)
             ->columns([
                 TextColumn::make('source')
                     ->label(__('admin.facility.parts.source'))
@@ -123,34 +126,24 @@ class WorkOrderPartsRelationManager extends RelationManager
                     ->visible(fn () => $this->orderOpen() && $this->canRequest())
                     ->authorize(fn () => $this->canRequest())
                     ->schema([
-                        Select::make('warehouse_id')
+                        EntitySelect::make('warehouse_id')
                             ->label(__('admin.facility.parts.warehouse'))
-                            // The job's own property only — you cannot draw from another
-                            // mall's shelf, and its warehouses are none of your business.
-                            ->options(fn () => Warehouse::query()
+                            ->entity(Warehouse::class)
+                            // The job's OWN property only — narrower than "the properties you can
+                            // see": you cannot draw from another mall's shelf even if you administer
+                            // both.
+                            ->modifyOptionsQuery(fn ($query) => $query
                                 ->where('asset_id', TenantScope::clampAssetId($this->order()->asset_id))
-                                ->where('is_active', true)
-                                ->orderBy('name')
-                                ->pluck('name', 'id')
-                                ->all())
-                            ->required()
-                            ->native(false),
-                        Select::make('inventory_item_id')
+                                ->where('is_active', true))
+                            ->required(),
+                        EntitySelect::make('inventory_item_id')
                             ->label(__('admin.facility.parts.item'))
-                            // The catalog is deliberately SHARED ("a pump seal is the same
-                            // item everywhere"), so it is not property-filtered.
-                            // Only the three columns the label needs — hydrating whole models
-                            // just to concatenate two strings scales badly with the catalog.
-                            ->options(fn () => InventoryItem::query()
-                                ->where('is_active', true)
-                                ->orderBy('sku')
-                                ->get(['id', 'sku', 'name'])
-                                ->mapWithKeys(fn (InventoryItem $i) => [$i->id => $i->sku.' — '.$i->name])
-                                ->all())
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->native(false),
+                            // The catalog is deliberately SHARED ("a pump seal is the same item
+                            // everywhere"), so it is not property-filtered — `InventoryItem` is
+                            // `#[PortfolioShared]` and OptionDisplay leaves it alone.
+                            ->entity(InventoryItem::class)
+                            ->modifyOptionsQuery(fn ($query) => $query->where('is_active', true))
+                            ->required(),
                         TextInput::make('quantity')
                             ->label(__('admin.facility.parts.quantity'))
                             ->numeric()
@@ -190,11 +183,9 @@ class WorkOrderPartsRelationManager extends RelationManager
                             ->label(__('admin.facility.parts.description'))
                             ->required()
                             ->maxLength(255),
-                        Select::make('vendor_id')
+                        EntitySelect::make('vendor_id')
                             ->label(__('admin.facility.fields.vendor'))
-                            ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id')->all())
-                            ->searchable()
-                            ->native(false),
+                            ->entity(Vendor::class),
                         TextInput::make('reference')
                             ->label(__('admin.facility.parts.reference'))
                             ->maxLength(100),

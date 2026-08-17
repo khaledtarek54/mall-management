@@ -14,6 +14,9 @@ class TenantExporter extends Exporter
     public static function getColumns(): array
     {
         return [
+            // First column, because the export's job is to be re-imported or reconciled
+            // against another system, and the code is the key both sides can join on.
+            ExportColumn::make('code')->label(__('admin.fields.tenant_code')),
             ExportColumn::make('name')->label(__('admin.tables.tenant.name')),
             ExportColumn::make('legal_name')->label(__('admin.fields.legal_name')),
             ExportColumn::make('type')->label(__('admin.fields.type')),
@@ -26,7 +29,7 @@ class TenantExporter extends Exporter
 
     public static function getCompletedNotificationBody(Export $export): string
     {
-        return 'Your tenant export has completed and ' . number_format($export->successful_rows) . ' ' . str('row')->plural($export->successful_rows) . ' exported.';
+        return 'Your tenant export has completed and '.number_format($export->successful_rows).' '.str('row')->plural($export->successful_rows).' exported.';
     }
 
     public function getJobConnection(): ?string

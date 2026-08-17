@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\Resources\Equipment\Schemas;
 
+use App\Models\Asset;
 use App\Models\Equipment;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
 use App\Models\Unit;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -32,10 +34,10 @@ class EquipmentForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            Select::make('asset_id')
+            EntitySelect::make('asset_id')
                 ->label(__('admin.facility.fields.property'))
                 // Scoped to the user's visible properties (never leaks another mall).
-                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->entity(Asset::class)
                 ->default(fn () => TenantScope::currentAssetId())
                 ->disabled(fn () => TenantScope::currentAssetId() !== null)
                 ->dehydrated()
@@ -43,29 +45,22 @@ class EquipmentForm
                 ->live()
                 ->native(false),
 
-            Select::make('parent_id')
+            EntitySelect::make('parent_id')
                 ->label(__('admin.facility.fields.parent'))
                 ->helperText(__('admin.facility.equipment.parent_hint'))
+                ->entity(Equipment::class)
                 // Same property only, and never itself or one of its own sub-codes —
                 // otherwise the branch detaches from every root. The model re-checks both
                 // on save: this Select is a convenience, not the enforcement point.
-                ->options(function (Get $get, ?Equipment $record) {
+                ->modifyOptionsQuery(function ($query, Get $get, ?Equipment $record) {
                     $assetId = self::inScopeAssetId($get);
-                    if ($assetId === null) {
-                        return [];
-                    }
 
-                    return Equipment::query()
-                        ->where('asset_id', $assetId)
-                        ->when($record?->exists, fn ($q) => $q->whereNotIn('id', $record->selfAndDescendantIds()))
-                        ->orderBy('code')
-                        ->get()
-                        ->mapWithKeys(fn (Equipment $e) => [$e->id => $e->label()])
-                        ->all();
-                })
-                ->searchable()
-                ->preload()
-                ->native(false),
+                    return $assetId === null
+                        ? $query->whereRaw('1 = 0')
+                        : $query
+                            ->where('asset_id', $assetId)
+                            ->when($record?->exists, fn ($q) => $q->whereNotIn('id', $record->selfAndDescendantIds()));
+                }),
 
             TextInput::make('code')
                 ->label(__('admin.facility.fields.code'))
@@ -93,10 +88,10 @@ class EquipmentForm
 
             Select::make('criticality')
                 ->label(__('admin.facility.fields.criticality'))
-                ->options(fn () => collect(\App\Models\Equipment::CRITICALITIES)
+                ->options(fn () => collect(Equipment::CRITICALITIES)
                     ->mapWithKeys(fn (string $c) => [$c => __("admin.facility.criticalities.{$c}")])
                     ->all())
-                ->default(\App\Models\Equipment::ROUTINE)
+                ->default(Equipment::ROUTINE)
                 ->required()
                 ->native(false)
                 // States the effect, because a field whose consequence is invisible is a field that
@@ -113,60 +108,50 @@ class EquipmentForm
                 ->required()
                 ->maxLength(255),
 
-            Select::make('unit_id')
+            EntitySelect::make('unit_id')
                 ->label(__('admin.facility.fields.unit'))
                 ->helperText(__('admin.facility.equipment.unit_hint'))
-                // Units of the selected property only.
-                ->options(function (Get $get) {
+                ->entity(Unit::class)
+                // Units of the property chosen above only. `whereRaw('1 = 0')` rather than an early
+                // `[]`: the callback narrows a query now, and returning nothing from it would leave
+                // the picker showing every unit in the portfolio.
+                ->modifyOptionsQuery(function ($query, Get $get) {
                     $assetId = self::inScopeAssetId($get);
-                    if ($assetId === null) {
-                        return [];
-                    }
 
-                    return Unit::query()->where('asset_id', $assetId)->orderBy('code')->pluck('code', 'id')->all();
-                })
-                ->searchable()
-                ->preload()
-                ->native(false),
+                    return $assetId === null
+                        ? $query->whereRaw('1 = 0')
+                        : $query->where('asset_id', $assetId);
+                }),
 
             TextInput::make('location')
                 ->label(__('admin.facility.fields.location'))
                 ->maxLength(255),
 
-            Select::make('fixed_asset_id')
+            EntitySelect::make('fixed_asset_id')
                 ->label(__('admin.facility.fields.fixed_asset'))
                 ->helperText(__('admin.facility.equipment.fixed_asset_hint'))
+                ->entity(FixedAsset::class)
                 // The accounting twin, if this machine is also capitalised. Same property
                 // only — a cross-property link would tie a mall's machine to another mall's
                 // depreciation record.
-                ->options(function (Get $get) {
+                ->modifyOptionsQuery(function ($query, Get $get) {
                     $assetId = self::inScopeAssetId($get);
-                    if ($assetId === null) {
-                        return [];
-                    }
 
-                    return FixedAsset::query()
-                        ->where('asset_id', $assetId)
-                        ->orderBy('tag')
-                        ->get()
-                        ->mapWithKeys(fn (FixedAsset $fa) => [$fa->id => $fa->tag.' — '.$fa->name])
-                        ->all();
-                })
-                ->searchable()
-                ->preload()
-                ->native(false),
+                    return $assetId === null
+                        ? $query->whereRaw('1 = 0')
+                        : $query->where('asset_id', $assetId);
+                }),
 
-            Select::make('inventoryItems')
+            EntitySelect::make('inventoryItems')
                 ->label(__('admin.facility.fields.spare_parts'))
                 ->helperText(__('admin.facility.equipment.spare_parts_hint'))
                 // FR-PPM-05. The item catalog is deliberately SHARED/unscoped ("a pump seal
                 // is the same item everywhere"), so this select is intentionally not
-                // property-filtered.
-                ->relationship('inventoryItems', 'name')
-                ->getOptionLabelFromRecordUsing(fn (InventoryItem $r) => $r->sku.' — '.$r->name)
+                // property-filtered — and `InventoryItem` is `#[PortfolioShared]`, so
+                // OptionDisplay does not narrow it either.
+                ->entity(InventoryItem::class)
+                ->relationship('inventoryItems')
                 ->multiple()
-                ->searchable()
-                ->preload()
                 ->columnSpanFull(),
 
             Toggle::make('is_active')

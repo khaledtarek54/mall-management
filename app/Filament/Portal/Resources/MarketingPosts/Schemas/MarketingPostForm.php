@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\MarketingPosts\Schemas;
 
 use App\Models\Asset;
 use App\Models\MarketingPost;
+use App\Support\Filament\EntitySelect;
 use App\Support\Portal;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -30,8 +31,9 @@ class MarketingPostForm
             Section::make(__('admin.marketing_posts.sections.what'))
                 ->columns(2)
                 ->schema([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.marketing_posts.fields.property'))
+                        ->entity(Asset::class)
                         // Only malls this retailer actually trades in.
                         //
                         // `units.allLeases` — the `lease_unit` PIVOT — not `units.leases`, which
@@ -44,16 +46,11 @@ class MarketingPostForm
                         //
                         // This scopes the RENDERING only; the submitted value is re-checked by
                         // assertTenantTradesIn(), because Livewire state is attacker-controlled.
-                        ->options(fn () => Asset::query()
+                        ->modifyOptionsQuery(fn ($query) => $query
                             ->whereHas('units.allLeases', fn ($q) => $q
                                 ->where('leases.tenant_id', Portal::tenantId())
-                                ->where('leases.status', 'active'))
-                            ->orderBy('name')
-                            ->pluck('name', 'id')
-                            ->all())
-                        ->required()
-                        ->native(false)
-                        ->searchable(),
+                                ->where('leases.status', 'active')))
+                        ->required(),
 
                     Select::make('type')
                         ->label(__('admin.fields.type'))

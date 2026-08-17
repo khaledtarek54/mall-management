@@ -3,8 +3,10 @@
 namespace App\Filament\Admin\Resources\Units\Schemas;
 
 use App\Models\Area;
+use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\Unit;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -24,20 +26,12 @@ class UnitForm
             Section::make(__('admin.sections.unit_details'))
                 ->columns(3)
                 ->components([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.tables.unit.asset'))
-                        // Scope to the user's visible properties so an "All Properties"
-                        // user cannot create a unit under a property outside their set
-                        // (null = unrestricted: super_admin / portfolio roles).
-                        ->relationship('asset', 'name', modifyQueryUsing: function ($query) {
-                            $visibleAssetIds = TenantScope::visibleAssetIds();
-
-                            return $visibleAssetIds !== null
-                                ? $query->whereIn('id', $visibleAssetIds)
-                                : $query;
-                        })
+                        // The visible-properties scope moved into OptionDisplay, which applies it to
+                        // every Asset picker rather than to the ones that remembered.
+                        ->entity(Asset::class)
                         ->required()
-                        ->native(false)
                         ->default(fn () => TenantScope::currentAssetId())
                         ->disabled(fn () => TenantScope::currentAssetId() !== null)
                         ->dehydrated()
@@ -58,58 +52,46 @@ class UnitForm
                     // "Ground" as two different floors to anything that grouped, and an ordinal on
                     // every unit asked two hundred rows to repeat the same number. Set up on the
                     // property (Asset → Floors); chosen here.
-                    Select::make('floor_id')
+                    EntitySelect::make('floor_id')
                         ->label(__('admin.pdf.floor'))
-                        ->relationship(
-                            'floor',
-                            'code',
-                            // Scoped to the unit's own property, and ordered bottom-up.
-                            modifyQueryUsing: fn ($query, Get $get) => $query
-                                ->when(
-                                    TenantScope::clampAssetId($get('asset_id')),
-                                    fn ($q, $id) => $q->where('asset_id', $id),
-                                )
-                                ->orderBy('level'),
-                        )
-                        ->getOptionLabelFromRecordUsing(fn (Floor $floor) => $floor->label())
-                        ->native(false)
-                        ->searchable()
-                        ->preload()
+                        ->entity(Floor::class)
+                        // Narrowed to the property chosen ABOVE — which is the form's own rule and
+                        // not property isolation, so it stays here. Ordering is the registry's
+                        // (bottom-up by level).
+                        ->modifyOptionsQuery(fn ($query, Get $get) => $query->when(
+                            TenantScope::clampAssetId($get('asset_id')),
+                            fn ($q, $id) => $q->where('asset_id', $id),
+                        ))
                         ->helperText(__('admin.helpers.floor_id')),
                     Select::make('category')
                         ->label(__('admin.tables.unit.category'))
                         ->options(fn () => __('admin.enums.category'))
                         ->required()
                         ->native(false),
-                    Select::make('area_id')
+                    EntitySelect::make('area_id')
                         ->label(__('admin.tables.unit.area_zone'))
                         ->helperText(__('admin.tables.unit.area_zone_hint'))
+                        ->entity(Area::class)
                         // Only this unit's OWN property's active zones — `asset_id` is
                         // client-supplied (enabled in All-Properties mode), so it's clamped
                         // through TenantScope::clampAssetId(); out of scope ⇒ no options. This is
                         // UX only — the server-side guarantee is UnitResource::assertAreaInScope on
                         // the create/edit pages (a crafted request can submit any id). The record's
                         // current zone stays selectable even if retired, so an edit doesn't drop it.
-                        ->options(function (Get $get, ?Unit $record) {
+                        ->modifyOptionsQuery(function ($query, Get $get, ?Unit $record) {
                             $assetId = TenantScope::clampAssetId($get('asset_id'));
-                            if ($assetId === null) {
-                                return [];
-                            }
 
-                            return Area::query()
-                                ->where('asset_id', $assetId)
-                                ->where(function ($q) use ($record) {
-                                    $q->active();
-                                    if ($record?->area_id) {
-                                        $q->orWhere('id', $record->area_id);
-                                    }
-                                })
-                                ->orderBy('code')
-                                ->pluck('name', 'id')
-                                ->all();
+                            return $assetId === null
+                                ? $query->whereRaw('1 = 0')
+                                : $query
+                                    ->where('asset_id', $assetId)
+                                    ->where(function ($q) use ($record) {
+                                        $q->active();
+                                        if ($record?->area_id) {
+                                            $q->orWhere('id', $record->area_id);
+                                        }
+                                    });
                         })
-                        ->searchable()
-                        ->native(false)
                         ->placeholder(__('admin.tables.unit.no_area_zone')),
                     TextInput::make('area_sqm')
                         ->label(__('admin.tables.unit.area'))

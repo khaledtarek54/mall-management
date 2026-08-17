@@ -8,12 +8,13 @@ use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
+use App\Models\Asset;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
+use App\Support\Filament\EntitySelect;
 use App\Support\ReportPreferences;
 use App\Support\SourceDocumentUrl;
-use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -123,9 +124,9 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
                             ->placeholder(__('admin.reports.full_year'))
                             ->native(false)
                             ->live(),
-                        Select::make('assetId')
+                        EntitySelect::make('assetId')
                             ->label(__('admin.reports.property_scope'))
-                            ->options(fn (): array => TenantScope::selectableAssetOptions())
+                            ->entity(Asset::class)
                             ->placeholder(__('admin.fields.property_consolidated'))
                             ->native(false)
                             ->live()

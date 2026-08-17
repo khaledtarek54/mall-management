@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Users\Schemas;
 
 use App\Models\Asset;
+use App\Support\Filament\EntitySelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -52,17 +53,23 @@ class UserForm
             Section::make(__('admin.users.properties'))
                 ->description(__('admin.users.properties_helper'))
                 ->components([
-                    Select::make('assignedAssets')
+                    // ACROSS properties, deliberately. This field is not "which property does this
+                    // record belong to" — it is the field that GRANTS access to properties, and it
+                    // defaults to every real one, so scoping it to the mall the grantor happens to be
+                    // working in would make the form's own default fail its own validation.
+                    //
+                    // Dropping the "All Properties" pseudo-asset — which is all the old callback here
+                    // did — is `OptionDisplay`'s job either way.
+                    //
+                    // Open question, unchanged by this and not silently decided here: `hr` holds
+                    // `users.create`, so an HR user assigned to one mall can grant another mall's
+                    // access from this screen. That is a permissions decision, not a search one.
+                    EntitySelect::make('assignedAssets')
                         ->label(__('admin.users.assigned_properties'))
-                        ->relationship(
-                            'assignedAssets',
-                            'name',
-                            modifyQueryUsing: fn ($query) => $query
-                                ->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE),
-                        )
+                        ->entity(Asset::class)
+                        ->acrossProperties()
+                        ->relationship('assignedAssets')
                         ->multiple()
-                        ->preload()
-                        ->searchable()
                         // New users get every real property selected by default —
                         // it's easier to deselect than to remember to add them all.
                         // On edit, the existing pivot drives the value.

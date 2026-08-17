@@ -31,6 +31,11 @@ class VendorImporter extends Importer
     public static function getColumns(): array
     {
         return [
+            // See TenantImporter — a supplied supplier code is kept.
+            ImportColumn::make('code')
+                ->label(__('admin.fields.vendor_code'))
+                ->rules(['nullable', 'max:40']),
+
             ImportColumn::make('name')
                 ->label(__('admin.tables.vendor.name'))
                 ->requiredMapping()

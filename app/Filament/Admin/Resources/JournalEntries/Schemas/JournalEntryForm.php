@@ -2,8 +2,11 @@
 
 namespace App\Filament\Admin\Resources\JournalEntries\Schemas;
 
+use App\Models\Asset;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Support\Filament\EntitySelect;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -38,10 +41,10 @@ class JournalEntryForm
                         ->native(false)
                         ->disabled($locked),
 
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.fields.property'))
-                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->entity(Asset::class)
+                        ->default(fn () => TenantScope::currentAssetId())
                         ->searchable()
                         ->preload()
                         ->placeholder(__('admin.fields.property_consolidated'))

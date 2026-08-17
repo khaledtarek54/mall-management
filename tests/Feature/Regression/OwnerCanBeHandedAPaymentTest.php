@@ -5,6 +5,7 @@ use App\Enums\UnitOwnershipStatus;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\UnitOwnership;
+use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
 /**
@@ -28,7 +29,7 @@ use Livewire\Livewire;
 beforeEach(function () {
     // The real catalogue, not tests/Pest.php's seedRoles(): that creates six bare role rows with no
     // permissions, and `accounting` is not among them. Mounting CreatePayment needs a real grant.
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
 
     $this->here = makeAsset(['code' => 'HERE']);
     $this->elsewhere = makeAsset(['code' => 'ELSE']);
@@ -56,18 +57,21 @@ beforeEach(function () {
 it('offers the unit owner on the payment form, and still refuses another property\'s owner', function () {
     $this->actingAs($this->user);
 
-    $options = asTenant($this->here, fn () => array_map('intval', array_keys(
+    // The SEARCH path, not `getOptions()`: the tenant picker is an `EntitySelect` and holds no
+    // options until something is typed, so an options-based assertion would make the refusal pass
+    // for every tenant in the database.
+    $offers = fn (string $query) => asTenant($this->here, fn () => array_map('intval', array_keys(
         Livewire::test(CreatePayment::class)
             ->instance()
             ->form
             ->getComponent('tenant_id')
-            ->getOptions()
+            ->getSearchResults($query)
     )));
 
     // No message argument: Pest reads a second argument as another expected VALUE, so a note here
     // would assert the option list contains the note.
-    expect($options)->toContain($this->owner->id)
-        ->and($options)->not->toContain($this->farOwner->id);
+    expect($offers($this->owner->name))->toContain($this->owner->id)
+        ->and($offers($this->farOwner->name))->not->toContain($this->farOwner->id);
 });
 
 it('shows the owner on the register of the property he owns in', function () {

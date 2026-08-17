@@ -3,15 +3,18 @@
 namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Lease;
+use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\UnitOwnership;
 use App\Services\MarketingLevyService;
 use App\Settings\AccountingSettings;
 use App\Settings\BillingSettings;
+use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
 use App\Support\SalesExclusions;
+use App\Support\Search\RecordOption;
 use App\Support\TenantScope;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -47,45 +50,42 @@ class LeaseForm
                             ->default(fn () => Lease::generateReference('AW'))
                             ->disabled()
                             ->dehydrated(),
-                        Select::make('unit_id')
+                        EntitySelect::make('unit_id')
                             ->label(__('admin.fields.master_unit'))
                             ->live()
-                            ->relationship(
-                                'unit',
-                                'code',
-                                modifyQueryUsing: function ($query, Get $get, ?Lease $record) {
-                                    // Eager-loaded so the encumbrance warning in the label below costs
-                                    // no query per option (OP-03).
-                                    $query->with('encumbrances')->when(
-                                        TenantScope::visibleAssetIds(),
-                                        fn ($q, $assetIds) => $q->whereIn('asset_id', $assetIds),
-                                    );
+                            ->entity(Unit::class)
+                            // Browsing, not looking up: a leasing officer opens this to see what is
+                            // vacant. Server-side folded search still runs the moment they type.
+                            ->preload()
+                            // The property scope is OptionDisplay's now; what stays here is the part
+                            // that is genuinely about THIS form — hiding space that is already let,
+                            // unless the operator asks to see it, and always keeping the unit this
+                            // lease is already on.
+                            ->modifyOptionsQuery(function ($query, Get $get, ?Lease $record) {
+                                if ($get('show_occupied_units')) {
+                                    return $query;
+                                }
 
-                                    if ($get('show_occupied_units')) {
-                                        return $query;
+                                return $query->where(function ($q) use ($record) {
+                                    $q->whereNotIn('status', ['occupied', 'reserved']);
+
+                                    if ($record?->unit_id) {
+                                        $q->orWhere('id', $record->unit_id);
                                     }
-
-                                    return $query->where(function ($q) use ($record) {
-                                        $q->whereNotIn('status', ['occupied', 'reserved']);
-
-                                        if ($record?->unit_id) {
-                                            $q->orWhere('id', $record->unit_id);
-                                        }
-                                    });
-                                },
-                            )
+                                });
+                            })
+                            // Eager-loaded so the encumbrance warning below costs no query per
+                            // option (OP-03).
+                            ->withRelations(['encumbrances'])
                             // It WARNS, it does not block (OP-03's acceptance): a landlord may
                             // legitimately let encumbered space — the option holder simply has to be
                             // dealt with first — and a hard block would send the operator round the
-                            // system rather than to the conversation.
-                            ->getOptionLabelFromRecordUsing(fn (Unit $unit) => sprintf(
-                                '%s · %s%s',
-                                $unit->code,
-                                __("admin.statuses.unit.{$unit->status}"),
-                                $unit->isEncumbered() ? ' · ⚠ '.__('admin.lease_options.encumbered') : '',
-                            ))
-                            ->searchable()
-                            ->preload()
+                            // system rather than to the conversation. On ONE picker, so it is a
+                            // decoration here rather than a line in the Unit presenter that every
+                            // work-order form would also have to read.
+                            ->decorateOption(fn (RecordOption $option, Unit $unit, ?Lease $record): RecordOption => $unit->isEncumbered($record?->id)
+                                ? $option->append('⚠ '.__('admin.lease_options.encumbered'))
+                                : $option)
                             ->required()
                             // The master unit IS the lease's identity (`leases.unit_id`), so it is
                             // chosen once. Swapping it on an existing lease is a RELOCATION — a
@@ -145,16 +145,10 @@ class LeaseForm
                         // violations, SLA and fit-out — and the OWNER stays liable for the
                         // assessment. Shown only when the chosen unit actually has an owner, so it
                         // is invisible on the ordinary lease, which is nearly all of them.
-                        Select::make('unit_ownership_id')
+                        EntitySelect::make('unit_ownership_id')
                             ->label(__('admin.fields.unit_ownership'))
-                            ->options(fn (Get $get): array => UnitOwnership::query()
-                                ->where('unit_id', $get('unit_id'))
-                                ->with('owner')
-                                ->get()
-                                ->mapWithKeys(fn (UnitOwnership $o) => [
-                                    $o->id => $o->owner?->name.' · '.$o->reference,
-                                ])
-                                ->all())
+                            ->entity(UnitOwnership::class)
+                            ->modifyOptionsQuery(fn ($query, Get $get) => $query->where('unit_id', $get('unit_id')))
                             ->visible(fn (Get $get): bool => $get('unit_id') !== null
                                 && UnitOwnership::where('unit_id', $get('unit_id'))->exists())
                             // Locked with the unit it hangs off: who the lease sits under decides who
@@ -164,23 +158,28 @@ class LeaseForm
                             ->helperText(fn (string $operation): string => $operation === 'edit'
                                 ? __('admin.helpers.locked_after_creation')
                                 : __('admin.helpers.lease_under_ownership')),
-                        Select::make('additional_unit_ids')
+                        EntitySelect::make('additional_unit_ids')
                             ->label(__('admin.fields.additional_units'))
                             ->helperText(__('admin.fields.additional_units_helper'))
-                            ->multiple()
-                            ->searchable()
+                            ->entity(Unit::class)
+                            // Same reason as the master picker: expansion space is chosen by looking
+                            // at what is adjacent and free, not by typing a code you already know.
                             ->preload()
+                            ->multiple()
                             ->dehydrated(false)
-                            ->options(function (Get $get, ?Lease $record) {
-                                $assetIds = TenantScope::visibleAssetIds();
+                            // Same encumbrance warning as the master picker (OP-03): an expansion
+                            // right is most often exercised over an ADJACENT unit, which is exactly
+                            // what gets added here.
+                            ->withRelations(['encumbrances'])
+                            // `isEncumbered($record?->id)` — an option this lease itself holds is not
+                            // an encumbrance on this lease.
+                            ->decorateOption(fn (RecordOption $option, Unit $unit, ?Lease $record): RecordOption => $unit->isEncumbered($record?->id)
+                                ? $option->append('⚠ '.__('admin.lease_options.encumbered'))
+                                : $option)
+                            ->modifyOptionsQuery(function ($query, Get $get, ?Lease $record) {
                                 $master = $get('unit_id');
 
-                                return Unit::query()
-                                    // Same encumbrance warning as the master picker (OP-03): an
-                                    // expansion right is most often exercised over an ADJACENT unit,
-                                    // which is exactly what gets added here.
-                                    ->with('encumbrances')
-                                    ->when($assetIds, fn ($q, $aids) => $q->whereIn('asset_id', $aids))
+                                return $query
                                     ->where(function ($q) use ($record) {
                                         // WIDER than the master picker above, which allows a unit under
                                         // maintenance. The asymmetry is deliberate and pinned by
@@ -195,35 +194,18 @@ class LeaseForm
                                             $q->orWhereIn('id', $record->units()->pluck('units.id'));
                                         }
                                     })
-                                    ->when($master, fn ($q, $m) => $q->where('id', '!=', $m))
-                                    ->orderBy('code')
-                                    ->get()
-                                    ->mapWithKeys(fn (Unit $u) => [$u->id => sprintf(
-                                        '%s · %s%s',
-                                        $u->code,
-                                        __("admin.statuses.unit.{$u->status}"),
-                                        $u->isEncumbered($record?->id) ? ' · ⚠ '.__('admin.lease_options.encumbered') : '',
-                                    )]);
+                                    ->when($master, fn ($q, $m) => $q->where('id', '!=', $m));
                             })
                             // Live so a rate-priced lease re-derives its rent the moment the let area
                             // changes (LS-04) — the operator sees the money move as they pick space.
                             ->live(),
-                        Select::make('tenant_id')
+                        // The picker reach — this property's tenants plus the not-yet-affiliated —
+                        // is OptionDisplay's, and stricter than the version written here: the old
+                        // `orWhereDoesntHave('leases')` offered a tenant who owns a unit in ANOTHER
+                        // mall to every property in the portfolio.
+                        EntitySelect::make('tenant_id')
                             ->label(__('admin.resources.tenant.singular'))
-                            // Scope the picker to tenants in the user's visible properties
-                            // (+ unaffiliated tenants, which belong to no property yet).
-                            ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
-                                $ids = TenantScope::visibleAssetIds();
-                                if ($ids === null) {
-                                    return $query;
-                                }
-
-                                return $query->where(fn ($w) => $w
-                                    ->whereHas('leases.unit', fn ($u) => $u->whereIn('asset_id', $ids))
-                                    ->orWhereDoesntHave('leases'));
-                            })
-                            ->searchable()
-                            ->preload()
+                            ->entity(Tenant::class)
                             ->required()
                             // The counterparty is the lease. Re-pointing it would hand one tenant's
                             // billing history, deposit and AR to another under the same contract

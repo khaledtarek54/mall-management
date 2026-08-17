@@ -9,11 +9,11 @@ use App\Models\Vendor;
 use App\Services\PurchaseOrderPdfService;
 use App\Services\PurchaseRequestService;
 use App\Support\ApprovalPolicy;
+use App\Support\Filament\EntitySelect;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
@@ -146,12 +146,11 @@ class PurchaseRequestsTable
                         && self::canDecide($r))
                     ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
                     ->schema([
-                        Select::make('vendor_id')
+                        EntitySelect::make('vendor_id')
                             ->label(__('admin.procurement.fields.vendor'))
                             // Vendors are a SHARED catalog (PropertyIsolation), so unscoped —
                             // matching FacilityWorkOrderForm.
-                            ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id')->all())
-                            ->searchable()->native(false),
+                            ->entity(Vendor::class),
                         TextInput::make('order_reference')
                             ->label(__('admin.procurement.fields.order_reference'))->maxLength(100),
                     ])

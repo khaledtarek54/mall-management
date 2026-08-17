@@ -2,10 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Support\MorphMap;
 use App\Models\User;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
+use App\Support\Filament\EntitySelectFilter;
+use App\Support\MorphMap;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -42,6 +43,11 @@ class ActivitiesRelationManager extends RelationManager
     {
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with('causer')->latest('id'))
+            // An audit trail is read by WHEN and by WHO, both of them filters below. Every column
+            // here is derived at read time — the event word, the rendered change set — so there is
+            // no stored text a `LIKE` could reach, and a search box would return nothing for every
+            // query an operator tried.
+            ->searchable(false)
             ->columns([
                 TextColumn::make('created_at')
                     ->label(__('admin.activity.when'))
@@ -72,10 +78,9 @@ class ActivitiesRelationManager extends RelationManager
                 SelectFilter::make('event')
                     ->label(__('admin.activity.event'))
                     ->options(fn () => __('admin.activity.events')),
-                SelectFilter::make('causer_id')
+                EntitySelectFilter::make('causer_id')
                     ->label(__('admin.filters.causer'))
-                    ->options(fn () => User::orderBy('name')->pluck('name', 'id'))
-                    ->searchable()
+                    ->entity(User::class)
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['value'] ?? null, fn (Builder $q, $userId) => $q->where('causer_id', $userId)->where('causer_type', MorphMap::alias(User::class)))),
                 Filter::make('created_range')

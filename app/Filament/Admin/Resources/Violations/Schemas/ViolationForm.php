@@ -2,7 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Violations\Schemas;
 
+use App\Models\Asset;
+use App\Models\Tenant;
 use App\Models\Violation;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -16,10 +19,10 @@ class ViolationForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            Select::make('asset_id')
+            EntitySelect::make('asset_id')
                 ->label(__('admin.violations.fields.property'))
                 // Scoped to the user's visible properties (never leaks another mall).
-                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->entity(Asset::class)
                 ->default(fn () => TenantScope::currentAssetId())
                 // Locked to the current property, and additionally frozen once the fine is billed (the
                 // invoice's property is fixed by the resolved lease).
@@ -29,16 +32,16 @@ class ViolationForm
                 ->live()
                 ->native(false),
 
-            Select::make('tenant_id')
+            EntitySelect::make('tenant_id')
                 ->label(__('admin.violations.fields.tenant'))
                 // Scoped to tenants leasing in the user's visible properties (plus
                 // unaffiliated tenants) — a restricted user is never offered another
                 // mall's tenants. Same helper the TenantRequestForm uses.
-                ->options(fn () => TenantScope::selectableTenantOptions())
+                ->entity(Tenant::class)
                 // The options exclude a tenant leasing only in another property (or soft-deleted),
                 // yet the violation row stays openable via its own asset — resolve the stored tenant
                 // so edit never shows the raw id.
-                ->getOptionLabelUsing(fn ($value): ?string => \App\Models\Tenant::withTrashed()->find($value)?->name)
+                ->getOptionLabelUsing(fn ($value): ?string => Tenant::withTrashed()->find($value)?->name)
                 ->searchable()
                 ->preload()
                 ->required()

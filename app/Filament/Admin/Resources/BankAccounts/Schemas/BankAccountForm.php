@@ -2,9 +2,10 @@
 
 namespace App\Filament\Admin\Resources\BankAccounts\Schemas;
 
+use App\Models\Asset;
 use App\Models\LedgerAccount;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -21,11 +22,11 @@ class BankAccountForm
                 ->description(__('admin.helpers.bank_account_section'))
                 ->columns(2)
                 ->components([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.fields.property'))
                         // Property-scoped picker: never the raw Asset list, or a restricted user
                         // could file an account against a mall they cannot see.
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->default(fn () => TenantScope::currentAssetId())
                         ->required()
                         ->native(false)
@@ -50,19 +51,14 @@ class BankAccountForm
                         ->label(__('admin.fields.iban'))
                         ->maxLength(64),
 
-                    Select::make('ledger_account_id')
+                    EntitySelect::make('ledger_account_id')
                         ->label(__('admin.fields.ledger_account'))
+                        ->entity(LedgerAccount::class)
                         // Postable leaves only — a summary account cannot carry a balance, and
                         // offering one here would produce a bank that can never tie out.
-                        ->options(fn () => LedgerAccount::query()
+                        ->modifyOptionsQuery(fn ($query) => $query
                             ->where('is_postable', true)
-                            ->where('is_active', true)
-                            ->orderBy('code')
-                            ->get()
-                            ->mapWithKeys(fn (LedgerAccount $a) => [$a->id => $a->code.' — '.$a->displayName()])
-                            ->all())
-                        ->searchable()
-                        ->native(false)
+                            ->where('is_active', true))
                         ->helperText(__('admin.helpers.bank_ledger_account'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.bank_ledger_account')),
 

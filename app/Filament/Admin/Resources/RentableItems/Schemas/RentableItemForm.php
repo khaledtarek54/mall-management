@@ -3,8 +3,10 @@
 namespace App\Filament\Admin\Resources\RentableItems\Schemas;
 
 use App\Models\Area;
+use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\RentableItem;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -21,9 +23,9 @@ class RentableItemForm
             Section::make(__('admin.resources.rentable_item.singular'))
                 ->columns(3)
                 ->components([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->required()
                         ->native(false)
                         ->searchable()
@@ -55,26 +57,21 @@ class RentableItemForm
                     // Both pickers are scoped to the item's own property. `clampAssetId` because
                     // asset_id is client-supplied: keyed raw, the options would disclose another
                     // mall's floors and zones.
-                    Select::make('floor_id')
+                    EntitySelect::make('floor_id')
                         ->label(__('admin.pdf.floor'))
-                        ->options(fn (Get $get) => Floor::query()
-                            ->when(TenantScope::clampAssetId($get('asset_id')), fn ($q, $id) => $q->where('asset_id', $id))
-                            ->orderBy('level')
-                            ->get()
-                            ->mapWithKeys(fn (Floor $f) => [$f->id => $f->label()])
-                            ->all())
-                        ->native(false)
-                        ->searchable()
+                        ->entity(Floor::class)
+                        ->modifyOptionsQuery(fn ($query, Get $get) => $query->when(
+                            TenantScope::clampAssetId($get('asset_id')),
+                            fn ($q, $id) => $q->where('asset_id', $id),
+                        ))
                         ->helperText(__('admin.helpers.floor_id')),
-                    Select::make('area_id')
+                    EntitySelect::make('area_id')
                         ->label(__('admin.fields.participant_area'))
-                        ->options(fn (Get $get) => Area::query()
-                            ->when(TenantScope::clampAssetId($get('asset_id')), fn ($q, $id) => $q->where('asset_id', $id))
-                            ->orderBy('name')
-                            ->pluck('name', 'id')
-                            ->all())
-                        ->native(false)
-                        ->searchable(),
+                        ->entity(Area::class)
+                        ->modifyOptionsQuery(fn ($query, Get $get) => $query->when(
+                            TenantScope::clampAssetId($get('asset_id')),
+                            fn ($q, $id) => $q->where('asset_id', $id),
+                        )),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.enums.rentable_item_status'))

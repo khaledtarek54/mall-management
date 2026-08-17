@@ -16,6 +16,13 @@ class TenantImporter extends Importer
     public static function getColumns(): array
     {
         return [
+            // Optional, and kept when supplied: an operator migrating off another system arrives
+            // with tenant codes their accountant already uses. Left blank, the model allocates the
+            // next one in the series.
+            ImportColumn::make('code')
+                ->label(__('admin.fields.tenant_code'))
+                ->rules(['nullable', 'max:40']),
+
             ImportColumn::make('name')
                 ->label(__('admin.tables.tenant.name'))
                 ->requiredMapping()

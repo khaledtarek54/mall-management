@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\DepositTransactions\Schemas;
 
 use App\Models\DepositTransaction;
 use App\Models\Lease;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -29,29 +30,17 @@ class DepositTransactionForm
                         ->dehydrated(false)
                         ->placeholder(__('admin.fields.auto_generated')),
 
-                    Select::make('lease_id')
+                    // Tenant + asset are derived from the lease in the model, so the picker must be
+                    // property-scoped — which is now OptionDisplay's job, from Lease's own
+                    // `#[PropertyOwned(via: 'unit')]`. What stays is narrowing to the SELECTED mall.
+                    EntitySelect::make('lease_id')
                         ->label(__('admin.fields.lease'))
                         ->required()
-                        ->searchable()
-                        // Tenant + asset are derived from the lease in the model, so
-                        // the picker must be scoped to the user's visible properties.
-                        // In All-Properties mode currentAssetId() is null, so without
-                        // the visibleAssetIds() fallback a restricted user would see
-                        // (and could pick) every property's leases (property isolation).
-                        ->options(function () {
-                            $query = Lease::query()->with('unit', 'tenant');
-                            if ($assetId = TenantScope::currentAssetId()) {
-                                $query->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId));
-                            } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-                                $query->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids));
-                            }
-
-                            return $query->get()
-                                ->mapWithKeys(fn ($l) => [
-                                    $l->id => ($l->reference ?? ('Lease #'.$l->id)).' — '.($l->tenant?->name ?? ''),
-                                ])
-                                ->all();
-                        })
+                        ->entity(Lease::class)
+                        ->modifyOptionsQuery(fn ($query) => $query->when(
+                            TenantScope::currentAssetId(),
+                            fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                        ))
                         ->disabled($locked),
 
                     Select::make('type')

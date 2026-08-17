@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Employees\Schemas;
 
+use App\Models\Asset;
 use App\Models\Department;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -10,25 +12,26 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Unique;
 
 class EmployeeForm
 {
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            Select::make('asset_id')
+            EntitySelect::make('asset_id')
                 ->label(__('admin.employees.fields.property'))
                 // Scoped to the user's visible properties (never leaks another mall).
-                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->entity(Asset::class)
                 ->default(fn () => TenantScope::currentAssetId())
                 ->disabled(fn () => TenantScope::currentAssetId() !== null)
                 ->dehydrated()
                 ->required()
                 ->native(false),
-            Select::make('department_id')
+            EntitySelect::make('department_id')
                 ->label(__('admin.employees.fields.department'))
                 // Global + visible-property departments only.
-                ->options(fn () => Department::selectableOptions())
+                ->entity(Department::class)
                 ->searchable()
                 ->native(false),
             TextInput::make('code')
@@ -39,7 +42,7 @@ class EmployeeForm
                 // Clamped: `asset_id` is client-supplied, and a unique rule keyed on the raw
                 // value leaks whether an employee code exists in a property the user cannot
                 // see — the most sensitive instance of this class (TenantScope::clampAssetId).
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
             TextInput::make('name')
                 ->label(__('admin.employees.fields.name'))
                 ->required()

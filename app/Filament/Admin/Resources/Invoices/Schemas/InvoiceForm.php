@@ -7,9 +7,10 @@ use App\Models\ChargeCode;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\TaxCode;
+use App\Models\Tenant;
 use App\Support\CatalogueTaxRate;
+use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
-use App\Support\TenantScope;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Filament\Forms\Components\DatePicker;
@@ -54,50 +55,14 @@ class InvoiceForm
                             ->label(__('admin.fields.invoice_number'))
                             ->disabled()
                             ->dehydrated(),
-                        Select::make('lease_id')
+                        // Was forty lines of hand-rolled search + label here — the one picker in the
+                        // system anyone had bothered to make readable, which is exactly why it stayed
+                        // the only one. All of it now comes from App\Support\Search\OptionDisplay,
+                        // including the property scope and the fold the hand-rolled `LIKE` never had.
+                        EntitySelect::make('lease_id')
                             ->label(__('admin.fields.lease'))
                             ->disabled($locked)
-                            ->relationship(
-                                'lease',
-                                'reference',
-                                modifyQueryUsing: fn ($query) => $query
-                                    ->with(['tenant:id,name', 'unit:id,code'])
-                                    ->when(
-                                        TenantScope::visibleAssetIds(),
-                                        fn ($q, $assetIds) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $assetIds)),
-                                    ),
-                            )
-                            // Search columns are kept non-empty so Filament treats this as having
-                            // dynamic (server-side) search results — see Select::hasDynamicSearchResults().
-                            // The actual matching is done by getSearchResultsUsing() below, which spans
-                            // the lease reference, tenant name, and unit code.
-                            ->searchable(['reference'])
-                            ->getSearchResultsUsing(function (string $search): array {
-                                $term = '%'.$search.'%';
-
-                                return Lease::query()
-                                    ->with(['tenant:id,name', 'unit:id,code'])
-                                    ->when(
-                                        TenantScope::visibleAssetIds(),
-                                        fn ($q, $assetIds) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $assetIds)),
-                                    )
-                                    ->where(fn ($q) => $q
-                                        ->where('reference', 'like', $term)
-                                        ->orWhereHas('tenant', fn ($t) => $t->where('name', 'like', $term))
-                                        ->orWhereHas('unit', fn ($u) => $u->where('code', 'like', $term)))
-                                    ->limit(50)
-                                    ->get()
-                                    ->mapWithKeys(fn (Lease $lease) => [
-                                        $lease->id => trim(
-                                            ($lease->reference ?? '—').' · '.($lease->tenant?->name ?? '—').' · '.($lease->unit?->code ?? '—')
-                                        ),
-                                    ])
-                                    ->all();
-                            })
-                            ->preload()
-                            ->getOptionLabelFromRecordUsing(fn (Lease $record) => trim(
-                                ($record->reference ?? '—').' · '.($record->tenant?->name ?? '—').' · '.($record->unit?->code ?? '—')
-                            ))
+                            ->entity(Lease::class)
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 if (! $state) {
@@ -117,22 +82,16 @@ class InvoiceForm
                                 self::deriveDueDate($get, $set);
                             })
                             ->required(),
-                        Select::make('tenant_id')
+                        // The property scope is no longer written here. It used to be, and it was
+                        // WRONG: `whereHas('leases.unit')` alone excludes a unit OWNER, who holds no
+                        // lease at all — so module 37 buyers could be invoiced by the services and
+                        // never picked on this form. OptionDisplay's tenant scope covers leases,
+                        // ownerships and the not-yet-affiliated in one place, which is the only way
+                        // this form and PaymentForm can be guaranteed to agree.
+                        EntitySelect::make('tenant_id')
                             ->label(__('admin.resources.tenant.singular'))
                             ->disabled($locked)
-                            ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
-                                // Scope to tenants of the current property — a
-                                // property-restricted user must not invoice another
-                                // property's tenant. Mirrors PaymentForm.
-                                $ids = TenantScope::visibleAssetIds();
-
-                                return $query->when($ids !== null, fn ($q) => $q->whereHas(
-                                    'leases.unit',
-                                    fn ($u) => $u->whereIn('asset_id', $ids),
-                                ));
-                            })
-                            ->searchable(['name', 'legal_name', 'email', 'phone'])
-                            ->preload()
+                            ->entity(Tenant::class)
                             ->required(),
                         Select::make('status')
                             ->label(__('admin.tables.common.status'))

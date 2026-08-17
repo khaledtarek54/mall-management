@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
+use App\Support\Filament\EntitySelect;
 use App\Support\ReportCsv;
 use App\Support\StatusTabs;
 use App\Support\TenantScope;
@@ -166,12 +167,11 @@ class ListStockMovements extends ListRecords
                     ->required()
                     ->searchable()
                     ->native(false),
-                Select::make('inventory_item_id')
+                EntitySelect::make('inventory_item_id')
                     ->label(__('admin.inventory.fields.item'))
-                    ->options(fn () => InventoryItem::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
-                    ->required()
-                    ->searchable()
-                    ->native(false),
+                    ->entity(InventoryItem::class)
+                    ->modifyOptionsQuery(fn ($query) => $query->where('is_active', true))
+                    ->required(),
                 TextInput::make('quantity')
                     ->label(__('admin.inventory.fields.quantity'))
                     ->numeric()
@@ -284,27 +284,20 @@ class ListStockMovements extends ListRecords
     private function movementFields(): array
     {
         return [
-            Select::make('warehouse_id')
+            EntitySelect::make('warehouse_id')
                 ->label(__('admin.inventory.fields.warehouse'))
-                ->options(function () {
-                    $query = Warehouse::query()->where('is_active', true);
-                    if ($assetId = TenantScope::currentAssetId()) {
-                        $query->where('asset_id', $assetId);
-                    } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-                        $query->whereIn('asset_id', $ids);
-                    }
-
-                    return $query->orderBy('name')->pluck('name', 'id')->all();
-                })
-                ->required()
-                ->searchable()
-                ->native(false),
-            Select::make('inventory_item_id')
+                ->entity(Warehouse::class)
+                // The visible-properties half is OptionDisplay's; narrowing to the SELECTED mall
+                // stays, because that is a working preference rather than isolation.
+                ->modifyOptionsQuery(fn ($query) => $query
+                    ->where('is_active', true)
+                    ->when(TenantScope::currentAssetId(), fn ($q, $assetId) => $q->where('asset_id', $assetId)))
+                ->required(),
+            EntitySelect::make('inventory_item_id')
                 ->label(__('admin.inventory.fields.item'))
-                ->options(fn () => InventoryItem::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
+                ->entity(InventoryItem::class)
+                ->modifyOptionsQuery(fn ($query) => $query->where('is_active', true))
                 ->required()
-                ->searchable()
-                ->native(false)
                 ->live()
                 // Prefill the receipt cost from the item's standard cost (editable).
                 ->afterStateUpdated(fn (Set $set, $state) => $set('unit_cost', (float) (InventoryItem::find($state)?->unit_cost ?? 0))),

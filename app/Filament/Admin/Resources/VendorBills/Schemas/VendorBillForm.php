@@ -2,12 +2,14 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\Schemas;
 
+use App\Models\Asset;
 use App\Models\PurchaseRequest;
 use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Support\CatalogueTaxRate;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -37,17 +39,16 @@ class VendorBillForm
                         ->dehydrated(false)
                         ->placeholder(__('admin.fields.auto_generated')),
 
-                    Select::make('vendor_id')
+                    EntitySelect::make('vendor_id')
                         ->label(__('admin.fields.vendor'))
-                        ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id'))
-                        ->searchable()
+                        ->entity(Vendor::class)
                         ->required()
                         ->live() // the purchase picker below narrows to this vendor
                         ->disabled($locked),
 
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.fields.property'))
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->default(fn () => TenantScope::currentAssetId())
                         ->searchable()
                         ->preload()
@@ -59,34 +60,27 @@ class VendorBillForm
                     // decorative number into a commitment. Optional — an ad-hoc call-out has none.
                     // Scoped to the chosen vendor AND to properties this user can see, so the picker
                     // can't enumerate another mall's contracts (property-isolation read rule).
-                    Select::make('vendor_contract_id')
+                    EntitySelect::make('vendor_contract_id')
                         ->label(__('admin.fields.vendor_contract'))
-                        ->options(function (Get $get) {
+                        ->entity(VendorContract::class)
+                        // The remaining-commitment figure in the label is the presenter's now; what
+                        // stays is the vendor narrowing and the portfolio-wide contract exception
+                        // (`asset_id IS NULL` — a master agreement covering every mall), which the
+                        // derived property scope cannot know about.
+                        ->modifyOptionsQuery(function ($query, Get $get) {
                             $vendorId = $get('vendor_id');
 
                             if (blank($vendorId)) {
-                                return [];
+                                return $query->whereRaw('1 = 0');
                             }
 
                             $visible = TenantScope::visibleAssetIds();
 
-                            return VendorContract::query()
+                            return $query
                                 ->where('vendor_id', $vendorId)
                                 ->when($visible !== null, fn ($q) => $q->where(
                                     fn ($w) => $w->whereIn('asset_id', $visible)->orWhereNull('asset_id'),
-                                ))
-                                ->orderByDesc('start_date')
-                                ->get()
-                                ->mapWithKeys(fn (VendorContract $c) => [
-                                    $c->id => sprintf(
-                                        '%s · %s',
-                                        $c->reference ?: $c->name,
-                                        __('admin.vendors.commitment.remaining_short', [
-                                            'amount' => number_format($c->remainingValue(), 0),
-                                        ]),
-                                    ),
-                                ])
-                                ->all();
+                                ));
                         })
                         ->helperText(function (Get $get) {
                             $contract = VendorContract::find($get('vendor_contract_id'));
@@ -119,30 +113,24 @@ class VendorBillForm
                     // Scoped to the same vendor AND the same property, and to purchases that have
                     // actually been RECEIVED — an unreceived purchase has credited nothing to
                     // GRNI, so there is nothing for a bill to clear.
-                    Select::make('purchase_request_id')
+                    EntitySelect::make('purchase_request_id')
                         ->label(__('admin.fields.purchase_request'))
                         ->helperText(__('admin.helpers.bill_purchase_request'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.bill_purchase_request'))
-                        ->options(function (Get $get) {
+                        ->entity(PurchaseRequest::class)
+                        ->modifyOptionsQuery(function ($query, Get $get) {
                             $vendorId = $get('vendor_id');
                             $assetId = $get('asset_id');
 
                             if (! $vendorId || ! $assetId) {
-                                return [];
+                                return $query->whereRaw('1 = 0');
                             }
 
-                            return PurchaseRequest::query()
+                            return $query
                                 ->where('vendor_id', $vendorId)
                                 ->where('asset_id', $assetId)
-                                ->where('status', PurchaseRequest::STATUS_RECEIVED)
-                                ->orderByDesc('id')
-                                ->get()
-                                ->mapWithKeys(fn (PurchaseRequest $r) => [
-                                    $r->id => $r->reference.' — '.number_format((float) $r->total_value, 2).' EGP',
-                                ])
-                                ->all();
+                                ->where('status', PurchaseRequest::STATUS_RECEIVED);
                         })
-                        ->searchable()
                         ->placeholder(__('admin.fields.purchase_request_none'))
                         ->disabled($locked),
 

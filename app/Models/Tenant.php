@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PartyType;
+use App\Models\Concerns\AllocatesPartyCode;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
@@ -35,7 +36,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PortfolioShared]
 class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference, HasMedia
 {
-    use CanResetPassword, HasApiTokens, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, Notifiable, RefusesDeletionWhenReferenced, SoftDeletes;
+    use AllocatesPartyCode, CanResetPassword, HasApiTokens, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, Notifiable, RefusesDeletionWhenReferenced, SoftDeletes;
 
     /** Identity paperwork — commercial register, tax card, trade licence. */
     public const DOCUMENTS_COLLECTION = 'documents';
@@ -78,6 +79,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     public function searchTextSources(): array
     {
         return [
+            $this->code,
             $this->name,
             $this->legal_name,
             $this->trade_name,
@@ -128,6 +130,10 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     }
 
     protected $fillable = [
+        // The retailer's own number — quotable, unique, and the thing an operator types to mean
+        // exactly one tenant. Allocated by AllocatesPartyCode when blank; a code carried in from
+        // another system is kept as-is.
+        'code',
         'name',
         'legal_name',
         'type',
@@ -249,6 +255,12 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      * cache pointless. `status` is in the list because an inactive retailer drops out of the
      * directory and off their own offer cards — see MarketingPost::liveFor().
      */
+    /** Numbered from the operator-configurable `tenant` prefix — see AllocatesPartyCode. */
+    public static function partyCodeType(): string
+    {
+        return 'tenant';
+    }
+
     protected static function booted(): void
     {
         static::saved(function (self $tenant): void {

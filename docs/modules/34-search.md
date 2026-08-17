@@ -122,7 +122,116 @@ must call `->searchable(false)` explicitly — 18 do (14 relation managers + 4 r
 reason at the call site. A search box that always returns nothing is worse than none: it reads as *no such
 row*.
 
-## 5. Registry & gate
+## 5. Pickers — the surface the fold never reached
+
+Everything above answers *find me the record*. A **dropdown** asks the same question from inside a form, and
+until 2026-08-17 it answered it completely differently: `Select::make('tenant_id')->relationship('tenant',
+'name')->searchable()`, 119 times, across both panels.
+
+That one line is wrong four ways and none of them raises an error:
+
+| | What it did | What it should have done |
+|---|---|---|
+| **Fields** | searched `name` only | search the whole `search_text` blob |
+| **Fold** | raw `LIKE` on a raw column | fold both sides, like every other surface |
+| **Label** | one column | enough to tell two records apart |
+| **Failure** | empty / ambiguous dropdown | — |
+
+Concretely: a tenant's **phone number** has been in the blob since the blob existed and was findable from the
+top bar and the tenant list — and not from the tenant picker. «شركه» did not find «شركة». A mall running
+«Zara», «Zara Home» and «Zara Kids» offered three identical rows. Every one of those reads as *no such
+record*, so none was ever reported; the operator retypes, then leaves the form.
+
+### The one component
+
+`App\Support\Filament\EntitySelect` (+ `EntitySelectFilter`, because a `SelectFilter` is not a `Select`)
+takes everything from one registry:
+
+```php
+EntitySelect::make('tenant_id')
+    ->entity(Tenant::class)                                     // search, label, scope, cost
+    ->modifyOptionsQuery(fn ($query) => $query->active())       // this SCREEN's narrowing
+    ->preload()                                                 // browse-first pickers only
+```
+
+`->entity()` and `->relationship()` compose in either order — `Select::relationship()` installs its own
+`getSearchResultsUsing()`/`options()`/`getOptionLabelUsing()`, so `EntitySelect` re-applies after it. Without
+that override a chain that ended with `->relationship()` would silently revert to stock behaviour, which is
+the exact failure this component exists to remove and the one that looks like it is working.
+
+### `OptionDisplay` — what a record looks like when it is being picked
+
+`App\Support\Search\OptionDisplay` decides **presentation**, **cost** and **reach** for ~25 models; the
+match itself is still `HasSearchText`'s folded blob, unchanged. It feeds three surfaces from one definition —
+the options in a dropdown, the value shown once one is chosen, and the details under a global-search hit
+(which were per-resource before, present on 21 of ~35 and blank on the rest).
+
+- **`presenters()`** → a `RecordOption` of *title · code · subtitle · badge*. Four fields, chosen for one
+  question: standing in front of two of these, what tells them apart? A tenant carries its unit and phone; an
+  invoice its due date and what is still outstanding; a unit its floor, area and state.
+- **`EAGER`** → what each presenter reaches for, so a page of options costs a constant number of queries. The
+  gate asserts every relation named here **exists** — a typo silently restores the N+1 and looks like a fix.
+- **`PRELOAD`** → sets bounded by the shape of the business (property, zone, floor, department, warehouse).
+  Not "small today": a tenant table is small on day one of every deployment. A picker where *browsing* is the
+  flow rather than looking up — the lease form's unit pickers — opts in per call site with `->preload()`.
+- **`scope()`** → **derived from `PropertyIsolation`**, never re-listed. `#[PropertyOwned(via: 'unit')]`
+  already says how a Lease reaches a property. `PICKER_SCOPES` holds the one case that needs more.
+
+> **The tenant picker was scoped three different ways in three files.** `InvoiceForm` used
+> `whereHas('leases.unit')` — so a unit OWNER, who holds no lease at all, could be invoiced by the services
+> and never picked on the form. `PaymentForm` had the correct lease-or-ownership version.
+> `TenantScope::selectableTenantOptions()` used `leases.unit` **or** `doesntHave('leases')`, which offered a
+> tenant with no lease but an ownership in **another** property to every property in the portfolio. One
+> definition now, and the unaffiliated branch checks both relations.
+
+### Escaping is the reason the label is a value object
+
+A two-line option needs markup, and markup needs `Select::allowHtml()` — which makes Filament emit the label
+through `{!! !!}` and hand it to the browser as `innerHTML`. Every value in an option is operator-typed. So
+`RecordOption::toHtml()` escapes each part and is the **only** function that builds option markup; the gate
+fails an `allowHtml()` select whose label comes from anywhere else. `toText()` exists for filter indicator
+chips, native selects and tests, where markup would be wrong rather than merely unnecessary.
+
+### The property scope is a WRITE guard, not a filter
+
+Filament validates a Select by asking it to resolve the submitted value's label, and rejects the value with
+`Rule::in([])` if it cannot (`Select::getInValidationRuleValues()`). So **the label lookup is the guard
+against a posted foreign key from another property.** `OptionDisplay::label()` therefore resolves through
+`pickable()` — scoped — even though an unscoped `find()` reads as the friendlier choice. Making that lookup
+unscoped would turn every entity select in the panel into an accepted cross-property FK, silently.
+
+The corollary caught a real mismatch: the owner-request property picker was built from `accessibleAssets()`
+while `assertAssetInScope()` measured against `visibleAssetIds()`, so it **offered properties its own guard
+would 403**. Picker and guard now read the same source.
+
+### The one exception: pickers that are ABOUT the portfolio
+
+`->acrossProperties()` drops the derived scope for a picker that is not filling in a record's own
+field. There is currently **one**: the user form's property-assignment field, which grants access
+across malls and defaults to every real property — scope it to the mall the grantor happens to be
+working in and the form's own default fails its own validation. Since the scope is also the write
+guard, a call site using it owns the question of what the submitted value may be, and states its
+reason inline.
+
+(The other candidate went the other way. The owner-request property picker was built from
+`accessibleAssets()` while its guard measured `visibleAssetIds()` — it OFFERED properties it would
+then 403. That one was a bug, not an exception, and both sides now read the same source.)
+
+### Counterparty codes
+
+A tenant and a vendor now carry a code — `TN-0000042`, `VN-0000018` — allocated by `AllocatesPartyCode`
+under the same lock as every document number, configurable from the same `DocumentNumbering::TYPES`, and kept
+as-is when an import supplies one. They were the only two records in the system people talk about daily that
+had no number: a unit is `A-114`, an employee `EMP-0042`, a lease `LSE-AW-2026-0001`. Yardi, MRI and Entrata
+all make the tenant code the primary handle.
+
+`EntitySelectConformanceTest` gates the whole of section 5: every model-backed picker is an `EntitySelect`,
+every `EntitySelect` declares an entity, only `RecordOption` builds markup, every eager relation resolves,
+every presenter runs, and the picker vocabulary exists in **both** languages. It distinguishes a record
+picker from a value picker by what the query keys on (`pluck('name', 'id')` vs `pluck('city', 'city')`)
+rather than by a registry of exceptions.
+
+## 6. Registry & gate
 
 `App\Support\SearchPolicy` holds what Filament has no home for: the indexed-model list, exemptions **with a
 stated reason**, the category order, the query floor and the per-resource result limit. There is deliberately
@@ -144,7 +253,7 @@ a fourth thing to keep in step with three that cannot drift.
 Verified by mutation: removing a `->searchable(false)`, pointing a path at a raw column, and typo'ing a
 relation name each fail the specific assertion that claims to cover them.
 
-## 6. Extension points (how to change safely)
+## 7. Extension points (how to change safely)
 
 - **New searchable module** → add the model to `SearchPolicy::INDEXED`, add `HasSearchText` +
   `searchTextSources()`, write a migration adding `search_text`, add `SearchesNormalizedText` to the resource
@@ -154,8 +263,13 @@ relation name each fail the specific assertion that claims to cover them.
   blobs on its own, so until it runs, existing records are searchable only under the OLD rules. Same after
   changing a model's `searchTextSources()`.
 - **Reordering results** → `SearchPolicy::PRIORITY`, one list, top to bottom.
+- **A new dropdown that picks a record** → `EntitySelect::make(...)->entity(Model::class)`. Nothing else is
+  needed; the gate names it if you reach for a plain `Select`. Add a presenter to `OptionDisplay` when the
+  model's name alone would not separate two of them, and an `EAGER` entry for whatever that presenter reads.
+- **A screen-specific fact on one picker** (the lease form's *⚠ encumbered*) → `->decorateOption()` +
+  `->withRelations()`, not a line in the presenter that every other form would also have to read.
 
-## 7. Gotchas
+## 8. Gotchas
 
 - `search_text` is derived. A mass `Model::query()->update()` fires no model events and leaves it stale —
   `atriom:rebuild-search` is the repair (idempotent; a re-run rewrites nothing and never moves `updated_at`).
@@ -167,5 +281,13 @@ relation name each fail the specific assertion that claims to cover them.
   (`TenantResource::getEloquentQuery()` — unaffiliated tenants belong to no property), and consolidated
   company-level rows (`orWhereNull('asset_id')` on Expense / JournalEntry / Payroll / VendorBill /
   DepositTransaction) surface to a property-pinned user.
+- **Global search TITLES are untouched by the picker work, on purpose.** `AtriomGlobalSearchProvider`
+  promotes an exact hit by comparing the *fold of the title* to the fold of the query; a rich composite title
+  would never match and the promotion would silently stop working. Only the DETAILS come from `OptionDisplay`.
+- A `SelectFilter::relationship()` needs its title attribute — `Select::relationship()` does not.
+  `EntitySelectFilter` defaults it, because the natural shape once labels come from the registry is
+  `->relationship('tenant')`, and the mismatch is a **fatal at class load**: the filter form is built lazily
+  inside the table's Blade, so the page 500s on opening the filter popover and every test that never opens one
+  stays green.
 - `ViolationResource::$recordTitleAttribute` is still `reference`, an accessor. That is safe **because** the
   searchable attributes are explicit — it is used for display only. Do not "simplify" it back into a search key.

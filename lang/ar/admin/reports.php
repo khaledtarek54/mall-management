@@ -304,6 +304,8 @@ return [
         'purchase_request' => 'طلب شراء',
         'lease' => 'عقد إيجار',
         'post_dated_cheque' => 'شيك آجل',
+        'tenant' => 'كود المستأجر',
+        'vendor' => 'كود المورّد',
     ],
 
 ];

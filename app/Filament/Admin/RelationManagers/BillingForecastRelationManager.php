@@ -58,6 +58,10 @@ class BillingForecastRelationManager extends RelationManager
     {
         return $table
             ->records(fn (): array => $this->rows())
+            // Not a table of rows at all: `records()` returns an array computed from the charge
+            // schedule, so there is no query for a search term to constrain. (Pre-existing — this
+            // register shipped with a box that could never answer.)
+            ->searchable(false)
             ->columns([
                 TextColumn::make('period')
                     ->label(__('admin.forecast.period'))

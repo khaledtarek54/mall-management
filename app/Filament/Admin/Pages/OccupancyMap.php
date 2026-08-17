@@ -8,10 +8,10 @@ use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Asset;
 use App\Models\Unit;
 use App\Support\AssignedAssets;
+use App\Support\Filament\EntitySelect;
 use App\Support\ReportPreferences;
 use App\Support\TenantScope;
 use BackedEnum;
-use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -120,10 +120,10 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
                     ->columns(['sm' => 2, 'lg' => 3])
                     ->visible(fn (): bool => $this->isAllPropertiesMode() && $this->visibleAssets()->count() > 1)
                     ->schema([
-                        Select::make('assetId')
+                        EntitySelect::make('assetId')
                             ->label(__('admin.occupancy.select_property'))
-                            ->options(fn (): array => $this->visibleAssets()->pluck('name', 'id')->all())
-                            ->native(false)
+                            ->entity(Asset::class)
+                            ->modifyOptionsQuery(fn ($query) => $query->whereIn('id', $this->visibleAssets()->pluck('id')))
                             ->live()
                             // Remembering happens HERE rather than through ReportFilters, because this picker is
                             // exempt from the shared component (see ReportFilters::EXEMPT) — the

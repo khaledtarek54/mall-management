@@ -5,9 +5,11 @@ namespace App\Filament\Portal\Resources\Invoices\Tables;
 use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Unit;
 use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Support\DemoPayments;
+use App\Support\Filament\EntitySelectFilter;
 use App\Support\Portal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -89,21 +91,16 @@ class InvoicesTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.invoice'))->only(['issued', 'partially_paid', 'paid', 'overdue'])->all()),
-                SelectFilter::make('unit_id')
+                EntitySelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
-                    ->options(function (): array {
-                        $tenant = Portal::tenant();
-                        if (! $tenant) {
-                            return [];
-                        }
-
-                        return $tenant->leases()
-                            ->with('unit')
-                            ->get()
-                            ->pluck('unit.code', 'unit.id')
-                            ->filter()
-                            ->all();
-                    })
+                    ->entity(Unit::class)
+                    // The retailer's OWN space only. `visibleAssetIds()` is null in the portal (the
+                    // authenticated party is a TenantUser, not a User), so this narrowing is the
+                    // whole scope here rather than an addition to it.
+                    ->modifyOptionsQuery(fn ($query) => $query->whereIn(
+                        'id',
+                        Portal::tenant()?->leases()->with('unit')->get()->pluck('unit.id')->filter() ?? [],
+                    ))
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId)))),
                 Filter::make('period')

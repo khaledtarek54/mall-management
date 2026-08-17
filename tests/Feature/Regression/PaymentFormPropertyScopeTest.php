@@ -18,6 +18,7 @@
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -41,19 +42,25 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
-/** Resolve the option keys for the tenant_id select on a mounted CreatePayment page. */
-function paymentTenantOptionKeys(\Livewire\Features\SupportTesting\Testable $page): array
+/**
+ * The tenant ids a mounted CreatePayment page would OFFER for a typed query.
+ *
+ * Reads the SEARCH path, not `getOptions()`. Since 2026-08-17 the tenant picker is an
+ * `EntitySelect`: it searches server-side over the folded `search_text` blob and holds no options
+ * until something is typed, because a tenant table grows and is never loaded whole into a page.
+ * `getOptions()` therefore returns `[]` for every tenant — which would make the exclusion below
+ * pass for the wrong reason, and is exactly why the inclusion is asserted alongside it.
+ */
+function paymentTenantOptionKeys(Testable $page, string $query): array
 {
     $component = $page->instance()->form->getComponent('tenant_id');
 
-    return array_map('intval', array_keys($component->getOptions()));
+    return array_map('intval', array_keys($component->getSearchResults($query)));
 }
 
 it('offers the current property tenant and excludes another property tenant in the payment form', function () {
     $page = Livewire::test(CreatePayment::class)->assertOk();
 
-    $options = paymentTenantOptionKeys($page);
-
-    expect($options)->toContain($this->tenantA->id)      // property A tenant — offered
-        ->and($options)->not->toContain($this->tenantB->id); // property B tenant — excluded (no IDOR)
+    expect(paymentTenantOptionKeys($page, $this->tenantA->name))->toContain($this->tenantA->id)
+        ->and(paymentTenantOptionKeys($page, $this->tenantB->name))->not->toContain($this->tenantB->id);
 });

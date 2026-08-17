@@ -5,6 +5,8 @@ namespace App\Filament\Admin\Resources\VendorBills\Tables;
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Actions\PostMonthAction;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Models\Vendor;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -83,11 +85,10 @@ class VendorBillsTable
                 SelectFilter::make('category')
                     ->label(__('admin.fields.category'))
                     ->options(fn () => __('admin.enums.vendor_bill_category')),
-                SelectFilter::make('vendor_id')
+                EntitySelectFilter::make('vendor_id')
                     ->label(__('admin.fields.vendor'))
-                    ->relationship('vendor', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('vendor')
+                    ->entity(Vendor::class),
                 TrashedFilter::make(),
             ])
             // "What do we owe this vendor across all its bills" — the AP conversation.

@@ -304,6 +304,8 @@ return [
         'purchase_request' => 'Purchase request',
         'lease' => 'Lease',
         'post_dated_cheque' => 'Post-dated cheque',
+        'tenant' => 'Tenant code',
+        'vendor' => 'Supplier code',
     ],
 
 ];

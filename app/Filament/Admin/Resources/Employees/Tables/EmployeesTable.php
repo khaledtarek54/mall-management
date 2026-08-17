@@ -3,7 +3,9 @@
 namespace App\Filament\Admin\Resources\Employees\Tables;
 
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -74,11 +76,10 @@ class EmployeesTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn (): array => __('admin.employees.statuses')),
-                SelectFilter::make('department_id')
+                EntitySelectFilter::make('department_id')
                     ->label(__('admin.employees.fields.department'))
-                    ->relationship('department', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('department')
+                    ->entity(Department::class),
                 SelectFilter::make('payment_method')
                     ->label(__('admin.employees.fields.payment_method'))
                     ->options(fn (): array => __('admin.employees.methods')),

@@ -5,11 +5,11 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Models\InventoryItem;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestLine;
+use App\Support\Filament\EntitySelect;
 use App\Support\Modules;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -57,18 +57,18 @@ class PurchaseRequestLinesRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('inventory_item_id')
+            EntitySelect::make('inventory_item_id')
                 ->label(__('admin.procurement.fields.item'))
                 ->helperText(__('admin.procurement.fields.item_hint'))
                 // The catalog is a deliberately SHARED register — a pump seal is the same part in
                 // every mall — so it is not property-filtered.
-                ->options(fn () => InventoryItem::query()->where('is_active', true)->orderBy('sku')
-                    ->get(['id', 'sku', 'name'])
-                    ->mapWithKeys(fn (InventoryItem $i) => [$i->id => $i->sku.' — '.$i->name])->all())
+                ->entity(InventoryItem::class)
+                ->modifyOptionsQuery(fn ($query) => $query->where('is_active', true))
                 // Options exclude deactivated items, but a line may reference an item deactivated
                 // after it was added — resolve any stored item so edit shows its SKU, not the raw id.
+                // After `->entity()`, which installs its own narrowed resolver.
                 ->getOptionLabelUsing(fn ($value): ?string => ($i = InventoryItem::find($value)) ? $i->sku.' — '.$i->name : null)
-                ->searchable()->preload()->native(false)->live()
+                ->live()
                 ->requiredWithout('description'),
 
             TextInput::make('description')
@@ -100,6 +100,9 @@ class PurchaseRequestLinesRelationManager extends RelationManager
     {
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with('item'))
+            // The lines of ONE purchase request — a handful of rows, all on screen. Their only text
+            // is `label()`, an accessor over the item relation, which no column search can reach.
+            ->searchable(false)
             ->columns([
                 TextColumn::make('label')
                     ->label(__('admin.procurement.fields.item'))

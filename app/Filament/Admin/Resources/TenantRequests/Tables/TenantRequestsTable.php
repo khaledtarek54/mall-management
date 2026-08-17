@@ -11,6 +11,8 @@ use App\Models\TenantRequest;
 use App\Models\User;
 use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\TenantRequestService;
+use App\Support\Filament\EntitySelect;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -181,12 +183,12 @@ class TenantRequestsTable
                 SelectFilter::make('channel')
                     ->label(__('admin.filters.channel'))
                     ->options(fn () => __('admin.enums.request_channel')),
-                SelectFilter::make('department_id')
+                EntitySelectFilter::make('department_id')
                     ->label(__('admin.resources.department.singular'))
-                    ->options(fn () => Department::selectableOptions()),
-                SelectFilter::make('assigned_to')
+                    ->entity(Department::class),
+                EntitySelectFilter::make('assigned_to')
                     ->label(__('admin.filters.assigned_to'))
-                    ->options(fn () => User::orderBy('name')->pluck('name', 'id')),
+                    ->entity(User::class),
                 Filter::make('open_only')
                     ->label(__('admin.filters.open_only'))
                     ->query(fn (Builder $query) => $query->whereIn('status', TenantRequest::OPEN_STATUSES))
@@ -298,10 +300,9 @@ class TenantRequestsTable
                     ->authorize(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
                     ->fillForm(fn (TenantRequest $record) => ['assigned_to' => $record->assigned_to])
                     ->schema([
-                        Select::make('assigned_to')
+                        EntitySelect::make('assigned_to')
                             ->label(__('admin.fields.assigned_to'))
-                            ->options(fn () => User::orderBy('name')->pluck('name', 'id'))
-                            ->searchable()
+                            ->entity(User::class)
                             ->placeholder(__('admin.fields.unassigned')),
                     ])
                     ->action(function (TenantRequest $record, array $data) {
@@ -322,9 +323,9 @@ class TenantRequestsTable
                     ->authorize(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
                     ->fillForm(fn (TenantRequest $record) => ['department_id' => $record->department_id])
                     ->schema([
-                        Select::make('department_id')
+                        EntitySelect::make('department_id')
                             ->label(__('admin.resources.department.singular'))
-                            ->options(fn () => Department::selectableOptions())
+                            ->entity(Department::class)
                             ->searchable()
                             ->placeholder(__('admin.fields.unassigned'))
                             ->native(false),

@@ -4,9 +4,11 @@ namespace App\Filament\Admin\Resources\CamExpensePools\Schemas;
 
 use App\Enums\InvoiceItemType;
 use App\Models\Area;
+use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\ChargeCode;
 use App\Models\LedgerAccount;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use App\Support\Vat;
 use Filament\Forms\Components\Select;
@@ -78,9 +80,9 @@ class CamExpensePoolForm
                 ->description(__('admin.sections.cam_pool_description'))
                 ->columns(3)
                 ->components([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->required()
                         ->native(false)
                         ->searchable()
@@ -147,16 +149,15 @@ class CamExpensePoolForm
                         ->live()
                         ->helperText(__('admin.helpers.participant_scope'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.participant_scope')),
-                    Select::make('participant_area_id')
+                    EntitySelect::make('participant_area_id')
                         ->label(__('admin.fields.participant_area'))
-                        // Scoped to the pool's own property, like every cross-model select here.
-                        ->options(fn (Get $get) => Area::query()
-                            ->when(TenantScope::clampAssetId($get('asset_id')), fn ($q, $id) => $q->where('asset_id', $id))
-                            ->orderBy('name')
-                            ->pluck('name', 'id')
-                            ->all())
-                        ->native(false)
-                        ->searchable()
+                        ->entity(Area::class)
+                        // Narrowed to the pool's own property — the one chosen on this form, which
+                        // is not the same question as "which properties may this user see".
+                        ->modifyOptionsQuery(fn ($query, Get $get) => $query->when(
+                            TenantScope::clampAssetId($get('asset_id')),
+                            fn ($q, $id) => $q->where('asset_id', $id),
+                        ))
                         ->required(fn ($get): bool => $get('participant_scope') === CamExpensePool::PARTICIPANTS_AREA)
                         ->visible(fn ($get): bool => $get('participant_scope') === CamExpensePool::PARTICIPANTS_AREA)
                         ->helperText(__('admin.helpers.participant_area'))
@@ -211,17 +212,15 @@ class CamExpensePoolForm
                         ->required(fn ($get): bool => $get('estimate_basis') === CamExpensePool::BASIS_BILLED)
                         ->visible(fn ($get): bool => $get('estimate_basis') === CamExpensePool::BASIS_BILLED)
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
-                    Select::make('ledgerAccounts')
+                    EntitySelect::make('ledgerAccounts')
                         ->label(__('admin.cam.ledger_accounts'))
                         ->helperText(__('admin.cam.ledger_accounts_help'))
-                        ->relationship('ledgerAccounts', 'name_en', fn ($query) => $query
+                        ->entity(LedgerAccount::class)
+                        ->relationship('ledgerAccounts')
+                        ->modifyOptionsQuery(fn ($query) => $query
                             ->where('type', 'expense')
-                            ->where('is_postable', true)
-                            ->orderBy('code'))
-                        ->getOptionLabelFromRecordUsing(fn (LedgerAccount $record) => "{$record->code} · {$record->name_en}")
+                            ->where('is_postable', true))
                         ->multiple()
-                        ->preload()
-                        ->searchable()
                         ->columnSpanFull()
                         ->visible(fn ($get) => $get('expense_basis') === CamExpensePool::BASIS_LEDGER)
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),

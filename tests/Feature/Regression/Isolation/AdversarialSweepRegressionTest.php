@@ -1,17 +1,21 @@
 <?php
 
 use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
-use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
 use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
+use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Vendors\Pages\EditVendor;
 use App\Filament\Admin\Resources\Vendors\RelationManagers\ContractsRelationManager;
 use App\Filament\Admin\Widgets\MallStats;
+use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Tenant;
 use App\Models\TenantRequest;
+use App\Models\Unit;
 use App\Models\Vendor;
 use App\Models\VendorContract;
+use App\Support\Search\OptionDisplay;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -24,7 +28,6 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  *   (C) dashboard widgets scoping by currentAssetId() (null in All-Properties mode → leak).
  * A restricted user assigned only to property A must never see/write property B's data.
  */
-
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
@@ -55,8 +58,20 @@ it('blocks the quick-lease guard for an out-of-scope unit (and allows in-scope)'
 
 it('wires the guard + scoped picker into the quickLease action (not just the standard page)', function () {
     $src = file_get_contents(app_path('Filament/Admin/Resources/Leases/Tables/LeasesTable.php'));
-    expect($src)->toContain('assertUnitAssetInScope')                 // write guard in the action
-        ->and($src)->toContain('TenantScope::visibleAssetIds');       // scoped unit picker
+
+    // The write guard, still a literal in that file.
+    expect($src)->toContain('assertUnitAssetInScope')
+        // The scoped picker is no longer a `TenantScope::visibleAssetIds` call written here — it is
+        // `EntitySelect`, which derives the scope from `Unit`'s own `#[PropertyOwned]`. Asserting the
+        // mechanism this screen uses…
+        ->and($src)->toContain('->entity(Unit::class)');
+
+    // …and asserting that the mechanism actually excludes the other property, which the string
+    // never did. A grep proves a line exists; this proves it works.
+    $offered = OptionDisplay::pickable(Unit::class)->pluck('id')->all();
+
+    expect($offered)->toContain($this->unitA->id)
+        ->and($offered)->not->toContain($this->unitB->id);
 });
 
 /* ---- (B) Relation-manager tables scoped to the visible properties --------- */
@@ -131,7 +146,7 @@ it('MallStats does not leak another property\'s AR in All-Properties mode', func
 
 /* ---- helpers -------------------------------------------------------------- */
 
-function makeTenantRequestFor(\App\Models\Unit $unit, \App\Models\Tenant $tenant): TenantRequest
+function makeTenantRequestFor(Unit $unit, Tenant $tenant): TenantRequest
 {
     return TenantRequest::create([
         'reference' => 'MR-'.uniqid(),
@@ -146,7 +161,7 @@ function makeTenantRequestFor(\App\Models\Unit $unit, \App\Models\Tenant $tenant
     ]);
 }
 
-function makePaymentFor(\App\Models\Invoice $invoice, \App\Models\Tenant $tenant): Payment
+function makePaymentFor(Invoice $invoice, Tenant $tenant): Payment
 {
     $payment = Payment::create([
         'tenant_id' => $tenant->id,

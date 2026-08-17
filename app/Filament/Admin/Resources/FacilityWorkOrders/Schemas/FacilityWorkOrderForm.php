@@ -2,17 +2,21 @@
 
 namespace App\Filament\Admin\Resources\FacilityWorkOrders\Schemas;
 
+use App\Models\Asset;
 use App\Models\Department;
+use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
 use App\Models\Unit;
 use App\Models\Vendor;
 use App\Support\EquipmentPicker;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class FacilityWorkOrderForm
@@ -23,37 +27,36 @@ class FacilityWorkOrderForm
         $locked = fn (?FacilityWorkOrder $record) => $record !== null && $record->isTerminal();
 
         return $schema->columns(2)->components([
-            Select::make('asset_id')
+            EntitySelect::make('asset_id')
                 ->label(__('admin.facility.fields.property'))
-                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->entity(Asset::class)
                 ->default(fn () => TenantScope::currentAssetId())
                 ->disabled(fn (?FacilityWorkOrder $record) => TenantScope::currentAssetId() !== null || $record !== null)
                 ->dehydrated()
                 ->required()
                 ->live()
                 ->native(false),
-            Select::make('unit_id')
+            EntitySelect::make('unit_id')
                 ->label(__('admin.facility.fields.unit'))
+                ->entity(Unit::class)
                 // Clamped: asset_id is ->live() and client-supplied, so the raw value would
                 // enumerate an invisible property's units.
-                ->options(fn (Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
-                    ? Unit::query()->where('asset_id', $assetId)->orderBy('code')->pluck('code', 'id')->all()
-                    : [])
-                ->searchable()
-                ->native(false)
+                ->modifyOptionsQuery(fn ($query, Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
+                    ? $query->where('asset_id', $assetId)
+                    : $query->whereRaw('1 = 0'))
                 ->disabled($locked),
             Select::make('equipment_id')
                 ->live()
-                ->afterStateUpdated(function ($state, \Filament\Schemas\Components\Utilities\Set $set, string $operation): void {
+                ->afterStateUpdated(function ($state, Set $set, string $operation): void {
                     // Only on CREATE: re-picking the machine on an existing job must not silently
                     // re-grade a priority someone already decided.
                     if ($operation !== 'create' || ! $state) {
                         return;
                     }
 
-                    $equipment = \App\Models\Equipment::find($state);
+                    $equipment = Equipment::find($state);
 
-                    if ($equipment instanceof \App\Models\Equipment) {
+                    if ($equipment instanceof Equipment) {
                         $set('priority', $equipment->defaultWorkOrderPriority());
                     }
                 })
@@ -110,9 +113,9 @@ class FacilityWorkOrderForm
                 ->required()
                 ->native(false)
                 ->disabled($locked),
-            Select::make('department_id')
+            EntitySelect::make('department_id')
                 ->label(__('admin.facility.fields.department'))
-                ->options(fn () => Department::selectableOptions())
+                ->entity(Department::class)
                 ->searchable()
                 ->native(false)
                 ->disabled($locked),

@@ -2,7 +2,8 @@
 
 namespace App\Filament\Admin\Resources\MarketingBudgets\Schemas;
 
-use App\Support\TenantScope;
+use App\Models\Asset;
+use App\Support\Filament\EntitySelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -20,9 +21,9 @@ class MarketingBudgetForm
                 ->components([
                     // Identity fields are auto-provisioned (one budget per property
                     // per year) — shown read-only, never editable.
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.tables.marketing_budget.property'))
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->disabled(),
                     TextInput::make('period_year')
                         ->label(__('admin.tables.marketing_budget.year'))

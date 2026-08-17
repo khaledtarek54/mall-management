@@ -4,10 +4,12 @@ namespace App\Filament\Admin\Resources\CreditNotes\Schemas;
 
 use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\Lease;
 use App\Models\TaxCode;
+use App\Models\Tenant;
 use App\Support\CatalogueTaxRate;
+use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
-use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -50,42 +52,25 @@ class CreditNoteForm
                             ->dehydrated()
                             ->placeholder(__('admin.fields.auto_generated')),
 
-                        Select::make('tenant_id')
+                        EntitySelect::make('tenant_id')
                             ->label(__('admin.resources.tenant.singular'))
-                            ->options(fn () => TenantScope::selectableTenantOptions())
+                            ->entity(Tenant::class)
                             ->disabled($locked)
                             ->searchable()
                             ->preload()
                             ->required()
                             ->live(),
 
-                        Select::make('invoice_id')
+                        // Was a 50-row window with a hand-built label; now a server-side search over
+                        // the whole (property-scoped) set, so an invoice from six months ago is one
+                        // typed number away instead of off the end of the list.
+                        EntitySelect::make('invoice_id')
                             ->label(__('admin.fields.invoice'))
                             ->disabled($locked)
-                            ->options(function (Get $get) {
-                                $tenantId = $get('tenant_id');
-                                if (! $tenantId) {
-                                    return [];
-                                }
-                                // Scope to the user's visible properties — in All-Properties
-                                // mode currentAssetId() is null, so fall back to the visible
-                                // set (a shared tenant may have invoices across properties).
-                                $visibleAssetIds = TenantScope::visibleAssetIds();
-
-                                return Invoice::query()
-                                    ->where('tenant_id', $tenantId)
-                                    ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
-                                    ->orderByDesc('issue_date')
-                                    ->limit(50)
-                                    ->get()
-                                    ->mapWithKeys(fn ($i) => [$i->id => $i->number.' — EGP '.number_format((float) $i->total, 2)])
-                                    ->all();
-                            })
-                            // The options are capped at the 50 most-recent invoices, so a stored invoice
-                            // that scrolled out of that window (or a disabled Select on a locked note)
-                            // would render its raw id; resolve any stored value to its number.
-                            ->getOptionLabelUsing(fn ($value): ?string => Invoice::find($value)?->number)
-                            ->searchable()
+                            ->entity(Invoice::class)
+                            ->modifyOptionsQuery(fn ($query, Get $get) => $get('tenant_id')
+                                ? $query->where('tenant_id', $get('tenant_id'))
+                                : $query->whereRaw('1 = 0'))
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                 if (! $state) {
@@ -126,25 +111,13 @@ class CreditNoteForm
                                 }
                             }),
 
-                        Select::make('lease_id')
+                        // The property scope — without which a restricted user could credit another
+                        // property's books — is OptionDisplay's now, derived from `Lease`'s own
+                        // `#[PropertyOwned(via: 'unit')]` rather than restated here.
+                        EntitySelect::make('lease_id')
                             ->label(__('admin.fields.lease'))
                             ->disabled($locked)
-                            ->relationship(
-                                'lease',
-                                'reference',
-                                // Scope to the user's visible properties — in All-Properties
-                                // mode currentAssetId() is null, so without the visibleAssetIds()
-                                // fallback a restricted user could pick any property's lease and
-                                // credit another property's books (property isolation).
-                                modifyQueryUsing: function ($query) {
-                                    $ids = TenantScope::visibleAssetIds();
-                                    if ($ids !== null) {
-                                        $query->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids));
-                                    }
-                                },
-                            )
-                            ->searchable()
-                            ->preload(),
+                            ->entity(Lease::class),
 
                         Select::make('reason')
                             ->label(__('admin.fields.credit_note_reason'))

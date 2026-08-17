@@ -3,11 +3,13 @@
 namespace App\Filament\Admin\Resources\ServicePlans\Schemas;
 
 use App\Models\Area;
+use App\Models\Asset;
 use App\Models\Department;
 use App\Models\ServicePlan;
 use App\Models\Unit;
 use App\Models\Vendor;
 use App\Support\EquipmentPicker;
+use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
 use App\Support\TenantScope;
 use Filament\Forms\Components\CheckboxList;
@@ -39,35 +41,33 @@ class ServicePlanForm
                 ->persistTabInQueryString()
                 ->tabs([
                     FormTab::make('admin.facility.tabs.scope', [
-                        Select::make('asset_id')
+                        EntitySelect::make('asset_id')
                             ->label(__('admin.facility.fields.property'))
-                            ->options(fn () => TenantScope::selectableAssetOptions())
+                            ->entity(Asset::class)
                             ->default(fn () => TenantScope::currentAssetId())
                             ->disabled(fn () => TenantScope::currentAssetId() !== null)
                             ->dehydrated()
                             ->required()
                             ->live()
                             ->native(false),
-                        Select::make('unit_id')
+                        EntitySelect::make('unit_id')
                             ->label(__('admin.facility.fields.unit'))
+                            ->entity(Unit::class)
                             // Units of the chosen property; blank = common / asset-wide. Clamped:
                             // asset_id is ->live() and client-supplied, so keying the option query on
                             // the raw value would enumerate an invisible property's units.
-                            ->options(fn (Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
-                                ? Unit::query()->where('asset_id', $assetId)->orderBy('code')->pluck('code', 'id')->all()
-                                : [])
-                            ->searchable()
-                            ->native(false),
+                            ->modifyOptionsQuery(fn ($query, Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
+                                ? $query->where('asset_id', $assetId)
+                                : $query->whereRaw('1 = 0')),
                         // SOFT services (cleaning, landscaping, pest, waste, security) are LOCATION-scoped, not
                         // equipment-scoped — "clean the food court", "sweep parking L2". Same clamp as unit_id.
-                        Select::make('area_id')
+                        EntitySelect::make('area_id')
                             ->label(__('admin.facility.fields.area'))
                             ->helperText(__('admin.facility.area_hint'))
-                            ->options(fn (Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
-                                ? Area::query()->where('asset_id', $assetId)->orderBy('name')->pluck('name', 'id')->all()
-                                : [])
-                            ->searchable()
-                            ->native(false),
+                            ->entity(Area::class)
+                            ->modifyOptionsQuery(fn ($query, Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
+                                ? $query->where('asset_id', $assetId)
+                                : $query->whereRaw('1 = 0')),
                         Select::make('equipment_id')
                             ->label(__('admin.facility.equipment.singular'))
                             ->helperText(__('admin.facility.equipment_hint'))
@@ -147,9 +147,9 @@ class ServicePlanForm
                     // the monthly filter change, a contractor the annual statutory inspection. See
                     // module 26's doc for the asymmetry.
                     FormTab::make('admin.facility.tabs.assignment', [
-                        Select::make('department_id')
+                        EntitySelect::make('department_id')
                             ->label(__('admin.facility.fields.department'))
-                            ->options(fn () => Department::selectableOptions())
+                            ->entity(Department::class)
                             ->searchable()
                             ->native(false),
                         Select::make('vendor_id')

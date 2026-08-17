@@ -31,6 +31,15 @@ class TenantForm
                 ->tabs([
                     FormTab::make('admin.sections.tenant_information', [
 
+                        // Allocated, not typed — the same treatment an invoice number gets. It is
+                        // shown because it is the thing an operator reads out on the phone and types
+                        // into a search box, and `dehydrated()` keeps a code carried in from another
+                        // system on the row through an edit.
+                        TextInput::make('code')
+                            ->label(__('admin.fields.tenant_code'))
+                            ->placeholder(__('admin.fields.code_auto'))
+                            ->disabled()
+                            ->dehydrated(),
                         TextInput::make('name')
                             ->label(__('admin.fields.brand_name'))
                             ->required()

@@ -6,7 +6,9 @@ use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Exports\PaymentExporter;
 use App\Models\Payment;
+use App\Models\Tenant;
 use App\Services\ReceiptPdfService;
+use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -80,11 +82,10 @@ class PaymentsTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.payment'))->only(['captured', 'reconciled', 'failed', 'refunded'])->all()),
-                SelectFilter::make('tenant_id')
+                EntitySelectFilter::make('tenant_id')
                     ->label(__('admin.filters.tenant'))
-                    ->relationship('tenant', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('tenant')
+                    ->entity(Tenant::class),
                 Filter::make('payment_date_range')
                     ->label(__('admin.tables.payment.date'))
                     ->schema([

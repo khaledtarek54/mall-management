@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
+use App\Support\Filament\EntitySelect;
 use App\Support\ReportCsv;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -67,17 +68,11 @@ class MarketingSpendsRelationManager extends RelationManager
             // Scoped to the budget's OWN property, never the portfolio — the same rule as every
             // other cross-record Select. Ordered newest-first because the spend being recorded is
             // almost always against a campaign that just ran.
-            Select::make('marketing_post_id')
+            EntitySelect::make('marketing_post_id')
                 ->label(__('admin.tables.marketing_spend.campaign'))
                 ->helperText(__('admin.tables.marketing_spend.campaign_hint'))
-                ->options(fn () => MarketingPost::query()
-                    ->where('asset_id', $budget->asset_id)
-                    ->orderByDesc('id')
-                    ->limit(100)
-                    ->pluck('title', 'id')
-                    ->all())
-                ->searchable()
-                ->native(false)
+                ->entity(MarketingPost::class)
+                ->modifyOptionsQuery(fn ($query) => $query->where('asset_id', $budget->asset_id))
                 ->placeholder(__('admin.tables.marketing_spend.campaign_none'))
                 ->columnSpanFull(),
             Select::make('category')

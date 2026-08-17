@@ -9,6 +9,7 @@ use App\Models\Asset;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
+use App\Support\Filament\EntitySelect;
 use App\Support\StatusTabs;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
@@ -32,9 +33,9 @@ class ListOwnerStatementRuns extends ListRecords
                 ->visible(fn () => OwnerStatementRunResource::canGenerate())
                 ->authorize(fn () => OwnerStatementRunResource::canGenerate())
                 ->schema([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.owner_statements.fields.property'))
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->default(fn () => TenantScope::currentAssetId())
                         ->disabled(fn () => TenantScope::currentAssetId() !== null)
                         ->dehydrated()

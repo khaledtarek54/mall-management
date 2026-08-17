@@ -27,7 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PortfolioShared]
 class LedgerAccount extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     public const TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 
@@ -148,9 +148,19 @@ class LedgerAccount extends Model
     }
 
     /** Locale-aware display name (Arabic for the accountant, English otherwise). */
+    /**
+     * The account's name in the reader's language, falling back to the other one.
+     *
+     * The fallback is not politeness. The return type is `string` and `name_ar` is nullable, so an
+     * account imported from an English-only chart raised a TypeError the moment an Arabic session
+     * rendered it — on a method called from the picker, the report filters and the posting map. A
+     * half-translated chart is the normal state of an import, not an exotic one.
+     */
     public function displayName(): string
     {
-        return app()->getLocale() === 'ar' ? $this->name_ar : $this->name_en;
+        return (string) (app()->getLocale() === 'ar'
+            ? ($this->name_ar ?: $this->name_en)
+            : ($this->name_en ?: $this->name_ar));
     }
 
     /**

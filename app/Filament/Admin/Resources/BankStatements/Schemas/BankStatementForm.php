@@ -3,9 +3,9 @@
 namespace App\Filament\Admin\Resources\BankStatements\Schemas;
 
 use App\Models\BankAccount;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -21,23 +21,17 @@ class BankStatementForm
                 ->description(__('admin.helpers.bank_statement_section'))
                 ->columns(2)
                 ->components([
-                    Select::make('bank_account_id')
+                    // The visible-properties half of this scope is OptionDisplay's (BankAccount is
+                    // `#[PropertyOwned]`); the SELECTED-property half stays, because narrowing to the
+                    // mall the operator is working in is this form's choice, not isolation.
+                    EntitySelect::make('bank_account_id')
                         ->label(__('admin.resources.bank_account.singular'))
-                        // Scoped to the accounts this user can see — the statement inherits its
-                        // property from the account, so an unscoped picker would be the leak.
-                        ->options(fn () => BankAccount::query()
-                            ->when(
-                                TenantScope::visibleAssetIds() !== null,
-                                fn ($q) => $q->whereIn('asset_id', TenantScope::visibleAssetIds() ?? []),
-                            )
-                            ->when(TenantScope::currentAssetId(), fn ($q, $id) => $q->where('asset_id', $id))
-                            ->orderBy('name')
-                            ->get()
-                            ->mapWithKeys(fn (BankAccount $a) => [$a->id => $a->displayName()])
-                            ->all())
-                        ->required()
-                        ->native(false)
-                        ->searchable(),
+                        ->entity(BankAccount::class)
+                        ->modifyOptionsQuery(fn ($query) => $query->when(
+                            TenantScope::currentAssetId(),
+                            fn ($q, $id) => $q->where('asset_id', $id),
+                        ))
+                        ->required(),
 
                     DatePicker::make('period_start')
                         ->label(__('admin.fields.period_start'))

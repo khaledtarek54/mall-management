@@ -4,7 +4,9 @@ namespace App\Filament\Admin\Resources\TenantSalesDeclarations\Schemas;
 
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
+use App\Support\Filament\EntitySelect;
 use App\Support\SalesExclusions;
+use App\Support\Search\OptionDisplay;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\KeyValue;
@@ -28,23 +30,16 @@ class TenantSalesDeclarationForm
             Section::make(__('admin.sections.tenant_sales'))
                 ->columns(3)
                 ->components([
-                    Select::make('lease_id')
+                    EntitySelect::make('lease_id')
                         ->label(__('admin.resources.lease.singular'))
-                        ->options(function () {
-                            $assetIds = TenantScope::visibleAssetIds();
-
-                            return Lease::with(['tenant', 'unit'])
-                                ->where('status', 'active')
-                                ->when($assetIds, fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
-                                ->get()
-                                ->mapWithKeys(fn (Lease $l) => [$l->id => sprintf('%s — %s (%s)', $l->reference, $l->tenant?->name, $l->unit?->code)]);
-                        })
-                        // Options list only ACTIVE leases; a declaration on a lease later expired/
+                        ->entity(Lease::class)
+                        ->modifyOptionsQuery(fn ($query) => $query->where('status', 'active'))
+                        // Options list only ACTIVE leases; a declaration on a lease later expired or
                         // terminated would render the raw id on edit — resolve any stored lease.
+                        // After `->entity()`, which installs its own narrowed resolver.
                         ->getOptionLabelUsing(fn ($value): ?string => ($l = Lease::with(['tenant', 'unit'])->find($value))
-                            ? sprintf('%s — %s (%s)', $l->reference, $l->tenant?->name, $l->unit?->code)
+                            ? OptionDisplay::for($l)->toHtml()
                             : null)
-                        ->searchable()
                         ->required(),
                     DatePicker::make('period_start')
                         ->label(__('admin.fields.period_start'))

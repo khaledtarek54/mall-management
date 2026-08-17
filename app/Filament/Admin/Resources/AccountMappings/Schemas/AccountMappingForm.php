@@ -2,9 +2,10 @@
 
 namespace App\Filament\Admin\Resources\AccountMappings\Schemas;
 
+use App\Models\Asset;
 use App\Models\LedgerAccount;
+use App\Support\Filament\EntitySelect;
 use App\Support\PostingRoles;
-use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -39,26 +40,25 @@ class AccountMappingForm
                     // at posting time, which would surface as a failed journal entry long after the
                     // mapping was saved — filtering here moves that refusal to the moment of the
                     // mistake instead.
-                    Select::make('ledger_account_id')
+                    EntitySelect::make('ledger_account_id')
                         ->label(__('admin.fields.ledger_account'))
-                        ->options(fn () => LedgerAccount::query()
+                        ->entity(LedgerAccount::class)
+                        // The narrowing stays — the presentation does not: the account name came
+                        // from `name_ar` regardless of the reader's language, so an English session
+                        // read the chart in Arabic. `LedgerAccount::displayName()` answers for the
+                        // active locale, and the picker now reads it through OptionDisplay.
+                        ->modifyOptionsQuery(fn ($query) => $query
                             ->where('is_postable', true)
-                            ->where('is_active', true)
-                            ->orderBy('code')
-                            ->get()
-                            ->mapWithKeys(fn (LedgerAccount $a) => [$a->id => "{$a->code} — {$a->name_ar}"])
-                            ->all())
+                            ->where('is_active', true))
                         ->required()
-                        ->searchable()
-                        ->native(false)
                         ->helperText(__('admin.helpers.posting_map_account')),
 
                     // Null = the global default every property falls back to. A property here makes
                     // the row an override that wins for that mall only. Scoped to what this operator
                     // may see, so an override cannot be aimed at another operator's property.
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.fields.property'))
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->placeholder(__('admin.posting_map.global'))
                         ->searchable()
                         ->native(false)

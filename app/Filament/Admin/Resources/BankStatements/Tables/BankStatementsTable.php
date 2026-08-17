@@ -6,14 +6,13 @@ use App\Filament\Admin\Resources\BankStatements\BankStatementResource;
 use App\Models\Asset;
 use App\Models\BankAccount;
 use App\Models\BankStatement;
-use App\Support\TenantScope;
+use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -84,13 +83,9 @@ class BankStatementsTable
             ->filters([
                 // Property-scoped: the options are the accounts this user can already see,
                 // so the filter can never name an account from another mall.
-                SelectFilter::make('bank_account_id')
+                EntitySelectFilter::make('bank_account_id')
                     ->label(__('admin.resources.bank_account.singular'))
-                    ->options(fn () => BankAccount::query()
-                        ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
-                        ->orderBy('name')->pluck('name', 'id'))
-                    ->searchable()
-                    ->preload(),
+                    ->entity(BankAccount::class),
                 Filter::make('period')
                     ->label(__('admin.filters.period'))
                     ->schema([

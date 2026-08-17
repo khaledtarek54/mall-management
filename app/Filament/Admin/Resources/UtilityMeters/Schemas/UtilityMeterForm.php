@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\UtilityMeters\Schemas;
 
+use App\Models\Asset;
 use App\Models\Unit;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -23,9 +25,9 @@ class UtilityMeterForm
                         ->required()
                         ->maxLength(50)
                         ->unique(ignoreRecord: true),
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->required()
                         ->native(false)
                         ->searchable()
@@ -33,18 +35,13 @@ class UtilityMeterForm
                         ->default(fn () => TenantScope::currentAssetId())
                         ->disabled(fn () => TenantScope::currentAssetId() !== null)
                         ->dehydrated(),
-                    Select::make('unit_id')
+                    EntitySelect::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
-                        ->options(function ($get) {
-                            $assetId = $get('asset_id') ?: TenantScope::currentAssetId();
-
-                            return Unit::query()
-                                ->when($assetId, fn ($q, $aid) => $q->where('asset_id', $aid))
-                                ->orderBy('code')
-                                ->pluck('code', 'id');
-                        })
-                        ->native(false)
-                        ->searchable()
+                        ->entity(Unit::class)
+                        ->modifyOptionsQuery(fn ($query, $get) => $query->when(
+                            $get('asset_id') ?: TenantScope::currentAssetId(),
+                            fn ($q, $assetId) => $q->where('asset_id', $assetId),
+                        ))
                         ->placeholder(__('admin.fields.common_area_placeholder')),
                     Select::make('type')
                         ->label(__('admin.fields.meter_type'))

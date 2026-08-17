@@ -4,7 +4,9 @@ namespace App\Filament\Admin\Resources\Departments\Tables;
 
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Models\Department;
+use App\Models\User;
 use App\Services\DepartmentMessageService;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -62,11 +64,10 @@ class DepartmentsTable
                         'property' => $query->whereNotNull('asset_id'),
                         default => $query,
                     }),
-                SelectFilter::make('head_user_id')
+                EntitySelectFilter::make('head_user_id')
                     ->label(__('admin.tables.department.head'))
-                    ->relationship('head', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('head')
+                    ->entity(User::class),
             ])
             ->emptyStateIcon('heroicon-o-building-office')
             ->emptyStateHeading(__('admin.empty.departments.heading'))

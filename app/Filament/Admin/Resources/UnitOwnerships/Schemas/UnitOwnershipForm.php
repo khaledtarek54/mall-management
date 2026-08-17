@@ -8,8 +8,10 @@ use App\Enums\PartyType;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
+use App\Models\Asset;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -34,9 +36,9 @@ class UnitOwnershipForm
             Section::make(__('admin.unit_ownerships.sections.the_sale'))
                 ->columns(2)
                 ->schema([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.fields.property'))
-                        ->options(fn (): array => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->default(fn () => TenantScope::currentAssetId())
                         ->disabled(fn (): bool => TenantScope::currentAssetId() !== null)
                         ->dehydrated()
@@ -53,14 +55,11 @@ class UnitOwnershipForm
                         // that is the service's job, not the picker's.
                         ->helperText(__('admin.unit_ownerships.help.unit')),
 
-                    Select::make('tenant_id')
+                    EntitySelect::make('tenant_id')
                         ->label(__('admin.unit_ownerships.fields.owner'))
-                        ->options(fn (): array => Tenant::query()
-                            ->unitOwners()
-                            ->orderBy('name')
-                            ->pluck('name', 'id')
-                            ->all())
-                        ->searchable()
+                        ->entity(Tenant::class)
+                        // Buyers only — a retailer cannot hold a unit (module 37, `party_type`).
+                        ->modifyOptionsQuery(fn ($query) => $query->unitOwners())
                         ->required()
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.unit_owner_party')),
 

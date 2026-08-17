@@ -6,7 +6,7 @@ use App\Models\Lease;
 use App\Models\LeaseOption;
 use App\Models\Unit;
 use App\Services\ExerciseLeaseOptionService;
-use App\Support\TenantScope;
+use App\Support\Filament\EntitySelect;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -119,15 +119,9 @@ class LeaseOptionsRelationManager extends RelationManager
 
             // The space an expansion/first-refusal right ties up. Property-scoped: a lease in one
             // mall must not be able to encumber a unit in another.
-            Select::make('unit_id')
+            EntitySelect::make('unit_id')
                 ->label(__('admin.lease_options.encumbers'))
-                ->options(fn (): array => Unit::query()
-                    ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
-                    ->orderBy('code')
-                    ->pluck('code', 'id')
-                    ->all())
-                ->searchable()
-                ->native(false)
+                ->entity(Unit::class)
                 ->visible(fn (Get $get) => in_array($get('type'), LeaseOption::ENCUMBERING_TYPES, true))
                 ->helperText(__('admin.helpers.lease_option_encumbers'))
                 ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.lease_option_encumbers')),

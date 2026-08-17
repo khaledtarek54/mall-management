@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages\Concerns;
 
 use App\Models\Asset;
 use App\Models\FiscalYear;
+use App\Support\Filament\EntitySelect;
 use App\Support\ReportPreferences;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
@@ -118,31 +119,31 @@ trait ScopesLedgerReport
     protected function ledgerFilterComponents(): array
     {
         return [
-                        Select::make('year')
-                            ->label(__('admin.reports.fiscal_year'))
-                            ->options(fn (): array => $this->yearOptions())
-                            ->native(false)
-                            ->live(),
-                        // The operator runs a MONTHLY close and could not print that month's trial
-                        // balance, income statement, balance sheet or cash flow — the pages were
-                        // hardcoded to 1 Jan–31 Dec while the services already took ranges.
-                        Select::make('period')
-                            ->label(__('admin.reports.period'))
-                            ->options(fn (): array => $this->periodOptions())
-                            ->placeholder(__('admin.reports.full_year'))
-                            ->native(false)
-                            ->live(),
-                        Select::make('assetId')
-                            ->label(__('admin.reports.property_scope'))
-                            ->options(fn (): array => TenantScope::selectableAssetOptions())
-                            ->placeholder(__('admin.fields.property_consolidated'))
-                            ->native(false)
-                            ->live()
-                            // Remembering happens HERE rather than through ReportFilters, because this picker is
-                            // exempt from the shared component (see ReportFilters::EXEMPT) — the
-                            // exemption is about the CONTROL, not about whether the choice is worth
-                            // keeping. Wired at the only other place it can be.
-                            ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
+            Select::make('year')
+                ->label(__('admin.reports.fiscal_year'))
+                ->options(fn (): array => $this->yearOptions())
+                ->native(false)
+                ->live(),
+            // The operator runs a MONTHLY close and could not print that month's trial
+            // balance, income statement, balance sheet or cash flow — the pages were
+            // hardcoded to 1 Jan–31 Dec while the services already took ranges.
+            Select::make('period')
+                ->label(__('admin.reports.period'))
+                ->options(fn (): array => $this->periodOptions())
+                ->placeholder(__('admin.reports.full_year'))
+                ->native(false)
+                ->live(),
+            EntitySelect::make('assetId')
+                ->label(__('admin.reports.property_scope'))
+                ->entity(Asset::class)
+                ->placeholder(__('admin.fields.property_consolidated'))
+                ->native(false)
+                ->live()
+                // Remembering happens HERE rather than through ReportFilters, because this picker is
+                // exempt from the shared component (see ReportFilters::EXEMPT) — the
+                // exemption is about the CONTROL, not about whether the choice is worth
+                // keeping. Wired at the only other place it can be.
+                ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
         ];
     }
 

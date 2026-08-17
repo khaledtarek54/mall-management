@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Vendors\RelationManagers;
 
+use App\Models\Asset;
 use App\Models\VendorContract;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -64,9 +66,9 @@ class ContractsRelationManager extends RelationManager
                     ->required()
                     ->default('draft')
                     ->native(false),
-                Select::make('asset_id')
+                EntitySelect::make('asset_id')
                     ->label(__('admin.resources.asset.singular'))
-                    ->options(fn () => TenantScope::selectableAssetOptions())
+                    ->entity(Asset::class)
                     ->searchable()
                     ->placeholder('—')
                     ->default(fn () => TenantScope::currentAssetId())

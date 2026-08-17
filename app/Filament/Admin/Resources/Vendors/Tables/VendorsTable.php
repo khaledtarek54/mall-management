@@ -27,6 +27,14 @@ class VendorsTable
             // vendors list fires a query per vendor.
             ->modifyQueryUsing(fn ($query) => $query->with('documents'))
             ->columns([
+                TextColumn::make('code')
+                    ->label(__('admin.fields.vendor_code'))
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->fontFamily('mono')
+                    ->color('gray')
+                    ->placeholder('—'),
                 TextColumn::make('name')
                     ->label(__('admin.tables.vendor.name'))
                     ->searchable()

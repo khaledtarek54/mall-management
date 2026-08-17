@@ -4,9 +4,10 @@ namespace App\Filament\Admin\Resources\Units\Tables;
 
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Exports\UnitExporter;
+use App\Models\Asset;
 use App\Models\Unit;
 use App\Services\RemeasureUnitService;
-use App\Support\TenantScope;
+use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -118,12 +119,12 @@ class UnitsTable
                 SelectFilter::make('category')
                     ->label(__('admin.tables.unit.category'))
                     ->options(fn () => collect(__('admin.enums.category'))->except(['office', 'storage'])->all()),
-                SelectFilter::make('asset_id')
+                EntitySelectFilter::make('asset_id')
                     ->label(__('admin.filters.asset'))
                     // Scope to the user's visible properties (excludes the ALL pseudo-asset) — a raw
                     // ->relationship('asset','name') enumerates every mall's name + the ALL row to a
                     // restricted operator (a cross-property metadata read leak).
-                    ->options(fn () => TenantScope::selectableAssetOptions())
+                    ->entity(Asset::class)
                     ->searchable(),
                 Filter::make('lease_expiring_soon')
                     ->label(__('admin.filters.expiring_soon'))

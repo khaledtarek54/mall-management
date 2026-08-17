@@ -4,6 +4,9 @@ namespace App\Filament\Portal\Resources\TenantRequests\Schemas;
 
 use App\Enums\TenantRequestType;
 use App\Models\Tenant;
+use App\Models\Unit;
+use App\Support\Filament\EntitySelect;
+use App\Support\Portal;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
@@ -12,7 +15,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Facades\Auth;
 
 class TenantRequestForm
 {
@@ -53,33 +55,25 @@ class TenantRequestForm
                         ->required()
                         ->native(false)
                         ->helperText(__('admin.tenant_requests.urgent_warning')),
-                    Select::make('unit_id')
+                    EntitySelect::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
-                        ->options(function () {
-                            /** @var Tenant|null $tenant */
-                            $tenant = \App\Support\Portal::tenant();
-                            if (! $tenant) {
-                                return [];
-                            }
-                            // EVERY unit on the tenant's leases, via the pivot — a multi-unit
-                            // lease keeps its extra units there and only the master in
-                            // `leases.unit_id`, so listing the column alone hid half a
-                            // tenant's space and they could not report a fault in it.
-                            return $tenant->leases()
-                                ->with('units')
-                                ->get()
-                                ->flatMap(fn ($lease) => $lease->units)
-                                ->unique('id')
-                                ->sortBy('code')
-                                ->pluck('code', 'id')
-                                ->filter()
-                                ->all();
-                        })
+                        ->entity(Unit::class)
+                        // EVERY unit on the tenant's leases, via the pivot — a multi-unit lease keeps
+                        // its extra units there and only the master in `leases.unit_id`, so listing
+                        // the column alone hid half a tenant's space and they could not report a
+                        // fault in it. This IS the scope in the portal: `visibleAssetIds()` is null
+                        // for a TenantUser, so nothing else narrows it.
+                        ->modifyOptionsQuery(fn ($query) => $query->whereIn(
+                            'id',
+                            Portal::tenant()?->leases()->with('units')->get()
+                                ->flatMap(fn ($lease) => $lease->units)->pluck('id')->unique() ?? [],
+                        ))
                         ->required()
                         ->columnSpanFull()
                         ->default(function () {
                             /** @var Tenant|null $tenant */
-                            $tenant = \App\Support\Portal::tenant();
+                            $tenant = Portal::tenant();
+
                             return $tenant?->activeLeases()->first()?->unit_id;
                         }),
                     Textarea::make('description')

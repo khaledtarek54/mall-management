@@ -2,10 +2,13 @@
 
 namespace App\Filament\Admin\Resources\CreditNotes\Tables;
 
+use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Exports\CreditNoteExporter;
 use App\Models\CreditNote;
+use App\Models\Tenant;
 use App\Services\CreditNotePdfService;
+use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -91,11 +94,10 @@ class CreditNotesTable
                 SelectFilter::make('reason')
                     ->label(__('admin.fields.credit_note_reason'))
                     ->options(fn () => __('admin.enums.credit_note_reason')),
-                SelectFilter::make('tenant_id')
+                EntitySelectFilter::make('tenant_id')
                     ->label(__('admin.filters.tenant'))
-                    ->relationship('tenant', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->relationship('tenant')
+                    ->entity(Tenant::class),
                 Filter::make('issue_date_range')
                     ->label(__('admin.fields.issue_date'))
                     ->schema([
@@ -132,7 +134,7 @@ class CreditNotesTable
                     ->color('gray'),
             ])
             ->recordActions([
-                \App\Filament\Actions\LedgerEntryAction::make(),
+                LedgerEntryAction::make(),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
                 // schema is the resource's own form rendered disabled, so it

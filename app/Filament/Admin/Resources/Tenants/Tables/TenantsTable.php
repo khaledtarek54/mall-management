@@ -33,6 +33,14 @@ class TenantsTable
     {
         return $table
             ->columns([
+                TextColumn::make('code')
+                    ->label(__('admin.fields.tenant_code'))
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->fontFamily('mono')
+                    ->color('gray')
+                    ->placeholder('—'),
                 TextColumn::make('name')
                     ->label(__('admin.tables.tenant.name'))
                     ->searchable()

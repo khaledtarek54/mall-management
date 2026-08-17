@@ -3,7 +3,9 @@
 namespace App\Filament\Admin\Resources\Announcements\Schemas;
 
 use App\Models\Announcement;
+use App\Models\Asset;
 use App\Services\SendAnnouncementAction;
+use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Radio;
@@ -38,10 +40,10 @@ class AnnouncementForm
                 ->icon(Heroicon::OutlinedBuildingStorefront)
                 ->columns(2)
                 ->schema([
-                    Select::make('asset_id')
+                    EntitySelect::make('asset_id')
                         ->label(__('admin.announcements.fields.property'))
                         // Scoped to the user's visible properties (never leaks another mall).
-                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->entity(Asset::class)
                         ->default(fn () => TenantScope::currentAssetId())
                         ->disabled(fn () => TenantScope::currentAssetId() !== null)
                         ->dehydrated()

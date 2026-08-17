@@ -66,6 +66,20 @@ class DocumentNumbering
         // UO, not OWN: the series identifies the OWNERSHIP agreement over one unit, which is the
         // peer of a lease (LSE) and not of the property-owner records module 32 apportions to.
         'unit_ownership' => ['default' => 'UO', 'label' => 'Unit ownership'],
+
+        // ── Counterparty codes ────────────────────────────────────────────────────────────────
+        //
+        // Not documents, and included anyway. A tenant code and a vendor code are read aloud,
+        // quoted in emails and typed into this system's search boxes exactly like a document
+        // number is, they are allocated by the same MAX-within-a-prefix rule under the same lock,
+        // and an operator arriving from Yardi has their own tenant coding they will want to keep.
+        // Every argument for making `INV` configurable applies unchanged.
+        //
+        // They also inherit the collision rule, which matters more here than it looks: a tenant
+        // and a vendor are both "the other party" on screens that show them side by side, and one
+        // shared prefix would make `XX-000318` ambiguous to the only people who read it.
+        'tenant' => ['default' => 'TN', 'label' => 'Tenant code'],
+        'vendor' => ['default' => 'VN', 'label' => 'Supplier code'],
     ];
 
     /**

@@ -5,12 +5,16 @@ namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Services\CreditNotePdfService;
 use App\Services\CreditNoteService;
+use App\Support\Filament\EntitySelect;
+use App\Support\TenantScope;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Facades\Auth;
 
 class EditCreditNote extends EditRecord
@@ -62,11 +66,11 @@ class EditCreditNote extends EditRecord
                 ->color('gray')
                 ->authorize(fn () => Auth::user()?->can('credit_notes.view') ?? false)
                 ->action(function () {
-                    $svc = app(\App\Services\CreditNotePdfService::class);
+                    $svc = app(CreditNotePdfService::class);
                     $pdf = $svc->build($this->record);
 
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename($this->record),
                         ['Content-Type' => 'application/pdf'],
                     );
@@ -107,41 +111,29 @@ class EditCreditNote extends EditRecord
                     && Auth::user()?->can('credit_notes.apply'))
                 ->authorize(fn () => Auth::user()?->can('credit_notes.apply') ?? false)
                 ->schema([
-                    Select::make('invoice_id')
+                    // The outstanding figure in the label — which this screen invented and which is
+                    // the whole reason an operator can choose the right invoice — is now every
+                    // invoice picker's, from OptionDisplay. Property scope likewise.
+                    EntitySelect::make('invoice_id')
                         ->label(__('admin.fields.invoice'))
-                        ->options(function () {
-                            // Property-scope: never offer an invoice from a property the
-                            // current user cannot see (a shared tenant may have invoices
-                            // across properties). null = unrestricted (super_admin/portfolio).
-                            $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
-
-                            return Invoice::query()
-                                ->where('tenant_id', $this->record->tenant_id)
-                                ->where('balance', '>', 0)
-                                ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                                ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas(
-                                    'lease.unit',
-                                    fn ($u) => $u->whereIn('asset_id', $visibleAssetIds),
-                                ))
-                                ->orderByDesc('issue_date')
-                                ->get()
-                                ->mapWithKeys(fn ($i) => [$i->id => $i->number . ' — EGP ' . number_format((float) $i->balance, 2) . ' ' . __('admin.tables.invoice.balance')])
-                                ->all();
-                        })
+                        ->entity(Invoice::class)
+                        ->modifyOptionsQuery(fn ($query) => $query
+                            ->where('tenant_id', $this->record->tenant_id)
+                            ->where('balance', '>', 0)
+                            ->whereIn('status', ['issued', 'partially_paid', 'overdue']))
                         ->required()
-                        ->searchable()
                         ->live()
                         // Pre-fill the amount with the cap for the chosen invoice (min of note + invoice
                         // balance), so the common "apply all that fits" is one click and never over-applies.
-                        ->afterStateUpdated(fn ($state, \Filament\Schemas\Components\Utilities\Set $set) => $set('amount', $this->applyCap($state))),
+                        ->afterStateUpdated(fn ($state, Set $set) => $set('amount', $this->applyCap($state))),
                     TextInput::make('amount')
                         ->label(__('admin.fields.amount'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0.01)
-                        ->maxValue(fn (\Filament\Schemas\Components\Utilities\Get $get) => $this->applyCap($get('invoice_id')))
+                        ->maxValue(fn (Get $get) => $this->applyCap($get('invoice_id')))
                         ->default(fn () => (float) $this->record->balance)
-                        ->helperText(fn (\Filament\Schemas\Components\Utilities\Get $get) => __('admin.actions.apply_amount_helper', ['max' => number_format($this->applyCap($get('invoice_id')), 2)])),
+                        ->helperText(fn (Get $get) => __('admin.actions.apply_amount_helper', ['max' => number_format($this->applyCap($get('invoice_id')), 2)])),
                 ])
                 ->action(function (array $data): void {
                     $invoice = Invoice::findOrFail($data['invoice_id']);
@@ -149,7 +141,7 @@ class EditCreditNote extends EditRecord
                     // Defense-in-depth against form tampering: the picker is scoped, but a crafted
                     // submit can pass any id — re-validate BOTH the property (never credit a property
                     // the user can't see) AND the tenant (never pay down another tenant's invoice).
-                    $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
+                    $visibleAssetIds = TenantScope::visibleAssetIds();
                     if ($visibleAssetIds !== null
                         && ! in_array($invoice->lease?->unit?->asset_id, $visibleAssetIds, true)) {
                         abort(403);
@@ -163,6 +155,7 @@ class EditCreditNote extends EditRecord
                             ->applyToInvoice($this->record, $invoice, (float) $data['amount']);
                     } catch (\DomainException $e) {
                         Notification::make()->title($e->getMessage())->danger()->send();
+
                         return;
                     }
 
@@ -171,6 +164,7 @@ class EditCreditNote extends EditRecord
                             ->title(__('admin.notifications.credit_note_apply_failed'))
                             ->warning()
                             ->send();
+
                         return;
                     }
 

@@ -8,6 +8,7 @@ use App\Models\StockMovement;
 use App\Models\TenantRequest;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
+use App\Support\Filament\EntitySelect;
 use App\Support\Modules;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
@@ -64,7 +65,7 @@ class StockConsumptionRelationManager extends RelationManager
                     // Consumption is stored negative; show the magnitude used.
                     ->state(fn ($record) => abs((float) $record->quantity))
                     ->numeric(decimalPlaces: 3)
-                    ->suffix(fn ($record) => ' ' . ($record->item?->unit ?? '')),
+                    ->suffix(fn ($record) => ' '.($record->item?->unit ?? '')),
                 TextColumn::make('value')
                     ->label(__('admin.inventory.fields.value'))
                     ->state(fn ($record) => $record->value())
@@ -89,12 +90,11 @@ class StockConsumptionRelationManager extends RelationManager
                             ->required()
                             ->searchable()
                             ->native(false),
-                        Select::make('inventory_item_id')
+                        EntitySelect::make('inventory_item_id')
                             ->label(__('admin.inventory.fields.item'))
-                            ->options(fn () => InventoryItem::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
-                            ->required()
-                            ->searchable()
-                            ->native(false),
+                            ->entity(InventoryItem::class)
+                            ->modifyOptionsQuery(fn ($query) => $query->where('is_active', true))
+                            ->required(),
                         TextInput::make('quantity')
                             ->label(__('admin.inventory.fields.quantity'))
                             ->numeric()

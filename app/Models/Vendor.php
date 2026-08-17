@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AllocatesPartyCode;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
@@ -21,10 +22,12 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PortfolioShared]
 class Vendor extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use AllocatesPartyCode, HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_INACTIVE = 'inactive';
+
     public const STATUS_BLACKLISTED = 'blacklisted';
 
     /**
@@ -35,6 +38,7 @@ class Vendor extends Model
     public function searchTextSources(): array
     {
         return [
+            $this->code,
             $this->name,
             $this->legal_name,
             $this->tax_id,
@@ -55,6 +59,8 @@ class Vendor extends Model
     }
 
     protected $fillable = [
+        // The supplier's own number — the AP side of the same problem `Tenant::$code` solves.
+        'code',
         'name',
         'slug',
         'type',
@@ -82,7 +88,7 @@ class Vendor extends Model
 
     // ============ Compliance gate (reads vendor_documents) ============
 
-    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<VendorDocument, $this> */
+    /** @return HasMany<VendorDocument, $this> */
     /**
      * Bills raised against this vendor.
      *
@@ -210,6 +216,12 @@ class Vendor extends Model
         return $this->contracts()->where('status', 'active')->count();
     }
 
+    /** Numbered from the operator-configurable `vendor` prefix — see AllocatesPartyCode. */
+    public static function partyCodeType(): string
+    {
+        return 'vendor';
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $vendor) {
@@ -218,7 +230,7 @@ class Vendor extends Model
                 $slug = $base;
                 $suffix = 1;
                 while (static::withTrashed()->where('slug', $slug)->exists()) {
-                    $slug = $base . '-' . (++$suffix);
+                    $slug = $base.'-'.(++$suffix);
                 }
                 $vendor->slug = $slug;
             }

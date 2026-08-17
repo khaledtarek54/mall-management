@@ -11,14 +11,15 @@ use App\Jobs\SubmitInvoiceToEta;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
+use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\AllocatePaymentToInvoiceItemsService;
 use App\Services\DisputeInvoiceItemService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
+use App\Support\Filament\EntitySelectFilter;
 use App\Support\Modules;
 use App\Support\OpsLog;
-use App\Support\TenantScope;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -212,17 +213,13 @@ class InvoicesTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.invoice'))->only(['draft', 'issued', 'partially_paid', 'paid', 'overdue'])->all()),
-                SelectFilter::make('tenant_id')
+                EntitySelectFilter::make('tenant_id')
                     ->label(__('admin.filters.tenant'))
-                    ->relationship('tenant', 'name')
-                    ->searchable()
-                    ->preload(),
-                SelectFilter::make('unit_id')
+                    ->relationship('tenant')
+                    ->entity(Tenant::class),
+                EntitySelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
-                    ->options(fn () => Unit::query()
-                        ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
-                        ->orderBy('code')->pluck('code', 'id'))
-                    ->searchable()
+                    ->entity(Unit::class)
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId)))),
                 Filter::make('period')
