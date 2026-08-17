@@ -2,6 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Units;
 
+use App\Filament\Admin\RelationManagers\UnitEncumbrancesRelationManager;
+use App\Filament\Admin\RelationManagers\UnitLeasesRelationManager;
+use App\Filament\Admin\RelationManagers\UnitMetersRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -11,6 +14,8 @@ use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Filament\Admin\Resources\Units\Schemas\UnitForm;
 use App\Filament\Admin\Resources\Units\Tables\UnitsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
+use App\Models\Area;
+use App\Models\Floor;
 use App\Models\Unit;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -93,7 +98,7 @@ class UnitResource extends Resource
         }
 
         abort_unless(
-            \App\Models\Area::whereKey($areaId)->where('asset_id', $assetId)->exists(),
+            Area::whereKey($areaId)->where('asset_id', $assetId)->exists(),
             403,
         );
     }
@@ -117,7 +122,7 @@ class UnitResource extends Resource
         }
 
         abort_unless(
-            \App\Models\Floor::whereKey($floorId)->where('asset_id', $assetId)->exists(),
+            Floor::whereKey($floorId)->where('asset_id', $assetId)->exists(),
             403,
         );
     }
@@ -140,11 +145,11 @@ class UnitResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\UnitLeasesRelationManager::class,
+            UnitLeasesRelationManager::class,
             // Why the unit picker flags this shop, on the shop itself: who holds an option
             // over it and until when. The ⚠ warning said THAT it was encumbered, never by whom.
-            \App\Filament\Admin\RelationManagers\UnitEncumbrancesRelationManager::class,
-            \App\Filament\Admin\RelationManagers\UnitMetersRelationManager::class,
+            UnitEncumbrancesRelationManager::class,
+            UnitMetersRelationManager::class,
             // No ActivitiesRelationManager here: `Unit` does not use `LogsActivity`, and the
             // manager fatals on `activitiesAsSubject()` when it does not. Giving units an
             // audit trail is worth doing — it is a change to a core model's behaviour, so it
