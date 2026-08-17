@@ -915,7 +915,7 @@ class CamReconciliationService
         $vat = round($credit * $vatRate / 100, 2);
         $total = round($credit + $vat, 2);
 
-        return CreditNote::create([
+        $note = CreditNote::create([
             'tenant_id' => $agreement->billingTenantId(),
             // A note against an OWNER's over-recovery has no lease. `asset_id` is what carries the
             // property now (2026_08_15_130000) — passed explicitly rather than left for the model to
@@ -933,5 +933,10 @@ class CamReconciliationService
             'balance' => $total,
             'currency' => 'EGP',
         ]);
+
+        // The LINE, without which this document says nothing. See CreditNote::describeAs().
+        $note->describeAs(__('admin.credit_notes.line_cam_recovery', ['year' => $year]), $credit, $vatRate, $vat);
+
+        return $note;
     }
 }

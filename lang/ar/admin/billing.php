@@ -107,6 +107,8 @@ return [
         ],
     ],
     'credit_notes' => [
+        'line_unearned' => 'مدة مفوترة غير مستحقة على :invoice بعد :through',
+        'line_cam_recovery' => 'ردّ فائض تحصيل المصروفات المشتركة — تسوية :year',
         'unearned_on_termination' => 'الجزء غير المستحق من الفاتورة :invoice — انتهى العقد في :date، وكانت الفاتورة محتسبة حتى :through.',
     ],
     'write_off_reasons' => [

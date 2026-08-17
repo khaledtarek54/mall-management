@@ -89,6 +89,12 @@ class CreditUnearnedBillingService
         $subtotal = 0.0;
         $vat = 0.0;
 
+        // Accumulated BY VAT RATE, not as one blended figure. A quarter's invoice mixes exempt base
+        // rent with standard-rated service charge, so crediting it as a single line would state a
+        // rate of 2.69% — an average, not a tax. The tenant reverses input VAT off this document,
+        // and their accountant needs to know how much of it was ever taxed.
+        $byRate = [];
+
         /** @var InvoiceItem $item */
         foreach ($invoice->items as $item) {
             // ONE-OFF lines are not time-apportioned and must not be clawed back: a CAM true-up, a
@@ -99,8 +105,16 @@ class CreditUnearnedBillingService
                 continue;
             }
 
-            $subtotal += (float) $item->amount * $unearnedRatio;
-            $vat += (float) $item->vat_amount * $unearnedRatio;
+            $lineAmount = (float) $item->amount * $unearnedRatio;
+            $lineVat = (float) $item->vat_amount * $unearnedRatio;
+
+            $subtotal += $lineAmount;
+            $vat += $lineVat;
+
+            $rate = (string) round((float) $item->vat_rate, 2);
+            $byRate[$rate] ??= ['amount' => 0.0, 'vat' => 0.0];
+            $byRate[$rate]['amount'] += $lineAmount;
+            $byRate[$rate]['vat'] += $lineVat;
         }
 
         $subtotal = round($subtotal, 2);
@@ -111,7 +125,7 @@ class CreditUnearnedBillingService
             return null;
         }
 
-        return DB::transaction(function () use ($lease, $invoice, $terminationDate, $subtotal, $vat, $total, $periodEnd) {
+        return DB::transaction(function () use ($lease, $invoice, $terminationDate, $subtotal, $vat, $total, $periodEnd, $byRate) {
             $note = CreditNote::create([
                 'tenant_id' => $lease->tenant_id,
                 'lease_id' => $lease->id,
@@ -135,6 +149,22 @@ class CreditUnearnedBillingService
                 'balance' => $total,
                 'currency' => $invoice->currency ?? 'EGP',
             ]);
+
+            // The LINES, written BEFORE issue(): a note has to say what it credits by the time it
+            // becomes a document, not after. One per VAT rate — see the accumulator above and
+            // CreditNote::describeAs().
+            $description = __('admin.credit_notes.line_unearned', [
+                'invoice' => $invoice->number,
+                'through' => $periodEnd->format('d/m/Y'),
+            ]);
+
+            foreach ($byRate as $rate => $part) {
+                if (round($part['amount'] + $part['vat'], 2) <= 0) {
+                    continue;
+                }
+
+                $note->describeAs($description, $part['amount'], (float) $rate, $part['vat']);
+            }
 
             $service = app(CreditNoteService::class);
             $service->issue($note);

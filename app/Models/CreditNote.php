@@ -139,6 +139,36 @@ class CreditNote extends Model
         return $this->hasMany(CreditNoteItem::class);
     }
 
+    /**
+     * Give a system-raised credit note the ONE line that says what it credits.
+     *
+     * **Every service-created credit note had no lines at all (fixed 2026-08-17).** Both creators —
+     * the termination unearned-credit and the CAM over-recovery credit — wrote header totals and
+     * nothing else, so the document rendered as a Description/Amount/VAT/Total table with an EMPTY
+     * BODY, on screen and in the PDF. Only the admin form, whose repeater writes the relation, ever
+     * produced an itemised note.
+     *
+     * That matters more here than on most documents: a credit note is what a tenant uses to REVERSE
+     * input VAT they have already claimed, and this one asked them to do it against a blank table.
+     * It is the same document the seller-particulars work made identifiable five days earlier — a
+     * credit note nobody can read is not much better than one nobody can attribute.
+     *
+     * A single line is deliberate. These notes credit one thing (a period's unearned billing, a
+     * year's over-recovery), and splitting a derived figure into invented sub-lines would state more
+     * than the service actually knows. `tax_code` is left to the model layer's own default, the same
+     * seam invoice lines use, so the classification cannot drift between the two documents.
+     */
+    public function describeAs(string $description, float $amount, float $vatRate, float $vatAmount): CreditNoteItem
+    {
+        return $this->items()->create([
+            'description' => $description,
+            'amount' => round($amount, 2),
+            'vat_rate' => $vatRate,
+            'vat_amount' => round($vatAmount, 2),
+            'total' => round($amount + $vatAmount, 2),
+        ]);
+    }
+
     public function applications(): HasMany
     {
         return $this->hasMany(CreditNoteApplication::class);

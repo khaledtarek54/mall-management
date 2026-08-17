@@ -2,6 +2,26 @@
 
 > Adjustable credit instruments that offset tenant invoice balances via durably-tracked AR settlement.
 
+
+> **⚠️ Every SERVICE-raised credit note had no lines at all (fixed 2026-08-17).** Both creators —
+> `CreditUnearnedBillingService` (termination) and `CamReconciliationService::billCredit()` (CAM
+> over-recovery) — wrote header totals and nothing else, so the document rendered on screen and in
+> the PDF as a Description/Amount/VAT/Total table with an **empty body** above a totals block. Only
+> the admin form, whose repeater writes the relation, ever produced an itemised note. It matters
+> more on this document than most: a credit note is what a tenant uses to **reverse input VAT they
+> have already claimed**, and this one asked them to do it against a blank table — the mirror of the
+> seller-particulars gap closed five days earlier, on the same document.
+>
+> `CreditNote::describeAs()` is the one way a service states a line, and the termination credit
+> writes **one line per VAT rate**: a quarterly invoice mixes exempt base rent with standard-rated
+> service charge, so a single blended line would have declared a rate of **2.69%** — an average, not
+> a tax anyone can reverse against. Note that `recomputeFromItems()` derives the header's VAT as
+> `amount × rate`, **not** from the item's stored `vat_amount`, so a line whose two disagree silently
+> moves the header. `EveryCreditNoteSaysWhatItCreditsTest` pins both creators, the per-rate split,
+> and sweeps `app/Services` for any future creator that raises a note without describing it.
+>
+> *Found by an operator opening a note and asking why the items section was empty.*
+
 ## 1. Purpose & business context
 
 An Eltizam (mall operator) issues credit notes to tenants (retailers) to adjust invoice balances for reasons like overcharges, partial refunds, or service disputes. A credit note is a debit memo: it reduces the amount a tenant owes, similar to a payment but recorded separately so it survives payment recomputes and never mixes with actual cash flow. Unlike payments (which are external money), credits are internal accounting adjustments that require operator discretion to issue and apply.

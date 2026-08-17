@@ -109,6 +109,8 @@ return [
         ],
     ],
     'credit_notes' => [
+        'line_unearned' => 'Unearned billing on :invoice, after :through',
+        'line_cam_recovery' => 'CAM over-recovery returned — :year reconciliation',
         'unearned_on_termination' => 'Unearned portion of invoice :invoice — the lease ended :date, and that invoice was billed through :through.',
     ],
     'write_off_reasons' => [
