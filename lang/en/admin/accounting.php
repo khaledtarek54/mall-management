@@ -1,6 +1,46 @@
 <?php
 
 return [
+
+    'opening_balances' => [
+        'title' => 'Opening balances',
+        'sections' => [
+            'input' => 'Your accountant\'s trial balance',
+            'input_description' => 'Paste it straight from the spreadsheet: account code, debit, credit — one account per line. Commas, semicolons and tabs all work, a header row is ignored, and thousands separators are fine.',
+        ],
+        'fields' => [
+            'as_at' => 'Balances as at',
+            'trial_balance' => 'Trial balance',
+        ],
+        'helpers' => [
+            'as_at' => 'The day before you start using Atriom for real — usually the last day of the previous month.',
+            'trial_balance' => 'Leave out AR and fixed assets: those load through their own importers, and entering them twice would count them twice.',
+        ],
+        'actions' => [
+            'preview' => 'Check it',
+            'import' => 'Create draft entry',
+        ],
+        'table' => [
+            'account' => 'Account',
+            'debit' => 'Debit',
+            'credit' => 'Credit',
+            'balanced' => 'Balanced',
+            'not_balanced' => 'Does not balance',
+        ],
+        'errors' => [
+            'at_line' => 'Line :line: :error',
+            'unknown_account' => 'no account :code in the chart',
+            'summary_account' => ':code is a heading, not a postable account',
+            'inactive_account' => ':code is inactive',
+            'both_sides' => ':code has both a debit and a credit',
+            'no_amount' => ':code has neither a debit nor a credit',
+            'negative' => ':code has a negative amount — put it on the other side instead',
+            'empty' => 'Nothing to import — no account lines were found.',
+            'unbalanced' => 'Debits :debit do not equal credits :credit.',
+        ],
+        'imported' => 'Draft journal entry :number created',
+        'imported_body' => 'Review it under Journal Entries and post it when you are satisfied. Nothing has reached the ledger yet.',
+    ],
     'journal_entries' => [
         'filters' => ['without_property' => 'No property (consolidated)'],
         'errors' => [

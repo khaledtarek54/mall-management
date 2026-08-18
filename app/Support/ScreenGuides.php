@@ -19,6 +19,7 @@ use App\Filament\Admin\Pages\MonthEndClose;
 use App\Filament\Admin\Pages\NotificationCenter;
 use App\Filament\Admin\Pages\OccupancyCost;
 use App\Filament\Admin\Pages\OccupancyMap;
+use App\Filament\Admin\Pages\OpeningBalances;
 use App\Filament\Admin\Pages\PropertyOverrides;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\ReportHub;
@@ -221,6 +222,7 @@ class ScreenGuides
         ArCollections::class => 'ar_collections',
         TrialBalance::class => 'trial_balance',
         GeneralLedger::class => 'general_ledger',
+        OpeningBalances::class => 'opening_balances',
         IncomeStatement::class => 'income_statement',
         BalanceSheet::class => 'balance_sheet',
         CashFlow::class => 'cash_flow',

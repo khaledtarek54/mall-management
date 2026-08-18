@@ -1397,6 +1397,25 @@ return [
         ],
     ],
 
+    'opening_balances' => [
+        'purpose' => 'Load the balances your books already carry, on the day you start using Atriom for real.',
+        'steps' => [
+            'Set the date to the day before you go live — usually the last day of the previous month.',
+            'Paste your accountant\'s trial balance: account code, debit, credit, one account per line.',
+            'Press Check it. Every unknown code, heading account and unbalanced total is listed at once.',
+            'Create the draft, then review and post it from Journal Entries.',
+        ],
+        'affects' => [
+            'Nothing reaches the ledger until you POST the draft — importing twice leaves two drafts side by side rather than doubling your balance sheet.',
+            'Once posted, every statement, the trial balance and the GL tie-out all read from it.',
+        ],
+        'rules' => [
+            'Leave out receivables and fixed assets — they load through their own importers, and entering them here would count them twice.',
+            'Debits must equal credits. The import refuses an unbalanced trial balance rather than posting a plug.',
+            'The entry is stamped to the property you are currently in.',
+        ],
+    ],
+
     'portal_company_profile' => [
         'purpose' => 'Your own contact details — where the mall sends invoices, reminders and notices.',
         'steps' => [

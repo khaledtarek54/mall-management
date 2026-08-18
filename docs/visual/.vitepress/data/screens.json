@@ -246,6 +246,12 @@
         "guide": "occupancy_map"
     },
     {
+        "screen": "OpeningBalances",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "opening_balances"
+    },
+    {
         "screen": "OwnerRequestResource",
         "panel": "admin",
         "kind": "resource",

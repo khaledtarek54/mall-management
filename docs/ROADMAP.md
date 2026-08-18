@@ -231,7 +231,7 @@ additive items** — none of which make today's books wrong.
 
 | Item | Why | Needs accountant? |
 | --- | --- | --- |
-| **Opening balances tool** | Load the current position at go-live. Manual journals work; no guided importer. | Yes, if migrating |
+| ~~Opening balances tool~~ | ✅ **Shipped 2026-08-18.** `Pages\OpeningBalances` + `ImportOpeningBalancesService` — paste the accountant's trial balance (tab, semicolon or quoted CSV), see every bad row at once, then create a **DRAFT** journal entry to review and post from the journal screen. Draft on purpose: an import run twice would otherwise double the whole balance sheet in silence, and posting is the accountant's assertion. AR and fixed assets keep their own importers and are excluded to avoid double-counting. `OpeningBalancesImportTest`. | Yes, if migrating |
 | **VAT return (الإقرار الضريبي)** | The periodic *filing report* — distinct from ETA submission, which is built | Yes |
 | **Bank reconciliation** | No statement import/matching exists | Yes (bank feed?) |
 | **Comparative statements** | Every statement is single-period; owners expect vs-last-year | No |
