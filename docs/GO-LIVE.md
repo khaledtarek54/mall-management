@@ -36,19 +36,40 @@ money.** Compiled and verified against the running code 2026-08-11.
 
 ### 1.1 Backups are running and writing nothing ⚙️
 
-**Verified: `mysqldump` is not on PATH.** `backup:run` exits 127 and has produced no archive since
-this was first recorded on **2026-07-30**. `atriom:health` reports it under `backup_capability` and
-has been reporting it correctly the whole time.
+**✅ The dump half is fixed (2026-08-18) — and the earlier diagnosis here was wrong.**
+`backup:run` exited 127 and produced no archive from **2026-07-30 to 2026-08-18**, nineteen days.
 
-> **Every box below is the OPERATOR's — none of it is code, and that is the finding.** The check was
-> never missing; nothing forced anyone to look at it. So as of 2026-08-12 **`atriom:install` reports
-> backup capability itself**, in an error block naming each problem, instead of closing with
-> *"run `atriom:health`, it also checks backups"* — which is what it did for those twelve days.
-> Reported rather than fatal: configuring backups after installing is a legitimate order of
-> operations, and an installer that refused would simply be run with the check disabled.
+> **This section used to say "every box below is the OPERATOR's — none of it is code, and that is
+> the finding." That was wrong, and it is why the row sat open for nineteen days while everyone
+> who looked at it concluded there was nothing to build.** `Health::checkBackupCapability()` had
+> read `database.connections.{driver}.dump.dump_binary_path` since the day the failure was found —
+> but **that key existed on no connection**, so it could only ever resolve to `''` and fall through
+> to a PATH lookup that kept failing. The check was correct and unanswerable: no `.env` value could
+> have fixed it. The seam now exists on `mysql` + `mariadb` as `DB_DUMP_BINARY_PATH` (a DIRECTORY;
+> empty means "use PATH", which is right on any image that installs the client normally).
+>
+> **A second bug was hiding behind the first.** `VerifyBackupService::CRITICAL_TABLES` named
+> `journal_entry_lines` — a table that has never existed in this schema (it is `journal_lines`) —
+> so `atriom:backup-verify` would have answered *BACKUP NOT RESTORABLE* for every healthy archive.
+> Nobody saw it because the dump crash meant the drill never reached that check. A restore drill
+> that always fails is worth less than none: it teaches whoever reads it to ignore the one run that
+> matters. Both are pinned by `BackupCanActuallyRunTest`, which checks the seam EXISTS (the bug was
+> a missing key, not a wrong value) and that every critical table is really in the schema.
+>
+> **Proven end to end, not asserted:** `backup:run` wrote an archive and `atriom:backup-verify`
+> replayed it into a scratch database — 135 tables, 1,279 statements, every critical table with
+> rows. That is the first verified-restorable backup this project has had.
+>
+> As of 2026-08-12 **`atriom:install` reports backup capability itself**, in an error block naming
+> each problem. Reported rather than fatal: configuring backups after installing is a legitimate
+> order of operations, and an installer that refused would simply be run with the check disabled.
 > (`InstallReportsBackupCapabilityTest`.)
 
-- [ ] Ship the MySQL client in the deploy image (`mysqldump` must resolve for the app user).
+**The remaining boxes ARE the operator's:**
+
+- [ ] Ship the MySQL client in the deploy image (`mysqldump` must resolve for the app user), **or**
+      set `DB_DUMP_BINARY_PATH` to the directory holding it. `atriom:health` fails production while
+      neither is true.
 - [ ] `BACKUP_DISKS="backups,s3"` — **verified default is `backups` only, a LOCAL disk.** A copy on
       the same machine as the database dies with the machine, which is not a backup.
 - [ ] `BACKUP_ARCHIVE_PASSWORD` — archives hold signed leases, tenant tax cards and vendor documents.

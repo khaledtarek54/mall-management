@@ -39,12 +39,22 @@ use RuntimeException;
  */
 class VerifyBackupService
 {
-    /** Tables whose absence means the archive is not worth keeping. */
+    /**
+     * Tables whose absence means the archive is not worth keeping.
+     *
+     * **Every name here must be a table that actually exists** — `CriticalBackupTablesExistTest`
+     * fails the build otherwise. This list named `journal_entry_lines` from the day it was written
+     * and the table has only ever been called `journal_lines`, so the drill answered
+     * "BACKUP NOT RESTORABLE" for every healthy archive. Nobody saw it, because the dump step
+     * failed first (no `mysqldump` on PATH, exit 127) and the run never reached this check — one
+     * bug hiding behind another. A restore drill that always fails is worth less than none: it
+     * trains whoever reads it to ignore the one run that matters.
+     */
     public const CRITICAL_TABLES = [
         'invoices',
         'payments',
         'journal_entries',
-        'journal_entry_lines',
+        'journal_lines',
         'leases',
         'tenants',
         'units',
