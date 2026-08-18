@@ -87,6 +87,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                     Select::make('comparison')
                         ->label(__('admin.reports.comparison'))
                         ->options([
+                            ComparativeStatementService::BUDGET => __('admin.reports.comparison_budget'),
                             ComparativeStatementService::PRIOR_PERIOD => __('admin.reports.comparison_prior_period'),
                             ComparativeStatementService::PRIOR_YEAR => __('admin.reports.comparison_prior_year'),
                         ])

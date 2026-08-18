@@ -31,6 +31,7 @@ return [
         'section' => 'Section',
         'comparison' => 'Compare with',
         'comparison_none' => 'No comparison',
+        'comparison_budget' => 'Budget',
         'comparison_prior_period' => 'Prior period',
         'comparison_prior_year' => 'Prior year',
         'prior' => 'Prior',

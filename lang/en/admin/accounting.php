@@ -2,6 +2,30 @@
 
 return [
 
+    'budget' => [
+        'title' => 'Budget',
+        'subheading' => 'What each account is expected to do this year. The income statement can then be read against the plan, not just against last month.',
+        'sections' => [
+            'input' => 'Paste the budget',
+            'input_description' => 'One account per line. `code, amount` spreads an annual figure across twelve months; `code, month, amount` sets one month exactly — useful where a mall is seasonal and Ramadan is not one twelfth of the year.',
+        ],
+        'fields' => ['year' => 'Budget year', 'lines' => 'Budget lines'],
+        'helpers' => [
+            'lines' => 'Revenue and expense accounts only. Importing REPLACES this year\'s budget for this property.',
+        ],
+        'actions' => ['import' => 'Replace the budget'],
+        'existing_warning' => ':year already has a budget for this property — :lines lines totalling :total. Importing will replace it.',
+        'imported' => 'Budget set for :accounts accounts in :year',
+        'imported_body' => 'Open the income statement and choose Budget as the comparison to read actuals against it.',
+        'errors' => [
+            'empty' => 'Nothing to import — no account lines were found.',
+            'unknown_account' => 'no account :code in the chart',
+            'not_pl' => ':code is a balance-sheet account — only revenue and expense can be budgeted',
+            'summary_account' => ':code is a heading, not a postable account',
+            'bad_month' => ':code has month :month — must be 1 to 12',
+        ],
+    ],
+
     'tax_depreciation' => [
         'title' => 'Tax depreciation',
         'subheading' => 'Egyptian income tax, Law 91/2005 Art. 25 — a schedule for the return, not a second ledger. Nothing here posts.',

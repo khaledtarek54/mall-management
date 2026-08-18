@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Services\Accounting\BudgetService;
 use App\Services\Accounting\LedgerReportService;
 use Carbon\CarbonImmutable;
 
@@ -33,8 +34,17 @@ class ComparativeStatementService
     /** The SAME span one year earlier. March vs last March. */
     public const PRIOR_YEAR = 'prior_year';
 
+    /**
+     * The BUDGET for the same span — "is this what we planned?".
+     *
+     * Not a period at all, which is the whole reason it fits here without special-casing anything
+     * downstream: `BudgetService::asIncomeStatement()` returns the same shape a prior period does,
+     * so the change column, the percentages, the totals and the CSV all work unmodified.
+     */
+    public const BUDGET = 'budget';
+
     /** @var array<int, string> */
-    public const BASES = [self::PRIOR_PERIOD, self::PRIOR_YEAR];
+    public const BASES = [self::PRIOR_PERIOD, self::PRIOR_YEAR, self::BUDGET];
 
     /**
      * Which span to compare against.
@@ -75,10 +85,17 @@ class ComparativeStatementService
      */
     public function incomeStatement(CarbonImmutable $from, CarbonImmutable $to, ?array $assetIds = null, string $basis = self::PRIOR_PERIOD): array
     {
-        [$priorFrom, $priorTo] = self::priorSpan($from, $to, $basis);
+        // The budget compares against THIS span, not an earlier one — the dates do not move, only
+        // where the comparison figures come from.
+        [$priorFrom, $priorTo] = $basis === self::BUDGET
+            ? [$from, $to]
+            : self::priorSpan($from, $to, $basis);
 
         $current = $this->reports->incomeStatement($assetIds, $from, $to);
-        $prior = $this->reports->incomeStatement($assetIds, $priorFrom, $priorTo);
+
+        $prior = $basis === self::BUDGET
+            ? app(BudgetService::class)->asIncomeStatement($from, $to, $assetIds)
+            : $this->reports->incomeStatement($assetIds, $priorFrom, $priorTo);
 
         $rows = [];
 

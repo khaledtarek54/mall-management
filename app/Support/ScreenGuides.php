@@ -8,6 +8,7 @@ use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
 use App\Filament\Admin\Pages\BalanceSheet;
 use App\Filament\Admin\Pages\BillingRunPreview;
+use App\Filament\Admin\Pages\Budget;
 use App\Filament\Admin\Pages\CashFlow;
 use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
@@ -223,6 +224,7 @@ class ScreenGuides
         ArCollections::class => 'ar_collections',
         TrialBalance::class => 'trial_balance',
         GeneralLedger::class => 'general_ledger',
+        Budget::class => 'budget',
         OpeningBalances::class => 'opening_balances',
         TaxDepreciation::class => 'tax_depreciation',
         IncomeStatement::class => 'income_statement',

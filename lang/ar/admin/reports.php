@@ -30,6 +30,7 @@ return [
         'section' => 'القسم',
         'comparison' => 'مقارنة مع',
         'comparison_none' => 'بدون مقارنة',
+        'comparison_budget' => 'الموازنة',
         'comparison_prior_period' => 'الفترة السابقة',
         'comparison_prior_year' => 'العام السابق',
         'prior' => 'السابق',

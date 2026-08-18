@@ -78,6 +78,12 @@
         "note": "warehouse"
     },
     {
+        "model": "BudgetLine",
+        "label": "Budget Line",
+        "classification": "owned",
+        "note": null
+    },
+    {
         "model": "CamAllocation",
         "label": "Cam Allocation",
         "classification": "owned",

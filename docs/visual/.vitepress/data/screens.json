@@ -72,6 +72,12 @@
         "guide": "billing_run"
     },
     {
+        "screen": "Budget",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "budget"
+    },
+    {
         "screen": "CamExpensePoolResource",
         "panel": "admin",
         "kind": "resource",
