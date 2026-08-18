@@ -15,12 +15,24 @@ class UtilityMeterFactory extends Factory
     /**
      * The unit of measurement that matches each meter type.
      *
+     * **Must cover every type in `ValueSets::allowed('utility_meters','type')`.** This map is the
+     * same hand-written second source of truth that `UtilityMeter::types()` used to be: when `hours`
+     * (a running-hours meter) was added to the registry on 2026-08-17, `types()` was corrected to
+     * derive — and this was left behind saying three when the column accepted four. The factory then
+     * picked `hours` one time in four and died on an undefined key, so `FactoriesSmokeTest` failed
+     * ~25% of runs: the guard that exists to keep factories honest, made unreliable by exactly the
+     * drift it is meant to catch.
+     *
+     * The `?? ` fallback below is the backstop, not the fix — a NEW type still belongs in this map,
+     * and the fallback only guarantees it cannot crash the suite while nobody has noticed.
+     *
      * @var array<string, string>
      */
     protected const UNITS = [
         'electric' => 'kWh',
         'water' => 'm3',
         'gas' => 'm3',
+        'hours' => 'h',
     ];
 
     /**
@@ -40,7 +52,7 @@ class UtilityMeterFactory extends Factory
             'type' => $type,
             'provider' => fake()->randomElement(['EEHC', 'Cairo Water', 'TownGas', null]),
             'status' => 'active',
-            'unit_of_measurement' => self::UNITS[$type],
+            'unit_of_measurement' => self::UNITS[$type] ?? 'unit',
         ];
     }
 
