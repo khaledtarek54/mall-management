@@ -384,6 +384,10 @@
             "slug": "billing-run-preview"
         },
         {
+            "class": "Budget",
+            "slug": "budget"
+        },
+        {
             "class": "CashFlow",
             "slug": "cash-flow"
         },
@@ -428,6 +432,10 @@
             "slug": "occupancy-map"
         },
         {
+            "class": "OpeningBalances",
+            "slug": "opening-balances"
+        },
+        {
             "class": "PropertyOverrides",
             "slug": "property-overrides"
         },
@@ -450,6 +458,10 @@
         {
             "class": "Settings",
             "slug": "settings"
+        },
+        {
+            "class": "TaxDepreciation",
+            "slug": "tax-depreciation"
         },
         {
             "class": "TrialBalance",
