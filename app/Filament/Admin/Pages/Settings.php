@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Models\JournalEntry;
 use App\Models\TaxCode;
+use App\Services\GratuityService;
 use App\Support\DocumentNumbering;
 use App\Support\FiscalYearStart;
 use App\Support\Modules;
@@ -458,6 +459,40 @@ class Settings extends Page implements HasSchemas
                         ->minValue(0)
                         ->maxValue(100)
                         ->required(),
+                ]),
+
+            // End-of-service gratuity. OFF by default and deliberately so: Labour Law 12/2003
+            // Art. 122 applies to workers NOT covered by the social insurance law, and in Egypt
+            // most are — so accruing a provision nobody owes overstates the liability exactly as
+            // surely as omitting a real one understates it. The live exposure figure is shown
+            // beside the toggle so the decision is made against a number rather than a feeling.
+            Section::make(__('admin.settings.sections.payroll_gratuity'))
+                ->description(__('admin.settings.sections.payroll_gratuity_description'))
+                ->columns(2)
+                ->schema([
+                    Toggle::make('payroll.gratuity_enabled')
+                        ->label(__('admin.settings.fields.payroll_gratuity_enabled'))
+                        ->helperText(__('admin.settings.fields.payroll_gratuity_enabled_helper'))
+                        ->columnSpanFull(),
+                    TextInput::make('payroll.gratuity_days_first_five')
+                        ->label(__('admin.settings.fields.payroll_gratuity_days_first_five'))
+                        ->suffix(__('admin.settings.fields.payroll_gratuity_days_suffix'))
+                        ->numeric()->minValue(0)->maxValue(365)->required(),
+                    TextInput::make('payroll.gratuity_days_thereafter')
+                        ->label(__('admin.settings.fields.payroll_gratuity_days_thereafter'))
+                        ->suffix(__('admin.settings.fields.payroll_gratuity_days_suffix'))
+                        ->numeric()->minValue(0)->maxValue(365)->required(),
+                    Placeholder::make('gratuity_exposure')
+                        ->label(__('admin.settings.fields.payroll_gratuity_exposure'))
+                        ->columnSpanFull()
+                        ->content(function (): string {
+                            $exposure = app(GratuityService::class)->exposure();
+
+                            return __('admin.settings.fields.payroll_gratuity_exposure_value', [
+                                'amount' => 'EGP '.number_format($exposure['total'], 2),
+                                'headcount' => $exposure['headcount'],
+                            ]);
+                        }),
                 ]),
         ];
     }
