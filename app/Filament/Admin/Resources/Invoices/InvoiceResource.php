@@ -36,6 +36,24 @@ class InvoiceResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'number';
 
+    /**
+     * Triggering a BILLING RUN — the lease run and the unit-owner assessment run, both on this
+     * table's header.
+     *
+     * Gates on `invoices.run_monthly_billing`, its own right, and not on `invoices.create`. Raising
+     * one invoice and raising every invoice in the property in a single click are different acts,
+     * which is exactly why the seeder has always carried a separate permission for it — granted to
+     * `accounting` and, via the blanket grant, to `manager`/`mall_admin`.
+     *
+     * Until 2026-08-18 that permission was checked NOWHERE and both runs gated on `invoices.create`,
+     * so the catalogue described a right nothing enforced. No role changes hands here: every role
+     * holding `run_monthly_billing` also holds `create`, and the reverse set is empty.
+     */
+    public static function canRunBilling(): bool
+    {
+        return static::hasPermission('run_monthly_billing');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.invoices');

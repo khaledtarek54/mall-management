@@ -14,6 +14,25 @@
  * at and what happens if I touch it".
  */
 return [
+    'vendor_scorecard' => [
+        'purpose' => 'How each vendor has actually performed — jobs done, how fast, how often they missed the target, and what it cost them.',
+        'steps' => [
+            'Set the window you are judging. A renewal usually looks at the last twelve months.',
+            'Read across a row rather than ranking on one column — fast and expensive is a different vendor from slow and cheap.',
+            'Check the expired-documents column before you dispatch anything else to them.',
+            'Export it to take into the renewal conversation.',
+        ],
+        'affects' => [
+            'Nothing. Every figure is read back from work orders, SLA penalties and vendor documents you already recorded.',
+        ],
+        'rules' => [
+            'There is deliberately no single score. Weighting speed against cost against compliance is your judgement, not the system\'s.',
+            'A blank response or resolution time means the vendor never acknowledged or never completed — it is not zero hours.',
+            'SLA breaches count every missed target, whether or not anyone chased a penalty for it.',
+            'A vendor with no jobs and no penalties in the window is absent rather than shown as a row of zeroes.',
+            'Only the selected property is counted.',
+        ],
+    ],
 
     'properties' => [
         'purpose' => 'A mall you operate. Everything else in the system hangs off the property you have selected at the top of the screen.',

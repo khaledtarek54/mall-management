@@ -2,6 +2,27 @@
 
 return [
     'reports' => [
+        // The vendor scorecard (module 12/26). Counts and times, never a single composite score —
+        // the weighting between speed, cost and compliance is the operator's call at renewal.
+        'vendor_scorecard_nav' => 'Vendor scorecard',
+        'vendor_scorecard_title' => 'Vendor scorecard',
+        'vendor_scorecard_summary' => ':vendors vendor(s) active in this window · :breaches SLA breach(es) · :penalties penalised.',
+        'vendor_scorecard_empty' => 'No vendor did work or was penalised in this window',
+        'vendor_scorecard_columns' => [
+            'work_orders' => 'Jobs',
+            'completed' => 'Completed',
+            'open' => 'Open',
+            'avg_response_hours' => 'Avg. response (h)',
+            'avg_resolution_hours' => 'Avg. resolution (h)',
+            'sla_breaches' => 'SLA breaches',
+            'penalties_applied' => 'Penalties',
+            'penalty_total' => 'Penalised',
+            'expired_documents' => 'Expired docs',
+            'dispatchable' => 'Dispatchable',
+            'not_dispatchable' => 'Cannot be dispatched — compliance documents lapsed',
+            'dispatchable_yes' => 'Yes',
+            'dispatchable_no' => 'No',
+        ],
         'include_zero_balances' => 'Show accounts with no movement',
         'include_zero_balances_help' => 'Lists every postable account, including those that had no entries at all — the check that proves an account is genuinely nil rather than unmapped.',
         'xlsx' => [
@@ -233,6 +254,7 @@ return [
             'sales_analytics' => 'Declared tenant turnover by period and category, and what percentage rent it implies.',
             'vat_return' => 'Output and input VAT for a period, the taxable base split by treatment, and whether the documents tie to the ledger.',
             'workflows' => 'How approvals, billing and maintenance actually flow through the system.',
+            'vendor_scorecard' => 'Which vendors actually turn up, hit their SLA and keep their documents current — the record to renew or replace on.',
             'activity_log' => 'Who changed what, and when.',
         ],
     ],

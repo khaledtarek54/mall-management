@@ -27,6 +27,7 @@ use App\Filament\Admin\Pages\SalesAnalytics;
 use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
+use App\Filament\Admin\Pages\VendorScorecard;
 use App\Filament\Admin\Pages\WeeklySpend;
 use App\Filament\Admin\Pages\Workflows;
 use Filament\Facades\Filament;
@@ -107,6 +108,7 @@ class ReportCatalogue
         // ---- Operations ----
         Workflows::class => ['category' => self::OPERATIONS, 'key' => 'workflows', 'keywords' => ['approvals', 'process', 'diagram']],
         ActivityLog::class => ['category' => self::OPERATIONS, 'key' => 'activity_log', 'keywords' => ['audit', 'history', 'who changed']],
+        VendorScorecard::class => ['category' => self::OPERATIONS, 'key' => 'vendor_scorecard', 'keywords' => ['vendor', 'supplier', 'sla', 'performance', 'renewal', 'contractor']],
     ];
 
     /**

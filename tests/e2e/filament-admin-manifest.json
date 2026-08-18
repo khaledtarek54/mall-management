@@ -460,6 +460,10 @@
             "slug": "vat-return"
         },
         {
+            "class": "VendorScorecard",
+            "slug": "vendor-scorecard"
+        },
+        {
             "class": "WeeklySpend",
             "slug": "weekly-spend"
         },

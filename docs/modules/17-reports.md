@@ -396,6 +396,13 @@ found something first, because a sweep whose regex matches nothing passes every 
 
 **Property-level statement for the Owner Portal.** Aggregates invoices/payments across all leases at a property for 12 trailing months.
 
+> **Where it is reached (2026-08-18).** The **Property statement** row action on the Properties list,
+> gated on `reports.download`. The `/owner` panel this was built for was removed when owners became
+> admin users under RBAC, and the button went with it — leaving the service, its tests and its
+> Blade view with **no caller in `app/` at all**, so the one document an owner asks for every month
+> could not be produced from anywhere in the application.
+
+
 #### `build(Asset $asset): string`
 **Returns:** PDF binary.
 **Details:**

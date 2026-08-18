@@ -125,7 +125,19 @@ before choosing a menu.
 
 ## 7. Billing an owner (phase 2)
 
-`BillUnitOwnershipsService` raises the monthly assessment. `invoices.lease_id` and `charges.lease_id`
+`BillUnitOwnershipsService` raises the monthly assessment.
+
+**How it is triggered (wired 2026-08-18).** `billing:run-assessments` runs it, scheduled in
+`routes/console.php` on the operator's billing day at **02:30** — half an hour after the lease run,
+which it deliberately does not share a cache lock with (the two bill disjoint agreements). The manual
+re-run is the **Run Owner Assessments** button on the Invoices list header, beside the lease run and
+gated on the same `invoices.run_monthly_billing` right.
+
+> Between module 37 shipping (August 2026) and 2026-08-18 **none of that existed**: the service had no
+> caller outside `DemoSeeder` and the test suite, so no handed-over owner was ever billed in
+> production. Its own docblock spoke of "the scheduled one" while no schedule called it. Pinned by
+> `UiSweepUnreachableFunctionalityTest`.
+ `invoices.lease_id` and `charges.lease_id`
 are now nullable, and **exactly one** of `lease_id` / `unit_ownership_id` is set on each — enforced at
 the model, not as a CHECK, because SQLite drops CHECKs on any later `->change()` to the table.
 
@@ -237,6 +249,14 @@ Two things did need fixing, both found by writing the test first:
 
 `TransferUnitOwnershipService` — Yardi's change-of-ownership. It closes the seller's tenure, opens
 the buyer's, keeps the unit's history, and returns the **resale (estoppel) certificate**.
+
+**Where an operator does it (added 2026-08-18):** two row actions on the ownership register —
+**Resale certificate** (read-only, gated on `unit_ownerships.view`, "as at" any date) and **Transfer
+ownership** (gated on `unit_ownerships.edit`, hidden once the tenure is terminal). The transfer modal
+shows the outstanding figure live as the date moves, so the arrears refusal is visible before it
+fires rather than after. Until then the service had no caller outside its tests: a unit could be
+resold in the real world and there was no way to record it.
+
 
 - **Every figure is read from the books**, never typed. `outstanding` is the invoices' own `balance`,
   which `Invoice::recomputeTotals()` owns across all four settlement channels — because that number

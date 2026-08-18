@@ -577,6 +577,18 @@ same `canEdit` predicate now re-asserts in `->authorize()` **and** `abort_unless
 `action()`, so they can't drift and a read-only viewer/owner (holds `maintenance.view`, not `.edit`)
 can never re-status, reassign or reroute a request. Guarded by `TenantRequestActionAuthzTest`.
 
+> **Correction 2026-08-18 — the PREDICATE was wrong, not the layering.** All three actions gated on
+> `canEdit()` (= `requests.edit`), but the seeder has always carried `requests.change_status` and
+> `requests.assign` as separate rights, and neither was checked anywhere in `app/`. The consequence
+> landed on the **`technician`** role, which is granted `requests.change_status` and deliberately
+> withheld `requests.edit` — doing the job and rewriting the record are different acts — so the one
+> role whose entire function is to move the request it is holding could neither see nor dispatch the
+> Change-Status action. `TenantRequestResource::canChangeStatus()` / `canAssign()` now gate on their
+> own permissions in all three places, re-asserting the terminal rule themselves because immutability
+> is a property of the RECORD, not of the permission. `redirect` still gates on `canEdit` — rerouting
+> to another department IS a record edit. Pinned by `UiSweepUnreachableFunctionalityTest`.
+
+
 > **Filament-version note (empirically verified).** In the *installed* Filament version,
 > `mountAction()`/`TestAction` **does** respect `visible()` — a visible-only action was already
 > blocked from the `mountAction + callMountedAction` vector (proven by reverting the gate here **and**

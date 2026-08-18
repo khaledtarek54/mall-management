@@ -31,6 +31,28 @@ Schedule::job(new RunMonthlyBilling)
     ->name('atriom-monthly-billing')
     ->withoutOverlapping();
 
+// The OWNER side of the same night (module 37). A unit owner pays a monthly صيانة assessment on his
+// ownership exactly as a tenant pays a service charge on his lease — but an ownership carries none of
+// a lease's rules, so it is a separate service, a separate cache lock and a separate run.
+//
+// Runs 30 minutes after the lease run rather than beside it: the two bill disjoint agreements and
+// could safely overlap, but staggering keeps one heavy write window instead of two competing ones,
+// and puts the assessment failures in their own log line.
+//
+// This entry did not exist until 2026-08-18. `BillUnitOwnershipsService` shipped with module 37 in
+// August 2026 and was never wired to anything — its own docblock spoke of "the scheduled one" while
+// no schedule ever called it, so every handed-over owner went un-billed in production.
+Schedule::command('billing:run-assessments')
+    ->monthlyOn(
+        (int) ScheduleSetting::billing('monthly_billing_day', 'billing.monthly_billing_day', 1),
+        // The DAY is the operator's billing-day setting — both runs bill the same night. The TIME is
+        // config-only and deliberately not a settings property: it is a stagger, not a policy, and a
+        // settings field with no screen behind it reads as configurable when it is not.
+        (string) config('billing.assessment_billing_time', '02:30'),
+    )
+    ->name('atriom-owner-assessments')
+    ->withoutOverlapping();
+
 // 04:00, before the 05:00 ledger sweep. That ordering used to be LOAD-BEARING and no longer is:
 // a late fee mutated a posted invoice's total through recomputeTotals(), which saves quietly and so
 // never fired the real-time GL hook, leaving AR and the GL disagreeing by the fee until the sweep.

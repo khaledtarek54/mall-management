@@ -106,9 +106,11 @@ class RolesPermissionsSeeder extends Seeder
             'invoices.create' => 'Create invoices',
             'invoices.edit' => 'Edit invoices',
             'invoices.void' => 'Void (cancel) an issued invoice',
-            'invoices.run_monthly_billing' => 'Run monthly billing for all active leases',
+            // Covers BOTH billing runs on the Invoices header — the lease run and the unit-owner
+            // assessment run. Raising one invoice (`invoices.create`) and raising every invoice in
+            // the property in one click are different acts, which is why this is its own right.
+            'invoices.run_monthly_billing' => 'Run the monthly billing and owner-assessment runs',
             'invoices.submit_to_eta' => 'Submit invoices to the Egyptian Tax Authority',
-            'invoices.send_whatsapp' => 'Send invoice via WhatsApp',
         ],
         'payments' => [
             'payments.view' => 'View payments',
@@ -687,7 +689,7 @@ class RolesPermissionsSeeder extends Seeder
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
         $grants['accounting'] = [
             'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.void',
-            'invoices.run_monthly_billing', 'invoices.submit_to_eta', 'invoices.send_whatsapp',
+            'invoices.run_monthly_billing', 'invoices.submit_to_eta',
             'payments.view', 'payments.create', 'payments.edit', 'payments.void',
             'credit_notes.view', 'credit_notes.create', 'credit_notes.edit',
             'credit_notes.issue', 'credit_notes.apply', 'credit_notes.void',

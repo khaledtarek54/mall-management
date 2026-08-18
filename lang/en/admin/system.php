@@ -1,6 +1,13 @@
 <?php
 
 return [
+    'assets' => [
+        'statement' => [
+            // The owner's monthly document: 12 months trailing, billed vs collected, and who is behind.
+            'action' => 'Property statement',
+        ],
+    ],
+
     'settings' => [
         'page_title' => 'System Settings',
         'save' => 'Save settings',

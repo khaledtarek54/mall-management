@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'assets' => [
+        'statement' => [
+            'action' => 'كشف حساب العقار',
+        ],
+    ],
+
     'settings' => [
         'page_title' => 'إعدادات النظام',
         'save' => 'حفظ الإعدادات',

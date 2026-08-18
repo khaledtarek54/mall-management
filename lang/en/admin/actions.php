@@ -101,6 +101,13 @@ return [
         'run_monthly_billing_modal_description' => 'Creates one invoice per active lease for the current period (:period). Leases already billed for this period are skipped.',
         'monthly_billing_complete' => 'Monthly billing complete',
         'monthly_billing_summary' => 'Period :period: created :created, skipped :skipped (already billed), failed :failed of :considered active leases.',
+        // The OWNER side of the same run (module 37) — a unit owner pays a monthly صيانة assessment
+        // on his ownership as a tenant pays a service charge on his lease.
+        'run_owner_assessments' => 'Run Owner Assessments',
+        'run_owner_assessments_modal_heading' => 'Raise the monthly assessment for every unit owner?',
+        'run_owner_assessments_modal_description' => 'Creates one assessment invoice per handed-over unit ownership for the current period (:period). Ownerships already assessed for this period are skipped.',
+        'owner_assessments_complete' => 'Owner assessments complete',
+        'owner_assessments_summary' => 'Period :period: created :created, skipped :skipped (already assessed), failed :failed of :considered ownerships.',
         'quick_new_lease' => 'Quick New Lease',
         'quick_new_lease_modal_heading' => 'Sign a new tenant',
         'quick_new_lease_submit' => 'Create lease',

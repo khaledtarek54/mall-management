@@ -27,6 +27,7 @@ use App\Filament\Admin\Pages\SalesAnalytics;
 use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
+use App\Filament\Admin\Pages\VendorScorecard;
 use App\Filament\Admin\Pages\WeeklySpend;
 use App\Filament\Admin\Pages\Workflows;
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
@@ -225,6 +226,7 @@ class ScreenGuides
         VatReturn::class => 'vat_return',
         MonthEndClose::class => 'month_end_close',
         WeeklySpend::class => 'weekly_spend',
+        VendorScorecard::class => 'vendor_scorecard',
         Reports::class => 'reports',
         ReportHub::class => 'report_hub',
         Workflows::class => 'workflows',

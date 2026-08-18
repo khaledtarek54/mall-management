@@ -101,6 +101,12 @@ return [
         'run_monthly_billing_modal_description' => 'يتم إنشاء فاتورة لكل عقد نشط للفترة الحالية (:period). يتم تخطي العقود التي تم فوترتها مسبقًا لهذه الفترة.',
         'monthly_billing_complete' => 'اكتملت الفوترة الشهرية',
         'monthly_billing_summary' => 'الفترة :period: تم إنشاء :created، تخطي :skipped (تمت فوترتها مسبقًا)، فشل :failed من :considered عقدًا نشطًا.',
+        // الجانب الخاص بالمُلّاك من نفس التشغيل (الوحدة 37).
+        'run_owner_assessments' => 'تشغيل مطالبات المُلّاك',
+        'run_owner_assessments_modal_heading' => 'إصدار المطالبة الشهرية لكل مالك وحدة؟',
+        'run_owner_assessments_modal_description' => 'يتم إنشاء مطالبة لكل ملكية وحدة تم تسليمها للفترة الحالية (:period). يتم تخطي الملكيات التي صدرت لها مطالبة لهذه الفترة.',
+        'owner_assessments_complete' => 'اكتملت مطالبات المُلّاك',
+        'owner_assessments_summary' => 'الفترة :period: تم إنشاء :created، تخطي :skipped (صدرت مسبقًا)، فشل :failed من :considered ملكية.',
         'quick_new_lease' => 'عقد إيجار سريع',
         'quick_new_lease_modal_heading' => 'إبرام عقد مع مستأجر جديد',
         'quick_new_lease_submit' => 'إنشاء العقد',

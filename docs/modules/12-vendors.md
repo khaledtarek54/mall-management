@@ -312,6 +312,32 @@ an everyday operation in Yardi Voyager — [change-impact plan F1](../accounting
   settles its share, the cancel refusal is now an instruction that works, and the permission is held
   by the roles that pay bills and not by the ones that don't.
 
+
+### `VendorScorecard` page (app/Filament/Admin/Pages/VendorScorecard.php) — added 2026-08-18
+
+How each vendor has actually performed, over a window: jobs raised / completed / still open, average
+hours to acknowledge and to resolve, SLA breaches, penalties applied and their value, lapsed
+compliance documents, and whether the vendor is dispatchable at all. Nothing here is new data — every
+figure is a by-product of work already recorded; what was missing was bringing it together per vendor,
+so "who is actually any good" was answered from memory at renewal time.
+
+- **Counts and times, never a single score.** A composite would have to weight responsiveness against
+  cost against compliance, and that weighting is the operator's judgement — a vendor who is slow but
+  cheap may be exactly right for routine work. Sorted by SLA breaches because that is what somebody
+  arriving here is looking for, not because it is "the" ranking.
+- **A blank response time is not zero.** `VendorScorecardService` returns null when nothing was ever
+  acknowledged, and both the table and the CSV keep it blank — averaging "never" as zero would flatter
+  the vendor into looking instant.
+- **Gated on `vendors.view`, deliberately not `reports.view`.** The `vendor` role is an *external*
+  contractor holding facility rights and no vendor rights; it must never read a competitor's response
+  times, penalties or lapsed documents.
+- Catalogued in `ReportCatalogue` under Operations (so the Reports hub indexes it) while its nav entry
+  sits in **Payables**, beside the register it summarises. Screen guide in both languages.
+
+> The service and its seven regression tests shipped without this screen, and it sat in
+> `docs/BACKLOG.md` as a feature to build while the feature was already built — the only way to read a
+> scorecard was to call the service from tinker.
+
 ## 6. Filament resources & key fields
 
 > **12b additions not detailed below** (this section predates them): the vendor edit page also carries a **`DocumentsRelationManager`** (compliance certs, private disk) and the contracts RM gained an **`amend`** (change-order) action + Committed/Billed/Remaining columns; and there is a **separate `VendorBillResource`** (`/admin/vendors/bills`) for AP — property-scoped (`asset_id` guarded by `assertAssetInScope` on create+edit), with `approve` / `record_payment` (withholding-tax breakdown) / `cancel_bill` actions, all double-gated. Its **payments relation manager** creates and edits nothing but owns one correction — **`void_payment`** (§5), which states the ledger effect in the confirmation ("the bill's balance re-opens by X and its entry is reversed") and requires a reason. All vendor relation-manager write actions gate the predicate in both `visible()` and `authorize()`.

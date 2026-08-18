@@ -27,13 +27,6 @@ Compiled 2026-08-11.
   never quietly lower one. Three values, not five: a scale nobody applies consistently is a field
   that stays on its default.
 
-- **Vendor scorecards** — `VendorScorecardService`. Per vendor, over a window: jobs raised,
-  completed and still open; average time to acknowledge and to resolve; SLA breaches **whether or
-  not anyone penalised them** (the two are different facts, and a vendor is not owed the benefit of
-  an un-chased breach); penalties applied and their value; lapsed compliance documents; and whether
-  the vendor is dispatchable at all. **Counts and times, never a single score** — a composite would
-  have to weight responsiveness against cost against compliance, and that weighting is the
-  operator's judgement at renewal, not something to bury in a service.
 - **Comparative statements** — `ComparativeStatementService`. The income statement beside the
   immediately preceding span of the **same length**, derived rather than asked for: comparing a
   31-day month against a 28-day one invents a variance that is really just February. Built ON

@@ -42,8 +42,7 @@ class TenantRequestResource extends Resource
 
     /**
      * Closed/cancelled work-orders are immutable (FR REQ-3). Returning false
-     * here also hides the Edit / Redirect / Assign row-actions, which all gate
-     * on canEdit().
+     * here also hides the Edit / Redirect row-actions, which gate on canEdit().
      */
     public static function canEdit(Model $record): bool
     {
@@ -52,6 +51,44 @@ class TenantRequestResource extends Resource
         }
 
         return static::roleGatedCanEdit($record);
+    }
+
+    /**
+     * Moving a request across its status ladder — the Change-Status action.
+     *
+     * Gates on `requests.change_status`, NOT on `requests.edit`. They are different rights and the
+     * seeder has always said so: the `technician` role is granted `change_status` and deliberately
+     * withheld `edit`, because doing the job and rewriting the record are different acts. Until
+     * 2026-08-18 the action gated on canEdit(), so the one role whose entire function is to move
+     * the request it is holding could not move it — the permission was granted and checked nowhere.
+     * `customer_service` is the control: it holds neither, and still must not.
+     *
+     * The terminal rule is re-asserted here rather than delegated to canEdit(), because it is a
+     * property of the RECORD (a closed request is immutable, FR REQ-3) and not of the permission.
+     */
+    public static function canChangeStatus(Model $record): bool
+    {
+        if ($record instanceof TenantRequest && $record->isTerminal()) {
+            return false;
+        }
+
+        return static::hasPermission('change_status');
+    }
+
+    /**
+     * Handing a request to an assignee — the Assign action. Gates on `requests.assign`, which the
+     * seeder grants to exactly the roles that dispatch work (`operations`, `coordinator`, plus
+     * manager's blanket grant) and withholds from `customer_service`, which captures a request and
+     * hands it on. Same drift as canChangeStatus() above: the permission existed, the action
+     * checked `edit` instead, so the grant described a right nothing enforced.
+     */
+    public static function canAssign(Model $record): bool
+    {
+        if ($record instanceof TenantRequest && $record->isTerminal()) {
+            return false;
+        }
+
+        return static::hasPermission('assign');
     }
 
     protected static ?string $model = TenantRequest::class;

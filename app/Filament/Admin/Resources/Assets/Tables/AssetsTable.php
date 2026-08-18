@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources\Assets\Tables;
 
 use App\Filament\Admin\Resources\Assets\AssetResource;
 use App\Models\Asset;
+use App\Services\AssetStatementPdfService;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -17,6 +19,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class AssetsTable
 {
@@ -125,6 +128,36 @@ class AssetsTable
                     ->authorize(fn ($record) => AssetResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => AssetResource::canEdit($record)),
+
+                // The owner-facing PROPERTY STATEMENT — 12 months trailing, invoice + payment
+                // rollups and the ten most delinquent tenants.
+                //
+                // `AssetStatementPdfService` had no caller at all between the removal of the
+                // `/owner` panel (owners became admin users under RBAC) and 2026-08-18: the service
+                // and its tests survived the panel, the button did not, so the one document an owner
+                // asks for every month could not be produced from anywhere in the app.
+                //
+                // Gated on `reports.download`, the right the seeder already uses for owner-facing
+                // extracts — not on assets.edit, which an owner correctly does not hold. Which
+                // properties they can reach is the table's own scope; this only decides whether the
+                // document may leave the building.
+                Action::make('propertyStatement')
+                    ->label(__('admin.assets.statement.action'))
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('gray')
+                    ->visible(fn () => Auth::user()?->can('reports.download') ?? false)
+                    ->authorize(fn () => Auth::user()?->can('reports.download') ?? false)
+                    ->action(function (Asset $record) {
+                        abort_unless(Auth::user()?->can('reports.download') ?? false, 403);
+                        $svc = app(AssetStatementPdfService::class);
+                        $pdf = $svc->build($record);
+
+                        return response()->streamDownload(
+                            fn () => print ($pdf),
+                            $svc->filename($record),
+                            ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

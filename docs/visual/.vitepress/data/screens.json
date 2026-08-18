@@ -486,6 +486,12 @@
         "guide": "vendor_bills"
     },
     {
+        "screen": "VendorScorecard",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "vendor_scorecard"
+    },
+    {
         "screen": "VendorResource",
         "panel": "admin",
         "kind": "resource",

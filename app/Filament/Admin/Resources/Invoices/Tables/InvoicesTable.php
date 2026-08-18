@@ -14,6 +14,7 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\AllocatePaymentToInvoiceItemsService;
+use App\Services\BillUnitOwnershipsService;
 use App\Services\DisputeInvoiceItemService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
@@ -316,15 +317,15 @@ class InvoicesTable
                     ->label(__('admin.actions.run_monthly_billing'))
                     ->icon('heroicon-o-play')
                     ->color('primary')
-                    ->visible(fn () => InvoiceResource::canCreate())
-                    ->authorize(fn () => InvoiceResource::canCreate())
+                    ->visible(fn () => InvoiceResource::canRunBilling())
+                    ->authorize(fn () => InvoiceResource::canRunBilling())
                     ->requiresConfirmation()
                     ->modalHeading(__('admin.actions.run_monthly_billing_modal_heading'))
                     ->modalDescription(fn () => __('admin.actions.run_monthly_billing_modal_description', ['period' => now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')]))
                     ->action(function () {
                         // action() is the real gate — mountAction() never checks visible(); viewer/owner
-                        // hold invoices.view but not .create and must not trigger a property-wide run.
-                        abort_unless(InvoiceResource::canCreate(), 403);
+                        // hold invoices.view but not the billing right and must not trigger a run.
+                        abort_unless(InvoiceResource::canRunBilling(), 403);
                         $stats = app(MonthlyBillingService::class)->runForPeriod();
 
                         Notification::make()
@@ -335,6 +336,36 @@ class InvoicesTable
                                 'skipped' => $stats['skipped'],
                                 'failed' => $stats['failed'],
                                 'considered' => $stats['leases_considered'],
+                            ]))
+                            ->color($stats['failed'] > 0 ? 'warning' : 'success')
+                            ->success()
+                            ->send();
+                    }),
+                // The OWNER side of the billing night (module 37), deliberately beside the lease run
+                // rather than on the ownership register: it is the same act for the same role, and
+                // `accounting` lives here while the register sits in Leasing. Both runs are also
+                // scheduled (routes/console.php) — this is the manual re-run, same as its neighbour.
+                Action::make('runOwnerAssessments')
+                    ->label(__('admin.actions.run_owner_assessments'))
+                    ->icon('heroicon-o-key')
+                    ->color('primary')
+                    ->visible(fn () => InvoiceResource::canRunBilling())
+                    ->authorize(fn () => InvoiceResource::canRunBilling())
+                    ->requiresConfirmation()
+                    ->modalHeading(__('admin.actions.run_owner_assessments_modal_heading'))
+                    ->modalDescription(fn () => __('admin.actions.run_owner_assessments_modal_description', ['period' => now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')]))
+                    ->action(function () {
+                        abort_unless(InvoiceResource::canRunBilling(), 403);
+                        $stats = app(BillUnitOwnershipsService::class)->runForPeriod();
+
+                        Notification::make()
+                            ->title(__('admin.actions.owner_assessments_complete'))
+                            ->body(__('admin.actions.owner_assessments_summary', [
+                                'period' => $stats['period'],
+                                'created' => $stats['created'],
+                                'skipped' => $stats['skipped'],
+                                'failed' => $stats['failed'],
+                                'considered' => $stats['considered'],
                             ]))
                             ->color($stats['failed'] > 0 ? 'warning' : 'success')
                             ->success()

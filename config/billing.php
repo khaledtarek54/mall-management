@@ -24,6 +24,10 @@ return [
     'monthly_billing_day' => env('MONTHLY_BILLING_DAY', 1),
     'monthly_billing_time' => env('MONTHLY_BILLING_TIME', '02:00'),
 
+    // The unit-OWNER assessment run (module 37) bills on the same day as the lease run, staggered
+    // half an hour later so the two heavy write windows do not compete. See routes/console.php.
+    'assessment_billing_time' => env('ASSESSMENT_BILLING_TIME', '02:30'),
+
     /*
     |--------------------------------------------------------------------------
     | CAM annual reconciliation schedule
