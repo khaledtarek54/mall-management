@@ -2,8 +2,6 @@
 
 namespace App\Support;
 
-use Tests\Feature\Scenarios\ServiceReachabilityConformanceTest;
-
 /**
  * Every service must be reachable from something a person or a schedule can start.
  *
@@ -34,7 +32,9 @@ use Tests\Feature\Scenarios\ServiceReachabilityConformanceTest;
  * fixpoint from there. Tests and seeders are deliberately NOT seeds: they are exactly what made the
  * four above look alive.
  *
- * @see ServiceReachabilityConformanceTest
+ * The gate is `Tests\Feature\Scenarios\ServiceReachabilityConformanceTest` — named in prose rather
+ * than an `@see` tag, because the `Tests\` namespace is dev-only autoload and must not be imported
+ * into `app/` (pint's fully_qualified_strict_types fixer will hoist a tagged FQCN into a `use`).
  */
 final class ServiceReachability
 {
