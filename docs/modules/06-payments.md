@@ -519,6 +519,11 @@ Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pa
 - Expiry was rejected deliberately: it would silently kill legitimate links in already-sent mail and turn every late payer into a support call.
 - Tests: `tests/Feature/Regression/PaymentLinkRotationTest.php`.
 
+**Reading the link is `invoices.view`; revoking it is `invoices.edit` (fixed 2026-08-18).** The **"Payment link"** modal — the URL, the copy box, the QR — was gated on `config('integrations.paymob.enabled') && isPayable()`, while "Regenerate payment link" beside it was gated only on a token existing. On the shipped default (`PAYMOB_ENABLED=false`) that left the invoice screen offering revocation and nothing else: **the operator could kill a bearer credential they were not allowed to read.** The gate was wrong about its own premise — the token is minted for *every* invoice in `Invoice::creating`, and `InvoiceResource` publishes `payment_link_url` to the mobile app with no gateway check, so the URL is live and already in tenants' hands whether or not Paymob is on. Both admin surfaces (table + edit page) now show it whenever a token exists, and the modal states which of the three situations it is in: it can collect (hint + scan-to-pay QR), the gateway is off (link works, cannot collect), or nothing is left to collect (opens the status page). The QR renders only in the first case — a "scan to pay" code that cannot take a payment is a worse answer than saying so.
+
+- The **portal** action keeps the old gate deliberately: a tenant looking at their own invoice gains nothing from a link to a page that cannot collect. The operator's need — see what the client holds, hand it over, revoke it — is a different question.
+- Tests: `tests/Feature/Regression/PaymentLinkVisibleWithoutGatewayTest.php` (pairs each assertion with its opposite: the QR case, the settled case, and view-vs-edit on one screen).
+
 ### Related Modules
 
 - **[Invoices & AR](./04-invoices.md)** — Invoice creation, ETA submission, monthly billing. Invoices are the payment target; recomputeTotals drives AR.

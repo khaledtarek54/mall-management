@@ -488,7 +488,13 @@ class InvoicesTable
                     ->label(__('admin.actions.payment_link'))
                     ->icon('heroicon-o-link')
                     ->color('gray')
-                    ->visible(fn (Invoice $record) => config('integrations.paymob.enabled') && $record->isPayable())
+                    ->authorize(fn () => auth()->user()?->can('invoices.view') ?? false)
+                    // Mirrors the revoke action below: available whenever a token exists, not only
+                    // while payable with the gateway on. The URL is live regardless (minted on
+                    // create, published by the mobile API), so the operator must be able to read
+                    // what a client holds — the modal states when it can no longer collect.
+                    ->visible(fn (Invoice $record) => filled($record->payment_link_token)
+                        && (auth()->user()?->can('invoices.view') ?? false))
                     ->modalHeading(fn (Invoice $record) => __('admin.actions.payment_link').' · '.$record->number)
                     ->modalSubmitAction(false)
                     ->modalContent(fn (Invoice $record) => view('filament.payment-link-modal', ['invoice' => $record])),

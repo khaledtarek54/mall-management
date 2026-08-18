@@ -72,7 +72,14 @@ class EditInvoice extends EditRecord
                 ->icon('heroicon-o-link')
                 ->color('gray')
                 ->authorize(fn () => Auth::user()?->can('invoices.view') ?? false)
-                ->visible(fn () => config('integrations.paymob.enabled') && $this->record->isPayable())
+                // Shown whenever a token exists — NOT only while the gateway is on and the invoice
+                // payable, which is how it used to read. The token is minted on every invoice and
+                // the mobile API already hands the URL to the tenant, so the link is live either
+                // way; gating the ONE screen that displays it on PAYMOB_ENABLED left the operator
+                // able to revoke a bearer credential they could not read. The modal says which
+                // state it is in.
+                ->visible(fn () => filled($this->record->payment_link_token)
+                    && (Auth::user()?->can('invoices.view') ?? false))
                 ->modalHeading(fn () => __('admin.actions.payment_link').' · '.$this->record->number)
                 ->modalSubmitAction(false)
                 ->modalContent(fn () => view('filament.payment-link-modal', ['invoice' => $this->record])),
