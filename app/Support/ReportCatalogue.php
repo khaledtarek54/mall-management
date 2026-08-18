@@ -25,6 +25,7 @@ use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\Reports;
 use App\Filament\Admin\Pages\SalesAnalytics;
 use App\Filament\Admin\Pages\Settings;
+use App\Filament\Admin\Pages\TaxDepreciation;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
 use App\Filament\Admin\Pages\VendorScorecard;
@@ -84,6 +85,7 @@ class ReportCatalogue
         BalanceSheet::class => ['category' => self::FINANCIAL, 'key' => 'balance_sheet', 'keywords' => ['assets', 'liabilities', 'equity']],
         CashFlow::class => ['category' => self::FINANCIAL, 'key' => 'cash_flow', 'keywords' => ['cash', 'bank', 'movement']],
         TrialBalance::class => ['category' => self::FINANCIAL, 'key' => 'trial_balance', 'keywords' => ['tb', 'debits', 'credits']],
+        TaxDepreciation::class => ['category' => self::TAX, 'key' => 'tax_depreciation', 'keywords' => ['depreciation', 'tax', 'pool', 'declining', 'law 91', 'إهلاك']],
         GeneralLedger::class => ['category' => self::FINANCIAL, 'key' => 'general_ledger', 'keywords' => ['gl', 'account', 'entries', 'statement']],
         MonthEndClose::class => ['category' => self::FINANCIAL, 'key' => 'month_end_close', 'keywords' => ['close', 'period', 'lock']],
         Reports::class => ['category' => self::FINANCIAL, 'key' => 'monthly_close', 'keywords' => ['month', 'kpi', 'summary']],

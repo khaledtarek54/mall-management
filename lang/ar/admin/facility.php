@@ -239,6 +239,7 @@ return [
         'singular' => 'أصل ثابت',
         'plural' => 'الأصول الثابتة',
         'fields' => [
+            'tax_pool' => 'مجموعة الإهلاك الضريبي',
             'name' => 'الاسم', 'tag' => 'رقم الأصل', 'category' => 'الفئة', 'property' => 'العقار',
             'acquisition_date' => 'تاريخ الشراء', 'acquisition_cost' => 'التكلفة', 'salvage_value' => 'القيمة التخريدية',
             'useful_life' => 'العمر الإنتاجي (شهور)', 'funded_from' => 'ممول من', 'status' => 'الحالة',
@@ -247,6 +248,9 @@ return [
             'period' => 'الشهر', 'amount' => 'المبلغ', 'notes' => 'ملاحظات', 'posted_by' => 'رحّلها',
             'disposed_on' => 'تاريخ الاستبعاد', 'proceeds' => 'عائد البيع', 'proceeds_account' => 'العائد إلى',
             'total_net_book_value' => 'إجمالي صافي القيمة الدفترية',
+        ],
+        'helpers' => [
+            'tax_pool' => 'المجموعة التي يقع فيها هذا الأصل لأغراض ضريبة الدخل (القانون 91/2005). منفصلة عن العمر الإنتاجي المحاسبي.',
         ],
         'filters' => [
             'fully_depreciated' => 'مُهلك بالكامل',

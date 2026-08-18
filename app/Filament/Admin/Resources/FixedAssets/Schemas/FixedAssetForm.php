@@ -7,6 +7,7 @@ use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Support\CategorySuggestions;
 use App\Support\Filament\EntitySelect;
+use App\Support\TaxDepreciation;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -47,6 +48,17 @@ class FixedAssetForm
             // hint that won't reliably open on click). Category is free-form by design, so the
             // list merges the built-in suggestions with values already in use and keeps a
             // "create" affordance for a brand-new category — nullable, so not required.
+            // The Egyptian tax pool, stated rather than inferred: `category` is free text the
+            // operator invents ("HVAC", "Fit-out"), so the same word means different things in two
+            // malls and cannot be mapped to a statutory class. Separate from `method`, which is the
+            // ACCOUNTING basis — an asset routinely has a different rate under each.
+            Select::make('tax_pool')
+                ->label(__('admin.fixed_assets.fields.tax_pool'))
+                ->options(fn () => collect(TaxDepreciation::pools())
+                    ->mapWithKeys(fn (string $p) => [$p => __("admin.tax_depreciation.pools.{$p}")])->all())
+                ->default(TaxDepreciation::default())
+                ->native(false)
+                ->helperText(__('admin.fixed_assets.helpers.tax_pool')),
             Select::make('category')
                 ->label(__('admin.fixed_assets.fields.category'))
                 ->native(false)

@@ -97,6 +97,12 @@ class ValueSets
         'expenses.status' => ['recorded', 'cancelled'],
         'fiscal_years.status' => ['open', 'closed'],
         'fixed_assets.status' => ['active', 'disposed'],
+        // Egyptian income-tax depreciation pools — Law 91/2005 Art. 25. STATUTE, not preference:
+        // an operator does not get to decide that computers depreciate at 50%.
+        'fixed_assets.tax_pool' => [
+            TaxDepreciation::BUILDINGS, TaxDepreciation::INTANGIBLES,
+            TaxDepreciation::COMPUTERS, TaxDepreciation::GENERAL, TaxDepreciation::NONE,
+        ],
         'invoices.eta_status' => ['pending', 'submitted', 'valid', 'invalid', 'rejected', 'cancelled'],
         'invoices.status' => [
             'draft', 'issued', 'partially_paid', 'paid', 'overdue', 'disputed', 'cancelled', 'credited',

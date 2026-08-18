@@ -41,6 +41,10 @@ class FixedAsset extends Model
         'salvage_value',
         'useful_life_months',
         'method',
+        // Which Egyptian income-tax pool this asset falls in (Law 91/2005 Art. 25). Separate
+        // from `method`, which is the ACCOUNTING basis — the two answer different questions
+        // and an asset routinely has a different rate under each.
+        'tax_pool',
         'funded_from',
         'status',
         'is_opening_balance',

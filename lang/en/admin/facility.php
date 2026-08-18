@@ -244,6 +244,7 @@ return [
         'singular' => 'Fixed Asset',
         'plural' => 'Fixed Assets',
         'fields' => [
+            'tax_pool' => 'Tax depreciation pool',
             'name' => 'Name', 'tag' => 'Asset tag', 'category' => 'Category', 'property' => 'Property',
             'acquisition_date' => 'Acquired', 'acquisition_cost' => 'Cost', 'salvage_value' => 'Salvage',
             'useful_life' => 'Useful life (months)', 'funded_from' => 'Funded from', 'status' => 'Status',
@@ -252,6 +253,9 @@ return [
             'period' => 'Month', 'amount' => 'Amount', 'notes' => 'Notes', 'posted_by' => 'Posted by',
             'disposed_on' => 'Disposed on', 'proceeds' => 'Sale proceeds', 'proceeds_account' => 'Proceeds to',
             'total_net_book_value' => 'Total net book value',
+        ],
+        'helpers' => [
+            'tax_pool' => 'Which class this falls in for income tax (Law 91/2005). Separate from the accounting useful life.',
         ],
         'filters' => [
             'fully_depreciated' => 'Fully depreciated',

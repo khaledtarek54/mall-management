@@ -1397,6 +1397,25 @@ return [
         ],
     ],
 
+    'tax_depreciation' => [
+        'purpose' => 'What income tax lets you deduct for depreciation this year — a different calculation from the one in your accounts.',
+        'steps' => [
+            'Pick the tax year.',
+            'Read each pool: opening balance, what was added, what was sold, and the resulting deduction.',
+            'Export the CSV for the tax file, or save it as a view to have it emailed each year.',
+        ],
+        'affects' => [
+            'Nothing. This posts no entries and changes no balances — it is a schedule for the return, read off the fixed-asset register.',
+            'What it depends on is each asset\'s tax pool: set that wrongly on the asset and this figure is wrong.',
+        ],
+        'rules' => [
+            'The rates are the law (91/2005 Art. 25), not a setting: buildings 5%, intangibles 10%, computers and software 50%, everything else 25%.',
+            'Most pools are POOLED and diminishing — additions join the pool and the rate applies to the whole balance, so no single asset ever reaches zero.',
+            'A disposal leaves the pool at its original COST, not at book value.',
+            'The difference from book depreciation is a temporary difference — it reverses over the asset\'s life, it is not a saving.',
+        ],
+    ],
+
     'opening_balances' => [
         'purpose' => 'Load the balances your books already carry, on the day you start using Atriom for real.',
         'steps' => [

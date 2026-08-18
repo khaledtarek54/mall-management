@@ -444,6 +444,12 @@
         "guide": "tax_codes"
     },
     {
+        "screen": "TaxDepreciation",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "tax_depreciation"
+    },
+    {
         "screen": "TenantRequestResource",
         "panel": "admin",
         "kind": "resource",

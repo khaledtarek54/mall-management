@@ -2,6 +2,37 @@
 
 return [
 
+    'tax_depreciation' => [
+        'title' => 'Tax depreciation',
+        'subheading' => 'Egyptian income tax, Law 91/2005 Art. 25 — a schedule for the return, not a second ledger. Nothing here posts.',
+        'fields' => ['year' => 'Tax year'],
+        'pools' => [
+            'buildings' => 'Buildings, constructions, ships and aircraft',
+            'intangibles' => 'Intangibles and purchased goodwill',
+            'computers' => 'Computers, information systems and software',
+            'general' => 'All other assets of the activity',
+            'none' => 'Not depreciable',
+        ],
+        'pooled' => 'Pooled, diminishing value',
+        'straight_line' => 'Straight line on cost',
+        'table' => [
+            'pool' => 'Pool',
+            'rate' => 'Rate',
+            'basis' => 'Basis',
+            'opening' => 'Opening',
+            'additions' => 'Additions',
+            'disposals' => 'Disposals (at cost)',
+            'base' => 'Depreciation base',
+            'depreciation' => 'Depreciation',
+            'closing' => 'Closing',
+        ],
+        'tax_total' => 'Tax depreciation',
+        'book_total' => 'Book depreciation',
+        'difference' => 'Temporary difference',
+        'difference_hint' => 'Positive: tax relieves more than the books this year.',
+        'empty' => 'No assets in a depreciable pool for this year.',
+    ],
+
     'opening_balances' => [
         'title' => 'Opening balances',
         'sections' => [

@@ -235,6 +235,7 @@ return [
             'tax' => 'Tax',
         ],
         'descriptions' => [
+            'tax_depreciation' => 'What income tax lets you deduct this year — pooled diminishing value, Law 91/2005. A schedule for the return; it posts nothing.',
             'income_statement' => 'Revenue and expenses for a period, with the net result. Each account line opens its ledger.',
             'balance_sheet' => 'What the portfolio owns and owes at a date — assets, liabilities and equity.',
             'cash_flow' => 'Where cash came from and went over a period.',

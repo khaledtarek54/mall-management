@@ -26,6 +26,7 @@ use App\Filament\Admin\Pages\ReportHub;
 use App\Filament\Admin\Pages\Reports;
 use App\Filament\Admin\Pages\SalesAnalytics;
 use App\Filament\Admin\Pages\Settings;
+use App\Filament\Admin\Pages\TaxDepreciation;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
 use App\Filament\Admin\Pages\VendorScorecard;
@@ -223,6 +224,7 @@ class ScreenGuides
         TrialBalance::class => 'trial_balance',
         GeneralLedger::class => 'general_ledger',
         OpeningBalances::class => 'opening_balances',
+        TaxDepreciation::class => 'tax_depreciation',
         IncomeStatement::class => 'income_statement',
         BalanceSheet::class => 'balance_sheet',
         CashFlow::class => 'cash_flow',
