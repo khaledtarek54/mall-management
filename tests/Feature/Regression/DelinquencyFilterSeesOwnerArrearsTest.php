@@ -57,7 +57,7 @@ function overdueInvoiceFor(int $tenantId, int $assetId, ?int $leaseId, ?int $own
         'due_date' => CarbonImmutable::now()->subMonth()->toDateString(),
         'status' => 'overdue',
         'subtotal' => 3000,
-        'tax_amount' => 0,
+        'vat_amount' => 0,
         'total' => 3000,
         'paid_amount' => 0,
         'balance' => 3000,

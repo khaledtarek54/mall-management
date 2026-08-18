@@ -34,7 +34,7 @@ function invoiceForAgreement(int $tenantId, int $assetId, ?int $leaseId, ?int $o
         'period_end' => CarbonImmutable::now()->endOfMonth()->toDateString(),
         'due_date' => CarbonImmutable::now()->addDays(10)->toDateString(),
         'status' => 'issued',
-        'subtotal' => 1000, 'tax_amount' => 0, 'total' => 1000,
+        'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000,
         'paid_amount' => 0, 'balance' => 1000, 'currency' => 'EGP',
     ]);
 }

@@ -72,7 +72,7 @@ function ownerAssessment(int $assetId, int $tenantId, int $ownershipId): Invoice
         'period_end' => '2026-03-31',
         'due_date' => '2026-03-11',
         'status' => 'issued',
-        'subtotal' => 5000, 'tax_amount' => 0, 'total' => 5000,
+        'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000,
         'paid_amount' => 0, 'balance' => 5000, 'currency' => 'EGP',
     ]);
 }
@@ -94,7 +94,7 @@ it('refuses to settle mall B\'s owner assessment with mall A\'s credit note', fu
         'issue_date' => '2026-03-05',
         'status' => 'issued',
         'reason' => 'Assessment corrected',
-        'subtotal' => 5000, 'tax_amount' => 0, 'total' => 5000,
+        'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000,
         'currency' => 'EGP',
     ]);
 
@@ -118,7 +118,7 @@ it('still settles the owner\'s assessment in the note\'s OWN property — the co
         'issue_date' => '2026-03-05',
         'status' => 'issued',
         'reason' => 'Assessment corrected',
-        'subtotal' => 2000, 'tax_amount' => 0, 'total' => 2000,
+        'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000,
         'currency' => 'EGP',
     ]);
 

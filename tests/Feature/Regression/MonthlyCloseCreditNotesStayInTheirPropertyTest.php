@@ -46,7 +46,7 @@ beforeEach(function () {
         'status' => 'issued',
         'reason' => 'Owner assessment corrected',
         'subtotal' => 5000,
-        'tax_amount' => 0,
+        'vat_amount' => 0,
         'total' => 5000,
         'currency' => 'EGP',
     ]);

@@ -125,11 +125,40 @@ and it composes with §3.1 — both are "a permission to do physical work, with 
 
 | Item | Why | Effort |
 |---|---|---|
-| **A workability gate** | The reachability gate proves a service *can* be started; the NSF fee proved that is not the same as it *working* — it was reachable and refused every real input. The tractable version is a **fixture-reachability** check: flag a test writing a column no `app/` code writes. That is the F-100 shape, and it hid both the NSF fee and the GRNI bug | M — and noisy; prototype before committing |
+| **A workability gate** | The reachability gate proves a service *can* be started; the NSF fee proved that is not the same as it *working* — it was reachable and refused every real input. **Prototyped 2026-08-18 and NOT shipped — see §4.1** | M, blocked on a parser |
 | **PDC series exhaustion** | No alert when a tenant's lodged cheques run out before the lease term. No benchmark (see §0); Egyptian practice is a year lodged up front, so running dry mid-term is the normal failure | S |
 | **Repeat-violation ladder** | Fines are priced by hand; the register makes the pattern visible and nothing uses it. No benchmark row | S |
 | **Search `LIKE` at scale** | Every blob search is a leading-wildcard `LIKE` — correct, unindexable, unmeasured at real row counts | S to measure first |
 | **Bounce-after-clearing** | Modelled as impossible; a bank can return a cheque after provisional credit. The remedy (void the payment) is documented and honest | S |
+
+### 4.1 Why the workability gate is not in this branch
+
+Two shapes were prototyped against the real tree, and the result is worth recording so nobody
+re-runs it.
+
+**Shape A — "a fixture writes a column no `app/` code writes."** Scoped to the eight money models it
+returned **3 hits and no false positives**, and all three were real dead keys (below). Scoped
+repo-wide it is unreliable for a different reason: plenty of production writes are property
+assignments (`$model->col = …`) rather than array keys, so the "app never writes it" half needs to
+understand PHP, not match text.
+
+**Shape B — "a fixture writes a column that does not exist."** Sharper and zero-ambiguity in
+principle. In practice a regex cannot delimit a `Model::create([...])` block: the non-greedy match
+runs past the closing bracket and swallows the next call, so keys get attributed to the wrong model.
+It reported **820 "ghosts", essentially all of them mis-attribution** — the tool was wrong, not the
+codebase.
+
+**What it needs:** `nikic/php-parser` (already a transitive dependency) to walk real AST nodes —
+find `StaticCall` to `create` on a model class, read the `Array_` argument's keys, compare against
+`Schema::getColumnListing()`. That is a genuinely useful gate and a small build **once parsed rather
+than matched**. Shipping the regex version would have been worse than nothing: a gate that names the
+wrong file teaches people to ignore gates.
+
+**What the prototype did earn**, fixed here: `PurchaseInputTaxCodeTest` set `bill_number` three
+times — not a column (`VendorBill` auto-allocates `number` via `AllocatesDocumentNumber`), so it was
+silently dropped. And four fixtures written during round 3 — mine — set `tax_amount` on invoices and
+credit notes, where the column is `vat_amount`. Harmless in effect, wrong as a record of intent, and
+exactly the class the gate exists to catch.
 
 ## 5. ⚙️ Not mine, but blocking the build
 

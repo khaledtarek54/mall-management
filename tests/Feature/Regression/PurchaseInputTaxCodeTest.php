@@ -143,19 +143,19 @@ it('classifies what the backfill can prove and leaves the rest null', function (
 
     $exact = VendorBill::create([
         'vendor_id' => $vendor->id, 'asset_id' => $asset->id,
-        'category' => 'services', 'bill_number' => 'B-EXACT', 'bill_date' => '2026-03-01', 'due_date' => '2026-03-31',
+        'category' => 'services', 'bill_date' => '2026-03-01', 'due_date' => '2026-03-31',
         'subtotal' => 1000, 'vat_amount' => 140, 'total' => 1140,
         'paid_amount' => 0, 'balance' => 1140, 'status' => 'draft', 'currency' => 'EGP',
     ]);
     $none = VendorBill::create([
         'vendor_id' => $vendor->id, 'asset_id' => $asset->id,
-        'category' => 'services', 'bill_number' => 'B-NONE', 'bill_date' => '2026-03-01', 'due_date' => '2026-03-31',
+        'category' => 'services', 'bill_date' => '2026-03-01', 'due_date' => '2026-03-31',
         'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000,
         'paid_amount' => 0, 'balance' => 1000, 'status' => 'draft', 'currency' => 'EGP',
     ]);
     $odd = VendorBill::create([
         'vendor_id' => $vendor->id, 'asset_id' => $asset->id,
-        'category' => 'services', 'bill_number' => 'B-ODD', 'bill_date' => '2026-03-01', 'due_date' => '2026-03-31',
+        'category' => 'services', 'bill_date' => '2026-03-01', 'due_date' => '2026-03-31',
         'subtotal' => 1000, 'vat_amount' => 77, 'total' => 1077,
         'paid_amount' => 0, 'balance' => 1077, 'status' => 'draft', 'currency' => 'EGP',
     ]);
