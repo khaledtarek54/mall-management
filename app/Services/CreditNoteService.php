@@ -71,9 +71,20 @@ class CreditNoteService
             // apply so the contra-revenue lands in that property's books (else its owner is paid a
             // share on revenue that was credited back). Once bound, it can only settle that property's
             // invoices — keeping the note's returns single-property and its owner statement honest.
-            $invoiceAssetId = $invoice->lease?->unit?->asset_id;
-            $noteAssetId = $note->lease?->unit?->asset_id;
-            if ($noteAssetId !== null && $invoiceAssetId !== null && (int) $noteAssetId !== (int) $invoiceAssetId) {
+            // Read from the DENORMALIZED columns, which is what the binding twenty lines below has
+            // always read. Until 2026-08-18 this guard resolved both sides through `lease->unit`
+            // instead, and a unit owner's assessment has no lease (module 37 bills the ownership) —
+            // so both sides came back null, the `!== null` preconditions were false, and the check
+            // was SKIPPED. A fail-closed guard that failed open for exactly the documents it could
+            // not see: mall A's note settled mall B's owner assessment, putting the contra-revenue
+            // in the wrong property's books and paying its owner a share on revenue credited back.
+            //
+            // The note's null case is still honoured because it is real — a standalone note with no
+            // invoice and no lease has nothing to derive from and binds on first apply, below. The
+            // invoice's is not: `invoices.asset_id` has been required since phase 2a.
+            $invoiceAssetId = $invoice->asset_id;
+            $noteAssetId = $note->asset_id;
+            if ($noteAssetId !== null && (int) $noteAssetId !== (int) $invoiceAssetId) {
                 throw new \DomainException(__('admin.notifications.credit_note_apply_cross_property'));
             }
 

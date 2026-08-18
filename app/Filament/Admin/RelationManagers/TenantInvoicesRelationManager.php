@@ -44,7 +44,10 @@ class TenantInvoicesRelationManager extends RelationManager
         return $table
             ->modifyQueryUsing(fn ($query) => $query->when(
                 TenantScope::visibleAssetIds(),
-                fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)),
+                // The invoice's OWN property column, not the lease chain: an owner's assessment has
+                // no lease, so the old hop dropped every one of them from the party's invoices tab —
+                // their صيانة was billed, overdue and absent from the screen that lists what they owe.
+                fn ($q, $ids) => $q->whereIn('asset_id', $ids),
             ))
             ->columns([
                 TextColumn::make('number')

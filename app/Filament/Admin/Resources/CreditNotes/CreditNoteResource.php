@@ -98,10 +98,24 @@ class CreditNoteResource extends Resource
             : TenantScope::visibleAssetIds();
 
         if ($ids !== null) {
+            // Off the note's OWN `asset_id` — derived in a `creating` hook and the column the
+            // journalizer, the monthly close and the apply guard all read. It used to resolve
+            // through `lease.unit`, which answered NULL for a unit owner's note (module 37 bills the
+            // ownership, so there is no lease) AND whose standalone fallback keyed on
+            // `tenant.leases.unit` — so an owner's credit note matched NEITHER branch and vanished
+            // from the register entirely. Not a leak: a disappearance, which nobody reports because
+            // there is nothing on screen to report.
+            //
+            // The null-asset fallback stays, because it is real: a note with neither invoice nor
+            // lease has nothing to derive from, and it belongs to the properties its party is
+            // affiliated with — by lease OR by ownership, since both make someone a party here.
             $query->where(function ($q) use ($ids) {
-                $q->whereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids))
-                    ->orWhere(fn ($q3) => $q3->whereNull('lease_id')
-                        ->whereHas('tenant.leases.unit', fn ($u) => $u->whereIn('asset_id', $ids)));
+                $q->whereIn('asset_id', $ids)
+                    ->orWhere(fn ($q3) => $q3->whereNull('asset_id')
+                        ->whereHas('tenant', fn ($t) => $t
+                            ->where(fn ($party) => $party
+                                ->whereHas('leases.unit', fn ($u) => $u->whereIn('asset_id', $ids))
+                                ->orWhereHas('unitOwnerships', fn ($o) => $o->whereIn('asset_id', $ids)))));
             });
         }
 

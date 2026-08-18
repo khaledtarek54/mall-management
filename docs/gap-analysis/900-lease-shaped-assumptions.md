@@ -90,6 +90,55 @@ taken. Both docblocks now say which is production and which is retained, and
 relation `AssignedAssets` and the owner pack actually call — so the rule that matters is no longer
 covered only incidentally, through a test of code nothing runs.
 
+### 🔴 E — the credit-note cross-property guard was SKIPPED for owner documents *(fixed)*
+
+The sharpest instance, and the one that moved money. `CreditNoteService::applyToInvoice()` refuses to
+settle one property's invoice with another property's note — its comment states the stake plainly:
+the note's single GL entry (Dr Sales Returns) is attributed to ONE property, and letting it cross
+means *"its owner is paid a share on revenue that was credited back"*.
+
+It resolved both sides through the lease:
+
+```php
+$invoiceAssetId = $invoice->lease?->unit?->asset_id;
+$noteAssetId    = $note->lease?->unit?->asset_id;
+if ($noteAssetId !== null && $invoiceAssetId !== null && …) { refuse }
+```
+
+A unit owner's assessment has no lease, so **both sides came back null, the `!== null` preconditions
+were false, and the check was skipped entirely**. The null-guard that existed to let a genuinely
+unscoped note bind on first apply became the hole — for owner documents it is never not-null. A
+fail-closed guard that failed open for exactly the documents it could not see.
+
+Proven: one party owning a unit in two malls (ordinary, not contrived) — mall A's note settled mall
+B's assessment. **Fixed** by reading the denormalised columns, which is what the binding twenty lines
+below had always read; the guard and the binding were reading different sources.
+([`CreditNoteCrossPropertyGuardHoldsForOwnersTest`](../../tests/Feature/Regression/CreditNoteCrossPropertyGuardHoldsForOwnersTest.php),
+with a same-property control so the fix cannot be "refuse everything".)
+
+### 🟠 F — an owner's credit note vanished from the register, and their invoices from their own tab *(fixed)*
+
+`CreditNoteResource::getEloquentQuery()` scoped through `lease.unit`, with a standalone-note fallback
+keyed on `tenant.leases.unit`. An owner's note matched **neither** branch and disappeared from the
+list entirely — not a leak, a disappearance, which nobody reports because there is nothing on screen
+to report. `TenantInvoicesRelationManager` had the same hop, so a party's assessments were missing
+from the tab that lists what they owe.
+
+**Fixed** — both scope on the row's own `asset_id`. The credit-note null-asset fallback stays, because
+it is real, and now recognises a party affiliated by **ownership** as well as by lease.
+
+## 5. The gate
+
+[`NoLeaseShapedPropertyScopeConformanceTest`](../../tests/Feature/Scenarios/NoLeaseShapedPropertyScopeConformanceTest.php)
+fails the build when a model carrying its own `asset_id` has its PROPERTY inferred through a lease
+hop. Deliberately narrow: it flags a `whereHas('lease…')` that constrains `asset_id`, and leaves eager
+loads, display columns and genuine lease-domain filters alone — those are not claims about which
+property a row belongs to. Mutation-proven: restoring any one of the fixes above turns it red and
+names the file and line.
+
+It also asserts its own premise — that `invoices` and `credit_notes` still carry `asset_id` — so it
+fails loudly rather than passing vacuously if that ever stops being true.
+
 ## 3. Checked and harmless
 
 The remaining `lease.unit` reads are eager-loads and display fields on surfaces where the lease is
