@@ -21,9 +21,18 @@ use Illuminate\Support\Facades\DB;
  */
 class RecordDemoPaymentAction
 {
-    public function handle(Invoice $invoice): Payment
+    /**
+     * @param  string|null  $channel  Which surface raised it (`Payment::CHANNEL_*`).
+     *
+     * The public pay page MUST pass `CHANNEL_LINK`: `PaymentLinkController::status()` finds the
+     * payment behind a link by `where('channel', CHANNEL_LINK)`, so a null-channel demo capture
+     * leaves the status page unable to find the payment it just took — it reads the invoice
+     * balance instead and reports a paid invoice for 0.00. Null stays the default so the portal
+     * and mobile callers keep the channel they already record (none).
+     */
+    public function handle(Invoice $invoice, ?string $channel = null): Payment
     {
-        return DB::transaction(function () use ($invoice) {
+        return DB::transaction(function () use ($invoice, $channel) {
             // Lock + re-check the balance INSIDE the txn so two concurrent
             // pay-demo requests can't both read a positive balance and
             // over-capture the invoice (the second serialises on the lock and
@@ -41,6 +50,7 @@ class RecordDemoPaymentAction
                 'status' => 'initiated',
                 'payment_date' => now(),
                 'gateway' => 'demo',
+                'channel' => $channel,
                 'gateway_transaction_id' => uniqid('demo:invoice:'.$invoice->id.':', true),
                 'gateway_response' => [
                     'demo' => true,

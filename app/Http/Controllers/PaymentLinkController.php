@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Support\DemoPayments;
 use App\Support\IssuingEntity;
 use App\Support\OpsLog;
 use Illuminate\Contracts\View\View;
@@ -61,6 +63,9 @@ class PaymentLinkController
             ...IssuingEntity::forView($invoice->asset),
             'paymentEnabled' => (bool) config('integrations.paymob.enabled'),
             'applePayEnabled' => (bool) config('integrations.paymob.apple_pay_integration_id'),
+            // Never both: DemoPayments::enabled() already requires the gateway to be off, so the
+            // page can only ever offer one way to pay. A tenant shown both would take the free one.
+            'demoEnabled' => DemoPayments::enabled(),
         ]);
     }
 
@@ -88,6 +93,57 @@ class PaymentLinkController
         }
 
         return redirect()->away($session['iframe_url']);
+    }
+
+    /**
+     * POST /pay/{token}/demo — settle the invoice without a gateway, for a box that has none.
+     *
+     * **This route has no login.** Every other demo-pay surface has an actor behind it — the
+     * portal asks `Portal::isAdmin()`, the mobile endpoint runs under a Sanctum tenant token — and
+     * this one has only the bearer token in the URL. That is a deliberate widening, made so a pay
+     * link copied out of the admin panel can be clicked through end to end before Paymob exists.
+     * Three things keep it contained:
+     *
+     *  - `DemoPayments::enabled()` is the same single predicate the other two ask, so the route is
+     *    dead on production whatever the configuration says, dead unless `DEMO_PAYMENTS_ENABLED`
+     *    is explicitly set outside local/testing, and dead the moment a real gateway is wired.
+     *    It is checked BEFORE the token is resolved, so a disabled box answers a flat 404 and the
+     *    endpoint is indistinguishable from one that was never built.
+     *  - Its own tighter rate limit (see routes/web.php) rather than the /pay group's, because
+     *    this one writes money and the others do not.
+     *  - An `ops.log` line naming the invoice and the caller's IP. The other two paths can name a
+     *    user; here the request is anonymous by construction, so the log is the ONLY record that a
+     *    fabricated payment happened and where it came from.
+     */
+    public function demo(Request $request, string $token, RecordDemoPaymentAction $action): RedirectResponse
+    {
+        // Asked first, and independently of the token: when the shortcut is off this route must
+        // look like it does not exist, not like a token that failed to match.
+        abort_unless(DemoPayments::enabled(), 404);
+
+        app()->setLocale($this->locale($request));
+        $invoice = $this->resolve($token);
+
+        // Nothing to collect (already paid, cancelled, credited, written off) — the status page
+        // says what happened. RecordDemoPaymentAction re-checks the balance under a row lock too;
+        // this is the friendly answer, that is the correct one.
+        if (! $invoice->isPayable()) {
+            return redirect()->route('pay.status', ['token' => $token]);
+        }
+
+        // CHANNEL_LINK, not null: status() finds the payment behind a link by channel, and a
+        // null-channel capture would leave this page reporting a paid invoice for 0.00.
+        $payment = $action->handle($invoice, Payment::CHANNEL_LINK);
+
+        OpsLog::warning('invoice.demo_paid_via_link', [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->number,
+            'payment_id' => $payment->id,
+            'amount' => (float) $payment->amount,
+            'ip' => $request->ip(),
+        ]);
+
+        return redirect()->route('pay.status', ['token' => $token]);
     }
 
     /** GET /pay/{token}/status — public result page (paid / failed / processing). */

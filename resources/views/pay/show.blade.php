@@ -25,6 +25,11 @@
         .btn-pay { background:var(--brand); color:#fff; }
         .btn-apple { background:#000; color:#fff; }
         .err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:14px; }
+        /* The demo settle button must never be mistaken for the real one. Dashed amber, not the
+           brand fill: on a shared box this page is the only thing telling the person pressing it
+           that no card is involved and no money moves. */
+        .btn-demo { background:#fffbeb; color:#92400e; border:2px dashed #f59e0b; }
+        .demo-note { background:#fffbeb; color:#92400e; border:1px solid #fcd34d; border-radius:10px; padding:10px 12px; font-size:13px; line-height:1.5; margin-top:14px; }
         .foot { text-align:center; color:var(--muted); font-size:12px; padding:16px 24px 22px; }
         form { margin:0; }
     </style>
@@ -67,6 +72,15 @@
                         <button class="btn btn-apple" type="submit">&#63743;&nbsp; Pay</button>
                     </form>
                 @endif
+            @elseif ($demoEnabled)
+                {{-- No gateway on this box, so settle it directly. DemoPayments::enabled() gates
+                     both this button and the route behind it, and it can never be true alongside
+                     a live gateway — so the two branches are genuinely exclusive. --}}
+                <form method="POST" action="{{ route('pay.demo', ['token' => $token]) }}">
+                    @csrf
+                    <button class="btn btn-demo" type="submit">{{ __('pay.pay_demo') }}</button>
+                </form>
+                <div class="demo-note">{{ __('pay.demo_note') }}</div>
             @else
                 <div class="err" style="margin-top:14px;">{{ __('pay.unavailable') }}</div>
             @endif

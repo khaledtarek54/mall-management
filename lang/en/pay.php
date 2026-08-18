@@ -15,6 +15,8 @@ return [
 
     'pay_with_card' => 'Pay with card',
     'unavailable' => 'Online payment is temporarily unavailable. Please try again later.',
+    'pay_demo' => 'Settle this invoice (demo)',
+    'demo_note' => 'Demo mode — no card and no real money. Pressing this marks the invoice paid exactly as a successful card payment would, so the receipt, the balance and the accounts all behave normally.',
     'secured_by' => 'Secured by Paymob',
     'redirect_note' => 'You will be redirected to a secure payment page.',
 

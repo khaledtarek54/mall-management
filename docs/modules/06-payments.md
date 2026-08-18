@@ -524,6 +524,17 @@ Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pa
 - The **portal** action keeps the old gate deliberately: a tenant looking at their own invoice gains nothing from a link to a page that cannot collect. The operator's need — see what the client holds, hand it over, revoke it — is a different question.
 - Tests: `tests/Feature/Regression/PaymentLinkVisibleWithoutGatewayTest.php` (pairs each assertion with its opposite: the QR case, the settled case, and view-vs-edit on one screen).
 
+**Settling a pay link with no gateway (`POST /pay/{token}/demo`, added 2026-08-18).** So the copied link can be clicked through end to end on a box that has no Paymob, the pay page offers a demo settle button in place of the card button. It is the **only route under `/pay` that writes money, and the only demo-pay surface with no actor behind it** — the portal asks `Portal::isAdmin()`, the mobile endpoint runs under a Sanctum tenant token, and this one has nothing but the bearer token in the URL. That widening was a deliberate call; four things bound it:
+
+- **`DemoPayments::enabled()`** — the same single predicate the other two ask, so the route is dead on production whatever the config says, dead unless `DEMO_PAYMENTS_ENABLED` is explicitly set outside local/testing, and dead the moment a real gateway is wired. It is checked **before the token is resolved**, so a disabled box answers a flat **404** and the endpoint cannot be told apart from one that was never built (nor probed for which invoices exist).
+- **Its own `throttle:6,1`**, outside the `/pay` group's 30/min — two `throttle` middlewares on one route share a request signature and their counts interfere, so it is registered separately.
+- **`ops.log` as `invoice.demo_paid_via_link`** (warning), naming the invoice, the amount and the caller's IP. The other two paths can name a user; this request is anonymous by construction, so the log is the entire audit trail for a fabricated payment.
+- **The button cannot be mistaken for the real one** — dashed amber, not the brand fill, with a note saying no card and no money are involved.
+
+`RecordDemoPaymentAction::handle()` gained an optional `$channel`, and this path **must** pass `Payment::CHANNEL_LINK`: `status()` finds the payment behind a link by `where('channel', CHANNEL_LINK)`, so a null-channel capture would leave the status page reporting a paid invoice for **0.00** — broken in exactly the flow the feature exists to demonstrate. Null stays the default, so the portal and mobile callers keep recording no channel as before.
+
+- Tests: `tests/Feature/PaymentLink/PayLinkDemoSettleTest.php` — the capture, the channel, and five refusals (production, flag off, gateway live, rotated token, already settled), each paired with a control. Verified by mutation: deleting the `DemoPayments` gate turns four cases red, dropping the channel turns one.
+
 ### Related Modules
 
 - **[Invoices & AR](./04-invoices.md)** — Invoice creation, ETA submission, monthly billing. Invoices are the payment target; recomputeTotals drives AR.

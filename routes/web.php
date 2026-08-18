@@ -93,6 +93,20 @@ Route::middleware('throttle:30,1')->group(function () {
 });
 
 /*
+ * The demo settle button — its OWN, tighter limit rather than the group's 30/min.
+ *
+ * This is the one route under /pay that writes money, and it is unauthenticated: the bearer token
+ * in the URL is the whole of who is asking. A legitimate caller presses it once, so six a minute
+ * is generous; the group's 30 would let a scripted caller hammer the capture path. It sits outside
+ * the group because two `throttle` middlewares on one route share a request signature and the
+ * counts interfere. `DemoPayments::enabled()` (checked in the controller) is what actually keeps
+ * this off production — the limit only bounds the damage where it IS live.
+ */
+Route::post('/pay/{token}/demo', [PaymentLinkController::class, 'demo'])
+    ->middleware('throttle:6,1')
+    ->name('pay.demo');
+
+/*
 |--------------------------------------------------------------------------
 | The visual handbook
 |--------------------------------------------------------------------------
