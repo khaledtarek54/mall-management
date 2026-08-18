@@ -107,3 +107,30 @@ it('opens every action modal on a real lease', function () {
         $action->getModalHeading();
     }
 })->throwsNoExceptions();
+
+it('renders every lease action somewhere — a group, or nowhere at all', function () {
+    // **An action missing from a group is defined and rendered NOWHERE.** It passes every visibility
+    // and authorisation check and simply never appears on the page, which is indistinguishable from
+    // a feature that was never built. Both deposit actions shipped that way for one commit
+    // (2026-08-18): `isVisible()` true on the record, absent from the screen.
+    $defined = collect(LeaseActions::names());
+    $grouped = collect(LeaseActions::GROUPS)->flatten();
+
+    $ungrouped = $defined->diff($grouped)->values()->all();
+    $phantom = $grouped->diff($defined)->values()->all();
+
+    expect($ungrouped)->toBe([], 'Defined but in no group, so rendered nowhere: '.implode(', ', $ungrouped));
+
+    // The reverse: a group naming an action that no longer exists renders nothing and says nothing.
+    expect($phantom)->toBe([], 'Grouped but not defined: '.implode(', ', $phantom));
+
+    // Vacuity guard — a rename that emptied both sides would satisfy the two assertions above.
+    expect($defined->count())->toBeGreaterThan(8);
+});
+
+it('puts each action in exactly ONE group', function () {
+    $grouped = collect(LeaseActions::GROUPS)->flatten();
+
+    // Twice on the page is a different bug from missing, and just as confusing to an operator.
+    expect($grouped->count())->toBe($grouped->unique()->count());
+});

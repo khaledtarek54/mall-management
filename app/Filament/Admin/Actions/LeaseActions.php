@@ -965,18 +965,39 @@ class LeaseActions
      *
      * @return array<int, ActionGroup>
      */
+    /**
+     * Every group's contents, as one map — so `grouped()` and the completeness gate read the SAME
+     * list rather than two that drift.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public const GROUPS = [
+        'money' => ['changeRent', 'grantRelief', 'billDeposit', 'recordDeposit'],
+        'premises' => ['changePremises', 'assignRentableItem', 'releaseRentableItem'],
+        'lifecycle' => ['renew', 'extendTerm', 'convertToHoldover', 'terminate', 'finalAccount'],
+    ];
+
+    /**
+     * The header dropdowns, composed BY NAME from {@see GROUPS}.
+     *
+     * **An action missing from a group is defined and rendered nowhere** — it passes every
+     * visibility and authorisation check and simply never appears. That is what happened to the two
+     * deposit actions the day they were added (2026-08-18): both `isVisible()`, neither on screen.
+     * `LeaseActionTopologyTest` now asserts every action in `all()` belongs to exactly one group, so
+     * the next one cannot be added and forgotten.
+     */
     public static function grouped(): array
     {
         return [
-            ActionGroup::make(self::only(['changeRent', 'grantRelief']))
+            ActionGroup::make(self::only(self::GROUPS['money']))
                 ->label(__('admin.actions.groups.money'))
                 ->icon('heroicon-o-banknotes')
                 ->button(),
-            ActionGroup::make(self::only(['changePremises', 'assignRentableItem', 'releaseRentableItem']))
+            ActionGroup::make(self::only(self::GROUPS['premises']))
                 ->label(__('admin.actions.groups.premises'))
                 ->icon('heroicon-o-building-storefront')
                 ->button(),
-            ActionGroup::make(self::only(['renew', 'extendTerm', 'convertToHoldover', 'terminate', 'finalAccount']))
+            ActionGroup::make(self::only(self::GROUPS['lifecycle']))
                 ->label(__('admin.actions.groups.lifecycle'))
                 ->icon('heroicon-o-arrow-path')
                 ->button(),
