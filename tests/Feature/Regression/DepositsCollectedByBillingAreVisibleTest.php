@@ -236,3 +236,57 @@ it('still says nothing was paid when nothing was', function () {
 
     Filament::setTenant(null, isQuiet: true);
 });
+
+/* ---- a hand-built mixed invoice --------------------------------------- */
+
+it('settles rent before the deposit on a mixed invoice, so a part payment never over-reports the holding', function () {
+    // `BillSecurityDepositService` always raises the deposit alone, but the invoice FORM lets an
+    // operator put a `security_deposit` line beside rent. `depositHeld()` reads the per-line
+    // settlement, and that figure is what a move-out refunds against — so settling the deposit
+    // early out of a part payment would report money as held that actually went to rent, and the
+    // refund would hand back cash never received.
+    //
+    // `security_deposit` was absent from InvoiceItemSettlement::TYPE_PRIORITY until 2026-08-18,
+    // which put it last by accident (absent types sort after every listed one). The position is
+    // right; this pins it so a later edit to that list cannot quietly reverse it.
+    $invoice = makeInvoice($this->lease, [
+        'subtotal' => 40000, 'vat_amount' => 0, 'total' => 40000, 'balance' => 40000,
+    ]);
+    $invoice->items()->create(['type' => 'base_rent', 'description' => 'Rent',
+        'amount' => 10000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 10000]);
+    $invoice->items()->create(['type' => 'security_deposit', 'description' => 'Deposit',
+        'amount' => 30000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 30000]);
+    $invoice->recomputeTotals();
+
+    // Pay 10,000 — exactly the rent, nothing towards the deposit.
+    $payment = App\Models\Payment::create([
+        'tenant_id' => $invoice->tenant_id, 'payment_date' => now(), 'amount' => 10000,
+        'method' => 'bank_transfer', 'status' => 'captured', 'currency' => 'EGP',
+    ]);
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => 10000]);
+    $invoice->recomputeTotals();
+
+    $this->lease->refresh()->unsetRelation('deposits');
+
+    expect($this->lease->depositHeld())->toBe(0.0)
+        ->and($this->lease->depositShortfall())->toBe(30000.0);
+});
+
+it('credits the deposit once the rest of that invoice is paid', function () {
+    // The control: last does not mean never. A gate that reported 0.0 whatever happened would
+    // satisfy the test above perfectly.
+    $invoice = makeInvoice($this->lease, [
+        'subtotal' => 40000, 'vat_amount' => 0, 'total' => 40000, 'balance' => 40000,
+    ]);
+    $invoice->items()->create(['type' => 'base_rent', 'description' => 'Rent',
+        'amount' => 10000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 10000]);
+    $invoice->items()->create(['type' => 'security_deposit', 'description' => 'Deposit',
+        'amount' => 30000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 30000]);
+    $invoice->recomputeTotals();
+
+    settleInvoiceInFull($invoice);
+    $this->lease->refresh()->unsetRelation('deposits');
+
+    expect($this->lease->depositHeld())->toBe(30000.0)
+        ->and($this->lease->depositShortfall())->toBe(0.0);
+});

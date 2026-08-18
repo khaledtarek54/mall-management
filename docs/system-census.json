@@ -4,8 +4,8 @@
         "models": 103,
         "services": 152,
         "admin_resources": 52,
-        "portal_resources": 8,
-        "admin_widgets": 18,
+        "portal_resources": 9,
+        "admin_widgets": 19,
         "api_controllers": 52,
         "console_commands": 47,
         "jobs": 6,
@@ -339,9 +339,9 @@
         }
     },
     "tests": {
-        "files": 769,
+        "files": 774,
         "e2e_specs": 22,
         "scenarios": 129,
-        "regressions": 388
+        "regressions": 392
     }
 }

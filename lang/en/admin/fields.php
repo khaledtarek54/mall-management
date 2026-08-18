@@ -37,6 +37,7 @@ return [
         'advance_deductions' => 'Advance deductions',
         'allowances' => 'Allowances',
         'applied_amount' => 'Applied amount',
+        'applied_at' => 'Applied on',
         'area_id' => 'Area',
         'asset_id' => 'Property',
         'assigned_to_user_id' => 'Assigned to',

@@ -5,12 +5,29 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Services\Reports\ReportService;
 use App\Support\AgingBuckets;
+use App\Support\DashboardLayout;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
 class ArAging extends ChartWidget
 {
     use RoleScopedWidget;
+
+    /**
+     * The role AND `reports.view` — the same pair the AR-aging PAGE gates on.
+     *
+     * `RoleScopedWidget::canView()` asks the dashboard registry only, so revoking `reports.view`
+     * closed `Pages\ArAging` and left this chart drawing the identical buckets from the identical
+     * `ReportService::arAgingBuckets()` call. The permission is the operator's lever and it did not
+     * reach the dashboard.
+     *
+     * `seesMoney()` is where both halves live, shared with `MallStats` so the two surfaces cannot
+     * answer differently.
+     */
+    public static function canView(): bool
+    {
+        return static::roleAllowsView() && DashboardLayout::seesMoney();
+    }
 
     public function getHeading(): ?string
     {

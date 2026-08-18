@@ -447,6 +447,36 @@ The property+facility close-out (see [gap-analysis](../gap-analysis/PROPERTY-FAC
 ### Operator UX pass (2026-07-22)
 A UX audit fixed: **(catch)** the `issue` action + create-into-a-posting-status threw an uncaught `DomainException` (a **closed period**) → Livewire 500; both now catch it as a clean localized toast, matching `apply`/`void` — and `DeleteAction` is hidden once credit is applied (the guided way out is Reverse). **(verifiable applied_amount)** a read-only **`CreditNoteApplicationsRelationManager`** now lists which invoices consumed the credit (invoice · amount · when · by), with a per-row **un-apply** backed by the new granular `CreditNoteService::reverseApplication()` (the counterpart to all-or-nothing `reverseAllApplications`). **(guided apply)** the apply modal's invoice select is `live()` and pre-fills + caps the amount at `min(note balance, invoice balance)`; the `issue` confirm gained a description. Native Filament (no Blade); i18n EN+AR. Tests: `CreditNoteApplicationsUxTest`.
 
+### The tenant can finally see them (2026-08-18)
+
+`/api/v1/me/credit-notes` has served a tenant their own credit notes since the API was built, and
+the PORTAL had no screen at all — the same tenant, the same records, one renderer short. The mobile
+app could show a credit the web portal could not, so a tenant whose invoice dropped by 12,000 with
+no explanation on any screen they could open had to telephone and ask why. It was a missing
+resource, never missing data.
+
+`App\Filament\Portal\Resources\CreditNotes` is read-only: list, view, no create/edit/delete. A
+credit note is raised through `CreditNoteService`, which owns the GL entry and the un-apply path; a
+write surface on the portal would be a second way to move money, thinner than the first.
+
+**Two narrowings, answering two different questions** — the pairing module 05 was fixed for and the
+reason this screen was written with it from the start rather than after a leak:
+
+- `where('tenant_id', …)` — *whose row is this?*
+- `->visibleToTenant()` — *has this been raised at all?* `credit_notes.status` **defaults to
+  `draft` at the column**, so a draft is what any create that omits the status produces
+  (`CreditUnearnedBillingService` does exactly that). Scoping by tenant alone would show a tenant a
+  credit nobody has approved, and have them count on money that may never arrive.
+
+The status filter's options are **derived** from `TenantVisibility::visibleFor('credit_notes')` —
+the value set minus the hidden set — never hand-listed. Offering `draft` would put a control on the
+page that can only ever return nothing and imply the tenant has drafts to go and look at.
+
+Tests: `tests/Feature/Portal/PortalCreditNotesTest.php` — every refusal (own draft, another tenant's
+note, direct fetch by id) paired with a control that must succeed, because a screen showing nothing
+would satisfy the refusals alone. Verified by mutation: dropping either scope turns two cases red,
+and they are different two.
+
 ---
 
 ## Deletion policy

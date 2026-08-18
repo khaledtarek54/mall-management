@@ -242,10 +242,10 @@ additive items** — none of which make today's books wrong.
 | Item | What & why |
 | --- | --- |
 | **Owner portal is off** | `config/features.php:19` is `false`, absent from `.env`, and forced `true` only in `phpunit.xml:52` — **the Owner panel executes only under test**, so its green tests prove nothing about the shipped default. Needs a product call, a per-property dashboard (today: portfolio roll-up only), and global search (Owner has none, so its search box returns nothing, ever). |
-| **Credit notes absent from the portal** | Admin-only (`CreditNoteResource.php:23`) though the API already exposes them per-tenant — a missing resource, not missing data. CAM breakdown *has* shipped on both panels. |
+| ~~Credit notes absent from the portal~~ | ✅ **Shipped 2026-08-18.** `Filament\Portal\Resources\CreditNotes` — read-only list + view, scoped by `tenant_id` **and** `visibleToTenant()` (the column defaults to `draft`, so both are load-bearing), status filter derived from `TenantVisibility::visibleFor()`. `PortalCreditNotesTest`. |
 | **Tenant self-service profile** | Portal profile is stock `TenantUser` name/email/password. Nothing writes to `Tenant` (phone/whatsapp/address are fillable with no surface). **Bank details aren't in the schema at all.** |
 | **Dashboard drilldowns** | ETA tiles are all clickable; AR-aging/tenant-mix/top-tenants are static. `ReportService::arAgingDrilldown()` already works but is orphaned from the chart. |
-| **AR-aging widget vs page RBAC** | The pages gate on `reports.view`; the widget gates on *roles* — revoking `reports.view` closes the page but leaves the dashboard chart visible. |
+| ~~AR-aging widget vs page RBAC~~ | ✅ **Fixed 2026-08-18.** `DashboardLayout::seesMoney()` now requires the MONEY_ROLES role **and** `reports.view`, and is asked from both places that publish receivables on the dashboard — the whole `ArAging` chart and the two money stats inside `MallStats`. It was LATENT, not live: all six roles carrying those widgets hold `reports.view`, so the gates agreed by coincidence rather than by construction, which is exactly what makes a later revocation surprising. `RevokingReportsViewReachesTheDashboardTest` proves the page and the dashboard now answer the same way before AND after a revocation. |
 | **Period exports for the accountant** | Reports are PDF-only and monthly-only; no CSV/Excel, no quarterly. |
 | **Bulk actions** | Only `bulkSubmitToEta` exists; maintenance bulk is delete/restore only. |
 | **WhatsApp** | A stub that flashes a toast. High-value in Egypt; needs a Business API client. Apple Pay is more built than the old roadmap claimed — only provisioning is outstanding. |
@@ -445,9 +445,19 @@ Acting on the first one would actively reintroduce a bug.
 > the check that says so has been reporting correctly and going unread. Nothing in §2 has become
 > false since it was written; the two stale NUMBERS in the CI row are corrected in place.
 >
-> **Everything below is operator or environment work, not code.** That is the finding, and it is
-> worth stating plainly rather than filling the gap with engineering: the code-side of go-live is
-> done, and what remains cannot be written — only configured.
+> **⚠️ "Everything below is operator or environment work, not code" — that claim was WRONG, and it
+> cost nineteen days (corrected 2026-08-18).** It was written about the backup row, and the backup
+> row turned out to be a missing config seam: `Health::checkBackupCapability()` read
+> `database.connections.{driver}.dump.dump_binary_path`, a key that existed on no connection, so it
+> could only ever resolve to `''`. The check was correct and **unanswerable** — no operator could
+> have configured their way out of it. A second bug sat behind it, in code as well
+> (`CRITICAL_TABLES` naming a table that has never existed, so the restore drill would have failed
+> on every healthy archive). Both are fixed.
+>
+> The lesson is not that the remaining rows are secretly code — most genuinely are configuration.
+> It is that **"this is ops, not code" is a claim to verify, not a conclusion to record**: stated
+> in a roadmap it stops anyone looking again, which is what happened here. Verify before writing it
+> down. Two more rows in §5 were stale in the same way and are corrected in place.
 
 **The code-side observability work is done** — what remains is four env vars an operator sets:
 `SENTRY_LARAVEL_DSN`, `OPS_LOG_STACK="ops_daily,slack"` + `LOG_SLACK_WEBHOOK_URL`, and

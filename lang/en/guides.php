@@ -1397,6 +1397,23 @@ return [
         ],
     ],
 
+    'portal_credit_notes' => [
+        'purpose' => 'Money the mall has credited back to you, and how much of each credit is still yours to use.',
+        'steps' => [
+            'Open a credit note to see what was credited, line by line, and why.',
+            'Check the balance column: that is what is left to set against a future invoice.',
+            'A credit raised against a specific invoice names that invoice; an account credit does not.',
+        ],
+        'affects' => [
+            'An applied credit reduces the invoice it was applied to — the invoice balance you see elsewhere already includes it.',
+            'A credit with a balance left is used automatically against your next bill, so it will change from Issued to Applied on its own.',
+        ],
+        'rules' => [
+            'You see your own credit notes only, and only once the mall has issued them — a draft is not a document.',
+            'Credit notes are raised by the mall. If you believe you are owed one, raise a billing query rather than waiting for it.',
+        ],
+    ],
+
     'portal_payments' => [
         'purpose' => 'Everything you have paid, and which invoices each payment settled.',
         'steps' => [

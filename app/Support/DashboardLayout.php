@@ -230,12 +230,35 @@ final class DashboardLayout
         return in_array($widget, self::widgetsFor($user), true);
     }
 
-    /** Does this user hold a role that may see money figures? */
+    /**
+     * May this user see receivables and collections on the DASHBOARD?
+     *
+     * **Two gates, and both have to hold.** The role decides who handles money at all
+     * (`MONEY_ROLES` — leasing and operations need occupancy and contractual rent, not what the
+     * tenants owe). The `reports.view` permission is the operator's own lever, and it is what the
+     * AR-aging PAGE has always gated on (`Pages\ArAging::canAccess()`).
+     *
+     * Only the role was checked here, so the two disagreed: **revoking `reports.view` closed the
+     * Reports pages and left the dashboard publishing the same receivables.** The permission is
+     * the thing an operator actually reaches for, and it silently did not work on the dashboard.
+     *
+     * It is latent rather than live today — all six roles carrying these widgets hold
+     * `reports.view`, so the gates agree by coincidence rather than by construction, which is
+     * exactly the state that makes a revocation surprising later.
+     *
+     * Asked in ONE place because it is asked from two: the `ArAging` chart (the whole widget) and
+     * the two money stats inside `MallStats`. Named once so they cannot drift, which is the same
+     * rule every write action in this project follows.
+     */
     public static function seesMoney(?User $user = null): bool
     {
         $user ??= Auth::user();
 
-        return (bool) $user?->hasAnyRole(self::MONEY_ROLES);
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->hasAnyRole(self::MONEY_ROLES) && $user->can('reports.view');
     }
 
     /**

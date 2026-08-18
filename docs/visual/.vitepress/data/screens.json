@@ -282,6 +282,12 @@
         "guide": "portal_cam"
     },
     {
+        "screen": "CreditNoteResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_credit_notes"
+    },
+    {
         "screen": "InvoiceResource",
         "panel": "portal",
         "kind": "resource",

@@ -242,6 +242,7 @@ class ScreenGuides
         // same module needs different words. A guide telling a tenant what the billing run does
         // would be answering a question they cannot act on.
         \App\Filament\Portal\Resources\Invoices\InvoiceResource::class => 'portal_invoices',
+        \App\Filament\Portal\Resources\CreditNotes\CreditNoteResource::class => 'portal_credit_notes',
         \App\Filament\Portal\Resources\Payments\PaymentResource::class => 'portal_payments',
         \App\Filament\Portal\Resources\Leases\LeaseResource::class => 'portal_leases',
         \App\Filament\Portal\Resources\TenantRequests\TenantRequestResource::class => 'portal_requests',

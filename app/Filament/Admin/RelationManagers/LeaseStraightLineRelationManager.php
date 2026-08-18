@@ -69,6 +69,11 @@ class LeaseStraightLineRelationManager extends RelationManager
                 'from' => $schedule['from']->format('m/Y'),
                 'to' => $schedule['to']->format('m/Y'),
             ]))
+            // No search box: every row is a period and three amounts on ONE lease, the set is a
+            // dozen rows the reader can already see, and the model carries no `search_text` blob —
+            // so the box Filament renders by default could never match anything typed into it.
+            // `SearchPolicyConformanceTest` fails the build on exactly that.
+            ->searchable(false)
             ->columns([
                 TextColumn::make('period')
                     ->label(__('admin.fields.period'))
