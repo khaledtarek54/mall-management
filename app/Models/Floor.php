@@ -42,6 +42,51 @@ class Floor extends Model
         return $this->belongsTo(Asset::class);
     }
 
+    /**
+     * A renamed floor re-folds the units standing on it.
+     *
+     * `Unit::searchTextSources()` quotes this floor's CODE — the one relation hop the search policy
+     * allows, so an operator can narrow "ground A-1" the way they say it. The borrowed value has to
+     * be pushed down by its OWNER when it changes, because the borrower cannot know it did.
+     *
+     * Until 2026-08-18 nothing did. The remedy was a docblock telling whoever renamed a floor to run
+     * `atriom:rebuild-search` — but the code is edited through an ordinary EditAction on the
+     * property's floors list, a screen that says nothing about search, so the old code stayed frozen
+     * into every unit blob on the floor: the new name found nothing, the retired one still worked,
+     * and no error connected the two. A documented manual remedy for a UI-triggerable action is a
+     * remedy that does not exist.
+     *
+     * Scoped two ways, deliberately: only when `code` actually changed, and only over this floor's
+     * own units — renaming one floor must not rewrite a property's every blob.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $floor): void {
+            if (! $floor->wasChanged('code')) {
+                return;
+            }
+
+            // Same discipline as `RebuildSearchIndex`, for its reasons: `refreshSearchText()`
+            // ASSIGNS without saving, the write is skipped when the fold is unchanged, and it is
+            // saved quietly with timestamps off — re-deriving a denormalized column is not
+            // something that happened to the unit. A moved `updated_at` would reorder every
+            // "recently changed" list in the system, and an activity log full of index rewrites is
+            // one nobody reads. Soft-deleted units are included: they stay searchable via
+            // `withTrashed()` elsewhere, so a stale blob would strand them too.
+            $floor->units()->withTrashed()->cursor()->each(function (Unit $unit): void {
+                $before = $unit->getAttribute('search_text');
+                $unit->refreshSearchText();
+
+                if ($unit->getAttribute('search_text') === $before) {
+                    return;
+                }
+
+                $unit->timestamps = false;
+                $unit->saveQuietly();
+            });
+        });
+    }
+
     /** @return HasMany<Unit, $this> */
     public function units(): HasMany
     {
