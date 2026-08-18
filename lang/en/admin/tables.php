@@ -120,6 +120,8 @@ return [
             'unit' => 'Unit',
             'tenant' => 'Tenant',
             'rent' => 'Rent',
+            'deposit_shortfall' => 'Deposit due',
+            'deposit_held_of' => ':held held of :agreed',
             'start' => 'Start',
             'ends' => 'Ends',
         ],
@@ -226,6 +228,7 @@ return [
     ],
 
     'filters' => [
+        'deposit_outstanding' => 'Deposit outstanding',
         'without_options' => 'No options recorded',
         'lease_type' => 'Lease type',
         'posting_role_group' => 'Statement class',

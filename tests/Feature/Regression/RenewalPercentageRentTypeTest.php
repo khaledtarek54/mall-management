@@ -17,7 +17,6 @@ it('carries percentage-rent fields (including calculation_type) into the renewal
         'expiry_date' => '2026-12-31',
         'term_months' => 12,
         'security_deposit' => 30000,
-        'security_deposit_received' => true,
         'escalation_rate' => 7,
         'escalation_type' => 'fixed_percent',
         'has_percentage_rent' => true,

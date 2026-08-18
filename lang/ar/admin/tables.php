@@ -120,6 +120,8 @@ return [
             'unit' => 'الوحدة',
             'tenant' => 'المستأجر',
             'rent' => 'الإيجار',
+            'deposit_shortfall' => 'التأمين المستحق',
+            'deposit_held_of' => 'محتفظ به :held من :agreed',
             'start' => 'البداية',
             'ends' => 'النهاية',
         ],
@@ -226,6 +228,7 @@ return [
     ],
 
     'filters' => [
+        'deposit_outstanding' => 'تأمين غير مُحصَّل',
         'without_options' => 'بدون خيارات مسجَّلة',
         'lease_type' => 'نوع العقد',
         'posting_role_group' => 'التصنيف المحاسبي',

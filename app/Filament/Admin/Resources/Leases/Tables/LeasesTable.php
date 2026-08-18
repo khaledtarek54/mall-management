@@ -93,7 +93,7 @@ class LeasesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['unit', 'tenant']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['unit', 'tenant', 'deposits']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.lease.reference'))
@@ -132,6 +132,25 @@ class LeasesTable
                     ->sortable()
                     ->alignRight()
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
+                // **The deposit, as a SHORTFALL rather than as a contract figure.** The list showed
+                // neither: "who still owes me a deposit?" could only be answered by opening every
+                // lease in turn, and the one number that matters — agreed MINUS actually held — was
+                // computed nowhere an operator could see it. Toggleable-on by default because it is
+                // exposure, not reference data; hidden it would be back to where it was.
+                TextColumn::make('deposit_shortfall')
+                    ->label(__('admin.tables.lease.deposit_shortfall'))
+                    ->getStateUsing(fn (Lease $record) => $record->depositShortfall())
+                    ->money('EGP')
+                    ->alignRight()
+                    ->toggleable()
+                    ->color(fn ($state) => $state > 0 ? 'danger' : 'success')
+                    ->icon(fn ($state) => $state > 0 ? Heroicon::OutlinedExclamationTriangle : null)
+                    // Held AND agreed underneath, so the shortfall is never a figure to take on
+                    // trust — the operator can see the subtraction that produced it.
+                    ->description(fn (Lease $record) => __('admin.tables.lease.deposit_held_of', [
+                        'held' => number_format($record->depositHeld(), 2),
+                        'agreed' => number_format((float) $record->security_deposit, 2),
+                    ])),
                 TextColumn::make('commencement_date')
                     ->label(__('admin.tables.lease.start'))
                     ->date('d/m/Y')
@@ -182,6 +201,20 @@ class LeasesTable
                 // panel says so when it is empty; this is the same fact asked of the PORTFOLIO, so
                 // "which contracts have not been abstracted yet" is one click rather than a
                 // question nobody can put to the system.
+                // The question an operator actually asks, as one click.
+                Filter::make('deposit_outstanding')
+                    ->label(__('admin.filters.deposit_outstanding'))
+                    ->query(fn ($query) => $query
+                        ->whereIn('status', ['active', 'pending_approval'])
+                        ->whereRaw('COALESCE(security_deposit, 0) > (
+                            COALESCE((select sum(case when type = \'receipt\' then amount else -amount end)
+                                      from deposit_transactions
+                                      where deposit_transactions.lease_id = leases.id
+                                        and deposit_transactions.status = \'recorded\'
+                                        and deposit_transactions.deleted_at is null), 0)
+                            - COALESCE((select sum(amount) from deposit_applications
+                                        where deposit_applications.lease_id = leases.id), 0)
+                        )')),
                 Filter::make('without_options')
                     ->label(__('admin.filters.without_options'))
                     ->toggle()

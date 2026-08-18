@@ -409,6 +409,13 @@ return [
     ],
 
     'portal' => [
+        'deposit' => [
+            'agreed' => 'Security deposit — agreed',
+            'paid' => 'Security deposit — paid',
+            'outstanding' => 'Security deposit — outstanding',
+            'how_to_pay' => 'Not yet received. A deposit is not invoiced — please transfer it to the mall bank account and send the transfer reference to the leasing office, quoting your lease reference.',
+            'settled' => 'Fully received. It is held against the lease and settled when you move out.',
+        ],
         'lease' => [
             'terms' => 'Lease terms',
             'charges' => 'Charges',

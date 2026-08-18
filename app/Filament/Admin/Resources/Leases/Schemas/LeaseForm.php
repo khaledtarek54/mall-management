@@ -582,9 +582,6 @@ class LeaseForm
                             ->default(fn () => PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
                             ->dehydrateStateUsing(fn ($state) => $state ?? PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
                             ->suffix(__('admin.fields.days')),
-                        Toggle::make('security_deposit_received')
-                            ->label(__('admin.fields.security_deposit_received'))
-                            ->columnSpanFull(),
                         // Per-lease late-fee terms (MF-08). All three are OPTIONAL: blank means the
                         // portfolio default from Settings → Billing, which is what almost every lease
                         // uses. Only the negotiated ones get filled in, and the placeholder shows what

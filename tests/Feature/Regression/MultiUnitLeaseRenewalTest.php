@@ -19,7 +19,6 @@ it('renews a multi-unit lease carrying the full unit set with the master preserv
         'expiry_date' => '2026-12-31',
         'term_months' => 12,
         'security_deposit' => 30000,
-        'security_deposit_received' => true,
         'escalation_rate' => 7,
         'escalation_type' => 'fixed_percent',
     ]);
@@ -55,7 +54,6 @@ it('keeps a single-unit lease renewal scoped to just its one unit', function () 
         'expiry_date' => '2026-12-31',
         'term_months' => 12,
         'security_deposit' => 30000,
-        'security_deposit_received' => true,
         'escalation_rate' => 7,
         'escalation_type' => 'fixed_percent',
     ]);

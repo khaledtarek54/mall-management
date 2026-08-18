@@ -245,6 +245,36 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ The deposit was invisible on both sides (fixed 2026-08-18).** Raised by an operator: *"the
+> client doesn't know how he should pay, and the admin doesn't know how much the lease wants or the
+> shortfall."* Three separate causes:
+>
+> - **`leases.security_deposit_received` was a SECOND TRUTH** — a form toggle, defaulted false at
+>   creation, that **nothing ever synced** from the deposit register. A lease with 240,000 recorded
+>   still read "not received", and an operator could tick it on a lease where nothing arrived. A
+>   boolean cannot express a PARTLY collected deposit at all, which is the ordinary case: 150,000
+>   held against a contractual 180,000 is neither true nor false. **Column dropped**
+>   (`2026_08_18_090000`); the register is the answer.
+> - **The lease LIST showed no deposit at all.** "Who still owes me a deposit?" meant opening every
+>   lease in turn. There is now a **Deposit due** column (agreed − held, with the subtraction shown
+>   underneath so it is never a figure to take on trust) and a **Deposit outstanding** filter. On the
+>   seeded portfolio it immediately found an active lease trading since January with 144,000 agreed
+>   and nothing ever collected.
+> - **The tenant PORTAL showed the contracted figure alone** — not what they had paid, not what was
+>   outstanding, no instruction. It now shows agreed / paid / outstanding, and — only when something
+>   IS outstanding — how to pay it. That line matters because **a deposit is never invoiced**, so
+>   nothing else in the portal will ever ask them for it.
+>
+> `Lease::depositHeld()` / `depositShortfall()` are the ONE definition (receipts − refunds − forfeits
+> − `DepositApplication`s, recorded only); `MoveOutStatementService::depositHeld()` delegates to it
+> rather than keeping its own copy, so the final account and the list cannot disagree about the same
+> money. `DepositExposureIsVisibleTest`.
+>
+> **Still open, and it is the root cause:** there is no deposit CHARGE CODE, so a deposit can never
+> appear on an invoice. Yardi posts a deposit as a charge on the tenant ledger (Dr AR / Cr Deposits
+> Held) and the tenant pays it like any bill. Here it exists only as a `DepositTransaction` an
+> operator records after the money arrives — which is why nothing ever asks the tenant to pay.
+
 > **⚠️ Termination now settles money, not just status (2026-08-09, phase 4).** Terminating a lease
 > **credits back the unearned part of any invoice already billed past the termination date**
 > (`CreditUnearnedBillingService`, story MF-02) — rent bills in advance, so a tenant leaving on the

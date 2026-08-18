@@ -68,7 +68,6 @@ class LeaseFactory extends Factory
             'service_charge_monthly' => $serviceCharge,
             'currency' => 'EGP',
             'security_deposit' => $baseRent * 2,
-            'security_deposit_received' => fake()->boolean(),
             'escalation_rate' => 0,
             'escalation_type' => 'none',
             'next_escalation_date' => null,

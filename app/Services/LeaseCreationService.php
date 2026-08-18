@@ -68,7 +68,6 @@ class LeaseCreationService
                 'service_charge_monthly' => $service,
                 'currency' => 'EGP',
                 'security_deposit' => (float) ($payload['lease']['security_deposit'] ?? $rent * 3),
-                'security_deposit_received' => false,
                 'escalation_rate' => (float) ($payload['lease']['escalation_rate'] ?? 7),
                 'escalation_type' => 'fixed_percent',
                 'payment_terms_days' => (int) ($payload['lease']['payment_terms_days'] ?? 7),

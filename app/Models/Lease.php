@@ -351,7 +351,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'currency',
         'security_deposit',
         'security_deposit_months',
-        'security_deposit_received',
         'escalation_rate',
         'escalation_amount',
         'escalation_floor_rate',
@@ -389,7 +388,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
         'percentage_rent_frequency' => 'monthly', // fresh monthly breakpoint unless set to annual (cumulative)
         'percentage_rent_billing_frequency' => 'monthly', // WHEN the overage is charged — a separate term from the basis above
-        'security_deposit_received' => false,
     ];
 
     protected $casts = [
@@ -423,7 +421,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_ceiling_rate' => 'decimal:2',
         'percentage_rent_threshold' => 'decimal:2',
         'percentage_rent_rate' => 'decimal:2',
-        'security_deposit_received' => 'boolean',
         'has_percentage_rent' => 'boolean',
         'has_marketing_levy' => 'boolean',
         'marketing_levy_rate' => 'decimal:2',
@@ -588,6 +585,50 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function deposits(): HasMany
     {
         return $this->hasMany(DepositTransaction::class);
+    }
+
+    /**
+     * The security deposit ACTUALLY held against this lease — receipts, less refunds, forfeits and
+     * anything already netted against the tenant's invoices.
+     *
+     * **The one definition.** It lived in `MoveOutStatementService`, which meant the answer to "has
+     * this tenant paid their deposit?" was only reachable from a move-out. The lease list, the lease
+     * page and the tenant's own portal each needed it, and the alternative to putting it here was
+     * three re-implementations of a subtraction that must never disagree.
+     *
+     * The `DepositApplication` term is the one people leave out: omitting it lets the same deposit
+     * settle the arrears AND be refunded in full.
+     *
+     * Uses the loaded relation when it is there, so a list can eager-load and not issue a query per
+     * row. Only RECORDED movements count — a draft is an intention, and settling against intentions
+     * is how a landlord refunds money it never received.
+     */
+    public function depositHeld(): float
+    {
+        $rows = $this->relationLoaded('deposits')
+            ? $this->deposits
+            : $this->deposits()->get();
+
+        $recorded = $rows->where('status', 'recorded');
+
+        $held = $recorded->where('type', 'receipt')->sum('amount')
+            - $recorded->where('type', 'refund')->sum('amount')
+            - $recorded->where('type', 'forfeit')->sum('amount')
+            - DepositApplication::where('lease_id', $this->id)->sum('amount');
+
+        return round((float) $held, 2);
+    }
+
+    /**
+     * Agreed, less held — never negative.
+     *
+     * This is the number that was missing everywhere: a lease says 180,000, the bank has 150,000,
+     * and nothing on any list said so. An operator asking "who still owes me a deposit?" had to open
+     * every lease in turn.
+     */
+    public function depositShortfall(): float
+    {
+        return round(max((float) ($this->security_deposit ?? 0) - $this->depositHeld(), 0), 2);
     }
 
     public function postDatedCheques(): HasMany

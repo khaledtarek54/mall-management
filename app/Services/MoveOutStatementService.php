@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\CamExpensePool;
 use App\Models\CreditNote;
-use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\Invoice;
 use App\Models\Lease;
@@ -101,19 +100,10 @@ class MoveOutStatementService
      */
     public function depositHeld(Lease $lease): float
     {
-        $rows = DepositTransaction::query()
-            ->where('lease_id', $lease->id)
-            ->where('status', 'recorded')
-            ->get();
-
-        $held = $rows->where('type', 'receipt')->sum('amount')
-            - $rows->where('type', 'refund')->sum('amount')
-            - $rows->where('type', 'forfeit')->sum('amount')
-            // …less anything already netted against the tenant's invoices (MF-03). Omitting this
-            // would let the same deposit settle the arrears AND be refunded in full.
-            - DepositApplication::where('lease_id', $lease->id)->sum('amount');
-
-        return round((float) $held, 2);
+        // Delegates: the calculation moved onto the model so the lease list, the lease page and the
+        // tenant's portal could all ask the same question. Kept here because callers already use it
+        // and a final account reads better naming its own inputs.
+        return $lease->depositHeld();
     }
 
     /**

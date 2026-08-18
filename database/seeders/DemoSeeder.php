@@ -348,7 +348,6 @@ class DemoSeeder extends Seeder
                 'service_charge_monthly' => $service,
                 'currency' => 'EGP',
                 'security_deposit' => $rent * 3,
-                'security_deposit_received' => true,
                 // A spread of escalation shapes rather than seven identical 7% leases, so the
                 // demo shows what the module can express and the E2E smoke walks each branch.
                 // Deterministic by index — a random spread makes a failing demo unreproducible.

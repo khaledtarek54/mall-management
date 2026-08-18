@@ -47,7 +47,33 @@ class LeaseInfolist
                     TextEntry::make('billing_frequency')
                         ->label(__('admin.fields.billing_frequency'))
                         ->formatStateUsing(fn (?string $state) => $state ? __("admin.billing_frequency.{$state}") : '—'),
-                    TextEntry::make('security_deposit')->label(__('admin.fields.security_deposit'))->money('EGP')->placeholder('—'),
+                    // **What the tenant needs to know about their deposit is three numbers, not one.**
+                    // This showed the CONTRACTED figure alone — so a tenant who had paid 150,000 of
+                    // an agreed 180,000 saw "180,000" and could not tell whether that was a bill, a
+                    // receipt, or a number from their contract. They could not see what they had
+                    // paid, what was outstanding, or that anything was outstanding at all.
+                    TextEntry::make('security_deposit')
+                        ->label(__('admin.portal.deposit.agreed'))
+                        ->money('EGP')
+                        ->placeholder('—'),
+                    TextEntry::make('deposit_held')
+                        ->label(__('admin.portal.deposit.paid'))
+                        ->getStateUsing(fn (Lease $record) => $record->depositHeld())
+                        ->money('EGP')
+                        ->color(fn (Lease $record) => $record->depositShortfall() > 0 ? 'warning' : 'success'),
+                    TextEntry::make('deposit_outstanding')
+                        ->label(__('admin.portal.deposit.outstanding'))
+                        ->getStateUsing(fn (Lease $record) => $record->depositShortfall())
+                        ->money('EGP')
+                        ->weight('bold')
+                        ->color(fn (Lease $record) => $record->depositShortfall() > 0 ? 'danger' : 'gray')
+                        // The instruction, only when there IS something to act on. A standing "how
+                        // to pay" line under a settled deposit is noise; under an unpaid one it is
+                        // the whole point, because a deposit is never invoiced — nothing else in
+                        // the portal will ever ask them for it.
+                        ->helperText(fn (Lease $record) => $record->depositShortfall() > 0
+                            ? __('admin.portal.deposit.how_to_pay')
+                            : __('admin.portal.deposit.settled')),
                     // Only meaningful when a levy applies — spelled out as a rate the tenant can check.
                     TextEntry::make('marketing_levy_rate')
                         ->label(__('admin.fields.marketing_levy_rate'))
