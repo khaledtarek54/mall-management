@@ -71,6 +71,12 @@ class Warehouse extends Model
         return $this->hasMany(StockMovement::class);
     }
 
+    /** The shelves inside this storeroom. */
+    public function bins(): HasMany
+    {
+        return $this->hasMany(Bin::class);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

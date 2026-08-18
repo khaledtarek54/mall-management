@@ -275,6 +275,16 @@ return [
     ],
 
     'inventory' => [
+        'bins' => [
+            'title' => 'Bins',
+            'code' => 'Bin code',
+            'code_helper' => 'What is painted on the shelf — A-01, R3-B2. Unique within this storeroom.',
+            'name' => 'Description',
+            'items_on_hand' => 'Items on hand',
+            'is_active_helper' => 'Turn off to retire a shelf. Its stock history stays readable.',
+            'empty_heading' => 'This storeroom is not divided into bins',
+            'empty_description' => 'Add the shelves and racks you actually label. Stock movements can then say where a part was put, so "we have six" comes with somewhere to look.',
+        ],
         'low_stock' => [
             'title' => 'Low stock',
             'body' => ':item is down to :on_hand :unit at :asset (reorder at :reorder_level).',
@@ -284,6 +294,8 @@ return [
         'item' => ['singular' => 'Inventory Item', 'plural' => 'Inventory Items'],
         'movement' => ['singular' => 'Stock Movement', 'plural' => 'Stock Movements'],
         'fields' => [
+            'bin' => 'Bin',
+            'bin_helper' => 'Optional. Which shelf in the storeroom — pick the warehouse first.',
             'name' => 'Name', 'code' => 'Code', 'category' => 'Category', 'notes' => 'Notes',
             'active' => 'Active', 'property' => 'Property', 'sku' => 'SKU', 'unit' => 'Unit',
             'unit_cost' => 'Unit cost', 'reorder_level' => 'Reorder level', 'on_hand' => 'On hand',

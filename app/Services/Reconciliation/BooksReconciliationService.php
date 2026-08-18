@@ -18,6 +18,7 @@ use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
+use App\Support\DepositHoldings;
 
 /**
  * Independently re-derives the accounts-receivable books from SOURCE records
@@ -262,6 +263,21 @@ class BooksReconciliationService
                     $checks[] = $this->check('gl_in_sync', 'Every posting document\'s ledger entry matches its current state', $this->glDriftDiscrepancies());
                 }
             }
+
+            // 8. Security deposits: what the operator holds must equal the `deposits_held`
+            //    liability. Cumulative like the AR/AP tie-out above, so all-time only.
+            //
+            //    This exists because the two roads a deposit arrives by are counted in different
+            //    places and nothing compared them. A deposit recorded as a `DepositTransaction`
+            //    posts Dr Bank / Cr Deposits Held; a deposit BILLED posts Dr AR / Cr Deposits Held
+            //    and is settled by a payment. Both credit the same liability, but only the first
+            //    leaves a row in the register — so the register read 390,000 against a 534,000
+            //    liability and no check anywhere would have said so.
+            $checks[] = $this->check(
+                'deposits_tie_out',
+                'Security deposits held tie to the deposits-held liability',
+                $this->depositTieOutDiscrepancies(),
+            );
         }
 
         // Control totals — the figures an accountant reconciles against their own books.
@@ -402,6 +418,41 @@ class BooksReconciliationService
         }
 
         return $drifted;
+    }
+
+    /**
+     * Deposits held (both roads) vs the `deposits_held` control account.
+     *
+     * Derived from `DepositHoldings`, the same definition the register's header reads, so the
+     * screen and the sweep can never tell the operator two different things.
+     *
+     * @return array<int,array{ref:string,detail:string}>
+     */
+    public function depositTieOutDiscrepancies(): array
+    {
+        $gl = DepositHoldings::glBalance();
+
+        // Unmapped role or an unposted ledger — nothing to compare against, which is not a
+        // discrepancy. Raising one here would fail every fresh install.
+        if ($gl === null) {
+            return [];
+        }
+
+        $held = DepositHoldings::held();
+        $delta = round($held - $gl, 2);
+
+        if (abs($delta) <= self::EPS) {
+            return [];
+        }
+
+        $recorded = DepositHoldings::recorded();
+        $billed = DepositHoldings::billedAndSettled();
+
+        return [[
+            'ref' => 'Security deposits',
+            'detail' => "held {$held} (recorded movements {$recorded} + billed & settled {$billed}) "
+                ."≠ GL deposits_held {$gl} (delta {$delta})",
+        ]];
     }
 
     /** @param array<int,array{ref:string,detail:string}> $discrepancies */

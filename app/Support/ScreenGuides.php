@@ -19,6 +19,7 @@ use App\Filament\Admin\Pages\MonthEndClose;
 use App\Filament\Admin\Pages\NotificationCenter;
 use App\Filament\Admin\Pages\OccupancyCost;
 use App\Filament\Admin\Pages\OccupancyMap;
+use App\Filament\Admin\Pages\OpeningBalances;
 use App\Filament\Admin\Pages\PropertyOverrides;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\ReportHub;
@@ -81,6 +82,7 @@ use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
+use App\Filament\Portal\Pages\CompanyProfile;
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
@@ -220,6 +222,7 @@ class ScreenGuides
         ArCollections::class => 'ar_collections',
         TrialBalance::class => 'trial_balance',
         GeneralLedger::class => 'general_ledger',
+        OpeningBalances::class => 'opening_balances',
         IncomeStatement::class => 'income_statement',
         BalanceSheet::class => 'balance_sheet',
         CashFlow::class => 'cash_flow',
@@ -242,6 +245,7 @@ class ScreenGuides
         // same module needs different words. A guide telling a tenant what the billing run does
         // would be answering a question they cannot act on.
         \App\Filament\Portal\Resources\Invoices\InvoiceResource::class => 'portal_invoices',
+        \App\Filament\Portal\Resources\CreditNotes\CreditNoteResource::class => 'portal_credit_notes',
         \App\Filament\Portal\Resources\Payments\PaymentResource::class => 'portal_payments',
         \App\Filament\Portal\Resources\Leases\LeaseResource::class => 'portal_leases',
         \App\Filament\Portal\Resources\TenantRequests\TenantRequestResource::class => 'portal_requests',
@@ -250,6 +254,7 @@ class ScreenGuides
         \App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource::class => 'portal_posts',
         \App\Filament\Portal\Resources\Announcements\AnnouncementResource::class => 'portal_announcements',
         \App\Filament\Portal\Pages\NotificationCenter::class => 'portal_notifications',
+        CompanyProfile::class => 'portal_company_profile',
     ];
 
     /**

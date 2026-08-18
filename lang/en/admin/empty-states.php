@@ -186,6 +186,10 @@ return [
             'heading' => 'No invoices yet',
             'description' => 'Your rent and service-charge invoices will appear here as the mall issues them.',
         ],
+        'portal_credit_notes' => [
+            'heading' => 'No credit notes yet',
+            'description' => 'When the mall credits something back — a corrected charge, an overbilled service charge — the credit note appears here and shows how much of it is still yours to use.',
+        ],
         'portal_payments' => [
             'heading' => 'No payments yet',
             'description' => 'Payments you make against your invoices are listed here with their receipts.',

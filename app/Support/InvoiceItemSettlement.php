@@ -68,10 +68,31 @@ class InvoiceItemSettlement
         'parking',
         'percentage_rent',
         'other',
-        // Penalties settle LAST, so a part payment is never eaten by one — a disputed fee stays
-        // visible in aging as a fee instead of quietly consuming the rent that was paid.
+        // Penalties settle LAST among the revenue lines, so a part payment is never eaten by one —
+        // a disputed fee stays visible in aging as a fee instead of quietly consuming the rent
+        // that was paid.
         'nsf_fee',
         'late_fee',
+        /*
+         * The security deposit settles after EVERYTHING, penalties included — the only entry here
+         * that is not revenue at all.
+         *
+         * It was absent from this list until 2026-08-18, which put it last by accident: absent
+         * types sort after every listed one. The position is right and the accident was not, so it
+         * is written down.
+         *
+         * **Why last is the safe direction.** `Lease::depositHeld()` reads this settlement to
+         * decide what the landlord is holding, and that figure is what a move-out refunds against.
+         * Settling the deposit EARLY out of a part payment would report money as held that in fact
+         * went to rent — and the refund would hand back cash never received. Settling it late
+         * understates the holding instead, which shows as a deposit shortfall the operator can see
+         * and chase. Between a wrong refund and a visible shortfall, take the shortfall.
+         *
+         * Only reachable on a HAND-BUILT mixed invoice: `BillSecurityDepositService` always raises
+         * the deposit on its own document, where priority cannot matter. The invoice form lets an
+         * operator add a `security_deposit` line beside rent, which is the case this covers.
+         */
+        'security_deposit',
     ];
 
     /**

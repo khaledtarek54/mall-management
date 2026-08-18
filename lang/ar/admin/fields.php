@@ -36,6 +36,7 @@ return [
         'advance_deductions' => 'خصومات السلف',
         'allowances' => 'البدلات',
         'applied_amount' => 'المبلغ المطبَّق',
+        'applied_at' => 'تاريخ التطبيق',
         'area_id' => 'المنطقة',
         'asset_id' => 'العقار',
         'assigned_to_user_id' => 'المُسنَد إليه',

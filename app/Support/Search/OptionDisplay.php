@@ -5,6 +5,7 @@ namespace App\Support\Search;
 use App\Models\Area;
 use App\Models\Asset;
 use App\Models\BankAccount;
+use App\Models\Bin;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Department;
 use App\Models\Employee;
@@ -139,6 +140,8 @@ class OptionDisplay
         Area::class => ['asset'],
         Floor::class => ['asset'],
         Warehouse::class => ['asset'],
+        // The option subtitle names the storeroom, so without this a bin list is one query per row.
+        Bin::class => ['warehouse'],
         BankAccount::class => ['asset'],
         Equipment::class => ['unit'],
         ServicePlan::class => ['asset'],
@@ -510,6 +513,15 @@ class OptionDisplay
                 title: $record->name,
                 code: $record->code,
                 subtitle: RecordOption::join([$record->asset?->name, $record->category]),
+                badge: $record->is_active ? null : __('admin.search.option.inactive'),
+                tone: 'gray',
+            ),
+
+            // The CODE leads, because that is what is painted on the shelf and what the storeman
+            // reads out. The name is a description of it, and is often absent.
+            Bin::class => static fn (Bin $record): RecordOption => RecordOption::make(
+                title: $record->code,
+                subtitle: RecordOption::join([$record->name, $record->warehouse?->name]),
                 badge: $record->is_active ? null : __('admin.search.option.inactive'),
                 tone: 'gray',
             ),

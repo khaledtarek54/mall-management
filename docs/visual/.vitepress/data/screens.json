@@ -246,6 +246,12 @@
         "guide": "occupancy_map"
     },
     {
+        "screen": "OpeningBalances",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "opening_balances"
+    },
+    {
         "screen": "OwnerRequestResource",
         "panel": "admin",
         "kind": "resource",
@@ -280,6 +286,18 @@
         "panel": "portal",
         "kind": "resource",
         "guide": "portal_cam"
+    },
+    {
+        "screen": "CompanyProfile",
+        "panel": "portal",
+        "kind": "page",
+        "guide": "portal_company_profile"
+    },
+    {
+        "screen": "CreditNoteResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_credit_notes"
     },
     {
         "screen": "InvoiceResource",

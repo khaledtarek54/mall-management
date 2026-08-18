@@ -62,6 +62,26 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+
+            /*
+             * Where `mysqldump` lives, when it is not on PATH.
+             *
+             * `backup:run` shells out to it, and without it the command exits 127 and writes
+             * NOTHING — which is how the nightly backup produced nothing for nineteen days
+             * (2026-07-30 → 2026-08-18) while looking perfectly scheduled.
+             * `Health::checkBackupCapability()` has read this exact key since the day that was
+             * found, but the key existed on NO connection, so it could only ever resolve to '' and
+             * fall back to a PATH lookup that kept failing. The check was right and there was no
+             * way to answer it.
+             *
+             * A DIRECTORY, not the binary — spatie appends the executable name. Empty means "use
+             * PATH", which is correct on any image that installs the MySQL client normally.
+             * Homebrew's `mysql-client` is keg-only and so is never on PATH, which is why a
+             * developer machine has to set this explicitly.
+             */
+            'dump' => [
+                'dump_binary_path' => env('DB_DUMP_BINARY_PATH', ''),
+            ],
         ],
 
         'mariadb' => [
@@ -82,6 +102,11 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+
+            // Same seam, same reason — see the mysql connection above.
+            'dump' => [
+                'dump_binary_path' => env('DB_DUMP_BINARY_PATH', ''),
+            ],
         ],
 
         'pgsql' => [

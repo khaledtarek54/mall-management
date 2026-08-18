@@ -1397,6 +1397,59 @@ return [
         ],
     ],
 
+    'opening_balances' => [
+        'purpose' => 'Load the balances your books already carry, on the day you start using Atriom for real.',
+        'steps' => [
+            'Set the date to the day before you go live — usually the last day of the previous month.',
+            'Paste your accountant\'s trial balance: account code, debit, credit, one account per line.',
+            'Press Check it. Every unknown code, heading account and unbalanced total is listed at once.',
+            'Create the draft, then review and post it from Journal Entries.',
+        ],
+        'affects' => [
+            'Nothing reaches the ledger until you POST the draft — importing twice leaves two drafts side by side rather than doubling your balance sheet.',
+            'Once posted, every statement, the trial balance and the GL tie-out all read from it.',
+        ],
+        'rules' => [
+            'Leave out receivables and fixed assets — they load through their own importers, and entering them here would count them twice.',
+            'Debits must equal credits. The import refuses an unbalanced trial balance rather than posting a plug.',
+            'The entry is stamped to the property you are currently in.',
+        ],
+    ],
+
+    'portal_company_profile' => [
+        'purpose' => 'Your own contact details — where the mall sends invoices, reminders and notices.',
+        'steps' => [
+            'Check the phone and WhatsApp numbers are the ones you actually watch.',
+            'Name a contact person if billing should reach someone other than the main line.',
+            'Save. The change takes effect on the next notice the mall sends.',
+        ],
+        'affects' => [
+            'Overdue reminders, payment receipts and mall announcements are addressed to these numbers — a stale number means you stop hearing about money you owe.',
+            'The mall sees the change immediately on your tenant record, and who changed it is recorded.',
+        ],
+        'rules' => [
+            'Only your account administrator can change these; other users on your account can see them but not edit.',
+            'Your legal name, tax ID and commercial register are not editable here — they appear on invoices already issued, so they change by agreement with the mall.',
+        ],
+    ],
+
+    'portal_credit_notes' => [
+        'purpose' => 'Money the mall has credited back to you, and how much of each credit is still yours to use.',
+        'steps' => [
+            'Open a credit note to see what was credited, line by line, and why.',
+            'Check the balance column: that is what is left to set against a future invoice.',
+            'A credit raised against a specific invoice names that invoice; an account credit does not.',
+        ],
+        'affects' => [
+            'An applied credit reduces the invoice it was applied to — the invoice balance you see elsewhere already includes it.',
+            'A credit with a balance left is used automatically against your next bill, so it will change from Issued to Applied on its own.',
+        ],
+        'rules' => [
+            'You see your own credit notes only, and only once the mall has issued them — a draft is not a document.',
+            'Credit notes are raised by the mall. If you believe you are owed one, raise a billing query rather than waiting for it.',
+        ],
+    ],
+
     'portal_payments' => [
         'purpose' => 'Everything you have paid, and which invoices each payment settled.',
         'steps' => [
