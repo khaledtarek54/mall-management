@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Bin;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
@@ -127,6 +128,10 @@ class StockMovementService
 
         $attributes = [
             'warehouse_id' => $data['warehouse_id'],
+            // Optional. Validated rather than trusted: a bin belongs to exactly one warehouse, and
+            // a `bin_id` from another building would file the stock on a shelf that is not there —
+            // the form scopes the picker, but a Livewire payload is not a promise.
+            'bin_id' => $this->resolveBinId($data['bin_id'] ?? null, (int) $data['warehouse_id']),
             'inventory_item_id' => $data['inventory_item_id'],
             'type' => $type,
             'quantity' => $quantity,
@@ -327,5 +332,24 @@ class StockMovementService
         // legacy rows loaded before that guard existed. The catalogue cost is the better answer
         // than crediting Inventory with nothing.
         return $average > 0 ? $average : round((float) ($item->unit_cost ?? 0), 2);
+    }
+
+    /**
+     * A bin id only if it really belongs to this warehouse; null otherwise.
+     *
+     * Null rather than an exception: a bin is an optional convenience, and refusing the whole
+     * movement because a stale dropdown value survived a warehouse change would block a storeman
+     * from recording real stock over a label.
+     */
+    private function resolveBinId(mixed $binId, int $warehouseId): ?int
+    {
+        if (blank($binId)) {
+            return null;
+        }
+
+        return Bin::query()
+            ->whereKey($binId)
+            ->where('warehouse_id', $warehouseId)
+            ->value('id');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\StockMovements\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
+use App\Models\Bin;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
@@ -81,6 +82,7 @@ class ListStockMovements extends ListRecords
                 $this->runMovement(
                     fn () => app(StockMovementService::class)->record([
                         'warehouse_id' => $data['warehouse_id'],
+                        'bin_id' => $data['bin_id'] ?? null,
                         'inventory_item_id' => $data['inventory_item_id'],
                         'type' => 'receipt',
                         'quantity' => (float) $data['quantity'],
@@ -118,6 +120,7 @@ class ListStockMovements extends ListRecords
                 $this->runMovement(
                     fn () => app(StockMovementService::class)->record([
                         'warehouse_id' => $data['warehouse_id'],
+                        'bin_id' => $data['bin_id'] ?? null,
                         'inventory_item_id' => $data['inventory_item_id'],
                         'type' => 'adjustment',
                         'quantity' => (float) $data['quantity'],
@@ -292,7 +295,23 @@ class ListStockMovements extends ListRecords
                 ->modifyOptionsQuery(fn ($query) => $query
                     ->where('is_active', true)
                     ->when(TenantScope::currentAssetId(), fn ($q, $assetId) => $q->where('asset_id', $assetId)))
-                ->required(),
+                ->required()
+                // Changing the storeroom invalidates the shelf: bin A-01 in one warehouse is not
+                // bin A-01 in another, so a stale selection would file the stock on a shelf in the
+                // wrong building.
+                ->live()
+                ->afterStateUpdated(fn (Set $set) => $set('bin_id', null)),
+            // Optional, and it stays optional: an operator who does not rack their storeroom pays
+            // nothing for bins. Scoped to the warehouse chosen ABOVE — a portfolio-wide bin list
+            // would offer shelves that do not exist in the building being counted.
+            EntitySelect::make('bin_id')
+                ->label(__('admin.inventory.fields.bin'))
+                ->entity(Bin::class)
+                ->modifyOptionsQuery(fn ($query, Get $get) => $query
+                    ->where('is_active', true)
+                    // No warehouse chosen yet → no bins, rather than every bin in the portfolio.
+                    ->where('warehouse_id', $get('warehouse_id') ?? 0))
+                ->helperText(__('admin.inventory.fields.bin_helper')),
             EntitySelect::make('inventory_item_id')
                 ->label(__('admin.inventory.fields.item'))
                 ->entity(InventoryItem::class)

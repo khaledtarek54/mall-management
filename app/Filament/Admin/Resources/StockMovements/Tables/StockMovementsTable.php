@@ -34,6 +34,14 @@ class StockMovementsTable
                     ->label(__('admin.inventory.fields.warehouse'))
                     ->badge()
                     ->color('gray'),
+                // Blank for the operators who do not rack their storeroom — which is most of the
+                // point: the column costs them nothing.
+                TextColumn::make('bin.code')
+                    ->label(__('admin.inventory.fields.bin'))
+                    ->placeholder('—')
+                    ->fontFamily('mono')
+                    ->size('xs')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('quantity')
                     ->label(__('admin.inventory.fields.quantity'))
                     ->numeric(decimalPlaces: 3)

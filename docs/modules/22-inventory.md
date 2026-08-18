@@ -302,3 +302,40 @@ button reappears on a money record.
 | `StockMovement` | **Never deletable** | post a correcting movement; the original is what the GL was built from |
 | `InventoryItem` | **Only while unreferenced** — blocked by `movements` | deactivate the item — its movements are what the stock valuation was built from |
 | `Warehouse` | **Only while unreferenced** — blocked by `movements` | a warehouse with stock history is part of the inventory record |
+| `Bin` | **Only while unreferenced** — blocked by `movements` | a bin with stock history is part of the inventory record — deactivate it instead |
+
+---
+
+## Bin locations (2026-08-18)
+
+A warehouse says which mall's storeroom; a **bin** says where in it. Without one, a storeroom
+holding four hundred parts is a single undifferentiated box — *"we have six of those"* is true and
+useless, because nobody can find them. This was the last open item in FR-INV phase 5.
+
+**Master data, not a free-text label on the movement.** The cheap version is a `bin` string. It
+drifts on the first typo: `A-03-2` and `A032` become two shelves that both look real, the count
+splits between them, and there is nothing to reconcile against. A row with a unique code cannot be
+typo'd into existence.
+
+- **Unique per WAREHOUSE, not globally.** `A-01` is an ordinary aisle label in every storeroom in
+  the portfolio; a global unique would stop the second mall using its own signage.
+- **`stock_movements.bin_id` is NULLABLE and stays that way.** An operator who does not rack their
+  storeroom pays nothing for bins, and every movement written before today has none by definition.
+- **Validated on WRITE, not merely scoped in the form.** The picker is narrowed to the chosen
+  warehouse, but a Livewire payload is not a promise: `StockMovementService::resolveBinId()` drops a
+  bin belonging to another warehouse rather than filing stock on a shelf that is not in the
+  building. It **drops the bin and keeps the movement** — the stock is real, and refusing the whole
+  entry over a stale dropdown value would block a storeman from recording it.
+- **Property isolation is inherited, not duplicated.** `Bin` is `#[PropertyOwned(via: 'warehouse')]`
+  — a second `asset_id` would be a second answer to which mall the shelf is in.
+- **On-hand per bin is DERIVED** (`Bin::onHandByItem()`), never stored. A per-bin quantity column
+  would be a second truth about the same stock, and the first movement recorded outside this
+  model's knowledge would desynchronise it silently.
+- **`nullOnDelete`, not cascade.** Force-removing a bin must not take the MOVEMENT with it — that
+  would make the shelf's contents vanish from stock history, which is worse than losing the label.
+
+Surfaced as a **Bins tab on the warehouse** rather than a top-level resource: a bin has no meaning
+apart from its storeroom, and a portfolio list of them would be a list of duplicate labels.
+
+Tests: `tests/Feature/Regression/StorageBinsTest.php` — each refusal paired with a control, and the
+cross-warehouse guard verified by mutation (trusting the payload's `bin_id` turns one case red).

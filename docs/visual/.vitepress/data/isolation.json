@@ -72,6 +72,12 @@
         "note": "statement.bankAccount"
     },
     {
+        "model": "Bin",
+        "label": "Bin",
+        "classification": "owned",
+        "note": "warehouse"
+    },
+    {
         "model": "CamAllocation",
         "label": "Cam Allocation",
         "classification": "owned",
