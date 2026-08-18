@@ -22,6 +22,8 @@ return [
             'integrations' => 'التكاملات',
         ],
         'sections' => [
+            'payroll_gratuity' => 'مكافأة نهاية الخدمة',
+            'payroll_gratuity_description' => 'موقوفة ما لم يكن العاملون مستحقين. تسري المادة 122 من قانون العمل 12/2003 على العاملين غير الخاضعين لقانون التأمين الاجتماعي — ومعظم العاملين في مصر خاضعون له، فكثير من أصحاب الأعمال لا يستحق عليهم شيء. راجع محاسبك قبل التفعيل: مخصص غير مستحق يضخّم التزاماتك.',
             'fiscal_calendar' => 'السنة المالية',
             'fiscal_calendar_description' => 'متى تبدأ السنة المالية. تُضبط مرة واحدة قبل ترحيل أول قيد — تغييرها بعد ذلك يعيد تأريخ فترات تحتوي قيودًا مرحّلة.',
             'revenue_recognition' => 'الاعتراف بالإيراد',
@@ -57,6 +59,13 @@ return [
             'payments' => 'بوابات الدفع',
         ],
         'fields' => [
+            'payroll_gratuity_enabled' => 'احتساب مخصص مكافأة نهاية الخدمة',
+            'payroll_gratuity_enabled_helper' => 'فعّلها فقط إذا كانت العقود أو القانون تمنح هؤلاء العاملين هذا الحق.',
+            'payroll_gratuity_days_first_five' => 'أيام تُستحق سنويًا — أول 5 سنوات',
+            'payroll_gratuity_days_thereafter' => 'أيام تُستحق سنويًا — بعد 5 سنوات',
+            'payroll_gratuity_days_suffix' => 'يوم',
+            'payroll_gratuity_exposure' => 'المستحق حتى تاريخه',
+            'payroll_gratuity_exposure_value' => ':amount على :headcount موظفًا نشطًا — ما سيُستحق لو ترك الجميع العمل اليوم.',
             'document_prefix_help' => 'الافتراضي :default. حروف وأرقام، من 2 إلى 6.',
             'default_lease_term_months' => 'مدة العقد الافتراضية',
             'fiscal_year_start_month' => 'تبدأ السنة المالية في',

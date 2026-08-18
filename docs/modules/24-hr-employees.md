@@ -381,3 +381,43 @@ button reappears on a money record.
 | `Employee` | **Only while unreferenced** — blocked by `payrollLines`, `advances`, `custodies` | set the employee inactive — payroll history is a statutory record |
 | `EmployeeAdvance` | Deletable (super_admin) | operational: reversed rather than removed |
 | `EmployeeAdvanceRepayment` | Deletable (super_admin) | parent-managed: deleted to reverse a repayment |
+
+---
+
+## End-of-service gratuity (2026-08-18)
+
+Payroll books the employee withholdings **and** the employer social-insurance contribution
+(`PayrollJournalizer` posts `Dr Social Insurance Expense` for the employer share), so month-to-month
+labour cost is right. What appeared nowhere was an entitlement that builds up silently over a
+career: if it is owed, the books understate both the expense and the liability by the whole accrued
+amount, and nobody sees the gap until somebody leaves.
+
+**`App\Services\GratuityService`** computes it. Labour Law 12/2003 Art. 122: half a month's pay per
+year for the first five years, one month per year thereafter — both figures are **settings**, not
+constants, because a contract may be more generous than the floor and often is. Accrual is
+**pro-rated within the year** rather than stepped at the anniversary: the liability builds
+continuously, and a provision that jumped once a year would be wrong for eleven months of it.
+
+**⚠️ It ships SWITCHED OFF, and that is a considered position rather than caution.** Art. 122
+applies to workers **not covered by the social insurance law**, and in Egypt most employees are
+covered — unlike the Gulf, where an EOS gratuity is close to universal. So an Egyptian employer
+frequently owes nothing, and **accruing a provision nobody owes overstates the liability exactly as
+surely as omitting a real one understates it**. Whether this workforce is entitled is a question
+about their contracts and their insurance status: the accountant's to answer, not the software's to
+assume. Same treatment straight-line rent gets under EAS 49 — built, correct, and inert until
+someone decides.
+
+**Nothing posts to the GL yet, deliberately.** The exposure is surfaced on Settings → Payroll beside
+the toggle, so the entitlement decision is made against a number ("EGP X across N active employees —
+what would be owed if everyone left today") rather than a feeling. Wiring a journalizer should
+FOLLOW the entitlement ruling, not precede it: a provision on the balance sheet before anyone has
+established it is owed is the same error in the opposite direction.
+
+Two edges the tests pin: the clock **stops at termination** (asking four years later must not add
+four years to what was owed on the way out), and terminated staff are **excluded from the exposure**
+— whatever they were owed is settled or is a payable in its own right, and counting them would
+double the liability at the moment it crystallises.
+
+Tests: `tests/Feature/Regression/GratuityAccrualTest.php` — the off-by-default is the first thing
+asserted, and the second tier is proved by a figure straight-line accrual could not produce.
+

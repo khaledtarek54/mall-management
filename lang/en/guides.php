@@ -1397,6 +1397,43 @@ return [
         ],
     ],
 
+    'budget' => [
+        'purpose' => 'Set what each revenue and expense account is expected to do this year, so actuals can be read against the plan.',
+        'steps' => [
+            'Pick the year.',
+            'Paste from your budget spreadsheet: account code and an annual amount, or code, month and amount for a month you want to set exactly.',
+            'Import, then open the income statement and choose Budget as the comparison.',
+        ],
+        'affects' => [
+            'Nothing posts and no balance changes — a budget is a plan, and no reported figure derives from it.',
+            'The income statement gains a Budget comparison showing variance per account.',
+        ],
+        'rules' => [
+            'Importing REPLACES this year\'s budget for this property. An account you leave out of the revision is removed, not left at its old figure.',
+            'Revenue and expense accounts only; a balance-sheet account is refused because the income statement could never show it.',
+            'An annual figure is spread evenly with the rounding remainder on December, so the twelve months sum to exactly what you typed.',
+        ],
+    ],
+
+    'tax_depreciation' => [
+        'purpose' => 'What income tax lets you deduct for depreciation this year — a different calculation from the one in your accounts.',
+        'steps' => [
+            'Pick the tax year.',
+            'Read each pool: opening balance, what was added, what was sold, and the resulting deduction.',
+            'Export the CSV for the tax file, or save it as a view to have it emailed each year.',
+        ],
+        'affects' => [
+            'Nothing. This posts no entries and changes no balances — it is a schedule for the return, read off the fixed-asset register.',
+            'What it depends on is each asset\'s tax pool: set that wrongly on the asset and this figure is wrong.',
+        ],
+        'rules' => [
+            'The rates are the law (91/2005 Art. 25), not a setting: buildings 5%, intangibles 10%, computers and software 50%, everything else 25%.',
+            'Most pools are POOLED and diminishing — additions join the pool and the rate applies to the whole balance, so no single asset ever reaches zero.',
+            'A disposal leaves the pool at its original COST, not at book value.',
+            'The difference from book depreciation is a temporary difference — it reverses over the asset\'s life, it is not a saving.',
+        ],
+    ],
+
     'opening_balances' => [
         'purpose' => 'Load the balances your books already carry, on the day you start using Atriom for real.',
         'steps' => [

@@ -23,6 +23,8 @@ return [
             'integrations' => 'Integrations',
         ],
         'sections' => [
+            'payroll_gratuity' => 'End-of-service gratuity',
+            'payroll_gratuity_description' => 'Off unless your workers are entitled. Labour Law 12/2003 Art. 122 covers workers NOT insured under the social insurance law — in Egypt most employees are insured, so many employers owe nothing. Ask your accountant before switching this on: a provision nobody owes overstates your liabilities.',
             'fiscal_calendar' => 'Fiscal calendar',
             'fiscal_calendar_description' => "When the books' year begins. Set once, before the first entry is posted — moving it afterwards would re-date periods that already carry them.",
             'revenue_recognition' => 'Revenue recognition',
@@ -58,6 +60,13 @@ return [
             'payments' => 'Payment Gateways',
         ],
         'fields' => [
+            'payroll_gratuity_enabled' => 'Accrue end-of-service gratuity',
+            'payroll_gratuity_enabled_helper' => 'Only if your contracts or the law entitle these workers to it.',
+            'payroll_gratuity_days_first_five' => 'Days accrued per year — first 5 years',
+            'payroll_gratuity_days_thereafter' => 'Days accrued per year — after 5 years',
+            'payroll_gratuity_days_suffix' => 'days',
+            'payroll_gratuity_exposure' => 'Accrued to date',
+            'payroll_gratuity_exposure_value' => ':amount across :headcount active employees — what would be owed if everyone left today.',
             'document_prefix_help' => 'Defaults to :default. Letters and digits, 2–6 characters.',
             'default_lease_term_months' => 'Default lease term',
             'fiscal_year_start_month' => 'Fiscal year starts in',

@@ -31,6 +31,28 @@ class PayrollSettings extends Settings
      */
     public float $employer_social_insurance_rate = 0.0;
 
+    /**
+     * Whether to compute the accruing END-OF-SERVICE GRATUITY liability (مكافأة نهاية الخدمة).
+     *
+     * **OFF by default, and that is a considered position rather than caution.** Egyptian Labour
+     * Law 12/2003 Art. 122 gives a gratuity of half a month's pay per year for the first five years
+     * and a month's pay per year thereafter — but it applies to workers **not covered by the social
+     * insurance law**, and in Egypt most employees are covered. So unlike the Gulf, an Egyptian
+     * employer often owes no gratuity at all, and accruing a provision nobody owes overstates the
+     * liability exactly as surely as omitting a real one understates it.
+     *
+     * Whether this workforce is entitled is a question about their contracts and their insurance
+     * status, which is the accountant's to answer and not the software's to assume. Same treatment
+     * as straight-line rent under EAS 49: built, correct, and switched off until someone decides.
+     */
+    public bool $gratuity_enabled = false;
+
+    /** Days of pay accrued per year of service, for the FIRST five years (Art. 122: half a month). */
+    public float $gratuity_days_first_five = 15.0;
+
+    /** Days of pay accrued per year of service AFTER five years (Art. 122: one month). */
+    public float $gratuity_days_thereafter = 30.0;
+
     public static function group(): string
     {
         return 'payroll';

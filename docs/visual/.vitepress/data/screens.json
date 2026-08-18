@@ -72,6 +72,12 @@
         "guide": "billing_run"
     },
     {
+        "screen": "Budget",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "budget"
+    },
+    {
         "screen": "CamExpensePoolResource",
         "panel": "admin",
         "kind": "resource",
@@ -442,6 +448,12 @@
         "panel": "admin",
         "kind": "resource",
         "guide": "tax_codes"
+    },
+    {
+        "screen": "TaxDepreciation",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "tax_depreciation"
     },
     {
         "screen": "TenantRequestResource",

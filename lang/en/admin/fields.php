@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'date' => 'Date',
         'trigger_type' => 'Triggered by',
         'usage_threshold' => 'Service every',
         'utility_meter_id' => 'Usage counter',

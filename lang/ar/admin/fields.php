@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'date' => 'التاريخ',
         'trigger_type' => 'يُستدعى بواسطة',
         'usage_threshold' => 'صيانة كل',
         'utility_meter_id' => 'عداد الاستهلاك',

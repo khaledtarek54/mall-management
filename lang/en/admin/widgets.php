@@ -52,6 +52,7 @@ return [
             'd_90_plus' => '90+ days',
         ],
         'tenant_mix' => [
+            'drilldown' => 'See which tenants',
             'heading' => 'Tenant Mix',
             'description' => 'Active leases by unit category',
             'label' => 'Active leases',

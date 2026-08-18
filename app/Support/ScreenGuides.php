@@ -8,6 +8,7 @@ use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
 use App\Filament\Admin\Pages\BalanceSheet;
 use App\Filament\Admin\Pages\BillingRunPreview;
+use App\Filament\Admin\Pages\Budget;
 use App\Filament\Admin\Pages\CashFlow;
 use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
@@ -26,6 +27,7 @@ use App\Filament\Admin\Pages\ReportHub;
 use App\Filament\Admin\Pages\Reports;
 use App\Filament\Admin\Pages\SalesAnalytics;
 use App\Filament\Admin\Pages\Settings;
+use App\Filament\Admin\Pages\TaxDepreciation;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
 use App\Filament\Admin\Pages\VendorScorecard;
@@ -222,7 +224,9 @@ class ScreenGuides
         ArCollections::class => 'ar_collections',
         TrialBalance::class => 'trial_balance',
         GeneralLedger::class => 'general_ledger',
+        Budget::class => 'budget',
         OpeningBalances::class => 'opening_balances',
+        TaxDepreciation::class => 'tax_depreciation',
         IncomeStatement::class => 'income_statement',
         BalanceSheet::class => 'balance_sheet',
         CashFlow::class => 'cash_flow',

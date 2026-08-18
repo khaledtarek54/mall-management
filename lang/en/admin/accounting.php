@@ -2,6 +2,61 @@
 
 return [
 
+    'budget' => [
+        'title' => 'Budget',
+        'subheading' => 'What each account is expected to do this year. The income statement can then be read against the plan, not just against last month.',
+        'sections' => [
+            'input' => 'Paste the budget',
+            'input_description' => 'One account per line. `code, amount` spreads an annual figure across twelve months; `code, month, amount` sets one month exactly — useful where a mall is seasonal and Ramadan is not one twelfth of the year.',
+        ],
+        'fields' => ['year' => 'Budget year', 'lines' => 'Budget lines'],
+        'helpers' => [
+            'lines' => 'Revenue and expense accounts only. Importing REPLACES this year\'s budget for this property.',
+        ],
+        'actions' => ['import' => 'Replace the budget'],
+        'existing_warning' => ':year already has a budget for this property — :lines lines totalling :total. Importing will replace it.',
+        'imported' => 'Budget set for :accounts accounts in :year',
+        'imported_body' => 'Open the income statement and choose Budget as the comparison to read actuals against it.',
+        'errors' => [
+            'empty' => 'Nothing to import — no account lines were found.',
+            'unknown_account' => 'no account :code in the chart',
+            'not_pl' => ':code is a balance-sheet account — only revenue and expense can be budgeted',
+            'summary_account' => ':code is a heading, not a postable account',
+            'bad_month' => ':code has month :month — must be 1 to 12',
+        ],
+    ],
+
+    'tax_depreciation' => [
+        'title' => 'Tax depreciation',
+        'subheading' => 'Egyptian income tax, Law 91/2005 Art. 25 — a schedule for the return, not a second ledger. Nothing here posts.',
+        'fields' => ['year' => 'Tax year'],
+        'pools' => [
+            'buildings' => 'Buildings, constructions, ships and aircraft',
+            'intangibles' => 'Intangibles and purchased goodwill',
+            'computers' => 'Computers, information systems and software',
+            'general' => 'All other assets of the activity',
+            'none' => 'Not depreciable',
+        ],
+        'pooled' => 'Pooled, diminishing value',
+        'straight_line' => 'Straight line on cost',
+        'table' => [
+            'pool' => 'Pool',
+            'rate' => 'Rate',
+            'basis' => 'Basis',
+            'opening' => 'Opening',
+            'additions' => 'Additions',
+            'disposals' => 'Disposals (at cost)',
+            'base' => 'Depreciation base',
+            'depreciation' => 'Depreciation',
+            'closing' => 'Closing',
+        ],
+        'tax_total' => 'Tax depreciation',
+        'book_total' => 'Book depreciation',
+        'difference' => 'Temporary difference',
+        'difference_hint' => 'Positive: tax relieves more than the books this year.',
+        'empty' => 'No assets in a depreciable pool for this year.',
+    ],
+
     'opening_balances' => [
         'title' => 'Opening balances',
         'sections' => [
@@ -328,6 +383,23 @@ return [
         'cumulative' => 'Cumulative',
         'empty_heading' => 'Nothing posted yet',
         'empty_body' => 'Adjustments appear once `accounting:post-straight-line-rent` has run for a month. Positive means the books recognise more than was billed; over the life of the lease they sum to zero.',
+    ],
+    'ledger' => [
+        'title' => 'Ledger',
+        'charge' => 'Charge',
+        'credit' => 'Credit',
+        'balance' => 'Balance',
+        'from_deposit' => 'Netted from the security deposit',
+        'from_tenant_credit' => 'Applied from credit on account',
+        'empty_heading' => 'Nothing on this tenant\'s account',
+        'empty_body' => 'Every issued invoice and every settlement against it appears here in date order, with the running balance.',
+        'types' => [
+            'invoice' => 'Invoice',
+            'payment' => 'Payment',
+            'credit_note' => 'Credit note',
+            'tenant_credit' => 'Credit on account',
+            'deposit' => 'Deposit',
+        ],
     ],
     'statement' => [
         'title' => 'Statement of Account',
