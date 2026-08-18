@@ -6,10 +6,14 @@ use Illuminate\Support\Carbon;
 /**
  * Ownership-tenure infrastructure (docs/plans/04-owner-statements-disbursements.md): the ownership
  * pivot is cast at source (AssetOwner) and tenure-aware, so a sold-off stake drops out of the
- * current set — retained for a future multi-owner build and the basis for owner-visibility scoping.
- * (The owner-panel PortfolioStats widget that also exercised this was removed 2026-07-27 when the
- * /owner panel was retired; the tenure→visibility behaviour is now pinned on the admin path by
- * OwnerAdminTenureScopeTest.)
+ * current set.
+ *
+ * **What is production and what is retained.** `currentOwnedAssets()` IS production — `AssignedAssets`,
+ * `OwnerPack` and `BuildOwnerPackService` all read it, so tenure decides an owner's reach. Its
+ * `currentOwnershipShares()` wrapper has no caller and is retained for a possible absolute-weighting
+ * build (gap analysis 32, F-A option 1). The tenure rule is therefore asserted against BOTH: through
+ * the wrapper, and directly on the relation the product actually calls — otherwise the rule that
+ * matters would be covered only incidentally, by a test of code nothing runs.
  */
 it('reports the current ownership share per owned property (infrastructure, retained for later)', function () {
     $owner = makeUser('owner');
@@ -58,4 +62,9 @@ it('excludes ended and not-yet-started ownership from the current set', function
     expect($shares->keys()->all())->toBe([$open->id])
         ->and($shares->has($ended->id))->toBeFalse()
         ->and($shares->has($future->id))->toBeFalse();
+
+    // The same rule on the relation PRODUCTION reads — `AssignedAssets` and the owner pack narrow an
+    // owner's reach through this, so an expired tenure must stop granting access here, not only in
+    // the unused wrapper above.
+    expect($owner->currentOwnedAssets()->pluck('assets.id')->all())->toBe([$open->id]);
 });

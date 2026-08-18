@@ -134,7 +134,7 @@ class InvoicesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'lease.unit']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'lease.unit', 'unitOwnership.unit']))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.invoice.number'))
@@ -146,8 +146,13 @@ class InvoicesTable
                     ->label(__('admin.tables.invoice.tenant'))
                     ->searchable()
                     ->weight('bold'),
-                TextColumn::make('lease.unit.code')
+                // Through whichever agreement raised it — a lease invoice holds the unit on the
+                // lease, an owner assessment on the ownership. Reading `lease.unit.code` directly
+                // rendered every owner assessment with a blank unit.
+                TextColumn::make('unit_code')
                     ->label(__('admin.tables.invoice.unit'))
+                    ->state(fn (Invoice $record): ?string => $record->unitCode())
+                    ->placeholder('—')
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('period_start')
@@ -222,7 +227,10 @@ class InvoicesTable
                     ->label(__('admin.filters.unit'))
                     ->entity(Unit::class)
                     ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId)))),
+                        // Through EITHER agreement — an owner assessment holds its unit on the
+                        // ownership, so a lease-only clause returned nothing for an owner-occupied
+                        // unit and read as "no invoices" rather than "this filter cannot see him".
+                        ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->forUnit((int) $unitId))),
                 Filter::make('period')
                     ->label(__('admin.filters.period'))
                     ->schema([

@@ -29,7 +29,7 @@ class InvoicesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with('lease.unit'))
+            ->modifyQueryUsing(fn ($query) => $query->with(['lease.unit', 'unitOwnership.unit']))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.invoice.number'))
@@ -37,8 +37,13 @@ class InvoicesTable
                     ->copyable()
                     ->fontFamily('mono')
                     ->size('xs'),
-                TextColumn::make('lease.unit.code')
+                // Through whichever agreement raised it — a lease invoice holds the unit on the
+                // lease, an owner assessment on the ownership. Reading `lease.unit.code` directly
+                // rendered every owner assessment with a blank unit.
+                TextColumn::make('unit_code')
                     ->label(__('admin.tables.invoice.unit'))
+                    ->state(fn (Invoice $record): ?string => $record->unitCode())
+                    ->placeholder('—')
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('period_start')
@@ -102,7 +107,8 @@ class InvoicesTable
                         Portal::tenant()?->leases()->with('unit')->get()->pluck('unit.id')->filter() ?? [],
                     ))
                     ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId)))),
+                        // Either agreement — a unit owner reads his own assessments here too.
+                        ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->forUnit((int) $unitId))),
                 Filter::make('period')
                     ->label(__('admin.filters.period'))
                     ->schema([

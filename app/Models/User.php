@@ -220,9 +220,16 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
 
     /**
      * Owned properties whose ownership tenure is in effect on $onDate (default today).
-     * A null started_at/ended_at is unbounded on that side. This is the set the owner
-     * statements + the portfolio widget weight by `ownership_percentage` — so a 50%
-     * co-owner sees their share, not the whole property.
+     * A null started_at/ended_at is unbounded on that side.
+     *
+     * Used in production by `AssignedAssets`, `OwnerPack` and `BuildOwnerPackService` — an owner's
+     * reach is CURRENT tenure, so a sold-off stake stops granting access the day it ends.
+     *
+     * It does **not** decide anyone's share of the money. `GenerateOwnerStatementRunService` weights
+     * the statements itself, straight off the `asset_owner` pivot. (This docblock used to claim the
+     * statements and "the portfolio widget" weighted through here; the widget was deleted with the
+     * `/owner` panel on 2026-07-27, and the statements never read this method. The stale claim cost
+     * a wrong first answer during the module-32 gap analysis — a comment is not evidence.)
      */
     public function currentOwnedAssets(?string $onDate = null): BelongsToMany
     {
@@ -240,6 +247,12 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
     /**
      * Current ownership share per owned property: [asset_id => percentage (0–100)].
      * Keyed by asset, so a consumer can weight any per-property figure by the owner's stake.
+     *
+     * **No production caller today.** Retained deliberately, not by accident: it is the natural home
+     * for absolute (`pct / 100`) weighting if the operator ever takes the option recorded as F-A
+     * option 1 in docs/gap-analysis/32-owner-statements.md. Kept out of the statement path on
+     * purpose — that service weights off the pivot it already loaded rather than issuing a second
+     * query per owner.
      *
      * @return Collection<int, float>
      */

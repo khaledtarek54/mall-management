@@ -61,16 +61,41 @@ person who could most easily have noticed is the one who could not see it.
 ([`DelinquencyFilterSeesOwnerArrearsTest`](../../tests/Feature/Regression/DelinquencyFilterSeesOwnerArrearsTest.php),
 with both controls: a lessee is still flagged, and another property's arrears are still excluded).
 
+### 🟡 C — an invoice could not say which unit it was about *(fixed)*
+
+Both invoice tables read `lease.unit.code` directly, so every owner assessment rendered a **blank
+unit** — to the operator in admin, and to the owner himself in the portal, on his own bill. The unit
+**filter** had the same shape and was worse than blank: filtering a mall by an owner-occupied unit
+returned nothing, which reads as "no invoices" rather than "this filter cannot see him".
+
+**Fixed** — the rule now lives once on the model, `Invoice::unitCode()` and `Invoice::scopeForUnit()`,
+because two surfaces ask it and a rule stated twice is a rule that drifts. Null stays possible and
+stays correct: a multi-unit lease has no single unit.
+([`InvoiceKnowsItsUnitThroughEitherAgreementTest`](../../tests/Feature/Regression/InvoiceKnowsItsUnitThroughEitherAgreementTest.php)
+— lease control, owner case, and a third unit finding nothing so the scope narrows rather than
+merely widening.)
+
+### 🟡 D — a docblock that claimed callers it did not have *(fixed)*
+
+`User::currentOwnedAssets()` was documented as the set "the owner statements + the portfolio widget
+weight by `ownership_percentage`". The widget was deleted with the `/owner` panel; the statements
+weight off the pivot in `GenerateOwnerStatementRunService` and never read this method. **That comment
+produced a wrong first answer during the module-32 audit** — it is what made the F-A weighting gap
+look already-closed.
+
+Its `currentOwnershipShares()` wrapper genuinely has no production caller, but is **retained
+deliberately**, not deleted: it is the natural home for absolute weighting if F-A option 1 is ever
+taken. Both docblocks now say which is production and which is retained, and
+`OwnershipWeightingTest` additionally asserts the tenure rule against `currentOwnedAssets()` — the
+relation `AssignedAssets` and the owner pack actually call — so the rule that matters is no longer
+covered only incidentally, through a test of code nothing runs.
+
 ## 3. Checked and harmless
 
-Eager-loads and display columns that reach `lease.unit` — admin + portal invoice tables, invoice and
-statement PDFs, the CSV exporter, sales-declaration and CAM-allocation infolists. An owner invoice
-renders a blank unit code rather than vanishing. Worth tidying for presentation, not correctness.
-
-The **unit filter** on both invoice tables (`whereHas('lease', unit_id)`) is a middle case: it cannot
-find an owner invoice by unit, because the ownership holds the unit. Left alone — the filter is a
-convenience, the row is reachable every other way, and changing it means teaching one filter about
-two agreement shapes. Recorded so it is a decision rather than an oversight.
+The remaining `lease.unit` reads are eager-loads and display fields on surfaces where the lease is
+the subject: invoice and statement PDFs, the CSV exporter, sales-declaration and CAM-allocation
+infolists. An owner invoice renders a blank unit there rather than vanishing, and those documents
+are lease documents. Left as presentation, not correctness.
 
 ## 4. The general lesson
 

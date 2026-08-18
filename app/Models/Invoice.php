@@ -16,6 +16,7 @@ use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\OpsLog;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -145,6 +146,38 @@ class Invoice extends Model
     public function unitOwnership(): BelongsTo
     {
         return $this->belongsTo(UnitOwnership::class);
+    }
+
+    /**
+     * The unit this invoice is about, whichever agreement raised it.
+     *
+     * An invoice is raised against a lease OR an ownership — never both, never neither (enforced on
+     * save) — and each holds the unit differently. Answered once, here, because two surfaces ask:
+     * the admin invoice table and the portal one. Before this they each reached `lease.unit.code`
+     * directly, so every owner assessment rendered a blank unit to the operator AND to the owner
+     * himself in the portal.
+     *
+     * Null is still possible and still correct — a multi-unit lease has no single unit.
+     */
+    public function unitCode(): ?string
+    {
+        return $this->lease?->unit?->code ?? $this->unitOwnership?->unit?->code;
+    }
+
+    /**
+     * Invoices concerning one unit, through either agreement.
+     *
+     * The counterpart of {@see unitCode()} for the "filter by unit" controls. A lease-only clause
+     * silently excluded every owner assessment, so filtering a mall by the unit an owner occupies
+     * returned nothing and read as "no invoices" rather than "this filter cannot see him".
+     *
+     * @param  Builder<Invoice>  $query
+     */
+    public function scopeForUnit(Builder $query, int $unitId): void
+    {
+        $query->where(fn (Builder $q) => $q
+            ->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId))
+            ->orWhereHas('unitOwnership', fn (Builder $o) => $o->where('unit_id', $unitId)));
     }
 
     /**
