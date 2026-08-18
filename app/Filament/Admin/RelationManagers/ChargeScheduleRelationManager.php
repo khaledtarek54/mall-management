@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Enums\InvoiceItemType;
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Models\Charge;
 use App\Models\ChargeCode;
 use App\Models\Lease;
@@ -125,6 +126,8 @@ class ChargeScheduleRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // Changing the rent is what this tab is FOR — the schedule is the record of it.
+            ->headerActions(LeaseActions::forOwner($this->leaseRecord(), ['changeRent']))
             // CHRONOLOGICAL by default — the schedule reads as one timeline, so "what changes
             // next, across every charge" is answerable at a glance. Grouping by type is one click
             // away (below) for when you want to read a single ladder instead.
@@ -206,7 +209,7 @@ class ChargeScheduleRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('type')
+                        SelectFilter::make('type')
                     ->label(__('admin.fields.type'))
                     ->options(fn (): array => Charge::query()
                         ->where('lease_id', $this->getOwnerRecord()->getKey())
@@ -214,9 +217,9 @@ class ChargeScheduleRelationManager extends RelationManager
                         ->pluck('type', 'type')
                         ->map(fn ($t) => self::typeLabel($t))
                         ->all()),
-            ])
+                    ])
             ->headerActions([
-                Action::make('addCharge')
+                        Action::make('addCharge')
                     ->label(__('admin.charge_schedule.add'))
                     ->icon('heroicon-o-plus')
                     ->modalHeading(__('admin.charge_schedule.add'))
@@ -320,9 +323,9 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-            ])
+                    ])
             ->recordActions([
-                Action::make('endCharge')
+                        Action::make('endCharge')
                     ->label(__('admin.charge_schedule.end'))
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
@@ -359,7 +362,7 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-            ])
+                    ])
             ->paginated([25, 50, 'all'])
             ->emptyStateHeading(__('admin.charge_schedule.empty'))
             ->emptyStateDescription(__('admin.charge_schedule.empty_description'));
@@ -478,5 +481,14 @@ class ChargeScheduleRelationManager extends RelationManager
             'cpi' => __('admin.enums.escalation_type.cpi'),
             default => rtrim(rtrim((string) $lease->escalation_rate, '0'), '.').'%',
         };
+    }
+
+    /** `getOwnerRecord()` returns the base `Model`; narrowed once so the registry call type-checks. */
+    protected function leaseRecord(): Lease
+    {
+        /** @var Lease $lease */
+        $lease = $this->getOwnerRecord();
+
+        return $lease;
     }
 }

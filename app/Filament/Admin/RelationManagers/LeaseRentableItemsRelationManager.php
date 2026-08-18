@@ -2,13 +2,13 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -71,52 +71,14 @@ class LeaseRentableItemsRelationManager extends RelationManager
                     ->badge()
                     ->color(fn ($state) => $state === null ? 'success' : 'gray'),
             ])
-            ->headerActions([
-                Action::make('assign')
-                    ->label(__('admin.actions.assign_rentable_item'))
-                    ->icon('heroicon-o-ticket')
-                    ->modalDescription(__('admin.actions.assign_rentable_item_hint'))
-                    ->visible(fn (): bool => $this->canWrite()
-                        && in_array($this->lease()->status, ['active', 'pending_approval'], true))
-                    ->authorize(fn (): bool => $this->canWrite())
-                    ->schema([
-                        Select::make('rentable_item_id')
-                            ->label(__('admin.resources.rentable_item.singular'))
-                            ->options(fn (): array => $this->lettableOptions())
-                            ->native(false)
-                            ->searchable()
-                            ->required()
-                            ->helperText(__('admin.helpers.assign_rentable_item')),
-                        DatePicker::make('effective_from')
-                            ->label(__('admin.actions.change_rent_effective_from'))
-                            ->default(now()->startOfMonth())
-                            ->required(),
-                        TextInput::make('monthly_rate')
-                            ->label(__('admin.fields.item_monthly_rate'))
-                            ->prefix('EGP')
-                            ->numeric()
-                            ->minValue(0)
-                            ->helperText(__('admin.helpers.assign_rentable_item_rate')),
-                    ])
-                    ->action(function (array $data): void {
-                        abort_unless($this->canWrite(), 403);
-
-                        $lease = $this->lease();
-                        $item = RentableItem::findOrFail($data['rentable_item_id']);
-
-                        try {
-                            app(AssignRentableItemService::class)->assign($lease, $item, $data);
-                        } catch (\DomainException|\InvalidArgumentException $e) {
-                            Notification::make()->danger()->title($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        Notification::make()->success()
-                            ->title(__('admin.actions.assign_rentable_item_done', ['code' => $item->code]))
-                            ->send();
-                    }),
-            ])
+            // The SAME assign action the lease header and the leases list carry — composed from
+            // App\Filament\Admin\Actions\LeaseActions rather than declared again here.
+            //
+            // It was a second copy with its own form, and the two had already drifted: this one
+            // picked the item with a plain `Select`, where the registry uses an `EntitySelect` — so
+            // the same act searched one raw column here and the folded blob there, and only one of
+            // them could find an item by anything but its name (2026-08-18).
+            ->headerActions(LeaseActions::forOwner($this->lease(), ['assignRentableItem']))
             ->recordActions([
                 Action::make('release')
                     ->label(__('admin.actions.release_rentable_item'))

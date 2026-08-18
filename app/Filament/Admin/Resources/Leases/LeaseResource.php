@@ -79,31 +79,38 @@ class LeaseResource extends Resource
     public static function getRelations(): array
     {
         return [
-            // The charge schedule first: it is what the lease bills, and phase 1 made it a
-            // ladder rather than a single number.
+            // **Ordered by what an operator opens a lease to find out (2026-08-18).** It used to run
+            // schedule → forecast → history → parking → options → tiers → invoices → deposits, which
+            // put the two most-asked questions — what do they owe, and have they paid the deposit —
+            // seventh and eighth. Reference data that only some leases have now sits after the money.
+            //
+            // Each tab carries the acts that change ITS OWN data, composed from
+            // App\Filament\Admin\Actions\LeaseActions. Lifecycle acts (renew, extend, holdover,
+            // terminate, final account) stay in the page header, because they are about the whole
+            // tenancy and belong to no single tab.
+
+            // 1. What this lease bills, and every dated step of it. Carries Change rent.
             ChargeScheduleRelationManager::class,
-            // Directly beside it, because the two are the pair people confuse: the schedule holds
-            // the RULES (one dated row per amount) and this expands them into the invoices those
-            // rules produce. Asked of the schedule alone, "what is paid each month?" has no answer.
-            BillingForecastRelationManager::class,
-            // The schedule says what the rent is and when it changed; the history says why, on
-            // whose authority, and against which document (LE-01). They belong side by side.
-            LeaseHistoryRelationManager::class,
-            // The space a lease rents BEYOND its premises — parking bays, storage, signage.
-            // Assign/Release live here as well as on the leases list, because this is where
-            // someone asking "what does this tenant have?" actually looks.
-            LeaseRentableItemsRelationManager::class,
-            LeaseOptionsRelationManager::class,
-            PercentageRentTiersRelationManager::class,
+            // 2. What they OWE. The most common reason anyone opens a lease at all.
             LeaseInvoicesRelationManager::class,
-            // "Have they paid the deposit, and how much is still ours?" — asked at signing,
-            // at renewal and again at move-out. The lease carried what was AGREED and a
-            // yes/no; neither says what was received, refunded or forfeited.
+            // 3. What is coming: the schedule's rules expanded into the invoices they will produce.
+            //    Asked of the schedule alone, "what is paid each month?" has no answer.
+            BillingForecastRelationManager::class,
+            // 4. Money HELD rather than owed — and the shortfall nobody could see. Carries Bill
+            //    security deposit and Record deposit movement.
             LeaseDepositsRelationManager::class,
-            // Only on a percentage-rent lease — see the class docblock. On a fixed-rent one
-            // a permanently empty table would read as "they have not declared".
+            // 5. Deadlines that can still be missed. Late here is worse than late anywhere else.
+            LeaseOptionsRelationManager::class,
+            // 6. Why the numbers above changed, on whose authority, against which document (LE-01).
+            LeaseHistoryRelationManager::class,
+            // 7. Space BEYOND the premises — bays, storage, signage. Carries Assign.
+            LeaseRentableItemsRelationManager::class,
+            // 8-10. Terms that only some leases have. A permanently empty table high in the list
+            //       reads as "nothing has happened" rather than "this does not apply".
+            PercentageRentTiersRelationManager::class,
             LeaseSalesDeclarationsRelationManager::class,
             LeaseCamTermsRelationManager::class,
+            // Last, always: the audit trail is what you consult after the answer, not to find it.
             ActivitiesRelationManager::class,
         ];
     }

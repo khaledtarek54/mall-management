@@ -134,3 +134,35 @@ it('puts each action in exactly ONE group', function () {
     // Twice on the page is a different bug from missing, and just as confusing to an operator.
     expect($grouped->count())->toBe($grouped->unique()->count());
 });
+
+it('defines each lease act ONCE — a tab composes it, never re-declares it', function () {
+    // `LeaseRentableItemsRelationManager` carried its own `assign`, with its own form, beside the
+    // registry's. The two had already drifted: the copy picked the item with a plain `Select` where
+    // the registry uses an `EntitySelect`, so the same act searched one raw column on one surface
+    // and the folded blob on the other (2026-08-18). That is precisely what LeaseActions exists to
+    // prevent, and the old topology gate could not see it — it compared the list against the page
+    // header and never looked at a tab.
+    $services = [
+        'AssignRentableItemService', 'LeaseRentChangeService', 'LeaseReliefService',
+        'LeaseSpaceChangeService', 'LeaseTerminationService', 'LeaseRenewalService',
+        'LeaseExtensionService', 'ConvertLeaseToHoldoverService', 'SettleMoveOutService',
+        'BillSecurityDepositService',
+    ];
+
+    $offenders = [];
+
+    foreach (glob(app_path('Filament/Admin/RelationManagers/*.php')) as $file) {
+        $body = (string) file_get_contents($file);
+
+        foreach ($services as $service) {
+            // Calling a lease service from a tab means that tab is DOING the act rather than
+            // composing it. `LeaseActions::forOwner()` is how a tab carries one.
+            if (str_contains($body, $service.'::class') && ! str_contains($body, 'LeaseActions::forOwner')) {
+                $offenders[] = basename($file).' → '.$service;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([], "These re-implement a lease act instead of composing it:\n  "
+        .implode("\n  ", $offenders));
+});

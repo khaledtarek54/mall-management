@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\DepositTransaction;
+use App\Models\Lease;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -41,6 +43,10 @@ class LeaseDepositsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // The acts that change THIS tab's data, composed from the registry rather than
+            // re-declared: an operator reading "no deposit movements" is one click from recording
+            // one, instead of scrolling to a header dropdown to find out how.
+            ->headerActions(LeaseActions::forOwner($this->lease(), ['billDeposit', 'recordDeposit']))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.fields.deposit_number'))
@@ -86,5 +92,14 @@ class LeaseDepositsRelationManager extends RelationManager
             ->emptyStateIcon('heroicon-o-banknotes')
             ->emptyStateHeading(__('admin.lease_deposits.empty_heading'))
             ->emptyStateDescription(__('admin.lease_deposits.empty_description'));
+    }
+
+    /** `getOwnerRecord()` returns the base `Model`; narrowed once so the registry call type-checks. */
+    protected function lease(): Lease
+    {
+        /** @var Lease $lease */
+        $lease = $this->getOwnerRecord();
+
+        return $lease;
     }
 }

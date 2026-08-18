@@ -1005,6 +1005,23 @@ class LeaseActions
     }
 
     /**
+     * The named acts, bound to a lease — for a TAB to carry the actions that change its own data.
+     *
+     * A relation manager's header actions are not handed the owner record, so composing from this
+     * registry needs the binding done once here rather than at each call site. Without it a tab
+     * either shows nothing or re-implements the act, which is what
+     * `LeaseRentableItemsRelationManager` had done: its own `assign` form beside this one, already
+     * drifted to a plain `Select` where the registry uses an `EntitySelect` (2026-08-18).
+     *
+     * @param  array<int, string>  $names
+     * @return array<int, Action>
+     */
+    public static function forOwner(Lease $lease, array $names): array
+    {
+        return array_map(fn (Action $a): Action => $a->record($lease), self::only($names));
+    }
+
+    /**
      * Every custom action's name — what the parity gate checks the table against.
      *
      * @return array<int, string>
