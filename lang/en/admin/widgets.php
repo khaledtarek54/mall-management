@@ -35,6 +35,7 @@ return [
             'description' => 'Monthly consumption across all metered utilities (kWh / m³)',
         ],
         'ar_aging' => [
+            'drilldown' => 'See who owes it',
             'heading' => 'AR Aging',
             'description' => 'Outstanding receivables by days past due',
             'label' => 'Outstanding (EGP)',

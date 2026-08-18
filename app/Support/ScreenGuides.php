@@ -81,6 +81,7 @@ use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
+use App\Filament\Portal\Pages\CompanyProfile;
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
@@ -251,6 +252,7 @@ class ScreenGuides
         \App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource::class => 'portal_posts',
         \App\Filament\Portal\Resources\Announcements\AnnouncementResource::class => 'portal_announcements',
         \App\Filament\Portal\Pages\NotificationCenter::class => 'portal_notifications',
+        CompanyProfile::class => 'portal_company_profile',
     ];
 
     /**

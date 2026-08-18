@@ -164,6 +164,22 @@ return [
         ],
     ],
 
+    'company_profile' => [
+        'title' => 'Company details',
+        'sections' => [
+            'contact' => 'Who the mall contacts',
+            'contact_description' => 'Where invoices, reminders and notices are sent. Keeping these current is the difference between hearing about an overdue bill and being surprised by one.',
+            'address' => 'Registered address',
+            'address_description' => 'Used on correspondence. Your legal name, tax ID and commercial register are not editable here — those change by agreement with the mall.',
+        ],
+        'helpers' => [
+            'phone' => 'The main line the mall calls. Include the country code.',
+            'whatsapp' => 'Where WhatsApp notices go, if different from the main line.',
+        ],
+        'saved' => 'Your contact details have been updated.',
+        'read_only' => 'Only your account administrator can change these.',
+    ],
+
     'property_overrides' => [
         'page_title' => 'Property overrides',
         'inherits' => 'Portfolio default: :value. Leave blank to use it.',

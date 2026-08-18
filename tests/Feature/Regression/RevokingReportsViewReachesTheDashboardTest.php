@@ -106,3 +106,28 @@ it('agrees with the page it mirrors', function () {
 
     expect($page())->toBeFalse()->and(ArAging::canView())->toBeFalse();
 });
+
+/* ---- the chart is a doorway, not a dead end ------------------------------ */
+
+it('offers a way from the chart to the drill-down that already existed', function () {
+    // `ReportService::arAgingDrilldown()` — who owes this and how late — has existed all along, and
+    // only Pages\ArAging consumed it. So the dashboard showed a bucket worth millions and offered
+    // no way to find out whose it was; the reader had to know the Reports page existed.
+    dashUser('accounting');
+
+    $description = (string) (new ArAging)->getDescription();
+
+    expect($description)
+        ->toContain(\App\Filament\Admin\Pages\ArAging::getUrl())
+        ->toContain(__('admin.widgets.ar_aging.drilldown'))
+        // The original wording survives — the link is added, not substituted for the explanation.
+        ->toContain(__('admin.widgets.ar_aging.description'));
+});
+
+it('does not render the link as escaped markup', function () {
+    // getDescription() is typed `string|Htmlable`; returning a plain string would print the anchor
+    // tag as visible text. Htmlable is what makes Blade emit it as HTML.
+    dashUser('accounting');
+
+    expect((new ArAging)->getDescription())->toBeInstanceOf(\Illuminate\Contracts\Support\Htmlable::class);
+});

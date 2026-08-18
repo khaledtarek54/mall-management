@@ -3,11 +3,14 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Pages\ArAging as ArAgingPage;
 use App\Services\Reports\ReportService;
 use App\Support\AgingBuckets;
 use App\Support\DashboardLayout;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 
 class ArAging extends ChartWidget
 {
@@ -34,9 +37,29 @@ class ArAging extends ChartWidget
         return __('admin.widgets.ar_aging.heading');
     }
 
-    public function getDescription(): ?string
+    /**
+     * The description carries the way IN to the drill-down.
+     *
+     * `ReportService::arAgingDrilldown()` — who owes this, and how late — has existed all along and
+     * only `Pages\ArAging` consumed it, so the chart showed a bucket worth 1.6m and offered no way
+     * to find out whose it was. The reader had to know the Reports page existed and navigate there
+     * by hand.
+     *
+     * One link, not five: the page carries a bucket `Select`, so landing on it is landing on the
+     * whole drill-down rather than on one slice of it. A per-BAR click handler would be nicer
+     * still, and is deliberately not built — it can only be JavaScript on the chart canvas, and a
+     * click handler nothing in this environment can exercise in a real browser is exactly the kind
+     * of thing that ships broken behind a green suite.
+     */
+    public function getDescription(): ?Htmlable
     {
-        return __('admin.widgets.ar_aging.description');
+        $url = ArAgingPage::getUrl();
+
+        return new HtmlString(
+            e(__('admin.widgets.ar_aging.description'))
+            .' <a href="'.e($url).'" class="fi-link fi-size-sm" style="text-decoration:underline;">'
+            .e(__('admin.widgets.ar_aging.drilldown')).'</a>'
+        );
     }
 
     protected static ?int $sort = 3;

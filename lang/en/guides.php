@@ -1397,6 +1397,23 @@ return [
         ],
     ],
 
+    'portal_company_profile' => [
+        'purpose' => 'Your own contact details — where the mall sends invoices, reminders and notices.',
+        'steps' => [
+            'Check the phone and WhatsApp numbers are the ones you actually watch.',
+            'Name a contact person if billing should reach someone other than the main line.',
+            'Save. The change takes effect on the next notice the mall sends.',
+        ],
+        'affects' => [
+            'Overdue reminders, payment receipts and mall announcements are addressed to these numbers — a stale number means you stop hearing about money you owe.',
+            'The mall sees the change immediately on your tenant record, and who changed it is recorded.',
+        ],
+        'rules' => [
+            'Only your account administrator can change these; other users on your account can see them but not edit.',
+            'Your legal name, tax ID and commercial register are not editable here — they appear on invoices already issued, so they change by agreement with the mall.',
+        ],
+    ],
+
     'portal_credit_notes' => [
         'purpose' => 'Money the mall has credited back to you, and how much of each credit is still yours to use.',
         'steps' => [
