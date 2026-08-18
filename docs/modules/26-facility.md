@@ -62,6 +62,26 @@ engineers complete.
 
 ---
 
+
+> **⚠️ The producer had no trigger (fixed 2026-08-18).** `facility:generate-preventive` raised
+> preventive work orders nightly and **nothing in the panel could run it**. The service-plans screen
+> already told an operator a plan was OVERDUE, and showed `last_generation_error` when generation was
+> FAILING — and offered nothing to do about either; the remedies were waiting for cron or opening a
+> shell. Found by sweeping the module for reachability: every other facility service was reachable
+> from a screen, this one only from a command, while CAM's pool and a lease's billing both put the
+> same act behind a button.
+>
+> Two actions now: **Generate due work orders** on the header (the whole sweep, exactly as the
+> nightly run does it) and **Generate now** per row, which is what an operator wants when THIS plan
+> is the one failing. `GeneratePreventiveWorkOrdersService::runFor()` routes through the same private
+> path the sweep uses — the trigger type decides which — so a manual generation cannot take a
+> different route from the automatic one and raise a different work order. Both report what happened:
+> a generation that raised nothing is a RESULT, not a silence.
+> `ServicePlanCanBeGeneratedFromTheScreenTest` pins idempotency (clicking twice, or clicking after
+> cron has run, must not double the tenant's disruption), the not-due and inactive refusals, and that
+> the two paths agree.
+
+
 ## 1. Domain model
 
 ### `equipment` — the maintainable-asset register (per property)

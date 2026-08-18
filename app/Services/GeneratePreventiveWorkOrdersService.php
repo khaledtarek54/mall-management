@@ -34,6 +34,34 @@ class GeneratePreventiveWorkOrdersService
     private array $raisedOrderIds = [];
 
     /** @return int number of work orders raised */
+    /**
+     * Generate for ONE plan, now — the manual counterpart of the nightly sweep.
+     *
+     * The scheduled run existed and there was no way to trigger it from the panel. A plan could sit
+     * OVERDUE, or `generation_failing` with its error on screen, and the only remedies were waiting
+     * for cron or opening a shell — on a screen that already told the operator something was wrong
+     * (2026-08-18). CAM's pool and a lease's billing both offer the same act as a button; this
+     * module's producer did not.
+     *
+     * Routes through the same private path the sweep uses — the trigger type decides which — so a
+     * manual generation cannot take a different route from the automatic one and produce a
+     * different work order.
+     */
+    public function runFor(ServicePlan $plan, ?string $onOrBefore = null): int
+    {
+        $due = $onOrBefore ?? now()->toDateString();
+        $this->failures = [];
+        $this->raisedOrderIds = [];
+
+        $created = $this->attempt($plan->getKey(), fn (): int => $plan->isUsageTriggered()
+            ? $this->generateForUsage($plan->getKey(), $due)
+            : $this->generateFor($plan->getKey(), $due));
+
+        $this->notifyRaised();
+
+        return $created;
+    }
+
     public function run(?string $onOrBefore = null): int
     {
         $due = $onOrBefore ?? now()->toDateString();

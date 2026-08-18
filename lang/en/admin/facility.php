@@ -2,6 +2,12 @@
 
 return [
     'facility' => [
+        'generate_due' => 'Generate due work orders',
+        'generate_due_confirm' => 'Raises preventive work orders for every plan due today, exactly as the nightly run does. Plans that are not due are untouched.',
+        'generate_now' => 'Generate now',
+        'generated' => ':count work order(s) raised',
+        'nothing_due' => 'Nothing was due — no work orders raised',
+        'generate_failed' => 'Generation failed for :count plan(s)',
         'helpers' => [
             'priority_from_criticality' => 'Pre-filled from the machine\'s criticality when you pick one — change it if you disagree.',
             'criticality' => 'How much it matters when this machine stops. A fault raised on CRITICAL equipment starts at urgent, IMPORTANT at high — a starting point, not a rule: whoever raises the job can still set it themselves.',
