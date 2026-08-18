@@ -4,9 +4,12 @@ namespace App\Filament\Admin\Resources\ServicePlans\Tables;
 
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Models\ServicePlan;
+use App\Services\GeneratePreventiveWorkOrdersService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -83,7 +86,48 @@ class ServicePlansTable
                     ->label(__('admin.facility.filters.generation_failing'))
                     ->query(fn ($query) => $query->whereNotNull('last_generation_failed_at')),
             ])
+            // **The producer had no trigger.** This screen already says a plan is OVERDUE and shows
+            // the error when generation is FAILING — and offered nothing to do about either. The
+            // only remedies were waiting for tonight's cron or opening a shell. CAM's pool and a
+            // lease's billing both put the same act behind a button (2026-08-18).
+            ->headerActions([
+                Action::make('generateDue')
+                    ->label(__('admin.facility.generate_due'))
+                    ->icon('heroicon-o-play')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalDescription(__('admin.facility.generate_due_confirm'))
+                    ->visible(fn (): bool => auth()->user()?->can('facility.create') ?? false)
+                    ->authorize(fn (): bool => auth()->user()?->can('facility.create') ?? false)
+                    ->action(function (): void {
+                        abort_unless(auth()->user()?->can('facility.create') ?? false, 403);
+
+                        $service = app(GeneratePreventiveWorkOrdersService::class);
+                        $created = $service->run();
+
+                        self::report($created, $service->failures);
+                    }),
+            ])
             ->recordActions([
+                // The per-plan retry, which is what an operator wants when THIS plan is the one
+                // failing. Same private path the sweep takes, so a manual generation cannot produce
+                // a different work order from the automatic one.
+                Action::make('generateNow')
+                    ->label(__('admin.facility.generate_now'))
+                    ->icon('heroicon-o-play')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->visible(fn (ServicePlan $record): bool => $record->is_active
+                        && (auth()->user()?->can('facility.create') ?? false))
+                    ->authorize(fn (): bool => auth()->user()?->can('facility.create') ?? false)
+                    ->action(function (ServicePlan $record): void {
+                        abort_unless(auth()->user()?->can('facility.create') ?? false, 403);
+
+                        $service = app(GeneratePreventiveWorkOrdersService::class);
+                        $created = $service->runFor($record);
+
+                        self::report($created, $service->failures);
+                    }),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
                 // schema is the resource's own form rendered disabled, so it
@@ -102,5 +146,32 @@ class ServicePlansTable
                     ->label(__('admin.empty.service_plans.cta'))
                     ->icon('heroicon-o-plus'),
             ]);
+    }
+
+    /**
+     * One notification for both actions — a generation that raised nothing is a RESULT, not a
+     * silence, and a plan that failed must say why on screen rather than only in `last_generation_error`.
+     *
+     * @param  array<int, string>  $failures
+     */
+    protected static function report(int $created, array $failures): void
+    {
+        if ($failures !== []) {
+            Notification::make()
+                ->danger()
+                ->title(__('admin.facility.generate_failed', ['count' => count($failures)]))
+                ->body(implode(' · ', array_slice($failures, 0, 3)))
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title($created > 0
+                ? __('admin.facility.generated', ['count' => $created])
+                : __('admin.facility.nothing_due'))
+            ->send();
     }
 }
