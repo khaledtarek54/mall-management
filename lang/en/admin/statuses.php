@@ -305,6 +305,7 @@ return [
             'rate' => 'A rate per m² per year',
         ],
         'invoice_item_type' => [
+            'security_deposit' => 'Security Deposit',
             'base_rent' => 'Base Rent',
             'service_charge' => 'Service Charge',
             'utility' => 'Utility',

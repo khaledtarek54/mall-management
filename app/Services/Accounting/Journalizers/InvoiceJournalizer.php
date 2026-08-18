@@ -44,6 +44,12 @@ class InvoiceJournalizer implements Journalizer
         'late_fee' => 'late_fee_income',
         'cam_recovery' => 'cam_recovery_revenue',
         'cam_admin_fee' => 'cam_admin_fee_revenue',
+        // NOT revenue — the only entry in this map that isn't. A billed security deposit credits the
+        // `deposits_held` LIABILITY, so raising one recognises an obligation to give the money back
+        // rather than income. That single mapping is what turns a deposit into an ordinary billable
+        // charge (Voyager's model) without a second billing path: the invoice journalizer already
+        // credits whatever role a line's charge code names.
+        'security_deposit' => 'deposits_held',
         // A violation fine is a penalty, not consideration for a supply — it books to miscellaneous
         // (non-operating) income, and it is VAT-exempt (out of scope), unlike a service recharge.
         // Mapped explicitly (not left to the misc_income fallback) so it's intentional + reportable;

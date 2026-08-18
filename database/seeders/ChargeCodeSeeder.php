@@ -52,6 +52,7 @@ class ChargeCodeSeeder extends Seeder
         ['code' => 'parking', 'en' => 'Parking & rentable items', 'ar' => 'المواقف والوحدات المؤجَّرة', 'role' => 'parking_revenue', 'tax' => 'VAT_EXEMPT', 'sort' => 50],
         ['code' => 'percentage_rent', 'en' => 'Percentage rent', 'ar' => 'الإيجار النسبي', 'role' => 'percentage_rent_revenue', 'tax' => 'VAT_EXEMPT', 'sort' => 60],
         ['code' => 'cam_recovery', 'en' => 'CAM recovery', 'ar' => 'استرداد المصروفات المشتركة', 'role' => 'cam_recovery_revenue', 'tax' => 'VAT_14', 'sort' => 70],
+        ['code' => 'security_deposit', 'en' => 'Security deposit', 'ar' => 'تأمين', 'role' => 'deposits_held', 'tax' => 'VAT_EXEMPT', 'sort' => 85],
         ['code' => 'cam_admin_fee', 'en' => 'CAM administration fee', 'ar' => 'رسوم إدارة المصروفات المشتركة', 'role' => 'cam_admin_fee_revenue', 'tax' => 'VAT_14', 'sort' => 80],
         ['code' => 'late_fee', 'en' => 'Late fee', 'ar' => 'غرامة تأخير', 'role' => 'late_fee_income', 'tax' => 'VAT_EXEMPT', 'sort' => 90],
         // A penalty is not consideration for a supply — it books to miscellaneous (non-operating)

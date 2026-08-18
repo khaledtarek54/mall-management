@@ -108,6 +108,7 @@ return [
             'reported_not_closed' => 'An owner statement has been issued for this month while the period is still open. Any correction from here restates a figure the owner is already holding — closing the period is what stops that.',
         ],
     ],
+
     'credit_notes' => [
         'line_unearned' => 'Unearned billing on :invoice, after :through',
         'line_cam_recovery' => 'CAM over-recovery returned — :year reconciliation',
@@ -132,6 +133,16 @@ return [
         'empty_description' => 'Each band charges only the sales that fall within it — e.g. 0–500,000 at 0%, 500,000–900,000 at 5%, above 900,000 at 6%. Set the lease calculation type to Tiered for these to be used.',
     ],
     'deposits' => [
+        'bill' => 'Bill security deposit',
+        'bill_heading' => 'Bill the security deposit on :ref',
+        'bill_description' => 'Raises an invoice for the deposit still outstanding. It appears on the tenant\'s statement, ages and is chased like any other charge, and can be paid by card — a deposit had no document before, so nothing ever asked the tenant for it. It credits Deposits Held, a liability, not revenue.',
+        'outstanding' => 'Outstanding',
+        'amount_helper' => 'Defaults to the whole outstanding deposit. Bill less to collect it in instalments.',
+        'invoice_line' => 'Security deposit — lease :ref',
+        'billed' => 'Deposit invoice raised',
+        'billed_body' => ':number for :amount. It is now on the tenant\'s statement.',
+        'nothing_outstanding' => 'This lease\'s deposit is fully held (:held). There is nothing to bill.',
+        'exceeds_outstanding' => 'That is more than the deposit still outstanding (max EGP :max). Billing more would leave the landlord holding — and owing back — more than the lease agreed.',
         'errors' => [
             'receipt_in_use' => 'This deposit has already been drawn on — netted against an invoice, refunded or forfeited — so the receipt behind it is fixed. Changing it would leave the tenant credited with money no longer recorded as received. Record a further receipt, refund or forfeit instead.',
         ],

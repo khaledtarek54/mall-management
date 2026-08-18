@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Models\Unit;
 use App\Services\AssignRentableItemService;
+use App\Services\BillSecurityDepositService;
 use App\Services\ConvertLeaseToHoldoverService;
 use App\Services\ExerciseLeaseOptionService;
 use App\Services\LeaseExtensionService;
@@ -151,6 +152,53 @@ class LeaseActions
                             'ref' => $renewal->reference,
                             'months' => $renewal->term_months,
                             'start' => $renewal->commencement_date->format('d/m/Y'),
+                        ]))
+                        ->success()
+                        ->send();
+                }),
+            // Bill the deposit as a CHARGE (Voyager). Visible only while something is outstanding —
+            // an action that refuses the moment you press it is a worse answer than one that is not
+            // offered, and `depositShortfall()` already knows.
+            Action::make('billDeposit')
+                ->label(__('admin.deposits.bill'))
+                ->icon('heroicon-o-shield-check')
+                ->color('primary')
+                ->visible(fn (Lease $record) => $record->depositShortfall() > 0
+                    && in_array($record->status, ['active', 'pending_approval'], true)
+                    && LeaseResource::canEdit($record))
+                ->authorize(fn () => auth()->user()?->can('invoices.create') ?? false)
+                ->modalHeading(fn (Lease $record) => __('admin.deposits.bill_heading', ['ref' => $record->reference]))
+                ->modalDescription(__('admin.deposits.bill_description'))
+                ->schema([
+                    Placeholder::make('outstanding')
+                        ->label(__('admin.deposits.outstanding'))
+                        ->content(fn (Lease $record) => 'EGP '.number_format($record->depositShortfall(), 2)
+                            .' — '.__('admin.tables.lease.deposit_held_of', [
+                                'held' => number_format($record->depositHeld(), 2),
+                                'agreed' => number_format((float) $record->security_deposit, 2),
+                            ])),
+                    TextInput::make('amount')
+                        ->label(__('admin.fields.amount'))
+                        ->prefix('EGP')
+                        ->numeric()
+                        ->required()
+                        ->default(fn (Lease $record) => $record->depositShortfall())
+                        ->helperText(__('admin.deposits.amount_helper')),
+                    DatePicker::make('issue_date')
+                        ->label(__('admin.fields.issue_date'))
+                        ->required()
+                        ->default(fn () => now()),
+                ])
+                ->action(function (Lease $record, array $data) {
+                    abort_unless(auth()->user()?->can('invoices.create') ?? false, 403);
+
+                    $invoice = app(BillSecurityDepositService::class)->bill($record, $data);
+
+                    Notification::make()
+                        ->title(__('admin.deposits.billed'))
+                        ->body(__('admin.deposits.billed_body', [
+                            'number' => $invoice->number,
+                            'amount' => 'EGP '.number_format((float) $invoice->total, 2),
                         ]))
                         ->success()
                         ->send();

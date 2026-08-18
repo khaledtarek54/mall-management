@@ -305,6 +305,7 @@ return [
             'rate' => 'سعر لكل متر مربع سنويًا',
         ],
         'invoice_item_type' => [
+            'security_deposit' => 'تأمين',
             'base_rent' => 'إيجار أساسي',
             'service_charge' => 'رسوم خدمة',
             'utility' => 'مرافق',

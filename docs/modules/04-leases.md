@@ -245,6 +245,42 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ A security deposit is now a CHARGE on the tenant ledger — Voyager's model (2026-08-18).**
+> Previously a deposit existed only as a `DepositTransaction` an operator recorded AFTER money
+> arrived, so **no document ever asked the tenant for it** and the portal had to tell them to make a
+> bank transfer quoting a reference. That was the root cause behind "the client doesn't know how he
+> should pay": there was nothing to pay.
+>
+> `BillSecurityDepositService` raises it as an ordinary invoice line (`security_deposit`), so it
+> ages, reaches the statement and the collections screen, and can be paid by card on the same rail
+> as rent. **The GL is what makes it a deposit rather than income** — that charge code's posting role
+> is `deposits_held`, a LIABILITY, and it is the only non-revenue entry in
+> `InvoiceJournalizer::REVENUE_ROLE`:
+>
+> ```
+> billing   Dr Tenant Receivables   Cr Tenant Deposits Held
+> payment   Dr Bank                 Cr Tenant Receivables
+> ─────────────────────────────────────────────────────────
+> net       Dr Bank                 Cr Tenant Deposits Held   ← what a direct receipt posts
+> ```
+>
+> So there is no double count and no second billing path: the invoice journalizer already credits
+> whatever role a line's charge code names, which is why this needed one map entry rather than a new
+> posting route.
+>
+> Three rules that are easy to get wrong and are pinned by `DepositIsABillableChargeTest`:
+> **it bills the SHORTFALL, never the contractual figure** (billing 144,000 to a tenant who paid
+> 100,000 is how a landlord holds — and owes back — twice the deposit); **an UNPAID deposit invoice
+> is not held** (it is a receivable, and counting it would refund at move-out what was never
+> received, so `Lease::depositHeld()` reads the line's SETTLEMENT via `InvoiceItemSettlement`); and
+> it carries **no VAT** — a deposit is a security, not a supply, so taxing it would charge VAT on the
+> landlord's own liability. The period is dated to the lease TERM, which keeps it out of any month's
+> revenue reading and stops the trailing-proration and unearned-credit rules — both keyed on the
+> period — treating it as time-apportioned rent to claw back on termination.
+>
+> The direct-receipt path is unchanged and still posts its own entry: both rails feed one
+> `depositHeld()`.
+
 > **⚠️ The deposit was invisible on both sides (fixed 2026-08-18).** Raised by an operator: *"the
 > client doesn't know how he should pay, and the admin doesn't know how much the lease wants or the
 > shortfall."* Three separate causes:

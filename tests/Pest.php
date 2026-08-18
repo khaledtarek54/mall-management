@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Asset;
+use App\Models\DepositTransaction;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
@@ -569,4 +570,18 @@ function signPaymobPayload(array $payload, string $secret = 'TEST-HMAC-SECRET'):
     ];
 
     return hash_hmac('sha512', implode('', $fields), $secret);
+}
+
+/** A deposit movement on a lease — shared, because more than one file needs it. */
+function depositMovement(Lease $lease, string $type, float $amount, string $status = 'recorded'): DepositTransaction
+{
+    return DepositTransaction::create([
+        'lease_id' => $lease->id,
+        'tenant_id' => $lease->tenant_id,
+        'asset_id' => $lease->unit->asset_id,
+        'type' => $type,
+        'status' => $status,
+        'amount' => $amount,
+        'transaction_date' => '2026-01-05',
+    ]);
 }

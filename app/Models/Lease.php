@@ -15,6 +15,7 @@ use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\InvoiceItemSettlement;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -614,9 +615,42 @@ class Lease extends Model implements BillableAgreement, HasMedia
         $held = $recorded->where('type', 'receipt')->sum('amount')
             - $recorded->where('type', 'refund')->sum('amount')
             - $recorded->where('type', 'forfeit')->sum('amount')
-            - DepositApplication::where('lease_id', $this->id)->sum('amount');
+            - DepositApplication::where('lease_id', $this->id)->sum('amount')
+            // …plus deposits BILLED and since paid (Voyager's model, 2026-08-18). A deposit charged
+            // on an invoice is held only to the extent the tenant has settled that line, which is
+            // why this reads the settlement and not the line total: an unpaid deposit invoice is a
+            // receivable, not money in the bank, and treating it as held would refund at move-out
+            // what was never received.
+            + $this->settledDepositBillings();
 
         return round((float) $held, 2);
+    }
+
+    /**
+     * The part of any BILLED security deposit the tenant has actually settled.
+     *
+     * Derived from `InvoiceItemSettlement`, the one place that answers "how much of this line has
+     * been paid" — per the money invariants, a per-item balance is never stored, because that would
+     * be a second truth about the same settlement. Cancelled and written-off invoices claim nothing.
+     */
+    public function settledDepositBillings(): float
+    {
+        $invoices = Invoice::query()
+            ->where('lease_id', $this->id)
+            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
+            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
+            ->with('items')
+            ->get();
+
+        $settled = 0.0;
+
+        foreach ($invoices as $invoice) {
+            $settled += (float) InvoiceItemSettlement::for($invoice)
+                ->where('type', 'security_deposit')
+                ->sum('settled');
+        }
+
+        return round($settled, 2);
     }
 
     /**

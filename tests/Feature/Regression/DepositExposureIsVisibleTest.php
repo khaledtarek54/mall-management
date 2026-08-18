@@ -22,7 +22,6 @@
 */
 
 use App\Models\DepositApplication;
-use App\Models\DepositTransaction;
 use App\Models\Lease;
 use App\Services\MoveOutStatementService;
 use Illuminate\Support\Facades\Schema;
@@ -40,19 +39,6 @@ function depositLeaseFor($ctx, float $agreed): Lease
         'security_deposit' => $agreed,
         'commencement_date' => '2026-01-01',
         'expiry_date' => '2028-12-31',
-    ]);
-}
-
-function depositMovement(Lease $lease, string $type, float $amount, string $status = 'recorded'): DepositTransaction
-{
-    return DepositTransaction::create([
-        'lease_id' => $lease->id,
-        'tenant_id' => $lease->tenant_id,
-        'asset_id' => $lease->unit->asset_id,
-        'type' => $type,
-        'status' => $status,
-        'amount' => $amount,
-        'transaction_date' => '2026-01-05',
     ]);
 }
 

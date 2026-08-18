@@ -181,6 +181,13 @@ Yardi's four register states are all present, split across two models rather tha
 `refunded` / `forfeited` are `DepositTransaction.type`, and `applied` is `DepositApplication` — a
 link to the invoice it settled, which is what makes it one of the four AR settlement channels.
 
+**The deposit is now a CHARGE on the tenant ledger (2026-08-18)** — the last structural difference
+from Voyager on this module, and the one that mattered: a deposit had no document at all, so nothing
+ever asked the tenant to pay it. `security_deposit` is a charge code whose posting role is
+`deposits_held`, so billing one is `Dr AR / Cr Deposits Held` and the tenant's payment is
+`Dr Bank / Cr AR` — the pair netting to exactly what a direct receipt posts in one step. It ages,
+dunns and can be paid by card like any other charge. `BillSecurityDepositService`.
+
 Interest-bearing and segregated/escrow deposits are **deliberately absent**: Egyptian commercial
 leases do not require them, and Yardi ships them as jurisdiction packs rather than core.
 

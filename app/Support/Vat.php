@@ -103,6 +103,9 @@ class Vat
         // a column. It belongs in the floor for the same reason as the rest: without it, a database
         // with no catalogue would bill a bay at the standard rate while a seeded one bills nothing.
         'parking',
+        // A deposit is a SECURITY, not consideration for a supply — nothing is being sold, and the
+        // money is owed back. Taxing it would charge VAT on the landlord's own liability.
+        'security_deposit',
     ];
 
     /**

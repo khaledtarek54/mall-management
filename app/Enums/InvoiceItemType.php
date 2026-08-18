@@ -22,6 +22,19 @@ enum InvoiceItemType: string
     case CamAdminFee = 'cam_admin_fee';
     case ViolationFine = 'violation_fine';
 
+    /**
+     * A security deposit BILLED to the tenant — Voyager's model, adopted 2026-08-18.
+     *
+     * It is not revenue and never was: its charge code posts to `deposits_held`, a LIABILITY, so
+     * billing one is `Dr AR / Cr Deposits Held` and the tenant's payment is `Dr Bank / Cr AR`. The
+     * pair nets to the cash-and-liability entry a direct receipt posts in one step.
+     *
+     * Before this the deposit existed ONLY as a `DepositTransaction` an operator recorded after the
+     * money arrived, so nothing ever asked the tenant to pay it — the portal had to tell them to go
+     * and make a bank transfer. Now it ages, chases and settles like any other charge.
+     */
+    case SecurityDeposit = 'security_deposit';
+
     /** A returned-cheque handling fee — Voyager posts one; see module 33. */
     case NsfFee = 'nsf_fee';
     case Other = 'other';

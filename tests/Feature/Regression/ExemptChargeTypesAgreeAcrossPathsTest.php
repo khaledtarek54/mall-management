@@ -29,6 +29,11 @@ it('names every VAT-exempt charge type in one place', function () {
         'violation_fine',
         'nsf_fee',
         'parking',
+        // A deposit is a SECURITY, not consideration for a supply: nothing is sold and the money is
+        // owed back. Taxing it would charge VAT on the landlord's own liability. Added when the
+        // deposit became a billable charge on the tenant ledger (2026-08-18) — before that it was
+        // never a line on an invoice, so it needed no treatment at all.
+        'security_deposit',
     ]);
 });
 
