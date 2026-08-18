@@ -69,6 +69,16 @@ draw) and **`due_to_owner` = 21802001** (a liability under 218 "Due to Related P
   addressed to nobody that posted nothing — over a P&L showing real money the owner is owed. Refused in
   `FinaliseOwnerStatementRunService` with the remedy named. The **draft is still allowed**: generating it is
   how an operator finds out the owner is missing.
+- **A run whose ownership does not total 100% cannot be FINALISED** (2026-08-18). The generate
+  service weights each owner `pct / Σ pct`, so shares always sum to the full net — right when every
+  owner is recorded, and wrong when they are not: one owner recorded at 50% has Σ = 50, weight 1, and
+  takes the whole net, which then posts as `due_to_owner` and becomes the cap disbursements pay
+  against. The v1 assumption ("one owner, 100%") is now *enforced* rather than assumed. Refused in
+  `FinaliseOwnerStatementRunService`, naming the property and the recorded total.
+  **Guarded on the money path, not the owners form**: a 50/50 register cannot be built in one save,
+  so blocking data entry would make co-ownership unenterable — the relation manager shows the
+  running total instead, and the draft stays generatable because that is how the shortfall is found.
+  Genuine co-owners summing to 100 finalise normally. No GL amount changed.
 - **`basis` is accrual, and only accrual.** A `cash` constant existed with nothing behind it —
   `LedgerReportService::incomeStatement()` has no basis parameter — so a run stamped `cash` would have
   carried accrual figures under a cash label, which is the one thing a cash-basis reader must not be given.

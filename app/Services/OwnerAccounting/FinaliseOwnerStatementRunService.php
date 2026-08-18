@@ -50,6 +50,26 @@ class FinaliseOwnerStatementRunService
                 ]));
             }
 
+            // The ownership register must account for the WHOLE property before its net is
+            // distributed. `GenerateOwnerStatementRunService` weights each owner `pct / Σ pct`, so
+            // the shares always sum to the full net — right when every owner is recorded, and wrong
+            // when they are not: one owner recorded at 50% has Σ = 50, weight 50/50 = 1, and takes
+            // 100% of the net. `net_distributable` is then posted as Dr owner_distributions /
+            // Cr due_to_owner and becomes the cap disbursements pay against, so a half-owner is
+            // accrued — and payable — twice what they are owed.
+            //
+            // Enforced HERE rather than on the owners form, because a 50/50 register cannot be
+            // built in one save: the first co-owner would be refused for totalling 50. The register
+            // stays freely editable and the money path is what insists. Same shape and same reason
+            // as the no-owner refusal above.
+            $ownedPct = (float) $fresh->statements()->sum('ownership_percentage');
+            if (abs($ownedPct - 100.0) > 0.01) {
+                throw new \DomainException(__('admin.owner_statements.errors.ownership_not_whole', [
+                    'property' => $fresh->asset?->name ?? '',
+                    'total' => number_format($ownedPct, 2),
+                ]));
+            }
+
             // Guard the posting date against a closed period, in the service (not just the form).
             $date = PostingDate::assertOpen($postingDate ?? $fresh->period_end->toDateString(), 'posting_date');
 

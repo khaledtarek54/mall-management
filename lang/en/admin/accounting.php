@@ -195,11 +195,14 @@ return [
     ],
 
     'owner_statements' => [
+        'ownership_total_whole' => 'Ownership recorded: :total% — the whole property is accounted for.',
+        'ownership_total_partial' => 'Ownership recorded: :total%. A statement cannot be finalised until this reaches 100% — the net would go in full to the owners listed.',
         'statements_title' => 'Statements',
         'part_period' => ':pct% of the period',
         'not_sent' => 'Not sent',
         'errors' => [
             'no_owner' => 'This property has no owner for the statement period, so there is nobody to distribute the net to. Assign the owner on the property record, then regenerate the draft.',
+            'ownership_not_whole' => 'The recorded ownership of :property totals :total%, not 100%. The net would be distributed in full to the owners listed, so a part-owner would be paid the whole property\'s net. Record the remaining owners on the property, then regenerate the draft.',
         ],
         'empty_statements_heading' => 'This run produced no statements',
         'empty_statements_description' => 'A run only produces a statement for an owner who held a share during the period. Check the property’s ownership records if you expected one.',

@@ -42,7 +42,7 @@ validates each row `0.01..100` independently; there is no cross-row sum-to-100 r
 **Failure scenario — proven, not argued.**
 [`OwnerSharesMustSumToTheOwnershipRecordedTest`](../../tests/Feature/Regression/OwnerSharesMustSumToTheOwnershipRecordedTest.php):
 
-| Recorded ownership | Property net | Allocated today | Should be |
+| Recorded ownership | Property net | Allocated before the fix | Owned |
 |---|---|---|---|
 | one owner @ **100%** | 6,000 | 6,000 ✅ *(control — passes)* | 6,000 |
 | one owner @ **50%** | 6,000 | **6,000** ❌ | 3,000 |
@@ -53,16 +53,25 @@ Cr `due_to_owner`, and `owner_share` is the cap `DisbursementService` pays again
 lock, but against the inflated figure. So a 50% owner is accrued, and payable, **twice** what they
 are owed. Jawad holding half a mall with the other half outside Atriom is the realistic case.
 
-**Fix options** (a decision, not a bug fix — it changes a money path):
+**FIXED 2026-08-18 — option 2, the operator's call.** The arithmetic is untouched (no GL amount
+moves); what changed is that finalise refuses a run whose recorded ownership does not total 100%,
+naming the property and the total. Guarded on the money path rather than the owners form, because a
+50/50 register cannot be built in one save — the relation manager now shows the running total, and
+the draft stays generatable because that is how an operator discovers the shortfall. Genuine
+co-owners summing to 100 finalise normally (covered by a second control). The gate is proven by
+mutation: disabling it turns both refusal specs red.
+
+**The options considered were:**
 1. **Weight absolutely** (`pct / 100`), leaving the remainder in retained earnings — the benchmark
    behaviour. The signature tie-out (`net_distributable == net_profit` for a sole 100% owner) still
    holds, because 100/100 = 1.
 2. **Enforce sum-to-100** on the owners relation manager, keeping the normalisation safe by making
    the violating state unreachable.
 
-Best is **both**: (1) is the correct arithmetic, (2) tells the operator the remainder is
-undistributed rather than leaving them to notice. The two failing specs are `->skip()`ed with the
-reason; un-skip them with the fix.
+Option 1 remains available if Eltizam ever takes on co-investors whose partners are outside Atriom:
+it is the Yardi/AppFolio arithmetic, and it would let an incomplete register distribute correctly
+rather than be refused. It was not taken because it changes a GL-posting amount and goes beyond the
+v1 scope the operator set.
 
 ### 🟡 F-B — `User::currentOwnershipShares()` is tested dead code with a docblock that overstates it
 
@@ -91,7 +100,7 @@ characterises the behaviour so it cannot drift; it fails the day the fee is buil
 
 ## 3. Verified clean (hypotheses that did NOT hold)
 
-Recorded so nobody re-audits them, and because three of the four started as plausible gaps:
+Recorded so nobody re-audits them — every one started as a plausible gap:
 
 | Hypothesis | Result |
 |---|---|

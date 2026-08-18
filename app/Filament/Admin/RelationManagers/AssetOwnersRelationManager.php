@@ -75,9 +75,32 @@ class AssetOwnersRelationManager extends RelationManager
         ]);
     }
 
+    /**
+     * The recorded total, said out loud.
+     *
+     * A register that does not add up to 100% is refused at FINALISE (the money path), not here —
+     * a 50/50 register cannot be built in one save, so blocking data entry would make co-ownership
+     * unenterable. But the operator should not have to reach the statement to discover it: this
+     * puts the running total on the screen where the percentages are typed, and flags it while it
+     * is not whole.
+     */
+    protected function ownershipTotalNotice(): ?string
+    {
+        $total = (float) $this->getOwnerRecord()->propertyOwners()->sum('ownership_percentage');
+
+        if ($total <= 0.0) {
+            return null; // no owners recorded yet — the empty state already says that
+        }
+
+        return abs($total - 100.0) <= 0.01
+            ? __('admin.owner_statements.ownership_total_whole', ['total' => number_format($total, 2)])
+            : __('admin.owner_statements.ownership_total_partial', ['total' => number_format($total, 2)]);
+    }
+
     public function table(Table $table): Table
     {
         return $table
+            ->description(fn (): ?string => $this->ownershipTotalNotice())
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')

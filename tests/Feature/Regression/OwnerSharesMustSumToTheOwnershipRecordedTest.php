@@ -4,35 +4,34 @@ use App\Models\AccountingPeriod;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
+use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
 
 /**
- * GAP ANALYSIS, module 32 — a part-owner is distributed the WHOLE property net.
+ * A part-owner must not be paid the WHOLE property net (gap analysis, module 32, F-A).
  *
- * `GenerateOwnerStatementRunService` weights each owner by `ownership_percentage / Σ percentage`,
- * so the shares always sum to the full net. With every owner recorded that is right. With a
- * partially-recorded ownership it is not: one owner at 50% has Σ = 50, so their weight is 50/50 = 1
- * and they are allocated 100% of the net.
+ * `GenerateOwnerStatementRunService` weights each owner `ownership_percentage / Σ percentage`, so
+ * the shares always sum to the full net. That is right when every owner is recorded — module 32's
+ * stated v1 assumption of one owner at 100% — and wrong when they are not: one owner recorded at
+ * 50% has Σ = 50, so their weight is 50/50 = 1 and they take 100% of the net. `net_distributable`
+ * is then posted Dr owner_distributions / Cr due_to_owner and becomes the cap `DisbursementService`
+ * pays against, so a half-owner is accrued — and payable — twice what they are owed.
  *
- * Nothing prevents that state. `AssetOwnersRelationManager` validates each row `0.01..100`
- * independently; no cross-row rule requires the shares to sum to 100, and there is no guard on the
- * `AssetOwner` pivot or in the generate/finalise services (searched repo-wide).
+ * **The fix enforces the assumption instead of changing the arithmetic** (operator's call,
+ * 2026-08-18). The split stays `pct / Σ pct` and no GL amount moves; what changes is that a run
+ * whose ownership register does not total 100% cannot be FINALISED.
  *
- * **Benchmark.** Yardi Investment Manager and AppFolio owner accounting distribute an owner their
- * OWNERSHIP share; an incomplete ownership register leaves the remainder undistributed rather than
- * inflating the recorded owner's cut. Atriom's normalisation is the deliberate opposite — the
- * service comment says shares "ALWAYS sum to the full net" so that all the property money reaches
- * the owner — which is correct only under module 32's stated v1 assumption of one owner at 100%.
- * The screen does not enforce that assumption, so the operator can leave it.
- *
- * **Why it is money, not cosmetics.** `net_distributable` is what finalise posts as
- * Dr owner_distributions / Cr due_to_owner, and `owner_share` is the cap `DisbursementService`
- * pays against. A 50% owner is therefore accrued and can be paid twice what they are owed.
+ * **Guarded on the money path, not the form.** A 50/50 register cannot be built in one save — the
+ * first co-owner would be refused for totalling 50 — so blocking data entry would make co-ownership
+ * unenterable. The register stays freely editable, the relation manager shows the running total, and
+ * finalise is what insists. Same shape and reason as the existing no-owner refusal beside it.
  */
 beforeEach(function () {
+    $this->seed(RolesPermissionsSeeder::class);
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
     app(FiscalCalendar::class)->ensureYear(2026);
@@ -40,6 +39,7 @@ beforeEach(function () {
     $this->post = app(JournalPostingService::class);
     $this->r = app(AccountResolver::class);
     $this->generate = app(GenerateOwnerStatementRunService::class);
+    $this->finalise = app(FinaliseOwnerStatementRunService::class);
     $this->march = AccountingPeriod::forDate(CarbonImmutable::create(2026, 3, 15));
 });
 
@@ -56,41 +56,74 @@ function postPandLForShareTest($test, int $assetId, float $revenue, float $expen
     ]]);
 }
 
-it('gives a sole 100% owner the whole net — the control', function () {
+it('finalises a whole 100% ownership and gives that owner the net', function () {
     $asset = makeAsset();
     $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 100]);
     postPandLForShareTest($this, $asset->id, 10000, 4000); // net 6000
 
-    $run = $this->generate->generate($asset, $this->march);
+    $run = $this->finalise->finalise(
+        $this->generate->generate($asset, $this->march),
+        makeUser('accounting', [$asset->id]),
+    );
 
-    expect((float) $run->statements->first()->owner_share)->toBe(6000.0);
+    // The control, and it must succeed — a guard that refused everything would satisfy the
+    // refusals below on its own and read as a pass.
+    expect($run->status)->toBe('finalised')
+        ->and((float) $run->net_distributable)->toBe(6000.0)
+        ->and((float) $run->statements->first()->owner_share)->toBe(6000.0);
 });
 
-it('does not distribute more than the ownership actually recorded', function () {
+it('refuses to finalise when one owner holds only half the property', function () {
     $asset = makeAsset();
     // Jawad holds half the mall; the other half belongs to a partner not recorded in Atriom.
     $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 50]);
-    postPandLForShareTest($this, $asset->id, 10000, 4000); // net 6000
+    postPandLForShareTest($this, $asset->id, 10000, 4000);
 
     $run = $this->generate->generate($asset, $this->march);
-    $statement = $run->statements->first();
 
-    // He owns 50% of a 6,000 net, so 3,000 is his. Today he is allocated the full 6,000.
-    expect((float) $statement->ownership_percentage)->toBe(50.0)
-        ->and((float) $statement->owner_share)->toBe(3000.0)
-        ->and((float) $run->net_distributable)->toBe(3000.0);
-})->skip('GAP ANALYSIS 2026-08-18 — proven finding, fix awaiting a decision. Today a part-owner is allocated the WHOLE net (pct/Σpct normalisation). Yardi/AppFolio distribute pct/100 and leave the remainder undistributed. Un-skip with the fix.');
+    expect(fn () => $this->finalise->finalise($run, makeUser('accounting', [$asset->id])))
+        ->toThrow(DomainException::class);
 
-it('splits two part-owners by their own shares, not by their ratio', function () {
+    // Refused, not half-applied: the run is still a draft, so nothing posted to the GL and no
+    // disbursement can be scheduled against an inflated share.
+    expect($run->fresh()->status)->toBe('draft');
+});
+
+it('refuses two part-owners who do not add up to the whole property', function () {
     $asset = makeAsset();
     // 30% + 30% recorded; 40% belongs to owners not in the system.
     $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 30]);
     $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 30]);
-    postPandLForShareTest($this, $asset->id, 10000, 4000); // net 6000
+    postPandLForShareTest($this, $asset->id, 10000, 4000);
 
     $run = $this->generate->generate($asset, $this->march);
 
-    // 30% of 6,000 each = 1,800. Today the ratio normalisation gives each 3,000.
-    expect($run->statements->pluck('owner_share')->map(fn ($s) => (float) $s)->all())
-        ->each->toBe(1800.0);
-})->skip('GAP ANALYSIS 2026-08-18 — proven finding, fix awaiting a decision. Today a part-owner is allocated the WHOLE net (pct/Σpct normalisation). Yardi/AppFolio distribute pct/100 and leave the remainder undistributed. Un-skip with the fix.');
+    expect(fn () => $this->finalise->finalise($run, makeUser('accounting', [$asset->id])))
+        ->toThrow(DomainException::class);
+});
+
+it('finalises genuine co-owners once the register accounts for the whole property', function () {
+    $asset = makeAsset();
+    $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 60]);
+    $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 40]);
+    postPandLForShareTest($this, $asset->id, 10000, 4000); // net 6000
+
+    $run = $this->finalise->finalise(
+        $this->generate->generate($asset, $this->march),
+        makeUser('accounting', [$asset->id]),
+    );
+
+    // The second control — the guard must not block real co-ownership, only incomplete registers.
+    expect($run->status)->toBe('finalised')
+        ->and($run->statements->pluck('owner_share')->map(fn ($s) => (float) $s)->sort()->values()->all())
+        ->toBe([2400.0, 3600.0]);
+});
+
+it('still keeps a draft generatable, because that is how the shortfall is discovered', function () {
+    $asset = makeAsset();
+    $asset->propertyOwners()->attach(makeUser('owner')->id, ['ownership_percentage' => 50]);
+    postPandLForShareTest($this, $asset->id, 10000, 4000);
+
+    // Same reasoning as the no-owner rule: generating the draft is how an operator finds out.
+    expect($this->generate->generate($asset, $this->march)->status)->toBe('draft');
+});
