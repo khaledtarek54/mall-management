@@ -141,16 +141,25 @@ class TenantsTable
                     ->label(__('admin.tables.tenant.delinquent'))
                     ->queries(
                         // Scoped to visible properties — same reason as the badge above.
+                        //
+                        // Off `invoices.asset_id`, NOT through `lease.unit`: an owner assessment has
+                        // no lease (module 37 bills the ownership), so the old inference dropped it
+                        // and a unit owner in arrears was invisible to the one filter built to find
+                        // arrears. The column has been authoritative since the 2026-08-15
+                        // denormalisation that moved Invoice off the `lease.unit` chain for exactly
+                        // this reason. Only a RESTRICTED user was affected, which is why it survived:
+                        // `visibleAssetIds()` is null for super_admin, so the person who could have
+                        // noticed never saw it.
                         true: fn (Builder $query) => $query->whereHas('invoices', fn (Builder $q) => $q
                             ->where('balance', '>', 0)
                             ->where('due_date', '<', now())
                             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                            ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
+                            ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         false: fn (Builder $query) => $query->whereDoesntHave('invoices', fn (Builder $q) => $q
                             ->where('balance', '>', 0)
                             ->where('due_date', '<', now())
                             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                            ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
+                            ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         blank: fn (Builder $query) => $query,
                     ),
                 Filter::make('created_range')

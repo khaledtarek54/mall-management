@@ -1,0 +1,84 @@
+# Cross-cutting — lease-shaped assumptions after module 37
+
+> **Round 3, 2026-08-18.** Not a module audit: a sweep of ONE bug class, opened because it produced
+> three separate defects in a single day's work on modules 31, 32 and 37.
+
+## 1. The class
+
+`invoices.lease_id` was NOT NULL until module 37 (August 2026) introduced the **unit owner** — a
+party who bought the shop, trades from it himself, and holds **no lease**. His صيانة is billed
+against the ownership; `UnitOwnership implements BillableAgreement` exactly so the money core needs
+no idea he exists.
+
+Plan 08 §5.2b already named the lesson:
+
+> *`lease_id` was NOT NULL, so four different pieces of code were entitled to treat the lease as the
+> route to the property. Relaxing a NOT NULL is never only a schema change — it is a change to every
+> inference that column licensed.*
+
+**Phase 2a (2026-08-15) fixed the four load-bearing sites** — isolation registry, GL journalizer,
+document numbering, marketing levy — by denormalising `invoices.asset_id` (and `credit_notes.asset_id`
+with it). What it did not do is migrate the **read** layer, which module 37's doc records as
+"~25 read sites still scope invoices through `lease.unit`".
+
+Most of those are harmless: an eager-load or a display column renders a blank unit code for an owner
+invoice. The dangerous ones are the sites where the lease chain acts as a **filter**, because there
+the owner's row does not render blank — it disappears.
+
+## 2. Found and fixed
+
+### 🔴 A — another property's credit note appears in this property's monthly close
+
+[`ReportService::scopedCreditNotes()`](../../app/Services/Reports/ReportService.php) scoped by walking
+`lease → unit → asset`, with an explicit `whereNull('lease_id')` branch letting a lease-less note
+through **unconditionally**, justified in a comment as *"standalone notes stay portfolio-visible, per
+the resource"*.
+
+That justification went stale on 2026-08-15. `CreditNote` is `#[PropertyOwned]` on its own `asset_id`,
+so the credit-note **list** correctly hides a Mall A note from an operator scoped to Mall B — while
+the **monthly close** showed it. Two rules, one row, different answers.
+
+A note against an owner's assessment has no lease *by construction*, so this was not hypothetical:
+Mall A's owner credit inflated Mall B's credited total and understated its net.
+
+**Fixed** — the report now scopes through `TenantScope::applyTo()`, the same helper the resource uses,
+so the two agree by construction rather than by agreement.
+([`MonthlyCloseCreditNotesStayInTheirPropertyTest`](../../tests/Feature/Regression/MonthlyCloseCreditNotesStayInTheirPropertyTest.php)
+— the leak, plus a control proving the note still counts in its OWN property.)
+
+### 🟠 B — a unit owner in arrears is not "delinquent"
+
+The Tenants list's `is_delinquent` filter narrowed a tenant's overdue invoices to the visible
+properties via `whereHas('lease.unit', …)`. An owner assessment has no lease, so it was dropped and
+the owner fell out of the filter — **an arrear that exists, is overdue, and is invisible to the one
+screen built to find arrears.**
+
+**Only a RESTRICTED user was affected**, because the narrowing sits inside
+`->when(TenantScope::visibleAssetIds())`, which is null for super_admin. That is why it survived: the
+person who could most easily have noticed is the one who could not see it.
+
+**Fixed** — scoped off `invoices.asset_id`
+([`DelinquencyFilterSeesOwnerArrearsTest`](../../tests/Feature/Regression/DelinquencyFilterSeesOwnerArrearsTest.php),
+with both controls: a lessee is still flagged, and another property's arrears are still excluded).
+
+## 3. Checked and harmless
+
+Eager-loads and display columns that reach `lease.unit` — admin + portal invoice tables, invoice and
+statement PDFs, the CSV exporter, sales-declaration and CAM-allocation infolists. An owner invoice
+renders a blank unit code rather than vanishing. Worth tidying for presentation, not correctness.
+
+The **unit filter** on both invoice tables (`whereHas('lease', unit_id)`) is a middle case: it cannot
+find an owner invoice by unit, because the ownership holds the unit. Left alone — the filter is a
+convenience, the row is reachable every other way, and changing it means teaching one filter about
+two agreement shapes. Recorded so it is a decision rather than an oversight.
+
+## 4. The general lesson
+
+**A denormalisation is only half-done until the read sites move.** Phase 2a gave every invoice its own
+property and correctly called itself a prerequisite — but a column nothing reads changes nothing, and
+for three months the writes were right while two reads still inferred. Both defects here are the same
+sentence in different files: *the lease is the route to the property.*
+
+The cheapest future guard is a conformance test asserting no query filters `Invoice` or `CreditNote`
+through `lease.unit` when the model carries `asset_id`. Not written — see
+[the reachability-gate note](../../CLAUDE.md); it belongs with that gate rather than alone.

@@ -924,22 +924,18 @@ class ReportService
      */
     private function scopedCreditNotes(): Builder
     {
-        $query = CreditNote::query();
-
-        if ($assetId = TenantScope::currentAssetId()) {
-            $query->where(function ($q) use ($assetId) {
-                $q->whereNull('lease_id')
-                    ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
-            });
-        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
-            // "All Properties" for a RESTRICTED user — pin lease-linked notes to their
-            // assigned set (standalone notes stay portfolio-visible, per the resource).
-            $query->where(function ($q) use ($ids) {
-                $q->whereNull('lease_id')
-                    ->orWhereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids));
-            });
-        }
-
-        return $query;
+        // Scoped through the SAME helper the resource uses, off `credit_notes.asset_id` —
+        // `CreditNote` is `#[PropertyOwned]` on its own column, so this report and the list now
+        // answer "whose row is this?" identically, by construction rather than by agreement.
+        //
+        // It used to walk `lease → unit → asset` with a `whereNull('lease_id')` branch that let a
+        // lease-less note through unconditionally, justified as "standalone notes stay
+        // portfolio-visible, per the resource". That justification went stale on 2026-08-15, when
+        // the denormalisation gave every credit note its own property (the same phase-2a change
+        // that moved `Invoice` off the `lease.unit` chain — the invoice side was migrated, this
+        // read site was not). A note against an OWNER's assessment has no lease by construction,
+        // so Mall A's owner credit appeared in Mall B's monthly close, inflating B's credited
+        // total and understating its net, while the credit-note list correctly hid it.
+        return TenantScope::applyTo(CreditNote::query());
     }
 }
