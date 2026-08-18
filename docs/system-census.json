@@ -14,17 +14,8 @@
     },
     "modules": {
         "documented": 37,
-        "gap_analysed": 29,
-        "never_gap_analysed": [
-            "30 — Areas",
-            "31 — Violations",
-            "32 — Owner Statements",
-            "33 — Post Dated Cheques",
-            "34 — Search",
-            "35 — Rentable Items",
-            "36 — Marketing Posts",
-            "37 — Unit Owners"
-        ],
+        "gap_analysed": 37,
+        "never_gap_analysed": [],
         "list": [
             {
                 "number": 1,
@@ -234,56 +225,56 @@
                 "slug": "areas",
                 "title": "Areas",
                 "doc": "docs/modules/30-areas.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 31,
                 "slug": "violations",
                 "title": "Violations",
                 "doc": "docs/modules/31-violations.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 32,
                 "slug": "owner-statements",
                 "title": "Owner Statements",
                 "doc": "docs/modules/32-owner-statements.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 33,
                 "slug": "post-dated-cheques",
                 "title": "Post Dated Cheques",
                 "doc": "docs/modules/33-post-dated-cheques.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 34,
                 "slug": "search",
                 "title": "Search",
                 "doc": "docs/modules/34-search.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 35,
                 "slug": "rentable-items",
                 "title": "Rentable Items",
                 "doc": "docs/modules/35-rentable-items.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 36,
                 "slug": "marketing-posts",
                 "title": "Marketing Posts",
                 "doc": "docs/modules/36-marketing-posts.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 37,
                 "slug": "unit-owners",
                 "title": "Unit Owners",
                 "doc": "docs/modules/37-unit-owners.md",
-                "gap_analysed": false
+                "gap_analysed": true
             }
         ]
     },
@@ -339,9 +330,9 @@
         }
     },
     "tests": {
-        "files": 777,
+        "files": 786,
         "e2e_specs": 22,
-        "scenarios": 129,
-        "regressions": 394
+        "scenarios": 130,
+        "regressions": 402
     }
 }
