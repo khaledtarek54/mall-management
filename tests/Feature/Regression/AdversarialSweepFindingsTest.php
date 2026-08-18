@@ -80,7 +80,7 @@ it('still bills base rent for a month when the lease has an annual CAM-recovery 
     ]);
     Charge::create([
         'lease_id' => $lease->id, 'name' => 'Rent', 'type' => 'base_rent',
-        'amount' => 10000, 'billing_frequency' => 'monthly', 'is_active' => true, 'start_date' => '2025-01-01',
+        'amount' => 10000, 'frequency' => 'monthly', 'is_active' => true, 'start_date' => '2025-01-01',
     ]);
     // An annual CAM-recovery invoice for this lease dated Jan 1 – Dec 31 (period_start in January).
     $annual = makeInvoice($lease, [

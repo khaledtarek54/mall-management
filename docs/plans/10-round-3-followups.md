@@ -148,11 +148,30 @@ runs past the closing bracket and swallows the next call, so keys get attributed
 It reported **820 "ghosts", essentially all of them mis-attribution** — the tool was wrong, not the
 codebase.
 
-**What it needs:** `nikic/php-parser` (already a transitive dependency) to walk real AST nodes —
-find `StaticCall` to `create` on a model class, read the `Array_` argument's keys, compare against
-`Schema::getColumnListing()`. That is a genuinely useful gate and a small build **once parsed rather
-than matched**. Shipping the regex version would have been worse than nothing: a gate that names the
-wrong file teaches people to ignore gates.
+**BUILT 2026-08-18 on `nikic/php-parser`** (already a transitive dependency) —
+[`FixtureColumnsExistConformanceTest`](../../tests/Feature/Scenarios/FixtureColumnsExistConformanceTest.php)
+walks real AST nodes: `StaticCall` to `create` on a model class, read the `Array_` argument's keys,
+compare against `Schema::getColumnListing()`. Anything not statically resolvable is skipped rather
+than guessed, because a false accusation costs more than a miss.
+
+**It ships SKIPPED, and the reason is the remaining task.** The gate is correct; the tree it landed
+in has **58 pre-existing ghosts across ~40 test files**, and turning the build red on an inherited
+backlog is how a gate gets deleted rather than obeyed.
+
+Triaged before switching it off, which is the part that matters:
+
+- **Almost all 58 are inert** — `vendors.category` dominates, a key with no column and no near
+  neighbour, so it was always doing nothing.
+- **Two were not inert, and are fixed.** A `Charge` fixture set `billing_frequency` where the column
+  is `frequency`, so the charge silently took the **default** rather than the stated one; and a
+  `MeterReading` fixture set `total_cost` where the column is `cost`, so a widget test's reading had
+  **no cost at all**. Both pass with the truthful name — the fixtures now say what they mean.
+- **One is knowingly wrong**: a `VendorBill` `amount` whose own comment says *"subtotal ignored"*.
+
+**To switch it on:** clear the remaining ghosts — mechanical, either rename to the real column or
+delete a key that described an intent the schema never had — then remove the `skip()`. **Effort: S–M**,
+and worth doing as one pass rather than opportunistically, because each rename can change what a test
+actually proves.
 
 **What the prototype did earn**, fixed here: `PurchaseInputTaxCodeTest` set `bill_number` three
 times — not a column (`VendorBill` auto-allocates `number` via `AllocatesDocumentNumber`), so it was

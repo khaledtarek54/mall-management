@@ -65,7 +65,7 @@ it('EnergyConsumptionTrend.getData returns labeled monthly buckets', function ()
         'period_start' => now()->subMonth()->startOfMonth(),
         'period_end' => now()->subMonth()->endOfMonth(),
         'consumption' => 1234,
-        'total_cost' => 1851,
+        'cost' => 1851,
     ]);
 
     asTenant($this->asset, function () {
