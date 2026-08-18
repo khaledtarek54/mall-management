@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Support\ActivityLogChangeRenderer;
@@ -26,8 +27,11 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\Models\Activity;
 
-class ActivityLog extends Page implements HasTable
+class ActivityLog extends Page implements DeliverableReport, HasTable
 {
+    /** An audit trail is unbounded; an unscheduled export must not be. */
+    private const CSV_ROW_CAP = 5000;
+
     // Aliased, not overridden via parent::. `getTableRecords()` reaches this class through a
     // TRAIT, and `parent::` walks the class chain only — Filament\Pages\Page has no such method,
     // so a plain override calling parent:: fell through to Livewire's __call and every render
@@ -222,5 +226,64 @@ class ActivityLog extends Page implements HasTable
             ->filtersFormColumns(2)
             ->defaultSort('id', 'desc')
             ->paginated([25, 50, 100]);
+    }
+
+    /**
+     * The audit trail as CSV — the one log that earns a scheduled delivery.
+     *
+     * `OccupancyMap` was the other candidate and is deliberately left out: it is a picture, and the
+     * tabular answer it would export is already the rent roll and the expiration schedule. An audit
+     * trail is different — "who changed what, and when" is a compliance question somebody is
+     * periodically asked to evidence, and evidencing it should not depend on remembering to visit
+     * a screen.
+     *
+     * It exports what the TABLE is currently showing, filters included, rather than the whole log:
+     * a saved view is a saved QUESTION ("access-control events this month"), and answering a
+     * different one on delivery would make the emailed file quietly not the report that was saved.
+     *
+     * @return array{filename:string, headers:array<int,string>, rows:array<int,array<int,string>>}
+     */
+    public function reportCsv(): array
+    {
+        $vocabulary = app(ActivityVocabulary::class);
+        $changes = app(ActivityLogChangeRenderer::class);
+
+        // The table's own query — so every filter the operator set is honoured. Capped, because an
+        // audit trail is unbounded by nature and an unlimited export is how a scheduled job runs
+        // the box out of memory at 03:00.
+        $records = $this->getFilteredTableQuery()
+            ->with(['causer', 'subject'])
+            ->latest('id')
+            ->limit(self::CSV_ROW_CAP)
+            ->get();
+
+        $vocabulary->preloadReferences($records);
+
+        $rows = $records->map(fn (Activity $activity): array => [
+            $activity->created_at?->format('Y-m-d H:i') ?? '',
+            $activity->causer?->name ?? __('admin.activity.system'),
+            $vocabulary->subject($activity->log_name),
+            $vocabulary->describeSubject($activity->subject) ?? '#'.$activity->subject_id,
+            $vocabulary->event($activity->event),
+            // The Changes column renders HTML for the screen; a CSV cell must be text. Same
+            // renderer either way, so the emailed file says exactly what the page said —
+            // re-deriving the wording here is how the two come to disagree.
+            trim(html_entity_decode(strip_tags(
+                str_replace(['<br>', '<br/>', '<br />', '</div>', '</li>'], ' · ', $changes->render($activity))
+            ))),
+        ])->all();
+
+        return [
+            'filename' => 'activity-log-'.now()->format('Y-m-d'),
+            'headers' => [
+                __('admin.activity.when'),
+                __('admin.activity.who'),
+                __('admin.activity.what'),
+                __('admin.activity.record'),
+                __('admin.activity.event'),
+                __('admin.activity.changes'),
+            ],
+            'rows' => $rows,
+        ];
     }
 }

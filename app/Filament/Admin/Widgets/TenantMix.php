@@ -3,10 +3,14 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Lease;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 
 class TenantMix extends ChartWidget
 {
@@ -17,9 +21,27 @@ class TenantMix extends ChartWidget
         return __('admin.widgets.tenant_mix.heading');
     }
 
-    public function getDescription(): ?string
+    /**
+     * The description carries the way IN, exactly as the AR-ageing chart's does.
+     *
+     * The chart answers "what is the mix?" and then stopped: a reader who saw one category
+     * dominating had no way to ask WHICH tenants those were, and had to know the Units list existed
+     * and carried a category filter.
+     *
+     * One link to that list, not one per slice. A per-SLICE handler could only be JavaScript on the
+     * chart canvas, and nothing in this environment can exercise that in a real browser — the same
+     * reason `ArAging` stops at one link. The Units list already has the category `SelectFilter`,
+     * so landing there is landing on the whole breakdown rather than one wedge of it.
+     */
+    public function getDescription(): ?Htmlable
     {
-        return __('admin.widgets.tenant_mix.description');
+        $url = ResourceLink::index(UnitResource::class);
+
+        return new HtmlString(
+            e(__('admin.widgets.tenant_mix.description'))
+            .' <a href="'.e($url).'" class="fi-link fi-size-sm" style="text-decoration:underline;">'
+            .e(__('admin.widgets.tenant_mix.drilldown')).'</a>'
+        );
     }
 
     protected static ?int $sort = 4;
