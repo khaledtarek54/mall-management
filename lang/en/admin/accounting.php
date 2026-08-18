@@ -276,6 +276,16 @@ return [
         'built' => 'Owner pack ready',
     ],
 
+    'straight_line' => [
+        'title' => 'Straight-line rent',
+        'schedule' => 'Recognised :monthly a month — :total over :months months, :from to :to. Billing follows the lease; the books follow the average.',
+        'billed' => 'Billed',
+        'recognised' => 'Recognised',
+        'adjustment' => 'Adjustment',
+        'cumulative' => 'Cumulative',
+        'empty_heading' => 'Nothing posted yet',
+        'empty_body' => 'Adjustments appear once `accounting:post-straight-line-rent` has run for a month. Positive means the books recognise more than was billed; over the life of the lease they sum to zero.',
+    ],
     'statement' => [
         'title' => 'Statement of Account',
         'property_title' => 'Property Statement of Account',

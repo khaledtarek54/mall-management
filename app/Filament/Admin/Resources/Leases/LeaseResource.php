@@ -12,6 +12,7 @@ use App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager;
 use App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager;
 use App\Filament\Admin\RelationManagers\LeaseRentableItemsRelationManager;
 use App\Filament\Admin\RelationManagers\LeaseSalesDeclarationsRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseStraightLineRelationManager;
 use App\Filament\Admin\RelationManagers\PercentageRentTiersRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
@@ -105,7 +106,10 @@ class LeaseResource extends Resource
             LeaseHistoryRelationManager::class,
             // 7. Space BEYOND the premises — bays, storage, signage. Carries Assign.
             LeaseRentableItemsRelationManager::class,
-            // 8-10. Terms that only some leases have. A permanently empty table high in the list
+            // 8. What the BOOKS recognise, against what the lease bills — EAS 49 straight-line.
+            //    Only when the feature is on and this lease can be averaged; see the class.
+            LeaseStraightLineRelationManager::class,
+            // 9-11. Terms that only some leases have. A permanently empty table high in the list
             //       reads as "nothing has happened" rather than "this does not apply".
             PercentageRentTiersRelationManager::class,
             LeaseSalesDeclarationsRelationManager::class,

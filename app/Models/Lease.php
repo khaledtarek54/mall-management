@@ -589,6 +589,19 @@ class Lease extends Model implements BillableAgreement, HasMedia
     }
 
     /**
+     * The month-by-month difference between what this lease BILLED and what the books RECOGNISE.
+     *
+     * Straight-line rent (EAS 49 / IFRS 16): an escalating lease is recognised at its average rent
+     * from day one, so the early months recognise MORE than they bill and the late months less. The
+     * engine, its journalizer and its scheduled command all existed; nothing in the panel ever showed
+     * the result, so a lease's straight-line position was reachable only from a CLI (fixed 2026-08-18).
+     */
+    public function straightLineAdjustments(): HasMany
+    {
+        return $this->hasMany(StraightLineRentAdjustment::class);
+    }
+
+    /**
      * The security deposit ACTUALLY held against this lease — receipts, less refunds, forfeits and
      * anything already netted against the tenant's invoices.
      *

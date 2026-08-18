@@ -270,6 +270,16 @@ return [
         'built' => 'حزمة المالك جاهزة',
     ],
 
+    'straight_line' => [
+        'title' => 'الإيجار بالقسط الثابت',
+        'schedule' => 'يُعترف بـ :monthly شهريًا — :total على مدى :months شهرًا، من :from إلى :to. الفوترة تتبع العقد، والدفاتر تتبع المتوسط.',
+        'billed' => 'المفوتر',
+        'recognised' => 'المعترف به',
+        'adjustment' => 'التسوية',
+        'cumulative' => 'التراكمي',
+        'empty_heading' => 'لم يُرحَّل شيء بعد',
+        'empty_body' => 'تظهر التسويات بعد تشغيل `accounting:post-straight-line-rent` لشهرٍ ما. الموجب يعني أن الدفاتر تعترف بأكثر مما فُوتر؛ ومجموعها على عمر العقد صفر.',
+    ],
     'statement' => [
         'title' => 'كشف حساب',
         'property_title' => 'كشف حساب العقار',

@@ -245,6 +245,23 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ Straight-line rent had no screen at all (fixed 2026-08-18).** `StraightLineRentAdjustment` is
+> a registered GL posting source with its own journalizer and a scheduled command — and it appeared
+> on **no screen in the panel**. A lease's straight-line position, the first thing an owner's
+> accountant asks about, was reachable only by running a CLI. Found by sweeping the lease page for
+> unreachable functionality, not by a failing test: nothing was red, because nothing was wrong —
+> only invisible.
+>
+> `LeaseStraightLineRelationManager` shows the schedule above the rows (recognised per month, total,
+> term) and then billed / recognised / adjustment per period, with the cumulative sum — which must
+> unwind to **zero** by expiry, the property an accountant checks. Read-only: an adjustment is POSTED
+> by `accounting:post-straight-line-rent` from the schedule and the month's billing, so a create
+> button would be a second way to state a number the engine already computes.
+>
+> Shown only when `BillingSettings::straight_line_rent_enabled` is ON **and** the lease can actually
+> be averaged — it needs a term and a `base_rent` ladder, and averaging a term whose end is unknown
+> is worse than recognising nothing. The setting ships **off**.
+
 > **⚠️ A security deposit is now a CHARGE on the tenant ledger — Voyager's model (2026-08-18).**
 > Previously a deposit existed only as a `DepositTransaction` an operator recorded AFTER money
 > arrived, so **no document ever asked the tenant for it** and the portal had to tell them to make a
