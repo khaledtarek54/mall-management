@@ -6,6 +6,7 @@ use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
 use App\Filament\Admin\RelationManagers\TenantInvoicesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantLedgerRelationManager;
 use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
 use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
@@ -137,6 +138,9 @@ class TenantResource extends Resource
             // What they OWE, beside what they have paid. The page showed the money-in side
             // and not the money-out side, so the question an operator opens a tenant to ask
             // had to be taken to the invoice register.
+            // The ledger BEFORE the two halves it nets: what they owe and how it got there is the
+            // question; the invoice and payment lists are the working.
+            TenantLedgerRelationManager::class,
             TenantInvoicesRelationManager::class,
             TenantPaymentsRelationManager::class,
             TenantRequestsRelationManager::class,

@@ -381,6 +381,23 @@ return [
         'empty_heading' => 'Nothing posted yet',
         'empty_body' => 'Adjustments appear once `accounting:post-straight-line-rent` has run for a month. Positive means the books recognise more than was billed; over the life of the lease they sum to zero.',
     ],
+    'ledger' => [
+        'title' => 'Ledger',
+        'charge' => 'Charge',
+        'credit' => 'Credit',
+        'balance' => 'Balance',
+        'from_deposit' => 'Netted from the security deposit',
+        'from_tenant_credit' => 'Applied from credit on account',
+        'empty_heading' => 'Nothing on this tenant\'s account',
+        'empty_body' => 'Every issued invoice and every settlement against it appears here in date order, with the running balance.',
+        'types' => [
+            'invoice' => 'Invoice',
+            'payment' => 'Payment',
+            'credit_note' => 'Credit note',
+            'tenant_credit' => 'Credit on account',
+            'deposit' => 'Deposit',
+        ],
+    ],
     'statement' => [
         'title' => 'Statement of Account',
         'property_title' => 'Property Statement of Account',

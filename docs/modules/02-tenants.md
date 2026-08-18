@@ -118,6 +118,32 @@ property-team roles through `assignedAssets`, so with no asset there is nothing 
 file"), not the vaguer "any document at all".
 
 
+### Tenant ledger (on-screen)
+
+**`App\Support\TenantLedger` + `TenantLedgerRelationManager`** — every movement on a tenant's
+receivable in date order, with a running balance. Added 2026-08-18.
+
+**The gap it closed.** "What does this tenant owe, and how did it get there?" had exactly one
+complete answer and it was a **PDF you had to download**. On screen the halves sat in separate tabs
+— invoices in one, payments in another — with nothing netting them and no order between them, so an
+operator on a collections call held both in their head and did the subtraction themselves. Yardi
+answers it with a tenant ledger; this is that.
+
+**It stores nothing, and the tie-out is the point.** Every row is derived from the documents, and
+the CLOSING BALANCE equals the sum of open invoice balances — the same figure the statement, the AR
+report and `billing:reconcile` produce. A stored running balance would be a second truth about money
+that already has one. `TenantLedgerTiesOutTest` asserts that equality first and everything else
+after: a ledger that lists movements but lands on a different number is worse than no ledger,
+because it looks authoritative.
+
+Rules worth knowing: it nets **all four settlement channels**, not just cash (omitting one would
+still list movements and quietly stop tying out); a payment contributes only the part **allocated to
+this tenant's invoices**; `draft` and `cancelled` invoices are excluded — one is not a document the
+tenant has seen, the other claims nothing; and a same-day tie breaks on the CHARGE, because the
+other order dips the balance negative on its way to the same answer and reads as an error.
+
+---
+
 ### TenantStatementPdfService
 **Location:** `app/Services/TenantStatementPdfService`
 **Signature:** `build(Tenant $tenant, ?array $visibleAssetIds = null, $from = null, $to = null): string` (returns mPDF binary) · `data(...)` (the same figures, before rendering) · `filename(Tenant $tenant): string`
