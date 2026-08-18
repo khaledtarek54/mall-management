@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Contracts\BillableAgreement;
 use App\Enums\InvoiceItemType;
+use App\Enums\UnitOwnershipStatus;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\UnitOwnership;
 use App\Models\Violation;
 use App\Support\Vat;
 use Illuminate\Support\Facades\DB;
@@ -54,14 +57,38 @@ class BillViolationFineService
             // is deliberately simpler than the utility recharge's term-containment: a violation is
             // asset-scoped (not unit + time-specific like a meter reading), so there's no "correct"
             // unit/lease to prefer — the debtor and property are what matter, and both are always right.
-            $lease = Lease::query()
+            $agreement = Lease::query()
                 ->where('tenant_id', $locked->tenant_id)
                 ->where('status', 'active')
                 ->whereHas('unit', fn ($q) => $q->where('asset_id', $locked->asset_id))
                 ->latest('commencement_date')
                 ->first();
 
-            if (! $lease instanceof Lease) {
+            // An owner-occupier holds NO lease — module 37's other kind of occupier, who bought the
+            // shop and trades from it himself. He is a `tenants` row like any other party, so the
+            // violation register offers him and an operator can fine him; until 2026-08-18 that fine
+            // was then unbillable, because this lookup was lease-shaped and nothing else was tried.
+            //
+            // Nothing downstream needed changing: `UnitOwnership implements BillableAgreement`, and
+            // `IssueInvoiceService::issue()` takes the contract rather than a `Lease` — which is how
+            // his monthly صيانة is already raised.
+            //
+            // Tenure-aware on the VIOLATION's date, not today: the party who owned the unit when it
+            // happened is the party who owes the fine, so a later resale cannot move the debt onto
+            // the buyer.
+            if (! $agreement instanceof Lease) {
+                $agreement = UnitOwnership::query()
+                    ->where('tenant_id', $locked->tenant_id)
+                    ->where('asset_id', $locked->asset_id)
+                    ->where('status', UnitOwnershipStatus::HandedOver->value)
+                    ->covering($locked->violation_date)
+                    ->latest('started_at')
+                    ->first();
+            }
+
+            // Neither a lease nor an ownership here: there is no agreement to bill against, and
+            // inventing one would be worse than refusing.
+            if (! $agreement instanceof BillableAgreement) {
                 throw new \DomainException(__('admin.violations.bill_failed_no_lease'));
             }
 
@@ -76,7 +103,7 @@ class BillViolationFineService
             $total = round($fine + $vat, 2);
 
             $invoice = app(IssueInvoiceService::class)->issue(
-                agreement: $lease,
+                agreement: $agreement,
                 items: [[
                     'description' => __('admin.violations.fine_line', [
                         'reference' => $locked->reference,

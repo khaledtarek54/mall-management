@@ -54,6 +54,17 @@ with `useLogName('violation')`.
 
 ## 3. Business rules & invariants
 
+- **The debtor may be a LESSEE or an OWNER-OCCUPIER** (2026-08-18). `BillViolationFineService`
+  resolves the party's active lease in the violation's property and, failing that, their unit
+  ownership there — module 37's other kind of occupier, who bought the shop and holds no lease.
+  Nothing downstream needed changing: `UnitOwnership implements BillableAgreement` and
+  `IssueInvoiceService::issue()` takes the contract, not a `Lease`, which is how his صيانة is already
+  raised. Only the lookup had been lease-shaped, so an owner could be fined in the register and the
+  fine was then unbillable. The ownership lookup is **tenure-aware on the violation's date, not
+  today**, so a later resale cannot move the debt onto the buyer. A party holding neither is still
+  refused — there is no agreement to bill against.
+
+
 - **Recording is not billing.** Creating a violation touches no Invoice / Charge /
   GL entry — `fine_amount` is a recorded number until an operator explicitly bills
   it. (`ViolationScenarioTest` asserts the invoice/charge/item counts are unchanged
