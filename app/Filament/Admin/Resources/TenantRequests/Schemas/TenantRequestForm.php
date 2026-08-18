@@ -180,8 +180,14 @@ class TenantRequestForm
                     // FR-REQ-13 / FR-REQ-14 — permit validity window. Shown + required only for the `permit`
                     // request type (driven by the ->live() request_type above), read-only/hidden otherwise.
                     // The model guards the ordering (valid_to >= valid_from) as a backstop; the inline
-                    // afterOrEqual keeps a bad range from ever reaching it. NO approval step — a permit is a
-                    // typed request that carries this window, nothing more.
+                    // afterOrEqual keeps a bad range from ever reaching it.
+                    //
+                    // This used to read "NO approval step — a permit is a typed request that carries
+                    // this window, nothing more". That stopped being true on 2026-08-15: `Permit`
+                    // answers `requiresDecision()`, so resolving one records approved/rejected with a
+                    // reason a refusal always owes. What is still absent is CONDITIONS on the grant —
+                    // permitted hours, a deposit, contractor details — which competitors/06 §3.2
+                    // describes and plan 10 §3.1 carries.
                     FormTab::make('admin.sections.permit_validity', [
                         Placeholder::make('__tab_help')
                             ->hiddenLabel()

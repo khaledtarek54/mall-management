@@ -18,6 +18,18 @@ the operator) · ⚙️ ops (deploy/infra).
 keeps the per-phase implementation detail; [docs/accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md)
 keeps the accounting capability matrix. This file is the priority call across all of them.
 
+> **✅ ROUND 3 COMPLETE, 2026-08-18 — all 37 modules gap-analysed → [plans/10-round-3-followups.md](plans/10-round-3-followups.md).**
+> The never-audited list round 2 opened is closed. Twelve defects found and fixed, ten on money paths,
+> every one proven by exploit before being touched. Eleven of the twelve were the same sentence in a
+> different file — *the lease is the route to the property* — left behind when module 37 introduced a
+> party who holds no lease; two new conformance gates now fail the build on that class and on a
+> service nothing can start.
+> **What remains is not parity**: of the ten gaps the competitor analyses ranked, eight are built and
+> the two open ones are a permit-conditions slice and a vendor portal. The follow-up list is three
+> operator DECISIONS (which properties are public · whether an owner can rent a bay · the management
+> fee, blocked on the accountant), one external blocker (Paymob certification), and hygiene. Read the
+> plan before picking anything up — several rows look open and are not.
+
 > **🟠 OPEN CYCLE, 2026-08-12 — tax master data, derived fields, configuration, reporting → [§8](#8-cycle--tax-master-data-derived-fields-configuration-reporting-opened-2026-08-12).**
 > **TX-01 and TX-02 shipped the same day**: the rate is out of settings and onto a dated ladder,
 > seeded from the operator's own tax sheet. **TX-03 shipped too**: a document line now records which
