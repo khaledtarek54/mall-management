@@ -125,6 +125,11 @@ final class ConcurrencyPolicy
         'app/Models/Payment.php' => 2,
         'app/Services/ApplyDepositToInvoiceService.php' => 1,
         'app/Services/Banking/MatchBankStatementLineService.php' => 1,
+        // One row lock on the lease, re-read inside the txn. The shortfall is check-then-act over
+        // receipts and settled billings, so two operators (or one double-click) would each read the
+        // same outstanding figure and each raise an invoice for the whole of it — the landlord then
+        // holds twice the deposit and owes it back.
+        'app/Services/BillSecurityDepositService.php' => 1,
         // One row lock (the ownership, re-checked inside the txn) plus the per-period cache lock
         // that stops a manual assessment run racing the scheduled one.
         'app/Services/BillUnitOwnershipsService.php' => 2,
