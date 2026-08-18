@@ -35,6 +35,9 @@ class LeaseDepositsRelationManager extends RelationManager
 {
     protected static string $relationship = 'deposits';
 
+    /** Memoises {@see self::held()} for the life of one render. */
+    protected ?float $heldCache = null;
+
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.navigation.deposit_transactions');
@@ -47,6 +50,11 @@ class LeaseDepositsRelationManager extends RelationManager
             // re-declared: an operator reading "no deposit movements" is one click from recording
             // one, instead of scrolling to a header dropdown to find out how.
             ->headerActions(LeaseActions::forOwner($this->lease(), ['billDeposit', 'recordDeposit']))
+            // What this tenancy's deposit actually stands at, stated ABOVE the movements — because
+            // the movements are no longer the whole of it. A deposit billed on an invoice and paid
+            // by the tenant is held and owed back, and writes no row here at all; without this line
+            // an empty table reads as "they never paid a deposit" on a lease holding 144,000.
+            ->description(fn (): string => $this->depositSummary())
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.fields.deposit_number'))
@@ -90,11 +98,58 @@ class LeaseDepositsRelationManager extends RelationManager
             ])
             ->defaultSort('transaction_date', 'desc')
             ->emptyStateIcon('heroicon-o-banknotes')
-            ->emptyStateHeading(__('admin.lease_deposits.empty_heading'))
-            ->emptyStateDescription(__('admin.lease_deposits.empty_description'));
+            ->emptyStateHeading(fn () => $this->held() > 0
+                ? __('admin.lease_deposits.empty_but_held_heading')
+                : __('admin.lease_deposits.empty_heading'))
+            // Two different situations that looked identical: nothing paid, versus paid through
+            // the billing road, which leaves this table empty and the money very much held.
+            ->emptyStateDescription(fn () => $this->held() > 0
+                ? __('admin.lease_deposits.empty_but_held_description', [
+                    'held' => 'EGP '.number_format($this->held(), 2),
+                ])
+                : __('admin.lease_deposits.empty_description'));
     }
 
     /** `getOwnerRecord()` returns the base `Model`; narrowed once so the registry call type-checks. */
+    /**
+     * What this tenancy holds, memoised for one render.
+     *
+     * `depositHeld()` runs an `InvoiceItemSettlement` pass over every deposit invoice on the lease,
+     * and the table asks for it from three callbacks (the description and both empty-state
+     * closures). Without this the same subtraction is recomputed on each.
+     */
+    protected function held(): float
+    {
+        return $this->heldCache ??= $this->lease()->depositHeld();
+    }
+
+    /**
+     * Agreed · held · of which billed and settled · still owed — one line.
+     *
+     * Reads `Lease::depositHeld()`, the one definition, rather than summing this table: the table
+     * is one of the two roads a deposit arrives by and summing it would restate the bug.
+     */
+    protected function depositSummary(): string
+    {
+        $lease = $this->lease();
+        $money = fn (float $v) => 'EGP '.number_format($v, 2);
+
+        $parts = [
+            __('admin.deposits.summary_agreed', ['amount' => $money((float) ($lease->security_deposit ?? 0))]),
+            __('admin.deposits.summary_held', ['amount' => $money($this->held())]),
+        ];
+
+        if (($billed = $lease->settledDepositBillings()) > 0) {
+            $parts[] = __('admin.deposits.summary_billed', ['amount' => $money($billed)]);
+        }
+
+        if (($short = $lease->depositShortfall()) > 0) {
+            $parts[] = __('admin.deposits.summary_shortfall', ['amount' => $money($short)]);
+        }
+
+        return implode(' · ', $parts);
+    }
+
     protected function lease(): Lease
     {
         /** @var Lease $lease */

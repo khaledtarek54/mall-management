@@ -298,6 +298,41 @@
 > The direct-receipt path is unchanged and still posts its own entry: both rails feed one
 > `depositHeld()`.
 
+> **⚠️ …but the REGISTER only ever read one rail (fixed 2026-08-18).** Reported from the field:
+> *"I paid the security deposit invoice and no security deposit record is done."* Correct, and the
+> money was never the problem — the cycle ties out exactly (`Dr AR / Cr Deposits Held` on issue,
+> `Dr Bank / Cr AR` on payment, `depositHeld()` derives the settlement, shortfall goes to zero, and
+> both refund and move-out netting read the derived figure). What was wrong is that
+> `deposit_transactions` is the only thing the deposit register and the lease's Deposits tab read,
+> and **the billing rail writes no row there.** On the reporter's data the register showed
+> **390,000** against a `deposits_held` liability of **534,000** — the operator's one screen for
+> "what do we owe back?" understating the obligation by exactly the deposit just collected, on what
+> is now the recommended rail. Nothing reconciled the two, so nothing would ever have said so.
+>
+> **The fix DERIVES; it does not write the missing row.** Writing a `DepositTransaction` on
+> settlement is the intuitive answer and wrong twice: the invoice has already credited
+> `deposits_held`, so a receipt row posts the liability a second time; and settlement is not a
+> one-shot event — a part payment, a credit note, a void or a write-off all move it — so the row
+> would be a stored copy of a moving number, needing permanent reconciliation against the thing it
+> was copied from. That is the second-truth-about-the-same-money the AR invariants forbid, and the
+> same reason `InvoiceItemSettlement` never stores a per-line balance.
+>
+> `App\Support\DepositHoldings` is the one aggregate definition (`Lease::depositHeld()` remains the
+> per-lease one) and three surfaces read it: the **register header** states both rails and checks
+> itself against the ledger; the **lease Deposits tab** carries an agreed/held/billed/shortfall
+> summary and a distinct empty state, because an empty table on a lease holding 144,000 read as
+> "they never paid"; and **`billing:reconcile` gained a `deposits_tie_out` check**, so the two can
+> never drift apart silently again. `glBalance()` sums `JournalEntry::REPORTABLE_STATUSES`, not
+> `posted` — voiding posts a sign-flipped reversal and marks the original `void`, and
+> `LedgerPoster::sync()` voids on every re-derive, so a `posted`-only filter would make every
+> re-derived deposit invoice read as a NEGATIVE liability.
+>
+> Tests: `DepositsCollectedByBillingAreVisibleTest` — pins that no movement row is written (so a
+> later "fix" that inserts one fails here), that the aggregate counts both rails and is
+> property-scoped, that the tie-out holds through the REAL `accounting:sync-ledger` sweep, and that
+> the reconcile check FAILS on a deliberately unposted receipt. An unmapped chart reports no
+> discrepancy rather than failing every fresh install.
+
 > **⚠️ The deposit was invisible on both sides (fixed 2026-08-18).** Raised by an operator: *"the
 > client doesn't know how he should pay, and the admin doesn't know how much the lease wants or the
 > shortfall."* Three separate causes:

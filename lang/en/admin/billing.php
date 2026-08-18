@@ -134,6 +134,23 @@ return [
     ],
     'deposits' => [
         'record' => 'Record deposit movement',
+        // The register's header. `held_total` is BOTH roads a deposit arrives by; the two
+        // component stats exist so a bigger number than the table below is explained rather than
+        // just larger, and `held_gl` is the independent second opinion that makes it evidence.
+        'held_total' => 'Deposits held',
+        'held_total_hint' => 'What is owed back to tenants',
+        'held_recorded' => 'Recorded movements',
+        'held_recorded_hint' => 'Receipts less refunds, forfeits and netting — the table below',
+        'held_billed' => 'Billed & settled',
+        'held_billed_hint' => 'Collected on an invoice — held, but not a movement row',
+        'held_gl' => 'General ledger',
+        'held_gl_ties' => 'Ties to deposits held',
+        'held_gl_gap' => 'Off by :amount — run billing:reconcile',
+        'held_gl_unmapped' => 'No deposits-held account mapped yet',
+        'summary_agreed' => 'Agreed :amount',
+        'summary_held' => 'held :amount',
+        'summary_billed' => 'of which billed & settled :amount',
+        'summary_shortfall' => 'still owed :amount',
         'record_heading' => 'Record a deposit movement on :ref',
         'record_description' => 'A receipt taken outside the billing rail — a cheque at the leasing office — or the refund or forfeit that closes the deposit out. Billing the deposit is the ordinary way to collect it; this is the exception.',
         'max_held' => 'At most :held — what is currently held.',

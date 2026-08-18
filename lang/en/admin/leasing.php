@@ -101,6 +101,10 @@ return [
     'lease_deposits' => [
         'empty_heading' => 'No deposit movements recorded',
         'empty_description' => 'Receipts, refunds and forfeits against this lease appear here. The lease terms say what deposit was agreed; this says what actually moved.',
+        // Empty table, money held: the deposit was billed and paid, which leaves no movement
+        // row. Without this the same empty state read as "they never paid a deposit".
+        'empty_but_held_heading' => 'The deposit was collected by invoice',
+        'empty_but_held_description' => ':held is held against this lease. It was billed on the tenant\'s statement and settled there, so there is no separate movement to show — refunds, forfeits and netting will appear here.',
     ],
 
     'lease_rentable_items' => [
