@@ -326,7 +326,7 @@ return [
             'ownership_share_pct' => 'Split between co-owners. All shares of one unit sum to 100.',
             'assessment_basis' => 'How this unit is apportioned its share of the common cost.',
             'participation_pct' => 'The interest stated in the deed. Sums to 100 across the building.',
-            'management_fee_pct' => 'Our cut of what we collect for this owner.',
+            'management_fee_pct' => 'Our cut of what we collect. Recorded only — no fee is billed or posted yet.',
         ],
     ],
 
