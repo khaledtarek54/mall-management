@@ -75,7 +75,11 @@ it('assigns a bay from the lease page, and the charge follows', function () {
         'ownerRecord' => $lease,
         'pageClass' => EditLease::class,
     ])
-        ->callTableAction('assign', data: [
+        // `assignRentableItem`, not `assign`: the action was renamed on 2026-08-17 by
+        // "refactor(leases): the list finds, the record acts", and this test — written on the 10th —
+        // kept the old name and has been red ever since. The product was never broken; the relation
+        // manager and LeaseActions agree on the new name throughout.
+        ->callTableAction('assignRentableItem', data: [
             'rentable_item_id' => $item->id,
             'effective_from' => '2026-03-01',
             'monthly_rate' => 650,
@@ -145,5 +149,5 @@ it('hides the write actions from a role without the permission', function () {
         // Still READ it — a viewer should see what the tenant holds…
         ->assertCanSeeTableRecords([$item])
         // …but not change it.
-        ->assertTableActionHidden('assign');
+        ->assertTableActionHidden('assignRentableItem');
 });
