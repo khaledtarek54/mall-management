@@ -133,6 +133,13 @@ return [
         'empty_description' => 'Each band charges only the sales that fall within it — e.g. 0–500,000 at 0%, 500,000–900,000 at 5%, above 900,000 at 6%. Set the lease calculation type to Tiered for these to be used.',
     ],
     'deposits' => [
+        'record' => 'Record deposit movement',
+        'record_heading' => 'Record a deposit movement on :ref',
+        'record_description' => 'A receipt taken outside the billing rail — a cheque at the leasing office — or the refund or forfeit that closes the deposit out. Billing the deposit is the ordinary way to collect it; this is the exception.',
+        'max_held' => 'At most :held — what is currently held.',
+        'exceeds_held' => 'That is more than this lease holds (:held). Giving back more than was taken would record the landlord as owing money it never received.',
+        'recorded' => 'Deposit movement recorded',
+        'recorded_body' => ':number. Now held on this lease: :held.',
         'bill' => 'Bill security deposit',
         'bill_heading' => 'Bill the security deposit on :ref',
         'bill_description' => 'Raises an invoice for the deposit still outstanding. It appears on the tenant\'s statement, ages and is chased like any other charge, and can be paid by card — a deposit had no document before, so nothing ever asked the tenant for it. It credits Deposits Held, a liability, not revenue.',

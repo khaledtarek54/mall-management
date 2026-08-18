@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Actions;
 
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Models\DepositTransaction;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Models\Unit;
@@ -154,6 +155,111 @@ class LeaseActions
                             'start' => $renewal->commencement_date->format('d/m/Y'),
                         ]))
                         ->success()
+                        ->send();
+                }),
+            // **Record a deposit movement from the LEASE**, which is where the question is asked.
+            //
+            // It was register-only, and the relation manager on the lease said why: "a create button
+            // here would be a second way to move money, thinner than the first." That reasoning does
+            // not survive the facts — every guard is on the MODEL (`GuardsPostingDate`,
+            // `AllocatesDocumentNumber`, the ValueSets listener, the GL registry), so an action that
+            // creates a `DepositTransaction` inherits all of them and is not thinner at all. It is
+            // also the opposite of what this class exists for: the list finds, the RECORD acts
+            // (docs/benchmarks/yardi/08), which is why terminate, renew and settle — all of which
+            // move money — already live here.
+            //
+            // Cash at the counter is now the EXCEPTION rather than the rule: bill the deposit and it
+            // collects itself through the ordinary rail. This is for the cheque handed to the leasing
+            // office, and for the refund and forfeit that close it out.
+            Action::make('recordDeposit')
+                ->label(__('admin.deposits.record'))
+                ->icon('heroicon-o-banknotes')
+                ->color('gray')
+                ->visible(fn (Lease $record) => LeaseResource::canEdit($record)
+                    && (auth()->user()?->can('deposit_transactions.create') ?? false))
+                ->authorize(fn () => auth()->user()?->can('deposit_transactions.create') ?? false)
+                ->modalHeading(fn (Lease $record) => __('admin.deposits.record_heading', ['ref' => $record->reference]))
+                ->modalDescription(__('admin.deposits.record_description'))
+                ->schema([
+                    Placeholder::make('position')
+                        ->label(__('admin.deposits.outstanding'))
+                        ->content(fn (Lease $record) => __('admin.tables.lease.deposit_held_of', [
+                            'held' => number_format($record->depositHeld(), 2),
+                            'agreed' => number_format((float) $record->security_deposit, 2),
+                        ])),
+                    Select::make('type')
+                        ->label(__('admin.fields.type'))
+                        ->options(fn () => __('admin.enums.deposit_type'))
+                        ->default('receipt')
+                        ->required()
+                        ->live()
+                        ->native(false),
+                    Select::make('method')
+                        ->label(__('admin.fields.method'))
+                        ->options(fn () => __('admin.enums.method'))
+                        ->default('bank_transfer')
+                        // A forfeit moves nothing through a bank — it turns the landlord's liability
+                        // into income, so asking "by what method" would be a question with no answer.
+                        ->visible(fn (Get $get) => $get('type') !== 'forfeit')
+                        ->requiredUnless('type', 'forfeit')
+                        ->native(false),
+                    TextInput::make('amount')
+                        ->label(__('admin.fields.amount'))
+                        ->prefix('EGP')
+                        ->numeric()
+                        ->minValue(0.01)
+                        ->required()
+                        // Pre-filled with what is missing on a receipt, and with what is HELD on a
+                        // refund or forfeit — you cannot give back more than you have.
+                        ->default(fn (Lease $record) => $record->depositShortfall() ?: null)
+                        ->helperText(fn (Get $get, Lease $record) => in_array($get('type'), ['refund', 'forfeit'], true)
+                            ? __('admin.deposits.max_held', ['held' => number_format($record->depositHeld(), 2)])
+                            : null),
+                    DatePicker::make('transaction_date')
+                        ->label(__('admin.fields.transaction_date'))
+                        ->required()
+                        ->default(fn () => now()),
+                    Textarea::make('notes')
+                        ->label(__('admin.fields.notes'))
+                        ->rows(2),
+                ])
+                ->action(function (Lease $record, array $data) {
+                    abort_unless(auth()->user()?->can('deposit_transactions.create') ?? false, 403);
+
+                    $amount = round((float) $data['amount'], 2);
+
+                    // Giving back more than is held would post a NEGATIVE liability — the landlord
+                    // recorded as owing the tenant money it never took.
+                    if (in_array($data['type'], ['refund', 'forfeit'], true) && $amount > $record->depositHeld() + 0.005) {
+                        Notification::make()
+                            ->danger()
+                            ->title(__('admin.deposits.exceeds_held', [
+                                'held' => 'EGP '.number_format($record->depositHeld(), 2),
+                            ]))
+                            ->send();
+
+                        return;
+                    }
+
+                    $movement = DepositTransaction::create([
+                        'lease_id' => $record->id,
+                        'tenant_id' => $record->tenant_id,
+                        'asset_id' => $record->unit?->asset_id,
+                        'type' => $data['type'],
+                        'status' => 'recorded',
+                        'method' => $data['type'] === 'forfeit' ? null : ($data['method'] ?? null),
+                        'amount' => $amount,
+                        'transaction_date' => $data['transaction_date'],
+                        'notes' => $data['notes'] ?? null,
+                    ]);
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('admin.deposits.recorded'))
+                        ->body(__('admin.deposits.recorded_body', [
+                            'number' => $movement->number,
+                            'held' => 'EGP '.number_format($record->fresh()->depositHeld(), 2),
+                        ]))
                         ->send();
                 }),
             // Bill the deposit as a CHARGE (Voyager). Visible only while something is outstanding —

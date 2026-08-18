@@ -19,9 +19,15 @@ use Illuminate\Database\Eloquent\Model;
  * (a yes/no), neither of which tells you what was actually received, refunded, forfeited or netted
  * against arrears.
  *
- * Read-only. A deposit movement is money: it is recorded through its own resource, where the GL
- * posting, the posting-date guard and the netting rules live. A create button here would be a second
- * way to move money, thinner than the first.
+ * Read-only, and the movement is recorded from the lease's own **Record deposit movement** action
+ * rather than from a button on this table — one place to act, beside every other act on a tenancy.
+ *
+ * This used to say a create button here "would be a second way to move money, thinner than the
+ * first", and that reasoning was wrong on the facts (corrected 2026-08-18): every guard is on the
+ * MODEL — `GuardsPostingDate`, `AllocatesDocumentNumber`, the ValueSets listener, the GL registry —
+ * so any surface that creates a `DepositTransaction` inherits all of them. The register remains the
+ * portfolio view: what the property holds in total, which is a balance-sheet question and not a
+ * lease one.
  */
 class LeaseDepositsRelationManager extends RelationManager
 {

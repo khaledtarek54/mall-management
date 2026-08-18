@@ -21,10 +21,13 @@
 | the portal and the move-out statement cannot disagree about the same money.
 */
 
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Models\DepositApplication;
 use App\Models\Lease;
 use App\Services\MoveOutStatementService;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
@@ -105,4 +108,27 @@ it('gives the move-out statement and the lease list ONE answer, not two', functi
 it('no longer carries the unmaintained received flag', function () {
     // Two answers to "has the deposit been paid?", one of them a guess somebody typed months ago.
     expect(Schema::hasColumn('leases', 'security_deposit_received'))->toBeFalse();
+});
+
+it('offers the deposit acts on the LEASE, where the question is asked', function () {
+    // The list finds, the RECORD acts (docs/benchmarks/yardi/08) — the principle terminate, renew
+    // and settle already follow. Recording a receipt used to mean leaving the lease for the
+    // register and picking the same lease again from a dropdown.
+    $names = collect(LeaseActions::all())
+        ->map(fn ($a) => $a->getName());
+
+    expect($names)->toContain('recordDeposit')
+        ->and($names)->toContain('billDeposit');
+});
+
+it('gates the deposit acts on the permission that actually exists', function () {
+    // `deposits.create` is not a permission in this system — `deposit_transactions.create` is. An
+    // action gated on a name nobody holds is invisible to everyone, including super_admin, and
+    // looks identical to a feature that was never built.
+    $this->seed(RolesPermissionsSeeder::class);
+
+    expect(Permission::where('name', 'deposit_transactions.create')->exists())
+        ->toBeTrue()
+        ->and(file_get_contents(app_path('Filament/Admin/Actions/LeaseActions.php')))
+        ->not->toContain("can('deposits.create')");
 });
