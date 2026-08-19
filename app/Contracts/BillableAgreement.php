@@ -40,7 +40,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * and the honest way to find which of them an ownership genuinely needs is to have one.
  *
  * @see Lease
- * @see docs/plans/08-unit-owners.md
+ * @see docs/modules/37-unit-owners.md
  */
 interface BillableAgreement
 {

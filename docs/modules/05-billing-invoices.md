@@ -496,7 +496,7 @@ Every service that raises an invoice goes through `issue()`. It derives `subtota
 `total` from the lines it is given and seeds `paid_amount = 0`, `balance = total`.
 
 It takes an **`App\Contracts\BillableAgreement`**, not a `Lease` — a `Lease` today, a unit ownership in
-[plan 08](../plans/08-unit-owners.md) phase 2. The service never asks which: the agreement stamps its own
+[plan 08](37-unit-owners.md) phase 2. The service never asks which: the agreement stamps its own
 foreign key via `invoiceLinkAttributes()`, and supplies the party, the currency and the payment terms.
 
 **Why it exists.** Eight services hand-built the identical header — `MonthlyBilling`,
@@ -1071,7 +1071,7 @@ To customize the PDF:
 >   a second copy of the field.
 > - **Blank by default, and the line is omitted when blank.** A placeholder TRN is worse than a
 >   missing one: it looks valid, the tenant files it, and it fails on audit. A go-live gate item
->   ([GO-LIVE §2 A1.1](../GO-LIVE.md)).
+>   ([GO-LIVE §2 A1.1](../operations/GO-LIVE.md)).
 > - **The VAT summary is per RATE** (`InvoicePdfService::vatSummary()`), shown only when an invoice
 >   carries more than one. Base rent is exempt while service charge is standard-rated, so one
 >   Atriom invoice routinely carries both, and a single "VAT: 1,400" line does not tell the tenant's

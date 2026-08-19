@@ -1,6 +1,6 @@
 # Atriom pre-staging QA — findings log
 
-> **All findings marked ✅ in [PRE-STAGING-QA.md](../PRE-STAGING-QA.md) were fixed on 2026-08-19**,
+> **All findings marked ✅ in [PRE-STAGING-QA.md](PRE-STAGING-QA.md) were fixed on 2026-08-19**,
 > verified against MySQL and covered by a regression test. This file is kept as the evidence: what
 > was measured, on what data, and why each fix is shaped the way it is.
 >

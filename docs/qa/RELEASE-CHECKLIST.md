@@ -2,7 +2,7 @@
 
 > Production-ready when **every** box is ticked. Copy this into the release
 > ticket/PR and fill it in. A failed item blocks the release until fixed +
-> re-verified. Pairs with [docs/PRODUCTION-RUNBOOK.md](../PRODUCTION-RUNBOOK.md).
+> re-verified. Pairs with [docs/PRODUCTION-RUNBOOK.md](../operations/PRODUCTION-RUNBOOK.md).
 
 **Release:** `__________`  **Date:** `__________`  **Signed off by:** `__________`
 
@@ -22,7 +22,7 @@
 
 ## 2. Manual QA (this folder)
 
-- [ ] **Test-case matrix executed** — every `test-cases/NN-*.md` run for this release; all ✅ (or ❌ fixed + regression-tested + re-run).
+- [ ] **QA harness green** — `composer qa` (restores the MySQL baseline before each suite, drives the real services). A failure becomes a bug → fix → regression test → re-run.
 - [ ] **Cross-surface check** — the same scenario verified on **admin + portal + mobile** (e.g. raise a request on mobile → triage in admin → tenant sees the update on portal).
 - [ ] **i18n** — spot-check key screens in **Arabic** (RTL flips, no missing translation keys, Western digits preserved).
 - [ ] **Device/browser** — manual smoke on the real target devices (Android-first per the mobile brief, iOS, common browsers).
@@ -34,7 +34,7 @@
 - [ ] **Tenant (web portal)** persona script signed off.
 - [ ] **Tenant (mobile)** persona script signed off.
 
-## 4. Operational pre-flight ([PRODUCTION-RUNBOOK.md](../PRODUCTION-RUNBOOK.md))
+## 4. Operational pre-flight ([PRODUCTION-RUNBOOK.md](../operations/PRODUCTION-RUNBOOK.md))
 
 - [ ] **Integrations** — `php artisan integrations:check` green for the enabled integrations (Paymob, ETA, push/FCM, mail).
 - [ ] **Secrets** — production `.env` set (Paymob live keys + HMAC, FCM, mail, `APP_KEY`); **no secrets in the repo or logs**; `APP_DEBUG=false`.

@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Auth;
  *
  * The service, its seven regression tests and its docblock all shipped; the screen did not, so
  * between then and 2026-08-18 the only way to read a scorecard was to call the service from tinker.
- * It sat in docs/BACKLOG.md as a feature to build while the feature was already built.
+ * It sat in docs/ROADMAP.md as a feature to build while the feature was already built.
  *
  * **Counts and times, never a single score** — the service's decision, and this screen keeps it. A
  * composite ranking would have to weight responsiveness against cost against compliance, and that

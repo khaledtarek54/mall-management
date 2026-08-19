@@ -45,7 +45,7 @@ use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
- * Property-first isolation lock-in (docs/plans/03-remove-all-properties-mode.md, step 3).
+ * Property-first isolation lock-in (docs/PROPERTY-ISOLATION.md, step 3).
  *
  * With "All Properties" removed from the switcher, a direct-`asset_id` create ALWAYS happens inside
  * ONE real mall. That collapses `TenantScope::visibleAssetIds()` to `[currentMall]` (it returns the

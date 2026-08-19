@@ -74,26 +74,23 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 
 ## Documentation
 
-**Product & requirements**
+**[`docs/README.md`](docs/README.md) is the index.** The tree answers four questions and nothing
+else — how the system works, how each module works, what is missing, and how to run it.
 
-| Doc | When to read it |
+| Read | For |
 |---|---|
-| [docs/OVERVIEW.md](docs/OVERVIEW.md) | **Start here** — consolidated project overview + module index |
-| [docs/modules/](docs/modules/) | **Per-module reference** (20 docs): business rules, lifecycle, fields, **extension points**, gotchas — the source of truth for changing logic |
-| [docs/PROGRESS.md](docs/PROGRESS.md) | Feature-by-feature sign-off tracker (build / test / validate) |
-| [docs/FUNCTIONAL-REQUIREMENTS.md](docs/FUNCTIONAL-REQUIREMENTS.md) | The FRD — requirements ↔ live build status |
-| [docs/VALIDATION-GUIDE.md](docs/VALIDATION-GUIDE.md) | Hands-on per-feature validation checklist |
+| [docs/OVERVIEW.md](docs/OVERVIEW.md) | **Start here** — the domain and how the parts fit together |
+| [docs/PROJECT-MAP.md](docs/PROJECT-MAP.md) | Where everything lives: the generated census, every route family, the scheduled automation |
+| [docs/modules/](docs/modules/README.md) | **Per-module reference** — business rules, lifecycle, fields, **extension points**, gotchas. The source of truth before changing any module's logic |
+| [docs/gap-analysis/](docs/gap-analysis/README.md) | **One** gap analysis: Atriom vs Yardi Voyager, the FM specialists and Odoo — open gaps, declined items, and what changed at the last re-verification |
+| [docs/BUSINESS-RULES.md](docs/BUSINESS-RULES.md) | Every financial rule in plain language, for operator + accountant sign-off |
+| [docs/operations/](docs/operations/) | Go-live gate · staging cutover · production runbook · infrastructure |
+| [docs/qa/](docs/qa/README.md) | The pre-staging harness, the release checklist, UAT |
+| [docs/integrations/](docs/integrations/) | Paymob (reference · operator setup · Flutter) · ETA certification · pay link · push |
+| [docs/api/](docs/api/MOBILE-API.md) | The mobile API contract + generated `openapi.json` |
+| [docs/accounting/](docs/accounting/README.md) | For the accountant, bilingual: the walkthrough, the posting map, the Egyptian tax catalogue |
 
-**Technical / ops**
-
-| Doc | When to read it |
-|---|---|
-| [INFRA.md](INFRA.md) | Production runbook / hosting |
-| [docs/integrations/PAYMOB.md](docs/integrations/PAYMOB.md) | **Paymob: the complete implementation reference** (every rule, file, API body, gotcha + a port checklist for another system) |
-| [PAYMOB-SETUP.md](PAYMOB-SETUP.md) · [PAYMOB-FLUTTER.md](PAYMOB-FLUTTER.md) | Paymob operator setup + Flutter/mobile integration |
-| [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) | Business briefing for the mobile developer |
-| [docs/api/](docs/api/) | Mobile API reference + v1 architecture |
-| [docs/gap-analysis/](docs/gap-analysis/) | Per-feature technical gap analysis + deferred backlog + production checklist |
+The **visual handbook** is in the panel at `/admin/handbook` (bilingual, built by `npm run build`).
 
 ---
 

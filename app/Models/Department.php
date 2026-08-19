@@ -25,7 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * (HR, Marketing, Accounting, Leasing, Operations); admins can add more.
  *
  * A null asset_id means the department is operator-wide (global); a set
- * asset_id scopes it to one property. See docs/FUNCTIONAL-REQUIREMENTS.md §5.
+ * asset_id scopes it to one property. See docs/requirements/FUNCTIONAL-REQUIREMENTS.md §5.
  */
 #[DeletableWhenUnused(blockedBy: ['members', 'employees'], instead: 'move its members first, then delete the empty department')]
 // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)

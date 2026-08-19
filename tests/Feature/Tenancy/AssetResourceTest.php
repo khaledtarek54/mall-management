@@ -18,7 +18,7 @@ beforeEach(function () {
  * real property for super_admin — regardless of which mall is currently active,
  * and creating a new property follows the `assets.create` permission alone
  * (it no longer requires the removed All-Properties view). See
- * docs/plans/03-remove-all-properties-mode.md.
+ * docs/PROPERTY-ISOLATION.md.
  */
 
 it('lists the whole portfolio for super_admin, regardless of the active mall', function () {

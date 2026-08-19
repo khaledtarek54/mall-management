@@ -6,7 +6,7 @@ use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
 /**
- * Slice 1 of the owner-statements module (docs/plans/04-owner-statements-disbursements.md):
+ * Slice 1 of the owner-statements module (docs/modules/32-owner-statements.md):
  * the two new chart accounts + mapping roles the GL journalizers post to. Pins the codes,
  * natures and postability so a chart edit can't silently re-point them. The generic
  * ChartOfAccountsConformanceTest already proves every mapping lands on a postable/active

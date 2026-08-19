@@ -27,7 +27,7 @@ Put logic in `app/Services/<Verb><Noun>Service.php` (one public action). Keep co
 Add `{module}.{view,create,edit,delete}` and grant to the right roles (owner gets `.view` only; manager gets create+edit; super_admin everything; the owning department role gets its module). Re-run `php artisan migrate:fresh --seed`.
 
 ## 5. Documentation (same commit as the code)
-Create `docs/modules/NN-<kebab-name>.md` using the standard 10-section template (Purpose · Domain model · Business rules & invariants · Lifecycle/state-machine · Services & commands · Filament fields & validation · Notifications/integrations · **Extension points** · Gotchas · Tests). Add it to the table in `docs/OVERVIEW.md` and the README index.
+Create `docs/modules/NN-<kebab-name>.md` using the standard 10-section template (Purpose · Domain model · Business rules & invariants · Lifecycle/state-machine · Services & commands · Filament fields & validation · Notifications/integrations · **Extension points** · Gotchas · Tests). Add it to the index in `docs/modules/README.md` (the module list lives there only — `docs/OVERVIEW.md` deliberately no longer repeats it).
 
 ## 6. Tests (`vendor/bin/pest --parallel` must stay green)
 - A `tests/Feature/Scenarios/<Module>ScenarioTest.php` covering happy / negative / boundary / RBAC / scoping / state-transition cases (use the global helpers `makeAsset/makeUnit/makeTenant/makeLease/makeUser`; `seed(RolesPermissionsSeeder::class)` for permission assertions).

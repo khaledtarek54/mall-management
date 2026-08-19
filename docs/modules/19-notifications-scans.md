@@ -1,7 +1,7 @@
 # Notifications & Scheduled Scans
 > Multi-channel notification routing (email + database/bell + **mobile push via Firebase Cloud Messaging**) for tenant-facing events, plus hourly/daily scheduled scans that alert operators and owners when SLAs breach or invoices go overdue.
 >
-> **Mobile push setup + operations:** see [docs/PUSH-NOTIFICATIONS.md](../PUSH-NOTIFICATIONS.md) for the Firebase/APNs runbook, `.env` wiring, and the device-registration API contract. Push is a first-class notification channel — a notification opts in simply by adding `'push'` to its `via()`.
+> **Mobile push setup + operations:** see [docs/PUSH-NOTIFICATIONS.md](../integrations/PUSH-NOTIFICATIONS.md) for the Firebase/APNs runbook, `.env` wiring, and the device-registration API contract. Push is a first-class notification channel — a notification opts in simply by adding `'push'` to its `via()`.
 
 ## 1. Purpose & business context
 This module delivers time-sensitive alerts to tenants, operators (Eltizam), and property owners (Jawad) across two channels:
@@ -303,7 +303,7 @@ mail, and the quiet ones must not start mailing because someone copied the trait
 
 ### Mobile Push (Firebase Cloud Messaging)
 
-The `push` channel delivers tenant-facing notifications to the tenant mobile app. Full setup + API contract: [docs/PUSH-NOTIFICATIONS.md](../PUSH-NOTIFICATIONS.md). Key pieces:
+The `push` channel delivers tenant-facing notifications to the tenant mobile app. Full setup + API contract: [docs/PUSH-NOTIFICATIONS.md](../integrations/PUSH-NOTIFICATIONS.md). Key pieces:
 
 | Piece | File | Role |
 |---|---|---|
@@ -318,7 +318,7 @@ The `push` channel delivers tenant-facing notifications to the tenant mobile app
 **Never-throw contract:** a push failure (bad creds, FCM 5xx, network) must never break the triggering event — the DB bell + email have already delivered. `FcmPushSender` catches everything and logs via `OpsLog`.
 
 **External Integrations**:
-- Firebase Cloud Messaging (mobile push) — see above + [docs/PUSH-NOTIFICATIONS.md](../PUSH-NOTIFICATIONS.md).
+- Firebase Cloud Messaging (mobile push) — see above + [docs/PUSH-NOTIFICATIONS.md](../integrations/PUSH-NOTIFICATIONS.md).
 - Invoice PDF generation (InvoicePdfService) is called by InvoiceIssuedNotification but is defined elsewhere.
 
 ---

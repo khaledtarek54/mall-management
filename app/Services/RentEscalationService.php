@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  * Automatic contractual rent escalation. Leases carry `escalation_rate` / `escalation_type` /
  * `next_escalation_date`, but nothing applied them — so every anniversary increase was a manual
  * `LeaseRentChangeService` call, and a missed one leaked revenue (competitive gap analysis,
- * [docs/gap-analysis/competitors/01-lease-billing.md]). This sweep applies the increase through
+ * [docs/gap-analysis/README.md]). This sweep applies the increase through
  * `LeaseRentChangeService` (which keeps the base-rent Charge + marketing levy in lock-step) and
  * rolls `next_escalation_date` forward a year.
  *

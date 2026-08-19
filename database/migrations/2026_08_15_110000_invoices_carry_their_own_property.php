@@ -41,7 +41,7 @@ use Illuminate\Support\Facades\Schema;
  * one; `Invoice::updating` refuses to clear it. Same trade, and the same reasoning, as
  * `App\Support\ValueSets` standing in for the DB enums this codebase removed.
  *
- * @see docs/plans/08-unit-owners.md §5.2b
+ * @see docs/modules/37-unit-owners.md
  */
 return new class extends Migration
 {

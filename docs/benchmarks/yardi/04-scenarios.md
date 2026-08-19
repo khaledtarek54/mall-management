@@ -237,7 +237,7 @@ appears in AR aging as generically delinquent.
 **Delta.** **This is the real cost of invoice-level AR** — and it is still the right choice for
 Egypt (the invoice is the ETA document). The fix is not to abandon invoice-level AR but to allocate
 payments **to invoice items** and let an item carry a disputed flag. See
-[gap §8](06-atriom-gap-analysis.md).
+[gap §8](../../gap-analysis/README.md).
 
 ---
 

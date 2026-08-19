@@ -771,7 +771,7 @@ and a **verified domain**. Card payments are unaffected if it isn't configured.
   `method=apple_pay` is posted and the id is configured.
 - Apple Pay sessions are **never reused** ([§9d](#9d-apple-pay-never-reuses)).
 
-Full walkthrough: [`docs/PAYMENT-LINK-APPLEPAY.md`](../PAYMENT-LINK-APPLEPAY.md).
+Full walkthrough: [`docs/PAYMENT-LINK-APPLEPAY.md`](PAYMENT-LINK-APPLEPAY.md).
 
 ---
 
@@ -1000,7 +1000,7 @@ here because the first is a design lesson worth carrying into any port.
    `whatsapp_enabled`. **If you port a two-source feature flag, make one source
    authoritative and prove it with a test that drives the real endpoint**, not
    just the config value.
-2. **`INFRA.md` named `INTEGRATIONS_PAYMOB_ENABLED`** — that variable never
+2. **The retired root-level `INFRA.md` named `INTEGRATIONS_PAYMOB_ENABLED`** — that variable never
    existed. The real one is `PAYMOB_ENABLED`.
 3. Older docs said the mobile session endpoint is throttled at 5/min; it inherits
    the authenticated surface's **60/min**. Corrected in this doc, `PAYMOB-SETUP.md`,
@@ -1012,9 +1012,9 @@ here because the first is a design lesson worth carrying into any port.
 
 | Doc | For |
 |---|---|
-| [`PAYMOB-SETUP.md`](../../PAYMOB-SETUP.md) | Operator: dashboard walkthrough, credentials, smoke test, go-live |
-| [`PAYMOB-FLUTTER.md`](../../PAYMOB-FLUTTER.md) | Mobile dev: Flutter code, WebView vs SDK, polling |
+| [`PAYMOB-SETUP.md`](PAYMOB-SETUP.md) | Operator: dashboard walkthrough, credentials, smoke test, go-live |
+| [`PAYMOB-FLUTTER.md`](PAYMOB-FLUTTER.md) | Mobile dev: Flutter code, WebView vs SDK, polling |
 | [`docs/modules/06-payments.md`](../modules/06-payments.md) | The payments module: AR math, allocation, late fees, state machine |
 | [`docs/modules/20-mobile-api.md`](../modules/20-mobile-api.md) · [`docs/api/MOBILE-API.md`](../api/MOBILE-API.md) | The full mobile API contract |
-| [`docs/PAYMENT-LINK-APPLEPAY.md`](../PAYMENT-LINK-APPLEPAY.md) | Apple Pay + domain verification |
+| [`docs/PAYMENT-LINK-APPLEPAY.md`](PAYMENT-LINK-APPLEPAY.md) | Apple Pay + domain verification |
 | [`docs/modules/21-general-ledger.md`](../modules/21-general-ledger.md) | How a capture reaches the books |

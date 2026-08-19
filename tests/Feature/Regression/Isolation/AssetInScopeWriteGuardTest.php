@@ -17,7 +17,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * the 2026-07 property-isolation audit. A property-restricted user must not be
  * able to create/edit a financial record into a property outside their assigned
  * set by tampering the client-supplied asset_id (the Select is enabled in
- * All-Properties mode). See docs/PROPERTY-ISOLATION-PLAN.md §5.
+ * All-Properties mode). See docs/PROPERTY-ISOLATION.md
  *
  * Before the fix, ExpenseResource/VendorBillResource/PayrollResource/
  * JournalEntryResource/DepositTransactionResource had no assertAssetInScope guard,

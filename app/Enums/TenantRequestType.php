@@ -7,7 +7,7 @@ use App\Services\TenantRequestService;
 /**
  * The kinds of request a tenant can raise. "Maintenance" is the original — the
  * others generalise the feature so a tenant can request anything (see
- * docs/plans/01-tenant-requests-plan.md). Model-level, not a DB enum:
+ * docs/modules/11-tenant-requests.md). Model-level, not a DB enum:
  * tenant_requests.request_type is a string, so adding a type needs no migration.
  *
  * Each case carries its own intake config (sub-categories, SLA, routing,

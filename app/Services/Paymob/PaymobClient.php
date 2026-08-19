@@ -49,7 +49,7 @@ class PaymobClient
 
         if ($apiKey === '' || $integrationId === '' || $iframeId === '') {
             throw new RuntimeException(
-                'Paymob credentials missing. Set PAYMOB_API_KEY + PAYMOB_INTEGRATION_ID + PAYMOB_IFRAME_ID in .env. See PAYMOB-SETUP.md.'
+                'Paymob credentials missing. Set PAYMOB_API_KEY + PAYMOB_INTEGRATION_ID + PAYMOB_IFRAME_ID in .env. See docs/integrations/PAYMOB-SETUP.md.'
             );
         }
 

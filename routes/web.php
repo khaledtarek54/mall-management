@@ -128,7 +128,7 @@ Route::get('/handbook/{path?}', HandbookController::class)
 | Apple Pay domain verification. Apple requires this exact path to serve the
 | merchant domain-association file before Apple Pay will render. Drop the file
 | Apple/Paymob gives you at storage/app/apple-pay/domain-association and it is
-| served here. Returns 404 until configured. See docs/PAYMENT-LINK-APPLEPAY.md.
+| served here. Returns 404 until configured. See docs/integrations/PAYMENT-LINK-APPLEPAY.md.
 */
 Route::get('/.well-known/apple-developer-merchantid-domain-association', function () {
     $path = storage_path('app/apple-pay/domain-association');

@@ -23,7 +23,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * and — the group-specific rule — a SHARED tenant that leases in BOTH property A and B, proving
  * money-in is isolated PER-PROPERTY, not merely per-tenant.
  *
- * See docs/PROPERTY-ISOLATION-PLAN.md and App\Support\PropertyIsolation.
+ * See docs/PROPERTY-ISOLATION.md and App\Support\PropertyIsolation.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);

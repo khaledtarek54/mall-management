@@ -25,7 +25,7 @@ use App\Services\CamReconciliationService;
  * on the occupied basis), every allocation looks correct, and the missing party is missing from a
  * list nobody prints.
  *
- * @see docs/plans/08-unit-owners.md §5.7
+ * @see docs/modules/37-unit-owners.md
  */
 beforeEach(function () {
     $this->asset = makeAsset(['code' => 'CAM', 'leasable_area_sqm' => 200]);

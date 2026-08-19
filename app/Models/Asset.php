@@ -166,7 +166,7 @@ class Asset extends Model implements HasMedia
      * unit owner PAYS the service charge. `$asset->owners` beside `$unit->owners` was one keystroke
      * away from apportioning a statement to the wrong kind of owner, so neither is called that.
      *
-     * @see docs/plans/08-unit-owners.md §3
+     * @see docs/modules/37-unit-owners.md
      *
      * @return BelongsToMany<User, $this>
      */

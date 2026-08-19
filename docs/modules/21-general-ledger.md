@@ -77,7 +77,7 @@ Tests: `PostedJournalEntryIsImmutableTest`. Two fixtures were rebuilt in the ord
 > **Status:** Phases 0–4 shipped (foundation, auto-posting, financial statements,
 > expenses/payables/payroll, close) + security deposits. Remaining follow-ups are in
 > the roadmap at the bottom. Read [docs/OVERVIEW.md](../OVERVIEW.md) and
-> [docs/MONEY-PATHS.md](../MONEY-PATHS.md) first — this module sits *underneath* every
+> [the module index](README.md) first — this module sits *underneath* every
 > money path already documented there.
 >
 > **New to this module?** Start with the plain-language overview for non-accountants:

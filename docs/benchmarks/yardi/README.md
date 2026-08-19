@@ -23,13 +23,18 @@
 | 03 | [Recoveries & percentage rent](03-yardi-recoveries-percentage-rent.md) | Expense pools, gross-up, caps, base years, admin fees, estimate→reconcile→re-estimate; sales, breakpoints, overage, settle-up |
 | 04 | [Scenarios](04-scenarios.md) | 15 end-to-end scenarios with real numbers — what Yardi does, what Atriom does today, what breaks |
 | 05 | [User stories](05-user-stories.md) | The backlog, as user stories with acceptance criteria, by role |
-| 06 | [Gap analysis](06-atriom-gap-analysis.md) | Row-by-row Atriom vs Yardi, with a **keep / extend / rebuild** verdict and severity on each |
-| 07 | [Phase plan](07-phase-plan.md) | **The recommendation** — what to do in this cycle, in what order, and what to leave alone |
 | 08 | [UI/UX](08-yardi-ui-ux.md) | What to copy from Yardi's screens (the information architecture) and what not to (the look — 77% of its usability reviews are negative), as 13 concrete Filament stories |
 | 09 | [Space, floors & parking](09-yardi-space-and-parking.md) | How Voyager separates **spaces** (lettable, in GLA) from **rentable items** (parking, storage — billable, NOT in GLA), and why floor stays an attribute rather than becoming an entity. Written before the code, because the first cycle never researched parking |
 
-If you read one file, read [07-phase-plan.md](07-phase-plan.md). If you read two, read
-[06-atriom-gap-analysis.md](06-atriom-gap-analysis.md) first. For the screens, go to
+> **The Atriom-vs-Yardi verdict is NOT in this folder.** It lives in
+> **[docs/gap-analysis/README.md](../../gap-analysis/README.md)**, together with the facility and
+> generic-ERP comparisons, because one gap analysis that is current beats three that disagree. This
+> folder is the *yardstick* — how Voyager actually works — so a claim there can be checked rather
+> than believed. The row-by-row analysis and the phase plan that used to sit here as `06-` and `07-`
+> were merged into it on 2026-08-19; all 43 stories of that cycle had shipped, and a phase plan for
+> a completed cycle is a historical record, not a plan.
+
+For the screens, go to
 [08-yardi-ui-ux.md](08-yardi-ui-ux.md) — its headline is that **Atriom should reach Yardi's
 completeness on Filament's better-looking surface, not import Voyager's interface**, which Yardi's
 own users rate poorly and which Voyager 8 is itself moving away from.
@@ -47,7 +52,7 @@ every claim carries its layer:
 | **Product knowledge**, stable across versions | unmarked | Concepts that have been in Voyager Commercial for a decade+ (charge codes, post month, recovery pools) |
 | **Version-, edition- or configuration-sensitive** | ***(verify)*** | Believed true, but confirm against a live Voyager 8/9 tenant before designing to it |
 
-This is the same convention as [`docs/gap-analysis/competitors/`](../../gap-analysis/competitors/README.md).
+This is the same convention the [gap analysis](../../gap-analysis/README.md) uses.
 **The Atriom side of every comparison is grounded in the code**, with file references — it is not
 from memory, and it corrects two rows that the July 2026 competitor analysis got wrong (CAM caps
 and automated escalation both exist now).
@@ -118,7 +123,7 @@ one invoice per lease-month with items, and settles the invoice.
 **Keep Atriom's model.** Egypt's ETA e-invoicing makes the *invoice* the legal document; an AR
 model that has no invoice would have to invent one to file. The cost of the choice is real —
 you cannot age or dispute "the CAM line" independently — and [§8 of the gap
-analysis](06-atriom-gap-analysis.md) says how to buy back most of that at the item level without
+analysis](../../gap-analysis/README.md) says how to buy back most of that at the item level without
 abandoning invoice-level AR.
 
 ---
@@ -126,7 +131,7 @@ abandoning invoice-level AR.
 ## Related reading in this repo
 
 - [`docs/modules/04-leases.md`](../../modules/04-leases.md) — what Atriom's lease module does today
-- [`docs/money/00-money-model.md`](../../money/00-money-model.md) — the AR invariant this cycle must not break
+- [modules/05 — billing & invoices](../../modules/05-billing-invoices.md) — the AR invariant this cycle must not break
 - [`docs/modules/21-general-ledger.md`](../../modules/21-general-ledger.md) — the GL registry any new money source must join
-- [`docs/gap-analysis/competitors/`](../../gap-analysis/competitors/README.md) — the July 2026 capability sweep this folder supersedes for leasing & money flow
+- [the gap analysis](../../gap-analysis/README.md) — where these findings are turned into a verdict
 - [`docs/accounting/ACCOUNTANT-BRIEFING.md`](../../accounting/ACCOUNTANT-BRIEFING.md) — where the straight-line question goes for a ruling

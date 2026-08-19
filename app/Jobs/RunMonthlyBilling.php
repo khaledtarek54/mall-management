@@ -25,7 +25,7 @@ class RunMonthlyBilling implements ShouldQueue
     /**
      * Serialise billing runs per period so a manually-dispatched run can't race
      * the scheduled one and double-bill (the existence check is not yet behind a
-     * DB unique constraint — see docs/qa/HARDENING-BACKLOG.md).
+     * DB unique constraint — see docs/modules/05-billing-invoices.md).
      */
     public function middleware(): array
     {

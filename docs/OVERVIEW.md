@@ -26,9 +26,9 @@ percentage-rent on tenant sales, maintenance, vendor management, marketing budge
 | **Eltizam** | The **operator** — manages malls, performs the work. **Live customer (deal closed 2026-06-27).** | Admin app `/admin` (User + roles) |
 | **Jawad** | An **owner** customer — owns a property, gets oversight + raises owner-requests | Admin app `/admin`, scoped to owned properties (no separate portal) |
 | **Tenants** | The **retailers / F&B / service shops** leasing units | Tenant portal `/portal` + mobile app |
-| **PropEzy** | A competitor (research kept in `docs/gap-analysis/`) | — |
+| **PropEzy** | A competitor (the benchmark verdicts live in [`docs/gap-analysis/`](gap-analysis/README.md)) | — |
 
-**Status:** all original requirements built + validated; a large Pest suite (**2227 tests** as of 2026-07-16 — live counts in [PROJECT-MAP.md](PROJECT-MAP.md)) + a Playwright E2E suite; production-ready, in a live pilot with Eltizam. Being extended per the **Eltizam FRD** into facility management — see [ROADMAP.md](ROADMAP.md).
+**Status:** all original requirements built + validated; a large Pest suite (**live counts are generated into [PROJECT-MAP.md](PROJECT-MAP.md)** — never hand-typed here, which is how this line drifted before) + a Playwright E2E suite; production-ready, in a live pilot with Eltizam. Being extended per the **Eltizam FRD** into facility management — see [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -43,55 +43,25 @@ Three authenticated surfaces over one MySQL source-of-truth:
 | **Mobile API** | `/api/v1/*` | `tenant-api` (Sanctum) | `Tenant` (company login) |
 
 - **Stack:** Laravel 13 · PHP 8.4 · Filament 4 · MySQL (prod/local) / SQLite `:memory:` (tests) · Pest 4 + ParaTest. Packages: spatie **permission / settings / activitylog / medialibrary**, Laravel **Sanctum**, **Paymob** (card payments), **ETA** (e-invoicing).
-- **Multi-property tenancy (property-first):** the admin panel's Filament "tenant" is an **`Asset` (property)**; resource *tables* auto-scope to the selected property via `App\Support\TenantScope`. The operator always works **inside one real mall** — the switcher no longer offers the "All Properties" pseudo-asset, and `/admin/ALL` 404s (see [`plans/03-remove-all-properties-mode.md`](plans/03-remove-all-properties-mode.md)). The `Asset::ALL_PROPERTIES_CODE` pseudo-asset + its consolidation plumbing are **kept** for a future read-only portfolio surface. See [`18-rbac-scoping`](modules/18-rbac-scoping.md).
+- **Multi-property tenancy (property-first):** the admin panel's Filament "tenant" is an **`Asset` (property)**; resource *tables* auto-scope to the selected property via `App\Support\TenantScope`. The operator always works **inside one real mall** — the switcher no longer offers the "All Properties" pseudo-asset, and `/admin/ALL` 404s (see [PROPERTY-ISOLATION.md](PROPERTY-ISOLATION.md)). The `Asset::ALL_PROPERTIES_CODE` pseudo-asset + its consolidation plumbing are **kept** for a future read-only portfolio surface. See [`18-rbac-scoping`](modules/18-rbac-scoping.md).
 - **Single-action services** hold business logic; controllers/Filament pages stay thin.
 
 ---
 
-## 3. The modules (detailed docs)
+## 3. The modules
 
-Each file in [`docs/modules/`](modules/) is the authoritative reference for that module —
-purpose, domain model, business rules, lifecycle/state-machine, services, Filament fields,
-**extension points (how to change it safely)**, gotchas, and tests.
+**[`docs/modules/README.md`](modules/README.md) is the index** — all 37 modules, grouped by the
+money spine · recoveries and variable rent · counterparties · facility and operations ·
+cross-cutting.
 
-| # | Module | What it owns |
-|---|---|---|
-| 01 | [Properties & Units](modules/01-properties-units.md) | Assets (malls), Units, occupancy projection, All-Properties |
-| 02 | [Tenants](modules/02-tenants.md) | Lessee companies + identity fields (tax/commercial register) |
-| 03 | [Tenant Portal — multi-user](modules/03-tenant-portal-users.md) | `TenantUser` logins, admin-vs-readonly gating |
-| 04 | [Leases](modules/04-leases.md) | Contracts, multi-unit/master-unit, create/renew/terminate/escalate |
-| 05 | [Billing & Invoices](modules/05-billing-invoices.md) | Monthly billing, VAT, proration, charge frequencies |
-| 06 | [Payments & allocation](modules/06-payments.md) | Payments, AR recompute, late fees, Paymob |
-| 07 | [Credit Notes](modules/07-credit-notes.md) | Issue/apply/void, `credit_applied_amount` |
-| 08 | [CAM reconciliation](modules/08-cam.md) | Expense pools, pro-rata allocations, true-up |
-| 09 | [Tenant Sales & Percentage Rent](modules/09-tenant-sales-percentage-rent.md) | Sales declarations → breakpoint percentage rent |
-| 10 | [Utility Meters](modules/10-utility-meters.md) | Meters + readings, consumption |
-| 11 | [Maintenance](modules/11-tenant-requests.md) | Work-orders, state machine, SLA, department routing |
-| 12 | [Vendors & Contracts](modules/12-vendors.md) | Vendors, contacts, contracts, expiry |
-| 13 | [Marketing](modules/13-marketing.md) | 5% levy, budgets, spend (warn-but-allow overspend) |
-| 14 | [Departments](modules/14-departments.md) | Fixed org set, membership→role, messaging |
-| 15 | [Owner Requests & Owner model](modules/15-owner-requests-and-model.md) | Owner→operator/owner requests; owner-as-admin |
-| 16 | [ETA e-invoicing](modules/16-eta-einvoicing.md) | Egyptian Tax Authority submission + status |
-| 17 | [Reports](modules/17-reports.md) | Monthly close, AR aging, statement PDFs |
-| 18 | [RBAC, authorization & scoping](modules/18-rbac-scoping.md) | 9 roles, RoleGatedActions, TenantScope |
-| 19 | [Notifications & scheduled scans](modules/19-notifications-scans.md) | Bell/email flows, idempotent scan commands |
-| 20 | [Mobile API (v1)](modules/20-mobile-api.md) | Sanctum endpoints, Paymob webhook |
-| 21 | [General Ledger & Accounting Core](modules/21-general-ledger.md) | Double-entry ledger: chart of accounts (دليل الحسابات), journal entries (قيود اليومية), fiscal periods, trial balance (ميزان المراجعة), general ledger (دفتر الأستاذ) — Phase 0 |
-| 22 | [Inventory & Stock](modules/22-inventory.md) | Per-property warehouses, item catalog, stock ledger, maintenance-ticket consumption, GL costing — **complete** |
-| 23 | [Fixed Assets & Depreciation](modules/23-fixed-assets.md) | Fixed-asset register + straight-line depreciation + full GL posting (acquisition, depreciation, disposal write-off with gain/loss) — **complete** |
-| 24 | [HR / Employees](modules/24-hr-employees.md) | Employee master + advances/loans (سلف) posting to the GL + per-employee payroll lines & bilingual payslip PDFs — **complete** |
-| 25 | [Treasury / Custody](modules/25-treasury-custody.md) | Custodies (عهدة) — cash in a custodian's hands, settled by categorised expenses or returns, posting to the GL — **Phase 1** (multi-treasury / multi-currency on the roadmap) |
-| 26 | [Facility Maintenance (PPM + CM)](modules/26-facility.md) | The **internal work-order system**: recurring plans that auto-raise work orders with **pass/fail checklists** (daily scan) + a lock-safe completion gate, the **equipment register** (maintainable-asset codes + sub-codes), and **corrective maintenance** raised from a failed check or as a follow-up on a closed job (internal/external, never reopened). CM lives here, not module 11 — a common-area fault has no tenant and no unit. **Per-property SLA** (clock starts on acceptance) with breach detection + **vendor penalties** charged to their bill, and **spare parts** (internal draw needs approval by value, external purchase recorded). Fault attribution + tenant recharge pending |
-| 27 | [Announcements](modules/27-announcements.md) | Operator broadcasts to a property's active tenants via in-app bell + mobile push (no email); compose-is-send, property-scoped, queued fan-out — **complete** |
-| 28 | [Approvals](modules/28-approvals.md) | The **value → approver ladder** (`approval_rules`): "does this amount need signing off, and by whom?", resolved by amount against tier permissions. Operator-wide (not per property); fails **closed** to the strictest tier on a gap. Sole reader = `ApprovalPolicy`. Live for spare-part draws; procurement + permits to follow. ⚠️ amounts need operator sign-off |
-| 29 | [Procurement](modules/29-procurement.md) | Request-to-purchase for spare parts, consumables and services (مشتريات): **Requested → Approved → Ordered → Received**, with the approver set by value via [module 28](modules/28-approvals.md) and ordering-before-approval made *unrepresentable* by the transition matrix. Its receipt is the first that carries a **source link** (FR-WH-02) — the missing piece that left **166,120 EGP of GRNI unclearable**. Status history via the activity log; property-scoped |
-| 30 | [Areas (facility zones)](modules/30-areas.md) | Per-property **facility zones** (Ground Floor, Food Court, Parking) with a many-to-many **supervisors** set (staff Users), the routing target for a later slice. Direct `asset_id`, code unique per property, property-scoped + write-guarded. Register + supervisor assignment shipped; request/work-order routing to follow |
-| 31 | [Violations](modules/31-violations.md) | **Tenant violations** register (FR-REQ-15/16/17): record a rule breach against a tenant with an optional **fine** (`fine_amount`, **recorded — not billed**), view it property-scoped + RBAC-gated, and **send the tenant a notice** on an explicit action (`database` + `push`, stamps `notified_at`). Direct `asset_id`, references the shared Tenant. Minimal `open`/`resolved` lifecycle; auto-billing the fine is a deliberate follow-up |
-| 32 | [Owner Statements & Disbursements](modules/32-owner-statements.md) | The **operator-for-owner deliverable**: a per-property, per-period **owner statement** (property income − expenses = net, reused from the GL income statement), finalised to accrue **Dr Owner Distributions / Cr Due to Owner**, and a **disbursement** that clears that liability against the bank when the owner is paid (partial payouts, capped, approval-ladder-ready). Two GL sources, tie-out-verified; per-property year-end close (F-80) fixed as a prerequisite. Bilingual statement PDF + owner bell. **v1: no management fee, one owner = 100%** (both are deferred, infrastructure in place) |
-| 33 | [Post-dated Cheques](modules/33-post-dated-cheques.md) | The **forward-cheque register** (شيكات آجلة) — the Egyptian norm no Western tool fills: a tenant lodges PDCs up front, tracked with a **maturity date** + **bounce lifecycle** (held → deposited → cleared/bounced; cancel). **v1 register-only, settle-on-clear**: the invoice stays open until the cheque clears, when a normal cheque Payment is recorded (AR via `recomputeTotals`, allocation capped at balance). Terminal-immutable once cleared; `pdc:scan-maturing` surfaces matured-uncleared cheques. Notes-Receivable-on-receipt accrual deferred to the accountant |
-| 34 | [Search](modules/34-search.md) | **Cross-cutting**, not a domain module: how an operator finds a record, in both panels. A fold-normalized `search_text` blob per model (`HasSearchText`) makes «شركه» find «شركة» and `INV2026` find `INV-2026`; one provider adds a query floor, deterministic category order and exact-match promotion, plus ⌘K. Every list inherits the same folded search from `TableDefaults`. Registry = `App\Support\SearchPolicy`; `SearchPolicyConformanceTest` fails the build on a resource that ships unclassified, a search key that cannot work, or a search box that could never answer. Replaces a state where 7 resources were unfindable, 3 searched an integer or enum, and 5 lists had no search box — all of them **silent** failures. **Every DROPDOWN that picks a record reads the same blob too** (2026-08-17): `App\Support\Filament\EntitySelect` + the `OptionDisplay` registry replaced 119 hand-written pickers that each searched one raw column, unfolded, and showed one column — so a tenant's phone was findable everywhere except the tenant picker, and three shops called Zara rendered as three identical rows. Tenants and vendors also gained a quotable code (`TN-0000042` / `VN-0000018`) |
-| 35 | [Rentable items](modules/35-rentable-items.md) | Parking bays, storage cages, signage faces — **let alongside a lease, billed as an ordinary `parking` charge, and never counted as lettable area.** Its own register rather than a `Unit` category, because a bay stored as a unit would grow the CAM denominator and cut every tenant's recovery share, report the mall as vacant, and break the rent roll's EGP/m²/yr — none of it throwing. Dated assignment like the premises; one summed charge row per lease, not one per bay |
-| 36 | [Marketing posts](modules/36-marketing-posts.md) | The **shopper feed**: offers, events and mall news in the visitor app, composed by the operator or **submitted by the retailer and reviewed before anyone sees them** — plus a store directory on `Tenant` (trade name, category, logo). Carries the system's **first unauthenticated read surface** (`/api/v1/public/*`), kept safe by a module-flag 404, hand-written field allowlists rather than model serialization, and one shared visibility predicate. Two date pairs on purpose — when the offer is *valid* is not when the card is *shown*. Links marketing spend to the campaign it paid for |
+Each module file is the authoritative reference for that module: purpose, domain model, business
+rules, lifecycle, services, Filament fields, **extension points (how to change it safely)**,
+gotchas and tests. **Read the relevant one before changing that module's logic**, and update it in
+the same commit.
+
+> The list used to be repeated here as a table. It is not any more, for the reason this whole tree
+> was reorganised on 2026-08-19: a second copy of a list is a copy that goes stale, and the reader
+> cannot tell which of the two is current.
 
 ---
 
@@ -101,7 +71,7 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 |---|---|---|
 | VAT | Standard rate (**14%** today) on service charges; **base rent is VAT-exempt**. Master data, not a setting — a dated rung on the `VAT_14` tax code, resolved for the DOCUMENT's date via `App\Support\Vat`, so a rate change can be entered in advance and a back-dated invoice keeps the rate that was in force. Only origination reads it, so an issued invoice keeps the rate it was billed at | Billing / General Ledger → Tax codes |
 | Marketing levy | **5%** of base rent (configurable, captured per-charge) | Marketing |
-| AR balance | `paid_amount = captured payments + credit_applied_amount`; `balance = total − paid` | Invoice::recomputeTotals |
+| AR balance | **Four settlement channels, and every calculation of "how much of this invoice is settled" must count all four**: captured payments + `credit_applied_amount` + applied tenant credit (`TenantCreditApplication`) + netted security deposit (`DepositApplication`). `balance = total − paid_amount`. Never set `paid_amount`/`balance` directly anywhere else | `Invoice::recomputeTotals()` |
 | Delete | **Money records are never deletable — not even by super_admin** (invoice, payment, journal entry, credit note, vendor bill, expense, deposit txn, payroll, cheque): correct via cancel / void / credit note. **Master data with history is refused too** (tenant, vendor, lease, unit, property, employee) — deactivate instead. Everything else: super_admin only, bulk-delete off | `App\Support\DeletionPolicy` |
 | Tenant writes | **only admin `TenantUser`s** submit/pay in the portal; others read-only | Portal |
 | Terminal work-orders | closed/cancelled maintenance + responded owner-requests are **immutable** | Maintenance / Owner Requests |
@@ -135,15 +105,14 @@ Demo logins (password `password`): `admin@mall.test` (super_admin) · `manager@/
 |---|---|
 | [docs/BUSINESS-RULES.md](BUSINESS-RULES.md) | **Business-rules & assumptions register** — every encoded financial rule (VAT, levy, CAM, late fees, percentage rent…) for **operator/accountant sign-off before go-live**. Verified accurate against code 2026-06-27. |
 | [docs/OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | **The single hand-out of open questions**, grouped by who can answer (accountant/finance · owner · operations · ETA/IT) and by what breaks if the answer differs. Consolidates the old client-questions + the accountant & operations meeting agendas + the FRD open items + the payroll/depreciation/bank-rec questions. |
-| [docs/PRODUCTION-RUNBOOK.md](PRODUCTION-RUNBOOK.md) | **Go-live runbook** — env, deploy steps, queue worker, scheduler cron, backups, observability, and the pre-flight gates (integrations:check · billing:reconcile). |
+| [docs/PRODUCTION-RUNBOOK.md](operations/PRODUCTION-RUNBOOK.md) | **Go-live runbook** — env, deploy steps, queue worker, scheduler cron, backups, observability, and the pre-flight gates (integrations:check · billing:reconcile). |
 | [README.md](../README.md) | Repo entry — setup, panels, demo accounts |
-| [docs/FUNCTIONAL-REQUIREMENTS.md](FUNCTIONAL-REQUIREMENTS.md) | The FRD — requirements ↔ build status |
-| [docs/PROGRESS.md](PROGRESS.md) | Feature-by-feature validation workbook |
-| [docs/VALIDATION-GUIDE.md](VALIDATION-GUIDE.md) | How to validate each feature in the app |
+| [docs/FUNCTIONAL-REQUIREMENTS.md](requirements/FUNCTIONAL-REQUIREMENTS.md) | The FRD — requirements ↔ build status |
+| [qa/UAT-SCRIPTS.md](qa/UAT-SCRIPTS.md) | The business walk-through per persona, for sign-off |
 | [docs/api/](api/) | Mobile API reference |
 | [docs/gap-analysis/](gap-analysis/) | Per-feature technical gap analysis + deferred backlog + production checklist |
 | [docs/benchmarks/yardi/](benchmarks/yardi/README.md) | **How Yardi Voyager Commercial does leasing & money flow**, the Atriom gap analysis against it (keep / extend / rebuild per row), scenarios, user stories, and the sequenced phase plan for the 2026-08 cycle |
-| [INFRA.md](../INFRA.md) · [PAYMOB-SETUP.md](../PAYMOB-SETUP.md) · [PAYMOB-FLUTTER.md](../PAYMOB-FLUTTER.md) · [MOBILE-APP-BRIEF.md](../MOBILE-APP-BRIEF.md) | Ops / integration / mobile |
+| [operations/](operations/) · [integrations/](integrations/) · [api/](api/MOBILE-API.md) | Ops · integrations · the mobile contract |
 | [integrations/PAYMOB.md](integrations/PAYMOB.md) | **Paymob, end to end** — the complete implementation reference + port checklist for another system |
 
 ---

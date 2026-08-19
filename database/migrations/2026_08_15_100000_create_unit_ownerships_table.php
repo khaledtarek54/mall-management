@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Schema;
  * deposits, cheques, ageing, the portal and the mobile API serve an owner without learning that
  * owners exist.
  *
- * @see docs/plans/08-unit-owners.md
+ * @see docs/modules/37-unit-owners.md
  */
 return new class extends Migration
 {

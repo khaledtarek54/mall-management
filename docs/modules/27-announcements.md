@@ -231,7 +231,7 @@ was never sent returns **404, never 403** (no existence enumeration).
    it is visible and the Send action broadcasts it for real.
 5. **`sent_at` is still NULL until the queued job runs** for a "Send now" notice. If it stays null,
    the queue worker isn't running (PRODUCTION-RUNBOOK §3).
-6. **Push requires the FCM pipeline to be live** ([PUSH-NOTIFICATIONS.md](../PUSH-NOTIFICATIONS.md));
+6. **Push requires the FCM pipeline to be live** ([PUSH-NOTIFICATIONS.md](../integrations/PUSH-NOTIFICATIONS.md));
    until then the bell + the feed still deliver and push is a no-op.
 7. **A soft-deleted unit drops its tenant from the blast.** `Unit` soft-deletes and the recipient
    query honours that scope. Under-delivers only (never leaks).

@@ -96,7 +96,7 @@ whoever can owe the operator money. This is Yardi's own answer (its ledger belon
 record, and in the condo product the unit owner simply is that record type), and it is what lets
 payments, credit notes, deposits, cheques, ageing, the portal and the mobile API serve an owner
 without any of them learning that owners exist. The alternatives — a polymorphic invoice counterparty,
-or a second invoice table — were rejected in [plan 08 §4](../plans/08-unit-owners.md).
+or a second invoice table — were rejected in [plan 08 §4](37-unit-owners.md).
 
 The cost, stated plainly: **"tenant" means *counterparty* in the schema and *retailer* on screen.**
 The UI never shows the word to an owner.
@@ -128,7 +128,7 @@ varies is the rent.
 
 ## 4. Configuration — the unanswered questions are rows
 
-The operator could not answer [plan 08 §8](../plans/08-unit-owners.md) when this was built, so each
+The operator could not answer [plan 08 §8](37-unit-owners.md) when this was built, so each
 question is data with a default that is **today's behaviour**. Nothing branches on a question nobody
 has answered.
 
@@ -390,7 +390,7 @@ and remittance — phase 5, blocked on the two accounting answers in §8 above r
 
 **~25 read sites still scope invoices through `lease.unit`** — reports, widgets, statement PDFs. They
 are correct for lease-raised invoices and will MISS owner invoices; migrating them is tracked in
-[plan 08 §5.2b](../plans/08-unit-owners.md).
+[plan 08 §5.2b](37-unit-owners.md).
 
 **Four of those sites were admin surfaces, and are now fixed** (2026-08-16). They are worth naming
 because they show the two shapes this bug takes — and they are opposite shapes, so a single habit of

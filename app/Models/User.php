@@ -144,7 +144,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
         // inside one specific property; portfolio/consolidation is a Phase-B
         // read-only surface, not a selectable operational tenant. This is also
         // what makes the All-mode "create clobber" bug class structurally
-        // impossible (see docs/plans/03-remove-all-properties-mode.md).
+        // impossible (see docs/PROPERTY-ISOLATION.md).
         //
         // Soft-deleted assets are intentionally excluded — selecting one would
         // land the user in a property that no longer exists.
@@ -250,7 +250,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
      *
      * **No production caller today.** Retained deliberately, not by accident: it is the natural home
      * for absolute (`pct / 100`) weighting if the operator ever takes the option recorded as F-A
-     * option 1 in docs/gap-analysis/32-owner-statements.md. Kept out of the statement path on
+     * option 1 in docs/modules/32-owner-statements.md. Kept out of the statement path on
      * purpose — that service weights off the pivot it already loaded rather than issuing a second
      * query per owner.
      *

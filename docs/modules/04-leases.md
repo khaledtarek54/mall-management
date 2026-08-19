@@ -742,7 +742,7 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 
 ### `Lease implements BillableAgreement`
 
-A lease is one kind of agreement that raises AR; a **unit ownership** ([plan 08](../plans/08-unit-owners.md))
+A lease is one kind of agreement that raises AR; a **unit ownership** ([plan 08](37-unit-owners.md))
 is the other. `App\Contracts\BillableAgreement` is the narrow part that is true of both — who owes
 (`billingTenantId()`), in what currency (`billingCurrency()`), on what terms (`paymentTermsDays()`,
 `billingCycleMonths()`), for which property (`assetId()`), over what schedule (`charges()`,

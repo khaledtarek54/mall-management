@@ -77,7 +77,7 @@ Map families to accounts through `AccountMapping` (semantic role, per the one-re
 ## Relationship to other work
 
 - **Unblocks the deferred owner-statement management fee** — its VAT-on-fee toggle would select a VAT code
-  from this catalog. See [docs/plans/04-owner-statements-disbursements.md](../plans/04-owner-statements-disbursements.md).
+  from this catalog. See [modules/32 — owner statements](../modules/32-owner-statements.md).
 - **SHIPPED 2026-08-12.** `TaxSettings::vat_standard_rate` — the 2026-07-30 half-step — is **gone**;
   the standard rate is now a dated rung on the `VAT_14` code. The marketing levy remains
   settings-driven (`MarketingSettings::levy_rate_percent`), which is correct: it is a lease term, not

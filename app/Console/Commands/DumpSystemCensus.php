@@ -134,19 +134,21 @@ class DumpSystemCensus extends Command
     }
 
     /**
-     * The module docs, and which of them have ever been gap-analysed. The gap-analysis
-     * directory stops at 20 and predates modules 21-27, so this surfaces the hole rather
-     * than letting it stay invisible.
+     * The module docs.
+     *
+     * This used to also report which modules had ever been gap-analysed, by counting
+     * `docs/gap-analysis/NN-*.md` files. That metric existed to surface ONE hole — modules
+     * 21-27 were built after round 1 and had never been audited — and round 3 closed it on
+     * 2026-08-18 by analysing all 37. The gap analysis is now a single living document
+     * (`docs/gap-analysis/README.md`) rather than a file per module, so counting files would
+     * report 0 of 37 and read as a catastrophic regression of a hole that no longer exists.
+     * A metric whose question has been answered is worse than no metric: it goes on being
+     * measured, and the number it prints is about the shape of a directory rather than about
+     * the codebase.
      */
     private static function modules(): array
     {
         $docs = self::files('docs/modules', '*.md');
-        $analysed = [];
-        foreach (self::files('docs/gap-analysis', '*.md') as $file) {
-            if (preg_match('/^(\d{2})-/', basename($file), $m)) {
-                $analysed[] = (int) $m[1];
-            }
-        }
 
         $modules = [];
         foreach ($docs as $file) {
@@ -159,18 +161,12 @@ class DumpSystemCensus extends Command
                 'slug' => $m[2],
                 'title' => Str::of($m[2])->replace('-', ' ')->title()->toString(),
                 'doc' => 'docs/modules/'.basename($file),
-                'gap_analysed' => in_array($number, $analysed, true),
             ];
         }
         usort($modules, fn ($a, $b) => $a['number'] <=> $b['number']);
 
         return [
             'documented' => count($modules),
-            'gap_analysed' => count(array_filter($modules, fn ($m) => $m['gap_analysed'])),
-            'never_gap_analysed' => array_values(array_map(
-                fn ($m) => $m['number'].' — '.$m['title'],
-                array_filter($modules, fn ($m) => ! $m['gap_analysed']),
-            )),
             'list' => $modules,
         ];
     }
@@ -229,17 +225,9 @@ class DumpSystemCensus extends Command
             $lines[] = '; jobs: `'.implode('` · `', $cov['scheduled_commands']['jobs']).'` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).';
         }
         $lines[] = '';
-        $lines[] = '### Gap-analysis coverage';
+        $lines[] = '### Module documentation';
         $lines[] = '';
-        $lines[] = "**{$m['gap_analysed']} of {$m['documented']}** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.";
-
-        if ($m['never_gap_analysed']) {
-            $lines[] = '';
-            $lines[] = '**Never gap-analysed:** '.implode(' · ', $m['never_gap_analysed']).' — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).';
-        } else {
-            $lines[] = '';
-            $lines[] = '**Every module has been audited at least once.**';
-        }
+        $lines[] = "**{$m['documented']}** modules carry a doc in [`docs/modules/`](modules/). Every one of them has been gap-analysed at least once; the standing verdict per module lives in [`docs/gap-analysis/`](gap-analysis/README.md), which is one living document rather than a file per module.";
 
         return implode("\n", $lines)."\n";
     }

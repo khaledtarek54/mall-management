@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Schema;
  * Exactly one of `lease_id` / `unit_ownership_id` is set, enforced on the model rather than as a
  * CHECK — SQLite drops CHECKs on any later `->change()` to the table.
  *
- * @see docs/plans/08-unit-owners.md §5.7
+ * @see docs/modules/37-unit-owners.md
  */
 return new class extends Migration
 {

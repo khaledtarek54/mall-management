@@ -5,7 +5,7 @@ use App\Support\Health;
 /**
  * Production must not run cache, session or queue on the database.
  *
- * `.env.example` ships all three as `database`; `docs/INFRASTRUCTURE.md` §5 calls Redis
+ * `.env.example` ships all three as `database`; `docs/operations/INFRASTRUCTURE.md` §5 calls Redis
  * non-negotiable; and until now nothing sat between those two facts. A box provisioned by copying
  * the example file reports green health while every `Cache::lock()` crosses the network to an
  * off-box MySQL.

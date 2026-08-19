@@ -795,7 +795,7 @@ Embedded on the pool's edit page. Shows all allocations in this pool.
 
 ### The recovery-clause engine (admin fee → caps → basis/gross-up/exclusions)
 
-The admin fee (**slice 1**) and caps (**slice 2**) are shipped; the engine is phased (full design: [`docs/plans/05-cam-recovery-engine.md`](../plans/05-cam-recovery-engine.md)). The keystone constraint across every slice: **`allocated_amount` stays the uncapped cost pass-through** the books-check ties out against — clauses attach as siblings (the admin fee) or adjust only `true_up_amount` (caps), never the allocation. Every clause is off-by-default (`admin_fee_pct` null, no `LeaseCamTerm`, `exclusions` unset ⇒ byte-identical no-clause billing):
+The admin fee (**slice 1**) and caps (**slice 2**) are shipped; the engine is phased (full design folded into §8 of this doc). The keystone constraint across every slice: **`allocated_amount` stays the uncapped cost pass-through** the books-check ties out against — clauses attach as siblings (the admin fee) or adjust only `true_up_amount` (caps), never the allocation. Every clause is off-by-default (`admin_fee_pct` null, no `LeaseCamTerm`, `exclusions` unset ⇒ byte-identical no-clause billing):
 
 - ✅ **Slice 1 — admin fee**: see the admin-fee rule above.
 - ✅ **Slice 2 — caps** (`LeaseCamTerm`): see the caps rule above — the cap adjusts the true-up + fee base only.
@@ -812,7 +812,7 @@ The admin fee (**slice 1**) and caps (**slice 2**) are shipped; the engine is ph
 were "not used" — stale; corrected in the close-out.)*
 
 **`exclusions`** (the JSON column) belongs to **slice 3** (per-lease non-recoverables) and is still
-unused — see the recovery-clause engine note below and the [plan](../plans/05-cam-recovery-engine.md).
+unused — see the recovery-clause engine note below and the [plan](08-cam.md).
 
 **Do NOT**: change `allocated_amount` for a cap/exclusion — only the true-up + fee base (the keystone
 invariant).
@@ -989,7 +989,7 @@ php artisan test --filter='generates one pro-rata allocation'
 
 ## 11. Close-out (2026-07-20) — what changed
 
-The property+facility close-out ([gap-analysis](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md)); plain-language business model: [business-model/08](../business-model/08-cam.md). The engine (slices 1–2) was found correct; the fixes are around it.
+The property+facility close-out ([gap-analysis](../gap-analysis/README.md)); plain-language business model: [business-model/08](08-cam.md). The engine (slices 1–2) was found correct; the fixes are around it.
 
 ### Authz double-gate (was: dispatch hole)
 `generateAllocations` / `markReconciled` (`CamExpensePoolsTable`) + `bill` + the new `void` (`CamAllocationsRelationManager`) now re-assert a **named predicate** — `canGenerate` / `canMarkReconciled` / `canBill` / `canVoid` (permission **and** status) — in **both** `visible()` and `action()` (`abort_unless`). `mountAction()` never checks `isVisible()`, and seeded `viewer`/`owner` hold `cam.view`, so the old visible()-only gate let them dispatch these (and `generateAllocations` re-opened a reconciled pool via its unconditional `status=reconciling`). Tested via `mountAction`+`callMountedAction` in `CamActionAuthzTest` (not `callAction`, which false-passes).

@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
  * the value guard still refuses — so if this migration silently un-guards them, the build goes red
  * rather than shipping. That gate is the reason this change is safe to make at all.
  *
- * @see docs/plans/08-unit-owners.md §5.2, §5.3
+ * @see docs/modules/37-unit-owners.md, §5.3
  */
 return new class extends Migration
 {

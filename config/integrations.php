@@ -33,7 +33,7 @@ return [
         // — Paymob distinguishes by your account's environment, not by URL.
         'base_url' => env('PAYMOB_BASE_URL', 'https://accept.paymob.com'),
 
-        // 4 credentials from the Paymob dashboard (see PAYMOB-SETUP.md):
+        // 4 credentials from the Paymob dashboard (see docs/integrations/PAYMOB-SETUP.md):
         //   api_key         → Account → Profile → API Key
         //   integration_id  → Developers → Payment Integrations → your card integration
         //   iframe_id       → Developers → Iframes
@@ -64,7 +64,7 @@ return [
         'currency' => env('PAYMOB_CURRENCY', 'EGP'),
 
         // Apple Pay is a SEPARATE Paymob integration (its own integration_id)
-        // and needs a verified domain (see docs/PAYMENT-LINK-APPLEPAY.md). Leave
+        // and needs a verified domain (see docs/integrations/PAYMENT-LINK-APPLEPAY.md). Leave
         // empty to keep the Apple Pay button hidden. Card payments are unaffected.
         'apple_pay_integration_id' => env('PAYMOB_APPLE_PAY_INTEGRATION_ID'),
     ],

@@ -57,7 +57,7 @@ use Livewire\Livewire;
  * The self-enforcing property-isolation gate. These are STRUCTURAL tests: they
  * reflect over the codebase so that a future model or resource which ships
  * unclassified, unscoped, or unguarded FAILS CI instead of silently leaking one
- * property's data into another. See docs/PROPERTY-ISOLATION-PLAN.md §6 (Layer B).
+ * property's data into another. See docs/PROPERTY-ISOLATION.md (Layer B).
  */
 
 // ---- helpers ---------------------------------------------------------------

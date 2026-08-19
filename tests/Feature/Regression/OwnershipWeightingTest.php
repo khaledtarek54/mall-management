@@ -4,7 +4,7 @@ use App\Models\AssetOwner;
 use Illuminate\Support\Carbon;
 
 /**
- * Ownership-tenure infrastructure (docs/plans/04-owner-statements-disbursements.md): the ownership
+ * Ownership-tenure infrastructure (docs/modules/32-owner-statements.md): the ownership
  * pivot is cast at source (AssetOwner) and tenure-aware, so a sold-off stake drops out of the
  * current set.
  *

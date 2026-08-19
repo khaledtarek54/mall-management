@@ -1,37 +1,40 @@
 # Atriom — Roadmap
 
-> **The single prioritized view.** Go-live blockers, the Eltizam FRD expansion, the
-> accounting backlog, and known defects — in one place, because three lists in three
+> **What to do next.** Go-live blockers, security and operability, the FRD expansion, the
+> accounting backlog and known defects — in one prioritised list, because three lists in three
 > formats is how the last one drifted.
 >
-> **Re-baselined 2026-07-16**, every row verified against the code. The previous roadmap
-> was written 2026-06-28, before modules 21–28 existed; **19 of its 48 rows had already
-> shipped** and four rested on premises that are no longer true (see [§6](#6-retired-rows--do-not-rebuild)).
-> Read that section before picking up anything you remember from the old list.
-
-> **⚠️ VERIFICATION SWEEP, 2026-08-18 — THIRTEEN rows in this file claimed something was missing
-> that the code already had.** Bank reconciliation (three services + two resources), the owner
-> portal (removed by design, not "off"), report CSV, comparative statements, the VAT return,
-> inventory's on-hand scoping, stock transfers, low-stock alerts (built *and* scheduled), employer
-> social insurance, and — the worst of them — the **#2-priority "CAM recovery-clause engine"**,
-> whose caps, admin fee, gross-up and configurable basis are all built. Each is corrected in place.
+> **This is not the gap analysis.** *"What does the benchmark do that we do not?"* is answered in
+> **[gap-analysis/README.md](gap-analysis/README.md)** — one document, re-verified against the code.
+> This file is the priority *call*: what gets built, in what order, and by whom. Where a row here
+> is a parity gap, it cites the gap analysis rather than restating it.
 >
-> **Read this before picking up any row: verify the claim against the code first.** Every one of
-> those thirteen would have cost a day of rebuilding something that already worked, and two of them
-> (§4 phase 5) explicitly instructed the reader to build what was already there. A row saying
-> "this is missing" is a hypothesis with a date on it, not a fact — this file is written by hand
-> and the code moves faster than it does.
+> **This is not the go-live gate either.** Configuration, credentials and the decisions someone else
+> has to make are **[operations/GO-LIVE.md](operations/GO-LIVE.md)**, which
+> `/admin/configuration-health` now checks six rows of automatically.
 
-**How to read this.** 🔴 **P0** blocks go-live (real money / tax can't flow safely without
-it) · 🟠 **P1** important in the first weeks of production · 🟡 **P2** later.
-Owner: 🧑‍💻 code (buildable now) · 🔑 external (needs credentials/KYC/certs/a decision from
-the operator) · ⚙️ ops (deploy/infra).
+> ### ⚠️ Read this before picking up any row
+>
+> **A row saying "this is missing" is a hypothesis with a date on it, not a fact.** This file is
+> written by hand and the code moves faster than it does.
+>
+> The 2026-08-18 verification sweep found **thirteen** rows here claiming something was missing that
+> the code already had — bank reconciliation (three services and two resources), the owner portal
+> (removed by design, not "off"), report CSV, comparative statements, the VAT return, inventory's
+> on-hand scoping, stock transfers, low-stock alerting (built *and* scheduled), employer social
+> insurance, and worst of them the **#2-priority "CAM recovery-clause engine"**, whose caps, admin
+> fee, gross-up and configurable basis are all built. Each is corrected in place. Two of them (§4
+> phase 5) explicitly instructed the reader to build what was already there.
+>
+> **Verify the claim against the code first, and say what you grepped.**
 
-**Where the other lists live:** the FRD plan (`~/.claude/plans/happy-percolating-pearl.md`)
-keeps the per-phase implementation detail; [docs/accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md)
-keeps the accounting capability matrix. This file is the priority call across all of them.
+**How to read this.** 🔴 **P0** blocks go-live (real money or tax cannot flow safely without it) ·
+🟠 **P1** important in the first weeks of production · 🟡 **P2** later.
+Owner: 🧑‍💻 code (buildable now) · 🔑 external (credentials, KYC, certificates, or a decision from
+the operator) · ⚙️ ops (deploy/infra). A ~~struck row~~ has shipped and is kept so the same idea is
+not raised twice.
 
-> **✅ ROUND 3 COMPLETE, 2026-08-18 — all 37 modules gap-analysed → [plans/10-round-3-followups.md](plans/10-round-3-followups.md).**
+> **✅ ROUND 3 COMPLETE, 2026-08-18 — all 37 modules gap-analysed → [the gap analysis](gap-analysis/README.md).**
 > The never-audited list round 2 opened is closed. Twelve defects found and fixed, ten on money paths,
 > every one proven by exploit before being touched. Eleven of the twelve were the same sentence in a
 > different file — *the lease is the route to the property* — left behind when module 37 introduced a
@@ -87,7 +90,7 @@ keeps the accounting capability matrix. This file is the priority call across al
 > bulk billing run never prorates** (every mid-month commencement over-charged) — both fix now,
 > outside the phases. Full write-up, scenarios, user stories and the sequenced plan:
 > **[docs/benchmarks/yardi/](benchmarks/yardi/README.md)** → start at
-> [the phase plan](benchmarks/yardi/07-phase-plan.md). **The three open questions are resolved to the
+> [the gap analysis](gap-analysis/README.md). **The three open questions are resolved to the
 > industry standard** (2026-08-08, owner's instruction — "work as standard systems do"): straight-line
 > rent per **EAS 49** gets built but ships **switched off** (single-book; tax follows invoices, the
 > accountant flips it); fit-out grace becomes **per-charge, defaulting to rent-only** — *net* abatement
@@ -101,23 +104,31 @@ keeps the accounting capability matrix. This file is the priority call across al
 
 ## 1. Where the project actually is
 
-Feature-complete against the original requirements and live in pilot with Eltizam.
-2227 Pest tests + a Playwright E2E suite; Paymob certified in sandbox. Since the last
-roadmap the system roughly doubled: the **general ledger** (module 21) and everything that
-posts to it — inventory, fixed assets, HR/payroll, treasury, facility maintenance,
-announcements, approvals (22–28) — plus airtight property isolation and manifest-driven E2E.
+Feature-complete against the original requirements and live in pilot with Eltizam. **All 37
+modules have been gap-analysed** — the blind spot round 2 opened over the general ledger and
+everything that posts to it (22–29) was closed by round 3 on 2026-08-18, and the standing verdict
+per module lives in [the gap analysis](gap-analysis/README.md).
 
-Two structural facts worth holding:
+**No count of tests, models or migrations is written here.** The suite grows every week and a
+number in prose goes stale silently — which is how PROJECT-MAP came to claim 28 models when there
+were 61. Run `php artisan atriom:dump-system-census`; the measured figures render into
+[PROJECT-MAP.md](PROJECT-MAP.md).
 
-- **Modules 21–28 have never been gap-analysed.** The first twenty have a module doc *and* a
-  per-feature analysis; the newer eight have docs only. Every module that posts money to the
-  GL sits in that blind spot. See the census in [PROJECT-MAP.md](PROJECT-MAP.md).
-- **The self-enforcing gates are what keep this honest** — property isolation, the E2E
-  manifest, media privacy, and (as of 2026-07-16) the GL registry. Where a gate exists, drift
-  fails the suite. Where one doesn't, drift ships: that is precisely how an applied SLA
-  penalty came to reduce a vendor bill while posting nothing to the ledger.
-  **CI auto-runs are ON** (§2, re-enabled 2026-07-18), so those gates now fail the check and
-  block a merge — not only when someone runs `pest --parallel` locally.
+Three structural facts worth holding:
+
+- **The self-enforcing gates are what keep this honest.** Property isolation, the GL registry,
+  media privacy, deletion policy, posting-date guards, change impact, service reachability,
+  permission reach and the rest each fail the build on drift. Where a gate exists, drift is caught;
+  where one does not, drift ships — that is precisely how an applied SLA penalty came to reduce a
+  vendor bill while posting nothing to the ledger.
+- **CI auto-runs are PAUSED** (2026-07-29, the owner's standing call — the pipeline is too slow for
+  the push loop). `.github/workflows/ci.yml` fires on `workflow_dispatch` only, so **every gate is
+  advisory**: nothing blocks a bad change. **Keep `vendor/bin/pest --parallel` green locally before
+  every push** — a red push is silent, not a red check. See §2.
+- **A gate proves a weaker property than its name suggests.** Most check that a thing is
+  *declared*; only some check that it *behaves*. That distinction is why the reconciliation checks
+  are now mutation-tested (a CAM tie-out that could not fail passed a pool recovering 1,150,000
+  against 1,000,000 of actual cost), and why a `lockForUpdate` is inert in every sqlite test.
 
 ---
 
@@ -130,7 +141,7 @@ Two structural facts worth holding:
 | **ETA live credentials + signing certificate** | Real `client_id`/`client_secret` from the operator's ETA taxpayer profile **and** a CAdES signing certificate. ETA production **rejects unsigned B2B documents**. The pluggable signer seam + refuse-to-submit guard are ready (`config/eta.php:70-74`, `signing.enabled` defaults false). | 🔑 | M |
 | **ETA EGS codes + issuer identity** | Register real EGS item codes (base_rent, service_charge, utility, parking, percentage_rent) + issuer TRN/legal name/address. Placeholders still ship (`config/eta.php:36-46` — issuer TRN `100000000`; `:55-62` — EGS `EG-6820-001`). Wrong codes ⇒ rejection. All env-driven, no code change. | 🔑 | S |
 | **Flip ETA out of mock mode** | `EtaSettings.php:16` `$mock = true` submits to a fake endpoint — no legally-binding invoices. One-line flip, gated on the two rows above. | 🧑‍💻 | S |
-| **Paymob live cutover (KYC + live creds)** | Sandbox fully integrated and certified; no code changes. Operator completes KYC, re-issues all 4 live credentials, re-registers callbacks on the prod domain, runs one small real charge (`PAYMOB-SETUP.md §6`). | 🔑 | S |
+| **Paymob live cutover (KYC + live creds)** | Sandbox fully integrated and certified; no code changes. Operator completes KYC, re-issues all 4 live credentials, re-registers callbacks on the prod domain, runs one small real charge ([`integrations/PAYMOB-SETUP.md` §6](integrations/PAYMOB-SETUP.md)). | 🔑 | S |
 | **Database backups** | 🟡 **In-app half done 2026-07-29** — `spatie/laravel-backup` runs nightly from the **scheduler** (backups belong to runtime, not to a build): `backup:clean` 01:00 → `backup:run` 01:15 → `backup:monitor` 07:30. Archives hold the DB plus `storage/app` (signed leases, tax cards, vendor documents, branding) and land on a dedicated git-ignored `backups` disk outside the backup source. `backup:monitor` is the dead-cron detector: it fails when the newest archive is older than a day. Guarded by `tests/Feature/BackupConfigurationTest.php`. **The two operator questions are now self-answering (2026-07-30):** `/health` gained a `backup_capability` check that **fails in production** when (a) no dump binary is reachable — so `backup:run` would exit 127 and write nothing — or (b) every `BACKUP_DISKS` destination is a local disk, i.e. the copy dies with the machine it is protecting. Both report on a developer box without failing the build, so the answer surfaces on whatever environment it runs rather than depending on someone remembering to ask. **A failed backup is no longer silent (2026-07-30):** `BACKUP_ALERT_EMAIL` is unset by default, and `config/backup.php` builds its channel list as `$backupAlertEmail ? ['mail'] : []` — so spatie's failure notification was routed to **no channel at all**, and nothing else was listening. `App\Listeners\LogBackupFailures` now writes every failure/cleanup-failure/unhealthy event to `OpsLog::error`, which always lands in the ops log and reaches Slack/Sentry once those are wired: no env var is needed for the record to be *made*, only for it to page someone. **Restore is now DRILLED, not assumed (2026-07-30):** `atriom:backup-verify` (weekly, Sun 03:00) opens the newest archive, replays its dump into a scratch database and checks the critical tables are present — `backup:monitor` only ever checked an archive *existed*. **It immediately found a live failure: there is no `mysqldump` binary on this machine, so `backup:run` exits 127 (`sh: mysqldump: command not found`) and the nightly job has been producing nothing.** **✅ CLOSED 2026-08-18, and it was a CODE gap, not an ops one.** `Health::checkBackupCapability()` had read `database.connections.{driver}.dump.dump_binary_path` since the day this was found — but that key existed on **no connection**, so it could only ever resolve to `''` and fall through to the PATH lookup that kept failing. The check was right and there was literally no way to answer it. The seam now exists on `mysql` + `mariadb` (`DB_DUMP_BINARY_PATH`, a directory; empty = use PATH, correct on a normal image). Homebrew's `mysql-client` is keg-only, which is why the binary was present at `/opt/homebrew/opt/mysql-client/bin` all along and never on PATH. **A second bug was hiding behind the first:** `VerifyBackupService::CRITICAL_TABLES` named `journal_entry_lines`, a table that has never existed (it is `journal_lines`), so the restore drill would have answered *BACKUP NOT RESTORABLE* for every healthy archive — the dump crash just meant it never got that far. Both fixed and pinned by `BackupCanActuallyRunTest`. **Verified end to end:** `backup:run` writes an archive and `atriom:backup-verify` replays it — 135 tables, 1,279 statements, every critical table with rows. First verified-restorable backup this project has had. **Still operator work:** confirm the deploy image ships the MySQL client (or set `DB_DUMP_BINARY_PATH` there). **Still operator work:** set `BACKUP_DISKS="backups,s3"` (a copy on the same box as the DB dies with the box — today the default is the LOCAL disk only), `BACKUP_ARCHIVE_PASSWORD`, `BACKUP_ALERT_EMAIL`. There is still **no deploy workflow**. | ⚙️/🔑 | S |
 | **Turn on the alerting you already have** | Code is **done** (2026-07-16); this is now two env vars. **Sentry** is wired and inert until `SENTRY_LARAVEL_DSN` is set (PII withheld — `send_default_pii=false` + a `before_send` reusing OpsLog's redaction; self-hostable if the data must stay in-country). **Slack** alerting needs `OPS_LOG_STACK="ops_daily,slack"` + `LOG_SLACK_WEBHOOK_URL`; the threshold is now `LOG_SLACK_LEVEL` (default `error`), decoupled from `LOG_LEVEL` so it can't page on every routine warning. Until both are set, every money/integration failure is visible only to someone SSH'd into the box. | ⚙️/🔑 | S |
 | **Rotate the seeded demo password** | Parametrized (`DemoSeeder.php:91`) but the default is still `password` and `.env.example:14` ships it. Now a deploy action, not a build task — rotate/delete demo accounts before the URL is shareable. **No longer a line someone has to remember (2026-08-11):** `/health` + `atriom:health` gained a `demo_accounts` check that FAILS in production while any `@mall.test` / `@atriom.test` / `@atriomwalk.test` login exists, naming them. Matched on the account, not the password hash — rotating the secret leaves an account nobody owns on a role nobody audits. | ⚙️ | S |
@@ -188,7 +199,7 @@ inferred at all: **FR-REQ-01 "delegation (from/to)"** — no such concept exists
 
 ## 5. 🟡 P2 — accounting, product polish, scale
 
-### Generic-ERP parity — the Egyptian statutory floor (from the [Odoo gap analysis](gap-analysis/odoo/README.md))
+### Generic-ERP parity — the Egyptian statutory floor (from the [gap analysis §5](gap-analysis/README.md#5--the-generic-erp-layer--vs-odoo))
 
 A 2026-07-18 comparison of Atriom's generic modules against Odoo Community + Enterprise
 found that Atriom **matches or exceeds Odoo on the property-fit modules** (it ships
@@ -199,7 +210,7 @@ as one workstream, separate from the FRD:
 
 | Gap | Why it matters | Domain |
 | --- | --- | --- |
-| **Bank reconciliation** | No statement import/matching *anywhere* — cash/bank GL is asserted, never verified against a bank statement. Surfaced in two domains independently; the #1 control gap. **Re-verified and planned 2026-08-11** — genuinely absent (no `bank_accounts`, statement or match model; `BooksReconciliationService` is the internal AR/AP tie-out, a different thing), and now scoped in [BANK-RECONCILIATION-PLAN](accounting/BANK-RECONCILIATION-PLAN.md): six slices, of which the first three ARE the control. The prerequisite nobody had noticed is that `bank`/`cash` are account ROLES, not accounts an operator manages — you cannot reconcile "the bank role" once a property has two banks. | [Accounting](gap-analysis/odoo/01-accounting.md) + [Treasury](gap-analysis/odoo/06-treasury.md) |
+| **Bank reconciliation** | No statement import/matching *anywhere* — cash/bank GL is asserted, never verified against a bank statement. Surfaced in two domains independently; the #1 control gap. **Re-verified and planned 2026-08-11** — genuinely absent (no `bank_accounts`, statement or match model; `BooksReconciliationService` is the internal AR/AP tie-out, a different thing), and now scoped in [BANK-RECONCILIATION-PLAN](accounting/BANK-RECONCILIATION-PLAN.md): six slices, of which the first three ARE the control. The prerequisite nobody had noticed is that `bank`/`cash` are account ROLES, not accounts an operator manages — you cannot reconcile "the bank role" once a property has two banks. | [Accounting](gap-analysis/README.md) + [Treasury](gap-analysis/README.md) |
 | ~~Egyptian tax depreciation (declining-balance) + a second tax book~~ | ✅ **Shipped 2026-08-18.** `Pages\TaxDepreciation` + `TaxDepreciationService`, on the statutory pools of Law 91/2005 Art. 25 — buildings 5% and intangibles 10% straight-line on cost, computers/software 50% and everything else 25% **pooled diminishing value**. `fixed_assets.tax_pool` states the class (free-text `category` cannot be mapped to statute). A **SCHEDULE, not a second ledger**: Egypt files single-book, so nothing posts and the row that earns the page is the temporary DIFFERENCE from the book charge. Rolled forward from history every time rather than accumulated into a column — a stored written-down value drifts on the first re-cost or disposal, and a tax basis that disagrees with the register does not look broken, it gets filed. Catalogued, exportable and schedulable. `TaxDepreciationScheduleTest`. |
 | 🟡 **End-of-service gratuity — posting path** | ✅ **Computation shipped 2026-08-18** (`GratuityService`, Labour Law 12/2003 Art. 122: half a month per year for five years then one month, pro-rated within the year, rates configurable). The exposure is shown on Settings → Payroll. **Switched OFF by default and NOT wired to the GL, deliberately:** Art. 122 covers workers *not* insured under the social insurance law, and in Egypt most are — so many employers owe nothing, and a provision nobody owes overstates the liability as surely as omitting a real one understates it. What remains is a journalizer, and it should FOLLOW the accountant's entitlement ruling rather than precede it. | 🔑 then 🧑‍💻 | S |
 
@@ -211,7 +222,7 @@ automation. The **⏭️ declined** set (multi-currency, consolidation, drop-shi
 salary-rule engine) is Odoo *breadth* that's either N/A to a single-entity EGP operator or
 Enterprise-gated — don't mistake it for a backlog.
 
-### Property + Facility depth — the moat (from the [competitive gap analysis](gap-analysis/competitors/README.md))
+### Property + Facility depth — the moat (from the [gap analysis](gap-analysis/README.md))
 
 A 2026-07-18 comparison of Atriom's *property* and *facility* modules against the software a
 mall operator actually shortlists (**Yardi Voyager, Re-Leased, AppFolio** on the property side;
@@ -224,17 +235,17 @@ decision, ordered.
 
 | # | Strengthen | Why it's real for this operator | Domain | Effort |
 | --- | --- | --- | --- | --- |
-| ~~**1**~~ | ~~**Owner statements + disbursements**~~ ✅ **SHIPPED (2026-07-19, module [32](modules/32-owner-statements.md))** | The operator-for-owner deliverable: per-property owner statement (income − expenses = net, reused from the GL) → finalise accrues Dr Owner Distributions / Cr Due to Owner → disbursement clears it against the bank. Two GL sources tie-out-verified; **F-80 fixed** as a prerequisite; the PortfolioStats `ownership_percentage` bug fixed. Bilingual PDF + owner bell. v1 defers the management fee + co-owner split (operator calls). | [03](gap-analysis/competitors/03-deposits-utilities-portal-owner.md) | L |
+| ~~**1**~~ | ~~**Owner statements + disbursements**~~ ✅ **SHIPPED (2026-07-19, module [32](modules/32-owner-statements.md))** | The operator-for-owner deliverable: per-property owner statement (income − expenses = net, reused from the GL) → finalise accrues Dr Owner Distributions / Cr Due to Owner → disbursement clears it against the bank. Two GL sources tie-out-verified; **F-80 fixed** as a prerequisite; the PortfolioStats `ownership_percentage` bug fixed. Bilingual PDF + owner bell. v1 defers the management fee + co-owner split (operator calls). | [03](gap-analysis/README.md) | L |
 | **2** | ~~CAM recovery-clause engine~~ | ✅ **Largely BUILT — verified against the code 2026-08-18, and this row was the single most misleading one in the file.** **Caps:** built, with banked headroom — `cam_allocations.cap_amount`, `cap_absorbed_amount`, `cap_headroom_used`, `cap_headroom_banked`. **Admin fee:** built — `cam_expense_pools.admin_fee_pct` + `admin_fee_on_net`, so the 10–15% IS bookable and the "revenue Atriom can't charge" claim is false. **Gross-up:** built — `gross_up_pct`, `grossed_up_expense`, `variable_pct`, `controllable_pct`. **Configurable basis:** built — `expense_basis`, `estimate_basis`, `denominator_basis`. Only **pool exclusions** remain unverified. |
-| ~~**3**~~ | ~~**Automated rent escalation**~~ ✅ **SHIPPED (2026-07-19)** | `RentEscalationService` + `leases:apply-escalations` (scheduled daily): a lock-safe, idempotent sweep over active `fixed_percent` leases with `next_escalation_date ≤ today` — applies the increase through `LeaseRentChangeService` (base-rent Charge + marketing levy synced) and rolls the date forward a year. **CPI is skipped** (no index feed — inventing a number would be inventing data). | [01](gap-analysis/competitors/01-lease-billing.md) | M |
-| ~~**4**~~ | ~~**PDC (post-dated cheque) register + lifecycle**~~ ✅ **SHIPPED (2026-07-19, module [33](modules/33-post-dated-cheques.md))** | Forward-cheque register + maturity schedule + bounce lifecycle (held → deposited → cleared/bounced; cancel). **v1 register-only, settle-on-clear**: the invoice stays open until the cheque clears, when a cheque Payment is recorded (AR via `recomputeTotals`, allocation capped at balance) — no AR-invariant risk. `pdc:scan-maturing` daily. Notes-Receivable-on-receipt accrual deferred to the accountant. | [03](gap-analysis/competitors/03-deposits-utilities-portal-owner.md) | M |
-| ~~**5**~~ | ~~**Vendor compliance / COI gate**~~ ✅ **SHIPPED (2026-07-19)** | Vendors now carry `coi_expires_at`/`insurer`/`policy_number` + a private COI document; `Vendor::isDispatchable()`/`scopeAssignable()` (active + COI not lapsed). The `FacilityWorkOrder::saving()` hook **blocks dispatching a blacklisted/inactive or lapsed-COI vendor** (the single server-side gate, assignment-time only so existing orders aren't retroactively broken) and all three module-26 vendor pickers filter to the assignable set. A COI-status column/badge surfaces expiry. | [06](gap-analysis/competitors/06-vendors-areas-permits-violations.md) | M |
+| ~~**3**~~ | ~~**Automated rent escalation**~~ ✅ **SHIPPED (2026-07-19)** | `RentEscalationService` + `leases:apply-escalations` (scheduled daily): a lock-safe, idempotent sweep over active `fixed_percent` leases with `next_escalation_date ≤ today` — applies the increase through `LeaseRentChangeService` (base-rent Charge + marketing levy synced) and rolls the date forward a year. **CPI is skipped** (no index feed — inventing a number would be inventing data). | [01](gap-analysis/README.md) | M |
+| ~~**4**~~ | ~~**PDC (post-dated cheque) register + lifecycle**~~ ✅ **SHIPPED (2026-07-19, module [33](modules/33-post-dated-cheques.md))** | Forward-cheque register + maturity schedule + bounce lifecycle (held → deposited → cleared/bounced; cancel). **v1 register-only, settle-on-clear**: the invoice stays open until the cheque clears, when a cheque Payment is recorded (AR via `recomputeTotals`, allocation capped at balance) — no AR-invariant risk. `pdc:scan-maturing` daily. Notes-Receivable-on-receipt accrual deferred to the accountant. | [03](gap-analysis/README.md) | M |
+| ~~**5**~~ | ~~**Vendor compliance / COI gate**~~ ✅ **SHIPPED (2026-07-19)** | Vendors now carry `coi_expires_at`/`insurer`/`policy_number` + a private COI document; `Vendor::isDispatchable()`/`scopeAssignable()` (active + COI not lapsed). The `FacilityWorkOrder::saving()` hook **blocks dispatching a blacklisted/inactive or lapsed-COI vendor** (the single server-side gate, assignment-time only so existing orders aren't retroactively broken) and all three module-26 vendor pickers filter to the assignable set. A COI-status column/badge surfaces expiry. | [06](gap-analysis/README.md) | M |
 
 **The 🟡 tail from the same analysis** (real, lower): meter/usage-based PM triggers, vendor
 scorecards, asset criticality (one field, high leverage), fit-out-permit approval workflow,
 reorder-driven auto-purchase, ~~bill-the-violation-fine-to-AR~~ ✅ **shipped** (`BillViolationFineService`), utility tariff/recharge automation,
 lease document generation + e-sign, first-class rent-free/stepped schedules, annual/YTD turnover
-breakpoints, ~~the deposit-balance/reconciliation layer~~ ✅ **shipped** (`DepositApplication` + the move-out statement). **The tail is now tracked in [BACKLOG.md](BACKLOG.md)**, which separates rows re-verified against the code from rows carried forward — three of these turned out to be already built when checked on 2026-08-11. **The field-technician mobile app** is a
+breakpoints, ~~the deposit-balance/reconciliation layer~~ ✅ **shipped** (`DepositApplication` + the move-out statement). **The tail is now tracked in [the gap analysis](gap-analysis/README.md)**, which separates rows re-verified against the code from rows carried forward — three of these turned out to be already built when checked on 2026-08-11. **The field-technician mobile app** is a
 real facility gap but sits with the external mobile-app work (§3, 🔑 L).
 
 **⏭️ Declined — explicitly, so nobody mistakes the specialists' breadth for a backlog:**
@@ -248,7 +259,7 @@ not grow sideways toward every-industry breadth.**
 of mock/sandbox (§2 already tracks these) and close the blacklisted-vendor dispatch gate (row 5).
 They make a moat that *already exists* actually usable/safe.
 
-### Accounting (detail in [accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md))
+### Accounting (detail in [accounting/GAP-ANALYSIS.md](gap-analysis/README.md))
 
 The core is production-grade: document → balanced entry → trial balance → statements →
 close, self-healing, tie-out gated, audit-logged. **The honest remaining set is four
@@ -457,7 +468,7 @@ Acting on the first one would actively reintroduce a bug.
 
 ## 7. Recommended next
 
-> **The single go-live gate is [GO-LIVE.md](GO-LIVE.md)** — every configuration item, credential and
+> **The single go-live gate is [GO-LIVE.md](operations/GO-LIVE.md)** — every configuration item, credential and
 > unanswered question in one list, each verified against the code on 2026-08-11. This section stays
 > the engineering view; that one is what you hand to whoever is launching.
 
@@ -641,7 +652,7 @@ this project has already been bitten by. Three further gaps, verified:
 | **CFG-02** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12** — who / when / old → new, through the same activity log as everything else, written only when something actually changed. *(Original row below.)* **Settings audit trail** — who / when / old → new, through the same activity log as everything else, surfaced as a tab on the page. |
 | **CFG-03** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** Three tiers — **lease → property → portfolio** — resolved through the single accessor `App\Support\PropertySettings::get($key, $assetId)`, which takes the asset **explicitly** rather than reading the panel's selected property: the callers are billing services that also run from the scheduler, where a contextual fallback would give one answer in a request and another in the nightly run, on money. Five keys, each WIRED and each proved against the real service (late fee percent/grace/minimum → `LateFeeService`, NSF → `BillBouncedChequeFeeService`, payment terms → lease origination). `/admin/property-overrides` edits the selected property; a blank field inherits and says so twice, because a blank that reads as zero is the whole risk of an override screen. **SLA hours were deliberately dropped from the list** — `sla_policies` is already a per-property override with its own resource, and a second way to say the same thing would disagree with the first. **It also found a live inert setting:** `payment_terms_days` is NOT NULL with a database default, so the `?? defaultPaymentTermsDays()` at eight billing call sites could never fire and CFG-04's configured default reached nothing; the default now applies at **origination**, which is both the fix and the correct semantics (changing it must not re-age receivables already raised). *(Original row below.)* **Per-property overrides** for the settings that legitimately differ (billing day + time, late fee, grace, NSF, SLA hours): global default + optional override, resolved through **one** accessor so a service cannot read the global by accident. Yardi standard. |
 | **CFG-04** | ✅ | 🧑‍💻 | **PART SHIPPED 2026-08-12 — the two with real consequence.** **AR ageing boundaries** are `BillingSettings::ar_aging_bucket_days`, read through `App\Support\AgingBuckets`. That also closed a duplication the old const's docblock warned about while carrying it: the ranges were in `AGING_BUCKETS` **and again as literals** inside `agingBucketKey()`, the classifier every invoice goes through — so moving one would have left the summary and the drill-down disagreeing about which bucket an invoice is in. Labels derive from the boundaries, so they cannot claim a range the classifier does not use; a mistyped set clamps rather than throwing. **Default payment terms** replace `?? 7` at twelve call sites — though **CFG-03 found that half of that was inert**: `payment_terms_days` is NOT NULL with a database default, so the `??` never fired at the eight *billing* sites. The setting now applies at lease **origination** instead. **FISCAL YEAR SHIPPED 2026-08-12** — and it was the one with real consequence. `FiscalCalendar` hardcoded 1 Jan–31 Dec and admitted it in its own docblock ("a fiscal year starting in another month is a future option"), while the reports already read `fiscal_years.starts_on` and honoured whatever they found. So the data model supported a July year all along and **nothing could create one**: an entity on a July–June year would run every income statement, every year-end close and every period gate on somebody else's calendar, fixable only by a deploy. Now `AccountingSettings::fiscal_year_start_month`, with the periods walked FORWARD from the start so period 1 is the first month traded. Two traps pinned by mutation: `endOfYear()` on a July start gives 31 December — a silent six-month "year" that still ties out — and periods numbered from January read the year backwards in every close report. **Changing it once an entry is POSTED is refused, not warned about**, because moving the start re-dates periods that already hold entries: a document posted into an open period lands in a closed one, or an entry the accountant closed and reported becomes editable again. Keyed on posted entries rather than on "a calendar exists", so a fresh install can still choose — which is the moment it is actually chosen. A year is named for the calendar year it STARTS in; stated because the convention varies and this reading leaves January installs byte-identical. **NUMBERING + LEASE TERM SHIPPED 2026-08-12.** `App\Support\DocumentNumbering` — ten document prefixes (`INV`, `CN`, `JE`, `BILL`, `EXP`, `DEP`, `PAY`, `PR`, `LSE`, `PDC`) were literals inside ten models, so "our invoices are numbered TX, not INV" was a deploy. This is the item with a **deadline**: after go-live the prefix is on issued documents that cannot be renumbered. Changing one does not renumber anything — numbers are `MAX()` **within a prefix** — so the type simply gains a SECOND series, which is stated plainly because an Egyptian tax-invoice series is expected to run continuously and an auditor will ask about the jump. Allowed anyway: refusing would block a legitimate need, and the operator is accountable for their own numbering. **Two document types sharing a prefix IS refused** — the unique index is per table, so nothing would error and invoices and credit notes would just interleave one sequence, reading as though documents had gone missing. **It found a live collision:** payroll and purchase requests both shipped `PR-{asset}-{YYYYMM}-`, so `PR-AW-202603-0007` could be either; payroll moved to `PAY` (purchase requests had five tests asserting `PR`, payroll none) — free to fix now, not after go-live. Also `default_lease_term_months`, replacing a literal 36 on the lease form, clamped to ≥1 so a mistyped 0 cannot produce a lease the model's own guard then refuses. **Rounding stays hardcoded, deliberately — this row is closed.** 2dp throughout, which is what EGP is quoted and invoiced in; no operator has asked for another and no Egyptian requirement implies one. Building a setting nothing consults is the inert-setting trap CFG-06 now gates against, so it is a non-build rather than an omission. |
-| **CFG-05** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** `/admin/configuration-health` — six checks that read the LIVE database, each saying **what the gap breaks** rather than which field is empty ("tenants cannot reclaim the VAT you charged them", not "seller_tax_registration_number is empty"). `atriom:health` answers *is it alive*; this answers *is it set up*, and the two fail differently — a perfectly healthy install bills through a floor rate because nobody classified the charge codes. Severity is about money and law, not tidiness. Every check is tested from both sides: a checklist that reports all-clear because its detection is broken is a green light nobody earned. *(Original row below.)* **Configuration health page** — what is unset and what it breaks; the in-app form of [GO-LIVE.md](GO-LIVE.md), and the analogue of Yardi's setup checklist. `atriom:health` already computes most of it. |
+| **CFG-05** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** `/admin/configuration-health` — six checks that read the LIVE database, each saying **what the gap breaks** rather than which field is empty ("tenants cannot reclaim the VAT you charged them", not "seller_tax_registration_number is empty"). `atriom:health` answers *is it alive*; this answers *is it set up*, and the two fail differently — a perfectly healthy install bills through a floor rate because nobody classified the charge codes. Severity is about money and law, not tidiness. Every check is tested from both sides: a checklist that reports all-clear because its detection is broken is a green light nobody earned. *(Original row below.)* **Configuration health page** — what is unset and what it breaks; the in-app form of [GO-LIVE.md](operations/GO-LIVE.md), and the analogue of Yardi's setup checklist. `atriom:health` already computes most of it. |
 | **CFG-06** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** `SettingsReachConformanceTest` over `App\Support\SettingsReach`. **Two halves, because a name-grep is not enough.** Half one: every public property of every settings class must be read somewhere outside `app/Settings` and the settings page — catches the setting nothing consults. Half two is the one that matters: every `?? <settings read>` over a **NOT NULL** column is refused unless declared, because that fallback is dead code and the setting silently applies to nothing. That is precisely the shape CFG-03 found by hand — `default_payment_terms_days` had a screen AND a reader and was still inert at eight billing call sites. Both halves were mutation-tested; half two names the offending file and line. **It found a third live inert setting:** `eta.issuer_name` and `eta.issuer_tax_registration_number` are `->required()` on the settings page and read by **nothing**. Not fixed (module 16 is frozen) but registered in `KNOWN_INERT` — deliberately a separate list from `EXEMPT_NO_READER`, since "this is correct" and "this is broken and here is why we have not fixed it" are different claims, and collapsing them is how a real gap becomes invisible again. *(Original row below.)* **Write-side/read-side conformance test** — every setting a screen writes must be the one the code reads. The inert-screen trap becomes a gate instead of a memory. |
 
 ### 8.4 Reports — Yardi shape and delivery (RP)

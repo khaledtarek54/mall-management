@@ -1,7 +1,7 @@
 # 05 — User stories
 
 > The backlog this benchmark produces, as user stories with acceptance criteria. Each carries an
-> **ID** (used by [07-phase-plan.md](07-phase-plan.md)), the **phase** it belongs to, and a
+> **ID** (used by [07-phase-plan.md](../../gap-analysis/README.md)), the **phase** it belongs to, and a
 > **Today** line saying what the system actually does now — grounded in the code, so nobody
 > implements something that already exists.
 >
@@ -104,7 +104,7 @@ step, a hand edit — is visible without opening the lease.
 - Abatement is expressed as a schedule row (amount 0, or a negative abatement row) on the specific
   charge type, over a date range.
 - Abatement is per charge type, and **new leases default to rent-only (net abatement), which is the
-  industry standard** — see [the phase plan §1 Q2](07-phase-plan.md). Existing leases keep the
+  industry standard** — see [the phase plan §1 Q2](../../gap-analysis/README.md). Existing leases keep the
   full-invoice (gross) grace they were actually billed under; nothing is retroactively rebilled.
 - The lease view shows total abatement value over the term.
 
@@ -510,7 +510,7 @@ knowingly simplified.
 
 **Resolved to the standard:** EAS 49 requires it, so RA-02 gets **built** — but it ships behind a
 setting defaulted **OFF**, because enabling it restates the trial balance and Atriom is single-book
-(Egyptian tax follows the invoices). See [the phase plan §1 Q1](07-phase-plan.md).
+(Egyptian tax follows the invoices). See [the phase plan §1 Q1](../../gap-analysis/README.md).
 
 **Acceptance:** the worked example from
 [02 §7](02-yardi-money-flow.md#7-straight-line-rent--the-lessors-revenue-recognition), a before/after
@@ -723,7 +723,7 @@ lease says so, with a year-end reconciliation **so that** seasonal tenants are n
 
 **Acceptance**
 - `percentage_rent_basis`: `cumulative` (**the industry standard, and the default for new leases**
-  — see [the phase plan §1 Q3](07-phase-plan.md)) or `period` (today's behaviour, kept because some
+  — see [the phase plan §1 Q3](../../gap-analysis/README.md)) or `period` (today's behaviour, kept because some
   leases do say monthly). Existing leases keep `period` until their clause is reviewed.
 - Cumulative: overage = `max(0, YTD calc − YTD already billed)`; a month can bill **zero**, never
   negative.

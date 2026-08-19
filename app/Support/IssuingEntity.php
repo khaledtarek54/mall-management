@@ -31,7 +31,7 @@ use App\Settings\TaxSettings;
  *
  * `'Atriom'` survives as the last-resort fallback only. An unconfigured install has no registered
  * name to print and a blank document header is worse than a placeholder one; setting
- * `seller_legal_name` is a go-live gate item (docs/GO-LIVE.md).
+ * `seller_legal_name` is a go-live gate item (docs/operations/GO-LIVE.md).
  */
 final class IssuingEntity
 {

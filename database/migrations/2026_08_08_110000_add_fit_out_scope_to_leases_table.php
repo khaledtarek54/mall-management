@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
  * drafting guidance is explicit that if an abatement clause does not name CAM, that obligation
  * continues. On a 36k/month service charge over three fit-out months that is ~108k per new tenant
  * the operator is likely entitled to bill and does not.
- * See docs/benchmarks/yardi/07-phase-plan.md §1 Q2.
+ * See docs/gap-analysis/README.md Q2.
  *
  * **The column default is `gross` and the MODEL default is `rent_only`.** That split is the whole
  * migration strategy: every lease that already exists keeps the grace it was actually billed under

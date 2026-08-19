@@ -1,7 +1,8 @@
 # Property Isolation — how it works & how to extend it safely
 
-> **The living reference.** For the design rationale and sign-off decisions see
-> [PROPERTY-ISOLATION-PLAN.md](PROPERTY-ISOLATION-PLAN.md). This file is what you read before
+> **The living reference** — and now the only one. The separate design/sign-off plan was folded
+> away on 2026-08-19: its decisions are settled and restated below, and a plan kept beside a living
+> reference is a second answer to the same question. This file is what you read before
 > touching a property-owned module.
 
 ## The invariant
@@ -16,7 +17,7 @@ database per property — the operator's shared chart of accounts, cross-mall te
 consolidation all depend on one shared store.
 
 > **Property-first UX — "All Properties" is no longer a selectable operational tenant** (see
-> [plans/03-remove-all-properties-mode.md](plans/03-remove-all-properties-mode.md)). The operator always
+> [plans/03-remove-all-properties-mode.md](PROPERTY-ISOLATION.md)). The operator always
 > works **inside one real mall**: the switcher offers only real properties (`User::getTenants()`), and the
 > ALL pseudo-asset is refused by `canAccessTenant()` — a crafted `/admin/ALL` URL 404s. Consequences you
 > can rely on **on operational screens**: `currentAssetId()` is always a real mall (never null from

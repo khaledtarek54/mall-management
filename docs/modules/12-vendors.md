@@ -335,7 +335,7 @@ so "who is actually any good" was answered from memory at renewal time.
   sits in **Payables**, beside the register it summarises. Screen guide in both languages.
 
 > The service and its seven regression tests shipped without this screen, and it sat in
-> `docs/BACKLOG.md` as a feature to build while the feature was already built — the only way to read a
+> the backlog as a feature to build while the feature was already built — the only way to read a
 > scorecard was to call the service from tinker.
 
 ## 6. Filament resources & key fields

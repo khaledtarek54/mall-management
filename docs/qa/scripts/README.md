@@ -1,7 +1,7 @@
 # Pre-staging QA harness
 
 Scenario scripts that drive the **real services against MySQL**, used for the
-[pre-staging QA run](../../PRE-STAGING-QA.md). They exist because the Pest suite runs on SQLite
+[pre-staging QA run](../PRE-STAGING-QA.md). They exist because the Pest suite runs on SQLite
 `:memory:`, where row locks compile to nothing and a single connection never interleaves — so three of
 the findings in that report are unreachable from it by construction.
 

@@ -1,6 +1,6 @@
 # Atriom — Open Questions (single hand-out)
 
-> **Start at [GO-LIVE.md](GO-LIVE.md)** if what you want is "what is left before we launch". That is
+> **Start at [GO-LIVE.md](operations/GO-LIVE.md)** if what you want is "what is left before we launch". That is
 > the single gate — configuration, credentials and decisions in one list, each re-verified against
 > the code 2026-08-11. This file stays the DETAIL behind the questions it names.
 
@@ -11,7 +11,7 @@
 >
 > **Where answers go:** record them here in the **Answer** column, then fold the confirmed ones into
 > [BUSINESS-RULES.md](BUSINESS-RULES.md) (the rule-by-rule detail) and
-> [discovery/client-discovery-questionnaire.md](discovery/client-discovery-questionnaire.md) (the
+> [discovery/client-discovery-questionnaire.md](requirements/CLIENT-DISCOVERY-ANSWERS.md) (the
 > running record of what the client has already told us).
 >
 > _Consolidated: 2026-07-18._
@@ -331,5 +331,5 @@ Each needs **one clarifying sentence** before we can build it.
 | E (requirement clarifications) | *Eltizam operations lead* | |
 
 **Related:** [BUSINESS-RULES.md](BUSINESS-RULES.md) (every rule + risk level) ·
-[discovery/client-discovery-questionnaire.md](discovery/client-discovery-questionnaire.md) (answers
+[discovery/client-discovery-questionnaire.md](requirements/CLIENT-DISCOVERY-ANSWERS.md) (answers
 already collected).

@@ -9,7 +9,7 @@
 | the charge codes, and issues tax invoices with no registration number on them. Neither shows up
 | as an outage; neither is visible until a tenant asks why they cannot reclaim their VAT.
 |
-| `docs/GO-LIVE.md` is that list, verified by hand against the code — accurate on the day it was
+| `docs/operations/GO-LIVE.md` is that list, verified by hand against the code — accurate on the day it was
 | written and able to fall out of date silently every day after.
 |
 | Each check is tested from BOTH sides. A configuration checklist that reports "all clear" because

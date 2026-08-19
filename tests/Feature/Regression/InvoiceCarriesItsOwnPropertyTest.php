@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  * accrual. All four were only ever safe because `lease_id` was NOT NULL. Phase 2 makes it nullable so
  * a unit owner can be billed, and each of these would then have answered null — silently.
  *
- * @see docs/plans/08-unit-owners.md §5.2b
+ * @see docs/modules/37-unit-owners.md
  */
 beforeEach(function () {
     // The GL assertion needs a chart and a posting map, or the journalizer refuses before it ever

@@ -10,7 +10,7 @@ use Throwable;
  *
  * ## Why a command rather than a checklist
  *
- * Gate 5 and Gate 6 of `docs/PRE-STAGING-QA.md` were four artisan calls and a health check spread
+ * Gate 5 and Gate 6 of `docs/qa/PRE-STAGING-QA.md` were four artisan calls and a health check spread
  * across three documents (`GO-LIVE.md`, `STAGING.md`, the QA plan). Every one of them exists, every
  * one exits non-zero on its own — and a list of five things a person has to remember to run in order
  * is a list that gets run once, on the day someone writes it down. This is the same move
@@ -46,9 +46,9 @@ use Throwable;
  * ## What it deliberately does NOT do
  *
  * It does not check credentials, backup destinations or the demo password — those are
- * `docs/GO-LIVE.md` rows that no command can verify from inside the app (a `.env` value being
+ * `docs/operations/GO-LIVE.md` rows that no command can verify from inside the app (a `.env` value being
  * present says nothing about whether it is the right one). `atriom:health` covers the ones that ARE
- * observable, and `docs/STAGING-CUTOVER.md` carries the rest as an ordered runbook.
+ * observable, and `docs/operations/STAGING-CUTOVER.md` carries the rest as an ordered runbook.
  */
 class PreflightCommand extends Command
 {

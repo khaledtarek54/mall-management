@@ -15,7 +15,7 @@ use Database\Seeders\RolesPermissionsSeeder;
  * channels skip.
  *
  * The work-order side of FR-USR-06 (does completing a WO also need a photo, on top of its checklist
- * gate?) is a separate, unconfirmed scope decision — see docs/CLIENT-QUESTIONS.md.
+ * gate?) is a separate, unconfirmed scope decision — see docs/OPEN-QUESTIONS.md.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);

@@ -2,7 +2,7 @@
 
 > The money flow, end to end. Confidence markings per the [README](README.md#sourcing--confidence).
 > Atriom comparisons are pointers only — the verdicts live in
-> [06-atriom-gap-analysis.md](06-atriom-gap-analysis.md).
+> [06-atriom-gap-analysis.md](../../gap-analysis/README.md).
 
 ---
 
@@ -58,7 +58,7 @@ things:
 
 The cost is that there is no single legal document per period — which is precisely why an
 ETA-filing jurisdiction pushes you the other way. See the [README](README.md) and
-[gap §8](06-atriom-gap-analysis.md).
+[gap §8](../../gap-analysis/README.md).
 
 ---
 
@@ -94,7 +94,7 @@ This matters more than it looks:
 `App\Support\PostingDateGuards` refuses a GL date whose period is closed — which is correct and
 well-built — but because `entry_date` *is* the document date, the operator's only options are to
 backdate-and-be-refused or to alter the document's real date. Yardi's answer, "keep the date, move
-the post month", is not expressible. See [gap §11](06-atriom-gap-analysis.md).
+the post month", is not expressible. See [gap §11](../../gap-analysis/README.md).
 
 ---
 
@@ -125,7 +125,7 @@ frequent source of reconciliation failures when skipped *(cited)*.
 
 **Atriom's equivalents exist and are good.** Payments allocate to invoices through the
 `invoice_payment` pivot with `allocated_amount`, guarded by a lock-and-recheck over-allocation
-assertion and a cross-tenant guard ([`docs/money/00-money-model.md`](../../money/00-money-model.md)).
+assertion and a cross-tenant guard ([modules/05 — billing & invoices](../../modules/05-billing-invoices.md)).
 On-account credit is a real, separately-journalized document
 (`TenantCreditApplication`, `Dr Unearned Revenue / Cr AR`). Bounced cheques run through
 `Payment.status = bounced` and the PDC module. What is missing is the *automatic* application

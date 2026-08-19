@@ -26,7 +26,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
  *
  * `BouncedChequeFeeTest` did not catch it because its fixture sets `'lease_id' => $lease->id`
  * directly — a column no form, service or seeder writes. That is the F-100 shape
- * [000-plan.md](docs/gap-analysis/000-plan.md) records verbatim: *ask of every fixture, could the
+ * [000-plan.md](docs/gap-analysis/README.md) records verbatim: *ask of every fixture, could the
  * product actually produce this state?* Here it could not, and nine green assertions sat on top.
  *
  * This file builds cheques the way the UI does — asset, tenant, invoice, no lease — and covers the

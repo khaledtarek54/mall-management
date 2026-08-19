@@ -88,7 +88,7 @@
             "vendor/bin/pint --dirty"
         ],
         "qa": [
-            "@php -r \"echo 'Pre-staging QA harness — real services, real MySQL. See docs/PRE-STAGING-QA.md', PHP_EOL;\"",
+            "@php -r \"echo 'Pre-staging QA harness — real services, real MySQL. See docs/qa/PRE-STAGING-QA.md', PHP_EOL;\"",
             "docs/qa/scripts/run-all.sh"
         ],
         "coverage": [

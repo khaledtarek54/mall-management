@@ -415,7 +415,7 @@ Credit notes use Spatie ActivityLog (`LogsActivity` trait). Logged fields: numbe
 
 ## 11. Close-out (2026-07-20) — what changed
 
-The property+facility close-out (see [gap-analysis](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md)). Business model in plain language: [business-model/07](../business-model/07-credit-notes.md).
+The property+facility close-out (see [gap-analysis](../gap-analysis/README.md)). Business model in plain language: [business-model/07](07-credit-notes.md).
 
 ### `credit_note_applications` (new) — reversible application link
 `applyToInvoice()` now writes a `CreditNoteApplication` row (`credit_note_id`, `invoice_id`, `amount`, `applied_at`, `created_by`; soft-deletes) for each application. This is the link the aggregate `applied_amount` / `credit_applied_amount` columns can't express — it lets an application be **un-applied** precisely. It is **NOT a GL source** (`#[PropertyOwned]` chain `creditNote.lease.unit`; absent from `LedgerPoster::JOURNALIZERS`) — the note's own entry (posted at issue) already carries the ledger effect; an application only moves subledger balances.

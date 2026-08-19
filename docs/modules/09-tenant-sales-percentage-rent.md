@@ -737,11 +737,11 @@ Test: `PercentageRentScenarioTest::fractional-rate rounding to 2dp`
 
 ### Related modules
 
-- **[Leases](./06-leases.md)** — `has_percentage_rent`, rates, thresholds, base rent; renewal must preserve percentage-rent config
-- **[Charges](./05-billing-charges.md)** (if documented) — the percentage-rent Charge is a one-off row; billing run must handle its `is_active` flag
+- **[Leases](04-leases.md)** — `has_percentage_rent`, rates, thresholds, base rent; renewal must preserve percentage-rent config
+- **[Charges](05-billing-invoices.md)** (if documented) — the percentage-rent Charge is a one-off row; billing run must handle its `is_active` flag
 - **[Tenant Portal Users](./03-tenant-portal-users.md)** — portal auth scoping; only tenant-admins can submit declarations
-- **[Notifications](./02-notifications.md)** (if documented) — `SalesDeclarationSubmittedNotification`, `SalesDeclarationLockedNotification` delivery channels, retry logic
-- **[Billing & Invoicing](./04-billing-cycle.md)** (if documented) — percentage-rent Charges must flow into the next billing cycle
+- **[Notifications](19-notifications-scans.md)** (if documented) — `SalesDeclarationSubmittedNotification`, `SalesDeclarationLockedNotification` delivery channels, retry logic
+- **[Billing & Invoicing](05-billing-invoices.md)** (if documented) — percentage-rent Charges must flow into the next billing cycle
 
 ---
 
@@ -754,7 +754,7 @@ Test: `PercentageRentScenarioTest::fractional-rate rounding to 2dp`
 
 ## 11. Close-out (2026-07-22) — what changed
 
-The property+facility close-out ([gap-analysis](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md)); plain-language business model: [business-model/09](../business-model/09-tenant-sales-percentage-rent.md). The core (immediate-overage billing, void/re-lock, file-first submission) was already shipped & correct — these are the layer around it.
+The property+facility close-out ([gap-analysis](../gap-analysis/README.md)); plain-language business model: [business-model/09](09-tenant-sales-percentage-rent.md). The core (immediate-overage billing, void/re-lock, file-first submission) was already shipped & correct — these are the layer around it.
 
 ### Authz double-gate (was: dispatch hole)
 `lock` / `dispute` / `voidLocked` (`TenantSalesDeclarationsTable`) gated permission + status only in `visible()`. `mountAction()` never checks `isVisible()`, and seeded `viewer` + `owner` hold `tenant_sales.view` (the list renders), so a read-only auditor or owner could Lock (bill an overage invoice + post GL), Dispute, or Void a locked declaration via a crafted call. Now each action re-asserts a **named predicate** — `canLock` / `canDispute` / `canVoid` (permission **and** status) — in **both** `visible()` and `action()` (`abort_unless`). Tested via `mountAction`+`callMountedAction` in `SalesDeclarationActionAuthzTest` (the prior `assertTableActionHidden` test checked only `visible()` and false-passed).

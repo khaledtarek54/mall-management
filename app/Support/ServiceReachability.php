@@ -17,7 +17,7 @@ namespace App\Support;
  *  - `AssetStatementPdfService` — the owner's property statement, orphaned when the `/owner` panel
  *    was removed and its button went with it.
  *  - `VendorScorecardService` — built with seven regression tests and no screen, sitting in
- *    `docs/BACKLOG.md` as work to do while the work was done.
+ *    `docs/ROADMAP.md` as work to do while the work was done.
  *
  * All four were fully built, fully tested and completely unusable. **Tests are what hid them**: a
  * service with a green test file looks maintained, and `grep` says it is referenced. This gate asks

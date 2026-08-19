@@ -14,7 +14,7 @@ namespace App\Enums;
  * The word "tenant" therefore means *counterparty* in the schema and *retailer* on screen — the UI
  * never shows it to an owner. Model-level, not a DB enum: adding a party kind needs no migration.
  *
- * @see docs/plans/08-unit-owners.md §4
+ * @see docs/modules/37-unit-owners.md
  */
 enum PartyType: string
 {

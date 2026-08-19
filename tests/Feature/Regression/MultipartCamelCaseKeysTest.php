@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
  * client we publish:
  *
  *   - POST /me/sales-declarations  ->  422 "The lease id field is required."
- *     for a payload sent exactly as docs/api/SALES-DECLARATION-FILE-UPLOAD.md
+ *     for a payload sent exactly as docs/api/MOBILE-API.md
  *     instructs (leaseId / periodStart / periodEnd).
  *   - POST /me/requests  ->  `unitId` silently dropped, so the request was filed
  *     against whatever unit the active-lease fallback derived. No error; wrong data.

@@ -384,7 +384,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         // NEW leases default to the STANDARD (net) abatement — base rent free, service charge
         // still payable. The COLUMN default is `gross`, so every lease that already existed keeps
         // the grace it was actually billed under; retroactively re-billing a live tenancy is not a
-        // migration. See the migration and docs/benchmarks/yardi/07-phase-plan.md §1 Q2.
+        // migration. See the migration and docs/gap-analysis/README.md Q2.
         'fit_out_scope' => self::FIT_OUT_RENT_ONLY,
         'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
         'percentage_rent_frequency' => 'monthly', // fresh monthly breakpoint unless set to annual (cumulative)

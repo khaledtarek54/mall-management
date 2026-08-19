@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Auth;
  * on them; neither shows up as an outage, and neither is visible until a tenant asks why they
  * cannot reclaim their VAT.
  *
- * `docs/GO-LIVE.md` is that list, verified by hand against the code — accurate on the day it was
+ * `docs/operations/GO-LIVE.md` is that list, verified by hand against the code — accurate on the day it was
  * written, and able to fall out of date silently every day after. This reads the live database.
  *
  * **The impact line is the feature.** A checklist of red dots is a nag; what makes one worth

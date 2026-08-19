@@ -850,7 +850,7 @@ class Health
     /**
      * Cache, session and queue must not run on the database in production.
      *
-     * `.env.example` ships all three as `database`, and `docs/INFRASTRUCTURE.md` §5 calls Redis
+     * `.env.example` ships all three as `database`, and `docs/operations/INFRASTRUCTURE.md` §5 calls Redis
      * non-negotiable — with nothing in between enforcing it. That gap is not merely slow: MySQL is
      * **off-box** in the documented estate, so on the shipped defaults every session read and
      * write, every spatie permission-catalogue read, every queue poll and **every `Cache::lock()`**

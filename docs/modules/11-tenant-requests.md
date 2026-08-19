@@ -4,7 +4,7 @@
 
 > **Generalisation status (Plan 1) — COMPLETE as of 2026-08-15.** This module began life as
 > "Maintenance Requests" and is now a typed **Tenant Request** system throughout — see
-> [docs/plans/01-tenant-requests-plan.md](../plans/01-tenant-requests-plan.md). The rename landed in
+> the tenant-requests generalisation plan (now folded into this doc). The rename landed in
 > three passes: the `request_type` discriminator and type-aware create paths first
 > (`App\Enums\TenantRequestType` — 8 types, each with its own sub-categories, SLA, routing,
 > scheduling and reference prefix); then the model, table and service on `2026_06_29_000001`; and

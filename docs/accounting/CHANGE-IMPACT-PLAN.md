@@ -19,11 +19,11 @@ to report honestly when the answer is "nothing to do here", and these are the tw
 >
 > **What this is not.** It is not a rebuild. The posting engine, the registry-and-gate design and the
 > document immutability work are done and sound (see
-> [GL-INTEGRITY-HARDENING-PLAN](GL-INTEGRITY-HARDENING-PLAN.md), all five phases shipped 2026-07-10).
+> [GL-INTEGRITY-HARDENING-PLAN](../modules/21-general-ledger.md), all five phases shipped 2026-07-10).
 > What is missing is a *stated contract* for change, a mechanical gate behind it, and an operator-facing
 > trail — plus one live hole in payables.
 >
-> **Relationship to the other plan.** [VALIDATION-SWEEP-PLAN](../gap-analysis/VALIDATION-SWEEP-PLAN.md)
+> **Relationship to the other plan.** [VALIDATION-SWEEP-PLAN](../gap-analysis/README.md)
 > sweeps the same four areas along the *validation* axis (is this rule enforced, and where). This is the
 > *accounting-impact* axis (may this change reach the books, and what does it do when it does). Same
 > areas, same sequencing, one program — §8 says how they compose. Do not run them as two.
@@ -376,7 +376,7 @@ Verified against the source on 2026-08-11, ranked. Everything below was checked 
 | **F4** ✅ **FIXED 2026-08-11** | **Med** | **A correction can restate a reported month.** The reversal lands in the original period whenever it is open; "reported" (owner statement issued, VAT filed) has no representation | [JournalPostingService.php:339](../../app/Services/Accounting/JournalPostingService.php#L339) |
 | **F5** | **Med** | **The edit policy is asymmetric and undocumented.** Invoice / Payment / CreditNote / VendorBill lock at finalize; Expense, MarketingSpend and FixedAsset deliberately do not. The reasons exist in a plan doc, not a registry, and nothing fails when a new source ships with no policy at all | §3, §4 |
 | **F6** ✅ **FIXED 2026-08-11 — and it was worse than filed** | **Low→Med** | **A first CAM reconciliation of a past year divides by today's area.** The *occupied* denominator is time-weighted and every **re-run freezes the shares** ([CamReconciliationService.php:34-56](../../app/Services/CamReconciliationService.php#L34)) — that half is correct and well-guarded. The **GLA** basis reads `Asset.leasable_area_sqm` / a live `sum('area_sqm')` over the zone ([:322](../../app/Services/CamReconciliationService.php#L322)), neither of which is dated. Narrow: it bites only the first reconciliation of a year that ended before a remeasure. **On fixing it, the NUMERATOR turned out to be undated too** — `Lease::totalAreaSqmForPeriod()` time-weighted tenure while reading the current `area_sqm`, so the unit-area register never reached CAM at all. Both now compose through `Unit::areaSqmDaysBetween()` (m²·days). `Asset.leasable_area_sqm` remains undated — and **dating it was measured and declined 2026-08-11**: no pool uses the GLA basis, a property's GLA moves every few years rather than every fit-out, and `denominator_used_sqm` already freezes and records what each pool divided by. See [module 08](../modules/08-cam.md) | ← |
-| **F7** ✅ **FIXED 2026-08-11** | **Low** | **`docs/MONEY-PATHS.md` states the two-channel AR formula** (`captured + credit_applied_amount`) — the invariant has been four channels since the deposit-netting and tenant-credit work. The team's most-read money doc is wrong about the one rule it calls "the one rule" | [MONEY-PATHS.md:16](../MONEY-PATHS.md) |
+| **F7** ✅ **FIXED 2026-08-11** | **Low** | **`docs/MONEY-PATHS.md` states the two-channel AR formula** (`captured + credit_applied_amount`) — the invariant has been four channels since the deposit-netting and tenant-credit work. The team's most-read money doc is wrong about the one rule it calls "the one rule" | the retired `MONEY-PATHS.md`; the doc was deleted on 2026-08-19 rather than corrected, because [modules/05–07](../modules/README.md) already state the four-channel rule |
 | **F8** ✅ **FIXED 2026-08-11** | **Low** | **The Yardi money-flow benchmark contradicts itself.** §3 says post month is missing and §5 says write-off is "❌ absent"; §10, re-verified today, marks both **BUILT**. Reconcile the earlier sections or mark them as-written-at-the-time | [02-yardi-money-flow.md](../benchmarks/yardi/02-yardi-money-flow.md) |
 
 **Deliberately *not* findings** — checked and correct: the CAM re-run share freeze (F6's other half); the

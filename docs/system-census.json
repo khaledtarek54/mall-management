@@ -14,267 +14,228 @@
     },
     "modules": {
         "documented": 37,
-        "gap_analysed": 37,
-        "never_gap_analysed": [],
         "list": [
             {
                 "number": 1,
                 "slug": "properties-units",
                 "title": "Properties Units",
-                "doc": "docs/modules/01-properties-units.md",
-                "gap_analysed": true
+                "doc": "docs/modules/01-properties-units.md"
             },
             {
                 "number": 2,
                 "slug": "tenants",
                 "title": "Tenants",
-                "doc": "docs/modules/02-tenants.md",
-                "gap_analysed": true
+                "doc": "docs/modules/02-tenants.md"
             },
             {
                 "number": 3,
                 "slug": "tenant-portal-users",
                 "title": "Tenant Portal Users",
-                "doc": "docs/modules/03-tenant-portal-users.md",
-                "gap_analysed": true
+                "doc": "docs/modules/03-tenant-portal-users.md"
             },
             {
                 "number": 4,
                 "slug": "leases",
                 "title": "Leases",
-                "doc": "docs/modules/04-leases.md",
-                "gap_analysed": true
+                "doc": "docs/modules/04-leases.md"
             },
             {
                 "number": 5,
                 "slug": "billing-invoices",
                 "title": "Billing Invoices",
-                "doc": "docs/modules/05-billing-invoices.md",
-                "gap_analysed": true
+                "doc": "docs/modules/05-billing-invoices.md"
             },
             {
                 "number": 6,
                 "slug": "payments",
                 "title": "Payments",
-                "doc": "docs/modules/06-payments.md",
-                "gap_analysed": true
+                "doc": "docs/modules/06-payments.md"
             },
             {
                 "number": 7,
                 "slug": "credit-notes",
                 "title": "Credit Notes",
-                "doc": "docs/modules/07-credit-notes.md",
-                "gap_analysed": true
+                "doc": "docs/modules/07-credit-notes.md"
             },
             {
                 "number": 8,
                 "slug": "cam",
                 "title": "Cam",
-                "doc": "docs/modules/08-cam.md",
-                "gap_analysed": true
+                "doc": "docs/modules/08-cam.md"
             },
             {
                 "number": 9,
                 "slug": "tenant-sales-percentage-rent",
                 "title": "Tenant Sales Percentage Rent",
-                "doc": "docs/modules/09-tenant-sales-percentage-rent.md",
-                "gap_analysed": true
+                "doc": "docs/modules/09-tenant-sales-percentage-rent.md"
             },
             {
                 "number": 10,
                 "slug": "utility-meters",
                 "title": "Utility Meters",
-                "doc": "docs/modules/10-utility-meters.md",
-                "gap_analysed": true
+                "doc": "docs/modules/10-utility-meters.md"
             },
             {
                 "number": 11,
                 "slug": "tenant-requests",
                 "title": "Tenant Requests",
-                "doc": "docs/modules/11-tenant-requests.md",
-                "gap_analysed": true
+                "doc": "docs/modules/11-tenant-requests.md"
             },
             {
                 "number": 12,
                 "slug": "vendors",
                 "title": "Vendors",
-                "doc": "docs/modules/12-vendors.md",
-                "gap_analysed": true
+                "doc": "docs/modules/12-vendors.md"
             },
             {
                 "number": 13,
                 "slug": "marketing",
                 "title": "Marketing",
-                "doc": "docs/modules/13-marketing.md",
-                "gap_analysed": true
+                "doc": "docs/modules/13-marketing.md"
             },
             {
                 "number": 14,
                 "slug": "departments",
                 "title": "Departments",
-                "doc": "docs/modules/14-departments.md",
-                "gap_analysed": true
+                "doc": "docs/modules/14-departments.md"
             },
             {
                 "number": 15,
                 "slug": "owner-requests-and-model",
                 "title": "Owner Requests And Model",
-                "doc": "docs/modules/15-owner-requests-and-model.md",
-                "gap_analysed": true
+                "doc": "docs/modules/15-owner-requests-and-model.md"
             },
             {
                 "number": 16,
                 "slug": "eta-einvoicing",
                 "title": "Eta Einvoicing",
-                "doc": "docs/modules/16-eta-einvoicing.md",
-                "gap_analysed": true
+                "doc": "docs/modules/16-eta-einvoicing.md"
             },
             {
                 "number": 17,
                 "slug": "reports",
                 "title": "Reports",
-                "doc": "docs/modules/17-reports.md",
-                "gap_analysed": true
+                "doc": "docs/modules/17-reports.md"
             },
             {
                 "number": 18,
                 "slug": "rbac-scoping",
                 "title": "Rbac Scoping",
-                "doc": "docs/modules/18-rbac-scoping.md",
-                "gap_analysed": true
+                "doc": "docs/modules/18-rbac-scoping.md"
             },
             {
                 "number": 19,
                 "slug": "notifications-scans",
                 "title": "Notifications Scans",
-                "doc": "docs/modules/19-notifications-scans.md",
-                "gap_analysed": true
+                "doc": "docs/modules/19-notifications-scans.md"
             },
             {
                 "number": 20,
                 "slug": "mobile-api",
                 "title": "Mobile Api",
-                "doc": "docs/modules/20-mobile-api.md",
-                "gap_analysed": true
+                "doc": "docs/modules/20-mobile-api.md"
             },
             {
                 "number": 21,
                 "slug": "general-ledger",
                 "title": "General Ledger",
-                "doc": "docs/modules/21-general-ledger.md",
-                "gap_analysed": true
+                "doc": "docs/modules/21-general-ledger.md"
             },
             {
                 "number": 22,
                 "slug": "inventory",
                 "title": "Inventory",
-                "doc": "docs/modules/22-inventory.md",
-                "gap_analysed": true
+                "doc": "docs/modules/22-inventory.md"
             },
             {
                 "number": 23,
                 "slug": "fixed-assets",
                 "title": "Fixed Assets",
-                "doc": "docs/modules/23-fixed-assets.md",
-                "gap_analysed": true
+                "doc": "docs/modules/23-fixed-assets.md"
             },
             {
                 "number": 24,
                 "slug": "hr-employees",
                 "title": "Hr Employees",
-                "doc": "docs/modules/24-hr-employees.md",
-                "gap_analysed": true
+                "doc": "docs/modules/24-hr-employees.md"
             },
             {
                 "number": 25,
                 "slug": "treasury-custody",
                 "title": "Treasury Custody",
-                "doc": "docs/modules/25-treasury-custody.md",
-                "gap_analysed": true
+                "doc": "docs/modules/25-treasury-custody.md"
             },
             {
                 "number": 26,
                 "slug": "facility",
                 "title": "Facility",
-                "doc": "docs/modules/26-facility.md",
-                "gap_analysed": true
+                "doc": "docs/modules/26-facility.md"
             },
             {
                 "number": 27,
                 "slug": "announcements",
                 "title": "Announcements",
-                "doc": "docs/modules/27-announcements.md",
-                "gap_analysed": true
+                "doc": "docs/modules/27-announcements.md"
             },
             {
                 "number": 28,
                 "slug": "approvals",
                 "title": "Approvals",
-                "doc": "docs/modules/28-approvals.md",
-                "gap_analysed": true
+                "doc": "docs/modules/28-approvals.md"
             },
             {
                 "number": 29,
                 "slug": "procurement",
                 "title": "Procurement",
-                "doc": "docs/modules/29-procurement.md",
-                "gap_analysed": true
+                "doc": "docs/modules/29-procurement.md"
             },
             {
                 "number": 30,
                 "slug": "areas",
                 "title": "Areas",
-                "doc": "docs/modules/30-areas.md",
-                "gap_analysed": true
+                "doc": "docs/modules/30-areas.md"
             },
             {
                 "number": 31,
                 "slug": "violations",
                 "title": "Violations",
-                "doc": "docs/modules/31-violations.md",
-                "gap_analysed": true
+                "doc": "docs/modules/31-violations.md"
             },
             {
                 "number": 32,
                 "slug": "owner-statements",
                 "title": "Owner Statements",
-                "doc": "docs/modules/32-owner-statements.md",
-                "gap_analysed": true
+                "doc": "docs/modules/32-owner-statements.md"
             },
             {
                 "number": 33,
                 "slug": "post-dated-cheques",
                 "title": "Post Dated Cheques",
-                "doc": "docs/modules/33-post-dated-cheques.md",
-                "gap_analysed": true
+                "doc": "docs/modules/33-post-dated-cheques.md"
             },
             {
                 "number": 34,
                 "slug": "search",
                 "title": "Search",
-                "doc": "docs/modules/34-search.md",
-                "gap_analysed": true
+                "doc": "docs/modules/34-search.md"
             },
             {
                 "number": 35,
                 "slug": "rentable-items",
                 "title": "Rentable Items",
-                "doc": "docs/modules/35-rentable-items.md",
-                "gap_analysed": true
+                "doc": "docs/modules/35-rentable-items.md"
             },
             {
                 "number": 36,
                 "slug": "marketing-posts",
                 "title": "Marketing Posts",
-                "doc": "docs/modules/36-marketing-posts.md",
-                "gap_analysed": true
+                "doc": "docs/modules/36-marketing-posts.md"
             },
             {
                 "number": 37,
                 "slug": "unit-owners",
                 "title": "Unit Owners",
-                "doc": "docs/modules/37-unit-owners.md",
-                "gap_analysed": true
+                "doc": "docs/modules/37-unit-owners.md"
             }
         ]
     },

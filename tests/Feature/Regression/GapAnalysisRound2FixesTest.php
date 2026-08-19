@@ -24,7 +24,7 @@ use Database\Seeders\RolesPermissionsSeeder;
  * (2026-07-16), the first audit those modules ever received.
  *
  * Each was reported by an agent and then re-verified by hand against the code before being
- * fixed, per docs/gap-analysis/000-plan.md's round-2 methodology: an absence claim is a
+ * fixed, per docs/gap-analysis/README.md's round-2 methodology: an absence claim is a
  * hypothesis, a failure scenario is a finding.
  */
 beforeEach(function () {

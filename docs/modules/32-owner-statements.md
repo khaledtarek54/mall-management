@@ -4,13 +4,13 @@
 legal owners (Jawad); this module produces the periodic **owner statement** (property income − expenses =
 net) and the **payout** (disbursement) that pays the owner what they are owed, both first-class,
 GL-tied-out money events. It was the single highest-value gap in the property/facility competitive analysis
-([docs/gap-analysis/competitors/](../gap-analysis/competitors/README.md)).
+([docs/gap-analysis/competitors/](../gap-analysis/README.md)).
 
 > **v1 scope (operator decisions).** (1) **No management fee** — the operator's cut is deferred, so the
 > whole property net goes to the owner (a future slice adds the fee). (2) **One owner per mall, gets 100%** —
 > the ownership-percentage co-owner split + tenure day-weighting are built as infrastructure but **not
 > applied**; the sole owner receives the full net. See §3 and the plan
-> [docs/plans/04-owner-statements-disbursements.md](../plans/04-owner-statements-disbursements.md).
+> [docs/plans/04-owner-statements-disbursements.md](32-owner-statements.md).
 
 
 > **⚠️ Fixed 2026-08-11 — there was no way to record who owns a property.**

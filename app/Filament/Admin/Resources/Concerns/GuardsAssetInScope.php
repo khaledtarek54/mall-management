@@ -30,7 +30,7 @@ use App\Support\TenantScope;
  *     }
  *
  * The write-guard half of the property-isolation invariant. The read half is
- * `ScopesViaProperty` / `BypassesScopingOnAll`. See docs/PROPERTY-ISOLATION-PLAN.md.
+ * `ScopesViaProperty` / `BypassesScopingOnAll`. See docs/PROPERTY-ISOLATION.md.
  */
 trait GuardsAssetInScope
 {

@@ -12,7 +12,7 @@ use PhpParser\ParserFactory;
  * **Why this is a gate and not a lint.** Eloquent drops an unknown key on a non-fillable model and
  * throws on none of them, so a fixture can claim to set up a state and quietly set up a different
  * one. The test then passes — over a state the product could never produce. That is the **F-100
- * shape** [000-plan.md](docs/gap-analysis/000-plan.md) records: *ask of every fixture, could the
+ * shape** [000-plan.md](docs/gap-analysis/README.md) records: *ask of every fixture, could the
  * product actually produce this?* It has cost real bugs twice —
  *
  *  - `GrniClearingTest` set `vendor_bills.purchase_request_id`, a column no UI, service, seeder or
@@ -140,6 +140,6 @@ it('writes only real columns in test fixtures', function () {
     //
     // To switch on: clear the remaining ghosts (mechanical — rename to the real column, or delete a
     // key that was describing an intent the schema never had), then remove this skip. Scoped in
-    // docs/plans/10-round-3-followups.md §4.1.
+    // docs/gap-analysis/README.md
     'Correct and mutation-proven; off until the 58 pre-existing ghosts are cleared — see §4.1 of plan 10.'
 );

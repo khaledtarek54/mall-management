@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Schema;
  * rebuilds the table and silently drops CHECK constraints. `CreditNote::creating` derives-or-refuses
  * instead.
  *
- * @see docs/plans/08-unit-owners.md §5.2b
+ * @see docs/modules/37-unit-owners.md
  */
 return new class extends Migration
 {

@@ -1,7 +1,7 @@
 # 01 — How Yardi Voyager Commercial models a lease
 
 > Everything in this file describes **Yardi**, not Atriom. The Atriom comparison lives in
-> [06-atriom-gap-analysis.md](06-atriom-gap-analysis.md); worked examples live in
+> [06-atriom-gap-analysis.md](../../gap-analysis/README.md); worked examples live in
 > [04-scenarios.md](04-scenarios.md). Confidence markings are explained in the
 > [README](README.md#sourcing--confidence): unmarked = stable product knowledge, *(cited)* =
 > verified this session, ***(verify)*** = version/edition-sensitive.

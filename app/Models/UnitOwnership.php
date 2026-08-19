@@ -44,7 +44,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * than branching on it in the service. Every default is today's behaviour, so an unconfigured
  * ownership is inert rather than wrong.
  *
- * @see docs/plans/08-unit-owners.md
+ * @see docs/modules/37-unit-owners.md
  */
 #[DeletableWhenUnused(blockedBy: ['invoices', 'charges'], instead: 'transfer the ownership — that is the documented end of a holding, and it keeps the assessment history and the arrears at handover')]
 // A unit sale belongs to the mall the unit stands in. `asset_id` is carried directly rather

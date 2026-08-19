@@ -44,11 +44,9 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 **Scheduled automation** — commands: `billing:run-assessments` · `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `reports:deliver` · `marketing:expire-posts` · `announcements:send-scheduled` · `vendors:scan-document-expiry` · `tenants:scan-document-expiry` · `vendors:scan-contract-renewals` · `activitylog:clean` · `requests:auto-close` · `facility:generate-preventive` · `requests:scan-sla-breaches` · `facility:scan-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:expire` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `billing:reconcile --deep` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`
 ; jobs: `RunMonthlyBilling` · `ApplyLateFees` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).
 
-### Gap-analysis coverage
+### Module documentation
 
-**37 of 37** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
-
-**Every module has been audited at least once.**
+**37** modules carry a doc in [`docs/modules/`](modules/). Every one of them has been gap-analysed at least once; the standing verdict per module lives in [`docs/gap-analysis/`](gap-analysis/README.md), which is one living document rather than a file per module.
 
 <!-- census:end -->
 
@@ -187,10 +185,10 @@ Each module has a doc in [docs/modules/](modules/) with *Business rules*,
 | 27 | Announcements | `27-announcements.md` | `Services/SendAnnouncementAction.php` |
 | 28 | Approvals (amount ladder) | `28-approvals.md` | `Support/ApprovalPolicy.php` |
 
-**Modules 01–20 vs 21–28 are not equally examined.** The first twenty have a module doc
-*and* a per-feature gap analysis; 21–28 were built later and have docs only (see the
-gap-analysis coverage in the census above). That is the largest known blind spot in the
-project, and every module that posts to the general ledger sits inside it.
+**Every module has been gap-analysed** — the blind spot this paragraph used to describe (21–28
+built after round 1, carrying docs but no audit, with every GL-posting module inside it) was closed
+by round 3 on 2026-08-18. The standing verdict per module, and everything still open, is
+[gap-analysis/README.md](gap-analysis/README.md).
 
 ---
 
@@ -212,7 +210,7 @@ project, and every module that posts to the general ledger sits inside it.
 - **Keep this map honest:** `php artisan atriom:dump-system-census` regenerates the census
   block. Run it after adding a module — and never hand-type a count into this file.
 - **Static analysis:** `composer analyse` (PHPStan/Larastan). **API spec:** `composer api-spec` → [api/openapi.json](api/openapi.json).
-- **QA & go-live:** the manual-QA layer + release sign-off gate in [docs/qa/](qa/); readiness in [the runbook](PRODUCTION-RUNBOOK.md).
+- **QA & go-live:** the manual-QA layer + release sign-off gate in [docs/qa/](qa/); readiness in [the runbook](operations/PRODUCTION-RUNBOOK.md).
 - **Reset demo data:** `php artisan migrate:fresh --seed`.
 
 ---

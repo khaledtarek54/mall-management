@@ -32,7 +32,7 @@
 
 > System for recording tenant payments against invoices, tracking AR balances, integrating with Paymob gateway, and managing late fees.
 >
-> **Plain-language companion:** [docs/business-model/06-payments.md](../business-model/06-payments.md) — how payments work with worked scenarios.
+> **Plain-language companion:** the visual handbook at `/admin/handbook` — how payments work, with worked scenarios, bilingual.
 
 ## 1. Purpose & business context
 
@@ -540,7 +540,7 @@ Three conditions now, all required, asked in **one** place because the predicate
 
 ### Online payment link & channels (2026-06-27)
 
-Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pay/{token}` page), `mobile_api` (the app), `portal` (tenant portal Pay Now), `admin`. Paymob **session reuse is scoped per channel**, and `CallbackController::returned()` routes the browser by channel — `payment_link` → the public status page `/pay/{token}/status`, everything else → the portal. The S2S capture + tenant notification are shared. The public link is surfaced via the admin/portal **"Payment link"** action and the mobile `invoice.payment_link_url`. **Apple Pay** is scaffolded (a separate `PAYMOB_APPLE_PAY_INTEGRATION_ID` + the `/.well-known/apple-developer-merchantid-domain-association` route), off until configured. Full runbook: **[docs/PAYMENT-LINK-APPLEPAY.md](../PAYMENT-LINK-APPLEPAY.md)**. Tests: `tests/Feature/PaymentLink/PaymentLinkFlowTest.php`.
+Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pay/{token}` page), `mobile_api` (the app), `portal` (tenant portal Pay Now), `admin`. Paymob **session reuse is scoped per channel**, and `CallbackController::returned()` routes the browser by channel — `payment_link` → the public status page `/pay/{token}/status`, everything else → the portal. The S2S capture + tenant notification are shared. The public link is surfaced via the admin/portal **"Payment link"** action and the mobile `invoice.payment_link_url`. **Apple Pay** is scaffolded (a separate `PAYMOB_APPLE_PAY_INTEGRATION_ID` + the `/.well-known/apple-developer-merchantid-domain-association` route), off until configured. Full runbook: **[docs/PAYMENT-LINK-APPLEPAY.md](../integrations/PAYMENT-LINK-APPLEPAY.md)**. Tests: `tests/Feature/PaymentLink/PaymentLinkFlowTest.php`.
 
 **Revoking a leaked link.** `invoices.payment_link_token` is a bearer credential: 48 random chars, no login, **no expiry**. Anyone holding the URL can read the tenant, the line items and the amounts — which is the point (it has to work from an email on a phone), but it means a link that is forwarded, lands in a shared inbox or is screenshotted stays live forever. The remedy is **rotation**, not expiry: `Invoice::rotatePaymentLinkToken()` mints a new token and every previously-issued URL 404s on all three public routes. Surfaced as the **"Regenerate payment link"** action on the invoice table and edit page, gated on `invoices.edit` in *both* `visible()` and `action()`, confirmation-required, and written to `ops.log` as `invoice.pay_link_rotated` (a client reporting "the link stopped working" is otherwise unanswerable).
 
@@ -567,11 +567,11 @@ Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pa
 
 ### Related Modules
 
-- **[Invoices & AR](./04-invoices.md)** — Invoice creation, ETA submission, monthly billing. Invoices are the payment target; recomputeTotals drives AR.
-- **[Credit Notes](./05-credit-notes.md)** — Credit notes apply to invoices via credit_applied_amount column; folded into recomputeTotals.
-- **[Leases](./03-leases.md)** — Leases generate invoices; Invoice.lease_id FKs to Lease.
+- **[Invoices & AR](05-billing-invoices.md)** — Invoice creation, ETA submission, monthly billing. Invoices are the payment target; recomputeTotals drives AR.
+- **[Credit Notes](07-credit-notes.md)** — Credit notes apply to invoices via credit_applied_amount column; folded into recomputeTotals.
+- **[Leases](04-leases.md)** — Leases generate invoices; Invoice.lease_id FKs to Lease.
 - **[Tenants](./02-tenants.md)** — Tenants are payment owners; Tenant.notifyPortal() fans notifications.
-- **[Properties & Units](./01-properties.md)** — Payment form is property-scoped; unit.asset_id filters TenantScope.
+- **[Properties & Units](01-properties-units.md)** — Payment form is property-scoped; unit.asset_id filters TenantScope.
 
 ---
 

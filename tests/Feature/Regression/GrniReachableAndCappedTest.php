@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * a supplier bill double-counted its cost — Inventory +500 AND Expense +500, GRNI stuck at −500
  * forever — while nine tests stayed green.
  *
- * **The lesson, now in `docs/gap-analysis/000-plan.md`:** `GrniClearingTest` dodged the SLA-penalty
+ * **The lesson, now in `docs/gap-analysis/README.md`:** `GrniClearingTest` dodged the SLA-penalty
  * trap perfectly — no `LedgerPoster::post()`, real services, a real sweep. It was still green over
  * dead code, because it faked the **input** the fix depended on rather than the posting. *Driving
  * the real service is necessary but not sufficient — the inputs must be reachable from the product

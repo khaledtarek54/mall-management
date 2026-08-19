@@ -13,7 +13,7 @@ use App\Settings\BillingSettings;
  * pre-push adversarial review found that extending the source payment's allocation re-derives its
  * (immutable, possibly closed-period) GL entry, which silently diverges AR from the GL. Applying a
  * credit correctly needs its own Dr Unearned / Cr AR entry dated at APPLICATION time (a new GL
- * source) — deferred; see docs/gap-analysis/PROPERTY-FACILITY-CLOSURE.md.
+ * source) — deferred; see docs/gap-analysis/README.md.
  */
 function overpaidTenant(float $amount = 15000, float $allocate = 10000, float $invoiceTotal = 10000): array
 {

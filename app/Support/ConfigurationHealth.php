@@ -19,7 +19,7 @@ use Carbon\CarbonImmutable;
  * because nobody classified the charge codes, and issues tax invoices with no registration number
  * on them, and neither shows up as an outage.
  *
- * [docs/GO-LIVE.md](../../docs/GO-LIVE.md) is that list, verified by hand against the code. Hand
+ * [docs/operations/GO-LIVE.md](../../docs/operations/GO-LIVE.md) is that list, verified by hand against the code. Hand
  * verification does not survive: it was accurate on the day it was written and every item on it can
  * fall out of date silently. These checks read the live database.
  *

@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * So the link is the whole change. What follows from it is read from the ownership.
  *
- * @see docs/plans/08-unit-owners.md §5.6 (corrected)
+ * @see docs/modules/37-unit-owners.md (corrected)
  */
 return new class extends Migration
 {

@@ -53,7 +53,7 @@ class TaxSettings extends Settings
      * **Defaults to empty, deliberately.** A placeholder TRN on a tax invoice is worse than a
      * missing one: it looks valid, gets filed by the tenant, and fails on audit. The PDF prints the
      * line only when this is set, so an unconfigured install is silently incomplete rather than
-     * confidently wrong. It is a go-live gate item (docs/GO-LIVE.md).
+     * confidently wrong. It is a go-live gate item (docs/operations/GO-LIVE.md).
      *
      * NOTE — the same number also lives on `EtaSettings::issuer_tax_registration_number`, which
      * predates this and is the e-invoicing submission's copy. **One number, two homes is a defect**

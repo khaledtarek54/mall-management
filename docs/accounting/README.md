@@ -12,7 +12,7 @@
 > to ask him.
 >
 > **Where do we stand vs. a full accounting system?** See
-> [GAP-ANALYSIS.md](GAP-ANALYSIS.md) — capability matrix, the chart-of-accounts
+> [the gap analysis](../gap-analysis/README.md) — where the books stand versus Yardi and Odoo, the chart-of-accounts
 > code-entry hardening, the prioritized backlog, and the stability verdict.
 
 ---

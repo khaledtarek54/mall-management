@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 /**
  * Seeds the five core ERP departments as operator-wide (global) org units.
  * asset_id is null = applies across every property. See
- * docs/FUNCTIONAL-REQUIREMENTS.md §5 (DEPT-1). Idempotent — keyed on slug.
+ * docs/requirements/FUNCTIONAL-REQUIREMENTS.md §5 (DEPT-1). Idempotent — keyed on slug.
  */
 class DepartmentSeeder extends Seeder
 {

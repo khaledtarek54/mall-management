@@ -173,7 +173,7 @@ class InstallCommand extends Command
 
         $this->components->warn(
             'The first hardware failure would lose every invoice, payment and ledger entry. '
-            .'Fix before real tenant data is entered — see docs/GO-LIVE.md §1.1.'
+            .'Fix before real tenant data is entered — see docs/operations/GO-LIVE.md §1.1.'
         );
     }
 

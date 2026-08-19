@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * The rent is a SCHEDULE, not a mutable amount (phase 1, stories LS-01/02/03 —
- * docs/benchmarks/yardi/07-phase-plan.md).
+ * docs/gap-analysis/README.md).
  *
  * A rent change now closes the row in force and opens the next one, so:
  *   - what the rent WAS stays readable and re-billable,
