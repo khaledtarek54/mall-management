@@ -146,9 +146,8 @@ a pivot column, a migration and a backfill.
 | O2 | **Vendor self-service portal** — no accept/quote/update/evidence loop; dispatch is an internal column change. Needs its **own** permission set, not `imports.execute` | 12 · 26 | ServiceChannel (the product *is* this loop) | 🟡 | L |
 | O3 | **Field-technician mobile app** — `/api/v1` is tenant-facing; engineers close work orders from a desktop screen | 20 · 26 | Facilio · MaintainX · Limble, all mobile-first | 🟡 | L |
 | O4 | **Fit-out permit: conditions on the grant** — the decision ships (approve/reject with a mandatory reason, recorded); what is missing is *what was granted* — permitted hours, a security deposit, contractor details, and an audit trail of the permit itself rather than of the request carrying it | 11 | ServiceChannel compliance | 🟡 | M |
-| O6 | **In-house labour cost on a work order** — parts and external quotes are costed and posted; internal hours are not captured at all, so the true maintenance cost is understated on every in-house job | 26 | every CMMS | 🟡 | M |
 | O7 | **Capex bid / quote comparison** — one vendor per request, no tender, no "three quotes compared" on tier-3 spend. A governance gap owners ask about | 29 | Maximo · Odoo Enterprise | 🟡 | M |
-| O13 | **Failure codes / downtime history → reliability analytics** — only `is_active` today. Build the primitives before the dashboard | 26 · 23 | Maximo Health · Fiix Foresight | 🟡 | L |
+| F1–F8 | **The facility & operations close-out** — the work order as a cost object, trade as master data, PM compliance, tenant confirmation, failure codes, NTE/proposals, routes, job-plan estimates. Ranked, with reasons, in [§4](#4-facility-vendors-assets--vs-the-fm-standard); benchmarked in [docs/benchmarks/fm/](../benchmarks/fm/) | 26 · 11 · 12 · 22 · 23 · 29 · 30 | Maximo · ServiceChannel | 🟠 | L |
 | O16 | **Mobile / barcode parts issue + guided cycle counts** — issue, receive and count are web forms; counts are ad-hoc adjustments with no guided workflow or freeze | 22 | every CMMS | 🟡 | M |
 | O18 | **Repeat-violation ladder** — fines are priced by hand; the register makes the pattern visible and nothing reads it | 31 | none | ⚪ | S |
 
@@ -305,10 +304,18 @@ wrong.
 
 ---
 
-## 4. Facility, vendors, assets — vs the FM specialists
+## 4. Facility, vendors, assets — vs the FM standard
 
-> Benchmarked against Facilio · ServiceChannel · IBM Maximo · Fiix · MaintainX/Limble.
-> The Atriom column is re-derived from code (2026-08-19), **not** carried from the July 2026
+> **There is now a yardstick.** Until 2026-08-20 this section compared Atriom to "the FM
+> specialists" in prose with no document behind it, which made every claim here something to be
+> believed rather than checked — exactly the condition `docs/benchmarks/yardi/` was created to end
+> for leasing. The standard is now written down in **[docs/benchmarks/fm/](../benchmarks/fm/)**:
+> **IBM Maximo** for the work-and-asset core (where the money lives) and **ServiceChannel** for the
+> contractor and tenant-facing loop (which is Atriom's actual business shape), with Facilio and
+> Corrigo named where either leads. Eight end-to-end scenarios with numbers are in
+> [03-scenarios.md](../benchmarks/fm/03-scenarios.md).
+>
+> The Atriom column is re-derived from code (2026-08-20), **not** carried from the July 2026
 > competitor deep-dives, whose Atriom columns had gone stale on at least six rows.
 
 ### Ahead of the benchmark
@@ -334,16 +341,71 @@ wrong.
 | Contractor permit to work | `work_permits` + `facility:scan-open-permits` (hourly). **An extension, not a Yardi construct** — Voyager models no safety permit; this follows the FM/CMMS standard. Bounded to the hour, and the finding it exists to raise is an issued permit past its window with **no closure**, which no screen showing what exists can see |
 | Fit-out permit decision | Approve/reject recorded with `decision`, `decision_reason`, `decided_at`, and a mandatory rejection reason — the *conditions* half is O4 |
 
-### Behind
+### Behind — and it is two ideas, not a list of features
 
-Everything in §2 numbered O2, O3, O4, O6, O7, O8, O11, O12, O13, O16.
+Reading the standard rather than a feature list changes the shape of this section. **Six of the
+eight benchmark scenarios fail on one of two structural absences**, and most of what used to be
+listed here as separate gaps is downstream of them.
 
-**The pattern worth naming:** these are not wrong-arithmetic gaps. They are **capabilities with no
-surface** — and the round-3 sweep found four services fully built, fully tested and impossible to
-start, with the *tests* being what hid them (a service with a green test file looks maintained, and
-`grep` says it is referenced). Two conformance gates now fail the build on that class:
-`ServiceReachabilityConformanceTest` (can a person or a schedule start it?) and
-`BillableAgreementIsConfigurableConformanceTest` (can the data it needs be created?).
+#### The first: **a work order is not a cost object** *(Maximo §4)*
+
+`facility_work_orders` carries no cost at all. `job_value` exists solely to feed the SLA-penalty
+percentage basis, and `FacilityWorkOrder` is **not** in `LedgerPoster::JOURNALIZERS`. Parts post
+through `StockMovement`, contractor work through `VendorBill`, in-house wages through `Payroll` —
+every figure is correctly in the ledger, and **none of them can be attributed to the job, the
+machine or the shop.**
+
+Note what this is *not*: it is not a posting gap. The money is posted. The gap is that the
+**management dimension** — which job, which asset, which trade consumed it — was never recorded,
+so the ledger can say what the mall spent and cannot say what it spent it on.
+
+The most consequential single consequence: **in-house labour is captured nowhere**, so internal
+work costs zero on every report, insourcing always looks free and every outsourcing decision is
+made on a number that is wrong by the whole wage bill.
+
+#### The second: **trade is not master data** *(ServiceChannel §2)*
+
+The work order's `category` — HVAC, plumbing, electrical — is a Select populated from
+`__('admin.facility.categories')`, **a translation array**. It is not in `ValueSets`, so the column
+is unenforced; it cannot be extended without a deploy in two languages; and **`vendors` has no
+trade at all** (only `type`: contractor / supplier / service_provider / consultant / other, verified
+against the live schema).
+
+Three capabilities are impossible as a direct result, none of which presents as an error:
+dispatch eligibility (the vendor picker offers the stationery supplier for an HVAC fault), spend by
+trade (the first question an owner asks), and a scorecard that compares like with like.
+
+#### What remains after those two
+
+| # | Gap | Standard | Sev |
+|---|---|---|---|
+| F5 | **A plan targets one asset, not a route** — 42 extinguishers means 42 plans, or one checklist whose failures cannot be attributed to a device | Maximo §6 (routes) | 🟡 |
+| F6 | **The doer closes the job** — no tenant confirmation or reopen, though the portal and `tenant_request_id` linkage already exist | ServiceChannel §4/§6 | 🟠 |
+| F7 | **PM compliance is unmeasured** — `scheduled_for` and `completed_at` are both stored; nothing computes whether the preventive programme is actually being done | Maximo §6 | 🟡 |
+| F8 | **Job plans carry no estimates** — `ServicePlan.checklist` is a method with no planned labour, material or duration, so there is no planned side to compare actuals against | Maximo §3 | 🟡 |
+| O2 | **Vendor self-service portal** — dispatch is an internal column change; no accept / quote / update / evidence loop | ServiceChannel (the product *is* this loop) | 🟡 |
+| O3 | **Field-technician mobile app** — `/api/v1` is tenant-facing; engineers close work orders from a desktop | Facilio · MaintainX | 🟡 |
+| O4 | **Fit-out permit: conditions on the grant** | ServiceChannel compliance | 🟡 |
+| O16 | **Barcode parts issue + guided cycle counts** | every CMMS | 🟡 |
+
+**The pattern worth keeping from the previous round:** these are not wrong-arithmetic gaps. They are
+**capabilities with no surface**, and the round-3 sweep found four services fully built, fully
+tested and impossible to start, with the *tests* being what hid them. Two conformance gates now
+fail the build on that class: `ServiceReachabilityConformanceTest` (can a person or a schedule
+start it?) and `BillableAgreementIsConfigurableConformanceTest` (can the data it needs be
+created?).
+
+### The close-out order, and why it is this order
+
+| Step | What | Why here |
+|---|---|---|
+| **1** | **Trade as master data** — a `trades` register; work orders, plans and vendors all point at it; vendor↔trade decides dispatch eligibility | Must precede the cost object: in the standard a labour rate belongs to a *craft*, and building labour first would invent a second rate concept and then have to refactor it |
+| **2** | **The work order as a cost object** — planned and actual in four buckets (labour · material · service · tool), labour captured as reported hours × rate, material from the existing part draws, service from the existing vendor bills, rolled up to the asset and the location | The spine. Six of eight scenarios and every "what did this cost" question |
+| **3** | **PM compliance** | Cheapest real gap in the module — both dates are already stored |
+| **4** | **Tenant confirmation of completion** | A control failure, and the portal + linkage already exist |
+| **5** | **Failure vocabulary + repeat-visit detection** | The reliability primitives. Worth nothing on the day they ship and everything two years later, which is the argument for shipping them early |
+| **6** | **NTE + the proposal loop** | The *before-the-money* control. Atriom's *after* control (three-way match) is arguably stronger than the benchmark's; the before control does not exist |
+| **7** | **Routes**, then **job-plan estimates** | Both need the cost object to be worth having |
 
 ---
 
