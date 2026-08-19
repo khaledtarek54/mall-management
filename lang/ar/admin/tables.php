@@ -186,7 +186,7 @@ return [
             'actual' => 'المصروفات الفعلية',
             'estimated' => 'المُحصَّل التقديري',
             'sourced_at' => 'تاريخ الاستخراج',
-        'variance' => 'الفرق',
+            'variance' => 'الفرق',
             'reconciled_at' => 'تاريخ التسوية',
         ],
         'meter' => [

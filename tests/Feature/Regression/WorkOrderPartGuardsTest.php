@@ -35,7 +35,7 @@ beforeEach(function () {
 
     $this->order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
-        'description' => 'd', 'title' => 't', 'category' => 'plumbing', 'scheduled_for' => '2026-07-01',
+        'description' => 'd', 'title' => 't', 'trade_id' => tradeId('plumbing'), 'scheduled_for' => '2026-07-01',
     ]);
 });
 

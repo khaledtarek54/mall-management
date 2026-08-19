@@ -15,7 +15,7 @@ beforeEach(function () {
     $this->asset = makeAsset(['code' => 'PEQ']);
     $this->chiller = Equipment::create([
         'asset_id' => $this->asset->id, 'code' => 'CH-01',
-        'name_en' => 'Chiller', 'name_ar' => 'مبرد', 'category' => 'hvac',
+        'name_en' => 'Chiller', 'name_ar' => 'مبرد', 'trade_id' => tradeId('hvac'),
     ]);
 });
 
@@ -32,7 +32,7 @@ function planFor(array $attrs = []): ServicePlan
     return ServicePlan::create(array_merge([
         'asset_id' => test()->asset->id,
         'title' => 'Chiller service',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'frequency_unit' => 'months',
         'frequency_value' => 1,
         'next_due_date' => '2026-07-01',

@@ -186,7 +186,7 @@ return [
             'actual' => 'Actual Expense',
             'estimated' => 'Estimated Collected',
             'sourced_at' => 'Sourced at',
-        'variance' => 'Variance',
+            'variance' => 'Variance',
             'reconciled_at' => 'Reconciled',
         ],
         'meter' => [

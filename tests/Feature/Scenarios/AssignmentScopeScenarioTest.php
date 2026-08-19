@@ -31,7 +31,7 @@ function assignableWorkOrder(array $attrs = []): FacilityWorkOrder
 {
     return FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
-        'description' => 'd', 'title' => 'Fix it', 'category' => 'plumbing', 'scheduled_for' => '2026-07-01',
+        'description' => 'd', 'title' => 'Fix it', 'trade_id' => tradeId('plumbing'), 'scheduled_for' => '2026-07-01',
     ], $attrs));
 }
 
@@ -111,7 +111,7 @@ it('still hides a job in a property the technician cannot see', function () {
     $otherAsset = makeAsset(['code' => 'OTH']);
     $foreign = FacilityWorkOrder::create([
         'asset_id' => $otherAsset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
-        'description' => 'd', 'title' => 'Other mall', 'category' => 'plumbing',
+        'description' => 'd', 'title' => 'Other mall', 'trade_id' => tradeId('plumbing'),
         'scheduled_for' => '2026-07-01', 'assigned_to_user_id' => $this->tech->id, // assigned to them!
     ]);
     $mine = assignableWorkOrder(['assigned_to_user_id' => $this->tech->id]);

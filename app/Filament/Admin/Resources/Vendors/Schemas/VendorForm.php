@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Vendors\Schemas;
 
 use App\Models\TaxCode;
+use App\Models\Trade;
 use App\Support\WithholdingTax;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -39,6 +40,20 @@ class VendorForm
                         ->required()
                         ->default('service_provider')
                         ->native(false),
+                    // **What this vendor actually does.** `type` says what KIND of counterparty
+                    // they are (contractor / supplier / …); it has never said what work they can
+                    // take, which is why the picker on an HVAC fault used to offer the stationery
+                    // supplier. Multiple, because a facilities company does HVAC and electrical
+                    // and registering them twice is not an answer.
+                    Select::make('trades')
+                        ->label(__('admin.facility.fields.trades'))
+                        ->relationship('trades')
+                        ->options(fn () => Trade::options())
+                        ->multiple()
+                        ->preload()
+                        ->native(false)
+                        ->helperText(__('admin.facility.help.vendor_trades')),
+
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.vendor'))

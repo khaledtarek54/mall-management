@@ -276,6 +276,25 @@ return [
         ],
     ],
 
+    'trades' => [
+        'purpose' => 'The kinds of work the mall needs done, and which contractor is eligible for each. The trade routes a job, suggests who to dispatch, and is the axis every maintenance-spend report groups by.',
+        'steps' => [
+            'Add a trade with a code and its name in both languages.',
+            'Set the standard hourly rate — what an hour of this trade costs you.',
+            'On each vendor, tick the trades they actually do.',
+            'Deactivate a trade you no longer use; it keeps its history.',
+        ],
+        'affects' => [
+            'Work orders, service plans and equipment all classify by trade — changing a name here renames it on every one of them, in both languages.',
+            'The vendor picker on a work order opens on the contractors who do that trade. It still lets you pick another: eligibility is a suggestion, compliance is the gate.',
+            'The hourly rate is what turns reported hours into job cost. A trade with no rate produces no labour cost — visibly missing rather than quietly wrong.',
+        ],
+        'rules' => [
+            'The code is the stable key that reports and imports match on. Change it before it is used, not after.',
+            'A trade that has routed work cannot be deleted — deactivate it. Deleting would strand the dimension every past spend report grouped by.',
+            'An active trade with no eligible vendors is worth noticing: work of that kind has nobody to dispatch to.',
+        ],
+    ],
     'work_permits' => [
         'purpose' => 'Written authorisation for hazardous contractor work — hot work, isolations, height, confined spaces — and the record that it was closed out safely.',
         'steps' => [

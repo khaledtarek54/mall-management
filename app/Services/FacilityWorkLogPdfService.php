@@ -13,7 +13,7 @@ use Mpdf\Output\Destination;
 /**
  * The facility work-log report (module 26, Phase 2 / discovery RPT-1) — a bilingual PDF
  * of preventive-maintenance work orders for a property over a date range, with a summary
- * (by status + category) and the detail list. Scoped to the caller's visible properties.
+ * (by status + trade) and the detail list. Scoped to the caller's visible properties.
  */
 class FacilityWorkLogPdfService
 {
@@ -31,7 +31,7 @@ class FacilityWorkLogPdfService
         $toDate = CarbonImmutable::parse($to)->endOfDay();
 
         return FacilityWorkOrder::query()
-            ->with(['asset', 'unit'])
+            ->with(['asset', 'unit', 'trade'])
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->whereBetween('scheduled_for', [$fromDate->toDateString(), $toDate->toDateString()])
             ->orderBy('scheduled_for')
@@ -48,7 +48,9 @@ class FacilityWorkLogPdfService
         $summary = [
             'total' => $orders->count(),
             'by_status' => $orders->countBy('status'),
-            'by_category' => $orders->countBy('category'),
+            // Grouped by the trade RECORD's label rather than by a raw code, so the summary reads
+            // in the reader's language and a renamed trade renames itself here too.
+            'by_category' => $orders->countBy(fn ($o): string => $o->trade?->label() ?? '—'),
             // The log covers ALL facility work — corrective jobs are work orders too, and a
             // work log that omitted the faults would be the less useful half. But the reader
             // has to be able to tell them apart, so the split is stated rather than implied.

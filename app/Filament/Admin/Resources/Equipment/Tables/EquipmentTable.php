@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Equipment\Tables;
 
 use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Models\Equipment;
+use App\Models\Trade;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -20,7 +21,7 @@ class EquipmentTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'parent'])->withCount('children'))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'parent', 'trade'])->withCount('children'))
             ->columns([
                 TextColumn::make('code')
                     ->label(__('admin.facility.fields.code'))
@@ -39,10 +40,10 @@ class EquipmentTable
                 TextColumn::make('asset.name')
                     ->label(__('admin.facility.fields.property'))
                     ->badge()->color('gray')->toggleable(),
-                TextColumn::make('category')
-                    ->label(__('admin.facility.fields.category'))
+                TextColumn::make('trade')
+                    ->label(__('admin.facility.fields.trade'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.facility.categories.{$state}") : '—')
+                    ->state(fn (Equipment $record): string => $record->trade?->label() ?? '—')
                     ->toggleable(),
                 TextColumn::make('criticality')
                     ->label(__('admin.facility.fields.criticality'))
@@ -78,11 +79,9 @@ class EquipmentTable
                     ->options(fn () => collect(Equipment::CRITICALITIES)
                         ->mapWithKeys(fn (string $c) => [$c => __("admin.facility.criticalities.{$c}")])
                         ->all()),
-                SelectFilter::make('category')
-                    ->label(__('admin.facility.fields.category'))
-                    ->options(fn () => collect(['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'elevator', 'fire-safety', 'generator', 'other'])
-                        ->mapWithKeys(fn (string $c) => [$c => __("admin.facility.categories.{$c}")])
-                        ->all()),
+                SelectFilter::make('trade_id')
+                    ->label(__('admin.facility.fields.trade'))
+                    ->options(fn () => Trade::options()),
                 TernaryFilter::make('is_active')
                     ->label(__('admin.facility.fields.active')),
                 Filter::make('roots')

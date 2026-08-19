@@ -167,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'standard_hourly_rate' => 'Leave it blank and no labour cost is computed for this trade — a missing number is better than an invented one.',
         'permit_valid_to' => 'A permit good for a whole day is one somebody uses at 19:00 when the fire officer has gone home. Bound it to the hours the work actually happens.',
         'escalation_index_lag_months' => 'A statistical agency publishes a month figure weeks later, so a January step cannot read January. State the gap the lease actually says.',
         'utility_tariff' => 'A meter follows a tariff so a decreed price change is entered once, not re-typed on every meter. Readings are priced at the rate in force on the reading\'s own date, so a back-filled reading keeps the old price.',

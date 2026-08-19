@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\FacilityWorkOrders\Schemas;
 use App\Models\Department;
 use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
+use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\Vendor;
 use App\Support\EquipmentPicker;
@@ -78,12 +79,20 @@ class FacilityWorkOrderForm
                 ->required()
                 ->maxLength(255)
                 ->disabled($locked),
-            Select::make('category')
-                ->label(__('admin.facility.fields.category'))
-                ->options(fn () => __('admin.facility.categories'))
-                ->default('other')
+            // التخصص — a ROW now, not a translation key. Required with NO default: the trade
+            // routes the work, decides which vendors may be dispatched and is the axis every
+            // maintenance-spend report groups by, and defaulting it to "Other" would make it
+            // meaningless on exactly the jobs nobody stopped to think about.
+            Select::make('trade_id')
+                ->label(__('admin.facility.fields.trade'))
+                ->options(fn () => Trade::options())
                 ->required()
                 ->native(false)
+                ->searchable()
+                // Live so the vendor picker below regroups the moment the trade is chosen — the
+                // coordinator sees who does HVAC without leaving the form.
+                ->live()
+                ->helperText(__('admin.facility.help.trade'))
                 ->disabled($locked),
             TextInput::make('job_value')
                 ->label(__('admin.facility.penalty.job_value'))
@@ -118,8 +127,13 @@ class FacilityWorkOrderForm
                 ->disabled($locked),
             Select::make('vendor_id')
                 ->label(__('admin.facility.fields.vendor'))
-                // Only dispatchable vendors (active + COI not lapsed); the saving guard is the real gate.
-                ->options(fn ($record) => Vendor::assignableOptions($record?->vendor_id))
+                // Only dispatchable vendors (active + COI not lapsed); the saving guard is the
+                // real gate. Grouped by whether they do the chosen trade — a suggestion, not a
+                // filter, so an unusual but legitimate pick is still possible.
+                ->options(fn ($record, Get $get) => Vendor::assignableOptions(
+                    $record?->vendor_id,
+                    filled($get('trade_id')) ? (int) $get('trade_id') : null,
+                ))
                 ->searchable()
                 ->native(false)
                 ->disabled($locked),

@@ -18,7 +18,7 @@ it('notifies a technician when an open work order is assigned to them', function
     $tech = makeUser('operations', [$asset->id]);
     $order = FacilityWorkOrder::create([
         'asset_id' => $asset->id, 'work_order_type' => 'ppm', 'title' => 'Filter check',
-        'category' => 'hvac', 'priority' => 'medium', 'status' => 'open', 'scheduled_for' => now()->toDateString(),
+        'trade_id' => tradeId('hvac'), 'priority' => 'medium', 'status' => 'open', 'scheduled_for' => now()->toDateString(),
     ]);
 
     $order->update(['assigned_to_user_id' => $tech->id]);
@@ -33,7 +33,7 @@ it('notifies the technician when a CM is created already assigned to them', func
 
     FacilityWorkOrder::create([
         'asset_id' => $asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
-        'title' => 'Fix pump', 'description' => 'Pump leaking', 'category' => 'plumbing',
+        'title' => 'Fix pump', 'description' => 'Pump leaking', 'trade_id' => tradeId('plumbing'),
         'priority' => 'high', 'status' => 'open', 'scheduled_for' => now()->toDateString(),
         'assigned_to_user_id' => $tech->id,
     ]);
@@ -47,7 +47,7 @@ it('does not re-notify on an unrelated edit (only on assignment change)', functi
     $tech = makeUser('operations', [$asset->id]);
     $order = FacilityWorkOrder::create([
         'asset_id' => $asset->id, 'work_order_type' => 'ppm', 'title' => 'Filter check',
-        'category' => 'hvac', 'priority' => 'medium', 'status' => 'open', 'scheduled_for' => now()->toDateString(),
+        'trade_id' => tradeId('hvac'), 'priority' => 'medium', 'status' => 'open', 'scheduled_for' => now()->toDateString(),
         'assigned_to_user_id' => $tech->id,
     ]);
     Notification::assertSentToTimes($tech, WorkOrderAssignedNotification::class, 1); // on create

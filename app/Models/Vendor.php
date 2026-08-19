@@ -10,6 +10,7 @@ use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -95,6 +96,22 @@ class Vendor extends Model
      * `vendor_bills.vendor_id` has always existed; the inverse had not, so nothing could ask
      * whether a vendor carries financial history — which is what makes deleting one unsafe.
      */
+    /**
+     * التخصصات — which trades this vendor actually does.
+     *
+     * The answer to "who may we dispatch to an HVAC fault?", which nothing could answer before
+     * 2026-08-20: `vendors` carried `type` (contractor/supplier/…) and no trade at all, so the
+     * picker on a work order offered every vendor including the stationery supplier, and
+     * `VendorScorecardService` compared a cleaner with an HVAC contractor.
+     *
+     * Many-to-many because a facilities company does HVAC AND electrical, and pretending otherwise
+     * forces an operator to register one company twice.
+     */
+    public function trades(): BelongsToMany
+    {
+        return $this->belongsToMany(Trade::class);
+    }
+
     public function bills(): HasMany
     {
         return $this->hasMany(VendorBill::class);
@@ -176,7 +193,7 @@ class Vendor extends Model
      *
      * @return array<int, string>
      */
-    public static function assignableOptions(?int $keepId = null): array
+    public static function assignableOptions(?int $keepId = null, ?int $tradeId = null): array
     {
         $options = static::query()->assignable()->orderBy('name')->pluck('name', 'id');
 
@@ -187,7 +204,27 @@ class Vendor extends Model
             }
         }
 
-        return $options->all();
+        if ($tradeId === null) {
+            return $options->all();
+        }
+
+        // **Grouped, never filtered.** Which vendors do this trade is a suggestion: Filament
+        // validates a Select against its options with `Rule::in`, so dropping the others would
+        // REFUSE a legitimate pick — and the day the usual HVAC contractor is unavailable is a
+        // real day. The one thing that genuinely blocks a dispatch stays `assignable()` above:
+        // compliance, which is a decision the operator actually made about that vendor.
+        $eligible = static::query()
+            ->whereHas('trades', fn ($q) => $q->whereKey($tradeId))
+            ->pluck('id')
+            ->all();
+
+        $groups = [
+            __('admin.facility.vendor_groups.for_this_trade') => $options->only($eligible)->all(),
+            __('admin.facility.vendor_groups.other') => $options->except($eligible)->all(),
+        ];
+
+        // An empty heading renders as a heading with nothing under it, which reads as a bug.
+        return array_filter($groups, fn (array $g): bool => $g !== []);
     }
 
     public function contacts(): HasMany

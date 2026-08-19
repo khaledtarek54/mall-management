@@ -12,7 +12,7 @@ function makePlan(array $attrs = []): ServicePlan
     return ServicePlan::create(array_merge([
         'asset_id' => makeAsset()->id,
         'title' => 'HVAC filter check',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'frequency_unit' => 'months',
         'frequency_value' => 1,
         'checklist' => ['Check filter', 'Check coolant'],

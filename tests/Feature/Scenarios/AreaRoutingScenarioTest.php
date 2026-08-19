@@ -223,7 +223,7 @@ function makeZoneWorkOrder(int $assetId, array $attrs = []): FacilityWorkOrder
         'asset_id' => $assetId,
         'work_order_type' => FacilityWorkOrder::TYPE_PPM,
         'title' => 'Filter swap',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01',
         'status' => 'open',
     ], $attrs));

@@ -18,7 +18,7 @@ beforeEach(function () {
 function makeWorkOrder(int $assetId, array $attrs = []): FacilityWorkOrder
 {
     return FacilityWorkOrder::create(array_merge([
-        'asset_id' => $assetId, 'title' => 'Check HVAC', 'category' => 'hvac',
+        'asset_id' => $assetId, 'title' => 'Check HVAC', 'trade_id' => tradeId('hvac'),
         'status' => 'open', 'scheduled_for' => now()->toDateString(),
     ], $attrs));
 }

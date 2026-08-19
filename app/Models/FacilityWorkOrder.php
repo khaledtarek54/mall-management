@@ -106,7 +106,6 @@ class FacilityWorkOrder extends Model implements HasMedia
             $this->reference,
             $this->title,
             $this->description,
-            $this->category,
         ];
     }
 
@@ -140,7 +139,7 @@ class FacilityWorkOrder extends Model implements HasMedia
         'equipment_id',
         'reference',
         'title',
-        'category',
+        'trade_id',
         'status',
         'priority',
         'scheduled_for',
@@ -188,10 +187,16 @@ class FacilityWorkOrder extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['service_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_response_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes'])
+            ->logOnly(['service_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'trade_id', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_response_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('facility_work_order');
+    }
+
+    /** التخصص — what kind of work this is. See {@see Trade}. */
+    public function trade(): BelongsTo
+    {
+        return $this->belongsTo(Trade::class);
     }
 
     public function plan(): BelongsTo

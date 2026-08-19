@@ -25,6 +25,7 @@ use App\Models\ServicePlan;
 use App\Models\TaxCode;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
+use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\UtilityMeter;
@@ -124,14 +125,12 @@ class ActivityVocabulary
         'employee_advance.paid_from' => 'admin.enums.expense_paid_from',
         'employee_advance.type' => 'admin.employees.types',
         'employee_advance_repayment.method' => 'admin.employees.methods',
-        'equipment.category' => 'admin.facility.categories',
         'expense.category' => 'admin.enums.vendor_bill_category',
         'expense.paid_from' => 'admin.enums.expense_paid_from',
         'fixed_asset_disposal.proceeds_account' => 'admin.enums.cash_or_bank',
         'inventory_item.unit' => 'admin.enums.inventory_unit',
         'ledger_account.type' => 'admin.enums.ledger_account_type',
         'lease_option.type' => 'admin.lease_options.types',
-        'service_plan.category' => 'admin.facility.categories',
         'service_plan.frequency_unit' => 'admin.facility.frequency_units',
         'service_plan.plan_type' => 'admin.facility.plan_types',
         'facility_work_order.category' => 'admin.enums.work_category',
@@ -202,6 +201,7 @@ class ActivityVocabulary
     private const FOREIGN_KEYS = [
         'accounting_period_id' => AccountingPeriod::class,
         'area_id' => Area::class,
+        'trade_id' => Trade::class,
         'asset_id' => Asset::class,
         'assigned_to_user_id' => User::class,
         'assigned_to_vendor_id' => Vendor::class,

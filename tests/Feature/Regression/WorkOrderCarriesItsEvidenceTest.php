@@ -47,7 +47,7 @@ function jobReadyToClose($ctx): FacilityWorkOrder
         'execution_type' => 'internal',
         'title' => 'Chiller 2 not holding temperature',
         'description' => 'Supply air at 19C against a 12C setpoint since Friday.',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'status' => 'in_progress',
         'priority' => 'high',
         'scheduled_for' => now(),

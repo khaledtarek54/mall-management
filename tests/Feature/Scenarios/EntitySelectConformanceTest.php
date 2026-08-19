@@ -127,6 +127,12 @@ it('routes every model-backed picker through EntitySelect', function () {
         "Select::make('view_id')",
         // The accounting period picker: a fixed ladder of twelve, chosen by period number.
         "Select::make('accounting_period_id')",
+        // Which trades a vendor does: fourteen rows of facility configuration, ticked from a
+        // preloaded list on the vendor form. `Trade` carries no search blob by design (it is
+        // registered in `SearchPolicy::GLOBAL_SEARCH_EXEMPT` for the same reason), so an
+        // EntitySelect's folded search would have nothing to search — same shape as the roles
+        // picker above.
+        "Select::make('trades')",
     ];
 
     $offenders = array_values(array_filter(

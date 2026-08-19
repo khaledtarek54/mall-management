@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\PayrollService;
@@ -31,7 +32,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: PayrollService::class)]
 class Payroll extends Model
 {
-    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
+    use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [

@@ -480,6 +480,12 @@
         "guide": "tenants"
     },
     {
+        "screen": "TradeResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "trades"
+    },
+    {
         "screen": "TrialBalance",
         "panel": "admin",
         "kind": "page",

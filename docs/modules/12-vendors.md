@@ -155,6 +155,30 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 
 ---
 
+### What a vendor DOES — the trade link (2026-08-20)
+
+`vendors.type` says what **kind** of counterparty a company is — contractor · supplier ·
+service_provider · consultant · other. It has never said what work they can take, and until
+2026-08-20 nothing did: the vendor picker on an HVAC fault offered every vendor in the register
+including the stationery supplier, "spend by trade" had no dimension to group by, and
+`VendorScorecardService` compared a cleaning contractor with an HVAC contractor because there was
+no trade to compare *within*.
+
+`vendor->trades()` is a many-to-many against `App\Models\Trade` (module 26's register) — many,
+because a facilities company does HVAC **and** electrical, and registering them twice is not an
+answer. It is set on the vendor form.
+
+**It is a suggestion, not a gate, and the distinction is load-bearing.**
+`Vendor::assignableOptions($keepId, $tradeId)` **groups** the work-order picker — "Does this trade"
+first, "Other vendors" after — rather than filtering. Filament validates a `Select` against its
+options with `Rule::in`, so dropping the others would *refuse* a legitimate pick at validation, and
+the day the usual HVAC contractor is unavailable is a real day.
+
+The thing that genuinely blocks a dispatch remains `Vendor::isDispatchable()` — active, and no
+lapsed compliance document. That is the one place a hard block is right, because there is a real
+decision behind it that the operator made about that vendor. Eligibility is about capability;
+compliance is about permission. See [modules/26 → the trade register](26-facility.md).
+
 ### Compliance documents — `vendor_documents` (module 12b)
 
 `vendors.coi_expires_at` modelled exactly **one** document. Before an Egyptian entity may legally engage and pay a supplier it needs several, each on its own expiry clock: insurance (COI), بطاقة ضريبية (tax card), سجل تجاري (commercial register), شهادة تأمينات اجتماعية (social-insurance certificate — the principal carries liability for a subcontractor's unpaid social insurance). The three COI columns **moved into** `vendor_documents` (data + certificate files migrated across, `vendors` columns dropped) so there is exactly one source of truth, not two mechanisms for one concept.

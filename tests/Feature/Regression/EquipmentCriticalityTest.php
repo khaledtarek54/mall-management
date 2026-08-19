@@ -28,7 +28,7 @@ function criticalEquipment(string $criticality, ?int $assetId = null): Equipment
         'code' => 'EQ-'.uniqid(),
         'name_en' => 'Chiller',
         'name_ar' => 'مبرّد',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'criticality' => $criticality,
     ]);
 }
@@ -142,7 +142,7 @@ it('carries criticality into the preventive round too', function () {
         'asset_id' => $equipment->asset_id,
         'equipment_id' => $equipment->id,
         'title' => 'Quarterly service',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'frequency_unit' => 'months',
         'frequency_value' => 1,
         'next_due_date' => now()->subDay()->toDateString(),
@@ -164,7 +164,7 @@ it('falls back to routine rather than guessing critical', function () {
         'code' => 'EQ-'.uniqid(),
         'name_en' => 'Hand dryer',
         'name_ar' => 'مجفف أيدٍ',
-        'category' => 'other',
+        'trade_id' => tradeId('other'),
         'criticality' => 'nonsense',
     ]);
 

@@ -91,7 +91,7 @@ dataset('all_mode_pickable_asset_resources', [
     'FixedAsset' => [FixedAssetResource::class, CreateFixedAsset::class, FixedAsset::class,
         fn (int $mall) => ['asset_id' => $mall, 'name' => 'Generator', 'tag' => 'FA-01', 'acquisition_cost' => 100000, 'useful_life_months' => 60, 'funded_from' => 'cash']],
     'ServicePlan' => [ServicePlanResource::class, CreateServicePlan::class, ServicePlan::class,
-        fn (int $mall) => ['asset_id' => $mall, 'title' => 'Monthly HVAC service']],
+        fn (int $mall) => ['asset_id' => $mall, 'title' => 'Monthly HVAC service', 'trade_id' => tradeId('hvac')]],
     'SlaPolicy' => [SlaPolicyResource::class, CreateSlaPolicy::class, SlaPolicy::class,
         fn (int $mall) => ['asset_id' => $mall, 'priority' => 'high', 'resolve_hours' => 8]],
     'UtilityMeter' => [UtilityMeterResource::class, CreateUtilityMeter::class, UtilityMeter::class,
@@ -101,7 +101,7 @@ dataset('all_mode_pickable_asset_resources', [
     'PurchaseRequest' => [PurchaseRequestResource::class, CreatePurchaseRequest::class, PurchaseRequest::class,
         fn (int $mall) => ['asset_id' => $mall, 'justification' => 'Restock cleaning supplies']],
     'FacilityWorkOrder' => [FacilityWorkOrderResource::class, CreateFacilityWorkOrder::class, FacilityWorkOrder::class,
-        fn (int $mall) => ['asset_id' => $mall, 'title' => 'Fix escalator', 'category' => 'hvac', 'priority' => 'medium', 'scheduled_for' => now()->toDateString()]],
+        fn (int $mall) => ['asset_id' => $mall, 'title' => 'Fix escalator', 'trade_id' => tradeId('hvac'), 'priority' => 'medium', 'scheduled_for' => now()->toDateString()]],
     // Already-fixed reference resources — kept here so the (now hook-registering) guard covers them too.
     'Violation' => [ViolationResource::class, CreateViolation::class, Violation::class,
         fn (int $mall) => ['asset_id' => $mall, 'tenant_id' => makeTenant()->id, 'description' => 'Blocked fire exit', 'violation_date' => now()->toDateString()]],

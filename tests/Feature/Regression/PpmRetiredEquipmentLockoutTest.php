@@ -29,7 +29,7 @@ beforeEach(function () {
     $this->asset = makeAsset(['code' => 'RET']);
     $this->machine = Equipment::create([
         'asset_id' => $this->asset->id, 'code' => 'CH-01',
-        'name_en' => 'Chiller', 'name_ar' => 'مبرد', 'category' => 'hvac',
+        'name_en' => 'Chiller', 'name_ar' => 'مبرد', 'trade_id' => tradeId('hvac'),
     ]);
 });
 
@@ -38,7 +38,7 @@ function retiredPlan(array $attrs = []): ServicePlan
     return ServicePlan::create(array_merge([
         'asset_id' => test()->asset->id,
         'title' => 'Chiller service',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'plan_type' => 'fixed',
         'equipment_id' => test()->machine->id,
         'frequency_unit' => 'months',
@@ -102,7 +102,7 @@ it('can still edit a plan after its machine is soft-deleted', function () {
 it('can still edit an open work order after its machine is deactivated', function () {
     $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'equipment_id' => $this->machine->id,
-        'title' => 'Legit', 'category' => 'hvac', 'status' => 'open', 'scheduled_for' => '2026-07-01',
+        'title' => 'Legit', 'trade_id' => tradeId('hvac'), 'status' => 'open', 'scheduled_for' => '2026-07-01',
     ]);
     $this->machine->update(['is_active' => false]);
     $this->actingAs(makeUser('operations', [$this->asset->id]));

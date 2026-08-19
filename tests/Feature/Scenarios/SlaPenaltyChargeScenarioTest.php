@@ -57,7 +57,7 @@ function finalPenalty(): SlaPenalty
     $order = FacilityWorkOrder::create([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => test()->vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
-        'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
+        'trade_id' => tradeId('hvac'), 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
     app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(6)->hours();
@@ -159,7 +159,7 @@ it('refuses a penalty that is still accruing', function () {
     $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => $this->vendor->id, 'description' => 'x', 'title' => 'Fix',
-        'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
+        'trade_id' => tradeId('hvac'), 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
     $this->wos->transition($order, 'in_progress');
     $this->travel(6)->hours();

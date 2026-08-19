@@ -19,7 +19,7 @@ function plannedWorkPlan(array $overrides = []): ServicePlan
     return ServicePlan::create(array_merge([
         'asset_id' => $asset->id,
         'title' => 'Food court cleaning round',
-        'category' => 'cleaning',
+        'trade_id' => tradeId('cleaning'),
         'frequency_unit' => 'days',
         'frequency_value' => 1,
         'next_due_date' => '2026-03-02', // a Monday
@@ -37,7 +37,7 @@ it('generates a work order for an AREA-based round and carries the location onto
     $order = $plan->workOrders()->sole();
     expect($created)->toBe(1)
         ->and($order->area_id)->toBe($area->id)      // the round knows WHERE it happens
-        ->and($order->category)->toBe('cleaning')
+        ->and($order->trade_id)->toBe(tradeId('cleaning'))
         ->and($order->equipment_id)->toBeNull();     // a soft-service round has no machine
 });
 

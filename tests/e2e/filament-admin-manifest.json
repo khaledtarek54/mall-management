@@ -302,6 +302,13 @@
             "hasView": true
         },
         {
+            "class": "TradeResource",
+            "slug": "trades",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "UnitOwnershipResource",
             "slug": "unit-ownerships",
             "hasCreate": true,

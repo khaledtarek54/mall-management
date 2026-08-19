@@ -27,15 +27,15 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **108** models | **160** services | **54** admin resources | **9** portal resources |
+| **109** models | **160** services | **55** admin resources | **9** portal resources |
 | **52** API controllers | **19** dashboard widgets | **52** console commands | **6** queued jobs |
-| **37** notifications | **244** migrations | **37** module docs | **826** test files |
+| **37** notifications | **245** migrations | **37** module docs | **826** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 108 models classified — 82 property-owned, 25 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 109 models classified — 82 property-owned, 26 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 24 posting sources, 24 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
 | **Tests** | 826 files — 137 scenario, 434 regression. |

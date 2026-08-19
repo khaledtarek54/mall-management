@@ -46,7 +46,7 @@ class Equipment extends Model
         'code',
         'name_en',
         'name_ar',
-        'category',
+        'trade_id',
         'criticality',
         'unit_id',
         'location',
@@ -104,7 +104,6 @@ class Equipment extends Model
             $this->code,
             $this->name_en,
             $this->name_ar,
-            $this->category,
             $this->location,
         ];
     }
@@ -112,10 +111,16 @@ class Equipment extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'parent_id', 'code', 'name_en', 'name_ar', 'category', 'unit_id', 'location', 'fixed_asset_id', 'is_active'])
+            ->logOnly(['asset_id', 'parent_id', 'code', 'name_en', 'name_ar', 'trade_id', 'unit_id', 'location', 'fixed_asset_id', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('equipment');
+    }
+
+    /** التخصص — what kind of work this is. See {@see Trade}. */
+    public function trade(): BelongsTo
+    {
+        return $this->belongsTo(Trade::class);
     }
 
     public function asset(): BelongsTo

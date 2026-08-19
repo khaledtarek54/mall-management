@@ -51,7 +51,7 @@ beforeEach(function () {
 
     $this->order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
-        'description' => 'Pump leaking', 'title' => 'Fix pump', 'category' => 'plumbing',
+        'description' => 'Pump leaking', 'title' => 'Fix pump', 'trade_id' => tradeId('plumbing'),
         'scheduled_for' => now()->toDateString(),
     ]);
 });

@@ -34,7 +34,7 @@ function breachedCm(): FacilityWorkOrder
         'execution_type' => 'internal',
         'description' => 'Fault',
         'title' => 'Fix it',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'priority' => 'urgent',
         'scheduled_for' => '2026-07-01',
     ]);
@@ -111,7 +111,7 @@ it('does not show the card when nothing is breached', function () {
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 500]);
     $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
-        'description' => 'Fault', 'title' => 'Fix', 'category' => 'hvac', 'priority' => 'urgent',
+        'description' => 'Fault', 'title' => 'Fix', 'trade_id' => tradeId('hvac'), 'priority' => 'urgent',
         'scheduled_for' => '2026-07-01',
     ]);
     $this->svc->transition($order, 'in_progress');

@@ -49,7 +49,7 @@ function overdueWorkOrder(): FacilityWorkOrder
     return FacilityWorkOrder::create([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => test()->vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
-        'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
+        'trade_id' => tradeId('hvac'), 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
         'status' => 'in_progress', 'target_resolution_at' => now()->subHours(6),
     ]);
 }

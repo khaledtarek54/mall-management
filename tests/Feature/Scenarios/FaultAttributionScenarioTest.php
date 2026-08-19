@@ -31,7 +31,7 @@ function faultOrder(array $attrs = []): FacilityWorkOrder
         'execution_type' => 'internal',
         'description' => 'Aircon dripping into the shop',
         'title' => 'Fix aircon',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01',
     ], $attrs));
 }

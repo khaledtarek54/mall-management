@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\ServicePlans\Tables;
 
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Models\ServicePlan;
+use App\Models\Trade;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -13,6 +14,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
@@ -21,12 +23,12 @@ class ServicePlansTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade']))
             ->columns([
                 TextColumn::make('title')
                     ->label(__('admin.facility.fields.title'))
                     ->weight('bold')
-                    ->description(fn (ServicePlan $record) => __("admin.facility.categories.{$record->category}"))
+                    ->description(fn (ServicePlan $record) => $record->trade?->label() ?? '—')
                     ->searchable(),
                 TextColumn::make('asset.name')
                     ->label(__('admin.facility.fields.property'))
@@ -74,6 +76,16 @@ class ServicePlansTable
             // unfindable — the table had no filters at all, and ActionRequired surfaces breached
             // work ORDERS, not stale plans. These make an overdue/inactive plan visible.
             ->filters([
+                // The trade is the routing spine and the axis every maintenance-spend report
+                // groups by — and it left the search blob when it stopped being a column on the
+                // row (the blob is a pure function of a row's OWN attributes, so reaching through
+                // to the trade's name would strand every blob the day a trade is renamed). A
+                // 14-value dimension belongs in a filter anyway: search finds A RECORD, a filter
+                // narrows A SET.
+                SelectFilter::make('trade_id')
+                    ->label(__('admin.facility.fields.trade'))
+                    ->options(fn () => Trade::options(activeOnly: false)),
+
                 TernaryFilter::make('is_active')
                     ->label(__('admin.facility.filters.active')),
                 Filter::make('overdue')

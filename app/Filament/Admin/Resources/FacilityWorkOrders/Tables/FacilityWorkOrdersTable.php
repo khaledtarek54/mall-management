@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\FacilityWorkOrders\Tables;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Models\FacilityWorkOrder;
+use App\Models\Trade;
 use App\Models\VendorBill;
 use App\Services\ApplySlaPenaltyService;
 use App\Services\AssessSlaPenaltyService;
@@ -40,7 +41,7 @@ class FacilityWorkOrdersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'parentWorkOrder', 'sourceItem', 'penalty']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade', 'parentWorkOrder', 'sourceItem', 'penalty']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.facility.fields.reference'))
@@ -62,7 +63,7 @@ class FacilityWorkOrdersTable
                 TextColumn::make('title')
                     ->label(__('admin.facility.fields.title'))
                     ->weight('bold')
-                    ->description(fn (FacilityWorkOrder $record) => __("admin.facility.categories.{$record->category}"))
+                    ->description(fn (FacilityWorkOrder $record) => $record->trade?->label() ?? '—')
                     ->searchable(),
                 TextColumn::make('asset.name')
                     ->label(__('admin.facility.fields.property'))
@@ -181,6 +182,16 @@ class FacilityWorkOrdersTable
             ->filters([
                 // Preventive and corrective share a list; an engineer looking for faults
                 // should not have to read past every scheduled visit to find them.
+                // The trade is the routing spine and the axis every maintenance-spend report
+                // groups by — and it left the search blob when it stopped being a column on the
+                // row (the blob is a pure function of a row's OWN attributes, so reaching through
+                // to the trade's name would strand every blob the day a trade is renamed). A
+                // 14-value dimension belongs in a filter anyway: search finds A RECORD, a filter
+                // narrows A SET.
+                SelectFilter::make('trade_id')
+                    ->label(__('admin.facility.fields.trade'))
+                    ->options(fn () => Trade::options(activeOnly: false)),
+
                 SelectFilter::make('work_order_type')
                     ->label(__('admin.facility.fields.work_order_type'))
                     ->options(fn () => __('admin.facility.work_order_types')),

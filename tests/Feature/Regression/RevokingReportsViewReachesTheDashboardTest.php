@@ -23,6 +23,7 @@ use App\Filament\Admin\Widgets\MallStats;
 use App\Support\DashboardLayout;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Contracts\Support\Htmlable;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
@@ -97,7 +98,7 @@ it('agrees with the page it mirrors', function () {
     // same question the same way, before AND after a revocation.
     dashUser('viewer');
 
-    $page = fn () => \App\Filament\Admin\Pages\ArAging::canAccess();
+    $page = fn () => App\Filament\Admin\Pages\ArAging::canAccess();
 
     expect($page())->toBeTrue()->and(ArAging::canView())->toBeTrue();
 
@@ -118,7 +119,7 @@ it('offers a way from the chart to the drill-down that already existed', functio
     $description = (string) (new ArAging)->getDescription();
 
     expect($description)
-        ->toContain(\App\Filament\Admin\Pages\ArAging::getUrl())
+        ->toContain(App\Filament\Admin\Pages\ArAging::getUrl())
         ->toContain(__('admin.widgets.ar_aging.drilldown'))
         // The original wording survives — the link is added, not substituted for the explanation.
         ->toContain(__('admin.widgets.ar_aging.description'));
@@ -129,5 +130,5 @@ it('does not render the link as escaped markup', function () {
     // tag as visible text. Htmlable is what makes Blade emit it as HTML.
     dashUser('accounting');
 
-    expect((new ArAging)->getDescription())->toBeInstanceOf(\Illuminate\Contracts\Support\Htmlable::class);
+    expect((new ArAging)->getDescription())->toBeInstanceOf(Htmlable::class);
 });

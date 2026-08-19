@@ -340,7 +340,7 @@ class GeneratePreventiveWorkOrdersService
             // and keeps saying so after the plan is edited or deleted (FR-PPM-03).
             'equipment_id' => $plan->equipment_id,
             'title' => $plan->title,
-            'category' => $plan->category,
+            'trade_id' => $plan->trade_id,
             'status' => 'open',
             // A routine round on a critical machine is still a critical machine. Without this
             // the generator fell to the column default and every plan produced `medium`,

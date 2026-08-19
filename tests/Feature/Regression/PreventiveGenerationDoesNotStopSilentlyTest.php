@@ -35,7 +35,7 @@ function inspectionPlanFor(?Vendor $vendor, array $attrs = []): ServicePlan
     return ServicePlan::create(array_merge([
         'asset_id' => test()->asset->id,
         'title' => 'Lift statutory inspection',
-        'category' => 'safety',
+        'trade_id' => tradeId('safety'),
         'frequency_unit' => 'months',
         'frequency_value' => 1,
         'next_due_date' => '2026-05-01',

@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantUser;
+use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\Paymob\PaymobPaymentInitiator;
@@ -118,6 +119,22 @@ function tableRows(object $component): Collection
     }
 
     return $records instanceof Collection ? $records : collect($records);
+}
+
+/**
+ * The id of a seeded trade, by its code.
+ *
+ * The trade register replaced `facility_work_orders.category` (and the plan's and the machine's)
+ * on 2026-08-20, and the 14 rows are inserted by the migration itself — so every test database has
+ * them without seeding anything. Memoised per test because a fixture asks for the same handful of
+ * codes many times in one case.
+ */
+function tradeId(string $code): int
+{
+    // Deliberately NOT memoised. `RefreshDatabase` rebuilds these rows for every test, so an id
+    // cached from a previous test's database is a false pass waiting for the day the insert order
+    // changes. Fourteen rows, one indexed lookup.
+    return (int) Trade::query()->where('code', $code)->value('id');
 }
 
 function makeAsset(array $attrs = []): Asset

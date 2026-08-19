@@ -20,7 +20,7 @@ beforeEach(function () {
 it('catches up missed cycles one work order per run, each with the checklist', function () {
     $asset = makeAsset();
     $plan = ServicePlan::create([
-        'asset_id' => $asset->id, 'title' => 'Generator monthly run', 'category' => 'safety',
+        'asset_id' => $asset->id, 'title' => 'Generator monthly run', 'trade_id' => tradeId('safety'),
         'frequency_unit' => 'months', 'frequency_value' => 1,
         'checklist' => ['Oil level', 'Load test', 'Battery'],
         'next_due_date' => '2026-05-01', 'is_active' => true,
@@ -42,7 +42,7 @@ it('catches up missed cycles one work order per run, each with the checklist', f
 it('an engineer completes the checklist + work order, and the work log reflects it', function () {
     $asset = makeAsset();
     ServicePlan::create([
-        'asset_id' => $asset->id, 'title' => 'AC filter', 'category' => 'hvac',
+        'asset_id' => $asset->id, 'title' => 'AC filter', 'trade_id' => tradeId('hvac'),
         'frequency_unit' => 'months', 'frequency_value' => 1, 'checklist' => ['Replace filter', 'Clean coils'],
         'next_due_date' => '2026-07-01', 'is_active' => true,
     ]);
@@ -73,7 +73,7 @@ it('an engineer completes the checklist + work order, and the work log reflects 
 it('does not regenerate for a plan that has been deactivated mid-cycle', function () {
     $asset = makeAsset();
     $plan = ServicePlan::create([
-        'asset_id' => $asset->id, 'title' => 'Lift', 'category' => 'safety',
+        'asset_id' => $asset->id, 'title' => 'Lift', 'trade_id' => tradeId('safety'),
         'frequency_unit' => 'weeks', 'frequency_value' => 2, 'checklist' => ['Inspect'],
         'next_due_date' => '2026-06-01', 'is_active' => true,
     ]);

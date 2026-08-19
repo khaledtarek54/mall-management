@@ -49,7 +49,7 @@ function externalCm(array $attrs = []): FacilityWorkOrder
         'vendor_id' => test()->vendor->id,
         'description' => 'Chiller down',
         'title' => 'Fix chiller',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'priority' => 'urgent',
         'scheduled_for' => '2026-07-01',
     ], $attrs));

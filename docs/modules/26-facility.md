@@ -844,6 +844,69 @@ asking permission through the portal (module 11). This is the OPERATOR authorisi
 often its own vendor, with no tenant involved. Folding them together would make a safety control
 lease-shaped — the same mistake that once keyed rentable items to a lease.
 
+### التخصصات — the trade register (2026-08-20, close-out step 1)
+
+**Benchmark:** ServiceChannel makes the trade the spine of the model
+(`docs/benchmarks/fm/02-servicechannel-contractor-loop.md` §2) — it routes the work, decides which
+providers are eligible, carries the SLA and is the axis every spend report groups by.
+
+**What it replaced.** A work order's `category` — HVAC, plumbing, electrical — was a `Select`
+populated from `__('admin.facility.categories')`, **a translation array**. Three consequences, none
+of which ever presented as an error:
+
+1. It was not in `App\Support\ValueSets`, so the column was **unenforced**: any string saved.
+2. The canonical list lived in `lang/en` and `lang/ar`, so an operator could not add a trade
+   without a deploy — and the two files had to be kept in step by hand. `EquipmentForm` and
+   `EquipmentTable` had each hardcoded their own *shorter, different* subset of it, so landscaping,
+   pest control, waste and security were missing from the equipment screens entirely.
+3. **`vendors` had no trade at all** — only `type` (contractor / supplier / service_provider / …).
+   So nothing could say who does HVAC: the vendor picker on an HVAC fault offered the stationery
+   supplier, "spend by trade" had no dimension to group by, and `VendorScorecardService` compared a
+   cleaning contractor with an HVAC contractor.
+
+**Trade and craft are ONE register, deliberately.** Maximo keeps the *trade* (what the work is)
+apart from the *craft* (what a person is) and carries the labour rate on the craft. In a mall those
+are the same list — an HVAC technician does HVAC work — and two registers an operator must keep in
+step would buy nothing at this scale. So `trades.standard_hourly_rate` lives here, and it is what
+the work-order cost object reads to turn reported hours into money (close-out step 2). Split them
+the day one trade genuinely needs several rates.
+
+**The rate is nullable and that is the design.** A trade with no rate produces **no** labour cost —
+visibly missing. A default rate would produce a number that looks computed and is invented.
+
+**`category` was DROPPED, not kept beside `trade_id`.** Two columns answering "what kind of work is
+this" is two truths about one question and the reader cannot tell which is current. The backfill
+joined on the code — the exact string the old column held — and mapped every row in the live
+database (7 work orders, 5 plans, 14 machines, zero unmapped).
+
+**Eligibility is a suggestion; compliance is the gate.** `Vendor::assignableOptions()` now GROUPS
+the picker — "Does this trade" first, "Other vendors" after — rather than filtering. Filament
+validates a `Select` against its options with `Rule::in`, so dropping the others would *refuse* a
+legitimate pick, and the day the usual HVAC contractor is unavailable is a real day. The thing that
+genuinely blocks a dispatch stays `Vendor::isDispatchable()` — compliance, which is a decision the
+operator actually made about that vendor.
+
+#### The defect this surfaced: a tenant picks a PROBLEM, not a trade
+
+`RaiseCorrectiveWorkOrderService::fromTenantRequest()` used to copy the request's `category`
+straight onto the work order. But a tenant request's category is a subcategory of its
+`TenantRequestType`, and only **one** of those types has subcategories that are trades:
+
+```
+Maintenance → electrical · plumbing · hvac · structural · cleaning · safety · other   ← trades
+Access      → keys_cards · parking · after_hours · visitor · delivery
+Document    → lease_copy · renewal · termination_notice · noc_certificate
+Complaint   → noise · cleanliness · conduct · other
+```
+
+Because the target column was an unenforced string, `noise`, `parking` and `lease_copy` **saved
+into it silently** — verified in the live database — and then rendered blank in a `Select` that
+offers only trades, while every "by category" report grouped by a value that is not one.
+
+`tradeForRequest()` now matches on the code and resolves to **null** where there is no trade, which
+is the honest answer for a noise complaint; a coordinator raising facility work from one states the
+trade themselves, and an explicit `trade_id` always wins.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -861,6 +924,7 @@ lease-shaped — the same mistake that once keyed rentable items to a lease.
 | **9 — Fault attribution + cost bearer (FR-CM-12/13)** | `fault_party` + derived `cost_bearer` on the work order with provenance, a manager-only ruling, a guard against blaming a tenant who doesn't exist, and `costBearer()` on outside-sourced parts reading the job's finding. **Record-only — the FRD says *determine* and *record*, never *bill*** (scope corrected 2026-07-16 by reading the source .docx; the earlier roadmap entry here promised a recharge the FRD never asked for). The recharge seam is designed, documented, and deliberately unbuilt. | ✅ shipped |
 | **10 — Close-out sweep (2026-07-26)** | **[HIGH · money] SLA-penalty sub-hour fix** — `hoursOverSla()` truncated a sub-hour overrun to 0, so a job minutes late escaped the penalty forever (and per-day mis-counted at the day boundary); now gated on `isSlaBreached()` + `daysOverSla()` (see §7g). **Notifications** — a raised work order (`WorkOrderRaisedNotification`, FRD MNT-2) and an assigned technician (`WorkOrderAssignedNotification`, sharp because `AssignmentScope` hides the rest) are no longer silent; owner Jawad now gets the CM-breach alert too (FR MNT-5 / NOT-2). | ✅ shipped |
 | **11 — Permit to work (2026-08-19, gap O5)** | `work_permits` + `WorkPermitService` (issue/close/cancel), hourly `facility:scan-open-permits` reporting permits past their window with no closure, property-scoped register with live/overdue filters and a danger navigation badge, `work_permits.issue` as a right of its own, readable abstract on View and inside the issue confirmation, folded global search on the reference. **An EXTENSION, not a Yardi construct** — see above | ✅ shipped |
+| **12 — Trade register (2026-08-20, close-out step 1)** | `trades` + `trade_vendor`; work orders, service plans and equipment all classify by a ROW instead of a translation key; `standard_hourly_rate` (the craft rate the cost object will read); the vendor picker grouped by eligibility; `category` dropped from all three tables with a code-matched backfill. Fixed a live defect on the way: a tenant's problem category was being written into the work order's trade | ✅ shipped |
 
 ---
 

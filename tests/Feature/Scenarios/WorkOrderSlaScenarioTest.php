@@ -27,7 +27,7 @@ function cm(array $attrs = []): FacilityWorkOrder
         'execution_type' => 'internal',
         'description' => 'Compressor fault.',
         'title' => 'Fix compressor',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01',
     ], $attrs));
 }
@@ -152,7 +152,7 @@ it('uses the property override, not the global default, when starting the clock'
 it('does not put a preventive order on an SLA clock', function () {
     // PPM is scheduled work — its date is the plan's, not a response deadline.
     $ppm = FacilityWorkOrder::create([
-        'asset_id' => $this->asset->id, 'title' => 'Scheduled visit', 'category' => 'hvac',
+        'asset_id' => $this->asset->id, 'title' => 'Scheduled visit', 'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01',
     ]);
 
@@ -255,7 +255,7 @@ it('never alerts on a preventive order', function () {
     // Hand-set a target on a PPM order — the scan must still ignore it, because SLA is a
     // corrective concept and a scheduled visit is not "late".
     $ppm = FacilityWorkOrder::create([
-        'asset_id' => $this->asset->id, 'title' => 'Visit', 'category' => 'hvac',
+        'asset_id' => $this->asset->id, 'title' => 'Visit', 'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01', 'target_resolution_at' => now()->subDay(),
     ]);
 

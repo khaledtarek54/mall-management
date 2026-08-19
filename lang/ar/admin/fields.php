@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'standard_hourly_rate' => 'سعر الساعة القياسي',
+        'trade_id' => 'التخصص',
+        'active' => 'نشط',
         'contractor_name' => 'المقاول',
         'facility_work_order_id' => 'أمر العمل',
         'conditions' => 'الشروط',

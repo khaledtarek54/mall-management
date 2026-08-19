@@ -62,7 +62,7 @@ it('refuses to charge a penalty to a vendor bill belonging to another property',
     $order = FacilityWorkOrder::create([
         'asset_id' => $aaa->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => $vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
-        'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
+        'trade_id' => tradeId('hvac'), 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
     app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(6)->hours();
@@ -107,7 +107,7 @@ it('gives the money back when an applied penalty is waived', function () {
     $order = FacilityWorkOrder::create([
         'asset_id' => $asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => $vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
-        'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
+        'trade_id' => tradeId('hvac'), 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
     app(FacilityWorkOrderService::class)->transition($order, 'in_progress');
     test()->travel(6)->hours();

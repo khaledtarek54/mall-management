@@ -126,7 +126,7 @@ it('gives an old row the deep link it never had', function () {
         'execution_type' => 'internal',
         'title' => 'Fix pump',
         'description' => 'Pump leaking',
-        'category' => 'plumbing',
+        'trade_id' => tradeId('plumbing'),
         'scheduled_for' => '2026-07-01',
     ]);
 

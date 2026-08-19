@@ -77,6 +77,7 @@ use App\Filament\Admin\Resources\TaxCodes\TaxCodeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
+use App\Filament\Admin\Resources\Trades\TradeResource;
 use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\Users\UserResource;
@@ -210,6 +211,7 @@ class ScreenGuides
         ChargeCodeResource::class => 'charge_codes',
         RentIndexResource::class => 'rent_indices',
         WorkPermitResource::class => 'work_permits',
+        TradeResource::class => 'trades',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',
         ApprovalRuleResource::class => 'approval_rules',

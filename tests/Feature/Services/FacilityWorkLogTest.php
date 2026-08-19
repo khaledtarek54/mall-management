@@ -14,7 +14,7 @@ beforeEach(function () {
 function wo(int $assetId, array $attrs = []): FacilityWorkOrder
 {
     return FacilityWorkOrder::create(array_merge([
-        'asset_id' => $assetId, 'title' => 'Job', 'category' => 'hvac',
+        'asset_id' => $assetId, 'title' => 'Job', 'trade_id' => tradeId('hvac'),
         'status' => 'open', 'scheduled_for' => '2026-07-02',
     ], $attrs));
 }

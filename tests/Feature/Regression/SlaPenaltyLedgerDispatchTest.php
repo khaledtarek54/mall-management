@@ -58,7 +58,7 @@ function dispatchAppliedPenalty(float $subtotal = 5000): array
     $order = FacilityWorkOrder::create([
         'asset_id' => test()->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'external',
         'vendor_id' => test()->vendor->id, 'description' => 'Chiller down', 'title' => 'Fix chiller',
-        'category' => 'hvac', 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
+        'trade_id' => tradeId('hvac'), 'priority' => 'urgent', 'scheduled_for' => '2026-07-01',
     ]);
     // Completing a late external CM assesses the penalty as a side effect — the same path
     // the operator drives from the work-order screen.

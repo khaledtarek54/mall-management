@@ -22,7 +22,7 @@ function equipmentFor(int $assetId, array $attrs = []): Equipment
         'code' => 'ESC-01',
         'name_en' => 'Main escalator',
         'name_ar' => 'السلم الكهربائي',
-        'category' => 'elevator',
+        'trade_id' => tradeId('elevator'),
     ], $attrs));
 }
 
@@ -63,7 +63,7 @@ it('creates equipment through the form', function () {
                 'code' => 'CH-01',
                 'name_en' => 'Chiller',
                 'name_ar' => 'مبرد',
-                'category' => 'hvac',
+                'trade_id' => tradeId('hvac'),
             ])
             ->call('create')
             ->assertHasNoFormErrors();

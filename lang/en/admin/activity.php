@@ -13,6 +13,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'trade' => 'Trade',
             'unit_ownership' => 'Unit ownership',
             // spatie's fallback log name. Every model now declares its own, but rows written
             // BEFORE that fix are still filed under `default` and must still read as something.

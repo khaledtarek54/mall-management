@@ -28,6 +28,23 @@ return [
         ],
     ],
     'facility' => [
+        'help' => [
+            'trade' => 'Routes the work, decides which vendors are eligible, and groups every spend report.',
+            'equipment_trade' => 'Which trade services this machine. Suggests the right contractor when a fault is raised.',
+            'vendor_trades' => 'What this vendor actually does. Suggested first on a work order of that trade.',
+            'trade_code' => 'The stable key. Reports and imports match on it, so change it only before it is used.',
+            'standard_hourly_rate' => 'What an hour of this trade costs. Reported hours become job cost at this rate.',
+            'trade_active' => 'Inactive trades keep their history but are no longer offered on new work.',
+        ],
+        'trade' => [
+            'singular' => 'Trade',
+            'plural' => 'Trades',
+        ],
+        'vendor_groups' => [
+            'for_this_trade' => 'Does this trade',
+            'other' => 'Other vendors',
+        ],
+        'no_rate' => 'No rate set',
         'generate_due' => 'Generate due work orders',
         'generate_due_confirm' => 'Raises preventive work orders for every plan due today, exactly as the nightly run does. Plans that are not due are untouched.',
         'generate_now' => 'Generate now',
@@ -67,6 +84,10 @@ return [
             'roots_only' => 'Top-level only',
         ],
         'fields' => [
+            'trade' => 'Trade',
+            'trades' => 'Trades',
+            'standard_hourly_rate' => 'Standard hourly rate',
+            'vendors' => 'Vendors',
             'criticality' => 'Criticality',
             'property' => 'Property', 'unit' => 'Unit', 'title' => 'Title', 'category' => 'Category',
             'area' => 'Area / location', 'days_of_week' => 'Days of the week',

@@ -52,6 +52,7 @@ use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
 use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
+use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\UnitOwnership;
 use App\Models\User;
@@ -3104,6 +3105,8 @@ class DemoSeeder extends Seeder
         ];
 
         $equipmentIds = Equipment::where('asset_id', $asset->id)->pluck('id', 'code');
+        // The trade register replaced the translation-backed `category` string (2026-08-20).
+        $trades = Trade::pluck('id', 'code');
 
         foreach ($plans as $p) {
             $equipmentId = $p['equip'] ? ($equipmentIds[$p['equip']] ?? null) : null;
@@ -3113,7 +3116,7 @@ class DemoSeeder extends Seeder
                 'unit_id' => null,
                 'equipment_id' => $equipmentId,
                 'title' => $p['title'],
-                'category' => $p['category'],
+                'trade_id' => $trades[$p['category']] ?? null,
                 'plan_type' => $equipmentId
                     ? ServicePlan::MAINTENANCE_TYPE_FIXED
                     : ServicePlan::MAINTENANCE_TYPE_ROUTINE,
@@ -3215,6 +3218,8 @@ class DemoSeeder extends Seeder
 
         $partIds = InventoryItem::pluck('id', 'sku');
         $fixedAssetIds = FixedAsset::where('asset_id', $asset->id)->pluck('id', 'tag');
+        // `$category` in $machines is the trade CODE — the register replaced the string (2026-08-20).
+        $trades = Trade::pluck('id', 'code');
         $count = 0;
 
         foreach ($machines as [$code, $nameEn, $nameAr, $category, $location, $faTag, $subs]) {
@@ -3223,7 +3228,7 @@ class DemoSeeder extends Seeder
                 'code' => $code,
                 'name_en' => $nameEn,
                 'name_ar' => $nameAr,
-                'category' => $category,
+                'trade_id' => $trades[$category] ?? null,
                 'location' => $location,
                 'fixed_asset_id' => $faTag ? ($fixedAssetIds[$faTag] ?? null) : null,
                 'is_active' => true,
@@ -3237,7 +3242,7 @@ class DemoSeeder extends Seeder
                     'code' => $subCode,
                     'name_en' => $subEn,
                     'name_ar' => $subAr,
-                    'category' => $category,
+                    'trade_id' => $trades[$category] ?? null,
                     'location' => $location,
                     'is_active' => true,
                 ]);

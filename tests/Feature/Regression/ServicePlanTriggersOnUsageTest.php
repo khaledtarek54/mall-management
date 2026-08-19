@@ -45,7 +45,7 @@ function usagePlanFixture(array $planAttrs = [], float $baselineReading = 1000.0
     $plan = ServicePlan::create(array_merge([
         'asset_id' => $asset->id,
         'title' => 'Chiller service',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'trigger_type' => ServicePlan::TRIGGER_USAGE,
         'utility_meter_id' => $meter->id,
         'usage_threshold' => 500,
@@ -176,7 +176,7 @@ it('leaves time-driven plans exactly as they were', function () {
     $timePlan = ServicePlan::create([
         'asset_id' => $asset->id,
         'title' => 'Fire extinguishers',
-        'category' => 'safety',
+        'trade_id' => tradeId('safety'),
         'frequency_unit' => 'months',
         'frequency_value' => 12,
         'next_due_date' => now()->toDateString(),
@@ -201,7 +201,7 @@ it('stays quiet when the counter has never been read', function () {
     $plan = ServicePlan::create([
         'asset_id' => $asset->id,
         'title' => 'Genset service',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'trigger_type' => ServicePlan::TRIGGER_USAGE,
         'utility_meter_id' => $meter->id,
         'usage_threshold' => 500,

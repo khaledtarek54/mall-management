@@ -209,7 +209,7 @@ class ChargeScheduleRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                        SelectFilter::make('type')
+                SelectFilter::make('type')
                     ->label(__('admin.fields.type'))
                     ->options(fn (): array => Charge::query()
                         ->where('lease_id', $this->getOwnerRecord()->getKey())
@@ -217,9 +217,9 @@ class ChargeScheduleRelationManager extends RelationManager
                         ->pluck('type', 'type')
                         ->map(fn ($t) => self::typeLabel($t))
                         ->all()),
-                    ])
+            ])
             ->headerActions([
-                        Action::make('addCharge')
+                Action::make('addCharge')
                     ->label(__('admin.charge_schedule.add'))
                     ->icon('heroicon-o-plus')
                     ->modalHeading(__('admin.charge_schedule.add'))
@@ -323,9 +323,9 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-                    ])
+            ])
             ->recordActions([
-                        Action::make('endCharge')
+                Action::make('endCharge')
                     ->label(__('admin.charge_schedule.end'))
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
@@ -335,8 +335,8 @@ class ChargeScheduleRelationManager extends RelationManager
                     // Only a row that is actually billing, and never a derived one: ending the rent
                     // or the levy here would leave the lease's own fields claiming it still bills.
                     ->visible(fn (Charge $record): bool => self::canWriteSchedule($this->lease())
-                        && in_array(self::state($record), ['current', 'future'], true)
-                        && ! in_array($record->type, self::DERIVED_TYPES, true))
+                && in_array(self::state($record), ['current', 'future'], true)
+                && ! in_array($record->type, self::DERIVED_TYPES, true))
                     ->authorize(fn (): bool => self::canWriteSchedule($this->lease()))
                     ->schema([
                         DatePicker::make('from')
@@ -362,7 +362,7 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-                    ])
+            ])
             ->paginated([25, 50, 'all'])
             ->emptyStateHeading(__('admin.charge_schedule.empty'))
             ->emptyStateDescription(__('admin.charge_schedule.empty_description'));

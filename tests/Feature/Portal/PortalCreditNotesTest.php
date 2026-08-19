@@ -19,6 +19,7 @@
 use App\Filament\Portal\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Portal\Resources\CreditNotes\Pages\ListCreditNotes;
 use App\Models\CreditNote;
+use App\Support\TenantVisibility;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
@@ -103,7 +104,7 @@ it('is read-only — the tenant can never create, edit or delete one', function 
 it('offers no status filter option the tenant could never see', function () {
     // The filter is derived from ValueSets minus the hidden set. A hand-written list would drift,
     // and offering `draft` would put a control on the page that can only ever return nothing.
-    $options = App\Support\TenantVisibility::visibleFor('credit_notes');
+    $options = TenantVisibility::visibleFor('credit_notes');
 
     expect($options)->not->toContain('draft')
         ->and($options)->toContain('issued')

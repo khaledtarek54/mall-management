@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\TenantRequestType;
 use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
 use App\Models\TenantRequest;
+use App\Models\Trade;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -111,6 +113,37 @@ class RaiseCorrectiveWorkOrderService
     }
 
     /**
+     * The trade a tenant's reported problem belongs to — resolved, never assumed.
+     *
+     * **A tenant picks a PROBLEM, not a trade** (`docs/benchmarks/fm/02-servicechannel-contractor-loop.md`
+     * §2). The shop manager reporting "it is hot in here" cannot be asked whether that is HVAC or
+     * electrical, so the request's `category` is a tenant-facing subcategory of its
+     * {@see TenantRequestType} — and only ONE of those types has subcategories that
+     * are trades:
+     *
+     *     Maintenance → electrical · plumbing · hvac · structural · cleaning · safety · other
+     *     Access      → keys_cards · parking · after_hours · visitor · delivery
+     *     Document    → lease_copy · renewal · termination_notice · noc_certificate
+     *     Complaint   → noise · cleanliness · conduct · other
+     *
+     * Until 2026-08-20 this method did not exist and the work order took `category` straight off
+     * the request. Because that column was a translation-backed string with **no `ValueSets`
+     * entry**, `noise`, `parking` and `lease_copy` saved into it silently — verified in the live
+     * database — and then displayed blank in a `Select` that offers only trades, while every
+     * "by category" report grouped by a value that is not one.
+     *
+     * So: match the code, and resolve to **null** when there is no trade, which is the honest
+     * answer for a noise complaint. A coordinator raising facility work from one states the trade
+     * themselves, and an explicit `trade_id` in `$data` always wins.
+     */
+    private static function tradeForRequest(TenantRequest $request): ?int
+    {
+        return blank($request->category)
+            ? null
+            : Trade::query()->where('code', $request->category)->value('id');
+    }
+
+    /**
      * Raise a CM from a tenant's reported fault (module 11 → 26 seam).
      *
      * The request supplies WHERE the work is — its unit (and thereby its property), category and
@@ -148,7 +181,7 @@ class RaiseCorrectiveWorkOrderService
                 'tenant_request_id' => $locked->getKey(),
                 'asset_id' => $locked->unit->asset_id,
                 'unit_id' => $locked->unit_id,
-                'category' => $locked->category,
+                'trade_id' => $data['trade_id'] ?? self::tradeForRequest($locked),
                 'department_id' => $locked->department_id,
                 'status' => 'open',
                 // filled(), not ??, throughout — a cleared field sends '' which `??` waves past
@@ -193,7 +226,7 @@ class RaiseCorrectiveWorkOrderService
             'asset_id' => $origin->asset_id,
             'unit_id' => $origin->unit_id,
             'equipment_id' => $origin->equipment_id,
-            'category' => $origin->category,
+            'trade_id' => $origin->trade_id,
             'department_id' => $origin->department_id,
             'status' => 'open',
             // FR-CM-06 — the tier that decides the SLA once the job is accepted. filled(),

@@ -57,7 +57,7 @@ beforeEach(function () {
         'vendor_id' => $vendor->id,
         'title' => 'Fix chiller',
         'description' => 'Chiller down',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'priority' => 'urgent',
         'scheduled_for' => now()->toDateString(),
     ]);

@@ -21,12 +21,16 @@
 | coverage gap: the missing thing is a closure that was never written.
 */
 
+use App\Filament\Admin\Resources\WorkPermits\Tables\WorkPermitsTable;
+use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
 use App\Models\Vendor;
 use App\Models\WorkPermit;
 use App\Notifications\WorkPermitOverdueNotification;
 use App\Services\WorkPermitService;
+use App\Support\Search\SearchText;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Notification;
 
 beforeEach(function () {
@@ -250,7 +254,7 @@ it('shows the conditions on the permit before it is authorised and after', funct
     $draft = permit($this, ['conditions' => 'Fire watch for 60 minutes after the last cut.']);
 
     $abstract = (new ReflectionMethod(
-        \App\Filament\Admin\Resources\WorkPermits\Tables\WorkPermitsTable::class, 'abstractOf'
+        WorkPermitsTable::class, 'abstractOf'
     ));
     $abstract->setAccessible(true);
 
@@ -268,7 +272,7 @@ it('shows the conditions on the permit before it is authorised and after', funct
 /** A draft with no conditions says so in the abstract, rather than showing an empty box. */
 it('names the missing conditions rather than rendering a blank', function () {
     $abstract = new ReflectionMethod(
-        \App\Filament\Admin\Resources\WorkPermits\Tables\WorkPermitsTable::class, 'abstractOf'
+        WorkPermitsTable::class, 'abstractOf'
     );
     $abstract->setAccessible(true);
 
@@ -291,17 +295,17 @@ it('counts overdue permits on the navigation badge, scoped to the property', fun
 
     // Nothing is overdue while the window is still ahead.
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-01 10:00'));
-    expect(\App\Filament\Admin\Resources\WorkPermits\WorkPermitResource::getNavigationBadge())->toBeNull();
+    expect(WorkPermitResource::getNavigationBadge())->toBeNull();
 
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-02 09:00'));
-    \Illuminate\Support\Facades\Date::setTestNow('2026-09-02 09:00');
+    Date::setTestNow('2026-09-02 09:00');
 
     // The actor holds one property, so the badge counts that property's permit and not the other's.
-    expect(\App\Filament\Admin\Resources\WorkPermits\WorkPermitResource::getNavigationBadge())->toBe('1')
+    expect(WorkPermitResource::getNavigationBadge())->toBe('1')
         ->and($mine->fresh()->asset_id)->toBe($this->asset->id);
 
     CarbonImmutable::setTestNow();
-    \Illuminate\Support\Facades\Date::setTestNow();
+    Date::setTestNow();
 });
 
 /**
@@ -313,8 +317,8 @@ it('finds a permit from the global search bar, by reference and by contractor', 
 
     $blob = $issued->fresh()->search_text;
 
-    expect($blob)->toContain(\App\Support\Search\SearchText::normalize($issued->reference))
+    expect($blob)->toContain(SearchText::normalize($issued->reference))
         // Folded on BOTH sides: the Arabic trade name is exactly what the fold exists for.
-        ->and($blob)->toContain(\App\Support\Search\SearchText::normalize('شركه دلتا'))
-        ->and($blob)->toContain(\App\Support\Search\SearchText::normalize('Roof plant room'));
+        ->and($blob)->toContain(SearchText::normalize('شركه دلتا'))
+        ->and($blob)->toContain(SearchText::normalize('Roof plant room'));
 });

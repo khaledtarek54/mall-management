@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'trades.view' => 'View the trade register',
+            'trades.create' => 'Add a trade',
+            'trades.edit' => 'Edit a trade, including its hourly rate',
+            'trades.delete' => 'Remove an unused trade',
             'work_permits.view' => 'View the permit-to-work register',
             'work_permits.create' => 'Draft a permit to work',
             'work_permits.edit' => 'Edit a draft permit',
@@ -679,6 +683,9 @@ class RolesPermissionsSeeder extends Seeder
             // is who dispatches the contractor and who walks the site — separating the two would
             // put the signature somewhere other than the accountability.
             'work_permits.view', 'work_permits.create', 'work_permits.edit', 'work_permits.issue',
+            // The trade register. Operations owns which kinds of work exist and which contractor
+            // is eligible; the RATE is money, so it stays with manager (see below).
+            'trades.view',
             // The unit register, READ-ONLY. Work orders and tenant requests route to a unit and a
             // zone, so operations must be able to open the shop it is being sent to — it could not,
             // measured (pre-staging QA, F-06). Create/edit stay with leasing: what a unit IS, and

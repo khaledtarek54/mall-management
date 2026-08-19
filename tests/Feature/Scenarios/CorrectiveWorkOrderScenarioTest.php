@@ -19,7 +19,7 @@ beforeEach(function () {
     $this->asset = makeAsset(['code' => 'CMA']);
     $this->machine = Equipment::create([
         'asset_id' => $this->asset->id, 'code' => 'CH-01',
-        'name_en' => 'Chiller', 'name_ar' => 'مبرد', 'category' => 'hvac',
+        'name_en' => 'Chiller', 'name_ar' => 'مبرد', 'trade_id' => tradeId('hvac'),
     ]);
 });
 
@@ -29,7 +29,7 @@ function ppmOrder(array $attrs = [], int $items = 1): FacilityWorkOrder
         'asset_id' => test()->asset->id,
         'equipment_id' => test()->machine->id,
         'title' => 'Chiller service',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'status' => 'open',
         'scheduled_for' => '2026-07-01',
     ], $attrs));
@@ -165,7 +165,7 @@ it('refuses an internal corrective job that also names a vendor', function () {
     $vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
 
     expect(fn () => FacilityWorkOrder::create([
-        'asset_id' => $this->asset->id, 'title' => 'Bad', 'category' => 'hvac',
+        'asset_id' => $this->asset->id, 'title' => 'Bad', 'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01', 'work_order_type' => 'cm',
         'execution_type' => 'internal', 'description' => 'x', 'vendor_id' => $vendor->id,
     ]))->toThrow(InvalidArgumentException::class, 'cannot also name a vendor');
@@ -175,7 +175,7 @@ it('refuses an external corrective job that also names a technician', function (
     $tech = makeUser('operations', [$this->asset->id]);
 
     expect(fn () => FacilityWorkOrder::create([
-        'asset_id' => $this->asset->id, 'title' => 'Bad', 'category' => 'hvac',
+        'asset_id' => $this->asset->id, 'title' => 'Bad', 'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01', 'work_order_type' => 'cm',
         'execution_type' => 'external', 'description' => 'x', 'assigned_to_user_id' => $tech->id,
     ]))->toThrow(InvalidArgumentException::class, 'cannot also name an in-house technician');
@@ -183,7 +183,7 @@ it('refuses an external corrective job that also names a technician', function (
 
 it('refuses a corrective job with no classification', function () {
     expect(fn () => FacilityWorkOrder::create([
-        'asset_id' => $this->asset->id, 'title' => 'Bad', 'category' => 'hvac',
+        'asset_id' => $this->asset->id, 'title' => 'Bad', 'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01', 'work_order_type' => 'cm', 'description' => 'x',
     ]))->toThrow(InvalidArgumentException::class, 'internal or external');
 });
@@ -192,7 +192,7 @@ it('refuses a corrective job with no classification', function () {
 
 it('requires a description on a corrective job', function () {
     expect(fn () => FacilityWorkOrder::create([
-        'asset_id' => $this->asset->id, 'title' => 'Bad', 'category' => 'hvac',
+        'asset_id' => $this->asset->id, 'title' => 'Bad', 'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01', 'work_order_type' => 'cm', 'execution_type' => 'internal',
     ]))->toThrow(InvalidArgumentException::class, 'requires a description');
 });
@@ -200,7 +200,7 @@ it('requires a description on a corrective job', function () {
 it('does not impose the CM rules on a preventive order', function () {
     // PPM orders legitimately carry a department and a vendor at once and have no
     // description — the CM rules must not leak onto them.
-    $vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
+    $vendor = Vendor::create(['name' => 'CoolAir', 'trade_id' => tradeId('hvac'), 'status' => 'active']);
 
     $ppm = ppmOrder(['vendor_id' => $vendor->id]);
 

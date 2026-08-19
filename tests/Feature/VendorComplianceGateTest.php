@@ -37,7 +37,7 @@ function externalCmWorkOrder(int $assetId, int $vendorId): FacilityWorkOrder
     return FacilityWorkOrder::create([
         'asset_id' => $assetId,
         'title' => 'Fix the lift',
-        'category' => 'elevator',
+        'trade_id' => tradeId('elevator'),
         'status' => 'open',
         'scheduled_for' => now()->toDateString(),
         'work_order_type' => FacilityWorkOrder::TYPE_CM,

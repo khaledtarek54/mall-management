@@ -169,7 +169,7 @@ it('prices a work-order part draw from the stock on hand, not a stale catalogue 
     $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'title' => 'Chiller service', 'description' => 'Replace filters',
-        'category' => 'hvac', 'scheduled_for' => '2026-08-01',
+        'trade_id' => tradeId('hvac'), 'scheduled_for' => '2026-08-01',
     ]);
 
     $part = app(WorkOrderPartService::class)->requestInternal($order, [
@@ -190,7 +190,7 @@ it('still lets the caller state a cost on a part draw', function () {
     $order = FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'work_order_type' => 'cm', 'execution_type' => 'internal',
         'title' => 'Chiller service', 'description' => 'Replace filters',
-        'category' => 'hvac', 'scheduled_for' => '2026-08-01',
+        'trade_id' => tradeId('hvac'), 'scheduled_for' => '2026-08-01',
     ]);
 
     $part = app(WorkOrderPartService::class)->requestInternal($order, [

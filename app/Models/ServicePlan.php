@@ -67,7 +67,7 @@ class ServicePlan extends Model
         'equipment_id',
         'days_of_week',
         'title',
-        'category',
+        'trade_id',
         'plan_type',
         'trigger_type',
         'utility_meter_id',
@@ -115,7 +115,6 @@ class ServicePlan extends Model
     {
         return [
             $this->title,
-            $this->category,
             $this->description,
         ];
     }
@@ -123,10 +122,16 @@ class ServicePlan extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'plan_type', 'trigger_type', 'utility_meter_id', 'usage_threshold', 'frequency_unit', 'frequency_value', 'days_of_week', 'next_due_date', 'is_active'])
+            ->logOnly(['asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'trade_id', 'plan_type', 'trigger_type', 'utility_meter_id', 'usage_threshold', 'frequency_unit', 'frequency_value', 'days_of_week', 'next_due_date', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('service_plan');
+    }
+
+    /** التخصص — what kind of work this is. See {@see Trade}. */
+    public function trade(): BelongsTo
+    {
+        return $this->belongsTo(Trade::class);
     }
 
     public function asset(): BelongsTo

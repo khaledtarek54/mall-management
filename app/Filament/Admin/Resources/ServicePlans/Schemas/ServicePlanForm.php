@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\ServicePlans\Schemas;
 use App\Models\Area;
 use App\Models\Department;
 use App\Models\ServicePlan;
+use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\UtilityMeter;
 use App\Models\Vendor;
@@ -81,12 +82,15 @@ class ServicePlanForm
                             ->label(__('admin.facility.fields.title'))
                             ->required()
                             ->maxLength(255),
-                        Select::make('category')
-                            ->label(__('admin.facility.fields.category'))
-                            ->options(fn () => __('admin.facility.categories'))
-                            ->default('other')
+                        // The plan's trade is carried onto every work order it generates, so a
+                        // plan without one produces a year of jobs nobody can group.
+                        Select::make('trade_id')
+                            ->label(__('admin.facility.fields.trade'))
+                            ->options(fn () => Trade::options())
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            ->searchable()
+                            ->helperText(__('admin.facility.help.trade')),
                         Select::make('plan_type')
                             ->label(__('admin.facility.fields.plan_type'))
                             ->helperText(__('admin.facility.plan_type_hint'))

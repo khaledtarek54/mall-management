@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'standard_hourly_rate' => 'Standard hourly rate',
+        'trade_id' => 'Trade',
+        'active' => 'Active',
         'contractor_name' => 'Contractor',
         'facility_work_order_id' => 'Work order',
         'conditions' => 'Conditions',

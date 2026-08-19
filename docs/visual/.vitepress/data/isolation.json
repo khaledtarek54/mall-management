@@ -546,6 +546,12 @@
         "note": null
     },
     {
+        "model": "Trade",
+        "label": "Trade",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "Unit",
         "label": "Unit",
         "classification": "owned",

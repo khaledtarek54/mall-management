@@ -38,7 +38,7 @@ function lockOrder(array $attrs = [], int $items = 0): FacilityWorkOrder
     $order = FacilityWorkOrder::create(array_merge([
         'asset_id' => test()->asset->id,
         'title' => 'Chiller service',
-        'category' => 'hvac',
+        'trade_id' => tradeId('hvac'),
         'status' => 'open',
         'scheduled_for' => '2026-07-01',
     ], $attrs));

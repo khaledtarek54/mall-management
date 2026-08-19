@@ -13,7 +13,7 @@ beforeEach(function () {
 function makePlanFor(int $assetId, array $attrs = []): ServicePlan
 {
     return ServicePlan::create(array_merge([
-        'asset_id' => $assetId, 'title' => 'Lift service', 'category' => 'safety',
+        'asset_id' => $assetId, 'title' => 'Lift service', 'trade_id' => tradeId('safety'),
         'frequency_unit' => 'months', 'frequency_value' => 3, 'next_due_date' => now()->toDateString(),
     ], $attrs));
 }

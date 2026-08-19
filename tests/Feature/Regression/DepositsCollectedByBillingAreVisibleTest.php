@@ -24,6 +24,7 @@ use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Models\AccountMapping;
 use App\Models\DepositTransaction;
 use App\Models\Lease;
+use App\Models\Payment;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\BillSecurityDepositService;
 use App\Services\Reconciliation\BooksReconciliationService;
@@ -259,7 +260,7 @@ it('settles rent before the deposit on a mixed invoice, so a part payment never 
     $invoice->recomputeTotals();
 
     // Pay 10,000 — exactly the rent, nothing towards the deposit.
-    $payment = App\Models\Payment::create([
+    $payment = Payment::create([
         'tenant_id' => $invoice->tenant_id, 'payment_date' => now(), 'amount' => 10000,
         'method' => 'bank_transfer', 'status' => 'captured', 'currency' => 'EGP',
     ]);

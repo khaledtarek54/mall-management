@@ -93,6 +93,7 @@ use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
 use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
+use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\UnitArea;
 use App\Models\UnitOwnership;
@@ -244,6 +245,7 @@ class MorphMap
         'table_view' => TableView::class,
         'tax_code' => TaxCode::class,
         'tax_rate' => TaxRate::class,
+        'trade' => Trade::class,
         'tenant' => Tenant::class,
         'tenant_credit_application' => TenantCreditApplication::class,
         'tenant_document' => TenantDocument::class,

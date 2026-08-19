@@ -99,6 +99,7 @@ class OwnerVisibility
      * @var array<string, string>
      */
     public const OPERATOR_INTERNAL = [
+        'trades' => "Operator configuration: which kinds of work exist, what an hour of each costs the operator, and which contractor is eligible for it. An owner sees what the work COST on his statement; the operator's own rate card and contractor panel are how it manages the building, not a fact about the property's income.",
         'work_permits' => "Eltizam's own safety process and the contractors it authorises. An owner reading it learns which firms work the building and how the operator controls them — the operator's management practice, not the property's income. Reclassify if an owner ever needs to evidence safety compliance to an insurer.",
         // ---- The operator's counterparties ----
         // Deliberately internal FOR NOW, and it is a decision rather than an oversight: the

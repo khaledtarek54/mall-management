@@ -48,7 +48,10 @@ it('raises a work order that carries the fault\'s location and links back', func
     // WHERE the work is comes from the request — facts about the fault, not the engineer's choices.
     expect($wo->asset_id)->toBe($this->asset->id);
     expect($wo->unit_id)->toBe($this->unit->id);
-    expect($wo->category)->toBe('hvac');
+    // The tenant reported a `hvac` PROBLEM and that code happens to be a trade, so it resolves.
+    // A `noise` or `parking` request would resolve to null rather than writing a non-trade into
+    // the trade column, which is what happened for the whole of module 26's life.
+    expect($wo->trade_id)->toBe(tradeId('hvac'));
     // …and its wording defaults to the tenant's own, so an engineer isn't retyping the complaint.
     expect($wo->title)->toBe('AC leaking into the shop');
     expect((string) $wo->priority)->toBe('high');

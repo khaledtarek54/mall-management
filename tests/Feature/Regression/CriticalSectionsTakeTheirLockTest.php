@@ -139,7 +139,7 @@ it('locks the invoice and the tenant before spending on-account credit', functio
 it('locks the plan before advancing its next due date', function () {
     // Re-checked under the lock, so two overlapping sweeps cannot raise two orders for one cycle.
     ServicePlan::create([
-        'asset_id' => $this->asset->id, 'title' => 'Lift inspection', 'category' => 'safety',
+        'asset_id' => $this->asset->id, 'title' => 'Lift inspection', 'trade_id' => tradeId('safety'),
         'frequency_unit' => 'months', 'frequency_value' => 1,
         'next_due_date' => '2026-05-01', 'is_active' => true,
     ]);
@@ -158,7 +158,7 @@ it('locks the work order as the aggregate root for its checklist', function () {
         'asset_id' => $this->asset->id,
         'work_order_type' => FacilityWorkOrder::TYPE_CM,
         'execution_type' => 'internal',
-        'title' => 'Chiller', 'description' => 'Down', 'category' => 'hvac',
+        'title' => 'Chiller', 'description' => 'Down', 'trade_id' => tradeId('hvac'),
         'status' => 'open', 'priority' => 'high', 'scheduled_for' => now()->toDateString(),
     ]);
 

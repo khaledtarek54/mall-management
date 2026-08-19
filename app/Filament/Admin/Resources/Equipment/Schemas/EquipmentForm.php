@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Equipment\Schemas;
 use App\Models\Equipment;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
+use App\Models\Trade;
 use App\Models\Unit;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
@@ -72,12 +73,15 @@ class EquipmentForm
                 // existence oracle. null (out of scope) collapses it.
                 ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('asset_id', self::inScopeAssetId($get))),
 
-            Select::make('category')
-                ->label(__('admin.facility.fields.category'))
-                ->options(fn () => collect(['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'elevator', 'fire-safety', 'generator', 'other'])
-                    ->mapWithKeys(fn (string $c) => [$c => __("admin.facility.categories.{$c}")])
-                    ->all())
-                ->native(false),
+            // Was a HARDCODED subset of ten, duplicated in the table with a different list —
+            // landscaping, pest control, waste and security were simply missing from both. One
+            // register, one list, and an operator can add to it without a deploy.
+            Select::make('trade_id')
+                ->label(__('admin.facility.fields.trade'))
+                ->options(fn () => Trade::options())
+                ->native(false)
+                ->searchable()
+                ->helperText(__('admin.facility.help.equipment_trade')),
 
             Select::make('criticality')
                 ->label(__('admin.facility.fields.criticality'))
