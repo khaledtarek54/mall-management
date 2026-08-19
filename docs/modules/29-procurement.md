@@ -19,6 +19,28 @@
 
 ---
 
+
+> **⚠️ Billing twice what was ordered looked like an ordinary bill (2026-08-19).** Found by driving
+> procurement on real data, not by a failing test: a purchase worth 5,000, received into stock, then
+> a supplier bill for **10,000** linked to it — accepted without a murmur.
+>
+> **The GL was never wrong.** `VendorBillJournalizer` clears GRNI up to the RECEIVED value and
+> expenses the remainder, which is correct for a bill that also covers labour or delivery. That is
+> precisely why this must NOT be a refusal: the legitimate case and the duplicate-billing case post
+> identically, and the only difference is whether a human meant it. Blocking would break the case
+> the journalizer was built for.
+>
+> So the bill form now shows the **three-way match** where an AP clerk can act on it — ordered,
+> received into stock, and billed *including this one* — and says in red how far past the purchase
+> it runs. `PurchaseRequest::billingVariance()` sums **every postable bill**, because the case that
+> hides is a split delivery: two bills of 3,000 against a 5,000 purchase each look fine alone. It
+> uses the same `postable()` scope the journalizer uses to decide which bills consume received
+> value, so the screen and the ledger cannot disagree, and it excludes the bill being edited so
+> re-saving one does not double-count itself.
+>
+> `PurchaseBillingVarianceIsVisibleTest`.
+
+
 ## 1. Domain model
 
 ### `purchase_requests` — "we need this, here's why"

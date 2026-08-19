@@ -12,6 +12,7 @@ use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -20,6 +21,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\HtmlString;
 
 class VendorBillForm
 {
@@ -127,7 +129,46 @@ class VendorBillForm
                                 ->where('status', PurchaseRequest::STATUS_RECEIVED);
                         })
                         ->placeholder(__('admin.fields.purchase_request_none'))
+                        ->live()
                         ->disabled($locked),
+
+                    // **The three-way match, shown where the clerk can act on it.** A bill for
+                    // 10,000 against a purchase of 5,000 posted cleanly and looked like every other
+                    // bill: the journalizer cleared GRNI up to the received value and expensed the
+                    // rest, which is CORRECT accounting for a bill that also covers labour or
+                    // delivery — and indistinguishable from a supplier billing twice. Nobody was
+                    // told (2026-08-19).
+                    //
+                    // Stated, not refused. Blocking would be wrong for exactly the legitimate case
+                    // the journalizer is built for; the operator needs the number, not a wall.
+                    Placeholder::make('purchase_match')
+                        ->label(__('admin.procurement.match'))
+                        ->columnSpanFull()
+                        ->visible(fn (Get $get): bool => filled($get('purchase_request_id')))
+                        ->content(function (Get $get, ?VendorBill $record): HtmlString {
+                            $pr = PurchaseRequest::find($get('purchase_request_id'));
+
+                            if ($pr === null) {
+                                return new HtmlString('—');
+                            }
+
+                            $thisNet = (float) ($get('subtotal') ?? 0);
+                            $variance = $pr->billingVariance($record?->getKey(), $thisNet);
+                            $money = fn (float $v): string => 'EGP '.number_format($v, 2);
+
+                            $line = __('admin.procurement.match_summary', [
+                                'ordered' => $money((float) $pr->total_value),
+                                'received' => $money($pr->receivedValue()),
+                                'billed' => $money($pr->billedNet($record?->getKey()) + $thisNet),
+                            ]);
+
+                            if ($variance <= 0.005) {
+                                return new HtmlString(e($line));
+                            }
+
+                            return new HtmlString(e($line).'<br><span style="color:#B85C38;font-weight:600;">'
+                                .e(__('admin.procurement.match_over', ['amount' => $money($variance)])).'</span>');
+                        }),
 
                     Select::make('category')
                         ->label(__('admin.fields.category'))

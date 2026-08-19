@@ -148,6 +148,46 @@ class PurchaseRequest extends Model
     }
 
     /** @return HasMany<PurchaseRequestLine, $this> */
+    /**
+     * The value of this purchase that has actually been RECEIVED into stock.
+     *
+     * Only lines with a stock movement count — an ordered-but-undelivered line has credited nothing
+     * to GRNI, so there is nothing for a bill to clear against it. Same predicate
+     * `VendorBillJournalizer` uses to decide how much of a bill clears GRNI; named here so the
+     * screens can ask the question without re-deriving it.
+     */
+    public function receivedValue(): float
+    {
+        return round((float) $this->lines()
+            ->whereNotNull('inventory_item_id')
+            ->whereNotNull('stock_movement_id')
+            ->sum('line_value'), 2);
+    }
+
+    /** What suppliers have already billed against this purchase, excluding draft and cancelled. */
+    public function billedNet(?int $excludingBillId = null): float
+    {
+        return round((float) $this->bills()
+            ->postable()
+            ->when($excludingBillId !== null, fn ($q) => $q->whereKeyNot($excludingBillId))
+            ->sum('subtotal'), 2);
+    }
+
+    /**
+     * How far the supplier's billing has run past this purchase — the **three-way match variance**.
+     *
+     * Deliberately a number to SHOW, not a refusal to throw. A bill legitimately covers more than
+     * the goods: the labour on the same invoice, a delivery charge — and `VendorBillJournalizer`
+     * is built for exactly that, clearing GRNI up to the received value and expensing the rest. So
+     * blocking would be wrong, and saying nothing was what we had: a bill for 10,000 against a
+     * 5,000 purchase posted cleanly, looked like every other bill, and nobody was told
+     * (2026-08-19).
+     */
+    public function billingVariance(?int $excludingBillId = null, float $includingNet = 0.0): float
+    {
+        return round($this->billedNet($excludingBillId) + $includingNet - $this->total_value, 2);
+    }
+
     public function lines(): HasMany
     {
         return $this->hasMany(PurchaseRequestLine::class);

@@ -341,6 +341,9 @@ return [
     ],
 
     'procurement' => [
+        'match' => 'Three-way match',
+        'match_summary' => 'Purchase ordered :ordered · received into stock :received · billed including this one :billed',
+        'match_over' => 'This bills :amount MORE than the purchase was worth. Correct if it also covers labour or delivery — otherwise check whether the supplier has billed twice.',
         'group' => 'Operations',
         'singular' => 'Procurement Request',
         'plural' => 'Procurement',
