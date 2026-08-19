@@ -60,6 +60,27 @@ class PropertyField
     ];
 
     /**
+     * Property controls that are deliberately NOT this component, and why.
+     *
+     * The companion to {@see PORTFOLIO_LEVEL}, and a separate list because the reasons are a
+     * different kind: these are not screens choosing to stay free, they are controls that are not
+     * asking an operator which mall to file something under at all. `PropertyControlsAreAccountedFor`
+     * sweeps every `make('asset_id')` / `make('assetId')` under `app/Filament` and fails on one that
+     * is neither built by this class nor listed here — which is what stops the next relation manager
+     * or header-action form from quietly reinventing the free picker in a directory the rendered
+     * create-form sweep never visits.
+     *
+     * @var array<string, string>
+     */
+    public const UNPINNED = [
+        'app/Filament/Admin/Pages/OccupancyMap.php' => 'Its whole filter Section is `->visible(fn () => $this->isAllPropertiesMode())`, i.e. `currentAssetId() === null`, so the picker is never rendered while a mall is selected — the pin would be a no-op on a control that cannot appear. It exists for the All-Properties plumbing, where the map must be told which mall to draw.',
+        'app/Filament/Admin/Resources/Units/Tables/UnitsTable.php' => 'A table FILTER, not a form field: nothing is written, and it is hidden outright while a mall is selected (`! PropertyField::isPinned()`) because the table is already scoped to that mall and the filter offered a list of one.',
+        'app/Filament/Admin/Resources/MarketingBudgets/Schemas/MarketingBudgetForm.php' => 'A read-only DISPLAY of the budget property, never a picker: budgets are created by the billing run, the resource has no create page at all, and the field is not dehydrated. Pinning it would make it required and write-back.',
+        'app/Filament/Admin/Resources/Vendors/RelationManagers/ContractsRelationManager.php' => 'Pinned by hand for a reason the shared component cannot express: a null here is a PORTFOLIO-WIDE contract covering every mall, so it must stay nullable and un-required. A relation manager also sits outside the resource-page flow, so it carries its own `->rules()` scope guard rather than a mutate hook.',
+        'app/Filament/Portal/Resources/MarketingPosts/Schemas/MarketingPostForm.php' => 'The tenant PORTAL, which is tenant-scoped and not asset-scoped: a retailer trading in three malls genuinely chooses which one a shopper post is for. There is no selected property to pin to, and the submitted value is re-checked by assertTenantTradesIn().',
+    ];
+
+    /**
      * The pinned picker. Use this for anything that is a RECORD of a mall's business.
      *
      * `$alsoDisabledWhen` composes rather than replaces — a caller chaining its own `->disabled()`

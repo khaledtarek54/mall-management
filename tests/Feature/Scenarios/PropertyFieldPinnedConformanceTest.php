@@ -235,6 +235,92 @@ it('pins the property scope on every financial statement', function () {
     );
 });
 
+it('accounts for every property control in the panel', function () {
+    // The rendered sweep above visits CREATE PAGES. That is where the pin matters most and it is
+    // also, on its own, a blind spot shaped exactly like the one this whole change was about: a
+    // relation manager, a table filter, a header-action form and a page filter strip all declare
+    // property controls in directories a create-page sweep never opens, and each would have gone on
+    // looking correct forever.
+    //
+    // So this is the coarser, complete half — source-level, every file, no exceptions that are not
+    // written down. It cannot tell a pinned field from an unpinned one (that is the rendered
+    // sweep's job); it can tell whether somebody DECIDED.
+    $unaccounted = [];
+
+    foreach ([base_path('app/Filament')] as $root) {
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root));
+
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $source = (string) file_get_contents($file->getPathname());
+
+            if (! str_contains($source, "make('asset_id')") && ! str_contains($source, "make('assetId')")) {
+                continue;
+            }
+
+            $relative = str_replace(base_path().'/', '', $file->getPathname());
+
+            if (str_contains($source, 'PropertyField::')
+                || array_key_exists($relative, PropertyField::UNPINNED)
+                || array_key_exists($relative, PropertyField::PORTFOLIO_LEVEL)) {
+                continue;
+            }
+
+            $unaccounted[] = $relative;
+        }
+    }
+
+    sort($unaccounted);
+
+    expect($unaccounted)->toBe(
+        [],
+        'These files declare a property control that is neither built by PropertyField nor '
+            .'registered as a deliberate exception. Build it with PropertyField::make(), or add it '
+            .'to PropertyField::UNPINNED with the reason it is not a pinnable picker: '
+            .implode(', ', $unaccounted),
+    );
+
+    // Both registers must still describe real files — a moved screen leaves an entry protecting
+    // nothing, and reads as coverage.
+    foreach ([PropertyField::UNPINNED, PropertyField::PORTFOLIO_LEVEL] as $register) {
+        foreach ($register as $path => $reason) {
+            expect(file_exists(base_path($path)))->toBeTrue("A property-control register names {$path}, which no longer exists.");
+            expect(str_word_count($reason))->toBeGreaterThan(15, "The reason recorded for {$path} is too thin to review.");
+        }
+    }
+});
+
+it('carries the pin onto every edit form for free', function () {
+    // The rendered sweep only mounts CREATE pages, and manufacturing a valid record for each of the
+    // 38 editable resources is a fixture project rather than a test. It does not need to be: both
+    // pages read `XResource::form()`, so an edit form is the same built schema the sweep already
+    // inspected — `default()` simply does not fire, and the record's own property loads disabled.
+    //
+    // That inheritance is the whole argument, so assert it rather than assume it. An Edit page
+    // declaring its own form()/getFormSchema()/content() would step outside the gate silently, and
+    // this is the one line that notices.
+    $overriding = [];
+
+    foreach (glob(app_path('Filament/Admin/Resources/*/Pages/Edit*.php')) ?: [] as $file) {
+        $source = (string) file_get_contents($file);
+
+        foreach (['function form(', 'function getFormSchema(', 'function content('] as $override) {
+            if (str_contains($source, $override)) {
+                $overriding[] = basename($file).' declares '.rtrim($override, '(').'()';
+            }
+        }
+    }
+
+    expect($overriding)->toBe(
+        [],
+        'These Edit pages build their own schema instead of the resource\'s, so the create-form '
+            .'sweep says nothing about them and their property field is unverified: '.implode(', ', $overriding),
+    );
+});
+
 it('proves the refusals these pinned controls stand in for', function () {
     // The pin is a UI truth, not a guard, and this is the pairing that says so: remove the field
     // entirely and the server still refuses both. If either of these ever passes, the pin above

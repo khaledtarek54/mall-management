@@ -8,6 +8,7 @@ use App\Models\Asset;
 use App\Models\Unit;
 use App\Services\RemeasureUnitService;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\PropertyField;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -124,8 +125,16 @@ class UnitsTable
                     // Scope to the user's visible properties (excludes the ALL pseudo-asset) — a raw
                     // ->relationship('asset','name') enumerates every mall's name + the ALL row to a
                     // restricted operator (a cross-property metadata read leak).
+                    //
+                    // Hidden outright while a mall is selected, which on an operational screen is
+                    // always: the table is already scoped to that mall, so the filter offered a list
+                    // of one and narrowed nothing — an operator opening the filter panel to narrow
+                    // by property found the question already answered and no way to widen it. It
+                    // stays declared for the All-Properties plumbing, the one place two malls need
+                    // telling apart.
                     ->entity(Asset::class)
-                    ->searchable(),
+                    ->searchable()
+                    ->visible(fn (): bool => ! PropertyField::isPinned()),
                 Filter::make('lease_expiring_soon')
                     ->label(__('admin.filters.expiring_soon'))
                     ->query(fn (Builder $query) => $query->whereHas('activeLease', fn (Builder $l) => $l->whereBetween('expiry_date', [now(), now()->addDays(90)]))),

@@ -159,6 +159,28 @@ the built component's evaluated state (a call site can chain `->disabled(false)`
 source), fails on a stale `PORTFOLIO_LEVEL` entry, and pairs the whole thing with the two refusals
 it stands in for plus a control that must succeed.
 
+**A rendered create-form sweep has a blind spot shaped exactly like the bug it was written for.** A
+relation manager, a table filter, a header-action form and a page filter strip all declare property
+controls in directories it never opens, and each would go on looking correct forever. So a second,
+coarser check sweeps EVERY `make('asset_id')` / `make('assetId')` under `app/Filament` and fails on
+one that is neither built by `PropertyField` nor registered. It cannot tell a pinned control from an
+unpinned one — that is the rendered sweep's job — it can only tell whether somebody **decided**.
+The decisions live in `PropertyField::UNPINNED`, each with why it is not a pinnable picker:
+`OccupancyMap` (its whole strip is `visible(currentAssetId() === null)`, so the control never
+renders while a mall is selected), the Units table **filter** (nothing is written, and it is hidden
+outright when pinned — the table is already scoped to that mall, so it offered a list of one),
+`MarketingBudgetForm` (a read-only display; the resource has no create page), the vendor-contract
+relation manager (a null there is a genuine PORTFOLIO-WIDE contract, and it carries its own
+`->rules()` guard because a relation manager is outside the resource-page flow), and the tenant
+**portal** post form (a different panel — tenant-scoped, not asset-scoped, so there is no selected
+property to pin to).
+
+**Edit forms inherit the pin for free**, and that is asserted rather than assumed: both pages read
+`XResource::form()`, so an edit form is the same built schema the sweep already inspected —
+`default()` simply does not fire and the record's own property loads disabled. A gate check fails
+any `Edit*` page that declares its own `form()` / `getFormSchema()` / `content()` and would step
+outside that inheritance silently.
+
 ## The self-enforcing gate
 
 **[`tests/Feature/Scenarios/PropertyIsolationConformanceTest.php`](../tests/Feature/Scenarios/PropertyIsolationConformanceTest.php)**
