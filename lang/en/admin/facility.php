@@ -10,6 +10,7 @@ return [
         'generate_failed' => 'Generation failed for :count plan(s)',
         'helpers' => [
             'priority_from_criticality' => 'Pre-filled from the machine\'s criticality when you pick one — change it if you disagree.',
+            'evidence' => 'Photos or paperwork for this job. Private — never a public URL.',
             'criticality' => 'How much it matters when this machine stops. A fault raised on CRITICAL equipment starts at urgent, IMPORTANT at high — a starting point, not a rule: whoever raises the job can still set it themselves.',
         ],
         'criticalities' => [
@@ -55,6 +56,7 @@ return [
             'reference' => 'Ref.', 'status' => 'Status', 'scheduled_for' => 'Scheduled', 'completed_at' => 'Completed',
             'completed_by' => 'Completed by', 'plan' => 'Plan', 'notes' => 'Notes', 'label' => 'Item', 'done' => 'Done',
             'progress' => 'Progress', 'result' => 'Result', 'marked_by' => 'Checked by',
+            'evidence' => 'Evidence',
         ],
         'results' => ['pending' => 'Not checked', 'pass' => 'Pass', 'fail' => 'Fail'],
         'errors' => [

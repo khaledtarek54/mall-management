@@ -342,6 +342,13 @@ class Settings extends Page implements HasSchemas
                     TextInput::make('sla.sla_high_respond_hours')->label(__('admin.settings.fields.sla_high_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
                     TextInput::make('sla.sla_medium_respond_hours')->label(__('admin.settings.fields.sla_medium_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
                     TextInput::make('sla.sla_low_respond_hours')->label(__('admin.settings.fields.sla_low_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
+                    // Ships OFF. Switching it on refuses the next completion every engineer
+                    // attempts, on jobs they have already finished — so the helper text says what
+                    // it does before the toggle does it.
+                    Toggle::make('sla.require_completion_evidence')
+                        ->label(__('admin.settings.fields.require_completion_evidence'))
+                        ->helperText(__('admin.settings.fields.require_completion_evidence_helper'))
+                        ->columnSpanFull(),
                 ]),
         ];
     }

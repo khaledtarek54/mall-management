@@ -741,6 +741,42 @@ must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26
 
 ---
 
+
+### Evidence on a job (2026-08-19)
+
+A work order carries an **`evidence` media collection** — photographs and paperwork — on
+`useDisk('local')`, i.e. private. The gap analysis had this filed as "closes on its checklist with
+no required evidence"; reading the code said something stronger, that `FacilityWorkOrder` did not
+implement `HasMedia` at all, so there was no way to attach a photograph in the first place. The
+missing thing was the capability, not the gate over it.
+
+It matters for a mall specifically because the work order is the record that settles arguments
+later — with the tenant about what was done inside their shop, with the vendor about whether the
+job justified the invoice, with an insurer about the state of plant before a failure. None of
+those are winnable from a list of ticks.
+
+**One collection, not a before/after pair.** Which photograph is "before" is a judgement made at
+upload time and frequently got wrong, and a mislabelled pair is worse evidence than an unlabelled
+set: it asserts something false about a job somebody may later be billed for. Upload order and the
+file's own timestamp carry the sequence.
+
+**Uploadable after closure, deliberately.** A photograph is the one thing an engineer legitimately
+adds after the fact — the job is finished, the phone is in their pocket. The commercial fields stay
+frozen; refusing the upload too is how a record ends up with no evidence at all.
+
+**Requiring one is `SlaSettings::$require_completion_evidence`, and it ships OFF.** Not timidity:
+switching it on mid-flight refuses the next completion every engineer attempts, on jobs they have
+already finished, over a rule nobody told them about — and the reliable outcome is a photograph of
+a wall, taken to clear the validation. Evidence collected to satisfy a gate is worse than none,
+because it looks like proof. Attachments first, habit second, requirement third. Same posture as
+straight-line rent and the NSF fee.
+
+The guard lives in `FacilityWorkOrderService::assertEvidencePresent()`, beside
+`assertChecklistComplete()` — in the **service**, because `transition()` is the one road to `done`
+(the Filament action, the console and any future API all arrive through it) while a form guard
+protects one screen. It throws a `DomainException`, so it renders as a toast telling the engineer
+what to do rather than a 500.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |

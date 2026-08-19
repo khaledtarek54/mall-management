@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
+use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -98,6 +99,7 @@ class FacilityWorkOrderService
 
             if ($next === 'done') {
                 $this->assertChecklistComplete($locked);
+                $this->assertEvidencePresent($locked);
 
                 $payload['completed_at'] = now();
                 $payload['completed_by_user_id'] = $actorId;
@@ -231,6 +233,31 @@ class FacilityWorkOrderService
      *
      * @throws DomainException
      */
+    /**
+     * A finished job must show something for itself — when the operator has asked for that.
+     *
+     * Guarded in the SERVICE rather than on the model or the form, for the reason this codebase
+     * keeps rediscovering: `transition()` is the one road to `done` (the Filament action, the
+     * console, and any future API all come through here), while a form guard protects one screen
+     * and a model guard would also fire on the data fixes and backfills that legitimately move a
+     * historical order.
+     *
+     * The refusal is a DomainException, so it renders as a toast telling the engineer what to do,
+     * not a 500.
+     */
+    protected function assertEvidencePresent(FacilityWorkOrder $order): void
+    {
+        if (! app(SlaSettings::class)->require_completion_evidence) {
+            return;
+        }
+
+        if ($order->hasEvidence()) {
+            return;
+        }
+
+        throw new DomainException(__('admin.errors.work_order_needs_evidence'));
+    }
+
     protected function assertChecklistComplete(FacilityWorkOrder $order): void
     {
         $pending = $order->items()->pending()->count();

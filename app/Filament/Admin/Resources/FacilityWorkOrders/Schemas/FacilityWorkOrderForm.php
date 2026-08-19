@@ -13,6 +13,7 @@ use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
@@ -127,6 +128,24 @@ class FacilityWorkOrderForm
                 ->rows(2)
                 ->columnSpanFull()
                 ->disabled($locked),
+            // Evidence for the job. NOT disabled by `$locked`: a photograph is the one thing an
+            // engineer legitimately adds after the fact — the job is done, the phone is in their
+            // pocket, and refusing the upload because the order reached a terminal state is how a
+            // record ends up with no evidence at all. The commercial fields stay frozen.
+            SpatieMediaLibraryFileUpload::make('evidence')
+                ->label(__('admin.facility.fields.evidence'))
+                ->helperText(__('admin.facility.helpers.evidence'))
+                ->collection('evidence')
+                ->multiple()
+                ->appendFiles()
+                ->reorderable()
+                ->downloadable()
+                ->openable()
+                ->preserveFilenames()
+                ->acceptedFileTypes(['image/*', 'application/pdf'])
+                ->maxSize(10240)
+                ->maxFiles(10)
+                ->columnSpanFull(),
         ]);
     }
 }

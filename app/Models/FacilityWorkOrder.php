@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * A preventive-maintenance work order (module 26) — a scheduled facility job raised from
@@ -29,9 +31,9 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[DeletionAllowed(reason: 'operational: a job record')]
 #[PropertyOwned]
-class FacilityWorkOrder extends Model
+class FacilityWorkOrder extends Model implements HasMedia
 {
-    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     public const STATUSES = ['open', 'in_progress', 'done', 'cancelled'];
 
@@ -360,6 +362,31 @@ class FacilityWorkOrder extends Model
     public function scopePreventive(Builder $query): Builder
     {
         return $query->where('work_order_type', self::TYPE_PPM);
+    }
+
+    /**
+     * Photographs and paperwork for the job — `useDisk('local')`, i.e. PRIVATE.
+     *
+     * Explicit, because medialibrary's default is `env('MEDIA_DISK', 'public')` and therefore
+     * fail-open: forgetting to declare a disk is indistinguishable from choosing the webroot,
+     * which is how signed leases and tenant tax cards once came to be served from guessable URLs.
+     * A work-order photo shows the inside of a tenant's shop, the state of plant, and sometimes a
+     * person — none of it belongs on an unauthenticated URL.
+     *
+     * ONE collection, not a before/after pair. Which photograph is "before" is a judgement the
+     * engineer makes at the moment of upload and frequently gets wrong, and a mislabelled pair is
+     * worse evidence than an unlabelled set — it asserts something false about a job someone may
+     * later be billed for. The order of upload and the file's own timestamp carry the sequence.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('evidence')->useDisk('local');
+    }
+
+    /** Does this job carry any evidence at all? The predicate the completion gate reads. */
+    public function hasEvidence(): bool
+    {
+        return $this->getMedia('evidence')->isNotEmpty();
     }
 
     public function items(): HasMany
