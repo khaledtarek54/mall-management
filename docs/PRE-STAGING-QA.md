@@ -7,6 +7,19 @@
 
 ---
 
+> **Coverage note (added after the first pass).** The first sweep did **not** exercise lease
+> **options** at all — `ExerciseLeaseOptionService`, `LeaseOption`, `leases:scan-option-windows` and
+> encumbrance had zero coverage in it — and its month cycle ran on whatever shapes `DemoSeeder`
+> happened to produce rather than on a deliberate set. Both gaps are now closed by
+> [`41_lease_options.php`](qa/scripts/41_lease_options.php) (54/54) and
+> [`42_full_month_all_shapes.php`](qa/scripts/42_full_month_all_shapes.php) (47/47). **No new defects
+> were found** — options were already well covered by `LeaseOptionWindowTest`,
+> `LeaseOptionExerciseTest` and `LeaseOptionsUiTest`; the sweep had simply never run them.
+>
+> One thing that pass did correct: the *scheduled* billing run prorates a mid-month commencement
+> (`prorate: true`, since 2026-08-08), while `planInvoiceForLease()`'s own default is `false`. Reading
+> the signature gives the wrong answer; every real caller passes `true`.
+
 > **Status 2026-08-19 — Gates 1–4 and 7 are DONE.** Every finding below marked ✅ has been fixed,
 > verified against MySQL with the scripts in [`qa/scripts/`](qa/scripts/), and left a regression test
 > behind. What remains is Gates 5 and 6 — the staging box itself (queue worker, scheduler, off-box
@@ -67,6 +80,8 @@ a single-connection test never interleaves).
 | Authorization | The full role × screen matrix, requested as each of the seven demo roles |
 | Isolation | A manager assigned to one property only, then asked for the other property's URLs, records and queries |
 | Concurrency | **Two separate PHP processes** on two MySQL connections, released against a shared wall-clock barrier |
+| Lease shapes | One lease of each of 17 shapes, billed together through one month and one close (`42_full_month_all_shapes.php`) |
+| Lease options | All 7 types recorded, encumbrance checked, exercised / waived / lapsed, window scan, renewal hand-off (`41_lease_options.php`) |
 | Accounting | After every scenario: trial balance, AR tie-out, AP tie-out, GL drift sweep, deposits tie-out, `billing:reconcile --deep` |
 
 Scripts are in the session scratchpad (`qa/*.php`), each re-runnable from a snapshot of the seeded
@@ -252,11 +267,28 @@ the fix all three races end in the intended business refusal rather than a dupli
    success. Two owners went un-billed. Skips that mean *nothing to bill* and skips that mean *this
    agreement is misconfigured* should not share a counter.
 
-7. **Do a staging dry-run of a whole month, on staging data.** Everything here was one property and one
-   month. The cheapest remaining risk reduction is: restore, run `billing:run-monthly` +
-   `billing:run-assessments`, collect a realistic mix of payments, run `cam:reconcile`, close the
-   period, produce the owner statement, and reconcile — then compare against the operator's own
-   expectation for that month. That is the test that finds the things a synthetic fixture cannot.
+7. **Do a staging dry-run of a whole month, on staging data.** This is the one recommendation that
+   is still outstanding, and it cannot be done from a workstation — it needs the staging box and the
+   operator's own data. Restore, run `billing:run-monthly` + `billing:run-assessments`, collect a
+   realistic mix of payments, run `cam:reconcile`, close the period, produce the owner statement,
+   and reconcile — then compare against the operator's own expectation for that month.
+
+   **What HAS been done, on synthetic data:**
+   [`42_full_month_all_shapes.php`](qa/scripts/42_full_month_all_shapes.php) builds one property with
+   **one lease of every shape the engine supports** — plain monthly · quarterly on a cycle start ·
+   quarterly mid-cycle · annual · mid-month commencement · mid-month expiry · gross fit-out ·
+   net fit-out · mid-month rent commencement · holdover · escalating on the 1st · under a relief
+   window · multi-unit · with a marketing levy · percentage rent · expired · terminated — plus a
+   unit-owner assessment and **an open option of every one of the seven types**, one of them
+   exercised mid-month. It then bills the month, checks each shape against a hand-computed figure,
+   collects a mixed set of payments, books a vendor bill and an expense, produces the trial balance,
+   income statement and balance sheet, ties the AR aging, closes the period, proves a back-dated
+   receipt is refused, and runs `billing:reconcile --deep`. **47/47.**
+
+   That is not a substitute for staging — it is synthetic data on one property — but it does mean
+   the shapes themselves, and their interaction inside one month and one close, have been driven
+   rather than assumed. What staging adds is the operator's own contracts, their own chart, and
+   volume.
 
 ---
 

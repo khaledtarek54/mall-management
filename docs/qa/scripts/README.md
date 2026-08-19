@@ -41,7 +41,9 @@ docs/qa/scripts/race.sh lease "44,1"                     # two-process concurren
 | `13_leasing_pctrent_relief.php` | percentage rent (4 types), bounded relief, premises change |
 | `20_ar_channels.php` · `21_ar_reversals.php` | the four settlement channels; voids, write-offs, late fees, PDCs |
 | `30_payables.php` · `31_procurement.php` | vendor bills, withholding tax, SLA penalties, GRNI |
-| `40_month_cycle.php` | a whole month end-to-end against the financial statements |
+| `40_month_cycle.php` | a whole month end-to-end against the financial statements, on seeded data |
+| `41_lease_options.php` | every option type — record, encumber, exercise, waive, lapse, window scan, renewal hand-off |
+| `42_full_month_all_shapes.php` | **the full month**: one lease of every shape + every option type, billed, collected, closed and reconciled |
 | `50_page_sweep.php` · `51_search_rbac.php` · `52_rbac_matrix.php` | every page, global search, the role × screen matrix (**F-06**) |
 | `53_property_isolation.php` · `54_cross_property_money.php` | isolation reads, writes and cross-property money |
 | `60_cam.php` · `F08*` | CAM apportionment, caps, admin fee, and the stated-share over-recovery (**F-08**) |
