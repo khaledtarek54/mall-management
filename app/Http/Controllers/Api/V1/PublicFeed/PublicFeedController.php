@@ -83,9 +83,14 @@ abstract class PublicFeedController extends ApiController
     {
         abort_if($code === Asset::ALL_PROPERTIES_CODE, 404);
 
+        // Filtering the LIST is presentation; filtering here is the actual gate. A mall code is
+        // short and guessable (`ATRIOM`, `PLAZA`), so an unlisted property whose stores and posts
+        // still resolved by code would be withheld from the menu and served to anyone who typed
+        // it — the shape of every "hidden" URL that turns out not to be.
         $asset = Asset::query()
             ->where('code', $code)
             ->where('is_active', true)
+            ->where('is_publicly_listed', true)
             ->first();
 
         abort_if($asset === null, 404);

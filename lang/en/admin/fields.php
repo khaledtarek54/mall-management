@@ -225,6 +225,8 @@ return [
         'parent_account' => 'Parent account',
         'is_postable' => 'Postable (leaf)',
         'is_active' => 'Active',
+        'is_publicly_listed' => 'Listed in the shopper app',
+        'is_publicly_listed_helper' => 'Shoppers can find this mall and its stores in the visitor app. Turning it off hides it from the public feed only — staff, units and billing are unaffected.',
         'account_description' => 'Description',
         'normal_balance' => 'Normal balance',
         'journal_number' => 'Entry no.',

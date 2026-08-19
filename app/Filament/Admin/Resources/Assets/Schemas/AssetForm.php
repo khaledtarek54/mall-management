@@ -74,6 +74,15 @@ class AssetForm
                     Toggle::make('is_active')
                         ->label(__('admin.fields.is_active'))
                         ->default(true),
+                    // Beside `is_active` on purpose, because the two were confused: before this
+                    // flag the only way to keep a mall out of the shopper feed was to deactivate
+                    // it, which also empties the property switcher and hides its units. The
+                    // helper text says what the switch publishes, because a control that makes
+                    // something public must say so at the moment it is flipped.
+                    Toggle::make('is_publicly_listed')
+                        ->label(__('admin.fields.is_publicly_listed'))
+                        ->helperText(__('admin.fields.is_publicly_listed_helper'))
+                        ->default(true),
                 ]),
             Section::make(__('admin.sections.branding'))
                 ->description(__('admin.sections.branding_description'))

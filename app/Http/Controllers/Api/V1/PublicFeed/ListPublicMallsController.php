@@ -25,6 +25,10 @@ class ListPublicMallsController extends PublicFeedController
     {
         $malls = Asset::query()
             ->where('is_active', true)
+            // Publication is a SEPARATE decision from operation. Deactivating a mall to keep it
+            // out of the shopper feed also empties the property switcher and hides its units, so
+            // before this flag existed the only way to withhold a property was to break it.
+            ->where('is_publicly_listed', true)
             ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
             ->with('media')
             ->orderBy('name')

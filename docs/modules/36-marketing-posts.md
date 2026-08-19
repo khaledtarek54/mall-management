@@ -7,6 +7,31 @@
 > Benchmarks: Mallcomm's *Offers & Discounts* module, Placewise's shopper-app CMS, Mall Maverick's
 > promo-approval workflow. Field vocabulary from schema.org `Offer` and Google Merchant promotions.
 
+
+## Which malls a shopper can see (2026-08-19)
+
+`assets.is_publicly_listed` decides whether a property appears in `GET /api/v1/public/malls` and
+whether its stores and posts resolve at all. Before it, the feed returned every **active** property
+— so publication and operation were the same flag, and the only way to withhold a mall was to
+deactivate it, which empties the property switcher, hides the units and stops the billing screens.
+
+They are different questions. A mall under fit-out is fully operational and emphatically not
+something to advertise; a decommissioned one may need to stay visible while its last leases run
+out. The precedent was already one level down: a **store** can be withheld (`tenants.is_listed`),
+and §9.5 stops a chain being mapped across the portfolio from a public URL.
+
+**It defaults to TRUE — listed — by the operator's decision (2026-08-19).** Nothing changed for any
+shopper on deploy. The alternative, default-unlisted, is the safer privacy posture and was declined
+because it turns a deploy into a content outage that has to be timed with the operator's staff. The
+risk accepted, stated so it can be reviewed: a property nobody intended to publish stays published
+until someone unticks it — which is why the property form carries helper text saying what the
+switch publishes.
+
+**The gate is `PublicFeedController::resolveMall()`, not the list.** Filtering the menu is
+presentation; a mall code is short and guessable (`ATRIOM`, `PLAZA`), so an unlisted property whose
+stores and posts still resolved by code would be withheld from the menu and served to anyone who
+typed it. `AnUnlistedMallIsNotPubliclyReachableTest` pins both, each refusal paired with a control.
+
 ## 1. Purpose & business context
 
 Atriom could tell **tenants** things ([module 27](27-announcements.md)) and could account for what

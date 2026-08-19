@@ -224,6 +224,8 @@ return [
         'parent_account' => 'الحساب الأب',
         'is_postable' => 'حساب ترحيل',
         'is_active' => 'نشط',
+        'is_publicly_listed' => 'مُدرج في تطبيق الزوار',
+        'is_publicly_listed_helper' => 'يستطيع الزوار العثور على هذا المول ومتاجره في التطبيق. إيقافه يخفيه عن الواجهة العامة فقط — دون أي تأثير على الموظفين أو الوحدات أو الفوترة.',
         'account_description' => 'بيان',
         'normal_balance' => 'الرصيد الطبيعي',
         'journal_number' => 'رقم القيد',

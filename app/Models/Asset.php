@@ -70,11 +70,13 @@ class Asset extends Model implements HasMedia
         'primary_color',
         'metadata',
         'is_active',
+        'is_publicly_listed',
     ];
 
     protected $casts = [
         'metadata' => 'array',
         'is_active' => 'boolean',
+        'is_publicly_listed' => 'boolean',
         'total_area_sqm' => 'decimal:2',
         'leasable_area_sqm' => 'decimal:2',
     ];
