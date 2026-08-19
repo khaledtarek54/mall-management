@@ -141,7 +141,7 @@ class ValueSets
         ],
         'payrolls.paid_from' => ['cash', 'bank'],
         'payrolls.status' => ['draft', 'approved', 'cancelled'],
-        'purchase_requests.status' => ['requested', 'approved', 'rejected', 'ordered', 'received', 'cancelled'],
+        'purchase_requests.status' => ['draft', 'requested', 'approved', 'rejected', 'ordered', 'received', 'cancelled'],
         'sla_policies.priority' => ['low', 'medium', 'high', 'urgent'],
         'stock_movements.type' => ['receipt', 'consumption', 'adjustment', 'transfer_in', 'transfer_out'],
         'tenant_requests.channel' => ['portal', 'whatsapp', 'phone', 'email', 'walk_in', 'admin'],

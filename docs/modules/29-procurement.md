@@ -41,6 +41,47 @@
 > `PurchaseBillingVarianceIsVisibleTest`.
 
 
+
+## The `draft` status, and the reorder loop it exists for (2026-08-19)
+
+`PurchaseRequest` gained a **`draft`** state. It can only be **submitted** or **cancelled** — it
+can never be approved — and that single restriction is what makes it safe for something other than
+a person to create one.
+
+**Why it was needed.** `inventory:scan-low-stock` had alerted per property since it was built, and
+the alert was the whole mechanism: somebody then re-typed the same shortages into a purchase
+request by hand. Closing that loop is a policy question rather than a missing query — *who
+approves a purchase the system raised by itself?* The operator's answer (2026-08-19): **the scan
+drafts, a human submits.**
+
+That answer had nowhere to live. `requested` is already IN the approval ladder, so a system-raised
+request would have had its **approval tier chosen by a value nobody entered** — the module whose
+whole job is to fail closed, deciding on its own input. Hence a state before the ladder.
+
+- **`DraftReorderPurchaseService`** builds ONE draft per property from the open `LowStockAlert`
+  rows, and **refreshes** it on the next run rather than creating a second — otherwise a weekly
+  scan leaves a drift of stale drafts and the operator learns to ignore all of them. Refreshing
+  also means a shortage that has resolved itself **drops off** the draft instead of being ordered
+  anyway, which is the failure mode of every helpfully pre-filled document.
+- **A system-raised draft has `requested_by_user_id === null`** — nobody asked for it. That is a
+  fact about the row rather than a flag to maintain.
+- **`PurchaseRequestService::submit()`** is the human act. It refuses a non-draft, refuses an empty
+  one (F-104's rule, on a path that did not exist when F-104 was written — a drafted request can
+  legitimately end up empty when every shortage it was raised for resolved), assigns the submitter
+  as requester, and freezes the approval tier from the total as submitted.
+- **`inventory_items.reorder_quantity`** (nullable) says *how much we buy at a time*;
+  `reorder_level` only ever said *when*. **Null is a real answer** meaning "we have not said", and
+  the drafted line then carries the shortfall — a number that lands the item exactly on its own
+  threshold and is therefore to be corrected, not accepted. Inventing a multiple of the reorder
+  level would be inventing a purchasing policy, and a plausible wrong number in a draft gets
+  approved whereas a blank gets filled in.
+- **`PurchaseRequest::LINES_EDITABLE_IN`** replaces an inline `status === STATUS_REQUESTED` in the
+  line-freeze guard. That comparison silently meant "a draft is settled" the moment `draft`
+  existed: writing a line to a request nobody had even asked for was refused with a message about
+  an approval that had not happened. One constant, two readers, no drift.
+- `--no-draft` switches the drafting off without losing the alert; `--dry-run` writes nothing at
+  all, because F-96 in this module was exactly a preview that wrote rows.
+
 ## 1. Domain model
 
 ### `purchase_requests` — "we need this, here's why"

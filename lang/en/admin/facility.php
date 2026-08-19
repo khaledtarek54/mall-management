@@ -343,6 +343,7 @@ return [
     ],
 
     'procurement' => [
+        'reorder_justification' => 'Automatic reorder — raised from low-stock alerts. Check the quantities before submitting.',
         'match' => 'Three-way match',
         'match_summary' => 'Purchase ordered :ordered · received into stock :received · billed including this one :billed',
         'match_over' => 'This bills :amount MORE than the purchase was worth. Correct if it also covers labour or delivery — otherwise check whether the supplier has billed twice.',
@@ -350,6 +351,7 @@ return [
         'singular' => 'Procurement Request',
         'plural' => 'Procurement',
         'statuses' => [
+            'draft' => 'Draft',
             'requested' => 'Requested',
             'approved' => 'Approved',
             'rejected' => 'Rejected',
@@ -415,6 +417,7 @@ return [
         'errors' => [
             'denied' => 'You do not have the rights to do that with a procurement request.',
             'no_lines' => 'A procurement request needs at least one item.',
+            'not_a_draft' => 'Only a draft can be submitted.',
             'no_warehouse' => 'Say which warehouse the goods land in before receiving them.',
             'warehouse_scope' => 'That warehouse belongs to another property — goods are received into the mall that requested them.',
             'approval_tier' => 'This request is worth :value EGP — approving it needs a higher authorisation level than yours.',

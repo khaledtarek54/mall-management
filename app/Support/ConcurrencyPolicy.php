@@ -192,6 +192,7 @@ final class ConcurrencyPolicy
         // ── Money out ────────────────────────────────────────────────────────────────────────
         'app/Services/GeneratePayrollService.php' => 1,
         'app/Services/PayrollService.php' => 1,
+        'app/Services/DraftReorderPurchaseService.php' => 1,
         'app/Services/PurchaseRequestService.php' => 1,
         'app/Services/RecordAdvanceRepaymentService.php' => 3,
         'app/Services/SettleCustodyService.php' => 3,

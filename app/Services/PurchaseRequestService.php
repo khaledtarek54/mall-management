@@ -87,6 +87,54 @@ class PurchaseRequestService
     }
 
     /**
+     * Submit a DRAFT into the approval ladder — the human act that turns a system-raised
+     * suggestion into a request the business owns.
+     *
+     * This is the seam the low-stock reorder loop turns on. `DraftReorderPurchaseService` may
+     * write the lines; it may not do this. Until someone calls it, a draft is a piece of typing
+     * nobody has to honour — and crucially it has NO `required_permission`, because a value the
+     * system chose must not select the approval tier that will decide it.
+     *
+     * The tier is frozen here, from the total as submitted, exactly as `request()` freezes it: the
+     * record must still say who was SUPPOSED to approve this after somebody edits the bands.
+     *
+     * @throws DomainException
+     */
+    public function submit(PurchaseRequest $request, ?User $actor = null): PurchaseRequest
+    {
+        $actor ??= auth()->user();
+        $this->assertCan($actor, self::REQUEST_PERMISSION);
+
+        if ($request->status !== PurchaseRequest::STATUS_DRAFT) {
+            throw new DomainException(__('admin.procurement.errors.not_a_draft'));
+        }
+
+        // F-104's rule, on the one path that did not exist when it was written: a request with no
+        // lines was once approvable, and a drafted one can legitimately end up empty when every
+        // shortage it was raised for has resolved itself.
+        if ($request->lines()->count() === 0) {
+            throw new DomainException(__('admin.procurement.errors.no_lines'));
+        }
+
+        return DB::transaction(function () use ($request, $actor) {
+            $request->refresh();
+
+            $request->update([
+                'status' => PurchaseRequest::STATUS_REQUESTED,
+                // The submitter owns it from here. A system-raised draft carries a null requester
+                // precisely so this assignment is the moment a person takes responsibility.
+                'requested_by_user_id' => $actor->id,
+                'required_permission' => ApprovalPolicy::permissionFor(
+                    ApprovalRule::MODULE_PURCHASE_REQUEST,
+                    (float) $request->total_value,
+                ),
+            ]);
+
+            return $request->refresh();
+        });
+    }
+
+    /**
      * FR-PROC-02 — the approval that must happen before an order can be placed.
      *
      * @throws DomainException

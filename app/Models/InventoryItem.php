@@ -33,12 +33,14 @@ class InventoryItem extends Model
         'unit',
         'unit_cost',
         'reorder_level',
+        'reorder_quantity',
         'is_active',
     ];
 
     protected $casts = [
         'unit_cost' => 'decimal:2',
         'reorder_level' => 'decimal:3',
+        'reorder_quantity' => 'decimal:3',
         'is_active' => 'boolean',
     ];
 

@@ -9,6 +9,7 @@ use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Notifications\LowStockNotification;
 use App\Services\AssetStaffRecipients;
+use App\Services\DraftReorderPurchaseService;
 use App\Support\Modules;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,9 @@ use Throwable;
  */
 class ScanLowStockCommand extends Command
 {
-    protected $signature = 'inventory:scan-low-stock {--dry-run : Print what would be alerted without writing}';
+    protected $signature = 'inventory:scan-low-stock
+        {--dry-run : Print what would be alerted without writing}
+        {--no-draft : Alert only; do not draft a purchase request from the open shortages}';
 
     protected $description = 'Alert each property about items at or below their reorder level (idempotent).';
 
@@ -157,6 +160,20 @@ class ScanLowStockCommand extends Command
         $this->info($dryRun
             ? 'Dry run complete.'
             : "Low-stock scan complete: {$opened} alerted, {$resolved} resolved, {$failures} failed.");
+
+        // Close the loop the alert used to leave open: turn the shortages into a DRAFT purchase
+        // request per property. A draft, never a submission — the system may do the typing, it may
+        // not create an obligation, and a request that enters the ladder by itself would have its
+        // approval tier chosen by a value nobody entered.
+        //
+        // After the alerts are written, because it reads the open ones. Skipped on a dry run for
+        // the reason F-96 exists: a preview that writes rows is not a preview.
+        if (! $dryRun && ! $this->option('no-draft')) {
+            $draft = app(DraftReorderPurchaseService::class)->run();
+
+            $this->info("Reorder drafts: {$draft['drafted']} raised, {$draft['refreshed']} refreshed"
+                .($draft['skipped'] > 0 ? ", {$draft['skipped']} skipped (no warehouse)" : '').'.');
+        }
 
         return $failures > 0 ? self::FAILURE : self::SUCCESS;
     }

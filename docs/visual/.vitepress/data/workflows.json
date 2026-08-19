@@ -41,6 +41,10 @@
         "cancelled": []
     },
     "purchase_request": {
+        "draft": [
+            "requested",
+            "cancelled"
+        ],
         "requested": [
             "approved",
             "rejected",

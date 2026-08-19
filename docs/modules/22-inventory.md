@@ -16,6 +16,15 @@ become visible.
 
 ---
 
+
+### Reorder quantity, and what the low-stock alert now does (2026-08-19)
+
+`reorder_level` says WHEN to buy. **`reorder_quantity`** (nullable) says HOW MUCH — the field whose
+absence meant `inventory:scan-low-stock` could only ever ring a bell. The scan now also drafts a
+purchase request per property from the open shortages; a human submits it. Null `reorder_quantity`
+is a real answer, and the drafted line then carries the shortfall for the operator to correct. See
+[modules/29 — the `draft` status](29-procurement.md).
+
 ## 0. Design decisions (confirmed 2026-07-03)
 
 | Decision | Choice | Why |

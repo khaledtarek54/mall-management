@@ -96,7 +96,7 @@ class PurchaseRequestLine extends Model
         $assertRequestIsOpen = function (self $line, bool $isDelete = false) use ($commercial) {
             $request = $line->request;
 
-            if ($request === null || $request->status === PurchaseRequest::STATUS_REQUESTED) {
+            if ($request === null || in_array($request->status, PurchaseRequest::LINES_EDITABLE_IN, true)) {
                 return;
             }
 

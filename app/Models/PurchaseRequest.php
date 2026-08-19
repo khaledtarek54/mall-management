@@ -34,6 +34,20 @@ class PurchaseRequest extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
+    /**
+     * Started, not yet asked for. The state that did not exist until 2026-08-19.
+     *
+     * Added so something OTHER than a person can begin a purchase without thereby committing the
+     * business to one: `inventory:scan-low-stock` drafts a request from the open shortages, and a
+     * human submits it. Without this state the scan's only options were to create nothing, or to
+     * put a request the system invented straight onto an approver's queue — where its value
+     * decides the approval tier, so the ladder would be answering a question nobody had asked.
+     *
+     * It is useful beyond the scan: a buyer can now start a request, walk away, and finish it,
+     * which previously meant submitting a half-written one.
+     */
+    public const STATUS_DRAFT = 'draft';
+
     public const STATUS_REQUESTED = 'requested';
 
     public const STATUS_APPROVED = 'approved';
@@ -47,7 +61,7 @@ class PurchaseRequest extends Model
     public const STATUS_CANCELLED = 'cancelled';
 
     public const STATUSES = [
-        self::STATUS_REQUESTED, self::STATUS_APPROVED, self::STATUS_REJECTED,
+        self::STATUS_DRAFT, self::STATUS_REQUESTED, self::STATUS_APPROVED, self::STATUS_REJECTED,
         self::STATUS_ORDERED, self::STATUS_RECEIVED, self::STATUS_CANCELLED,
     ];
 
@@ -60,6 +74,10 @@ class PurchaseRequest extends Model
      * is the failure the module exists to prevent.
      */
     public const TRANSITIONS = [
+        // A draft can only be asked for or abandoned. It emphatically cannot be APPROVED: that is
+        // what makes it safe for the low-stock scan to create one, since approving a request the
+        // system invented would let its value pick an approval tier nobody chose.
+        self::STATUS_DRAFT => [self::STATUS_REQUESTED, self::STATUS_CANCELLED],
         self::STATUS_REQUESTED => [self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_CANCELLED],
         self::STATUS_APPROVED => [self::STATUS_ORDERED, self::STATUS_CANCELLED],
         self::STATUS_ORDERED => [self::STATUS_RECEIVED, self::STATUS_CANCELLED],
@@ -67,6 +85,16 @@ class PurchaseRequest extends Model
         self::STATUS_REJECTED => [],
         self::STATUS_CANCELLED => [],
     ];
+
+    /**
+     * The states in which the LINES may still be edited — i.e. before anybody approved anything.
+     *
+     * Named here rather than compared inline because `PurchaseRequestLine`'s freeze guard used to
+     * test `status === STATUS_REQUESTED`, which silently meant "a draft is settled" the moment
+     * `draft` was added: writing a line to a request nobody has even asked for was refused with a
+     * message about an approval that had not happened. One constant, two readers, no drift.
+     */
+    public const LINES_EDITABLE_IN = [self::STATUS_DRAFT, self::STATUS_REQUESTED];
 
     public const TERMINAL = [self::STATUS_RECEIVED, self::STATUS_REJECTED, self::STATUS_CANCELLED];
 
