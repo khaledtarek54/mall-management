@@ -26,6 +26,7 @@ return [
             'bank_account' => 'Bank account',
             'bank_statement' => 'Bank statement',
             'charge_code' => 'Charge code',
+            'rent_index' => 'Rent index',
             'tenant_document' => 'Tenant document',
             'account_mapping' => 'Posting map row',
             'floor' => 'Floor',

@@ -94,6 +94,13 @@ correctly, and there is no index register to apply. In Egypt, where CPI has run 
 not optional — an uncollared CPI clause is a clause no tenant signs. **Any CPI work must ship the
 collar with it, or it is worse than nothing.**
 
+> **CLOSED 2026-08-19.** The collar shipped first (`escalation_floor_rate` /
+> `escalation_ceiling_rate`), and the index register followed: `rent_indices` holds the published
+> figures, and a lease states its index, base value and publication lag. The warning above was
+> honoured — the collar was already in place before a single index-derived step could be applied,
+> and the sweep still refuses to invent a figure: an unpublished month leaves the lease alone and
+> does not roll its anniversary.
+
 ---
 
 ## S5 — Mid-term expansion

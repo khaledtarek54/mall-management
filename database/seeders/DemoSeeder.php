@@ -43,6 +43,7 @@ use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Models\PostDatedCheque;
 use App\Models\RentableItem;
+use App\Models\RentIndex;
 use App\Models\ServicePlan;
 use App\Models\SlaPolicy;
 use App\Models\Tenant;
@@ -527,6 +528,7 @@ class DemoSeeder extends Seeder
         $this->seedItemAllocationAndDispute();
         $this->seedLatePostedVendorBill($asset);
         $this->seedRentableItems($asset, $zones['A']);
+        $this->seedRentIndices();
     }
 
     /**
@@ -849,6 +851,40 @@ class DemoSeeder extends Seeder
      * through `AssignRentableItemService`, so the leases end up with a real `parking` charge that
      * the monthly run bills like any other.
      */
+    /**
+     * A short run of published index figures, so the CPI clause is visible in demo.
+     *
+     * **Demo data only, and deliberately not part of `atriom:install`.** A real install starts with
+     * an EMPTY register: the whole point of the register is that the system records what the
+     * statistical agency published and never invents a figure, so shipping invented numbers as
+     * reference data would contradict the feature in its own seed. Here they are plainly demo,
+     * alongside a demo mall and demo tenants.
+     *
+     * Roughly Egypt's recent shape — high, decelerating — because a flat 2% series would never
+     * exercise the ceiling, and the ceiling is the term that matters in this market.
+     */
+    private function seedRentIndices(): void
+    {
+        $series = [
+            '2025-09-01' => 100.0,
+            '2025-12-01' => 104.8,
+            '2026-03-01' => 110.2,
+            '2026-06-01' => 115.1,
+            '2026-09-01' => 119.6,
+        ];
+
+        foreach ($series as $period => $value) {
+            RentIndex::updateOrCreate(
+                ['code' => 'EGY_CPI', 'period' => $period],
+                [
+                    'value' => $value,
+                    'published_on' => CarbonImmutable::parse($period)->addMonth()->day(10)->toDateString(),
+                    'notes' => 'Demo series — urban CPI, rebased to 100.',
+                ],
+            );
+        }
+    }
+
     private function seedRentableItems(Asset $asset, Area $foodCourt): void
     {
         $basement = $this->floorFor($asset, 'Basement');

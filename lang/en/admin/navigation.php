@@ -2,6 +2,7 @@
 
 return [
     'navigation' => [
+        'rent_indices' => 'Rent indices',
         'property_overrides' => 'Property overrides',
         'vat_return' => 'VAT return',
         'charge_codes' => 'Charge Codes',
@@ -70,6 +71,10 @@ return [
         'bank_account' => ['singular' => 'Bank Account', 'plural' => 'Bank Accounts'],
         'approval_rule' => ['singular' => 'Approval Band', 'plural' => 'Approval Bands'],
         'tax_code' => ['singular' => 'Tax code', 'plural' => 'Tax codes'],
+        'rent_index' => [
+            'singular' => 'Rent index',
+            'plural' => 'Rent indices',
+        ],
         'charge_code' => [
             'singular' => 'Charge code',
             'plural' => 'Charge codes',
@@ -118,6 +123,7 @@ return [
     'permission_modules' => [
         'budget' => 'Budget',
         'unit_ownerships' => 'Unit owners',
+        'rent_indices' => 'Rent indices',
         'bank_accounts' => 'Bank accounts',
         'charge_codes' => 'Charge codes',
         'tax_codes' => 'Tax codes',

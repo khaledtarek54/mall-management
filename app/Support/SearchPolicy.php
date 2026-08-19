@@ -33,6 +33,7 @@ use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
+use App\Filament\Admin\Resources\RentIndices\RentIndexResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
@@ -225,6 +226,7 @@ class SearchPolicy
         SlaPolicyResource::class => 'Operator configuration reached from Settings. Its only key is a priority enum, so searching "high" would return SLA policies alongside real records.',
         RoleResource::class => 'RBAC configuration reached from Settings. Role names are typed by administrators into a permission matrix, never searched for as records.',
         BankStatementResource::class => 'A statement is found by its account and period, both of which are the whole table — nobody types a statement\'s name because it does not have one. Reached from the account, or from the reconciliation work itself.',
+        RentIndexResource::class => 'A published index figure is identified by its index and its month, which are the whole table — nobody types the name of a CPI reading. Reached from the lease clause that consumes it, or by scrolling a register that gains twelve rows a year.',
         ApprovalRuleResource::class => 'The approval ladder — a dozen rows of amount bands under Settings, maintained by scrolling rather than searching. Nothing on it has a name or a number anyone would type: the identity of a band IS its module and its range, both of which are on screen.',
         TaxCodeResource::class => 'The tax catalogue, reached from the General Ledger group. Rows an accountant maintains — found by scrolling, not by searching. Nobody types "VAT_14" to find a record; they go to the screen to change a rate.',
         UtilityTariffResource::class => 'The utility price list, reached from Energy. A handful of rows an operator maintains — found by scrolling, not by searching. Nobody types "EGPC-COMM" to find a record; they open the screen to enter a decreed price change.',

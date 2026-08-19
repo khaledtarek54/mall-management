@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\RentIndex;
 use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -109,6 +111,59 @@ class RentEscalationService
         return round($rate, 2);
     }
 
+    /**
+     * The index figure this lease's next step measures against, or null when it cannot be known.
+     *
+     * The period is the anniversary month shifted back by the lease's **publication lag** — the
+     * September index published in October cannot drive a 1 January step unless the clause says to
+     * read three months back, which is exactly what a real index clause states.
+     */
+    private function indexValueFor(Lease $lease, ?CarbonInterface $anniversary): ?float
+    {
+        $code = $lease->escalation_index_code;
+
+        if (blank($code) || $anniversary === null) {
+            return null;
+        }
+
+        $period = CarbonImmutable::parse($anniversary)
+            ->startOfMonth()
+            ->subMonths((int) $lease->escalation_index_lag_months);
+
+        return RentIndex::valueFor((string) $code, $period);
+    }
+
+    /**
+     * The percentage this lease's index has moved since its base — BEFORE the collar.
+     *
+     * Null when the clause is incomplete (no index named, no base figure recorded) or the figure
+     * for the period has not been published yet. Every one of those is a reason to WAIT, and the
+     * caller skips: the sweep runs daily, so the step lands the day the statistic does. That is
+     * Voyager's behaviour — it generates the row when the index publishes — and it is the same
+     * refusal-to-invent this module has always had, now with somewhere for the real number to live.
+     *
+     * A base of zero returns null rather than dividing by it: a lease recorded with no base index
+     * cannot be escalated against one, and an infinite step is not a better answer than none.
+     */
+    private function indexRateFor(Lease $lease): ?float
+    {
+        $base = $lease->escalation_index_base_value === null
+            ? null
+            : (float) $lease->escalation_index_base_value;
+
+        if ($base === null || $base <= 0.0) {
+            return null;
+        }
+
+        $current = $this->indexValueFor($lease, $lease->next_escalation_date);
+
+        if ($current === null) {
+            return null;
+        }
+
+        return round(($current / $base - 1) * 100, 2);
+    }
+
     /** @return 'applied'|'skipped' */
     private function applyOne(int $leaseId, CarbonImmutable $today): string
     {
@@ -137,8 +192,7 @@ class RentEscalationService
             // so comparing the attribute directly against `fixed_amount` reads as "always false".
             $type = (string) $lease->escalation_type;
 
-            // CPI needs an external index feed we don't have — never invent the number.
-            if (! in_array($type, ['fixed_percent', 'fixed_amount'], true)) {
+            if (! in_array($type, ['fixed_percent', 'fixed_amount', 'cpi'], true)) {
                 return 'skipped';
             }
 
@@ -148,6 +202,19 @@ class RentEscalationService
             // The two kinds differ only in how the step is SIZED. Everything after this — the
             // anniversary dating, the schedule row, the marketing levy resync, the date roll — is
             // one path, so an amount lease can never drift from a percentage one.
+            // CPI resolves to a PERCENTAGE and then walks the identical path as a stated one —
+            // same collar, same anniversary dating, same schedule row. Null means the figure has
+            // not been published yet (or the clause is incomplete), and the answer to that is to
+            // wait, never to invent: the sweep runs daily and will pick it up the day it lands,
+            // which is Voyager's "it generates the row when the index publishes".
+            if ($type === 'cpi') {
+                $indexRate = $this->indexRateFor($lease);
+
+                if ($indexRate === null) {
+                    return 'skipped';
+                }
+            }
+
             if ($type === 'fixed_amount') {
                 $step = round((float) $lease->escalation_amount, 2);
                 $newRent = round($current + $step, 2);
@@ -157,10 +224,18 @@ class RentEscalationService
                 // the collar for amount leases for the same reason.
                 $reason = 'Automatic rent escalation +'.number_format($step, 2).' EGP';
             } else {
-                $rate = self::collar($lease, (float) $lease->escalation_rate);
+                $stated = $type === 'cpi' ? $indexRate : (float) $lease->escalation_rate;
+                $rate = self::collar($lease, $stated);
                 $step = $rate;
                 $newRent = round($current * (1 + $rate / 100), 2);
-                $reason = "Automatic rent escalation +{$rate}%";
+
+                // The reason line names the RAW index movement beside the applied rate whenever the
+                // collar changed it. A tenant querying a 3% step on a year the index fell needs to
+                // see that the floor did that, not a mistake — and the collar is precisely the term
+                // that is invisible in the resulting number.
+                $reason = $type === 'cpi' && abs($rate - $stated) >= 0.01
+                    ? "Automatic rent escalation +{$rate}% (index ".number_format($stated, 2).'%, collared)'
+                    : "Automatic rent escalation +{$rate}%";
             }
 
             if ($step <= 0) {
@@ -180,8 +255,19 @@ class RentEscalationService
                 'origin' => Charge::ORIGIN_ESCALATION,
             ]);
 
-            // Advance one year (the base_rent Charge + marketing levy were synced by apply()).
-            $lease->forceFill(['next_escalation_date' => $nextDate])->save();
+            // Advance one year (the base_rent Charge + marketing levy were synced by apply()), and
+            // for CPI roll the base index forward to the figure this step measured from — that is
+            // what makes the NEXT step year-on-year rather than cumulative-since-commencement.
+            // Voyager offers both readings; this codebase already resolves compounding one way
+            // ("a percentage step multiplies the current rent"), and two opposite conventions under
+            // one word is how an escalation type comes to mean something nobody agreed.
+            $roll = ['next_escalation_date' => $nextDate];
+
+            if ($type === 'cpi') {
+                $roll['escalation_index_base_value'] = $this->indexValueFor($lease, $lease->next_escalation_date);
+            }
+
+            $lease->forceFill($roll)->save();
 
             return 'applied';
         });

@@ -378,6 +378,12 @@
         "guide": "purchase_requests"
     },
     {
+        "screen": "RentIndexResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "rent_indices"
+    },
+    {
         "screen": "RentRoll",
         "panel": "admin",
         "kind": "page",

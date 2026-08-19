@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Lease;
+use App\Models\RentIndex;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\UnitOwnership;
@@ -528,11 +529,44 @@ class LeaseForm
                             ->maxValue(100)
                             ->default(7)
                             ->dehydrateStateUsing(fn ($state) => $state ?? 0)
-                            // The two rate-stated clauses. `cpi` keeps it because the rate is what
-                            // arms the anniversary and what the collar is measured against.
-                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'cpi'], true))
+                            // Stated-percentage clauses only. `cpi` used to show this too, because a
+                            // typed rate was the only way an index clause could be expressed at all;
+                            // since 2026-08-19 a CPI lease derives its rate from the index register,
+                            // and leaving the box on that clause would offer a number the sweep
+                            // ignores — the most confusing kind of field there is.
+                            ->visible(fn (Get $get) => $get('escalation_type') === 'fixed_percent')
                             ->required(fn (Get $get) => $get('escalation_type') === 'fixed_percent')
                             ->helperText(__('admin.helpers.escalation_rate')),
+                        // The index clause: WHICH index, measured from WHAT, read HOW FAR back.
+                        // Voyager's index source / base index value / publication lag
+                        // (`docs/benchmarks/yardi/01-yardi-lease-administration.md` §4).
+                        Select::make('escalation_index_code')
+                            ->label(__('admin.fields.escalation_index_code'))
+                            ->options(fn (): array => RentIndex::query()
+                                ->select('code')->distinct()->orderBy('code')->pluck('code', 'code')->all())
+                            ->native(false)
+                            ->searchable()
+                            ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
+                            ->required(fn (Get $get) => $get('escalation_type') === 'cpi')
+                            ->helperText(__('admin.helpers.escalation_index_code')),
+                        TextInput::make('escalation_index_base_value')
+                            ->label(__('admin.fields.escalation_index_base_value'))
+                            ->numeric()
+                            ->minValue(0.0001)
+                            ->step('0.0001')
+                            ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
+                            ->required(fn (Get $get) => $get('escalation_type') === 'cpi')
+                            ->helperText(__('admin.helpers.escalation_index_base_value')),
+                        TextInput::make('escalation_index_lag_months')
+                            ->label(__('admin.fields.escalation_index_lag_months'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(24)
+                            ->default(0)
+                            ->dehydrateStateUsing(fn ($state) => (int) ($state ?? 0))
+                            ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
+                            ->helperText(__('admin.helpers.escalation_index_lag_months'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_index_lag_months')),
                         TextInput::make('escalation_amount')
                             ->label(__('admin.fields.escalation_amount'))
                             ->prefix('EGP')

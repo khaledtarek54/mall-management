@@ -2,6 +2,18 @@
 
 return [
     'fields' => [
+        'published_on' => 'تاريخ النشر',
+        'index_code' => 'المؤشر',
+        'index_code_helper' => 'كود مختصر للسلسلة المنشورة، مثل EGY_CPI. العقود تشير إليه.',
+        'index_period' => 'الشهر',
+        'index_period_helper' => 'الشهر الذي يصفه الرقم، وليس شهر النشر.',
+        'index_value' => 'القيمة',
+        'index_value_helper' => 'كما نُشرت تمامًا. النظام يقارن الأرقام، فيكفي أن يكون المقياس متسقًا.',
+        'index_published_on' => 'تاريخ النشر',
+        'index_published_on_helper' => 'اليوم الذي أصبح فيه الرقم معلومًا، وهو ما يفسّر الزيادة بعد شهور.',
+        'escalation_index_code' => 'المؤشر',
+        'escalation_index_base_value' => 'قيمة الأساس',
+        'escalation_index_lag_months' => 'فترة تأخير النشر (شهور)',
         'date' => 'التاريخ',
         'trigger_type' => 'يُستدعى بواسطة',
         'usage_threshold' => 'صيانة كل',

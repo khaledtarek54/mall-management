@@ -276,6 +276,24 @@ return [
         ],
     ],
 
+    'rent_indices' => [
+        'purpose' => 'The published index figures that CPI-linked rents escalate against — you record what was published, the system does the arithmetic.',
+        'steps' => [
+            'Add the month\'s figure when the statistical agency publishes it: the index code, the month it describes, and the value.',
+            'Record the date it was published too — that is what explains a step months later.',
+            'Nothing else to do. Every CPI lease reads this register on its own anniversary.',
+        ],
+        'affects' => [
+            'Any lease with a CPI escalation clause steps its rent from these figures on its anniversary, then bills the new amount.',
+            'A lease whose figure has not been published yet is left alone and retried daily — its rent does not step until the number exists.',
+            'The increase is clamped by the floor and ceiling on the lease before any money moves.',
+        ],
+        'rules' => [
+            'One value per index per month. A revision is an edit to that row, not a second row.',
+            'The system never invents a figure. If the month is missing, the escalation waits rather than guessing.',
+            'A lease measures against the index from its own lag — a clause reading "the September index, effective 1 January" is a four-month lag.',
+        ],
+    ],
     'charge_codes' => [
         'purpose' => 'The catalogue of things you can bill, and the account each one posts to.',
         'steps' => [

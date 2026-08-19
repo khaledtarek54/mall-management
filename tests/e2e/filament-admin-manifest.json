@@ -232,6 +232,13 @@
             "hasView": false
         },
         {
+            "class": "RentIndexResource",
+            "slug": "rent-indices",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "RentableItemResource",
             "slug": "rentable-items",
             "hasCreate": true,

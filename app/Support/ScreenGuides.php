@@ -67,6 +67,7 @@ use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
+use App\Filament\Admin\Resources\RentIndices\RentIndexResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
@@ -205,6 +206,7 @@ class ScreenGuides
 
         // ── Configuration & access ────────────────────────────────────────────────────────────
         ChargeCodeResource::class => 'charge_codes',
+        RentIndexResource::class => 'rent_indices',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',
         ApprovalRuleResource::class => 'approval_rules',

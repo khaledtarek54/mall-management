@@ -683,6 +683,65 @@
 > a lease with ZERO charges — exactly what the broken importer produced — yielded no findings and
 > the command printed "Every charge schedule is unambiguous." It now reports that shape explicitly.
 
+
+## CPI escalation, and the index register behind it (2026-08-19)
+
+`escalation_type = 'cpi'` existed from 2024 and the sweep **deliberately skipped it** — there is no
+machine-readable Egyptian CPI feed, and inventing an index number is inventing data that a tenant
+pays for. That refusal was right. What was missing was somewhere for the real figure to live.
+
+**The benchmark specifies this exactly** *(cited,
+[benchmarks/yardi/01](../benchmarks/yardi/01-yardi-lease-administration.md) §4)*: an index-method
+escalation carries an **index source**, a **publication lag** and a **base index value**, on top of
+the floor and ceiling Atriom already had. Scenario **S4** adds the Egyptian ruling, and it is why
+the collar is load-bearing rather than decorative:
+
+> *"In Egypt, where CPI has run 20–35%, a collar is not optional — an uncollared CPI clause is a
+> clause no tenant signs. Any CPI work must ship the collar with it, or it is worse than nothing."*
+
+### How it resolves
+
+1. `rent_indices` records what was published: index code, the month it **describes**, the value, and
+   the date it became knowable. One value per index per month; a revision is an **edit**, not a
+   second row, so the figure a step used stays answerable.
+2. On the anniversary the sweep reads the index for `anniversary − escalation_index_lag_months`. A
+   clause reading *"the September index, effective 1 January"* is a **four**-month lag.
+3. Rate = (that figure ÷ `escalation_index_base_value` − 1) × 100.
+4. `RentEscalationService::collar()` clamps it — the same clamp a stated-percentage lease uses.
+5. The step walks the identical path from there: anniversary dating, the schedule row, the
+   marketing-levy resync. **CPI cannot drift from a stated clause**, because after the rate is
+   resolved there is only one path.
+
+### The refusals, which are the point
+
+- **No figure published → the lease is left alone and the anniversary does NOT roll.** The sweep
+  runs daily, so the step lands the day the statistic does — Voyager's *"it generates the row when
+  the index publishes"*. Rolling the date past an unpublished month would be a year the tenant
+  never pays for.
+- **No index named, or no base value → skip.** An incomplete clause is not a licence to guess, and
+  a zero base is not divided into: an infinite step is not a better answer than none.
+
+### Two decisions worth knowing
+
+**The base ROLLS FORWARD** on each application, so year two measures year-on-year rather than
+cumulative-since-commencement. Voyager offers both readings; this codebase already resolves
+compounding one way ("a percentage step multiplies the current rent"), and two opposite conventions
+under one word is how an escalation type comes to mean something nobody agreed.
+
+**`escalatesContractually()` changed.** A CPI lease used to count as configured only if someone had
+typed an `escalation_rate` — the sole way an index clause was expressible when none could be
+applied. It now counts when it names an index and a base. **The rate-only shape still counts**,
+deliberately: those leases could never escalate anyway, and the `saving` hook CLEARS the escalation
+terms of an unconfigured lease, so treating them as unconfigured would wipe an anniversary an
+operator had recorded. Left armed and still inert, exactly as they were, until someone names the
+index.
+
+The register is at **Leasing → Rent indices**, maintained by `leasing` (the person reading the
+CAPMAS release administers the leases that follow it); `accounting` sees it read-only, because an
+escalation shows up in their books as an ordinary rent change and they need the figure behind it.
+**Nothing is seeded on a real install** — an empty register is the correct starting state for a
+system that refuses to invent figures; `DemoSeeder` carries a plainly-demo series.
+
 ## 1. Purpose & business context
 
 Leases model the core revenue instrument of Egyptian mall operations. They bind tenants to units (retail spaces) for a fixed term, specify monthly rent and service charges with embedded VAT rules, enable percentage-of-sales rent triggers, and track the full lifecycle: draft negotiation → active occupancy → renewal or expiry → termination. A tenant may hold multiple single-unit leases across a mall; a single lease may span multiple units (multi-unit lease). Operators (Eltizam department) manage creation, renewal, termination, and rent escalation; owners (Jawad) and the accounting department oversee invoicing and payment via the linked Charge and Invoice modules.

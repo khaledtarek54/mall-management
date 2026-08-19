@@ -420,6 +420,12 @@
         "note": "request"
     },
     {
+        "model": "RentIndex",
+        "label": "Rent Index",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "RentableItem",
         "label": "Rentable Item",
         "classification": "owned",

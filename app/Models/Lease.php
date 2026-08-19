@@ -357,6 +357,9 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_amount',
         'escalation_floor_rate',
         'escalation_ceiling_rate',
+        'escalation_index_code',
+        'escalation_index_base_value',
+        'escalation_index_lag_months',
         'escalation_type',
         'next_escalation_date',
         'has_percentage_rent',
@@ -421,6 +424,8 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_amount' => 'decimal:2',
         'escalation_floor_rate' => 'decimal:2',
         'escalation_ceiling_rate' => 'decimal:2',
+        'escalation_index_base_value' => 'decimal:4',
+        'escalation_index_lag_months' => 'integer',
         'percentage_rent_threshold' => 'decimal:2',
         'percentage_rent_rate' => 'decimal:2',
         'has_percentage_rent' => 'boolean',
@@ -468,8 +473,18 @@ class Lease extends Model implements BillableAgreement, HasMedia
      * that question: the `saving` hook arms or clears the escalation terms from it, and both halves
      * of the old `creating` hook derived it inline.
      *
-     * `cpi` counts as configured because its rate is what arms the anniversary and what the collar
-     * clamps — `RentEscalationService` still declines to invent an index figure when the night comes.
+     * **`cpi` changed on 2026-08-19, when the index register arrived.** It used to count as
+     * configured only if somebody had typed an `escalation_rate` — the sole way an index clause was
+     * expressible when the sweep could not apply one at all. A CPI lease is now configured when it
+     * names an INDEX and a base value to measure from, because that is what actually produces a
+     * step (`RentIndex` + `RentEscalationService::indexRateFor()`).
+     *
+     * The rate-only shape still counts, deliberately. Those leases could never escalate (the sweep
+     * skipped every CPI lease), so treating them as unconfigured would be truthful about the future
+     * and destructive about the past: the `saving` hook CLEARS the escalation terms of a lease that
+     * is not configured, so a migration-day re-save would wipe the anniversary an operator had
+     * recorded. Left armed and still inert, which is exactly what it was yesterday, until someone
+     * names the index.
      */
     /**
      * Months in one percentage-rent BILLING period: monthly=1, quarterly=3, annual=12.
@@ -491,7 +506,10 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function escalatesContractually(): bool
     {
         return match ($this->escalation_type) {
-            'fixed_percent', 'cpi' => (float) $this->escalation_rate > 0,
+            'fixed_percent' => (float) $this->escalation_rate > 0,
+            // Either the new index shape or the legacy rate-only one — see the note above.
+            'cpi' => (filled($this->escalation_index_code) && (float) $this->escalation_index_base_value > 0)
+                || (float) $this->escalation_rate > 0,
             'fixed_amount' => (float) $this->escalation_amount > 0,
             default => false,
         };

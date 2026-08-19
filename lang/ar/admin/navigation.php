@@ -2,6 +2,7 @@
 
 return [
     'navigation' => [
+        'rent_indices' => 'الأرقام القياسية',
         'property_overrides' => 'إعدادات خاصة بالعقار',
         'vat_return' => 'الإقرار الضريبي',
         'charge_codes' => 'أكواد الرسوم',
@@ -67,6 +68,10 @@ return [
         'bank_account' => ['singular' => 'حساب بنكي', 'plural' => 'الحسابات البنكية'],
         'approval_rule' => ['singular' => 'حد اعتماد', 'plural' => 'حدود الاعتماد'],
         'tax_code' => ['singular' => 'كود ضريبي', 'plural' => 'الأكواد الضريبية'],
+        'rent_index' => [
+            'singular' => 'رقم قياسي',
+            'plural' => 'الأرقام القياسية',
+        ],
         'charge_code' => [
             'singular' => 'كود رسوم',
             'plural' => 'أكواد الرسوم',
@@ -115,6 +120,7 @@ return [
     'permission_modules' => [
         'budget' => 'الموازنة',
         'unit_ownerships' => 'مُلّاك الوحدات',
+        'rent_indices' => 'الأرقام القياسية',
         'bank_accounts' => 'الحسابات البنكية',
         'charge_codes' => 'أكواد الرسوم',
         'tax_codes' => 'الأكواد الضريبية',

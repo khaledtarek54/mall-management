@@ -2,6 +2,9 @@
 
 return [
     'helpers' => [
+        'escalation_index_code' => 'Which published series this rent follows. Enter the figures under Leasing, Rent indices.',
+        'escalation_index_base_value' => 'The index figure this rent was last measured from. It rolls forward each time the rent steps.',
+        'escalation_index_lag_months' => 'How far back to read. The September index effective 1 January is 4.',
         'property_pinned' => 'Follows the property switcher at the top — this record belongs to the mall you are in.',
         'utility_tariff' => 'The published price this meter follows. A rate below overrides it.',
         'utility_tariff_code' => 'Short identifier for this price list, e.g. EGPC-COMM.',
@@ -164,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'escalation_index_lag_months' => 'A statistical agency publishes a month figure weeks later, so a January step cannot read January. State the gap the lease actually says.',
         'utility_tariff' => 'A meter follows a tariff so a decreed price change is entered once, not re-typed on every meter. Readings are priced at the rate in force on the reading\'s own date, so a back-filled reading keeps the old price.',
         'utility_effective_from' => 'A price change is a new rung, never an edit to the old one — that is what keeps a past reading explicable. A rung stays in force until the next one starts, so there is no end date to get wrong.',
         'utility_tariff_active' => 'Deactivating removes the tariff from the meter picker without touching the meters already on it, or the readings it has already priced.',

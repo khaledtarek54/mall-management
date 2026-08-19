@@ -26,6 +26,7 @@ return [
             'bank_account' => 'حساب بنكي',
             'bank_statement' => 'كشف بنكي',
             'charge_code' => 'كود رسوم',
+            'rent_index' => 'رقم قياسي',
             'tenant_document' => 'مستند مستأجر',
             'account_mapping' => 'سطر خريطة الترحيل',
             'floor' => 'طابق',

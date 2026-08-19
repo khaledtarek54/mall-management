@@ -2,6 +2,18 @@
 
 return [
     'fields' => [
+        'published_on' => 'Published on',
+        'index_code' => 'Index',
+        'index_code_helper' => 'Short code for the published series, e.g. EGY_CPI. Leases point at this.',
+        'index_period' => 'Month',
+        'index_period_helper' => 'The month the figure describes, not the month it was published.',
+        'index_value' => 'Value',
+        'index_value_helper' => 'Exactly as published. The system compares figures, so only the scale has to be consistent.',
+        'index_published_on' => 'Published on',
+        'index_published_on_helper' => 'The day it became knowable. This is what explains a rent step months later.',
+        'escalation_index_code' => 'Index',
+        'escalation_index_base_value' => 'Base index value',
+        'escalation_index_lag_months' => 'Publication lag (months)',
         'date' => 'Date',
         'trigger_type' => 'Triggered by',
         'usage_threshold' => 'Service every',

@@ -189,6 +189,10 @@ class RolesPermissionsSeeder extends Seeder
             'charge_codes.create' => 'Add a charge code',
             'charge_codes.edit' => 'Edit a charge code’s label or posting account',
             'charge_codes.delete' => 'Remove an operator-added charge code',
+            'rent_indices.view' => 'View the published rent-index register',
+            'rent_indices.create' => 'Record a published index figure',
+            'rent_indices.edit' => 'Correct a published index figure',
+            'rent_indices.delete' => 'Remove an index figure keyed by mistake',
         ],
         'tax_codes' => [
             'tax_codes.view' => 'View the tax catalogue (rates and the dates they came into force)',
@@ -650,6 +654,10 @@ class RolesPermissionsSeeder extends Seeder
             // that creates, renews and terminates leases could not open the rent roll or the expiry
             // schedule, while the read-only `viewer` could open both (pre-staging QA, F-06). Those
             // are a leasing manager's two most-used screens.
+            // The published index register. A CPI clause is a LEASING term, and the person who
+            // reads the CAPMAS release is the one administering the leases that follow it — not
+            // the accountant, who sees the result as an ordinary rent change.
+            'rent_indices.view', 'rent_indices.create', 'rent_indices.edit',
             'reports.view', 'reports.download',
         ];
 
@@ -758,6 +766,9 @@ class RolesPermissionsSeeder extends Seeder
             // is theirs to enter on the day the law says, not a deploy to schedule.
             'tax_codes.view', 'tax_codes.create', 'tax_codes.edit', 'tax_codes.delete',
             'tax_codes.override',
+            // Read-only: an escalation derived from this shows up in their books as a rent
+            // change, so they must be able to see the figure it came from without owning it.
+            'rent_indices.view',
             // The utility price list is the same shape of decision as a tax rate: a published
             // figure that decides what a tenant is billed, changed by decree on a date somebody
             // outside this building chose.

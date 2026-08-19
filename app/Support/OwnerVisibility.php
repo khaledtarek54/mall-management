@@ -51,6 +51,7 @@ class OwnerVisibility
      * @var array<string, string>
      */
     public const VISIBLE = [
+        'rent_indices' => 'A published national statistic and the leases that follow it. An owner reading the register learns nothing about the operator — CPI is on the front page of the newspaper — and it is the figure his own rent increases were derived from, so withholding it would hide the reason a number on his statement moved.',
         // ---- The property itself ----
         'assets' => 'The property they own.',
         'units' => 'The lettable space in it. (Floors have no permission group of their own — they are managed under the property.)',

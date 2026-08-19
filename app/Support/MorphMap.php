@@ -73,6 +73,7 @@ use App\Models\PropertySetting;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestLine;
 use App\Models\RentableItem;
+use App\Models\RentIndex;
 use App\Models\ReportPreference;
 use App\Models\SavedReport;
 use App\Models\ServicePlan;
@@ -168,6 +169,7 @@ class MorphMap
         'cam_pool' => CamExpensePool::class,
         'charge' => Charge::class,
         'charge_code' => ChargeCode::class,
+        'rent_index' => RentIndex::class,
         'credit_note' => CreditNote::class,
         'credit_note_application' => CreditNoteApplication::class,
         'credit_note_item' => CreditNoteItem::class,
