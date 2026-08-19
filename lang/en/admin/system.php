@@ -474,6 +474,8 @@ return [
         'lease_option_opening_title' => ':type window opens',
         'lease_option_opening_body' => 'Notice may now be served on the :type for :tenant (:lease, unit :unit). The window runs :earliest → :deadline.',
         'lease_option_closing_title' => ':type deadline approaching',
+        'cheque_coverage_ending_title' => 'Post-dated cheques running out',
+        'cheque_coverage_ending_body' => ':tenant (:unit, lease :lease) has cheques lodged only to :covered_to, but the lease runs :months more month(s). Ask for the next batch before the last one is banked.',
         'lease_option_closing_body' => 'The :type for :tenant (:lease, unit :unit) must be exercised by :deadline — :days days left. After that the right is gone.',
         'lease_option_lapsed_title' => ':type has lapsed',
         'lease_option_lapsed_body' => 'The notice window for the :type on :lease (:tenant, unit :unit) closed on :deadline without notice being served. It is now recorded as lapsed.',

@@ -253,6 +253,17 @@ Schedule::command('pdc:scan-maturing')
     ->name('atriom-scan-maturing-cheques')
     ->withoutOverlapping();
 
+// The other half of the cheque question, and the one nothing could see: which tenants are about
+// to RUN OUT of lodged cheques while their lease still has term to run. Egyptian practice is a
+// year of cheques lodged against a longer lease, so running dry mid-term is the normal shape of
+// the arrangement — and it is invisible, because every cheque in the register clears on time
+// right up until the month the money simply stops. Weekly, not daily: the answer moves when a
+// batch is lodged, not overnight.
+Schedule::command('pdc:scan-coverage')
+    ->weeklyOn(1, '08:00')
+    ->name('atriom-scan-cheque-coverage')
+    ->withoutOverlapping();
+
 // Daily reminder to tenants about their own overdue invoices (email + bell +
 // mobile push). Separate stamp (tenant_overdue_notified_at) so it fires once
 // per invoice, independently of the owner alert above.

@@ -38,6 +38,7 @@ use App\Notifications\AnnouncementNotification;
 use App\Notifications\AreaRequestRaisedNotification;
 use App\Notifications\AreaWorkOrderRaisedNotification;
 use App\Notifications\BooksDriftDetectedNotification;
+use App\Notifications\ChequeCoverageEndingNotification;
 use App\Notifications\DepartmentMessageNotification;
 use App\Notifications\InvoiceIssuedNotification;
 use App\Notifications\InvoiceOverdueOwnerNotification;
@@ -158,6 +159,15 @@ final class NotificationTargets
         // The option row has no resource of its own — it is edited on the lease it belongs to,
         // which is also where the operator decides whether to exercise it.
         LeaseOptionWindowNotification::class => [
+            'record' => [Lease::class, 'lease_id'],
+            'admin' => LeaseResource::class,
+            'portal' => null,
+        ],
+        // Lands on the LEASE, not on the cheque register. The alert is "this tenant's arrangement
+        // is running out"; what the operator does next is look at the lease term and decide how
+        // many more cheques to ask for. A register filtered to one tenant's existing cheques
+        // answers the question they already know the answer to.
+        ChequeCoverageEndingNotification::class => [
             'record' => [Lease::class, 'lease_id'],
             'admin' => LeaseResource::class,
             'portal' => null,

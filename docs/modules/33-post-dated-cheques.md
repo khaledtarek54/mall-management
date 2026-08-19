@@ -88,6 +88,24 @@ favour, and cancel-then-re-lodge costs one click. Tests: `ChequeNumberIsUniquePe
 - **The maturity schedule is surfaced live:** an **Action Required** dashboard card counts
   matured-but-uncleared cheques (property-scoped) and links to the register's **"Matured & uncleared"**
   filter — the scan, the card and the filter all read the one scope, so they can never disagree.
+- `pdc:scan-coverage` (scheduled **weekly**, Mondays 08:00) — the opposite question, and the one
+  nothing could answer until 2026-08-19: which active leases are about to **run out of lodged
+  cheques while the term runs on**. Egyptian practice is a year of cheques lodged against a longer
+  lease, so running dry mid-term is the normal shape of the arrangement — and it is invisible,
+  because every lodged cheque clears on its date and the register stays green right up until the
+  month the money simply stops. **The failure is the ABSENCE of a row**, so no query over the rows
+  that exist can find it; `pdc:scan-maturing` reports instruments that exist and are late, this
+  reports the instruments that do not exist yet. Separate command deliberately: one says *collect
+  this*, the other says *ask for this*, and they go to different people on different timescales.
+  Weekly rather than daily because the answer moves when a batch is lodged, not overnight.
+
+  **Coverage is the latest `cheque_date` among cheques still AWAITING collection** (`held` /
+  `deposited` — the shared `AWAITING_STATUSES`). A **`cleared` cheque is excluded even though it is
+  the happy outcome**: coverage is a forward question, and a banked cheque answers nothing about
+  the months ahead — counting it would make a lease look covered by the very instrument that was
+  consumed, which is the failure this exists to catch. **A lease with no cheques at all is not
+  reported** — that is a tenant who pays by transfer, and alerting on those would fire for most of
+  the portfolio on the first run, which is how an alert becomes a folder nobody opens.
 
 ## 4. Filament surface
 
