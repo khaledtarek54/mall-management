@@ -128,8 +128,46 @@ convention:
 |---|---|---|
 | VAT (both directions) | **on** | `vat_payable` / `vat_recoverable` are registered posting roles pointing at real accounts |
 | Withholding | **on** | `withholding_tax_payable` exists. Nothing consumes these codes yet — the vendor-payment path still reads `TaxSettings::wht_default_rate` (roadmap TX-05) |
-| Stamp · Schedule | **off** | their accounts are the "GL wiring (later)" line above, and are not built. An active code would collect money into nowhere |
+| Stamp · Schedule | **on since 2026-08-19** | commissioned — see below |
 
-Commissioning stamp or schedule tax is therefore: add the posting role + chart account + mapping,
-name it on the code, switch it on. That is the remaining work this document describes, and it is now
-a roadmap row rather than a paragraph.
+### Commissioning stamp and schedule tax (2026-08-19)
+
+This section used to say the remaining work was "add the posting role + chart account + mapping,
+name it on the code, switch it on". **The accounts were the smaller half, and the sentence hid the
+larger one.** All three journalizers threw the document's own `tax_code` away:
+
+- `InvoiceJournalizer` summed every line's `vat_amount` into one accumulator and credited
+  `vat_payable`;
+- `VendorBillJournalizer` and `ExpenseJournalizer` hard-coded `vat_recoverable`.
+
+`invoice_items.tax_code` had recorded which tax each line carried since the catalogue shipped. The
+posting simply never read it — so switching stamp tax on would have put 20% of a supply onto the
+**VAT return**, under the **VAT liability**, with the entry balancing perfectly and the tie-out
+green. Nothing would have looked wrong.
+
+Tax now groups by the tax code's own posting role, exactly as revenue groups by the charge code's
+role in the same method, with VAT as the floor for a document that names no code.
+
+**The asymmetry is the actual accounting content, and it is deliberate:**
+
+| Direction | VAT | Stamp · Schedule |
+|---|---|---|
+| Output (sales) | `vat_payable` — liability `21301001` | `stamp_tax_payable` `21304001` · `schedule_tax_payable` `21305001` — liabilities |
+| Input (purchases) | `vat_recoverable` — **asset** `11401001` | `stamp_tax_expense` `51111001` · `schedule_tax_expense` `51111002` — **expenses** |
+
+Input VAT is creditable against output VAT, so it is an asset. Neither stamp duty nor schedule tax
+has a credit mechanism an operator of this kind can use, so both are a cost. Copying the VAT shape
+on the input side would have grown a receivable nobody could ever collect — an asset that is not one
+— on the balance sheet, for as long as the operator kept buying. If the accountant rules otherwise
+for a particular supply, the role→account map is a row at `/admin`, not a deploy.
+
+**A fresh install ships them active. An existing database does not:** the seeder backfills the
+posting role and leaves `is_active` alone, because the rule that a reseed must never reactivate a
+code the operator retired is worth more than saving a click. Switch them on at `/admin/tax-codes`.
+
+**Activation grants nothing on its own.** A tax code taxes a supply only when a charge code points
+at it (`charge_codes.tax_code` — the accountant's ruling, a row, no deploy). So this makes stamp and
+schedule tax *available* to the accountant; it does not decide that anything is subject to them.
+That decision is theirs, and it is the one thing here that software must not guess.
+
+Pinned by `TaxPostsToItsOwnAccountTest`.

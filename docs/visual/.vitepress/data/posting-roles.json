@@ -80,6 +80,16 @@
         "group": "liability"
     },
     {
+        "role": "stamp_tax_payable",
+        "label": "Stamp Tax Payable",
+        "group": "liability"
+    },
+    {
+        "role": "schedule_tax_payable",
+        "label": "Schedule Tax Payable",
+        "group": "liability"
+    },
+    {
         "role": "social_insurance_payable",
         "label": "Social Insurance Payable",
         "group": "liability"
@@ -212,6 +222,16 @@
     {
         "role": "admin_expense",
         "label": "Admin Expense",
+        "group": "expense"
+    },
+    {
+        "role": "stamp_tax_expense",
+        "label": "Stamp Tax Expense",
+        "group": "expense"
+    },
+    {
+        "role": "schedule_tax_expense",
+        "label": "Schedule Tax Expense",
         "group": "expense"
     },
     {

@@ -27,11 +27,14 @@ Two things block, and neither is engineering:
 Two more are decisions that do not block the box coming up, but do block the first real month, so
 raise them now rather than discovering them in a month-end review:
 
-- **The returned-cheque fee ships at zero** (`BillingSettings::nsf_fee_amount`, priced per property).
-- **16 of 30 tax codes ship inactive** — every stamp and schedule code, both directions, because
-  their GL accounts are not wired. Inert rather than a trap (`TaxCode` refuses to activate a taxable
-  code with no rate or posting role), but if the accountant needs stamp duty on day one it is a
-  blocker. See [PRE-STAGING-QA.md §6.5](PRE-STAGING-QA.md).
+- **Price the returned-cheque fee** (`BillingSettings::nsf_fee_amount`, per property). It ships at
+  **0** on purpose — a money default the lease may not permit, and Yardi ships its NSF charge unset
+  for the same reason. Price it to recover the bank's own returned-cheque charge plus an
+  administrative component. [GO-LIVE §4, C-NSF](GO-LIVE.md).
+- **Rule which supplies carry stamp or schedule tax.** Both families are now commissioned and
+  active, and both post to their own accounts. But a tax code taxes nothing until a **charge code**
+  points at it, and that is the accountant's ruling — a row, no deploy.
+  [GO-LIVE §4, C-TAX](GO-LIVE.md).
 
 ---
 

@@ -95,6 +95,14 @@ class ChartOfAccountsSeeder extends Seeder
         // so it is a liability until remitted, exactly like VAT collected.
         ['21303', 'Withholding Tax Payable', 'ضريبة الخصم والإضافة المستحقة', 'liability', false],
         ['21303001', 'Withholding Tax Payable', 'خصم وإضافة مستحقة', 'liability', true],
+        // Stamp (ضريبة الدمغة, Law 111/1980) and schedule tax (ضريبة الجدول, the table attached to
+        // VAT Law 67/2016) collected on a SALES document. Separate accounts rather than one
+        // "other taxes" line because each ties to its own return, and an accountant reconciling
+        // one of them should not have to unpick the other from the same balance.
+        ['21304', 'Stamp Tax Payable', 'ضريبة الدمغة المستحقة', 'liability', false],
+        ['21304001', 'Stamp Tax Payable', 'ضريبة دمغة مستحقة', 'liability', true],
+        ['21305', 'Schedule Tax Payable', 'ضريبة الجدول المستحقة', 'liability', false],
+        ['21305001', 'Schedule Tax Payable', 'ضريبة جدول مستحقة', 'liability', true],
         ['216', 'Social Insurance Payable', 'التأمينات الاجتماعية المستحقة', 'liability', false],
         ['21601', 'Social Insurance Payable', 'التأمينات الاجتماعية المستحقة', 'liability', false],
         ['21601001', 'Social Insurance Payable', 'تأمينات اجتماعية مستحقة', 'liability', true],
@@ -212,6 +220,15 @@ class ChartOfAccountsSeeder extends Seeder
         // Posts Dr here / Cr Social Insurance Payable 21601001 (owed to the authority).
         ['51110', 'Social Insurance Expense', 'مصروف التأمينات الاجتماعية', 'expense', false],
         ['51110001', 'Social Insurance Expense (Employer)', 'مصروف التأمينات الاجتماعية (حصة صاحب العمل)', 'expense', true],
+        // Stamp and schedule tax paid on PURCHASES. An EXPENSE, deliberately — and this is the one
+        // place the input side must not copy VAT. Input VAT is creditable against output VAT, so it
+        // is an asset (11401001). Neither stamp duty nor schedule tax has a credit mechanism an
+        // operator of this kind can use, so booking them as recoverable would build a receivable
+        // that can never be realised — an asset that is not one, growing quietly on the balance
+        // sheet. Two accounts, one per return, for the same reason as their payable twins above.
+        ['51111', 'Irrecoverable Taxes', 'ضرائب غير قابلة للخصم', 'expense', false],
+        ['51111001', 'Stamp Tax Expense', 'مصروف ضريبة الدمغة', 'expense', true],
+        ['51111002', 'Schedule Tax Expense', 'مصروف ضريبة الجدول', 'expense', true],
         ['52', 'Other Expenses', 'مصروفات أخرى', 'expense', false],
         ['52101', 'Bank Charges', 'مصروفات بنكية', 'expense', false],
         ['52101001', 'Bank Charges', 'مصروفات بنكية', 'expense', true],

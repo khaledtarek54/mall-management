@@ -32,6 +32,13 @@ class AccountMappingSeeder extends Seeder
         'salary_tax_payable' => '21302001',
         // Tax withheld from vendor payments, owed to the ETA (module 12b).
         'withholding_tax_payable' => '21303001',
+        // Stamp (ضريبة الدمغة) and schedule (ضريبة الجدول) tax. Output = a liability we remit;
+        // input = an EXPENSE, because neither is recoverable the way input VAT is. See the chart
+        // seeder for why that asymmetry is deliberate and not an oversight.
+        'stamp_tax_payable' => '21304001',
+        'schedule_tax_payable' => '21305001',
+        'stamp_tax_expense' => '51111001',
+        'schedule_tax_expense' => '51111002',
         'social_insurance_payable' => '21601001',
         // Ad-hoc payroll deductions (module 24, Phase 4c) — a holding liability the accountant
         // reclassifies as needed (penalties fund / other income / expense-reduction).

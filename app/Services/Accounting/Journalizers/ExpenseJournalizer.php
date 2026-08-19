@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\Expense;
+use App\Models\TaxCode;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
 use Illuminate\Database\Eloquent\Model;
@@ -55,8 +56,16 @@ class ExpenseJournalizer implements Journalizer
         }
 
         if ($vat > 0) {
+            // The input-tax account comes from the expense's own `tax_code`, with `vat_recoverable`
+            // as the floor — the same rule as `VendorBillJournalizer`, and it has to be the same
+            // rule: stamp duty settled from petty cash is no more recoverable than stamp duty on a
+            // supplier's bill, and leaving this one hard-coded would have made the account depend on
+            // which door the cost came through.
+            $taxRole = ($expense->tax_code ? TaxCode::postingRoleOf((string) $expense->tax_code) : null)
+                ?? 'vat_recoverable';
+
             $lines[] = [
-                'ledger_account_id' => $this->accounts->id('vat_recoverable', $assetId),
+                'ledger_account_id' => $this->accounts->id($taxRole, $assetId),
                 'debit' => $vat,
                 'credit' => 0,
                 'asset_id' => $assetId,

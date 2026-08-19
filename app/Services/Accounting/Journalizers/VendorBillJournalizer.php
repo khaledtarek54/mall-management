@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting\Journalizers;
 
+use App\Models\TaxCode;
 use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
@@ -96,8 +97,18 @@ class VendorBillJournalizer implements Journalizer
         }
 
         if ($vat > 0) {
+            // The input-tax leg reads the bill's OWN `tax_code`, with `vat_recoverable` as the
+            // floor for a bill that names none (legacy, or an import). Until 2026-08-19 the account
+            // was hard-coded, which is why stamp and schedule tax could not be switched on: their
+            // input side is an EXPENSE, not a recoverable asset — neither has a credit mechanism
+            // this operator can use, so posting one here as `vat_recoverable` would have grown a
+            // receivable nobody could ever collect, on the balance sheet, indefinitely. The
+            // asymmetry with VAT is the whole point; see `ChartOfAccountsSeeder` 51111.
+            $taxRole = ($bill->tax_code ? TaxCode::postingRoleOf((string) $bill->tax_code) : null)
+                ?? 'vat_recoverable';
+
             $lines[] = [
-                'ledger_account_id' => $this->accounts->id('vat_recoverable', $assetId),
+                'ledger_account_id' => $this->accounts->id($taxRole, $assetId),
                 'debit' => $vat,
                 'credit' => 0,
                 'asset_id' => $assetId,

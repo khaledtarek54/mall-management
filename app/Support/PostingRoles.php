@@ -53,6 +53,8 @@ class PostingRoles
         'accrued_expenses' => self::GROUP_LIABILITY,
         'salary_tax_payable' => self::GROUP_LIABILITY,
         'withholding_tax_payable' => self::GROUP_LIABILITY,
+        'stamp_tax_payable' => self::GROUP_LIABILITY,
+        'schedule_tax_payable' => self::GROUP_LIABILITY,
         'social_insurance_payable' => self::GROUP_LIABILITY,
         'employee_deductions_payable' => self::GROUP_LIABILITY,
         'unearned_revenue' => self::GROUP_LIABILITY,
@@ -86,6 +88,10 @@ class PostingRoles
         'cleaning_security_expense' => self::GROUP_EXPENSE,
         'marketing_expense' => self::GROUP_EXPENSE,
         'admin_expense' => self::GROUP_EXPENSE,
+        // Input stamp / schedule tax. An EXPENSE, not an asset — unlike input VAT there is no
+        // credit to claim, so a `*_recoverable` role here would be a receivable nobody can collect.
+        'stamp_tax_expense' => self::GROUP_EXPENSE,
+        'schedule_tax_expense' => self::GROUP_EXPENSE,
         'depreciation_expense' => self::GROUP_EXPENSE,
         'bad_debt_expense' => self::GROUP_EXPENSE,
         'inventory_adjustment' => self::GROUP_EXPENSE,

@@ -76,7 +76,7 @@ items an operator meets on day one.
 | **F-03** | LOW | Spacing / unit owners | `assessment_basis` was collected, validated, logged — and read by no calculation | ✅ fixed |
 | F-13 | LOW | Owner statements | `finalise()` documented itself as idempotent and raised instead | ✅ fixed |
 | C-01 | CONFIG | Payables | Withholding tax needs two switches | ✅ now a health-check row |
-| C-02 | CONFIG | Receivables | The returned-cheque fee ships at zero | staging config |
+| C-02 | CONFIG | Receivables | The returned-cheque fee ships at zero | deliberate — a money default Yardi also ships unset; priced per property, [GO-LIVE §4 C-NSF](GO-LIVE.md) |
 
 Full detail, reproduction and suggested fix for each: [`docs/qa/PRE-STAGING-FINDINGS.md`](qa/PRE-STAGING-FINDINGS.md).
 
@@ -209,7 +209,7 @@ These cannot be caught by the test suite; they need the two-process race scripts
 - [x] **F-07** Confirm Budget is intended to be super-admin-only.
 - [x] **C-01** Set `TaxSettings::wht_default_tax_code` (or per-vendor codes) at the same time as
       `wht_enabled` — the switch alone withholds nothing.
-- [ ] **C-02** Price `BillingSettings::nsf_fee_amount` per property.
+- [ ] **C-02** Price `BillingSettings::nsf_fee_amount` per property — to recover the bank's own returned-cheque charge plus an administrative component. It ships at 0 on purpose ([GO-LIVE §4 C-NSF](GO-LIVE.md)).
 - [ ] Walk [`docs/GO-LIVE.md`](GO-LIVE.md) and [`docs/STAGING.md`](STAGING.md) for the remaining
       credential and configuration rows.
 
@@ -332,9 +332,10 @@ rather than a build failure. With CI paused, nothing catches it before deploy.*
 ## 6. What I would do next, in order
 
 Written after the sweep covered every module, so these are ranked by what the evidence actually
-showed rather than by what is conventionally on such a list. **Everything below except 6.5 and 6.7
-is now built** — 6.5 is a decision for the operator and 6.7 is an ops-monitoring choice, neither of
-which is code. Status is marked per item.
+showed rather than by what is conventionally on such a list. **Everything below except 6.7 is now
+built** — 6.7 is an ops-monitoring choice rather than code. 6.5 was written up as a pure operator
+decision and turned out to be half code and half decision; the code half is done. Status is marked
+per item.
 
 | # | Item | Status |
 |---|---|---|
@@ -342,7 +343,7 @@ which is code. Status is marked per item.
 | 6.2 | A MySQL-backed test tier | ✅ built |
 | 6.3 | A `translations` health row | ✅ built |
 | 6.4 | Import readiness for module 37 | ✅ built |
-| 6.5 | Decide the inactive half of the tax catalogue | ⛔ operator decision |
+| 6.5 | Commission the inactive half of the tax catalogue | ✅ built — what remains is the accountant's ruling |
 | 6.6 | A runnable harness (`composer qa`) | ✅ built |
 | 6.7 | Watch the queue worker and the scheduler heartbeat | ⛔ ops, already reported by `atriom:health` |
 
@@ -411,15 +412,29 @@ that names neither, and resolving the ownership within the property scope. The i
 on the unit-ownerships list as **Import assessments**. `BillableAgreementIsConfigurableConformanceTest`
 is what stops the next agreement type shipping with one road open and the other closed.
 
-### 6.5 Decide the inactive half of the tax catalogue ⛔ *decision, not code*
+### 6.5 Decide the inactive half of the tax catalogue ✅ *commissioned 2026-08-19*
 
-**16 of 30 tax codes ship inactive** — every stamp and schedule code, in both directions
-(`STAMP_20`, `SCHD_*` and their `_P` counterparts) — because their GL accounts are not wired.
-`TaxCode` refuses to activate a taxable code with no rate or posting role, so the catalogue is inert
-rather than a trap. That is the right default, and it is still a decision somebody has to make
-before go-live: if the accountant needs stamp duty on day one it is a blocker, and if not, it should
-be recorded as deliberate rather than left looking unfinished. **This is the one item on this list
-that cannot be closed from the code side.**
+**16 of 30 tax codes shipped inactive** — every stamp and schedule code, in both directions — and
+this was written up as a decision the operator had to make, because the stated blocker was "their GL
+accounts are not wired".
+
+**That was true, and it was the smaller half.** All three journalizers threw the document's own
+`tax_code` away: `InvoiceJournalizer` summed every line's tax into one accumulator and credited
+`vat_payable`, and `VendorBillJournalizer` / `ExpenseJournalizer` hard-coded `vat_recoverable`. So
+activating stamp tax would have put 20% of a supply onto the **VAT return**, under the **VAT
+liability**, with the entry balancing and the tie-out green. `invoice_items.tax_code` had recorded
+the right answer since the catalogue shipped; the posting simply never read it.
+
+Tax now groups by its own posting role — the same shape revenue already used a few lines above in
+the same method — with VAT as the floor for a document naming no code. Four new accounts, and the
+asymmetry is the real content: output stamp/schedule are **liabilities**, input stamp/schedule are
+**expenses**, because neither has a credit mechanism the way input VAT does. Booking them as
+recoverable would have grown a receivable nobody could ever collect.
+
+What remains is genuinely the accountant's, and is now stated as such in
+[GO-LIVE §4, C-TAX](GO-LIVE.md): **which supplies carry these taxes.** Activation grants nothing on
+its own — a tax code taxes a supply only when a charge code points at it, which is a row, not a
+deploy. Pinned by `TaxPostsToItsOwnAccountTest`, mutation-tested.
 
 ### 6.6 Make the harness runnable by someone who is not me ✅
 

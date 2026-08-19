@@ -181,7 +181,11 @@ class TaxCodeSeeder extends Seeder
                 'code' => 'STAMP_20'.$suffix,
                 'en' => 'Stamp 20%', 'ar' => 'ضريبة الدمغة ٢٠٪',
                 'family' => TaxCode::FAMILY_STAMP, 'direction' => $direction,
-                'treatment' => TaxCode::STANDARD, 'role' => null,
+                'treatment' => TaxCode::STANDARD,
+                // Output = a liability we collect and remit. Input = an EXPENSE, not a recoverable
+                // asset: stamp duty has no credit mechanism, so mirroring VAT here would build a
+                // receivable that can never be realised. See ChartOfAccountsSeeder 51111.
+                'role' => $sales ? 'stamp_tax_payable' : 'stamp_tax_expense',
                 'label' => 'Stamp', 'ref' => self::STAMP_LAW,
                 'sort' => $base + 100, 'rate' => 20.0,
             ];
@@ -193,7 +197,9 @@ class TaxCodeSeeder extends Seeder
                     'en' => 'Schedule '.self::pct($rate),
                     'ar' => 'ضريبة الجدول '.self::pct($rate),
                     'family' => TaxCode::FAMILY_SCHEDULE, 'direction' => $direction,
-                    'treatment' => TaxCode::STANDARD, 'role' => null,
+                    'treatment' => TaxCode::STANDARD,
+                    // Same asymmetry as stamp above, for the same reason.
+                    'role' => $sales ? 'schedule_tax_payable' : 'schedule_tax_expense',
                     'label' => 'SCHD '.self::pct($rate),
                     'ref' => self::SCHEDULE_LAW,
                     'sort' => $base + 200 + $i, 'rate' => (float) $rate,
@@ -257,8 +263,15 @@ class TaxCodeSeeder extends Seeder
         //
         // "Can bill" turns on the TREATMENT. An exempt or zero-rated code collects nothing, so it
         // needs neither a rate nor an account and is usable the moment it exists — base rent is
-        // billed under one. A standard-rated code needs both, which is what leaves stamp and
-        // schedule tax switched off until their GL accounts are wired (roadmap TX-08).
+        // billed under one. A standard-rated code needs both.
+        //
+        // **Stamp and schedule tax now have both** (2026-08-19), so a FRESH install ships them on.
+        // That took more than adding accounts: until the same change both journalizers threw the
+        // document's own `tax_code` away and credited every tax to `vat_payable`, so an active stamp
+        // code would have put 20% on the VAT return. An EXISTING database gets the posting role
+        // backfilled by the `fill()` above and stays switched OFF — the operator turns it on at
+        // `/admin/tax-codes`, which is the accountant's act, and the rule below about never
+        // reactivating a retired code is worth more than saving them the click.
         //
         // Keyed on the treatment rather than on `role !== null` because that earlier test made
         // activation an accident of which LAYER created the row: the sales-side exempt and

@@ -5,6 +5,7 @@ namespace App\Services\Accounting\Journalizers;
 use App\Models\ChargeCode;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\TaxCode;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -108,6 +109,14 @@ class InvoiceJournalizer implements Journalizer
         $assetId = $invoice->asset_id;
 
         $revenueByRole = [];
+        // Tax is grouped BY ITS OWN POSTING ROLE, exactly as revenue is grouped by the charge
+        // code's role a few lines below — and for the same reason. Until 2026-08-19 this was a
+        // single `$vat` accumulator credited to `vat_payable`, so a line carrying stamp tax
+        // (ضريبة الدمغة, 20%) or schedule tax (ضريبة الجدول) landed its money in the VAT liability
+        // and on the VAT return. `invoice_items.tax_code` recorded WHICH tax the line carried and
+        // the posting threw that away — which is the real reason those families shipped inactive,
+        // rather than the missing accounts the docs blamed.
+        $taxByRole = [];
         $vat = 0.0;
         /** @var InvoiceItem $item */
         foreach ($invoice->items as $item) {
@@ -122,7 +131,19 @@ class InvoiceJournalizer implements Journalizer
                 ?? self::REVENUE_ROLE[$code]
                 ?? 'misc_income';
             $revenueByRole[$role] = ($revenueByRole[$role] ?? 0) + (float) $item->amount;
-            $vat += (float) $item->vat_amount;
+
+            $lineTax = (float) $item->vat_amount;
+            $vat += $lineTax;
+
+            if ($lineTax != 0.0) {
+                // `vat_payable` is the FLOOR, not a guess: a line with no `tax_code` predates the
+                // catalogue or was raised by a service that does not classify, and VAT is what it
+                // was. Same shape as `REVENUE_ROLE` above — the catalogue answers, and the floor
+                // keeps an unseeded deployment posting somewhere sensible instead of nowhere.
+                $taxRole = ($item->tax_code ? TaxCode::postingRoleOf((string) $item->tax_code) : null)
+                    ?? 'vat_payable';
+                $taxByRole[$taxRole] = ($taxByRole[$taxRole] ?? 0) + $lineTax;
+            }
         }
 
         // Fallback for invoices with no line-item breakdown (legacy / header-only
@@ -141,6 +162,10 @@ class InvoiceJournalizer implements Journalizer
             }
             $revenueByRole = ['misc_income' => round((float) $invoice->subtotal, 2)];
             $vat = round((float) $invoice->vat_amount, 2);
+            // Header-only data carries no line to classify, so the header tax is VAT by the same
+            // floor rule. Reset rather than merged: whatever the loop accumulated described lines
+            // this branch has just decided to ignore.
+            $taxByRole = $vat > 0 ? ['vat_payable' => $vat] : [];
         }
 
         $lines = [[
@@ -165,11 +190,17 @@ class InvoiceJournalizer implements Journalizer
             ];
         }
 
-        if (round($vat, 2) > 0) {
+        foreach ($taxByRole as $taxRole => $amount) {
+            $amount = round($amount, 2);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
             $lines[] = [
-                'ledger_account_id' => $this->accounts->id('vat_payable', $assetId),
+                'ledger_account_id' => $this->accounts->id($taxRole, $assetId),
                 'debit' => 0,
-                'credit' => round($vat, 2),
+                'credit' => $amount,
             ];
         }
 

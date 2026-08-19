@@ -265,16 +265,18 @@ class ChangeImpact
                 'bill_date' => 'it IS the entry date. Editable, and guarded separately: a CHANGED date is re-checked against a closed period on both create and edit',
                 'asset_id' => 'the books dimension; guarded by assertAssetInScope on create and edit',
                 'total' => 'the AP credit — derived from subtotal + vat, both of which are refused',
+                // Reclassified from NEUTRAL 2026-08-19. It WAS neutral, and the note here said so:
+                // the journalizer booked `vat_amount` to `vat_recoverable` and never read the code,
+                // so re-classifying moved no line. It reads the code now — stamp and schedule tax
+                // debit an EXPENSE rather than a recoverable asset — so the same edit chooses an
+                // account. Derived rather than refused: the amount does not move and no payment can
+                // strand, correcting a mis-classified bill stays legitimate work, and the
+                // closed-period and issued-statement guards still stop it reaching filed evidence.
+                'tax_code' => 'chooses the account the input tax debits — recoverable for VAT, an expense for stamp and schedule',
             ],
             self::NEUTRAL => [
                 'vendor_contract_id', 'due_date', 'reference', 'description', 'currency',
-                'approved_by_user_id', 'created_by_user_id', 'approved_at',
-                // The tax CLASSIFICATION, not the tax. The journalizer books `vat_amount` to
-                // `vat_recoverable`; it never reads the code, so re-classifying a posted bill moves
-                // no line and re-derives no entry. It changes which line of the VAT RETURN the
-                // input tax is reported on — which is a document-side question, and correcting a
-                // mis-classified bill is legitimate work rather than something to refuse.
-                'tax_code', 'tax_override_reason',
+                'approved_by_user_id', 'created_by_user_id', 'approved_at', 'tax_override_reason',
                 // AP sub-ledger state; a payment and a penalty each post their own entry.
                 'paid_amount', 'penalty_applied_amount', 'balance',
             ],
@@ -315,13 +317,12 @@ class ChangeImpact
                 'total' => 'the credit to cash/bank, and the expense debit is derived as total − vat. Not independently settable — the `saving` hook recomputes it from amount + vat, both of which are refused',
                 'expense_date' => 'it IS the entry date. Editable on purpose, with its own posting-date guard: re-dating a correctly-keyed expense does not restate what was spent',
                 'asset_id' => 'the books dimension, guarded by assertAssetInScope',
+                // Same reclassification, same day, same reason as VendorBill — and it had to be the
+                // same, or the tax account would depend on which door the cost came through.
+                'tax_code' => 'chooses the account the input tax debits — see VendorBill',
             ],
             self::NEUTRAL => [
-                'reference', 'description', 'created_by_user_id',
-                // The tax CLASSIFICATION, not the tax — see VendorBill. `vat_amount` is what the
-                // journalizer books; the code says which line of the VAT return it belongs on, and
-                // correcting that on a posted expense moves no GL line.
-                'tax_code', 'tax_override_reason',
+                'reference', 'description', 'created_by_user_id', 'tax_override_reason',
             ],
             self::DESCRIPTIVE => ['number' => 'names the entry'],
         ],

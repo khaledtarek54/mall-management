@@ -2,6 +2,7 @@
 
 use App\Models\ChargeCode;
 use App\Models\TaxCode;
+use App\Models\TaxRate;
 use App\Support\PostingRoles;
 use App\Support\Vat;
 use Database\Seeders\ChargeCodeSeeder;
@@ -61,14 +62,24 @@ it('refuses to switch on a code that cannot bill, and says which half is missing
     // The guard behind the two assertions above, exercised rather than assumed. Removing it is what
     // makes this test fail — a state check alone would stay green over a deleted guard as long as
     // the seeder happened to be well-behaved.
-    $code = TaxCode::where('code', 'SCHD_8')->firstOrFail();
+    //
+    // Both fixtures are BUILT here rather than borrowed from the catalogue. This test used to reach
+    // for `SCHD_8` as its rate-but-no-account case, which was true right up until schedule tax was
+    // commissioned (2026-08-19) and then silently stopped testing the guard — a fixture that depends
+    // on a catalogue row staying incomplete is a fixture with an expiry date on it.
+    $roleless = TaxCode::create([
+        'code' => 'SCHD_97', 'name_en' => 'Schedule 97%', 'name_ar' => 'ضريبة الجدول ٩٧٪',
+        'family' => TaxCode::FAMILY_SCHEDULE, 'direction' => TaxCode::SALES,
+        'treatment' => TaxCode::STANDARD, 'posting_role' => null,
+        'invoice_label' => 'SCHD 97%', 'is_active' => false,
+    ]);
+    TaxRate::create([
+        'tax_code_id' => $roleless->id, 'rate' => 97.0, 'effective_from' => '2017-07-01',
+    ]);
 
-    expect(fn () => $code->update(['is_active' => true]))
-        ->toThrow(DomainException::class);
-
-    // It already HAS a rate — the operator supplied one. What it lacks is the account, and that
-    // alone must still refuse.
-    expect(TaxCode::where('code', 'SCHD_8')->firstOrFail()->rates()->exists())->toBeTrue();
+    // It HAS a rate. What it lacks is the account, and that alone must still refuse.
+    expect($roleless->rates()->exists())->toBeTrue();
+    expect(fn () => $roleless->update(['is_active' => true]))->toThrow(DomainException::class);
 
     // And the other half of the guard, on a code with an account but no rate.
     $rateless = TaxCode::create([
@@ -81,10 +92,10 @@ it('refuses to switch on a code that cannot bill, and says which half is missing
 
     // The control — with both, it activates. Without this the two refusals above would pass just as
     // happily if activation were refused unconditionally.
-    TaxCode::where('code', 'SCHD_8')->firstOrFail()->update(['posting_role' => 'vat_payable']);
-    TaxCode::where('code', 'SCHD_8')->firstOrFail()->update(['is_active' => true]);
+    TaxCode::whereKey($roleless->id)->firstOrFail()->update(['posting_role' => 'schedule_tax_payable']);
+    TaxCode::whereKey($roleless->id)->firstOrFail()->update(['is_active' => true]);
 
-    expect(TaxCode::where('code', 'SCHD_8')->value('is_active'))->toBeTrue();
+    expect(TaxCode::whereKey($roleless->id)->value('is_active'))->toBeTrue();
 });
 
 it('agrees with the floor on what the standard rate is', function () {
