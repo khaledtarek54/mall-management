@@ -55,12 +55,36 @@ Repro: `03_resale_proration.php`.
 seller's (or bill the buyer's part of the month), inside the same transaction as the tenure split.
 
 ---
-## F-03 · NOTE · Spacing/Owners · `assessment_basis` is collected and never read
+## F-03 · NOTE · Spacing/Owners · `assessment_basis` is collected and never read — ✅ FIXED 2026-08-19
 `unit_ownerships.assessment_basis` (area / participation / purchase_value / stated) and
 `participation_pct` are on the form, validated, activity-logged — and read by no calculation.
 `BillUnitOwnershipsService` bills flat `charges` rows regardless. The model docblock flags these as
 "§8's unanswered client questions", so this is a known placeholder rather than a regression — but on
 screen it reads as a live setting that changes what an owner is charged, and it does not.
+
+**Fixed.** The basis now drives the **annual CAM true-up** — `CamReconciliationService::ownershipShares()`
+— and deliberately nothing else: the monthly صيانة is a `charges` row the parties agreed and the
+operator typed, and deriving it from a denominator would overwrite the schedule with a computed
+number. `participation` and `stated` both read `participation_pct` and both mean *a percentage of the
+pool*, which is the same claim a lease's contractual share makes, so they route through the SAME path
+and inherit F-08's over-recovery refusal: a building whose deeds together promise away more than the
+pool is refused rather than billed. A null percentage falls back to area, never to zero. `area` is the
+default and returns nothing, so every pool that exists reconciles unchanged.
+
+`purchase_value` was the one that needed a decision, because a leased unit has no purchase price to
+sum with. The reading chosen — stated in the service, in module 37 and as **B2.5** in
+`docs/OPEN-QUESTIONS.md` rather than left implicit — is that the purchase-value owners keep the slice
+their AREA gives them collectively and divide it among themselves by price. Σ over the cohort is
+therefore identical either way, no leased neighbour moves, and this basis can never itself cause an
+over-recovery.
+
+The form now requires `purchase_price` when the basis divides by it, asked of the enum's
+`requiredColumn()` rather than a literal — without that an owner assessed on purchase value silently
+fell back to floor area, which is the same bug from the other direction.
+
+Pinned by `AssessmentBasisApportionsTheOwnersShareTest` (8 cases). Mutation-tested: stubbing the new
+method out turns four of them red and leaves the four controls green — which is the right split,
+because the controls are the ones that must not move.
 
 ---
 ## F-04 · HIGH · Leasing · Nothing ever moves a lease from `active` to `expired`
@@ -299,7 +323,7 @@ Repro: `F11_unpaid_deposit.php` (5/5).
 `depositTieOutDiscrepancies()`, so the check compares
 `recorded + billed&settled + billed&outstanding` against the GL.
 
-## F-13 · LOW · Owner statements · `finalise()` is documented as idempotent and is not
+## F-13 · LOW · Owner statements · `finalise()` is documented as idempotent and is not — ✅ FIXED 2026-08-19
 `FinaliseOwnerStatementRunService::finalise()` carries `if ($fresh->isFinalised()) return $fresh…
 // idempotent — already finalised`, but the line above it calls `generate()`, which throws
 *"A finalised statement already exists… revise it instead"* — so the idempotent branch is dead code
@@ -307,6 +331,20 @@ and a second `finalise()` raises instead of returning. Behaviour is safe (nothin
 verified: still exactly one posted entry) and the message is sensible, so this is a correctness-of-
 comment issue plus an unreachable branch. Either drop the dead branch or check `isFinalised()` before
 regenerating.
+
+**Fixed** by doing both: the run is locked and checked BEFORE `generate()` is called, and the
+unreachable branch below it is gone. The early return is deliberately narrow — only **this** run
+short-circuits, so a draft run for a period some other run has already finalised still reaches
+`generate()` and is still told to revise instead. That distinction is load-bearing on the correction
+path: `revise()` supersedes a run and then calls `finalise()` on that same row, so a check written as
+"has this ever been finalised" rather than "is it finalised now" would return the superseded run
+untouched and leave the operator unable to restate a wrong statement.
+
+Pinned by `FinaliseOwnerStatementIsActuallyIdempotentTest` — four cases: the control that a first
+finalise actually posts (through the real `accounting:sync-ledger` sweep, per the one-registry rule),
+the second call returning the same run with the FIRST call's stamps, three calls posting exactly one
+entry, and a revision still producing a new finalised version. Mutation-tested: disabling the branch
+fails three of them with the original error message verbatim.
 
 ---
 

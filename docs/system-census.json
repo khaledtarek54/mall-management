@@ -7,7 +7,7 @@
         "portal_resources": 9,
         "admin_widgets": 19,
         "api_controllers": 52,
-        "console_commands": 49,
+        "console_commands": 50,
         "jobs": 6,
         "notifications": 35,
         "migrations": 237
@@ -331,9 +331,9 @@
         }
     },
     "tests": {
-        "files": 810,
+        "files": 812,
         "e2e_specs": 22,
         "scenarios": 136,
-        "regressions": 419
+        "regressions": 421
     }
 }

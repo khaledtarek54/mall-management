@@ -121,6 +121,9 @@ inherits the **stricter** treatment rather than the laxer one:
 
 ## 4. Bring-up
 
+> Ordered end-to-end, across this document, `GO-LIVE.md` and the QA gates:
+> **[STAGING-CUTOVER.md](STAGING-CUTOVER.md)**. This section is step 2 of eight.
+
 Provision the box per [INFRASTRUCTURE.md §10](INFRASTRUCTURE.md), then:
 
 ```bash
@@ -131,8 +134,12 @@ npm ci && npm run build                   # app assets AND the handbook; both pa
 php artisan filament:assets
 php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan event:cache
 php artisan storage:link
-php artisan atriom:health
+php artisan atriom:preflight              # health + both data audits + the books reconciliation, in order
 ```
+
+> After a **restore** (posture B) run `atriom:preflight --sync` first — it backfills ledger entries
+> for the documents the restore brought in — then run it again **read-only**. The second pass is the
+> gate: a preflight that only passes while repairing is not one.
 
 Every release after that is **`./deploy.sh`**, which runs the runbook's sequence and deploys
 staging without the production confirm prompt.

@@ -166,6 +166,20 @@ Some leases say exactly that; many say share of GROSS leasable area.
 - `lease_cam_terms.stated_share_pct` — the per-lease override, for the many Egyptian leases that
   simply name the percentage. A stated share beats any derived one, and it does **not** inflate its
   neighbours: the others keep their area-derived shares and less of the pool is recovered.
+- `unit_ownerships.assessment_basis` — **the same question for a SOLD unit** (2026-08-19, F-03). A
+  handed-over ownership is an ordinary pool participant ([module 37 §7b](37-unit-owners.md)), and
+  `participation` / `stated` both name a percentage of the pool exactly as a lease's stated share
+  does — so they go through this same path and the same over-recovery guard. `area` is the default
+  and changes nothing; `purchase_value` re-cuts the purchase-value owners among themselves and is
+  aggregate-neutral, so no lease ever moves because a neighbouring unit was sold.
+
+**Stated shares may not promise away more than the pool (2026-08-19, pre-staging QA F-08).** The
+guard is on the TOTAL that WOULD be allocated, not on `Σ stated` — a single lease stated at 12.5%
+against a 2% area share over-recovers by 10.5% while the stated figures sum to well under 100. It is
+a **refusal**, not a clamp: scaling somebody's agreed percentage down is not a decision an engine may
+take, and billing them all in full is the over-recovery itself. `billing:reconcile`'s CAM tie-out now
+compares Σ allocated against the pool expense DIRECTLY rather than against the residual the generator
+wrote, which is why it can fail at all — see `ReconciliationChecksCanFailConformanceTest`.
 
 **Caps match the clause (2026-08-09, story RC-07).** Two refinements over "cap the whole share":
 

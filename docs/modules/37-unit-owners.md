@@ -234,9 +234,43 @@ monthly assessment. Same economic act, same `service_charge` charge type — whi
 is the assessments it was billed that year, and it settles with a true-up like anybody else. No
 parallel system.
 
-What an ownership does NOT bring is CAM **clause** machinery — stated share, ceiling, controllable
-carve-out, banked carry-forward. Those are negotiated into a lease; a sale has none, so an ownership
-takes the plain pro-rata path and the cap block is skipped rather than answered with neutral values.
+What an ownership does NOT bring is CAM **clause** machinery — ceiling, controllable carve-out,
+banked carry-forward. Those are negotiated into a lease; a sale has none, so the cap block is skipped
+rather than answered with neutral values.
+
+**What it DOES bring is `assessment_basis`, and that is what decides the share (2026-08-19,
+pre-staging QA F-03).** Until then the column was on the form, validated, required the right
+companion field, activity-logged with a translated vocabulary — and **read by no calculation**. Every
+ownership took the plain area path, so an operator who recorded the deed participation his contract
+names was billed on floor area instead and nothing said so. The enum's own docblock warns against
+exactly that shape of bug while being an instance of it.
+
+| Basis | Share of the pool | Note |
+|---|---|---|
+| `area` | Time-weighted floor area ÷ the pool's denominator | The default, and today's behaviour — every existing pool reconciles unchanged |
+| `participation` | `participation_pct` as-is | A deed participation sums to 100 across the building, so it names a share of the WHOLE pool |
+| `stated` | `participation_pct` as-is | A percentage the parties simply agreed. Same column, same meaning, different provenance |
+| `purchase_value` | The cohort's own area share, re-cut among the purchase-value owners by price | See below |
+
+`participation` and `stated` are the same claim a lease's contractual share makes, so they route
+through the **same** path and inherit F-08's guard for free: a building whose deeds together promise
+away more than the pool is **refused**, not billed. A null percentage falls back to area, never to
+zero — a zero share silently excuses an owner from the cost his neighbours are funding and looks
+identical on screen to a correctly configured 0%.
+
+**`purchase_value` needed a decision**, because a leased unit has no purchase price to sum with, so
+there is no single denominator that includes everybody. The reading chosen — stated here rather than
+left implicit, and logged as **B2.5** in [OPEN-QUESTIONS](../OPEN-QUESTIONS.md) — is that the
+purchase-value owners keep the slice their AREA gives them **collectively** and divide that slice
+among themselves by price. Σ over the cohort is identical either way, so no leased neighbour moves
+and this basis can never itself cause an over-recovery. An owner with no purchase price recorded
+leaves the cohort entirely, numerator and area alike, and falls back to area.
+
+**The basis governs the ANNUAL true-up and nothing else.** The monthly صيانة stays a `charges` row —
+an amount the parties agreed and the operator typed. Deriving it from a denominator would overwrite
+the schedule with a computed number and restate months already billed and paid. The form now says
+so, and requires `purchase_price` when the basis divides by it. Pinned by
+`AssessmentBasisApportionsTheOwnersShareTest`.
 
 > **What it was doing before.** Measured on a mall half let and half sold with a 100,000 pool: the
 > one tenant was allocated **100%** and billed **EGP 100,000**, where a just share of his own half is

@@ -72,7 +72,14 @@ class UnitOwnershipForm
                         ->label(__('admin.unit_ownerships.fields.purchase_price'))
                         ->numeric()
                         ->minValue(0)
-                        ->prefix('EGP'),
+                        ->prefix('EGP')
+                        // Required exactly when the assessment basis DIVIDES by it. Without this an
+                        // owner assessed on purchase value silently falls back to floor area — the
+                        // inert-configuration bug from the other direction, and invisible on screen.
+                        ->required(fn (callable $get): bool => self::basisNeedsPurchasePrice($get('assessment_basis')))
+                        ->helperText(fn (callable $get): ?string => self::basisNeedsPurchasePrice($get('assessment_basis'))
+                            ? __('admin.unit_ownerships.help.purchase_price_is_the_basis')
+                            : null),
 
                     DatePicker::make('purchase_date')
                         ->label(__('admin.unit_ownerships.fields.purchase_date'))
@@ -180,8 +187,19 @@ class UnitOwnershipForm
     /** Does the chosen basis read `participation_pct`? Answered by the enum, never by a literal. */
     private static function basisNeedsParticipation(?string $basis): bool
     {
+        return self::basisReads($basis, 'participation_pct');
+    }
+
+    /** Does the chosen basis divide by `purchase_price`? Same question, asked of the same enum. */
+    private static function basisNeedsPurchasePrice(?string $basis): bool
+    {
+        return self::basisReads($basis, 'purchase_price');
+    }
+
+    private static function basisReads(?string $basis, string $column): bool
+    {
         return $basis !== null
-            && AssessmentBasis::tryFrom($basis)?->requiredColumn() === 'participation_pct';
+            && AssessmentBasis::tryFrom($basis)?->requiredColumn() === $column;
     }
 
     /**

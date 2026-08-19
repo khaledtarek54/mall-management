@@ -6,7 +6,7 @@ namespace App\Support;
  * Every critical section in the codebase, and what it protects.
  *
  * **Why this registry exists.** `SQLiteGrammar::compileLock()` returns `''`, and the suite runs on
- * sqlite `:memory:` — so every one of the ~111 `lockForUpdate()` call sites is **inert in every
+ * sqlite `:memory:` — so every one of the {@see totalLocks()} registered lock acquisitions is **inert in every
  * test**. Deleting one turned nothing red. Production is unaffected (MySQL honours the locks); what was unprotected
  * is the *guard itself*. Concurrency is the one invariant class in CLAUDE.md that never got a
  * registry and a gate, and it is the class this project has already been bitten by twice — the unit
@@ -214,7 +214,7 @@ final class ConcurrencyPolicy
 
         // ── Owner accounting ─────────────────────────────────────────────────────────────────
         'app/Services/OwnerAccounting/DisbursementService.php' => 5,
-        'app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php' => 1,
+        'app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php' => 2,
         'app/Services/OwnerAccounting/GenerateOwnerStatementRunService.php' => 1,
         'app/Services/OwnerAccounting/ReviseOwnerStatementRunService.php' => 1,
 
@@ -255,6 +255,24 @@ final class ConcurrencyPolicy
     ];
 
     /** @return array<string, int> file => expected lock count, across both tiers */
+    /**
+     * How many lock acquisitions this registry accounts for, across both tiers.
+     *
+     * Derived rather than written down, because a hand-typed count in a docblock is the thing this
+     * project has repeatedly found stale — the two prose figures this replaced said 111 and 118
+     * while the registry held 134.
+     */
+    public static function totalLocks(): int
+    {
+        $count = array_sum(array_column(self::PROVEN, 'locks'));
+
+        foreach (self::REGISTERED as $locks) {
+            $count += is_array($locks) ? $locks['locks'] : $locks;
+        }
+
+        return $count;
+    }
+
     public static function expected(): array
     {
         $proven = [];

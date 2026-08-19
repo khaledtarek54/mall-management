@@ -25,15 +25,31 @@ class FinaliseOwnerStatementRunService
     public function finalise(OwnerStatementRun $run, User $actor, ?string $postingDate = null): OwnerStatementRun
     {
         return DB::transaction(function () use ($run, $actor, $postingDate) {
+            // Idempotent — and the check has to happen HERE, before the regenerate.
+            //
+            // It used to sit AFTER it, where it was dead code: `generate()` refuses with "a
+            // finalised statement already exists — revise it instead" the moment one does, so a
+            // second `finalise()` on the same run RAISED rather than returning, while the line
+            // below it called itself idempotent. Nothing ever double-posted, so this was a false
+            // comment guarding an unreachable branch rather than a money defect (pre-staging QA,
+            // F-13) — but a caller reading the code was told the opposite of what it did.
+            //
+            // Only THIS run short-circuits. A DRAFT run for a property and period that some OTHER
+            // run has already finalised must still reach `generate()` and be refused there: that is
+            // a different situation with a different remedy, and swallowing it would hide the one
+            // case where the operator genuinely has to revise.
+            $locked = OwnerStatementRun::whereKey($run->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->isFinalised()) {
+                return $locked->load('statements');
+            }
+
             // Recompute the draft for this property + period from the live ledger, then freeze it.
             // (If $run was just superseded by Revise, generate() starts a fresh version.)
             $fresh = $this->generate->generate($run->asset, $run->accountingPeriod, $run->basis);
 
             $fresh = OwnerStatementRun::whereKey($fresh->id)->lockForUpdate()->firstOrFail();
 
-            if ($fresh->isFinalised()) {
-                return $fresh->load('statements'); // idempotent — already finalised
-            }
             if (! $fresh->isDraft()) {
                 throw new \DomainException('Only a draft owner-statement run can be finalised.');
             }

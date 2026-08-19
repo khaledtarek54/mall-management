@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AssessmentBasis;
 use App\Enums\UnitOwnershipStatus;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
@@ -127,7 +128,9 @@ class CamReconciliationService
         // very pool that failed (measured: Σ allocated 1,102,168.95 against 1,000,000 of cost).
         //
         // A re-run reuses its frozen shares and never reaches this.
-        $statedShares = $isRerun ? collect() : $this->statedShares($pool, $leases);
+        $statedShares = $isRerun
+            ? collect()
+            : $this->statedShares($pool, $leases, $totalSqm, $periodStart, $periodEnd);
         $projectedShare = $isRerun
             ? 0.0
             : $this->projectedTotalShare($leases, $statedShares, $totalSqm, $periodStart, $periodEnd);
@@ -599,15 +602,142 @@ class CamReconciliationService
      * @param  Collection<int, mixed>  $leases
      * @return Collection<string, float>
      */
-    private function statedShares(CamExpensePool $pool, $leases): Collection
-    {
-        return $leases
+    private function statedShares(
+        CamExpensePool $pool,
+        $leases,
+        float $totalSqm,
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+    ): Collection {
+        $fromLeases = $leases
             ->filter(fn ($participant): bool => $participant instanceof Lease)
             ->mapWithKeys(function (Lease $lease) use ($pool): array {
                 $stated = $lease->statedCamSharePct((int) $pool->period_year);
 
                 return $stated === null ? [] : [self::agreementKeyFor($lease) => $stated / 100];
-            });
+            })
+            // `toBase()` is load-bearing, not tidiness. `Eloquent\Collection::mapWithKeys()` only
+            // degrades to a base collection when the result CONTAINS a non-model — an EMPTY result
+            // stays Eloquent, and `Eloquent\Collection::merge()` calls `getKey()` on whatever it is
+            // handed. So a pool with no stated lease share fatals the moment an ownership share is
+            // merged in, and a pool with one works: the failure is invisible on the happy path.
+            ->toBase();
+
+        return $fromLeases->merge(
+            $this->ownershipShares($leases, $totalSqm, $periodStart, $periodEnd)
+        );
+    }
+
+    /**
+     * The share a SOLD unit's own deed names — `unit_ownerships.assessment_basis` made live
+     * (pre-staging QA, F-03).
+     *
+     * The column was collected on the form, validated, activity-logged and **read by no
+     * calculation**: every ownership took the plain area path, so an operator who recorded a deed
+     * participation of 3.5% was billed on floor area and nothing said so. The enum's own docblock
+     * warns against exactly that — *"a basis that needs a number nobody typed is the
+     * inert-configuration bug this codebase has already been bitten by"* — while being an instance
+     * of it.
+     *
+     * **The basis governs the ANNUAL true-up and nothing else.** The monthly صيانة is a `charges`
+     * row: an amount the parties agreed and the operator typed, not a figure derived from a
+     * denominator. Reading the basis there would overwrite the schedule with a computed number.
+     *
+     * Three bases, and only one of them needed a decision:
+     *
+     *  - **`participation` / `stated`** read `participation_pct`, and both mean *a percentage of the
+     *    pool* — a deed participation sums to 100 across the building, and a stated share is simply
+     *    agreed. That is the same claim a lease's contractual share makes, so it flows through the
+     *    same path and inherits F-08's over-recovery refusal for free: a building whose deeds
+     *    over-promise is refused rather than billed.
+     *  - **`area`** is the default and today's behaviour. It returns nothing here, so nothing moves.
+     *  - **`purchase_value`** is the one with no obvious denominator, because a leased unit has no
+     *    purchase price to sum with. See {@see purchaseValueShares()} for the reading chosen and why.
+     *
+     * A null or zero percentage falls back to AREA, never to zero — the enum says so, and a zero
+     * share would silently excuse an owner from the common cost his neighbours are funding.
+     *
+     * @param  Collection<int, mixed>  $leases
+     * @return Collection<string, float>
+     */
+    private function ownershipShares(
+        $leases,
+        float $totalSqm,
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+    ): Collection {
+        $ownerships = $leases->filter(fn ($participant): bool => $participant instanceof UnitOwnership);
+
+        $stated = $ownerships
+            ->mapWithKeys(function (UnitOwnership $ownership): array {
+                // Asked of the ENUM, never of a literal, so a fifth basis cannot be added without
+                // answering which column it reads — the same rule the form's `required()` follows.
+                if ($ownership->assessment_basis?->requiredColumn() !== 'participation_pct') {
+                    return [];
+                }
+
+                $pct = (float) ($ownership->participation_pct ?? 0);
+
+                return $pct > 0 ? [self::agreementKeyFor($ownership) => $pct / 100] : [];
+            })
+            ->toBase();
+
+        return $stated->merge(
+            $this->purchaseValueShares($ownerships, $totalSqm, $periodStart, $periodEnd)
+        );
+    }
+
+    /**
+     * `purchase_value` — the owner's share of common cost in proportion to what he paid for the unit.
+     *
+     * Used where the developer's contract set صيانة against the price. It is the only basis that has
+     * no self-evident denominator in a mall that is **part let and part sold**: a lease has no
+     * purchase price, so there is no total to divide by that includes everybody.
+     *
+     * **The reading chosen, stated rather than implied:** the purchase-value owners keep the share
+     * of the pool their AREA gives them collectively, and re-cut that share among themselves BY
+     * PRICE. So Σ over the cohort is identical either way and **no other participant moves** — which
+     * is the same principle F-08 settled for a stated lease share: a neighbour's bill is never
+     * re-cut because a third party's contract says something different. It also means this basis can
+     * never itself cause an over-recovery.
+     *
+     * An owner with no purchase price recorded is excluded from the cohort — from both the numerator
+     * and the area it re-cuts — and falls back to area, rather than being read as having paid zero.
+     *
+     * The alternative reading — price over the summed prices of the whole building — is only defined
+     * when every unit is sold, and it silently becomes wrong the day one is let. Logged in
+     * `docs/OPEN-QUESTIONS.md`; if the operator's contracts mean that instead, it is a change here
+     * and nowhere else.
+     *
+     * @param  Collection<int, UnitOwnership>  $ownerships
+     * @return Collection<string, float>
+     */
+    private function purchaseValueShares(
+        $ownerships,
+        float $totalSqm,
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+    ): Collection {
+        $cohort = $ownerships->filter(fn (UnitOwnership $o): bool => $o->assessment_basis === AssessmentBasis::PurchaseValue
+            && (float) $o->purchase_price > 0);
+
+        if ($cohort->isEmpty() || $totalSqm <= 0) {
+            return collect();
+        }
+
+        $priceTotal = (float) $cohort->sum(fn (UnitOwnership $o): float => (float) $o->purchase_price);
+        $areaTotal = (float) $cohort->sum(fn (UnitOwnership $o): float => self::areaForPeriod($o, $periodStart, $periodEnd));
+
+        if ($priceTotal <= 0 || $areaTotal <= 0) {
+            return collect();
+        }
+
+        // The cohort's collective slice of the pool — exactly what area would have given them.
+        $cohortShare = $areaTotal / $totalSqm;
+
+        return $cohort->mapWithKeys(fn (UnitOwnership $o): array => [
+            self::agreementKeyFor($o) => $cohortShare * ((float) $o->purchase_price / $priceTotal),
+        ])->toBase();
     }
 
     /**

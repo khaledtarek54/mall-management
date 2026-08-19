@@ -73,7 +73,8 @@ items an operator meets on day one.
 | **F-05** | MED | Spacing | Stored `units.status` goes stale on a date boundary; nothing re-projects on a schedule | ✅ fixed |
 | **F-06** | MED | RBAC | The leasing role cannot open a single leasing report — but the read-only viewer can | ✅ fixed |
 | F-07 | LOW | RBAC | Budget was super-admin-only | ✅ fixed (`budget.manage`) |
-| F-03 / F-13 | LOW | — | A decorative setting; a dead "idempotent" branch | open, documented |
+| **F-03** | LOW | Spacing / unit owners | `assessment_basis` was collected, validated, logged — and read by no calculation | ✅ fixed |
+| F-13 | LOW | Owner statements | `finalise()` documented itself as idempotent and raised instead | ✅ fixed |
 | C-01 | CONFIG | Payables | Withholding tax needs two switches | ✅ now a health-check row |
 | C-02 | CONFIG | Receivables | The returned-cheque fee ships at zero | staging config |
 
@@ -224,10 +225,22 @@ expected to be red. On this workstation two rows failed and **both are real stag
       local; on staging that means the copy dies with the machine. Run `atriom:backup-verify` once.
 
 ### Gate 6 — Pre-import / pre-deploy audits (both currently clean)
-- [ ] `php artisan atriom:audit-charge-schedules` → exit 0
-- [ ] `php artisan atriom:audit-property-dimension` → exit 0
-- [ ] `php artisan billing:reconcile --deep` → every check passing
-- [ ] `php artisan accounting:sync-ledger --all` → 0 failed
+
+**All four are now one command: `php artisan atriom:preflight`.** It runs them in order — health
+first, because if the queue is dead the audits are measuring a box that would not have processed
+anything anyway — and exits non-zero naming the steps that failed. Read-only by default:
+`accounting:sync-ledger --all` is behind `--sync` because it **writes**, and a check that silently
+repairs what it is checking cannot tell you the box was broken (the F-08 shape).
+
+- [ ] `php artisan atriom:preflight --sync` after a restore — backfills the ledger
+- [ ] `php artisan atriom:preflight` again, read-only — **this** is the gate
+
+Verified against the clean seeded baseline: read-only reported `OwnerStatementRun #1` out of sync,
+`--sync` fixed it, read-only then passed everything except `atriom:health` — which is correct on a
+workstation with no queue worker and no cron.
+
+The ordered end-to-end sequence, across this document, `STAGING.md` and `GO-LIVE.md`, is
+[`docs/STAGING-CUTOVER.md`](STAGING-CUTOVER.md).
 
 ### Gate 7 — Regression cover for what was found ✅
 Six new files in `tests/Feature/Regression/`, all green:

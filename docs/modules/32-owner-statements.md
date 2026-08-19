@@ -114,6 +114,14 @@ posts Dr `due_to_owner` / Cr Bank|Cash for `amount`. Both only in those states; 
 `app/Services/OwnerAccounting/`:
 - **`GenerateOwnerStatementRunService::generate(Asset, AccountingPeriod, basis)`** → draft (idempotent; version-aware).
 - **`FinaliseOwnerStatementRunService::finalise(run, actor, ?postingDate)`** → recompute + freeze + status finalised (no synchronous post).
+  **Idempotent, and it is now true** (pre-staging QA, F-13): the run is locked and checked BEFORE
+  `generate()` runs, so a second call returns it with the FIRST call's `finalised_at` and
+  `posting_date`. The branch used to sit AFTER the regenerate, where `generate()`'s *"a finalised
+  statement already exists — revise it instead"* had always fired first, so the method raised while
+  the line below called itself idempotent. Nothing ever double-posted; the comment was simply
+  false. The short-circuit is narrow on purpose — only THIS run — because `revise()` supersedes a
+  run and then finalises that same row, so "has it ever been finalised" instead of "is it finalised
+  now" would silently return the superseded version and block every correction.
 - **`ReviseOwnerStatementRunService::revise(run, actor, ?postingDate)`** → supersede + finalise a fresh version.
 - **`DisbursementService::{schedule, approve, markPaid, cancel}`** → the payout lifecycle (cap under lock, frozen tier, PostingDate).
 - **`OwnerStatementPdfService::build(OwnerStatement)`** → the bilingual mpdf statement PDF.
