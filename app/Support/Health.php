@@ -77,6 +77,7 @@ class Health
             'demo_payments' => self::checkDemoPayments(),
             'mobile_reset_url' => self::checkMobileResetUrl(),
             'runtime_drivers' => self::checkRuntimeDrivers(),
+            'translations' => self::checkTranslations(),
         ];
 
         $ok = collect($checks)->every(fn (array $c): bool => $c['ok']);
@@ -324,6 +325,51 @@ class Health
         }
 
         return ['ok' => $verdict['ok'], 'detail' => $verdict['detail']];
+    }
+
+    /**
+     * Do the admin translations actually MERGE?
+     *
+     * `lang/{en,ar}/admin.php` builds itself from the per-domain partials in `admin/` and throws a
+     * `LogicException` when two of them declare the same top-level key — deliberately, because the
+     * alternative is load order silently deciding which one wins. Its own comment notes that this
+     * runtime guard is the ONLY cross-partial check there is.
+     *
+     * The consequence is what makes it a health row rather than a lint: `__('admin.*')` is on every
+     * page, so a bad merge is not a broken screen, it is **every** screen. Verified by injecting a
+     * duplicate key — the merge throws and every other health row still reported OK, so nothing
+     * anywhere said the application was about to 500 on load.
+     *
+     * Checked per LOCALE, because a partial added to `en/` and not `ar/` fails only in Arabic.
+     */
+    private static function checkTranslations(): array
+    {
+        $broken = [];
+
+        foreach (['en', 'ar'] as $locale) {
+            $path = lang_path($locale.'/admin.php');
+
+            if (! File::exists($path)) {
+                $broken[] = "{$locale}: admin.php is missing";
+
+                continue;
+            }
+
+            try {
+                $merged = require $path;
+
+                if (! is_array($merged) || $merged === []) {
+                    $broken[] = "{$locale}: merged to nothing";
+                }
+            } catch (Throwable $e) {
+                // The message already names the partial and the clashing key.
+                $broken[] = $locale.': '.$e->getMessage();
+            }
+        }
+
+        return $broken === []
+            ? ['ok' => true, 'detail' => 'both locales merge']
+            : ['ok' => false, 'detail' => implode(' · ', $broken)];
     }
 
     /**

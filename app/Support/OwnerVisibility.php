@@ -119,6 +119,7 @@ class OwnerVisibility
         'procurement' => 'Eltizam\'s purchasing process — requisitions, quotes, who it chose not to buy from.',
         'vendors' => 'The SHARED supplier register: rates and contracts spanning every mall Eltizam runs, including a competing owner\'s. The owner still sees which vendor did the work, on the bill and the work order. This is the one place we are stricter than a generous reading of Yardi, deliberately.',
         'approvals' => 'Eltizam\'s internal authority ladder — who may commit the company to what.',
+        'budget' => 'The group holds ONE permission and it is a write: `budget.manage`, setting the plan the property is measured against. Deciding the target is a management act Eltizam performs under its contract — the owner reading it is oversight, and they already have that, because budget-vs-actual reaches them through `reports` and the income statement. There is no `budget.view` to classify separately, so listing the group as VISIBLE would grant authorship rather than sight. (This is the Yardi line, not a deviation from it: the owner portal exposes budget vs actual, never the budget entry screen.)',
 
         // ---- Configuration and audit ----
         'settings' => 'System configuration, including tax rates, integration credentials and security policy.',

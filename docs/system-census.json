@@ -7,7 +7,7 @@
         "portal_resources": 9,
         "admin_widgets": 19,
         "api_controllers": 52,
-        "console_commands": 47,
+        "console_commands": 49,
         "jobs": 6,
         "notifications": 35,
         "migrations": 237
@@ -309,6 +309,7 @@
                 "sales:scan-missing-declarations",
                 "sales:estimate-missing",
                 "inventory:scan-low-stock",
+                "leases:expire",
                 "leases:apply-escalations",
                 "pdc:scan-maturing",
                 "billing:remind-overdue-tenants",
@@ -330,9 +331,9 @@
         }
     },
     "tests": {
-        "files": 793,
+        "files": 810,
         "e2e_specs": 22,
-        "scenarios": 131,
-        "regressions": 408
+        "scenarios": 136,
+        "regressions": 419
     }
 }

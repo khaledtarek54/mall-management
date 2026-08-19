@@ -46,6 +46,7 @@ return [
         'post_to_ledger_confirm' => 'This posts recent invoices, payments, and other documents to the general ledger. It runs automatically every day; running it now just makes the books current immediately. Safe to run anytime.',
         'export' => 'Export',
         'import_charges' => 'Import charge schedules',
+        'import_assessments' => 'Import assessment schedules',
         'import' => 'Import CSV',
         'import_heading' => 'Import from CSV',
         'import_help' => 'Upload a CSV file. Existing records are matched and updated; new ones are created.',

@@ -11,6 +11,14 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!--
+            NOT in the default run: these need a live MySQL. `composer test:mysql` names this suite
+            explicitly and points DB_CONNECTION at it. See tests/Mysql/README.md for why three
+            properties of this system cannot be tested on sqlite at all.
+        -->
+        <testsuite name="Mysql">
+            <directory>tests/Mysql</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

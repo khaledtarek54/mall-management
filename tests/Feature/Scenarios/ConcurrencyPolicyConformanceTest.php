@@ -94,3 +94,49 @@ it('keeps the two tiers disjoint, so a section cannot be half-classified', funct
 
     expect(array_values($both))->toBe([], 'Listed in both PROVEN and REGISTERED: '.implode(', ', $both));
 });
+
+/**
+ * A lock serialises writers; it does not make the guard behind it SEE them.
+ *
+ * Under MySQL REPEATABLE READ the consistent-read snapshot is fixed at a transaction's first plain
+ * read, so a guard query running after `lockForUpdate()` is answered from before the wait. Measured
+ * with two processes on two connections (F-09): the second transaction's guard returned false with
+ * the first transaction's lease committed on that unit, while a locking read of the same query at
+ * the same instant returned 1.
+ *
+ * This reads each registered guard's OWN method body — not the file — because `isActivelyLeased()`
+ * and `isActivelyLeasedForUpdate()` live side by side and only one of them may answer a writer.
+ */
+it('keeps every write-deciding guard a LOCKING read', function () {
+    $stale = [];
+
+    foreach (ConcurrencyPolicy::AUTHORITATIVE_GUARDS as $guard => $consequence) {
+        [$class, $method] = explode('::', $guard);
+
+        expect(method_exists($class, $method))->toBeTrue(
+            "AUTHORITATIVE_GUARDS names {$guard}, which no longer exists. Remove the entry or fix the name."
+        );
+
+        $reflection = new ReflectionMethod($class, $method);
+        $lines = file($reflection->getFileName());
+        $body = implode('', array_slice(
+            $lines,
+            $reflection->getStartLine() - 1,
+            $reflection->getEndLine() - $reflection->getStartLine() + 1,
+        ));
+
+        if (! str_contains($body, 'lockForUpdate(') && ! str_contains($body, 'sharedLock(')) {
+            $stale[] = "{$guard} reads without a lock — {$consequence}";
+        }
+    }
+
+    expect($stale)->toBe([], "A guard that reads from a stale snapshot decides nothing:\n  ".implode("\n  ", $stale));
+});
+
+it('registers the guards that actually decide a write', function () {
+    // A registry that swept nothing would pass the assertion above forever. Both money paths that
+    // were measured wrong under real concurrency have to be in it.
+    expect(array_keys(ConcurrencyPolicy::AUTHORITATIVE_GUARDS))
+        ->toContain('App\\Models\\Unit::isActivelyLeasedForUpdate')
+        ->toContain('App\\Models\\Payment::assertInvoicesNotOverAllocated');
+});

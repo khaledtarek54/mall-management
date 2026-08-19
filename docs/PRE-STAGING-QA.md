@@ -319,67 +319,112 @@ rather than a build failure. With CI paused, nothing catches it before deploy.*
 ## 6. What I would do next, in order
 
 Written after the sweep covered every module, so these are ranked by what the evidence actually
-showed rather than by what is conventionally on such a list.
+showed rather than by what is conventionally on such a list. **Everything below except 6.5 and 6.7
+is now built** — 6.5 is a decision for the operator and 6.7 is an ops-monitoring choice, neither of
+which is code. Status is marked per item.
 
-### 6.1 Close the four gate gaps the findings came through
+| # | Item | Status |
+|---|---|---|
+| 6.1 | Four new conformance gates for the gaps the findings came through | ✅ built |
+| 6.2 | A MySQL-backed test tier | ✅ built |
+| 6.3 | A `translations` health row | ✅ built |
+| 6.4 | Import readiness for module 37 | ✅ built |
+| 6.5 | Decide the inactive half of the tax catalogue | ⛔ operator decision |
+| 6.6 | A runnable harness (`composer qa`) | ✅ built |
+| 6.7 | Watch the queue worker and the scheduler heartbeat | ⛔ ops, already reported by `atriom:health` |
+
+### 6.1 Close the four gate gaps the findings came through ✅
 
 Every finding sat in a gap *between* existing gates. This project's method is registry + gate, and
 that method works — `ConcurrencyPolicy` caught my new locks and made me register them, and
-`CamDenominatorTest` stopped me overturning a deliberate design. The gaps are specific:
+`CamDenominatorTest` stopped me overturning a deliberate design. The gaps were specific, and each
+now has a gate. **Every one was mutation-tested**: the registry was broken on purpose and the gate
+watched to go red, because a gate that cannot fail is exactly the shape F-08 was.
 
-| Gap | Finding | Gate that would have caught it |
+| Gap | Finding | Gate now closing it |
 |---|---|---|
-| A billable agreement that can never be billed | **F-01** | For every `BillableAgreement` in a billable state, assert something *can* bill it — `ServiceReachability` proves a service is startable, not that the data it needs can be created |
-| A guard query behind a lock that is not itself a locking read | **F-09** | `ConcurrencyPolicy` registers **where** locks are taken; extend it to the query the guard runs afterwards. On SQLite the difference is invisible, which is exactly why it needs a gate |
-| A check whose expected value is derived from its subject | **F-08** | The tie-out could not fail: the generator wrote the residual the check tests against. Worth sweeping the other registries for the same shape |
-| A stored value that goes stale on a date boundary with no sweep | **F-04 / F-05** | `units.status` and `leases.status` both did. Anything date-derived and stored needs either a sweep or a documented reason it does not |
+| A billable agreement that can never be billed | **F-01** | `BillableAgreementIsConfigurableConformanceTest` — for every `BillableAgreement`, assert a charges relation manager exists **and** an importer resolves it. `ServiceReachability` proves a service is startable; this proves the data it needs can be created, by both roads |
+| A guard query behind a lock that is not itself a locking read | **F-09** | `ConcurrencyPolicy::AUTHORITATIVE_GUARDS` + two cases in `ConcurrencyPolicyConformanceTest` that read each named guard's **own method body** and require a locking read in it. The registry already said *where* locks are taken; this says which decisions are allowed to rest on one. On SQLite the difference is invisible, which is why it needs a gate rather than a review |
+| A check whose expected value is derived from its subject | **F-08** | `ReconciliationChecksCanFailConformanceTest` — perturbs each of the four tenant-facing checks and requires it to go red, plus a control that requires all four green on clean data. Reading a check tells you what it compares; only mutation tells you what it notices |
+| A stored value that goes stale on a date boundary with no sweep | **F-04 / F-05** | `App\Support\ProjectedState` + `ProjectedStateConformanceTest`. Four teeth, because the registry alone would have passed the original state: the projector must exist, the sweep must exist, the sweep must be **scheduled** (`recomputeStatus()` existed all along — nothing called it on a timer), and a second consecutive run must find no work. `NOT_PROJECTED` records the four columns that look like projections and deliberately are not |
 
-### 6.2 A MySQL-backed test tier
+`Lease::hasExpiredTerm()` came out of this as the single definition of "the term has run out",
+shared by `leases:expire` and `RentEscalationService`, so the sweep and the guard against acting on
+an un-swept lease cannot drift apart.
+
+### 6.2 A MySQL-backed test tier ✅
 
 Three findings (**F-08**, **F-09**, **F-10**) were structurally invisible to the suite:
-`SQLiteGrammar::compileLock()` returns `''` and one connection never interleaves. A dozen
-MySQL-backed cases — locks, the enum CHECK behaviour, and the `select *, x, *` shape that already
-500'd production once — would close a category that currently only a browser or an incident finds.
+`SQLiteGrammar::compileLock()` returns `''` and one connection never interleaves.
 
-### 6.3 Guard the translation merge at deploy time
+`tests/Mysql/` is now a separate `phpunit.xml` testsuite that **skips unless the connection is
+actually MySQL**, so the ordinary `pest --parallel` run is unchanged. It covers the three properties
+SQLite cannot tell the truth about: a row lock compiling to real `for update` / `lock in share mode`
+SQL; no DB-level enum column left, read from `information_schema` rather than inferred; every
+`ValueSets` value fitting the width of the column that must accept it; and **every
+globally-searchable resource query executing** rather than merely compiling — the exact shape that
+500'd the fixed-asset list, the register CSV and the whole search bar in production with 5,180 tests
+green. That last case proves its own premise first: if MySQL ever stopped rejecting
+`select tbl.*, x, *`, the test says so rather than passing vacuously.
+
+Run it with `composer test:mysql` (after `composer qa:baseline`).
+
+### 6.3 Guard the translation merge at deploy time ✅
 
 `lang/{en,ar}/admin.php` merges its partials at **runtime** and throws `LogicException` on a
-duplicate top-level key. Verified by injecting one: the merge throws, and **`atriom:health` does not
+duplicate top-level key. Verified by injecting one: the merge throws, and **`atriom:health` did not
 see it** — it reported all 17 rows normally. Because `__('admin.*')` is on every page, a bad merge is
 a total outage rather than a broken screen, and the merge file's own comment says this runtime guard
-is the only cross-partial check there is. One health row (`translations` — load both locales, catch,
-report) closes it for the cost of ten lines.
+is the only cross-partial check there is.
 
-### 6.4 Import readiness for module 37
+`atriom:health` now carries a `translations` row that loads both locales and reports the failure by
+file and key. Mutation-verified — with a duplicate key injected it reads:
 
-F-01 is fixed at the screen, but the same shape is still open through the import door: there is **no
-`UnitOwnershipImporter`**, and `ChargeImporter` resolves a `lease_reference` only. A migrating
-operator who loads a portfolio of sold units will have ownerships that no assessment run can bill —
-silently, exactly as before. Either add the importer (with its schedule column) or state that sold
-units are keyed in by hand.
+```
+| translations | FAIL | en: Duplicate admin translation key(s) in system.php: fields |
+```
 
-Existing importers: Charge (lease-only), Employee, FixedAsset, Lease, MeterReading, OpeningInvoice,
-Tenant, Unit, Vendor.
+### 6.4 Import readiness for module 37 ✅
 
-### 6.5 Decide the inactive half of the tax catalogue
+F-01 was fixed at the screen, but the same shape stayed open through the import door: there was **no
+way to load a sold unit's assessment schedule in bulk**, so a migrating operator loading a portfolio
+of sold units would have ownerships no assessment run could bill — silently, exactly as before.
+
+Rather than a second importer, `ChargeScheduleService` was generalised from `Lease` to the
+`BillableAgreement` contract it should always have taken (it keys off `invoiceLinkAttributes()`
+now, so a third agreement type needs no change here), and `ChargeImporter` gained an
+`ownership_reference` column beside `lease_reference` — refusing a row that names both and a row
+that names neither, and resolving the ownership within the property scope. The importer is mounted
+on the unit-ownerships list as **Import assessments**. `BillableAgreementIsConfigurableConformanceTest`
+is what stops the next agreement type shipping with one road open and the other closed.
+
+### 6.5 Decide the inactive half of the tax catalogue ⛔ *decision, not code*
 
 **16 of 30 tax codes ship inactive** — every stamp and schedule code, in both directions
 (`STAMP_20`, `SCHD_*` and their `_P` counterparts) — because their GL accounts are not wired.
 `TaxCode` refuses to activate a taxable code with no rate or posting role, so the catalogue is inert
 rather than a trap. That is the right default, and it is still a decision somebody has to make
 before go-live: if the accountant needs stamp duty on day one it is a blocker, and if not, it should
-be recorded as deliberate rather than left looking unfinished.
+be recorded as deliberate rather than left looking unfinished. **This is the one item on this list
+that cannot be closed from the code side.**
 
-### 6.6 Make the harness runnable by someone who is not me
+### 6.6 Make the harness runnable by someone who is not me ✅
 
-`docs/qa/scripts/` is ~40 scripts that only help if they are run. A `composer qa` script that
-resets the baseline and runs the suite in order, plus the one-time `baseline.sql` step already in
-the README, is the difference between a regression harness and an archive.
+`docs/qa/scripts/` is ~40 scripts that only help if they are run. There are now two entry points:
 
-### 6.7 Watch the two things everything else depends on
+- `composer qa:baseline` — creates the QA database, migrates and seeds it, and dumps `baseline.sql`
+  (gitignored). One-time, and repeated whenever the schema or the seeder moves.
+- `composer qa` — restores that baseline **before each suite** and runs the scripts in order,
+  reporting a pass/fail total. Takes an optional filter argument to run one suite.
+
+Per-suite reset is the point: the first version of this harness produced two false findings from
+state one script left behind for the next.
+
+### 6.7 Watch the two things everything else depends on ⛔ *ops*
 
 `atriom:health` correctly reported both as FAIL here: **701 jobs queued with no worker**, and the
 scheduler **never ran (no heartbeat)**. Roughly thirty behaviours — billing, assessments,
 escalations, the ledger sweep, `billing:reconcile`, the expiry sweep added in this work — are inert
-without cron, and none of them fail loudly when they simply never run. Whatever monitors the staging
-box should watch that heartbeat, not just the app.
+without cron, and none of them fail loudly when they simply never run. The check already exists and
+already goes red; what is missing is something outside the app watching it. Whatever monitors the
+staging box should watch that heartbeat, not just that the site returns 200.

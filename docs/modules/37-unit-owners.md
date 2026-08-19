@@ -14,7 +14,7 @@
 > `RemeasureUnitService` shipped with no caller. `ServiceReachability` proves a SERVICE can be
 > started; nothing proved the DATA it needs can be created.
 >
-> Three parts to the fix, and each fails independently:
+> Four parts to the fix, and each fails independently:
 > - **[`UnitOwnershipChargesRelationManager`](../../app/Filament/Admin/RelationManagers/UnitOwnershipChargesRelationManager.php)**
 >   — the assessment schedule, mounted on the resource. Deliberately NOT the lease's
 >   `ChargeScheduleRelationManager`: that class types its owner record as a `Lease`, gates on
@@ -30,7 +30,17 @@
 >   month"; a handed-over ownership in tenure with no schedule at all means "nobody is billing this
 >   unit". `{"considered":8,"created":6,"skipped":2,"failed":0}` read like success.
 >
-> Pinned by `UnitOwnerAssessmentIsReachableTest`.
+> - **The import road, which was the same hole with a different door.** `ChargeImporter` resolved a
+>   `lease_reference` only, so a migrating operator loading a portfolio of sold units ended up exactly
+>   where the panel used to leave them. Rather than a second importer, `ChargeScheduleService` was
+>   generalised from `Lease` to the `BillableAgreement` contract — it keys off `invoiceLinkAttributes()`
+>   now, so a third agreement type needs no change there — and the importer gained an
+>   `ownership_reference` column beside `lease_reference`, refusing a row that names both and a row
+>   that names neither. It is mounted on the ownerships list as **Import assessments**.
+>
+> `BillableAgreementIsConfigurableConformanceTest` is the gate: for every `BillableAgreement` it
+> requires a charges relation manager **and** an importer column, so the next agreement type cannot
+> ship with one road open and the other closed. Pinned by `UnitOwnerAssessmentIsReachableTest`.
 
 > **⚠️ A mid-month resale now rebalances the month (fixed 2026-08-19).** `billOne()` prorates on
 > tenure and this doc claimed "a resale on the 10th bills the seller 10/30 and the buyer the rest".

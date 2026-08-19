@@ -4,7 +4,10 @@ namespace App\Filament\Admin\Resources\UnitOwnerships\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
+use App\Filament\Imports\ChargeImporter;
+use App\Support\Imports;
 use Filament\Actions\CreateAction;
+use Filament\Actions\ImportAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListUnitOwnerships extends ListRecords
@@ -15,6 +18,18 @@ class ListUnitOwnerships extends ListRecords
     {
         return [
             GuideAction::for(static::getResource()),
+            // The assessment schedules, keyed by ownership reference — the same importer the lease
+            // list mounts, because a صيانة assessment IS a `charges` row. Without it a migrating
+            // operator loads a portfolio of sold units and every one of them is un-billable, which
+            // is the missing-schedule failure (pre-staging QA F-01) arriving through the import
+            // door rather than through the screen.
+            ImportAction::make('importAssessments')
+                ->importer(ChargeImporter::class)
+                ->label(__('admin.actions.import_assessments'))
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('gray')
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
             CreateAction::make(),
         ];
     }

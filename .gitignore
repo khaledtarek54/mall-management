@@ -51,3 +51,6 @@ Thumbs.db
 ca.pem
 # Ephemeral agent worktrees — a nested git repo, never part of this one.
 .claude/worktrees/
+
+# Generated QA snapshot — rebuild with `composer qa:baseline`, never committed
+docs/qa/scripts/baseline.sql

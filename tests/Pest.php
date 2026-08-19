@@ -29,6 +29,12 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+// The MySQL tier gets the framework but NOT RefreshDatabase: what it tests is the driver's
+// behaviour against the schema that actually ships — including whatever a `->change()` migration
+// left behind, which migrating a fresh database would hide. It is read-only and opt-in
+// (`composer test:mysql`); see tests/Mysql/README.md.
+pest()->extend(TestCase::class)->in('Mysql');
+
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Unit');

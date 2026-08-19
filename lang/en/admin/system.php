@@ -240,6 +240,7 @@ return [
             'hire_date' => 'Hire date (YYYY-MM-DD)',
             'base_salary' => 'Base salary (EGP/month)',
             'lease_reference' => 'Lease reference',
+            'ownership_reference' => 'Ownership reference',
             'charge_type' => 'Charge type (charge code)',
             'line_description' => 'Line description',
             'amount_per_cycle' => 'Amount per cycle (EGP)',

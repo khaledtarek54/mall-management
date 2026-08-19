@@ -2,8 +2,10 @@
 
 namespace App\Filament\Imports;
 
+use App\Contracts\BillableAgreement;
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\UnitOwnership;
 use App\Services\ChargeScheduleService;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
@@ -33,8 +35,15 @@ use Illuminate\Validation\Rule;
  * defaulted to today's standard rate would freeze it onto every imported lease and undo exactly the
  * fix that made a future rate change reach recurring rent.
  *
- * Scoped by the LEASE, which carries its own property, so there is no `asset_code` column to clamp:
- * `resolveLease()` only finds leases on a property the importer can see.
+ * Scoped by the AGREEMENT, which carries its own property, so there is no `asset_code` column to
+ * clamp: the resolvers below only find records on a property the importer can see.
+ *
+ * **A charge hangs off a lease OR a unit ownership**, so the file names one or the other
+ * (2026-08-19). Module 37's assessments are `charges` rows exactly as a lease's service charge is,
+ * and until now this importer resolved a `lease_reference` only — so a migrating operator who
+ * loaded a portfolio of sold units got ownerships that `billing:run-assessments` could never bill,
+ * silently, every month. That is the same shape as the missing schedule screen (pre-staging QA
+ * F-01) arriving through the import door instead.
  */
 class ChargeImporter extends Importer
 {
@@ -56,10 +65,16 @@ class ChargeImporter extends Importer
         $inputOnly = fn (ImportColumn $column): ImportColumn => $column->fillRecordUsing(fn (): null => null);
 
         return [
+            // Exactly ONE of these two identifies the agreement. Neither is `requiredMapping()`,
+            // because a file of lease charges has no ownership column and vice versa; the
+            // either-or is enforced in `resolveRecord()`, where both values are in hand.
             $inputOnly(ImportColumn::make('lease_reference')
                 ->label(__('admin.imports.columns.lease_reference'))
-                ->requiredMapping()
-                ->rules(['required', 'string'])),
+                ->rules(['nullable', 'string'])),
+
+            $inputOnly(ImportColumn::make('ownership_reference')
+                ->label(__('admin.imports.columns.ownership_reference'))
+                ->rules(['nullable', 'string'])),
 
             $inputOnly(ImportColumn::make('type')
                 ->label(__('admin.imports.columns.charge_type'))
@@ -101,19 +116,13 @@ class ChargeImporter extends Importer
      */
     public function resolveRecord(): ?Charge
     {
-        $lease = $this->resolveLease();
-
-        if ($lease === null) {
-            throw new \RuntimeException(
-                'Unknown or out-of-scope lease reference ['.(string) ($this->data['lease_reference'] ?? '').'].'
-            );
-        }
+        $agreement = $this->resolveAgreement();
 
         $type = trim((string) ($this->data['type'] ?? ''));
         $rawRate = $this->data['vat_rate'] ?? null;
 
         return app(ChargeScheduleService::class)->setAmount(
-            $lease,
+            $agreement,
             $type,
             (float) ($this->data['amount'] ?? 0),
             CarbonImmutable::parse((string) $this->data['effective_from']),
@@ -133,13 +142,26 @@ class ChargeImporter extends Importer
         );
     }
 
-    /** The lease, only if it sits on a property this importer is allowed to see. */
-    private function resolveLease(): ?Lease
+    /**
+     * The lease or the ownership this row's charge belongs to — exactly one of them.
+     *
+     * A row naming BOTH is refused rather than resolved by precedence: the file is stating two
+     * different debtors for one charge, and picking one silently would bill somebody nobody chose.
+     */
+    private function resolveAgreement(): BillableAgreement
     {
-        $reference = trim((string) ($this->data['lease_reference'] ?? ''));
+        $leaseReference = trim((string) ($this->data['lease_reference'] ?? ''));
+        $ownershipReference = trim((string) ($this->data['ownership_reference'] ?? ''));
 
-        if ($reference === '') {
-            return null;
+        if ($leaseReference !== '' && $ownershipReference !== '') {
+            throw new \RuntimeException(
+                'This row names both a lease ['.$leaseReference.'] and an ownership ['
+                .$ownershipReference.']. A charge belongs to one agreement — give the row one reference.'
+            );
+        }
+
+        if ($leaseReference === '' && $ownershipReference === '') {
+            throw new \RuntimeException('This row names neither a lease reference nor an ownership reference.');
         }
 
         // `visibleAssetIds()` returning NULL means unrestricted (super_admin), not "no properties" —
@@ -147,10 +169,25 @@ class ChargeImporter extends Importer
         // refuse every row for the one user allowed to import anything.
         $visible = TenantScope::visibleAssetIds();
 
-        return Lease::query()
-            ->where('reference', $reference)
+        if ($ownershipReference !== '') {
+            $ownership = UnitOwnership::query()
+                ->where('reference', $ownershipReference)
+                ->when($visible !== null, fn ($q) => $q->whereIn('asset_id', $visible))
+                ->first();
+
+            return $ownership ?? throw new \RuntimeException(
+                'Unknown or out-of-scope ownership reference ['.$ownershipReference.'].'
+            );
+        }
+
+        $lease = Lease::query()
+            ->where('reference', $leaseReference)
             ->when($visible !== null, fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $visible)))
             ->first();
+
+        return $lease ?? throw new \RuntimeException(
+            'Unknown or out-of-scope lease reference ['.$leaseReference.'].'
+        );
     }
 
     public static function getCompletedNotificationBody(Import $import): string

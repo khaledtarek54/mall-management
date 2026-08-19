@@ -239,6 +239,7 @@ return [
             'hire_date' => 'تاريخ التعيين (YYYY-MM-DD)',
             'base_salary' => 'الراتب الأساسي (ج.م/شهريًا)',
             'lease_reference' => 'مرجع العقد',
+            'ownership_reference' => 'مرجع الملكية',
             'charge_type' => 'نوع الرسم (كود الرسم)',
             'line_description' => 'وصف البند',
             'amount_per_cycle' => 'المبلغ لكل دورة (ج.م)',

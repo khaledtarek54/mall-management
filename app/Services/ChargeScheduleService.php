@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\BillableAgreement;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Support\Vat;
@@ -48,8 +49,29 @@ class ChargeScheduleService
      *
      * @param  array<string, mixed>  $attributes  name / vat_applicable / vat_rate / frequency for a new row
      */
+    /**
+     * The `charges` column that keys this agreement, and its id.
+     *
+     * A charge hangs off a lease OR a unit ownership and never both ({@see Charge::agreementKey()},
+     * which answers the same question from the other end). Derived from the agreement's own
+     * `invoiceLinkAttributes()` rather than from a match on the class, so a third kind of billable
+     * agreement needs no change here.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function keyFor(BillableAgreement $agreement): array
+    {
+        foreach ($agreement->invoiceLinkAttributes() as $column => $id) {
+            if ($id !== null) {
+                return [$column, (int) $id];
+            }
+        }
+
+        throw new \LogicException('A billable agreement must name the column its charges hang off.');
+    }
+
     public function setAmount(
-        Lease $lease,
+        BillableAgreement $lease,
         string $type,
         float $amount,
         CarbonImmutable $effectiveFrom,
@@ -84,12 +106,12 @@ class ChargeScheduleService
         $current->update(['end_date' => $effectiveFrom->subDay()->toDateString()]);
 
         return Charge::create([
-            'lease_id' => $lease->id,
+            ...$lease->invoiceLinkAttributes(),
             'name' => $attributes['name'] ?? $current->name,
             'type' => $type,
             'origin' => $origin,
             'amount' => $amount,
-            'currency' => $lease->currency ?? 'EGP',
+            'currency' => $lease->billingCurrency(),
             'frequency' => $attributes['frequency'] ?? $current->frequency,
             'vat_applicable' => $attributes['vat_applicable'] ?? $current->vat_applicable,
             'vat_rate' => $attributes['vat_rate'] ?? $current->vat_rate,
@@ -257,7 +279,7 @@ class ChargeScheduleService
         }
 
         $overlapping = Charge::query()
-            ->where('lease_id', $lease->id)
+            ->where(...self::keyFor($lease))
             ->where('type', $type)
             ->where('is_active', true)
             ->where('frequency', '!=', 'one_time')
@@ -320,12 +342,12 @@ class ChargeScheduleService
             $row = $step['row'];
 
             $relief[] = Charge::create([
-                'lease_id' => $lease->id,
+                ...$lease->invoiceLinkAttributes(),
                 'name' => $row->name,
                 'type' => $type,
                 'origin' => $origin,
                 'amount' => round($amountFor($step['amount']), 2),
-                'currency' => $lease->currency ?? 'EGP',
+                'currency' => $lease->billingCurrency(),
                 'frequency' => $row->frequency,
                 'vat_applicable' => $row->vat_applicable,
                 'vat_rate' => $row->vat_rate,
@@ -342,7 +364,7 @@ class ChargeScheduleService
             $row = $resumeAfter['row'];
 
             $resumed = Charge::create([
-                'lease_id' => $lease->id,
+                ...$lease->invoiceLinkAttributes(),
                 'name' => $row->name,
                 'type' => $type,
                 'origin' => $origin,
@@ -366,10 +388,10 @@ class ChargeScheduleService
      *
      * @return Collection<int, Charge>
      */
-    public function scheduleFor(Lease $lease, string $type)
+    public function scheduleFor(BillableAgreement $lease, string $type)
     {
         return Charge::query()
-            ->where('lease_id', $lease->id)
+            ->where(...self::keyFor($lease))
             ->where('type', $type)
             ->orderByRaw('start_date is null desc')
             ->orderBy('start_date')
@@ -397,7 +419,7 @@ class ChargeScheduleService
      *
      * @return int rows closed (0 = nothing was in force, which is not an error)
      */
-    public function close(Lease $lease, string $type, CarbonImmutable $from): int
+    public function close(BillableAgreement $lease, string $type, CarbonImmutable $from): int
     {
         $from = self::billingBoundary($from);
 
@@ -420,7 +442,7 @@ class ChargeScheduleService
             }
 
             $closed += Charge::query()
-                ->where('lease_id', $lease->id)
+                ->where(...self::keyFor($lease))
                 ->where('type', $type)
                 ->where('is_active', true)
                 ->whereNotNull('start_date')
@@ -431,12 +453,12 @@ class ChargeScheduleService
         });
     }
 
-    public function rowInForce(Lease $lease, string $type, CarbonImmutable $on): ?Charge
+    public function rowInForce(BillableAgreement $lease, string $type, CarbonImmutable $on): ?Charge
     {
         // Always a FRESH read: this runs inside setAmount()'s transaction, right after rows may
         // have been written, so a cached relation would hand back a stale answer.
         return self::pickInForce(
-            Charge::query()->where('lease_id', $lease->id)->where('type', $type)->get(),
+            Charge::query()->where(...self::keyFor($lease))->where('type', $type)->get(),
             $on,
         );
     }
@@ -494,7 +516,7 @@ class ChargeScheduleService
 
     /** @param  array<string, mixed>  $attributes */
     private function openFirstRow(
-        Lease $lease,
+        BillableAgreement $lease,
         string $type,
         float $amount,
         CarbonImmutable $effectiveFrom,
@@ -506,7 +528,7 @@ class ChargeScheduleService
         }
 
         return Charge::create([
-            'lease_id' => $lease->id,
+            ...$lease->invoiceLinkAttributes(),
             'name' => $attributes['name'] ?? ucfirst(str_replace('_', ' ', $type)),
             'type' => $type,
             'origin' => $origin,

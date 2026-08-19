@@ -573,6 +573,12 @@
 > - **Billing a past month now bills what was in force THEN**, not today's amount. That is a
 >   behaviour change, and it is the point.
 > - `Lease::base_rent_monthly` still tracks the rent in force; nothing downstream moved.
+> - **It takes a `BillableAgreement`, not a `Lease` (2026-08-19).** The service keys off
+>   `invoiceLinkAttributes()`, so the same close-and-open discipline governs a unit owner's
+>   assessment schedule ([module 37](37-unit-owners.md)) without a second implementation — one place
+>   where an overlap is impossible by construction, for every agreement that bills. `overlayWindow()`
+>   is the one method that still takes a `Lease`, deliberately: rent relief is a lease concession and
+>   an ownership has no rent to relieve.
 >
 > **Fit-out grace is per-charge now (LS-05).** `fit_out_scope` decides what the grace abates:
 > `rent_only` (**the new default** — base rent free, service charge and every other reimbursement

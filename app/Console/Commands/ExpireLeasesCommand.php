@@ -113,11 +113,9 @@ class ExpireLeasesCommand extends Command
                 /** @var Lease|null $lease */
                 $lease = Lease::whereKey($row->id)->lockForUpdate()->first();
 
-                if ($lease
-                    && $lease->status === 'active'
-                    && $lease->expiry_date
-                    && $lease->expiry_date->isBefore(today())
-                    && blank($lease->holdover_from)) {
+                // `hasExpiredTerm()` — the one definition, shared with RentEscalationService, so
+                // the sweep and the guard against acting on an un-swept lease cannot drift apart.
+                if ($lease && $lease->status === 'active' && $lease->hasExpiredTerm()) {
                     // The observer re-projects the units off the back of this status change.
                     $lease->update(['status' => 'expired']);
                     $updated++;

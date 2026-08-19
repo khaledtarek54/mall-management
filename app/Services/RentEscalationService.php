@@ -125,10 +125,9 @@ class RentEscalationService
             }
 
             // The term guard, re-checked under the lock alongside due-ness — the outer query
-            // snapshotted this lease as live, and `leases:expire` may have ended it since.
-            if ($lease->expiry_date !== null
-                && $lease->expiry_date->lt($today)
-                && blank($lease->holdover_from)) {
+            // snapshotted this lease as live, and `leases:expire` may have ended it since. Shares
+            // `hasExpiredTerm()` with that sweep so the two cannot disagree about what "ended" is.
+            if ($lease->hasExpiredTerm($today)) {
                 return 'skipped';
             }
 

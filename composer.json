@@ -88,8 +88,8 @@
             "vendor/bin/pint --dirty"
         ],
         "qa": [
-            "@analyse",
-            "vendor/bin/pest --parallel"
+            "@php -r \"echo 'Pre-staging QA harness — real services, real MySQL. See docs/PRE-STAGING-QA.md', PHP_EOL;\"",
+            "docs/qa/scripts/run-all.sh"
         ],
         "coverage": [
             "Composer\\Config::disableProcessTimeout",
@@ -125,6 +125,15 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "qa:baseline": [
+            "docs/qa/scripts/baseline.sh"
+        ],
+        "test:mysql": [
+            "@php artisan config:clear --ansi",
+            "@putenv DB_CONNECTION=mysql",
+            "@putenv DB_DATABASE=mall_management_qa",
+            "vendor/bin/pest --testsuite=Mysql"
         ]
     },
     "extra": {

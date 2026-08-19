@@ -154,6 +154,37 @@ trait HasLeaseTermState
     }
 
     /**
+     * Has this tenancy's TERM run out — with nobody having renewed, terminated or held it over?
+     *
+     * Named here because two places have to agree about it and previously each inlined its own
+     * copy: `leases:expire`, which moves the lease to `expired`, and `RentEscalationService`, which
+     * must not step the rent of a lease the sweep has not reached yet. Two guards protecting
+     * different things (the state, and acting on the state), one definition — the project's rule
+     * for exactly this shape.
+     *
+     * A converted HOLDOVER is excluded, and that is the whole subtlety: its expiry is deliberately
+     * in the past, `holdover_from` is what makes it billable at all, and treating it as expired
+     * would end a tenancy the operator explicitly chose to continue.
+     *
+     * Says nothing about `status` — this is about the DATES. A lease already `terminated` has an
+     * expired term too; whether that matters is the caller's question.
+     */
+    public function hasExpiredTerm(?CarbonImmutable $on = null): bool
+    {
+        if (blank($this->expiry_date)) {
+            return false;   // open-ended: a term that never ends cannot have ended
+        }
+
+        if ($this->isConvertedHoldover()) {
+            return false;
+        }
+
+        $on ??= CarbonImmutable::now();
+
+        return CarbonImmutable::instance($this->expiry_date)->startOfDay()->lessThan($on->startOfDay());
+    }
+
+    /**
      * The query form of {@see isBillableForPeriod()} — used by the scheduled run.
      *
      * @param  Builder  $query

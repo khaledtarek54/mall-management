@@ -27,9 +27,25 @@ namespace App\Support;
  * comment. Those tests fail when the lock is removed. Everything else is count-pinned only, and
  * that difference is stated rather than blurred.
  *
+ * **A lock serialises writers; it does NOT make the guard behind it SEE them.** This is the third
+ * thing the registry now records, and it is the one that was measured wrong. Under MySQL
+ * REPEATABLE READ a transaction's consistent-read snapshot is fixed at its FIRST plain read, so a
+ * guard query that runs *after* `lockForUpdate()` is still answered from before the wait. Proven
+ * with two processes on two connections (pre-staging QA, F-09): the second transaction's
+ * `isActivelyLeased()` returned **false** with the first transaction's lease committed on that very
+ * unit, while a **locking** read of the same query at the same instant returned 1. What actually
+ * prevented the double-booking was the UNIQUE index on the document number — and only because both
+ * writers computed the same number from the same stale snapshot, so the loser got a duplicate-key
+ * 500 instead of the intended refusal.
+ *
+ * {@see AUTHORITATIVE_GUARDS} therefore registers the *reads*, not just the locks: a guard that
+ * decides whether a write may proceed has to be a locking read itself. On SQLite the difference is
+ * invisible, which is precisely why it needs a gate rather than a convention.
+ *
  * **What none of this proves.** That two concurrent transactions actually serialise. That needs
  * MySQL and two connections, and no amount of single-process testing substitutes for it. The gate
- * protects the guard from being deleted; MySQL is what makes the guard work.
+ * protects the guard from being deleted; MySQL is what makes the guard work. The end-to-end proof
+ * is `docs/qa/scripts/race.sh`.
  */
 final class ConcurrencyPolicy
 {
@@ -41,6 +57,31 @@ final class ConcurrencyPolicy
      *
      * @var array<string, array{locks: int, protects: string}>
      */
+    /**
+     * Guards that decide whether a WRITE may proceed, and must therefore read under a lock.
+     *
+     * Keyed `Class::method`, because the property is about one method's own query rather than about
+     * a file: `Unit::isActivelyLeased()` and `Unit::isActivelyLeasedForUpdate()` ask the same
+     * question and only one of them may answer a writer. The plain one is deliberately kept for
+     * form validation and table columns, where taking row locks on every render would be a cost
+     * with no reader waiting on it.
+     *
+     * `ConcurrencyPolicyConformanceTest` reads each method's own body and fails when the locking
+     * read is gone — which is the mutation that turned nothing red before F-09.
+     *
+     * @var array<string, string> `Class::method` => what a stale read would let through
+     */
+    public const AUTHORITATIVE_GUARDS = [
+        'App\\Models\\Unit::isActivelyLeasedForUpdate' => 'Two leases signed on the same vacant unit at once. The unit row lock serialises the '.
+            'writers; only a locking read here sees the lease the other one just committed.',
+
+        'App\\Models\\Payment::assertInvoicesNotOverAllocated' => 'A second receipt settling an invoice another channel has already paid. All four '.
+            'settlement channels are summed here, and the guard is only as strong as its weakest term.',
+
+        'App\\Models\\Payment::refitAllocationsToBalance' => 'The gateway capture path, which clamps rather than throws — a stale read would clamp '.
+            'against a balance that predates a concurrent settlement and let the card money over-settle.',
+    ];
+
     public const PROVEN = [
         'app/Services/LeaseCreationService.php' => [
             'locks' => 1,
