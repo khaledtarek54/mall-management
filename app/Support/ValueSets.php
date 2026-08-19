@@ -109,6 +109,7 @@ class ValueSets
             'written_off',
         ],
         'journal_entries.status' => ['draft', 'posted', 'void'],
+        'lease_clauses.type' => ['use', 'exclusivity', 'radius', 'co_tenancy', 'kick_out', 'assignment', 'insurance', 'operating_hours', 'signage', 'parking', 'repairs', 'guarantor', 'other'],
         'leases.billing_frequency' => ['monthly', 'quarterly', 'semiannual', 'annual'],
         'leases.percentage_rent_calculation_type' => ['natural_breakpoint', 'artificial', 'tiered'],
         // The two halves of a percentage-rent clause that are constantly confused for each other:

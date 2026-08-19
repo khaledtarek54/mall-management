@@ -148,6 +148,21 @@ return [
     ],
 
     'enums' => [
+        'lease_clause_type' => [
+            'use' => 'Permitted use',
+            'exclusivity' => 'Exclusivity',
+            'radius' => 'Radius restriction',
+            'co_tenancy' => 'Co-tenancy',
+            'kick_out' => 'Kick-out',
+            'assignment' => 'Assignment & subletting',
+            'insurance' => 'Insurance',
+            'operating_hours' => 'Operating hours',
+            'signage' => 'Signage',
+            'parking' => 'Parking allocation',
+            'repairs' => 'Repair obligations',
+            'guarantor' => 'Guarantor',
+            'other' => 'Other',
+        ],
         'party_type' => [
             'retailer' => 'Retailer',
             'unit_owner' => 'Unit owner',

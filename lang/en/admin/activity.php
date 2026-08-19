@@ -27,6 +27,7 @@ return [
             'bank_statement' => 'Bank statement',
             'charge_code' => 'Charge code',
             'rent_index' => 'Rent index',
+            'lease_clause' => 'Lease clause',
             'tenant_document' => 'Tenant document',
             'account_mapping' => 'Posting map row',
             'floor' => 'Floor',

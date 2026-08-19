@@ -580,6 +580,21 @@ class Lease extends Model implements BillableAgreement, HasMedia
      * Items … to both new and existing residents"), and in its condo product the unit owner simply
      * is that record. A `UnitOwnership` therefore holds bays through the identical relation.
      */
+    /**
+     * The lease abstract — the legal terms that are not money.
+     *
+     * Voyager's clause register (`docs/benchmarks/yardi/01-yardi-lease-administration.md` §7). The
+     * two that matter most are co-tenancy and kick-out, which the benchmark calls **contingent
+     * money**: while they lived only in the uploaded PDF, nothing could report which leases carried
+     * one.
+     *
+     * @return HasMany<LeaseClause, $this>
+     */
+    public function clauses(): HasMany
+    {
+        return $this->hasMany(LeaseClause::class);
+    }
+
     public function rentableItems(): MorphToMany
     {
         return $this->morphToMany(RentableItem::class, 'holder', 'rentable_item_holdings')

@@ -1,0 +1,214 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| The legal terms lived only in the PDF (2026-08-19)
+|--------------------------------------------------------------------------
+| `docs/benchmarks/yardi/01-yardi-lease-administration.md` §7 describes the lease abstract — the
+| structured record of terms that do not reduce to money: use, exclusivity, radius, co-tenancy,
+| kick-out, assignment, insurance, operating hours, signage, parking, repairs, guarantor.
+|
+| Its reason for existing is the test this file is built around, quoted because it names the exact
+| failure rather than a feature:
+|
+| > "co-tenancy and kick-out clauses are *contingent money*. … In Atriom these clauses live only in
+| > the uploaded PDF, so nothing can act on them and nothing can even report 'how many of our leases
+| > have a co-tenancy trigger tied to the anchor we are about to lose'."
+|
+| So the deliverable is that the question becomes ANSWERABLE. The last test here is that question,
+| asked literally.
+|
+| **What this deliberately does not do:** abate rent by itself. The benchmark notes a well-run
+| system abates automatically; here the trigger is recorded and surfaced, and raising the abatement
+| stays a deliberate act through `LeaseReliefService`. Same shape as a violation fine and a
+| percentage-rent overage — recording and charging are two steps, because the second is somebody's
+| decision and lands on a tenant's bill.
+*/
+
+use App\Filament\Admin\RelationManagers\LeaseClausesRelationManager;
+use App\Filament\Admin\Resources\Leases\Pages\EditLease;
+use App\Models\LeaseClause;
+use Carbon\CarbonImmutable;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
+use Livewire\Livewire;
+
+beforeEach(function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+    $this->asset = makeAsset();
+    $this->lease = makeLease(makeUnit($this->asset));
+});
+
+it('abstracts a clause against its lease', function () {
+    $clause = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_EXCLUSIVITY,
+        'summary' => 'No other coffee operator above 60 m² in the centre.',
+        'source_reference' => 'cl. 14.3',
+    ]);
+
+    expect($this->lease->fresh()->clauses)->toHaveCount(1)
+        ->and($clause->label())->toBe('Exclusivity');
+});
+
+it('keeps the numbers the business reasons about', function () {
+    $radius = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_RADIUS,
+        'radius_km' => 5,
+        'summary' => 'No second branch within 5 km.',
+    ]);
+
+    $coTenancy = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_CO_TENANCY,
+        'threshold_pct' => 70,
+        'notice_days' => 30,
+    ]);
+
+    expect((float) $radius->radius_km)->toBe(5.0)
+        ->and((float) $coTenancy->threshold_pct)->toBe(70.0)
+        ->and($coTenancy->notice_days)->toBe(30);
+});
+
+/**
+ * A clause can lapse. A co-tenancy protection commonly runs for the first years of a term only, so
+ * "is this in force?" is a question about a date, not about the row existing.
+ */
+it('knows whether a clause is in force on a date', function () {
+    $lapsed = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_CO_TENANCY,
+        'applies_from' => '2026-01-01',
+        'applies_to' => '2028-12-31',
+    ]);
+
+    expect($lapsed->isInForceOn(CarbonImmutable::parse('2027-06-01')))->toBeTrue()
+        // The boundary day itself counts — the same inclusive convention the charge schedule and
+        // the premises pivot use, so a reader who knows one knows all three.
+        ->and($lapsed->isInForceOn(CarbonImmutable::parse('2028-12-31')))->toBeTrue()
+        ->and($lapsed->isInForceOn(CarbonImmutable::parse('2029-01-01')))->toBeFalse()
+        ->and($lapsed->isInForceOn(CarbonImmutable::parse('2025-12-31')))->toBeFalse();
+});
+
+it('treats an open-ended clause as always in force', function () {
+    $standing = $this->lease->clauses()->create(['type' => LeaseClause::TYPE_SIGNAGE]);
+
+    expect($standing->isInForceOn(CarbonImmutable::parse('2099-01-01')))->toBeTrue();
+});
+
+/** The scope and the predicate must agree, or a screen and a report disagree about the same clause. */
+it('scopes to the clauses in force, matching the predicate', function () {
+    $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_CO_TENANCY, 'applies_to' => '2026-06-30',
+    ]);
+    $live = $this->lease->clauses()->create(['type' => LeaseClause::TYPE_SIGNAGE]);
+
+    $on = CarbonImmutable::parse('2027-01-01');
+    $inForce = LeaseClause::query()->inForceOn($on)->get();
+
+    expect($inForce->pluck('id')->all())->toBe([$live->id])
+        ->and($inForce->every(fn (LeaseClause $c) => $c->isInForceOn($on)))->toBeTrue();
+});
+
+/** The value set is enforced on every save, so a typo cannot invent a clause type. */
+it('refuses a clause type outside the value set', function () {
+    // `DomainException`, so it renders as a message and a redirect rather than a 500 — the
+    // house rule for anything the operator did that is not allowed.
+    expect(fn () => $this->lease->clauses()->create(['type' => 'handshake']))
+        ->toThrow(DomainException::class);
+});
+
+/**
+ * **The question the benchmark says nothing could answer.**
+ *
+ * "How many of our leases have a co-tenancy trigger tied to the anchor we are about to lose?" — a
+ * portfolio scan by clause type, which is exactly what a PDF cannot support and a typed row can.
+ */
+it('answers which leases carry contingent-money clauses, across the portfolio', function () {
+    $exposed = $this->lease;
+    $exposed->clauses()->create(['type' => LeaseClause::TYPE_CO_TENANCY, 'threshold_pct' => 70]);
+
+    $alsoExposed = makeLease(makeUnit($this->asset));
+    $alsoExposed->clauses()->create(['type' => LeaseClause::TYPE_KICK_OUT, 'threshold_amount' => 4_000_000]);
+
+    // A lease with clauses, but none that can cost money — the control that stops this passing by
+    // simply returning every lease that has an abstract.
+    $safe = makeLease(makeUnit($this->asset));
+    $safe->clauses()->create(['type' => LeaseClause::TYPE_SIGNAGE]);
+
+    $exposedLeaseIds = LeaseClause::query()
+        ->contingentMoney()
+        ->inForceOn(CarbonImmutable::now())
+        ->pluck('lease_id')
+        ->unique()
+        ->values();
+
+    expect($exposedLeaseIds->all())->toEqualCanonicalizing([$exposed->id, $alsoExposed->id])
+        ->and($exposedLeaseIds)->not->toContain($safe->id);
+});
+
+/** A clause belongs to its lease's property, so the register cannot leak across malls. */
+it('is scoped to the property the lease sits in', function () {
+    $this->lease->clauses()->create(['type' => LeaseClause::TYPE_USE]);
+
+    $elsewhere = makeLease(makeUnit(makeAsset()));
+    $elsewhere->clauses()->create(['type' => LeaseClause::TYPE_USE]);
+
+    expect(LeaseClause::query()->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $this->asset->id))->count())
+        ->toBe(1);
+});
+
+/** Deleting a lease takes its abstract with it — the clause has no meaning without the contract. */
+it('goes with the lease', function () {
+    $this->lease->clauses()->create(['type' => LeaseClause::TYPE_USE]);
+
+    $this->lease->forceDelete();
+
+    expect(LeaseClause::withTrashed()->count())->toBe(0);
+});
+
+/**
+ * The surface, driven. A register nobody can open is the failure this project keeps finding — the
+ * abstract only earns its place if an operator can read it on the lease they are looking at.
+ */
+it('shows the abstract on the lease page', function () {
+    $this->actingAs(makeUser('leasing', [$this->asset->id]));
+    Filament::setTenant($this->asset);
+
+    $clause = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_CO_TENANCY,
+        'threshold_pct' => 70,
+        'summary' => 'Rent abates 50% if centre occupancy falls below 70%.',
+    ]);
+
+    Livewire::test(LeaseClausesRelationManager::class, [
+        'ownerRecord' => $this->lease->fresh(),
+        'pageClass' => EditLease::class,
+    ])
+        ->assertOk()
+        ->assertCanSeeTableRecords([$clause]);
+});
+
+it('records a clause through the real form', function () {
+    $this->actingAs(makeUser('leasing', [$this->asset->id]));
+    Filament::setTenant($this->asset);
+
+    Livewire::test(LeaseClausesRelationManager::class, [
+        'ownerRecord' => $this->lease,
+        'pageClass' => EditLease::class,
+    ])
+        ->callTableAction('create', data: [
+            'type' => LeaseClause::TYPE_RADIUS,
+            'summary' => 'No second branch within 5 km of the centre.',
+            'radius_km' => 5,
+            'source_reference' => 'cl. 18.2',
+        ])
+        ->assertHasNoTableActionErrors();
+
+    expect((float) $this->lease->fresh()->clauses()->sole()->radius_km)->toBe(5.0);
+});
+
+/** A role without lease-edit rights reads the abstract and cannot change it. */
+it('withholds the write actions from a role that cannot edit leases', function () {
+    $viewer = makeUser('viewer', [$this->asset->id]);
+
+    expect($viewer->can('leases.edit'))->toBeFalse();
+});

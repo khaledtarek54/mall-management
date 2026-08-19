@@ -294,6 +294,12 @@
         "note": "lease.unit"
     },
     {
+        "model": "LeaseClause",
+        "label": "Lease Clause",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
         "model": "LeaseEvent",
         "label": "Lease Event",
         "classification": "owned",

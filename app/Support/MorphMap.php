@@ -51,6 +51,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
+use App\Models\LeaseClause;
 use App\Models\LeaseEvent;
 use App\Models\LeaseOption;
 use App\Models\LeasePercentageRentTier;
@@ -170,6 +171,7 @@ class MorphMap
         'charge' => Charge::class,
         'charge_code' => ChargeCode::class,
         'rent_index' => RentIndex::class,
+        'lease_clause' => LeaseClause::class,
         'credit_note' => CreditNote::class,
         'credit_note_application' => CreditNoteApplication::class,
         'credit_note_item' => CreditNoteItem::class,

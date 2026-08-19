@@ -148,6 +148,21 @@ return [
     ],
 
     'enums' => [
+        'lease_clause_type' => [
+            'use' => 'الاستخدام المسموح',
+            'exclusivity' => 'حصرية النشاط',
+            'radius' => 'حظر النطاق الجغرافي',
+            'co_tenancy' => 'شرط الإشغال المشترك',
+            'kick_out' => 'حق الإنهاء عند قصور المبيعات',
+            'assignment' => 'التنازل والتأجير من الباطن',
+            'insurance' => 'التأمين',
+            'operating_hours' => 'ساعات العمل',
+            'signage' => 'اللافتات',
+            'parking' => 'حصة المواقف',
+            'repairs' => 'التزامات الصيانة',
+            'guarantor' => 'الضامن',
+            'other' => 'أخرى',
+        ],
         'party_type' => [
             'retailer' => 'مستأجر',
             'unit_owner' => 'مالك وحدة',

@@ -1,6 +1,20 @@
 <?php
 
 return [
+    'lease_clauses' => [
+        'title' => 'Clauses',
+        'type_helper' => 'Co-tenancy and kick-out can cost money if their trigger fires — those two are badged apart.',
+        'summary_helper' => 'The term in your own words. The signed contract stays the source of truth for the wording.',
+        'threshold_pct_helper' => 'Occupancy below which the abatement can be claimed.',
+        'threshold_amount_helper' => 'Annual sales the tenant must reach to keep the right closed.',
+        'radius_helper' => 'How far the tenant may not open a competing store.',
+        'notice_helper' => 'Days of notice the party must give to exercise this right.',
+        'applies_to_helper' => 'Leave blank if it runs for the whole term.',
+        'source_helper' => 'Clause number or schedule, so the wording can be found without reading the contract.',
+        'open_ended' => 'Whole term',
+        'empty_heading' => 'No clauses abstracted yet',
+        'empty_description' => 'Record the terms that are not money — exclusivity, radius, co-tenancy, kick-out — so they can be reported on instead of living only in the PDF.',
+    ],
     'lease_summary' => [
         'rent_today' => 'Rent today',
         'not_billing_yet' => 'Not billing yet',

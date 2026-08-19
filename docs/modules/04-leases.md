@@ -684,6 +684,57 @@
 > the command printed "Every charge schedule is unambiguous." It now reports that shape explicitly.
 
 
+
+## The lease abstract — clauses (2026-08-19)
+
+`lease_clauses` holds the legal terms that do not reduce to money, taken from the benchmark's own
+list *(cited, [benchmarks/yardi/01](../benchmarks/yardi/01-yardi-lease-administration.md) §7)*: use ·
+**exclusivity** · **radius restriction** · **co-tenancy** · **kick-out** · assignment and subletting ·
+insurance · operating hours · signage · parking allocation · repairs · guarantor. Not extended with
+invented types — a clause Voyager does not name goes in `other` with its wording until it is common
+enough to earn a row.
+
+**The reason it exists is a question, not a feature**, and the benchmark states it:
+
+> *"co-tenancy and kick-out clauses are contingent money. … In Atriom these clauses live only in the
+> uploaded PDF, so nothing can act on them and nothing can even report 'how many of our leases have
+> a co-tenancy trigger tied to the anchor we are about to lose'."*
+
+`LeaseClause::scopeContingentMoney()` + `scopeInForceOn()` answer exactly that, and the tab badges
+those two types apart from the rest.
+
+### What it deliberately does NOT do
+
+The benchmark notes a well-run system **abates rent automatically** when a co-tenancy trigger
+fires. Atriom records and surfaces the trigger; raising the abatement stays a deliberate act through
+`LeaseReliefService`. That is a decision:
+
+- An abatement is money off a tenant's bill, and the condition is a legal reading ("has the anchor
+  ceased trading?") that an occupancy percentage only approximates. A system abating on its own
+  reading would be wrong in exactly the cases that matter — a temporary closure, a replacement
+  anchor mid-fit-out — and each error is a credit the operator has to claw back from a tenant who
+  has already banked it.
+- It is the shape every other contingent charge here already has: a violation is recorded and
+  billed by a separate act; a percentage-rent overage is locked and then billed.
+
+### Shape
+
+Four typed numbers rather than a JSON blob, because four clauses carry a figure the business
+reasons about — the occupancy floor (`threshold_pct`), the sales threshold (`threshold_amount`), the
+kilometres (`radius_km`) and the notice (`notice_days`). A number in JSON cannot be filtered or
+reported on, which puts it back in prose nobody can query. The form shows only the number the
+selected clause type actually carries.
+
+**Dated**, because a clause can lapse — a co-tenancy protection commonly runs for the first years
+only. Null on either bound is open-ended, the same convention the charge schedule and the premises
+pivot use, and `isInForceOn()` / `scopeInForceOn()` share one definition so a screen and a report
+cannot disagree.
+
+`source_reference` is free text ("cl. 14.3", "Schedule 2 §4") because contracts do not agree on a
+numbering scheme, and its job is only to let somebody find the wording without reading sixty pages.
+**The signed PDF remains the source of truth**; this is an abstract, and an abstract is allowed to
+be shorter than what it summarises.
+
 ## CPI escalation, and the index register behind it (2026-08-19)
 
 `escalation_type = 'cpi'` existed from 2024 and the sweep **deliberately skipped it** — there is no

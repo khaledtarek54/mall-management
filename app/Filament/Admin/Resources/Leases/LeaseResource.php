@@ -6,6 +6,7 @@ use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\RelationManagers\BillingForecastRelationManager;
 use App\Filament\Admin\RelationManagers\ChargeScheduleRelationManager;
 use App\Filament\Admin\RelationManagers\LeaseCamTermsRelationManager;
+use App\Filament\Admin\RelationManagers\LeaseClausesRelationManager;
 use App\Filament\Admin\RelationManagers\LeaseDepositsRelationManager;
 use App\Filament\Admin\RelationManagers\LeaseHistoryRelationManager;
 use App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager;
@@ -109,8 +110,14 @@ class LeaseResource extends Resource
             // 8. What the BOOKS recognise, against what the lease bills — EAS 49 straight-line.
             //    Only when the feature is on and this lease can be averaged; see the class.
             LeaseStraightLineRelationManager::class,
-            // 9-11. Terms that only some leases have. A permanently empty table high in the list
-            //       reads as "nothing has happened" rather than "this does not apply".
+            // 9. The legal terms that are not money — the lease abstract. Placed here rather than
+            //    higher because it is reference: an operator consults it when a question arises
+            //    ("can they open a second branch in Nasr City?"), not on the way to a number. Two
+            //    of its clause types ARE money though, contingently — co-tenancy and kick-out —
+            //    which is why they are badged apart and filterable.
+            LeaseClausesRelationManager::class,
+            // 10-12. Terms that only some leases have. A permanently empty table high in the list
+            //        reads as "nothing has happened" rather than "this does not apply".
             PercentageRentTiersRelationManager::class,
             LeaseSalesDeclarationsRelationManager::class,
             LeaseCamTermsRelationManager::class,
