@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\JournalEntry;
 use App\Support\Filament\PropertyField;
 use App\Support\PropertyIsolation;
 use Filament\Resources\Resource;
@@ -46,6 +47,37 @@ class AuditPropertyDimensionCommand extends Command
 
     protected $description = 'Report money documents carrying no property (asset_id), which show on every mall and reach no owner statement.';
 
+    /**
+     * Rows that are SUPERSEDED history rather than live documents, and are therefore not audited.
+     *
+     * **Why this exists (2026-08-19).** The ledger here is *derived*: `LedgerPoster::sync()` re-reads
+     * a document and, when its posted entry no longer matches, **voids it and posts a fresh one**. So
+     * a void entry is a snapshot of a state the document has already left — and auditing it for a
+     * defect in the CURRENT state means every corrected document fails this command for ever.
+     *
+     * That is not theoretical. Fixing the null-property receipt in `PaymentJournalizer` on the same
+     * day produced exactly this shape: the sweep voided the property-less entry, posted a correct
+     * one, and the void row stayed behind carrying the old NULL. The audit would have gone on
+     * reporting a defect that had been fixed, on a row nobody can act on.
+     *
+     * And it named a remedy that cannot be performed. The failure text says *"correct a posted entry
+     * with a reversing entry; edit an unposted one"* — a void entry is neither. **A check that fails
+     * with no available action is a check people learn to skip**, which costs more than the rows it
+     * would have caught.
+     *
+     * Narrow on purpose: only statuses that mean *this row has been superseded and posts nothing*.
+     * A `cancelled` invoice is NOT here — it still explains a number the tenant remembers.
+     *
+     * @var array<class-string, array{column: string, values: array<int, string>, reason: string}>
+     */
+    private const SUPERSEDED = [
+        JournalEntry::class => [
+            'column' => 'status',
+            'values' => ['void'],
+            'reason' => 'a void entry posts nothing and is the by-product of every void-and-repost correction',
+        ],
+    ];
+
     public function handle(): int
     {
         $expectedNulls = $this->modelsWhoseBlankIsMeaningful();
@@ -58,7 +90,14 @@ class AuditPropertyDimensionCommand extends Command
             $table = $instance->getTable();
             $checked++;
 
-            $count = DB::table($table)->whereNull('asset_id')->count();
+            $rowsQuery = fn () => DB::table($table)
+                ->whereNull('asset_id')
+                ->when(
+                    isset(self::SUPERSEDED[$model]),
+                    fn ($q) => $q->whereNotIn(self::SUPERSEDED[$model]['column'], self::SUPERSEDED[$model]['values'])
+                );
+
+            $count = $rowsQuery()->count();
 
             if ($count === 0) {
                 continue;
@@ -78,10 +117,7 @@ class AuditPropertyDimensionCommand extends Command
             $this->newLine();
             $this->warn(sprintf('%s — %d row(s) with no property', class_basename($model), $count));
 
-            $rows = DB::table($table)
-                ->whereNull('asset_id')
-                ->limit(max(1, (int) $this->option('limit')))
-                ->get();
+            $rows = $rowsQuery()->limit(max(1, (int) $this->option('limit')))->get();
 
             foreach ($rows as $row) {
                 $this->line('    #'.$row->id.'  '.$this->describe($row));

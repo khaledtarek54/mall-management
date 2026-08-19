@@ -25,6 +25,11 @@ use Throwable;
  * | `atriom:audit-property-dimension` | Are there money documents filed against NO property? They show on every mall and reach no owner statement |
  * | `billing:reconcile --deep` | Do the books agree with the documents — AR, the four settlement channels, CAM, deposits, and every posted entry against its current source? |
  *
+ * `--quick` drops the last one. It is the only step that scales with HISTORY rather than with the
+ * size of the portfolio, which makes it right for a cutover and wrong for the fifth code-only
+ * release of an afternoon — and `deploy.sh` runs this on every release, so the fast set is what
+ * makes running it there sustainable rather than something someone eventually comments out.
+ *
  * The two audits are **pre-import** questions and the reconciliation is a **post-import** one, which
  * is why the command is worth running on both sides of a data load: before, it proves the box is
  * clean; after, it proves the load did not break anything.
@@ -48,6 +53,7 @@ use Throwable;
 class PreflightCommand extends Command
 {
     protected $signature = 'atriom:preflight
+        {--quick : Skip the deep reconciliation — health and the two data audits only}
         {--sync : Also run `accounting:sync-ledger --all`, which WRITES — use after restoring a database}
         {--stop-on-failure : Stop at the first failing step instead of running them all}';
 
@@ -82,12 +88,23 @@ class PreflightCommand extends Command
             'command' => 'billing:reconcile',
             'args' => ['--deep' => true],
             'why' => 'the books against the documents — AR, all four settlement channels, CAM, deposits',
+            // The only slow step, and the only one that scales with HISTORY rather than with the
+            // size of the portfolio: `--deep` re-derives every posted entry all-time. That is right
+            // for a cutover and wrong for a code-only release, which is what `--quick` is for.
+            'slow' => true,
         ],
     ];
 
     public function handle(): int
     {
         $steps = self::STEPS;
+
+        if ($this->option('quick')) {
+            // `deploy.sh` runs this on every release. The two audits are count queries over
+            // indexed columns, so they cost nothing and answer the questions a release can
+            // actually break; the deep reconciliation stays a cutover and weekly-scheduled job.
+            $steps = array_values(array_filter($steps, fn (array $s): bool => ! ($s['slow'] ?? false)));
+        }
 
         if ($this->option('sync')) {
             // Last, never first. Backfilling before the audits would post entries for the very
@@ -142,7 +159,9 @@ class PreflightCommand extends Command
         $this->newLine();
         $this->info('Preflight clean — every gate passed.');
 
-        if (! $this->option('sync')) {
+        if ($this->option('quick')) {
+            $this->line('  (--quick: the deep reconciliation was skipped. Run without it before a cutover.)');
+        } elseif (! $this->option('sync')) {
             $this->line('  (Read-only run. Add --sync to backfill the ledger after a database restore.)');
         }
 

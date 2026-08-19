@@ -34,22 +34,24 @@ Compiled 2026-08-11.
   and expense; a second implementation would drift and the drift would surface as a variance nobody
   could explain.
 
-### Carried from the roadmap — NOT re-verified
+### Carried from the roadmap — VERIFIED against the code 2026-08-19
 
-Check each against the code before starting; several neighbours turned out to be shipped.
+This list was ten rows and a warning that several were probably already built. Checked, one by one:
+**five of the ten were.** They are struck below rather than deleted, because a deleted row gets
+re-added by the next person who has the same idea.
 
-- Weighted-average inventory costing (perpetual FIFO ships today).
-- Reorder-driven auto-purchase.
-- Capex bid comparison.
-- Statutory rate automation.
-- Meter/usage-based preventive-maintenance triggers.
-- Fit-out permit approval workflow.
-- Utility tariff / recharge automation.
-- Lease document generation + e-sign.
-- Annual / YTD turnover breakpoints for percentage rent.
-- The inventory **transfer** stub — *note: `StockMovementService` already handles `transfer_in` /
-  `transfer_out` and deliberately posts nothing for an intra-company move, so this row may already
-  be closed. Verify before treating it as work.*
+| Row | Verdict | Evidence |
+|---|---|---|
+| ~~Weighted-average inventory costing~~ | ✅ **Built** | `StockMovementService::weightedAverageCost()` — and it is what values stock on hand, not a helper nobody calls. The row said "perpetual FIFO ships today", which is true of ISSUE costing and was never the whole question |
+| ~~Meter/usage-based preventive-maintenance triggers~~ | ✅ **Built** | `GeneratePreventiveWorkOrdersService` runs two rounds — the calendar round and the **counter round**, evaluated in PHP because the usage baseline is what makes a usage plan non-repeating |
+| ~~Utility tariff / recharge automation~~ | ✅ **Built** | `ReadingsRelationManager::deriveCost()` prices consumption at `resolvedRatePerUnit()` **for the reading's own date** — a tariff is a dated ladder, so a back-filled reading is priced at what the supply cost when it was consumed |
+| ~~Annual / YTD turnover breakpoints for percentage rent~~ | ✅ **Built** | `leases.percentage_rent_frequency` takes `annual`, which is the cumulative breakpoint; `monthly` is the fresh-each-month one |
+| ~~The inventory transfer stub~~ | ✅ **Built** | `StockMovementService::TRANSFER_TYPES` — exactly as the row's own note suspected. It deliberately posts nothing for an intra-company move |
+| **Reorder-driven auto-purchase** | 🟡 **Half open** | `inventory:scan-low-stock` alerts every property at or below `reorder_level`. What does not exist is raising the purchase request automatically — and that is a policy question (who approves a system-raised commitment?) rather than missing plumbing |
+| **Capex bid comparison** | 🔴 **Open** | There is no quote or bid model at all: procurement is `PurchaseRequest` + `PurchaseRequestLine`. Comparing bids means a new entity, not a screen over an existing one |
+| **Fit-out permit approval workflow** | 🔴 **Open** | `leases.fit_out_scope` exists and is about rent ABATEMENT during fit-out. There is no permit, no approval and no contractor record — a different thing that shares a word |
+| **Lease document generation + e-sign** | 🔴 **Open** | A signed contract is UPLOADED to a private disk (`Lease` media collection). Nothing generates the document and nothing signs it |
+| **Statutory rate automation** | ⛔ **Decline** | The mechanism already exists and is better than the row imagined: `tax_rates` is a dated ladder, so a decreed rise is entered in advance and starts applying by itself on the day, with back-dated documents keeping the rate that was in force. What "automation" would add is an external feed of Egyptian statutory rates, and there is no such feed to consume. Recorded as declined so it is not re-raised |
 
 ### Deliberately held
 
@@ -109,8 +111,12 @@ scorecards, comparative statements — 2026-08-11). What remains needs either an
 
 - Everything in **§2** needs a client answer first. Building it without one means inventing policy.
 - **Slice 4** (suggested matches) needs a real month reconciled by hand before it is worth shaping.
-- The **carried-forward list** above is unverified — check a row still exists before starting it.
-  Four of the ten neighbours checked so far turned out to be already built.
+- The **carried-forward list** above is now VERIFIED (2026-08-19). Five of the ten were already
+  built, one is declined, one is half-built, and three are genuinely open: capex bid comparison,
+  the fit-out permit workflow, and lease document generation + e-sign. All three are new entities
+  rather than screens over existing ones, so each is a module-sized piece of work.
 
-So the honest position is that **the buildable-without-input backlog is empty**, and the next move
-is a conversation rather than a commit.
+So the honest position is that **the buildable-without-input backlog is three module-sized items**
+— capex bid comparison, the fit-out permit workflow, and lease document generation + e-sign — none
+of which anyone has asked for. Everything smaller is either built or blocked on an answer. The next
+move is still a conversation rather than a commit.

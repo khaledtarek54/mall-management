@@ -153,14 +153,25 @@ MAINTENANCE=0
 ok "site is live"
 
 # ---------------------------------------------------------------------------
-# The health check is the deploy's own verdict. It is reported, not enforced: a stopped worker or a
+# The preflight is the deploy's own verdict. It is reported, not enforced: a stopped worker or a
 # stale backup is a real problem but not a reason to roll back a release that deployed correctly,
 # and an exit code here would make the two indistinguishable.
-step "Post-deploy health"
-if php artisan atriom:health; then
-  ok "healthy"
+#
+# `--quick` runs the health check AND the two data audits, and skips only the deep reconciliation.
+# Until 2026-08-19 this step was `atriom:health` alone, so a release could leave leases whose charge
+# rows overlap — which bill NOTHING — or money documents filed against no property, and the deploy
+# would report "healthy" because the box was alive. Liveness and correctness fail differently, and
+# the audits are count queries: they cost nothing to run on every release.
+#
+# The deep reconciliation is deliberately NOT here. It scales with history rather than with the
+# portfolio, and a check slow enough to be irritating on the fifth release of an afternoon is a
+# check somebody eventually comments out. It runs at cutover (STAGING-CUTOVER.md §5) and weekly on
+# the scheduler.
+step "Post-deploy preflight"
+if php artisan atriom:preflight --quick; then
+  ok "preflight clean"
 else
-  printf '\033[0;33m  ! atriom:health reports problems — the release is LIVE; see the FAIL rows above.\033[0m\n'
+  printf '\033[0;33m  ! atriom:preflight reports problems — the release is LIVE; see the FAIL rows above.\033[0m\n'
 fi
 
 printf '\n\033[1;32m✓ Deployed %s → %s (%s)\033[0m\n' "$PREVIOUS_REF" "$(git rev-parse --short HEAD)" "$APP_ENV"

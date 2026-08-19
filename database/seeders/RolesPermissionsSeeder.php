@@ -25,6 +25,28 @@ use Spatie\Permission\PermissionRegistrar;
  */
 class RolesPermissionsSeeder extends Seeder
 {
+    /**
+     * Manager permissions that `mall_admin` deliberately does NOT inherit.
+     *
+     * `mall_admin` is "a manager for their assigned properties, plus the import right", so it is
+     * otherwise a strict superset of `manager` — which is precisely why it is in
+     * `UserResource::PROTECTED_ROLES` (a role conferring everything a protected role confers must
+     * itself be protected, or protecting `manager` protects nothing).
+     *
+     * The exception is the activity feed. It spans every property and carries no `asset_id`, so it
+     * cannot be scoped: a property-restricted admin holding it would read every other mall's
+     * financial and tenant activity. The screen has always refused them — before 2026-08-19 by
+     * naming roles inline while this grant said otherwise, so the permission and the gate disagreed
+     * and neither was wrong on its own.
+     *
+     * Named here rather than inlined so `ProtectedRolesCoverSupersetsTest` asserts the SAME list the
+     * seeder withholds. A test carrying its own copy would go green on a second exclusion nobody
+     * reviewed, which is the only way this constant becomes dangerous.
+     *
+     * @var array<int, string>
+     */
+    public const MALL_ADMIN_WITHHELD = ['activity_log.view'];
+
     /** @var array<string, string> name => description */
     public const ROLES = [
         'super_admin' => 'Full access — create, edit, delete, view everything plus settings + role management.',
@@ -554,7 +576,19 @@ class RolesPermissionsSeeder extends Seeder
         // by the same AssignedAssets mechanism as every other role. `imports.execute` is withheld
         // from $managerPerms above (it is not a `.delete`, so the blanket grant would otherwise
         // hand it to every manager and defeat FR-USR-02's whole point).
-        $grants['mall_admin'] = collect($managerPerms)->push('imports.execute')->unique()->values()->all();
+        //
+        // `activity_log.view` is the one manager right mall_admin does NOT inherit. The feed spans
+        // every property and carries no `asset_id`, so it cannot be scoped — a property-restricted
+        // admin holding it would read every other mall's financial and tenant activity. The screen
+        // has always refused them; before 2026-08-19 it did so by naming roles inline while the
+        // grant said otherwise, so the permission and the gate disagreed and neither was wrong on
+        // its own. Withheld here, checked there, one truth. Access is unchanged either way.
+        $grants['mall_admin'] = collect($managerPerms)
+            ->reject(fn (string $p): bool => in_array($p, self::MALL_ADMIN_WITHHELD, true))
+            ->push('imports.execute')
+            ->unique()
+            ->values()
+            ->all();
 
         // viewer: every .view + reports.download.
         $viewerPerms = collect($all)

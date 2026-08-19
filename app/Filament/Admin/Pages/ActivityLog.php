@@ -72,13 +72,19 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
 
     public static function canAccess(): bool
     {
-        // The activity feed spans every property and has no asset_id, so it
-        // can't be cleanly scoped to one property. Limit it to the
-        // full-portfolio roles that legitimately see all properties — a
-        // property-restricted user (owner / department staff) would
-        // otherwise read other properties' financial + tenant activity.
+        // The activity feed spans every property and has no asset_id, so it cannot be cleanly scoped
+        // to one property. A property-restricted user (owner, department staff, mall_admin) would
+        // otherwise read other properties' financial and tenant activity — which is why the grant
+        // itself stops at the full-portfolio roles.
+        //
+        // Gated on the PERMISSION rather than on a role list (2026-08-19). It used to name
+        // `['super_admin', 'manager', 'viewer']` inline, and `activity_log.view` was checked
+        // nowhere — so `mall_admin`, which inherits every manager permission, held the right and was
+        // refused by the screen, with no way to tell policy from bug. Two truths about one question.
+        // The seeder now withholds the key from `mall_admin` explicitly, so the permission and the
+        // screen say the same thing and access is unchanged.
         return Modules::enabled('activity_log')
-            && (Auth::user()?->hasAnyRole(['super_admin', 'manager', 'viewer']) ?? false);
+            && (Auth::user()?->can('activity_log.view') ?? false);
     }
 
     public static function shouldRegisterNavigation(): bool

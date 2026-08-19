@@ -94,7 +94,7 @@ php artisan atriom:install --admin-email=you@example.com --admin-name="Your Name
     # roles + permissions, chart of accounts, account mappings, charge codes, fiscal year,
     # the FIRST ADMINISTRATOR — then VERIFIES the database can post. Prints the generated
     # password once; pass --admin-password= to choose it yourself.
-php artisan atriom:health           # must be green before real data goes in
+php artisan atriom:preflight        # health + both data audits + the books reconciliation; must be green before real data goes in
 ```
 
 `php artisan migrate --force --seed` is **NOT** for prod — `DemoSeeder` is demo data.

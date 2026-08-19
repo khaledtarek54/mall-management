@@ -19,6 +19,7 @@
 use App\Filament\Admin\Pages\ConfigurationHealth as Page;
 use App\Models\AccountingPeriod;
 use App\Models\ChargeCode;
+use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Settings\TaxSettings;
 use App\Support\ConfigurationHealth;
@@ -97,15 +98,33 @@ it('ignores an inactive charge code, which bills nothing', function () {
 });
 
 it('says which tax codes cannot be used yet, as advice rather than a fault', function () {
-    // Stamp and schedule tax ship switched off because their GL accounts are not wired. That is
-    // deliberate and inert — but an accountant looking for "Schedule 8%" should learn why here
-    // rather than concluding the catalogue is incomplete.
+    // **This test used to assert the opposite**, and the change is the point. Stamp and schedule tax
+    // shipped switched off, so the check reported them and this asserted a FAILING row. Both
+    // families were commissioned on 2026-08-19 — accounts, posting roles, and journalizers that post
+    // them to their own accounts — so the seeded catalogue is now clean.
+    //
+    // Asserting the clean state alone would leave a check that could quietly stop checking, so the
+    // second half breaks the data and requires it to notice. That is the F-08 lesson: reading a
+    // check tells you what it compares, only mutation tells you what it catches.
+    expect(healthCheck('tax_codes_commissioned')['ok'])->toBeTrue(
+        'the seeded catalogue has an uncommissioned taxable code: '
+        .healthCheck('tax_codes_commissioned')['detail']
+    );
+
+    // An accountant adds a taxable code and has not entered its rate or named its account yet.
+    TaxCode::create([
+        'code' => 'SCHD_77', 'name_en' => 'Schedule 77%', 'name_ar' => 'ضريبة الجدول ٧٧٪',
+        'family' => TaxCode::FAMILY_SCHEDULE, 'direction' => TaxCode::SALES,
+        'treatment' => TaxCode::STANDARD, 'posting_role' => null,
+        'invoice_label' => 'SCHD 77%', 'is_active' => false,
+    ]);
+
     $check = healthCheck('tax_codes_commissioned');
 
     expect($check['ok'])->toBeFalse()
         ->and($check['severity'])->toBe(ConfigurationHealth::ADVISORY)
         ->and($check['count'])->toBeGreaterThan(0)
-        ->and($check['detail'])->toContain('STAMP_20');
+        ->and($check['detail'])->toContain('SCHD_77');
 });
 
 it('catches withholding switched on with nothing to withhold', function () {

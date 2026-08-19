@@ -66,13 +66,21 @@ it('protects every role whose permissions cover a protected role', function () {
     expect($offenders)->toBe([], implode(PHP_EOL, $offenders));
 });
 
-it('finds mall_admin to be a superset of manager — the fact the gate rests on', function () {
-    // A control: if the seeder ever stops making mall_admin a superset, the test above goes
+it('finds mall_admin to cover manager but for one withheld key — the fact the gate rests on', function () {
+    // A control: if the seeder ever stops making mall_admin cover manager, the test above goes
     // vacuously green, and this is what says so out loud.
+    //
+    // It is a superset SAVE FOR `RolesPermissionsSeeder::MALL_ADMIN_WITHHELD` (2026-08-19). The
+    // activity feed spans every property and carries no `asset_id`, so a property-restricted admin
+    // must not hold it. That does not weaken anything here: withholding a right REDUCES mall_admin,
+    // and it stays in `PROTECTED_ROLES` either way. What would weaken it is a second exclusion
+    // nobody reviewed, so the gap is asserted EXACTLY — and read from the seeder's own constant, so
+    // this test cannot drift into carrying a stale copy of the answer.
     $manager = Role::where('name', 'manager')->firstOrFail()->permissions->pluck('name')->all();
     $mallAdmin = Role::where('name', 'mall_admin')->firstOrFail()->permissions->pluck('name')->all();
 
-    expect(array_diff($manager, $mallAdmin))->toBe([])
+    expect(array_values(array_diff($manager, $mallAdmin)))
+        ->toBe(array_values(RolesPermissionsSeeder::MALL_ADMIN_WITHHELD))
         ->and(array_diff($mallAdmin, $manager))->not->toBe([]);
 });
 

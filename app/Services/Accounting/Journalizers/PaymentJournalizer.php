@@ -55,7 +55,21 @@ class PaymentJournalizer implements Journalizer
         // Entry-level books dimension: the single asset if all allocations share one,
         // else null (a genuinely cross-property / consolidated receipt).
         $distinctAssets = array_values(array_filter(array_keys($allocByAsset), fn ($k) => $k !== 0));
-        $entryAsset = count($distinctAssets) === 1 ? $distinctAssets[0] : null;
+
+        $entryAsset = match (true) {
+            count($distinctAssets) === 1 => $distinctAssets[0],
+            // NOTHING to derive from — a receipt with no allocations at all. Reachable: clearing a
+            // post-dated cheque recorded with no invoice (the form requires a tenant, not an
+            // invoice) produced Dr bank / Cr unearned revenue with a NULL property, so the receipt
+            // showed on every mall and reached no owner statement. The property was on the cheque
+            // the whole time. See `Payment::originatingAssetId()`.
+            $allocByAsset === [] => $payment->originatingAssetId(),
+            // Allocated, and across more than one property — or across invoices that themselves
+            // carry none. Both stay null deliberately: the first is a real consolidated receipt,
+            // and the second is an invoice-level defect that `atriom:audit-property-dimension`
+            // reports on the invoices. Filling it in here would hide the one and mis-file the other.
+            default => null,
+        };
 
         // cash for physical cash, otherwise the bank (card / transfer / instapay / cheque…).
         $cashRole = $payment->method === 'cash' ? 'cash' : 'bank';

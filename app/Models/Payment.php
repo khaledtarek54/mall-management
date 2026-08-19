@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -163,6 +164,40 @@ class Payment extends Model
     public function receiver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'received_by');
+    }
+
+    /** The post-dated cheque whose clearing produced this payment, if one did. */
+    public function clearedCheque(): HasOne
+    {
+        return $this->hasOne(PostDatedCheque::class, 'cleared_payment_id');
+    }
+
+    /**
+     * The property this receipt belongs to when its ALLOCATIONS cannot say.
+     *
+     * `payments` carries no `asset_id` — the books dimension is normally derived from the invoices
+     * the receipt settles, which is right: a receipt belongs to the property whose debt it clears.
+     * That derivation has one hole, and it is reachable through the ordinary screens.
+     *
+     * **The case (2026-08-19).** A post-dated cheque may be recorded with no invoice — the form
+     * requires a tenant and not an invoice, deliberately, because a cheque often arrives before the
+     * invoice it will eventually settle. Clearing one produces a captured `Payment` with **zero
+     * allocations**, and `PaymentJournalizer` then had nothing to derive a property from. Measured:
+     * Dr bank 50,000 / Cr unearned revenue 50,000, with `asset_id` NULL on the entry **and on both
+     * lines** — so the receipt showed on every mall's list and reached **no** owner statement, since
+     * `GenerateOwnerStatementRunService` scopes `where('asset_id', $asset->id)`. The landlord's own
+     * cash was invisible on the landlord's own statement, and the books tied out throughout.
+     *
+     * The property was never unknown. It is on the cheque.
+     *
+     * Only for a receipt with NO allocations at all. A receipt allocated across two properties is a
+     * genuinely consolidated one and its entry stays property-less on purpose — that is a different
+     * situation with a different right answer, and collapsing the two would file a cross-property
+     * receipt under whichever mall happened to come first.
+     */
+    public function originatingAssetId(): ?int
+    {
+        return $this->clearedCheque()->value('asset_id');
     }
 
     public static function generateReference(): string
