@@ -700,8 +700,19 @@ enough to earn a row.
 > uploaded PDF, so nothing can act on them and nothing can even report 'how many of our leases have
 > a co-tenancy trigger tied to the anchor we are about to lose'."*
 
-`LeaseClause::scopeContingentMoney()` + `scopeInForceOn()` answer exactly that, and the tab badges
-those two types apart from the rest.
+**`LeaseClause::scopeLiveExposure()` answers exactly that**, and the tab badges those two types
+apart from the rest.
+
+It bundles three conditions rather than leaving them to be composed — contingent-money type, clause
+in force, **and the lease still live**. The bundling is not tidiness: the first version composed
+only the first two and reported a **terminated** lease as exposed, because its co-tenancy clause was
+open-ended and so read as in force for ever while the tenancy it protected had ended. An operator
+asking *"who can claim an abatement if the anchor leaves?"* would have been handed a tenant who had
+already left. Found by running the query on real data, fixed the same day, pinned by
+`LeaseClausesAreAbstractedTest`.
+
+`scopeContingentMoney()` survives as a pure type filter, because *"every kick-out clause we have
+ever agreed"* is a legitimate different question that deliberately includes dead leases.
 
 ### What it deliberately does NOT do
 

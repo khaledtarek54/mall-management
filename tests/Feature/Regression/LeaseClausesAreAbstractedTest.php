@@ -27,6 +27,7 @@
 
 use App\Filament\Admin\RelationManagers\LeaseClausesRelationManager;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
+use App\Models\Lease;
 use App\Models\LeaseClause;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -135,14 +136,53 @@ it('answers which leases carry contingent-money clauses, across the portfolio', 
     $safe->clauses()->create(['type' => LeaseClause::TYPE_SIGNAGE]);
 
     $exposedLeaseIds = LeaseClause::query()
-        ->contingentMoney()
-        ->inForceOn(CarbonImmutable::now())
+        ->liveExposure()
         ->pluck('lease_id')
         ->unique()
         ->values();
 
     expect($exposedLeaseIds->all())->toEqualCanonicalizing([$exposed->id, $alsoExposed->id])
         ->and($exposedLeaseIds)->not->toContain($safe->id);
+});
+
+/**
+ * **The bug the review found (2026-08-19), pinned.**
+ *
+ * The first version of the question filtered by clause type and by the clause being in force, and
+ * reported a TERMINATED lease as exposed: its co-tenancy clause was open-ended, so it read as in
+ * force for ever while the tenancy it protected had ended. An operator asking "who can claim an
+ * abatement if the anchor leaves?" would have been handed a tenant who had already left.
+ *
+ * Found by running the query on seeded data, not by a failing test — which is why the three
+ * conditions are now bundled in one scope rather than composed at each call site.
+ */
+it('does not report a dead lease as exposed', function () {
+    $live = $this->lease;
+    $live->clauses()->create(['type' => LeaseClause::TYPE_CO_TENANCY, 'threshold_pct' => 70]);
+
+    foreach (Lease::TERMINAL_STATUSES as $ended) {
+        $dead = makeLease(makeUnit($this->asset));
+        $dead->clauses()->create(['type' => LeaseClause::TYPE_CO_TENANCY, 'threshold_pct' => 65]);
+        $dead->forceFill(['status' => $ended])->saveQuietly();
+    }
+
+    $exposed = LeaseClause::query()->liveExposure()->pluck('lease_id')->unique();
+
+    expect($exposed->all())->toBe([$live->id]);
+});
+
+/**
+ * And the control for that refusal: the pure type filter still answers the OTHER question — "every
+ * kick-out clause we have ever agreed" — including the dead ones. A scope that quietly hid ended
+ * leases from both questions would be a different bug.
+ */
+it('still counts clauses on ended leases when asked for the type, not the exposure', function () {
+    $dead = makeLease(makeUnit($this->asset));
+    $dead->clauses()->create(['type' => LeaseClause::TYPE_KICK_OUT, 'threshold_amount' => 1_000_000]);
+    $dead->forceFill(['status' => 'terminated'])->saveQuietly();
+
+    expect(LeaseClause::query()->contingentMoney()->count())->toBe(1)
+        ->and(LeaseClause::query()->liveExposure()->count())->toBe(0);
 });
 
 /** A clause belongs to its lease's property, so the register cannot leak across malls. */
@@ -211,4 +251,22 @@ it('withholds the write actions from a role that cannot edit leases', function (
     $viewer = makeUser('viewer', [$this->asset->id]);
 
     expect($viewer->can('leases.edit'))->toBeFalse();
+});
+
+/**
+ * A soft-deleted lease drops out too — and that is a different mechanism from the status column, so
+ * it gets its own assertion rather than riding on the terminal-status one. It works because
+ * `whereHas('lease')` honours the lease's own SoftDeletes global scope; if that relation were ever
+ * given `withTrashed()` for some unrelated reason, this is what would notice.
+ */
+it('does not report a soft-deleted lease as exposed', function () {
+    $live = $this->lease;
+    $live->clauses()->create(['type' => LeaseClause::TYPE_CO_TENANCY, 'threshold_pct' => 70]);
+
+    $removed = makeLease(makeUnit($this->asset));
+    $removed->clauses()->create(['type' => LeaseClause::TYPE_CO_TENANCY, 'threshold_pct' => 65]);
+    $removed->delete();
+
+    expect(LeaseClause::query()->liveExposure()->pluck('lease_id')->unique()->all())
+        ->toBe([$live->id]);
 });

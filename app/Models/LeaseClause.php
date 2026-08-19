@@ -148,10 +148,44 @@ class LeaseClause extends Model
             ->where(fn ($q) => $q->whereNull('applies_to')->orWhereDate('applies_to', '>=', $date));
     }
 
-    /** The clauses that can cost money if their trigger fires. */
+    /**
+     * The clause TYPES that can cost money if their trigger fires — a pure type filter.
+     *
+     * Rarely what you want on its own; see {@see scopeLiveExposure}, which is the business
+     * question. Kept public because "show me every kick-out clause we have ever agreed" is a
+     * legitimate different question, and it deliberately includes dead leases.
+     */
     public function scopeContingentMoney(Builder $query): Builder
     {
         return $query->whereIn('type', self::CONTINGENT_MONEY);
+    }
+
+    /**
+     * **The portfolio question, as one call:** which leases are exposed to a contingent-money
+     * clause right now?
+     *
+     * Three conditions, and they are bundled because composing them by hand is how the answer goes
+     * wrong. Found by running it (2026-08-19): the first version filtered by clause type and by the
+     * clause being in force, and reported a **terminated** lease as exposed — its co-tenancy clause
+     * was open-ended, so it read as in force for ever, while the tenancy it protected had ended.
+     * An operator asking "who can claim an abatement if the anchor leaves?" would have been handed
+     * a tenant who left first.
+     *
+     *   1. the clause is one of the contingent-money types;
+     *   2. the clause is in force on the date;
+     *   3. **the lease is still live** — not terminated, expired, cancelled or renewed, and not
+     *      soft-deleted.
+     *
+     * `Lease::TERMINAL_STATUSES` is shared with the lease's own immutability hook, so the two
+     * cannot drift about what "ended" means.
+     */
+    public function scopeLiveExposure(Builder $query, ?CarbonImmutable $on = null): Builder
+    {
+        return $query
+            ->contingentMoney()
+            ->inForceOn($on)
+            ->whereHas('lease', fn (Builder $lease) => $lease
+                ->whereNotIn('status', Lease::TERMINAL_STATUSES));
     }
 
     public function label(): string
