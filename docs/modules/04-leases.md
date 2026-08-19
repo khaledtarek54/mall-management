@@ -245,6 +245,24 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ A field offering values its column refuses reads as a button that does nothing (2026-08-18).**
+> The lease's "Record deposit movement" modal took its METHOD options from `admin.enums.method` — the
+> PAYMENT methods (card, bank_transfer, instapay, wallet, cheque) — while
+> `deposit_transactions.method` accepts exactly `cash` and `bank`, and the field defaulted to
+> `bank_transfer`. Every submission threw at the `ValueSets` listener **after** validation passed, so
+> the operator pressed Save and nothing happened; the reason was in the log and nowhere else.
+>
+> The fix is structural, not a corrected literal: `DepositTransaction::methodOptions()` DERIVES the
+> labelled set from `ValueSets::allowed()`, so no surface can offer a value the column refuses and a
+> new method reaches every screen at once. Both surfaces read it — the deposit resource's own form
+> had the right two values by hand, which is the drift: two surfaces choosing their own list for one
+> column, and only one of them wrong.
+>
+> `LeaseDepositActionActuallySavesTest` DRIVES the action rather than inspecting it, and its first
+> version was green over the bug because it passed `method` explicitly and never exercised the
+> default — a gate checking a weaker property than its name. It now asserts the derivation and sweeps
+> both surfaces, and is proven by reinstating the original literal.
+
 > **⚠️ Straight-line rent had no screen at all (fixed 2026-08-18).** `StraightLineRentAdjustment` is
 > a registered GL posting source with its own journalizer and a scheduled command — and it appeared
 > on **no screen in the panel**. A lease's straight-line position, the first thing an owner's

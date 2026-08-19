@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -9,6 +10,7 @@ use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\ValueSets;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,7 +33,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: DepositTransaction::class)]
 class DepositTransaction extends Model
 {
-    use \App\Models\Concerns\AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
+    use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /**
@@ -39,6 +41,30 @@ class DepositTransaction extends Model
      *
      * @return array<int, string|int|float|null>
      */
+    /**
+     * The methods a deposit movement may carry, labelled — DERIVED from the column's own value set.
+     *
+     * Not a hand-picked list, because a hand-picked list is what broke: the lease's "Record deposit
+     * movement" modal offered `admin.enums.method` — the PAYMENT methods, card / bank_transfer /
+     * instapay / wallet / cheque — while this column accepts exactly `cash` and `bank`. It defaulted
+     * to `bank_transfer`, so every submission threw at the ValueSets listener and the operator saw
+     * the button do nothing (2026-08-18).
+     *
+     * Deriving it means a surface CANNOT offer a value the column refuses, and adding a method to
+     * the set reaches every screen at once. Labels come from `admin.enums.expense_paid_from`, which
+     * already names these two; an unlabelled value falls back to its own key rather than vanishing.
+     *
+     * @return array<string, string>
+     */
+    public static function methodOptions(): array
+    {
+        $labels = (array) __('admin.enums.expense_paid_from');
+
+        return collect(ValueSets::allowed('deposit_transactions', 'method') ?? [])
+            ->mapWithKeys(fn (string $v): array => [$v => $labels[$v] ?? $v])
+            ->all();
+    }
+
     public function searchTextSources(): array
     {
         return [

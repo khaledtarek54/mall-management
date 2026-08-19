@@ -196,8 +196,13 @@ class LeaseActions
                         ->native(false),
                     Select::make('method')
                         ->label(__('admin.fields.method'))
-                        ->options(fn () => __('admin.enums.method'))
-                        ->default('bank_transfer')
+                        // **The DEPOSIT's own set, not the payment one.** `deposit_transactions.method`
+                        // accepts `cash` and `bank`; the payment list offers card, instapay, wallet,
+                        // cheque and `bank_transfer` — and defaulting to that last one made every
+                        // submission throw at the ValueSets listener, so the modal appeared to do
+                        // nothing (2026-08-18). Same source the deposit resource's own form reads.
+                        ->options(fn () => DepositTransaction::methodOptions())
+                        ->default('bank')
                         // A forfeit moves nothing through a bank — it turns the landlord's liability
                         // into income, so asking "by what method" would be a question with no answer.
                         ->visible(fn (Get $get) => $get('type') !== 'forfeit')

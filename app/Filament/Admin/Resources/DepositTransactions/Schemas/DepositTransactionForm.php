@@ -52,7 +52,10 @@ class DepositTransactionForm
 
                     Select::make('method')
                         ->label(__('admin.fields.method'))
-                        ->options(fn () => __('admin.enums.expense_paid_from'))
+                        // Derived from the column's own value set — see DepositTransaction::methodOptions().
+                        // This form had the right two values by hand; the lease modal picked a
+                        // different list and could not save at all.
+                        ->options(fn () => DepositTransaction::methodOptions())
                         ->default('bank')
                         ->native(false)
                         ->required()
