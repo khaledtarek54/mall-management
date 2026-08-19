@@ -313,3 +313,73 @@ the fix all three races end in the intended business refusal rather than a dupli
 a defect in committed code. Worth knowing separately, though: `lang/{en,ar}/admin.php` merges its
 partials at **runtime** and throws on a duplicate key — so a bad merge is a total outage on every page
 rather than a build failure. With CI paused, nothing catches it before deploy.*
+
+---
+
+## 6. What I would do next, in order
+
+Written after the sweep covered every module, so these are ranked by what the evidence actually
+showed rather than by what is conventionally on such a list.
+
+### 6.1 Close the four gate gaps the findings came through
+
+Every finding sat in a gap *between* existing gates. This project's method is registry + gate, and
+that method works — `ConcurrencyPolicy` caught my new locks and made me register them, and
+`CamDenominatorTest` stopped me overturning a deliberate design. The gaps are specific:
+
+| Gap | Finding | Gate that would have caught it |
+|---|---|---|
+| A billable agreement that can never be billed | **F-01** | For every `BillableAgreement` in a billable state, assert something *can* bill it — `ServiceReachability` proves a service is startable, not that the data it needs can be created |
+| A guard query behind a lock that is not itself a locking read | **F-09** | `ConcurrencyPolicy` registers **where** locks are taken; extend it to the query the guard runs afterwards. On SQLite the difference is invisible, which is exactly why it needs a gate |
+| A check whose expected value is derived from its subject | **F-08** | The tie-out could not fail: the generator wrote the residual the check tests against. Worth sweeping the other registries for the same shape |
+| A stored value that goes stale on a date boundary with no sweep | **F-04 / F-05** | `units.status` and `leases.status` both did. Anything date-derived and stored needs either a sweep or a documented reason it does not |
+
+### 6.2 A MySQL-backed test tier
+
+Three findings (**F-08**, **F-09**, **F-10**) were structurally invisible to the suite:
+`SQLiteGrammar::compileLock()` returns `''` and one connection never interleaves. A dozen
+MySQL-backed cases — locks, the enum CHECK behaviour, and the `select *, x, *` shape that already
+500'd production once — would close a category that currently only a browser or an incident finds.
+
+### 6.3 Guard the translation merge at deploy time
+
+`lang/{en,ar}/admin.php` merges its partials at **runtime** and throws `LogicException` on a
+duplicate top-level key. Verified by injecting one: the merge throws, and **`atriom:health` does not
+see it** — it reported all 17 rows normally. Because `__('admin.*')` is on every page, a bad merge is
+a total outage rather than a broken screen, and the merge file's own comment says this runtime guard
+is the only cross-partial check there is. One health row (`translations` — load both locales, catch,
+report) closes it for the cost of ten lines.
+
+### 6.4 Import readiness for module 37
+
+F-01 is fixed at the screen, but the same shape is still open through the import door: there is **no
+`UnitOwnershipImporter`**, and `ChargeImporter` resolves a `lease_reference` only. A migrating
+operator who loads a portfolio of sold units will have ownerships that no assessment run can bill —
+silently, exactly as before. Either add the importer (with its schedule column) or state that sold
+units are keyed in by hand.
+
+Existing importers: Charge (lease-only), Employee, FixedAsset, Lease, MeterReading, OpeningInvoice,
+Tenant, Unit, Vendor.
+
+### 6.5 Decide the inactive half of the tax catalogue
+
+**16 of 30 tax codes ship inactive** — every stamp and schedule code, in both directions
+(`STAMP_20`, `SCHD_*` and their `_P` counterparts) — because their GL accounts are not wired.
+`TaxCode` refuses to activate a taxable code with no rate or posting role, so the catalogue is inert
+rather than a trap. That is the right default, and it is still a decision somebody has to make
+before go-live: if the accountant needs stamp duty on day one it is a blocker, and if not, it should
+be recorded as deliberate rather than left looking unfinished.
+
+### 6.6 Make the harness runnable by someone who is not me
+
+`docs/qa/scripts/` is ~40 scripts that only help if they are run. A `composer qa` script that
+resets the baseline and runs the suite in order, plus the one-time `baseline.sql` step already in
+the README, is the difference between a regression harness and an archive.
+
+### 6.7 Watch the two things everything else depends on
+
+`atriom:health` correctly reported both as FAIL here: **701 jobs queued with no worker**, and the
+scheduler **never ran (no heartbeat)**. Roughly thirty behaviours — billing, assessments,
+escalations, the ledger sweep, `billing:reconcile`, the expiry sweep added in this work — are inert
+without cron, and none of them fail loudly when they simply never run. Whatever monitors the staging
+box should watch that heartbeat, not just the app.
