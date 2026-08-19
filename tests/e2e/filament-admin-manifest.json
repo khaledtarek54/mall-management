@@ -459,6 +459,10 @@
             "slug": "reports"
         },
         {
+            "class": "RevenueForecast",
+            "slug": "revenue-forecast"
+        },
+        {
             "class": "SalesAnalytics",
             "slug": "sales-analytics"
         },

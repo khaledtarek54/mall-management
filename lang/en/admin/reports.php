@@ -1,6 +1,21 @@
 <?php
 
 return [
+    'revenue_forecast' => [
+        'title' => 'Revenue forecast',
+        'nav_label' => 'Revenue forecast',
+        'subheading' => 'EGP :total of contracted income from :leases active leases, :from to :to. Contracted only — no assumed renewals or re-lets.',
+        'horizon' => 'Look ahead',
+        'horizon_months' => ':count months',
+        'month' => 'Month',
+        'total' => 'Net revenue',
+        'leases' => 'Leases',
+        'basis' => 'Basis',
+        'actual' => 'Invoiced',
+        'projected' => 'Projected',
+        'empty_heading' => 'Nothing to forecast',
+        'empty_description' => 'No active lease bills anything in this window. Check the property selected above.',
+    ],
     'reports' => [
         // The vendor scorecard (module 12/26). Counts and times, never a single composite score —
         // the weighting between speed, cost and compliance is the operator's call at renewal.
@@ -250,6 +265,7 @@ return [
             'billing_run_preview' => 'What the next monthly billing run would raise, before it raises it.',
             'rent_roll' => 'Every active tenancy with its rent, area, term and status — the schedule a lender or owner asks for.',
             'expiration_schedule' => 'Which leases end when, so renewals are opened before they lapse into holdover.',
+            'revenue_forecast' => 'Every month the portfolio will bill from the leases already signed — contracted income only, with no assumed renewals.',
             'occupancy_map' => 'The property floor by floor — what is let, what is vacant, what is under fit-out.',
             'occupancy_cost' => 'Rent and charges as a percentage of a tenant\'s turnover — whether the deal is affordable to them.',
             'sales_analytics' => 'Declared tenant turnover by period and category, and what percentage rent it implies.',

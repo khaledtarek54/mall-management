@@ -1032,6 +1032,23 @@ return [
         ],
     ],
 
+    'revenue_forecast' => [
+        'purpose' => 'What the portfolio will bill, month by month, from every lease already signed.',
+        'steps' => [
+            'Pick how far ahead to look — 6, 12, 24 or 36 months.',
+            'Read the monthly totals, and the Basis column: invoiced months are settled, projected ones are not.',
+            'Export to CSV for a column per charge type, which is what reconciles against a budget.',
+        ],
+        'affects' => [
+            'Nothing. This page only reads — it changes no lease, raises no invoice and posts nothing.',
+            'Every figure comes from the same method the monthly billing run uses, so a change to billing changes this forecast in the same release.',
+        ],
+        'rules' => [
+            'Contracted income only. No assumed renewals and no re-lets of vacant space — those would need a renewal probability and a market rent, which this system does not hold, and a guessed figure on this page is indistinguishable from a real one.',
+            'Net of tax. VAT is collected for the state, not earned, so including it would overstate every figure here.',
+            'A month counts as invoiced only when every lease in it has been billed. One un-billed lease makes the whole month a projection.',
+        ],
+    ],
     'expiration_schedule' => [
         'purpose' => 'Which leases end when, so renewals are started before a tenant is out of contract.',
         'steps' => [

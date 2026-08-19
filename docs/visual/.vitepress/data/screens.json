@@ -408,6 +408,12 @@
         "guide": "reports"
     },
     {
+        "screen": "RevenueForecast",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "revenue_forecast"
+    },
+    {
         "screen": "RoleResource",
         "panel": "admin",
         "kind": "resource",

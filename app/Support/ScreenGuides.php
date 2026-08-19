@@ -25,6 +25,7 @@ use App\Filament\Admin\Pages\PropertyOverrides;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\ReportHub;
 use App\Filament\Admin\Pages\Reports;
+use App\Filament\Admin\Pages\RevenueForecast;
 use App\Filament\Admin\Pages\SalesAnalytics;
 use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Pages\TaxDepreciation;
@@ -218,6 +219,7 @@ class ScreenGuides
         BillingRunPreview::class => 'billing_run',
         RentRoll::class => 'rent_roll',
         ExpirationSchedule::class => 'expiration_schedule',
+        RevenueForecast::class => 'revenue_forecast',
         OccupancyMap::class => 'occupancy_map',
         OccupancyCost::class => 'occupancy_cost',
         SalesAnalytics::class => 'sales_analytics',

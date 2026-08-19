@@ -13,6 +13,46 @@ Reports power the **finance & collections team** and **mall owners** with visibi
 
 The module is **optional** (Module flag: `reports`; defaults enabled) and scoped via `TenantScope` so each user sees only their assigned properties' data.
 
+
+## Revenue forecast (2026-08-19)
+
+`/admin/revenue-forecast` — what the portfolio will bill, month by month, from every lease already
+signed. Voyager's Forecast Manager *(cited,
+[benchmarks/yardi/01](../benchmarks/yardi/01-yardi-lease-administration.md) §334)*, and §205's
+point that the forecast is computable the day a lease is signed — true here only because
+`ChargeScheduleService` writes the whole rent ladder at signing rather than one current amount.
+
+**It computes nothing.** Each month is `LeaseBillingForecastService` summed, which is
+`MonthlyBillingService::planInvoiceForLease()` — the method the real billing run persists. Verified
+by tie-out: the portfolio total equals the sum of every lease's own forecast tab, to the piastre. A
+forecast with its own arithmetic would disagree with the invoices it predicts, and would do so
+first on a proration edge or an escalation step.
+
+### The half that is deliberately missing
+
+Voyager's forecast includes **assumed renewals and re-lets**. That needs a renewal probability and
+a market rent, neither of which this system holds. A guessed figure on a revenue chart is
+indistinguishable from contracted income — and this is a page an owner may be shown — so every
+figure here can be pointed at a signed contract, and the subheading says so where a reader will see
+it before any documentation.
+
+### Three rules the numbers follow
+
+| Rule | Why |
+|---|---|
+| **Net of tax** | VAT is collected for the state, not earned. Including it would overstate every figure by the standard rate |
+| **Active leases only** | A `pending_approval` lease is not contracted income, and an ended one is not assumed to renew — it simply stops contributing the month after it expires |
+| **A month is "Invoiced" only when EVERY lease in it has been billed** | One un-billed lease makes the whole month a projection. Labelling a part-billed month as settled fact is how a forecast gets read as a fact |
+
+Broken down by charge type, and the CSV carries a column per type — the question a finance lead
+asks of a forecast is not *"how much?"* but *"how much of it is rent?"*, and a single total cannot
+be reconciled against a budget that is itself split by account.
+
+**Not cached**, deliberately: a cached forecast that silently predates a rent change is the failure
+this page exists to prevent. ~0.3 s for 34 leases over 24 months, linear in both. The horizon is
+**clamped to 60 months** in the service — the page offers 6/12/24/36, but `horizon` is a public
+Livewire property and Livewire takes what the payload says, not what the `Select` rendered.
+
 ## 2. Domain model
 
 | Entity | Model Class | Key columns | Meaning |

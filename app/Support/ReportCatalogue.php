@@ -25,6 +25,7 @@ use App\Filament\Admin\Pages\OpeningBalances;
 use App\Filament\Admin\Pages\PropertyOverrides;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\Reports;
+use App\Filament\Admin\Pages\RevenueForecast;
 use App\Filament\Admin\Pages\SalesAnalytics;
 use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Pages\TaxDepreciation;
@@ -102,6 +103,7 @@ class ReportCatalogue
         // ---- Leasing ----
         RentRoll::class => ['category' => self::LEASING, 'key' => 'rent_roll', 'keywords' => ['tenancy schedule', 'rent', 'occupancy']],
         ExpirationSchedule::class => ['category' => self::LEASING, 'key' => 'expiration_schedule', 'keywords' => ['expiry', 'renewals', 'rollover']],
+        RevenueForecast::class => ['category' => self::LEASING, 'key' => 'revenue_forecast', 'keywords' => ['forecast', 'projection', 'budget', 'income', 'pipeline']],
         OccupancyMap::class => ['category' => self::LEASING, 'key' => 'occupancy_map', 'keywords' => ['vacancy', 'floor', 'units']],
         OccupancyCost::class => ['category' => self::LEASING, 'key' => 'occupancy_cost', 'keywords' => ['occupancy cost', 'ocr', 'affordability']],
         SalesAnalytics::class => ['category' => self::LEASING, 'key' => 'sales_analytics', 'keywords' => ['turnover', 'sales', 'percentage rent']],
