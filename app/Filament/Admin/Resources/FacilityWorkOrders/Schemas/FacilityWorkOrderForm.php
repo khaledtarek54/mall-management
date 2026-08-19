@@ -85,7 +85,7 @@ class FacilityWorkOrderForm
             // meaningless on exactly the jobs nobody stopped to think about.
             Select::make('trade_id')
                 ->label(__('admin.facility.fields.trade'))
-                ->options(fn () => Trade::options())
+                ->options(fn (?FacilityWorkOrder $record) => Trade::options($record?->trade_id))
                 ->required()
                 ->native(false)
                 ->searchable()

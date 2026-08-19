@@ -86,7 +86,7 @@ class ServicePlanForm
                         // plan without one produces a year of jobs nobody can group.
                         Select::make('trade_id')
                             ->label(__('admin.facility.fields.trade'))
-                            ->options(fn () => Trade::options())
+                            ->options(fn (?ServicePlan $record) => Trade::options($record?->trade_id))
                             ->required()
                             ->native(false)
                             ->searchable()

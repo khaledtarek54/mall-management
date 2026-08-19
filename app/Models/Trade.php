@@ -109,14 +109,40 @@ class Trade extends Model
             : ($this->name_en ?: $this->name_ar);
     }
 
-    /** @return array<int, string> the id => label map every trade picker reads */
-    public static function options(bool $activeOnly = true): array
+    /**
+     * The `id => label` map every trade picker reads.
+     *
+     * **`$keep` is not optional politeness — without it, retiring a trade breaks editing.**
+     * Deactivating is the register's own documented alternative to deleting, and the screen guide
+     * tells the operator to do exactly that. But Filament validates a `Select` by checking the
+     * submitted value against its options with `Rule::in`, so a work order carrying a retired trade
+     * would fail validation on a field nobody touched — an operator fixing a typo in the title gets
+     * an error on the trade. Measured, not theorised: `RetiredTradeStillEditableTest` fails on the
+     * version without this.
+     *
+     * So the record's CURRENT value is always offered, flagged `⚠` because it is no longer a choice
+     * anyone should make afresh — the same convention `Vendor::assignableOptions()` uses for a
+     * vendor who has stopped being dispatchable.
+     *
+     * @param  int|array<int, int|string>|null  $keep  value(s) to offer even if retired
+     * @return array<int, string>
+     */
+    public static function options(int|array|null $keep = null, bool $activeOnly = true): array
     {
-        return static::query()
+        $options = static::query()
             ->when($activeOnly, fn (Builder $q) => $q->active())
             ->orderBy('sort_order')
             ->get()
-            ->mapWithKeys(fn (self $t): array => [$t->id => $t->label()])
-            ->all();
+            ->mapWithKeys(fn (self $t): array => [$t->id => $t->label()]);
+
+        $keepIds = array_filter(array_map('intval', is_array($keep) ? $keep : [$keep]));
+
+        foreach (array_diff($keepIds, $options->keys()->all()) as $id) {
+            if ($retired = static::find($id)) {
+                $options->put($retired->id, $retired->label().' ⚠');
+            }
+        }
+
+        return $options->all();
     }
 }

@@ -886,6 +886,23 @@ legitimate pick, and the day the usual HVAC contractor is unavailable is a real 
 genuinely blocks a dispatch stays `Vendor::isDispatchable()` — compliance, which is a decision the
 operator actually made about that vendor.
 
+#### Retiring a trade must not break the records that carry it
+
+`Trade` is `#[DeletableWhenUnused]`, so a trade that has routed work cannot be deleted and both the
+model and the screen guide say **deactivate** instead. Taking that documented path broke the module:
+`Trade::options()` returned active trades only, Filament validates a `Select` against its options
+with `Rule::in`, and so every work order, plan and machine carrying the retired trade failed
+validation — on a field nobody had touched. An operator fixing a typo in a title got an error on the
+trade.
+
+`Trade::options($keep)` now always offers the record's CURRENT value, flagged `⚠` because it is no
+longer a choice anyone should make afresh — the same convention `Vendor::assignableOptions()` uses
+for a vendor who has stopped being dispatchable, which is where the shape was already understood and
+simply had not been applied to the trade itself. Filters pass `activeOnly: false`, because the rows
+still carry the retired value and hiding it hides the rows. `RetiredTradeStillEditableTest` pins all
+three surfaces plus the control that a retired trade does **not** come back as a choice for
+everyone else.
+
 #### The defect this surfaced: a tenant picks a PROBLEM, not a trade
 
 `RaiseCorrectiveWorkOrderService::fromTenantRequest()` used to copy the request's `category`

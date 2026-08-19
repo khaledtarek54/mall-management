@@ -48,7 +48,7 @@ class VendorForm
                     Select::make('trades')
                         ->label(__('admin.facility.fields.trades'))
                         ->relationship('trades')
-                        ->options(fn () => Trade::options())
+                        ->options(fn (?Vendor $record) => Trade::options($record?->trades->pluck('id')->all()))
                         ->multiple()
                         ->preload()
                         ->native(false)

@@ -134,8 +134,18 @@ npm ci && npm run build                   # app assets AND the handbook; both pa
 php artisan filament:assets
 php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan event:cache
 php artisan storage:link
+php artisan atriom:rebuild-search         # posture B only — see below
 php artisan atriom:preflight              # health + both data audits + the books reconciliation, in order
 ```
+
+**`atriom:rebuild-search` after an UPGRADE, not after a fresh install.** The fold blob is written by
+the model on save, so `migrate:fresh --seed` produces correct blobs and the command is a no-op.
+Restoring an existing database and running `migrate --force` does **not** re-fold anything — a
+migration that changes what a model contributes to its blob leaves every existing row stale, and the
+failure is silent: the search bar reports the record does not exist. The 2026-08-20 trade register is
+exactly that case (`category` left the work-order, plan and equipment blobs when it stopped being a
+column on the row). Rule of thumb: if a release changes any `searchTextSources()`, this command is
+part of the release.
 
 > After a **restore** (posture B) run `atriom:preflight --sync` first — it backfills ledger entries
 > for the documents the restore brought in — then run it again **read-only**. The second pass is the

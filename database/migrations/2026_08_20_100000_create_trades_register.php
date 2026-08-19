@@ -133,6 +133,16 @@ return new class extends Migration
         }
     }
 
+    /**
+     * Reverses exactly — verified by round-tripping the live database on 2026-08-20: every work
+     * order, plan and machine got its original `category` string back, with no mismatches, and
+     * again after re-applying.
+     *
+     * **One thing it cannot restore: which trades each vendor does.** That pivot did not exist
+     * before this migration, so rolling back drops operator-entered eligibility data that no
+     * backfill can reconstruct. A rollback after go-live means re-ticking the trades on each
+     * vendor.
+     */
     public function down(): void
     {
         foreach (['facility_work_orders', 'service_plans', 'equipment'] as $t) {

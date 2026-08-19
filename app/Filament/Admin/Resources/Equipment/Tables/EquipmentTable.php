@@ -81,7 +81,7 @@ class EquipmentTable
                         ->all()),
                 SelectFilter::make('trade_id')
                     ->label(__('admin.facility.fields.trade'))
-                    ->options(fn () => Trade::options()),
+                    ->options(fn () => Trade::options(activeOnly: false)),
                 TernaryFilter::make('is_active')
                     ->label(__('admin.facility.fields.active')),
                 Filter::make('roots')

@@ -78,7 +78,7 @@ class EquipmentForm
             // register, one list, and an operator can add to it without a deploy.
             Select::make('trade_id')
                 ->label(__('admin.facility.fields.trade'))
-                ->options(fn () => Trade::options())
+                ->options(fn (?Equipment $record) => Trade::options($record?->trade_id))
                 ->native(false)
                 ->searchable()
                 ->helperText(__('admin.facility.help.equipment_trade')),
