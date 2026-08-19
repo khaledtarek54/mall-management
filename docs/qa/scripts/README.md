@@ -50,6 +50,12 @@ docs/qa/scripts/race.sh lease "44,1"                     # two-process concurren
 | `70_form_interactions.php` | the `->live()` form callbacks |
 | `90_deposits_owner.php` · `91b_owner_correct.php` | the deposit billing rail (**F-11**), owner statements |
 | `race_worker.php` + `race.sh` | two-process concurrency (**F-09**, **F-10**) |
+| `A1_meters_inventory_assets.php` | modules 10 · 22 · 23 — dated tariffs, weighted-average cost, depreciation and disposal |
+| `A2_payroll_custody_violations.php` | modules 13 · 24 · 25 · 31 — payroll, advances, عهدة, fines, marketing overspend |
+| `B1_requests_facility_approvals.php` | modules 11 · 26 · 28 · 30 · 35 — request and work-order state machines, approval bands, zone routing, parking rungs |
+| `C1_tenants_portal_comms.php` | modules 02 · 03 · 14 · 15 · 19 · 27 · 36 — party codes, the Arabic fold, portal draft-hiding, departments, announcements, owner requests, the shopper feed, the scans |
+| `D1_api_reports_search.php` | modules 17 · 20 · 34 — every `/api/v1` endpoint, the public feed, all ten reports, global search on MySQL |
+| `O01_payroll_cancel_is_by_design.php` | an observation, not a defect — see its docblock |
 | `F01_…`, `F04_…`, `F08_…`, `F11_…` | isolated reproductions, one per finding |
 
 Every refusal test is paired with a control that must succeed — a guard that refused everything would

@@ -20,6 +20,22 @@
 > (`prorate: true`, since 2026-08-08), while `planInvoiceForLease()`'s own default is `false`. Reading
 > the signature gives the wrong answer; every real caller passes `true`.
 
+> **Module coverage — ALL of them (2026-08-19).** The first pass covered the four core modules.
+> The sweep has since been extended over every remaining module in `docs/modules/` except **16
+> (ETA)**, which is out of scope by standing instruction. Roughly **950 assertions** in total. The
+> later batches found **no defects**: modules 02, 03, 10, 11, 13, 14, 15, 17, 19, 20, 22, 23, 24,
+> 25, 26, 27, 28, 30, 31, 34, 35 and 36 all behaved correctly, including several rules worth
+> knowing about that are now pinned in the harness — resolving a tenant request needs EVIDENCE, a
+> shopper-facing marketing post needs artwork, and a deep link is DERIVED from the record id rather
+> than stored as a URL.
+>
+> Four things that looked like defects and were not, each checked before reporting: an approved
+> payroll cancelling and voiding its GL entry (module 24 names that as the correction path, and a
+> payroll has no separate payment document to strand); `/api/v1/me` returning 500 (my harness had a
+> web `User` authenticated, so the resource wrapped the wrong model — a clean 401/200 without it);
+> a re-sent announcement appearing to deliver twice (it returns the recorded count and sends
+> nothing); and a bell row with no `url` key.
+
 > **Status 2026-08-19 — Gates 1–4 and 7 are DONE.** Every finding below marked ✅ has been fixed,
 > verified against MySQL with the scripts in [`qa/scripts/`](qa/scripts/), and left a regression test
 > behind. What remains is Gates 5 and 6 — the staging box itself (queue worker, scheduler, off-box
