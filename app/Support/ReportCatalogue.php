@@ -9,6 +9,7 @@ use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
 use App\Filament\Admin\Pages\BalanceSheet;
 use App\Filament\Admin\Pages\BillingRunPreview;
+use App\Filament\Admin\Pages\Budget;
 use App\Filament\Admin\Pages\CashFlow;
 use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
@@ -20,6 +21,7 @@ use App\Filament\Admin\Pages\MonthEndClose;
 use App\Filament\Admin\Pages\NotificationCenter;
 use App\Filament\Admin\Pages\OccupancyCost;
 use App\Filament\Admin\Pages\OccupancyMap;
+use App\Filament\Admin\Pages\OpeningBalances;
 use App\Filament\Admin\Pages\PropertyOverrides;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\Reports;
@@ -128,6 +130,8 @@ class ReportCatalogue
         ConfigurationHealth::class => 'It reports on the SETUP, not on the data — what is unset and what that breaks. Listing it beside the rent roll would put an operator looking for a business answer in front of a maintenance checklist.',
         PropertyOverrides::class => 'Configuration, like the settings page it sits beside — it changes what this property charges rather than reporting on what it charged. Same reasoning as Settings above.',
         Handbook::class => 'The manual, not a measurement. Every report here answers a question about this portfolio\'s data and changes when the data changes; the handbook explains how the system works and reads identically on an empty database. Listing it beside the rent roll would send an operator looking for a number to a page that has none.',
+        Budget::class => 'Configuration, and an INPUT screen — it pastes what each P&L account is expected to do. Every report here answers a question about what happened; this states what is planned, and the report that compares the two is the income statement. Same reasoning as Settings and PropertyOverrides above.',
+        OpeningBalances::class => 'Cutover data entry — it loads the accountant\'s opening trial balance and creates a DRAFT journal entry. It writes the books rather than reporting on them, and it is used once per go-live rather than per month.',
         NotificationCenter::class => 'One reader\'s own alert history. Every report here answers a question about the BUSINESS and reads the same for any two operators with the same permissions; this reads differently for every single person, because it is scoped to their own notifications. It is mail, not a report — and listing it in the report hub would promise a portfolio answer and deliver an inbox.',
     ];
 
@@ -196,7 +200,6 @@ class ReportCatalogue
         Reports::class => 'The monthly-close dashboard. Its output is a PDF pack rather than a table, so there is no CSV to attach; scheduling the PDF is its own row.',
         OccupancyMap::class => 'A visual floor plan. A CSV of it would answer a different question from the one the screen answers.',
         Workflows::class => 'A diagram of how the system works, not a report on data.',
-        ActivityLog::class => 'An audit trail that is searched, not received. A scheduled dump of it would be unread by construction — and the questions people actually ask it are lookups.',
     ];
 
     /** The page class behind a catalogue key, or null when the key is stale. */

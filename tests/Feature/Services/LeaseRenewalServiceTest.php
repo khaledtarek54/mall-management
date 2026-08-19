@@ -14,7 +14,6 @@ beforeEach(function () {
         'base_rent_monthly' => 10000,
         'service_charge_monthly' => 1500,
         'security_deposit' => 30000,
-        'security_deposit_received' => true,
         'escalation_rate' => 7,
         'escalation_type' => 'fixed_percent',
         'payment_terms_days' => 7,
@@ -82,7 +81,11 @@ it('creates renewal with new amounts, marks original renewed, clones charges wit
 
     // Carries forward deposit + escalation from original.
     expect((float) $renewal->security_deposit)->toBe(30000.0);
-    expect((bool) $renewal->security_deposit_received)->toBeTrue();
+    // `security_deposit_received` is gone (2026-08-18) — a yes/no flag could not say what was
+    // actually received, refunded, forfeited or netted against arrears, so the lease now reads that
+    // from the deposit movement register instead. The AGREED amount above is still a lease term and
+    // still carries; asserting the dropped flag only proved that reading a missing column is falsy.
+    // See LeaseDepositsRelationManager for what replaced it.
     expect((float) $renewal->escalation_rate)->toBe(7.0);
 
     // Charges: 3 cloned (base_rent + service_charge at new values, parking unchanged) + the

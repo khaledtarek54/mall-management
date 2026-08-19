@@ -382,6 +382,11 @@ class ChangeImpact
                 // Inventory is one account role, not one per item, so which item moved does not
                 // change the posting — only its value does.
                 'inventory_item_id',
+                // NOT derived, despite `warehouse_id` above being exactly that — and the contrast is
+                // the whole reason this is commented. A bin is a shelf INSIDE a warehouse, so it
+                // cannot change the property dimension, which comes from the warehouse. Verified: no
+                // journalizer reads `bin_id`.
+                'bin_id',
             ],
         ],
 
@@ -402,6 +407,13 @@ class ChangeImpact
             ],
             self::NEUTRAL => [
                 'tag', 'category', 'status', 'disposed_on', 'notes',
+                // NOT prospective, though it looks like `method` and `useful_life_months` above.
+                // Those change future depreciation ENTRIES. `tax_pool` drives the Egyptian
+                // income-tax schedule (Law 91/2005 Art. 25) in `TaxDepreciationService`, and that
+                // service posts NOTHING — Egypt files single-book, so the tax figure is a
+                // computation attached to the return rather than a second set of journal entries.
+                // It therefore cannot move the books in any period, past or future.
+                'tax_pool',
             ],
             self::DESCRIPTIVE => ['name' => 'names the entry'],
         ],

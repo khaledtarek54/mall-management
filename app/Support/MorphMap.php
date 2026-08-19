@@ -14,6 +14,8 @@ use App\Models\BankAccount;
 use App\Models\BankMatch;
 use App\Models\BankStatement;
 use App\Models\BankStatementLine;
+use App\Models\Bin;
+use App\Models\BudgetLine;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
@@ -147,6 +149,8 @@ class MorphMap
 {
     /** @var array<string, class-string<Model>> alias => model */
     public const MAP = [
+        'bin' => Bin::class,
+        'budget_line' => BudgetLine::class,
         'account_mapping' => AccountMapping::class,
         'accounting_period' => AccountingPeriod::class,
         'announcement' => Announcement::class,

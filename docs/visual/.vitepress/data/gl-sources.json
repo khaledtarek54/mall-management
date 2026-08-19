@@ -180,7 +180,7 @@
             "derived": 5,
             "prospective": 4,
             "descriptive": 1,
-            "neutral": 5
+            "neutral": 6
         }
     },
     {
@@ -330,7 +330,7 @@
         },
         "change_impact": {
             "derived": 5,
-            "neutral": 6
+            "neutral": 7
         }
     },
     {
