@@ -91,7 +91,13 @@ it('refuses a property id the operator cannot see', function () {
     request()->merge(['assetId' => $other->id, 'year' => 2026]);
     $page->mount();
 
-    expect($page->assetId)->toBeNull();
+    // Lands on the operator's OWN mall, not on null. Both scope to the same rows —
+    // `reportAssetIds()` resolves either to `[currentId]` — but only this one leaves the (disabled)
+    // property picker naming the mall whose figures are on screen. A blank picker over one mall's
+    // trial balance was the older, quieter failure. Asserting the exact id is also stricter than
+    // the `toBeNull()` this replaces: it rules out the foreign id AND any other.
+    expect($page->assetId)->toBe($this->asset->id)
+        ->and($page->assetId)->not->toBe($other->id);
 
     // The control — their OWN property is adopted, so the clamp is a filter and not a blanket
     // refusal that would break the feature for everyone.

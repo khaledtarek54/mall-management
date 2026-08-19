@@ -2,11 +2,10 @@
 
 namespace App\Filament\Admin\Resources\PostDatedCheques\Schemas;
 
-use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Support\Filament\EntitySelect;
-use App\Support\TenantScope;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -22,14 +21,8 @@ class PostDatedChequeForm
             Section::make(__('admin.post_dated_cheques.sections.instrument'))
                 ->columns(2)
                 ->components([
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.post_dated_cheques.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                        ->dehydrated()
-                        ->required()
-                        ->native(false),
+                    PropertyField::make()
+                        ->label(__('admin.post_dated_cheques.fields.property')),
                     EntitySelect::make('tenant_id')
                         ->label(__('admin.post_dated_cheques.fields.tenant'))
                         // Property-scoped — never offer a tenant with no lease in a visible property.

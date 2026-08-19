@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Support\Filament\PropertyField;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -52,7 +53,7 @@ class ReportFilters
      */
     public const EXEMPT = [
         'app/Filament/Admin/Pages/OccupancyMap.php' => 'The map is drawn FOR one property, so its picker is required rather than an optional narrowing — an empty value has no rendering. Scoped through visibleAssets().',
-        'app/Filament/Admin/Pages/Concerns/ScopesLedgerReport.php' => 'The ledger reports scope by asset DIMENSION, which is a posting concept rather than a place: the empty option means the unallocated portfolio-level entries too. Scoped through TenantScope::selectableAssetOptions().',
+        'app/Filament/Admin/Pages/Concerns/ScopesLedgerReport.php' => 'The ledger reports take the PINNED control (PropertyField::reportScope) rather than this optional narrowing, and they persist the choice themselves. Their picker used to offer "Consolidated (all)" while reportAssetIds() clamped every pick back to the selected mall.',
         'app/Filament/Admin/Pages/GeneralLedger.php' => 'Uses the ledger scope above, alongside its own account picker.',
     ];
 
@@ -92,24 +93,24 @@ class ReportFilters
     }
 
     /**
-     * The property, scoped to what this operator may actually see.
+     * The property a report is answered for — pinned to the mall the operator is standing in.
      *
-     * Through `TenantScope::selectableAssetOptions()` rather than a bare `Asset::pluck()` — a report
-     * filter that lists every property in the portfolio tells a user which malls exist even when
-     * choosing one returns nothing, and that is a leak whether or not the data follows.
+     * It was nullable, on the theory that the empty option meant "every property I can see". With
+     * the property switcher offering only real malls, that set is `[currentId]`: the blank and
+     * every other option resolved to the same single property, so the control was a choice in
+     * appearance only. {@see PropertyField::reportScope()} shows the answer instead of asking a
+     * question it cannot honour, and stays scoped through `EntitySelect` so it can neither offer
+     * nor accept a mall this operator may not see.
      *
-     * Nullable by design: the empty option means "every property I can see", which is the correct
-     * default for a portfolio-level report and is NOT the same as the removed All-Properties mode.
+     * No report calls this today — every one of them scopes through `TenantScope` directly. It is
+     * kept, pinned, so that the next one to ask the question gets the honest control rather than
+     * reinventing the old one.
      */
     public static function property(callable $onChange, ?string $label = null): Select
     {
-        return Select::make('assetId')
-            ->label($label ?? __('admin.reports.property'))
-            ->options(fn () => TenantScope::selectableAssetOptions())
-            ->placeholder(__('admin.reports.all_visible_properties'))
-            ->native(false)
-            ->live()
-            ->afterStateUpdated(self::persisting($onChange));
+        $field = PropertyField::reportScope(afterStateUpdated: self::persisting($onChange));
+
+        return $label !== null ? $field->label($label) : $field;
     }
 
     /**

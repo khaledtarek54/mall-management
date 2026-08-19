@@ -2,11 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Violations\Schemas;
 
-use App\Models\Asset;
 use App\Models\Tenant;
 use App\Models\Violation;
 use App\Support\Filament\EntitySelect;
-use App\Support\TenantScope;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -19,18 +18,11 @@ class ViolationForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            EntitySelect::make('asset_id')
+            // Additionally frozen once the fine is billed — the invoice's property is fixed by the
+            // resolved lease, so the two would disagree.
+            PropertyField::make(alsoDisabledWhen: fn (?Violation $record) => $record?->isBilled() ?? false)
                 ->label(__('admin.violations.fields.property'))
-                // Scoped to the user's visible properties (never leaks another mall).
-                ->entity(Asset::class)
-                ->default(fn () => TenantScope::currentAssetId())
-                // Locked to the current property, and additionally frozen once the fine is billed (the
-                // invoice's property is fixed by the resolved lease).
-                ->disabled(fn (?Violation $record) => TenantScope::currentAssetId() !== null || ($record?->isBilled() ?? false))
-                ->dehydrated()
-                ->required()
-                ->live()
-                ->native(false),
+                ->live(),
 
             EntitySelect::make('tenant_id')
                 ->label(__('admin.violations.fields.tenant'))

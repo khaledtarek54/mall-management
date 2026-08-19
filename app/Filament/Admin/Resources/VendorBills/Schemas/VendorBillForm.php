@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\Schemas;
 
-use App\Models\Asset;
 use App\Models\PurchaseRequest;
 use App\Models\TaxCode;
 use App\Models\Vendor;
@@ -10,6 +9,7 @@ use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Support\CatalogueTaxRate;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -46,15 +46,10 @@ class VendorBillForm
                         ->live() // the purchase picker below narrows to this vendor
                         ->disabled($locked),
 
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
+                    PropertyField::make(alsoDisabledWhen: $locked)
                         ->searchable()
                         ->preload()
-                        ->live()
-                        ->placeholder(__('admin.fields.property_consolidated'))
-                        ->disabled($locked),
+                        ->live(),
 
                     // What the contract's `value` was always missing: the link that turns it from a
                     // decorative number into a commitment. Optional — an ad-hoc call-out has none.

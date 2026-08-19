@@ -9,9 +9,8 @@ use App\Models\Asset;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
-use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\StatusTabs;
-use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
@@ -33,14 +32,8 @@ class ListOwnerStatementRuns extends ListRecords
                 ->visible(fn () => OwnerStatementRunResource::canGenerate())
                 ->authorize(fn () => OwnerStatementRunResource::canGenerate())
                 ->schema([
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.owner_statements.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                        ->dehydrated()
-                        ->required()
-                        ->native(false),
+                    PropertyField::make()
+                        ->label(__('admin.owner_statements.fields.property')),
                     Select::make('accounting_period_id')
                         ->label(__('admin.owner_statements.fields.period'))
                         ->options(fn () => AccountingPeriod::query()

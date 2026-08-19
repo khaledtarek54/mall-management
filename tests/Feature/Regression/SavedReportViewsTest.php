@@ -160,7 +160,10 @@ it('re-clamps a property a saved view carries', function () {
     request()->merge(['assetId' => $other->id, 'year' => 2026]);
     $page->mount();
 
-    expect($page->assetId)->toBeNull();
+    // The saved view's foreign property does not survive; what it collapses to is the operator's
+    // own mall rather than null, so the pinned picker names the property the figures came from.
+    expect($page->assetId)->toBe($this->asset->id)
+        ->and($page->assetId)->not->toBe($other->id);
 });
 
 it('lets an operator delete their own view and not somebody else\'s', function () {

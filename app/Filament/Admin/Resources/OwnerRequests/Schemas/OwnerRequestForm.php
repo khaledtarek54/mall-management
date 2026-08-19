@@ -2,10 +2,10 @@
 
 namespace App\Filament\Admin\Resources\OwnerRequests\Schemas;
 
-use App\Models\Asset;
 use App\Models\OwnerRequest;
 use App\Models\User;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -44,10 +44,11 @@ class OwnerRequestForm
                     // super_admin sees all. Both halves (drop the ALL pseudo-asset, restrict to the
                     // visible set) are OptionDisplay's; `accessibleAssets()` and `visibleAssetIds()`
                     // resolve to the same set for an owner.
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.tables.owner_request.property'))
-                        ->entity(Asset::class)
-                        ->placeholder('—'),
+                    // FREE by design — see PropertyField::PORTFOLIO_LEVEL. A general owner
+                    // question is about no single mall, and CreateOwnerRequest guards the
+                    // property only when one was actually chosen.
+                    PropertyField::free(blankMeans: '—')
+                        ->label(__('admin.tables.owner_request.property')),
                     Select::make('priority')
                         ->label(__('admin.tables.owner_request.priority'))
                         ->options(fn () => collect(OwnerRequest::PRIORITIES)

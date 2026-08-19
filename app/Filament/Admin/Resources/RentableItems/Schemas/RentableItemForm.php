@@ -3,10 +3,10 @@
 namespace App\Filament\Admin\Resources\RentableItems\Schemas;
 
 use App\Models\Area;
-use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\RentableItem;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -23,16 +23,10 @@ class RentableItemForm
             Section::make(__('admin.resources.rentable_item.singular'))
                 ->columns(3)
                 ->components([
-                    EntitySelect::make('asset_id')
+                    PropertyField::make()
                         ->label(__('admin.resources.asset.singular'))
-                        ->entity(Asset::class)
-                        ->required()
-                        ->native(false)
                         ->searchable()
-                        ->live()
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                        ->dehydrated(),
+                        ->live(),
                     TextInput::make('code')
                         ->label(__('admin.fields.item_code'))
                         ->required()

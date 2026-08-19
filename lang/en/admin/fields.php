@@ -231,6 +231,7 @@ return [
         'entry_date' => 'Entry date',
         'property' => 'Property',
         'property_consolidated' => 'Consolidated (all)',
+        'property_all' => 'All properties',
         'entry_description_ar' => 'Description (Arabic)',
         'entry_description_en' => 'Description (English)',
         'debit' => 'Debit',

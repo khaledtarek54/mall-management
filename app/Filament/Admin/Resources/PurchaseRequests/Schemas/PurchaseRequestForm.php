@@ -2,10 +2,10 @@
 
 namespace App\Filament\Admin\Resources\PurchaseRequests\Schemas;
 
-use App\Models\Asset;
 use App\Models\PurchaseRequest;
 use App\Models\Warehouse;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Schema;
@@ -15,15 +15,12 @@ class PurchaseRequestForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            EntitySelect::make('asset_id')
+            // The extra lock still carries its own reason for the paths where nothing is pinned
+            // (console, the All-Properties plumbing): the property decides the budget and the
+            // warehouse, so moving it once something has been ordered would strand both.
+            PropertyField::make(alsoDisabledWhen: fn (?PurchaseRequest $record) => $record !== null && $record->status !== PurchaseRequest::STATUS_REQUESTED)
                 ->label(__('admin.procurement.fields.asset'))
-                ->entity(Asset::class)
-                ->required()
-                ->live()
-                ->native(false)
-                // Editable after creation only while nothing has been ordered — the property
-                // decides the budget and the warehouse, so moving it later would strand both.
-                ->disabled(fn (?PurchaseRequest $record) => $record !== null && $record->status !== PurchaseRequest::STATUS_REQUESTED),
+                ->live(),
 
             // FR-PROC-01 — "and justification". Required: a purchase nobody can justify is what
             // the approval workflow exists to catch. Frozen once approved (same as asset_id +

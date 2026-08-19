@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Departments\Schemas;
 
-use App\Models\Asset;
 use App\Models\User;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -28,14 +28,11 @@ class DepartmentForm
                         ->label(__('admin.tables.department.code'))
                         ->disabled()
                         ->dehydrated(false),
-                    EntitySelect::make('asset_id')
+                    // FREE by design — see PropertyField::PORTFOLIO_LEVEL. Department is the one
+                    // hybrid model: blank = an operator-wide department every mall shares.
+                    PropertyField::free(blankMeans: __('admin.tables.department.global'))
                         ->label(__('admin.tables.department.scope'))
-                        // Scoped to the user's visible properties (null = global dept).
-                        ->entity(Asset::class)
-                        ->searchable()
-                        ->preload()
-                        ->placeholder(__('admin.tables.department.global'))
-                        ->native(false),
+                        ->preload(),
                     EntitySelect::make('head_user_id')
                         ->label(__('admin.tables.department.head'))
                         ->entity(User::class),

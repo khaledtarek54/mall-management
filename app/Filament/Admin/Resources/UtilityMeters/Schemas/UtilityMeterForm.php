@@ -2,10 +2,10 @@
 
 namespace App\Filament\Admin\Resources\UtilityMeters\Schemas;
 
-use App\Models\Asset;
 use App\Models\Unit;
 use App\Models\UtilityTariff;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -27,16 +27,10 @@ class UtilityMeterForm
                         ->required()
                         ->maxLength(50)
                         ->unique(ignoreRecord: true),
-                    EntitySelect::make('asset_id')
+                    PropertyField::make()
                         ->label(__('admin.resources.asset.singular'))
-                        ->entity(Asset::class)
-                        ->required()
-                        ->native(false)
                         ->searchable()
-                        ->reactive()
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                        ->dehydrated(),
+                        ->reactive(),
                     EntitySelect::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
                         ->entity(Unit::class)

@@ -2,12 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Expenses\Schemas;
 
-use App\Models\Asset;
 use App\Models\Expense;
 use App\Models\TaxCode;
 use App\Support\CatalogueTaxRate;
-use App\Support\Filament\EntitySelect;
-use App\Support\TenantScope;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -43,14 +41,9 @@ class ExpenseForm
                         ->dehydrated(false)
                         ->placeholder(__('admin.fields.auto_generated')),
 
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
+                    PropertyField::make(alsoDisabledWhen: $locked)
                         ->searchable()
-                        ->preload()
-                        ->placeholder(__('admin.fields.property_consolidated'))
-                        ->disabled($locked),
+                        ->preload(),
 
                     Select::make('category')
                         ->label(__('admin.fields.category'))

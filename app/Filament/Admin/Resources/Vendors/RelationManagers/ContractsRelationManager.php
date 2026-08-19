@@ -66,6 +66,10 @@ class ContractsRelationManager extends RelationManager
                     ->required()
                     ->default('draft')
                     ->native(false),
+                // Pinned by hand rather than through PropertyField::make(): a null here is a
+                // PORTFOLIO-WIDE contract covering every mall (hence the '—' placeholder and no
+                // ->required()), and a relation manager sits outside the resource-page flow, so it
+                // carries its own ->rules() guard instead of a mutate hook.
                 EntitySelect::make('asset_id')
                     ->label(__('admin.resources.asset.singular'))
                     ->entity(Asset::class)

@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Employees\Schemas;
 
-use App\Models\Asset;
 use App\Models\Department;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -19,15 +19,8 @@ class EmployeeForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            EntitySelect::make('asset_id')
-                ->label(__('admin.employees.fields.property'))
-                // Scoped to the user's visible properties (never leaks another mall).
-                ->entity(Asset::class)
-                ->default(fn () => TenantScope::currentAssetId())
-                ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                ->dehydrated()
-                ->required()
-                ->native(false),
+            PropertyField::make()
+                ->label(__('admin.employees.fields.property')),
             EntitySelect::make('department_id')
                 ->label(__('admin.employees.fields.department'))
                 // Global + visible-property departments only.

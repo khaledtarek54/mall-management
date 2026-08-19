@@ -21,6 +21,9 @@ class MarketingBudgetForm
                 ->components([
                     // Identity fields are auto-provisioned (one budget per property
                     // per year) — shown read-only, never editable.
+                    // A read-only DISPLAY, not a picker — budgets are created by the billing run,
+                    // this resource has no create page, and the field is never dehydrated. Deliberately
+                    // not PropertyField::make(), which would make it required and write-back.
                     EntitySelect::make('asset_id')
                         ->label(__('admin.tables.marketing_budget.property'))
                         ->entity(Asset::class)

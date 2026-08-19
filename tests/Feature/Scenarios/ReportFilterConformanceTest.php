@@ -20,6 +20,7 @@
 use App\Support\ReportCatalogue;
 use App\Support\ReportFilters;
 use App\Support\TenantScope;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\File;
 
 /** The shared vocabulary, and the raw component each entry replaces. */
@@ -88,21 +89,39 @@ it('keeps every shared filter live, because a stale report is worse than a slow 
     }
 });
 
-it('scopes the property filter to what the operator may see', function () {
-    // A filter listing every property in the portfolio tells a user which malls exist even when
-    // choosing one returns nothing — a leak whether or not the data follows.
-    // Assert on the component's behaviour, not on the source text — the docblock legitimately
-    // NAMES `Asset::pluck` as the thing not to do, and a source scan cannot tell the warning from
-    // the offence.
-    $options = ReportFilters::property(fn () => null)->getOptions();
+it('pins the shared property filter to the mall the operator is standing in', function () {
+    // This used to assert the picker's option list equalled `selectableAssetOptions()` — the
+    // portfolio-listing leak was the concern, and a filter naming every mall tells a restricted
+    // user which malls exist even when choosing one returns nothing.
+    //
+    // That concern did not go away; it moved somewhere stronger. The control is an `EntitySelect`
+    // now, so `OptionDisplay` scopes both the options AND the label lookup that validates a
+    // submitted value — the picker can no longer offer or ACCEPT a mall this operator may not see,
+    // which the old option-list check could not say.
+    //
+    // What is asserted here instead is the thing that was actually wrong: with a real property
+    // selected, the filter answers rather than asks. `TenantScope::reportAssetIds()` clamps every
+    // pick back to that mall, so an editable control could only ever change the caption.
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+    $this->actingAs(makeUser('super_admin'));
+    $mall = makeAsset(['code' => 'HW']);
+    Filament\Facades\Filament::setTenant($mall);
 
-    expect($options)->toBe(TenantScope::selectableAssetOptions());
+    try {
+        $filter = ReportFilters::property(fn () => null);
+
+        expect($filter->isDisabled())->toBeTrue('The shared property filter must be pinned when a mall is selected.');
+        expect(TenantScope::reportAssetIds(null))->toBe([$mall->id]);
+    } finally {
+        Filament\Facades\Filament::setTenant(null, isQuiet: true);
+    }
 });
 
 it('translates every shared filter label in English and Arabic', function () {
     $missing = [];
 
-    foreach (['as_of', 'from', 'to', 'property', 'all_visible_properties'] as $key) {
+    foreach (['as_of', 'from', 'to', 'property', 'property_scope'] as $key) {
         foreach (['en', 'ar'] as $locale) {
             app()->setLocale($locale);
 

@@ -2,11 +2,9 @@
 
 namespace App\Filament\Admin\Resources\JournalEntries\Schemas;
 
-use App\Models\Asset;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
-use App\Support\Filament\EntitySelect;
-use App\Support\TenantScope;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -41,15 +39,12 @@ class JournalEntryForm
                         ->native(false)
                         ->disabled($locked),
 
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
+                    // Pinned to the selected mall. It used to invite "Leave empty for a
+                    // consolidated, company-level entry" — advice that ended in a 403, because
+                    // assertAssetInScope() refuses a blank property for every role.
+                    PropertyField::make(alsoDisabledWhen: $locked)
                         ->searchable()
-                        ->preload()
-                        ->placeholder(__('admin.fields.property_consolidated'))
-                        ->helperText(__('admin.helpers.journal_property'))
-                        ->disabled($locked),
+                        ->preload(),
 
                     TextInput::make('description_ar')
                         ->label(__('admin.fields.entry_description_ar'))

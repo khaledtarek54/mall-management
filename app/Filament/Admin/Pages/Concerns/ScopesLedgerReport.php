@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Pages\Concerns;
 
 use App\Models\Asset;
 use App\Models\FiscalYear;
-use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\ReportPreferences;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
@@ -81,6 +81,13 @@ trait ScopesLedgerReport
         // Then this operator's standing choice, for anything the URL did not state. Dates are never
         // remembered (see ReportPreferences::VOLATILE) — only which slice of the business they work.
         ReportPreferences::restore($this);
+
+        // Last word to the property switcher. Everything above — a drill-down link, a remembered
+        // choice from the mall this operator was in yesterday — is a value `scopedAssetIds()` will
+        // clamp to the SELECTED property anyway. Left unpinned, the disabled picker would name one
+        // mall while the rows underneath it came from another, which is the single failure mode a
+        // financial statement must not have.
+        $this->assetId = TenantScope::currentAssetId() ?? $this->assetId;
     }
 
     /**
@@ -133,17 +140,14 @@ trait ScopesLedgerReport
                 ->placeholder(__('admin.reports.full_year'))
                 ->native(false)
                 ->live(),
-            EntitySelect::make('assetId')
-                ->label(__('admin.reports.property_scope'))
-                ->entity(Asset::class)
-                ->placeholder(__('admin.fields.property_consolidated'))
-                ->native(false)
-                ->live()
-                // Remembering happens HERE rather than through ReportFilters, because this picker is
-                // exempt from the shared component (see ReportFilters::EXEMPT) — the
-                // exemption is about the CONTROL, not about whether the choice is worth
-                // keeping. Wired at the only other place it can be.
-                ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
+            // Pinned to the selected mall. It used to offer "Consolidated (all)" and every other
+            // property, and `TenantScope::reportAssetIds()` clamped each of them straight back to
+            // the mall you were already standing in — so the figures were right and the caption
+            // above them was wrong. Remembering stays wired here (this picker is exempt from
+            // ReportFilters) for the console/All-Properties paths where nothing is pinned.
+            PropertyField::reportScope(
+                afterStateUpdated: fn ($livewire) => ReportPreferences::remember($livewire),
+            ),
         ];
     }
 
@@ -286,16 +290,6 @@ trait ScopesLedgerReport
     protected function canViewReports(): bool
     {
         return Auth::user()?->can('general_ledger.view') ?? false;
-    }
-
-    /** Filter view-data every report blade needs (year list, property picker, locale). */
-    protected function filterViewData(): array
-    {
-        return [
-            'years' => $this->yearOptions(),
-            'properties' => ['' => __('admin.fields.property_consolidated')] + TenantScope::selectableAssetOptions(),
-            'locale' => app()->getLocale(),
-        ];
     }
 
     /** @return array<int, int> */

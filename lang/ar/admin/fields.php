@@ -230,6 +230,7 @@ return [
         'entry_date' => 'تاريخ القيد',
         'property' => 'العقار',
         'property_consolidated' => 'موحّد (الكل)',
+        'property_all' => 'كل العقارات',
         'entry_description_ar' => 'البيان (عربي)',
         'entry_description_en' => 'البيان (إنجليزي)',
         'debit' => 'مدين',

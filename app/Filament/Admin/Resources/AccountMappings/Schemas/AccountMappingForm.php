@@ -2,9 +2,9 @@
 
 namespace App\Filament\Admin\Resources\AccountMappings\Schemas;
 
-use App\Models\Asset;
 use App\Models\LedgerAccount;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\PostingRoles;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
@@ -56,12 +56,9 @@ class AccountMappingForm
                     // Null = the global default every property falls back to. A property here makes
                     // the row an override that wins for that mall only. Scoped to what this operator
                     // may see, so an override cannot be aimed at another operator's property.
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.fields.property'))
-                        ->entity(Asset::class)
-                        ->placeholder(__('admin.posting_map.global'))
-                        ->searchable()
-                        ->native(false)
+                    // FREE by design — see PropertyField::PORTFOLIO_LEVEL. The blank row is the
+                    // global default every property inherits, not an accident.
+                    PropertyField::free(blankMeans: __('admin.posting_map.global'))
                         ->helperText(__('admin.helpers.posting_map_property')),
                 ]),
         ]);

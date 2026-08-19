@@ -3,12 +3,11 @@
 namespace App\Filament\Admin\Resources\MarketingPosts\Schemas;
 
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
-use App\Models\Asset;
 use App\Models\MarketingPost;
 use App\Models\Tenant;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\FormTab;
-use App\Support\TenantScope;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -35,15 +34,8 @@ class MarketingPostForm
                 ->persistTabInQueryString()
                 ->tabs([
                     FormTab::make('admin.marketing_posts.sections.what', [
-                        EntitySelect::make('asset_id')
+                        PropertyField::make()
                             ->label(__('admin.marketing_posts.fields.property'))
-                            // Scoped to the user's visible properties (never offers another mall).
-                            ->entity(Asset::class)
-                            ->default(fn () => TenantScope::currentAssetId())
-                            ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                            ->dehydrated()
-                            ->required()
-                            ->native(false)
                             ->live(),
 
                         EntitySelect::make('tenant_id')

@@ -2,10 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Payrolls\Schemas;
 
-use App\Models\Asset;
 use App\Models\Payroll;
-use App\Support\Filament\EntitySelect;
-use App\Support\TenantScope;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -37,14 +35,9 @@ class PayrollForm
                         ->dehydrated(false)
                         ->placeholder(__('admin.fields.auto_generated')),
 
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
+                    PropertyField::make(alsoDisabledWhen: $locked)
                         ->searchable()
-                        ->preload()
-                        ->placeholder(__('admin.fields.property_consolidated'))
-                        ->disabled($locked),
+                        ->preload(),
 
                     DatePicker::make('period_month')
                         ->label(__('admin.fields.payroll_month'))

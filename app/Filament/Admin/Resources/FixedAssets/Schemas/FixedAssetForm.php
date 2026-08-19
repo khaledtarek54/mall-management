@@ -2,11 +2,10 @@
 
 namespace App\Filament\Admin\Resources\FixedAssets\Schemas;
 
-use App\Models\Asset;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Support\CategorySuggestions;
-use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TaxDepreciation;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
@@ -22,15 +21,8 @@ class FixedAssetForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            EntitySelect::make('asset_id')
-                ->label(__('admin.fixed_assets.fields.property'))
-                // Scoped to the user's visible properties (never leaks another mall).
-                ->entity(Asset::class)
-                ->default(fn () => TenantScope::currentAssetId())
-                ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                ->dehydrated()
-                ->required()
-                ->native(false),
+            PropertyField::make()
+                ->label(__('admin.fixed_assets.fields.property')),
             TextInput::make('name')
                 ->label(__('admin.fixed_assets.fields.name'))
                 ->required()

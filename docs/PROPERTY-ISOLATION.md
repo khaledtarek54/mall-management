@@ -116,6 +116,49 @@ from the page's `mutateFormDataBeforeCreate` / `mutateFormDataBeforeSave`:
 **Filament stamps `asset_id` only on CREATE** (for `isScopedToTenant()===true` resources), never on
 update — so an editable `asset_id`/FK on the **edit** page always needs a guard.
 
+## The property picker shows the answer (2026-08-19)
+
+Isolation was complete on both halves above long before this section existed — and the **screens did
+not say so**. Every property picker on a document form offered "Consolidated (all)" and every other
+mall beside the one selected, and each of those options was already refused:
+
+| What the operator picked | What happened |
+|---|---|
+| blank / *Consolidated (all)* | `assertAssetInScope()` sees `(int) null === 0`, which is not in `visibleAssetIds()` (`[currentId]` whenever a real mall is selected) → **abort(403)**, for every role including `super_admin` |
+| another mall | `EntitySelect` resolves a submitted value's LABEL through the property-scoped `pickable()` query; Filament refuses what it cannot label → *"The selected property is invalid."* |
+| the selected mall | saves |
+
+So the control offered one workable value and a set of dead ends: fill in a whole journal entry,
+choose "Consolidated", press Create, meet a bare 403. The **reports** were the worse half, because
+they failed quietly — `TenantScope::reportAssetIds()` clamps its argument to the visible set, so on
+a trial balance both "Consolidated (all)" and the mall next door resolved to the mall you were
+already in. Right figures under a wrong caption, and nobody re-checks a total they believe they
+asked for.
+
+**One component now answers the question instead of asking it:**
+[`App\Support\Filament\PropertyField`](../app/Support/Filament/PropertyField.php).
+
+- `PropertyField::make()` — the pinned picker for anything that RECORDS a mall's business:
+  defaulted to `currentAssetId()`, disabled, `dehydrated()` (a disabled input is not submitted, so
+  without it the pinned value never reaches the model). Pass an extra lock as
+  `$alsoDisabledWhen` — **chaining `->disabled()` after it silently unpins the field**, because
+  Filament's `disabled()` overwrites rather than composes.
+- `PropertyField::free()` — the same scoping, still editable and nullable, for the three
+  PORTFOLIO-CONFIGURATION screens registered in `PropertyField::PORTFOLIO_LEVEL` with a reason:
+  the posting map (the blank row is the global default every property inherits), Departments (the
+  one hybrid model — blank is an operator-wide department), and Owner Requests (a general question
+  is about no single mall).
+- `PropertyField::reportScope()` — the same pin for a page's `$assetId`. `ScopesLedgerReport` also
+  gives the property switcher **the last word** after a drill-down URL and a remembered preference,
+  so the disabled picker can never name one mall while the rows below it come from another.
+
+**The pin is a UI truth, not a guard.** The field is dehydrated, so its value still arrives in the
+Livewire payload and a crafted request can state anything — every `assertAssetInScope()` call stays
+exactly where it was. `PropertyFieldPinnedConformanceTest` **renders** each create form and reads
+the built component's evaluated state (a call site can chain `->disabled(false)` and look correct in
+source), fails on a stale `PORTFOLIO_LEVEL` entry, and pairs the whole thing with the two refusals
+it stands in for plus a control that must succeed.
+
 ## The self-enforcing gate
 
 **[`tests/Feature/Scenarios/PropertyIsolationConformanceTest.php`](../tests/Feature/Scenarios/PropertyIsolationConformanceTest.php)**
@@ -146,6 +189,8 @@ fails CI when a new model/resource ships unclassified, unscoped, or unguarded:
    where the next person will look for it.
 3. Scope the resource table: `BypassesScopingOnAll` (direct) or `ScopesViaProperty` (indirect).
 4. Scope every cross-property form select via `TenantScope::selectable*` / `visibleAssetIds()`.
+   **Build the property field itself with `PropertyField::make()`** — never a bare
+   `EntitySelect::make('asset_id')`, which ships a picker whose every other option is refused.
 5. If the form exposes/derives an editable `asset_id`: `use GuardsAssetInScope`, call
    `assertAssetInScope(...)` from create **and** edit pages, and add the resource to
    `propertyIsolationMustGuardResources()` in the conformance test.

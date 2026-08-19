@@ -8,10 +8,10 @@ use App\Enums\PartyType;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
-use App\Models\Asset;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -36,13 +36,7 @@ class UnitOwnershipForm
             Section::make(__('admin.unit_ownerships.sections.the_sale'))
                 ->columns(2)
                 ->schema([
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn (): bool => TenantScope::currentAssetId() !== null)
-                        ->dehydrated()
-                        ->required()
+                    PropertyField::make()
                         ->live(),
 
                     Select::make('unit_id')

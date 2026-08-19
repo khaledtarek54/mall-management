@@ -4,12 +4,11 @@ namespace App\Filament\Admin\Resources\PostDatedCheques\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
-use App\Models\Asset;
 use App\Models\Tenant;
 use App\Services\PostDatedChequeService;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\StatusTabs;
-use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
@@ -40,14 +39,8 @@ class ListPostDatedCheques extends ListRecords
                 ->visible(fn () => PostDatedChequeResource::canCreate())
                 ->authorize(fn () => PostDatedChequeResource::canCreate())
                 ->schema([
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.post_dated_cheques.fields.property'))
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                        ->dehydrated()
-                        ->required()
-                        ->native(false),
+                    PropertyField::make()
+                        ->label(__('admin.post_dated_cheques.fields.property')),
                     EntitySelect::make('tenant_id')
                         ->label(__('admin.post_dated_cheques.fields.tenant'))
                         ->entity(Tenant::class)

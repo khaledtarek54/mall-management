@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\FacilityWorkOrders\Schemas;
 
-use App\Models\Asset;
 use App\Models\Department;
 use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
@@ -10,6 +9,7 @@ use App\Models\Unit;
 use App\Models\Vendor;
 use App\Support\EquipmentPicker;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -27,15 +27,11 @@ class FacilityWorkOrderForm
         $locked = fn (?FacilityWorkOrder $record) => $record !== null && $record->isTerminal();
 
         return $schema->columns(2)->components([
-            EntitySelect::make('asset_id')
+            // Frozen once the job exists as well as pinned: the property decides the zone, the
+            // equipment and the SLA clock, so re-homing a live work order would strand all three.
+            PropertyField::make(alsoDisabledWhen: fn (?FacilityWorkOrder $record) => $record !== null)
                 ->label(__('admin.facility.fields.property'))
-                ->entity(Asset::class)
-                ->default(fn () => TenantScope::currentAssetId())
-                ->disabled(fn (?FacilityWorkOrder $record) => TenantScope::currentAssetId() !== null || $record !== null)
-                ->dehydrated()
-                ->required()
-                ->live()
-                ->native(false),
+                ->live(),
             EntitySelect::make('unit_id')
                 ->label(__('admin.facility.fields.unit'))
                 ->entity(Unit::class)

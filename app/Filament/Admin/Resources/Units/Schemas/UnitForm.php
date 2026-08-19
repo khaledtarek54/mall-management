@@ -7,6 +7,7 @@ use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\Unit;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -26,15 +27,8 @@ class UnitForm
             Section::make(__('admin.sections.unit_details'))
                 ->columns(3)
                 ->components([
-                    EntitySelect::make('asset_id')
+                    PropertyField::make()
                         ->label(__('admin.tables.unit.asset'))
-                        // The visible-properties scope moved into OptionDisplay, which applies it to
-                        // every Asset picker rather than to the ones that remembered.
-                        ->entity(Asset::class)
-                        ->required()
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                        ->dehydrated()
                         // Drives the zone picker below (a unit may only sit in its own mall's
                         // zones); clear a now-cross-property zone if the property changes.
                         ->live()

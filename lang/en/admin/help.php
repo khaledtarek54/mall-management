@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'property_pinned' => 'Follows the property switcher at the top — this record belongs to the mall you are in.',
         'utility_tariff' => 'The published price this meter follows. A rate below overrides it.',
         'utility_tariff_code' => 'Short identifier for this price list, e.g. EGPC-COMM.',
         'utility_tariff_type' => 'Only meters of this utility can be priced by this tariff.',
@@ -86,7 +87,6 @@ return [
         'account_code' => 'Digits only. The parent is set automatically from the code (e.g. 41102 sits under 411).',
         'parent_account' => 'Optional — groups this account under a summary account.',
         'is_postable' => 'Only postable (leaf) accounts can be used on journal entries.',
-        'journal_property' => 'Leave empty for a consolidated, company-level entry.',
         'must_balance' => 'Total debit must equal total credit.',
         'portal_admin' => 'Admins can submit requests and payments; other users are read-only.',
         'password_leave_blank' => 'Leave blank to keep the current password.',

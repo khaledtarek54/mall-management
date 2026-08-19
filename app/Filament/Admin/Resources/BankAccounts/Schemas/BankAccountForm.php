@@ -2,10 +2,9 @@
 
 namespace App\Filament\Admin\Resources\BankAccounts\Schemas;
 
-use App\Models\Asset;
 use App\Models\LedgerAccount;
 use App\Support\Filament\EntitySelect;
-use App\Support\TenantScope;
+use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -22,14 +21,7 @@ class BankAccountForm
                 ->description(__('admin.helpers.bank_account_section'))
                 ->columns(2)
                 ->components([
-                    EntitySelect::make('asset_id')
-                        ->label(__('admin.fields.property'))
-                        // Property-scoped picker: never the raw Asset list, or a restricted user
-                        // could file an account against a mall they cannot see.
-                        ->entity(Asset::class)
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->required()
-                        ->native(false)
+                    PropertyField::make()
                         ->searchable(),
 
                     TextInput::make('name')

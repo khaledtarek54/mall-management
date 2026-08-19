@@ -2,12 +2,12 @@
 
 namespace App\Filament\Admin\Resources\Equipment\Schemas;
 
-use App\Models\Asset;
 use App\Models\Equipment;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
 use App\Models\Unit;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -34,16 +34,9 @@ class EquipmentForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            EntitySelect::make('asset_id')
+            PropertyField::make()
                 ->label(__('admin.facility.fields.property'))
-                // Scoped to the user's visible properties (never leaks another mall).
-                ->entity(Asset::class)
-                ->default(fn () => TenantScope::currentAssetId())
-                ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                ->dehydrated()
-                ->required()
-                ->live()
-                ->native(false),
+                ->live(),
 
             EntitySelect::make('parent_id')
                 ->label(__('admin.facility.fields.parent'))

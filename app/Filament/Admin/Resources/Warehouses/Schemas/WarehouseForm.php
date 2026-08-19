@@ -2,10 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Warehouses\Schemas;
 
-use App\Models\Asset;
 use App\Models\Warehouse;
 use App\Support\CategorySuggestions;
-use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,15 +19,8 @@ class WarehouseForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            EntitySelect::make('asset_id')
-                ->label(__('admin.inventory.fields.property'))
-                // Scoped to the user's visible properties (never leaks another mall).
-                ->entity(Asset::class)
-                ->default(fn () => TenantScope::currentAssetId())
-                ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                ->dehydrated()
-                ->required()
-                ->native(false),
+            PropertyField::make()
+                ->label(__('admin.inventory.fields.property')),
             TextInput::make('name')
                 ->label(__('admin.inventory.fields.name'))
                 ->required()

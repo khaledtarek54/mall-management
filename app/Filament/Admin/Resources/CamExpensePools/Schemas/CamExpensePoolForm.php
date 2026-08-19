@@ -4,11 +4,11 @@ namespace App\Filament\Admin\Resources\CamExpensePools\Schemas;
 
 use App\Enums\InvoiceItemType;
 use App\Models\Area;
-use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\ChargeCode;
 use App\Models\LedgerAccount;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
 use App\Support\Vat;
 use Filament\Forms\Components\Placeholder;
@@ -81,15 +81,9 @@ class CamExpensePoolForm
                 ->description(__('admin.sections.cam_pool_description'))
                 ->columns(3)
                 ->components([
-                    EntitySelect::make('asset_id')
+                    PropertyField::make()
                         ->label(__('admin.resources.asset.singular'))
-                        ->entity(Asset::class)
-                        ->required()
-                        ->native(false)
-                        ->searchable()
-                        ->default(fn () => TenantScope::currentAssetId())
-                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                        ->dehydrated(),
+                        ->searchable(),
                     TextInput::make('period_year')
                         ->label(__('admin.fields.period_year'))
                         ->required()

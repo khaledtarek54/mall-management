@@ -8,11 +8,10 @@ use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
-use App\Models\Asset;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
-use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\ReportPreferences;
 use App\Support\SourceDocumentUrl;
 use BackedEnum;
@@ -124,17 +123,12 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
                             ->placeholder(__('admin.reports.full_year'))
                             ->native(false)
                             ->live(),
-                        EntitySelect::make('assetId')
-                            ->label(__('admin.reports.property_scope'))
-                            ->entity(Asset::class)
-                            ->placeholder(__('admin.fields.property_consolidated'))
-                            ->native(false)
-                            ->live()
-                            // Remembering happens HERE rather than through ReportFilters, because this picker is
-                            // exempt from the shared component (see ReportFilters::EXEMPT) — the
-                            // exemption is about the CONTROL, not about whether the choice is worth
-                            // keeping. Wired at the only other place it can be.
-                            ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
+                        // Pinned — same component, same reasoning, as the shared strip in
+                        // ScopesLedgerReport. This page repeats the controls only because it adds
+                        // an account picker beside them.
+                        PropertyField::reportScope(
+                            afterStateUpdated: fn ($livewire) => ReportPreferences::remember($livewire),
+                        ),
                     ]),
             ]);
     }

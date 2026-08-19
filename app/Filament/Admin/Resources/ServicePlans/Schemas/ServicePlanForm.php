@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources\ServicePlans\Schemas;
 
 use App\Models\Area;
-use App\Models\Asset;
 use App\Models\Department;
 use App\Models\ServicePlan;
 use App\Models\Unit;
@@ -11,6 +10,7 @@ use App\Models\UtilityMeter;
 use App\Models\Vendor;
 use App\Support\EquipmentPicker;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PropertyField;
 use App\Support\FormTab;
 use App\Support\TenantScope;
 use Filament\Forms\Components\CheckboxList;
@@ -42,15 +42,9 @@ class ServicePlanForm
                 ->persistTabInQueryString()
                 ->tabs([
                     FormTab::make('admin.facility.tabs.scope', [
-                        EntitySelect::make('asset_id')
+                        PropertyField::make()
                             ->label(__('admin.facility.fields.property'))
-                            ->entity(Asset::class)
-                            ->default(fn () => TenantScope::currentAssetId())
-                            ->disabled(fn () => TenantScope::currentAssetId() !== null)
-                            ->dehydrated()
-                            ->required()
-                            ->live()
-                            ->native(false),
+                            ->live(),
                         EntitySelect::make('unit_id')
                             ->label(__('admin.facility.fields.unit'))
                             ->entity(Unit::class)
