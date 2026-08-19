@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Contracts\BillableAgreement;
 use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Models\UnitOwnership;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -38,10 +40,48 @@ class CreditUnearnedBillingService
      */
     public function forTermination(Lease $lease, CarbonImmutable $terminationDate): array
     {
-        $terminationDate = $terminationDate->startOfDay();
+        return $this->forAgreementEnding($lease, $terminationDate, 'termination');
+    }
+
+    /**
+     * The same rule, for a unit ownership that changes hands mid-period (pre-staging QA, F-02).
+     *
+     * An assessment is raised on the 1st for the whole month; a sale completing on the 11th leaves
+     * the seller billed for twenty-one days they did not own. `UnitOwnershipStatus::Transferred` is
+     * not `isBillable()`, so the run will never revisit the seller — measured, the over-billing was
+     * permanent and nothing anywhere corrected it. The lease side has had this since MF-02; the
+     * ownership side had no equivalent, which is the whole of the defect.
+     *
+     * @return array<int, CreditNote>
+     */
+    public function forOwnershipTransfer(UnitOwnership $ownership, CarbonImmutable $transferDate): array
+    {
+        // The seller's last owned day is the day BEFORE the buyer's tenure opens, which is exactly
+        // what `transfer()` writes to `ended_at`. Passing the transfer date itself would credit one
+        // day too few and leave the seller paying for a day the buyer also pays for.
+        return $this->forAgreementEnding($ownership, $transferDate->subDay(), 'transfer');
+    }
+
+    /**
+     * Credit the unearned part of every invoice on this agreement that reaches past $lastEarnedDay.
+     *
+     * Agreement-agnostic on purpose: a lease and an ownership are billed by the same
+     * `monthsCovered()` rule, so they must be UN-billed by it too. A second copy for ownerships
+     * would let a mid-month move-out and a mid-month resale prorate differently — the exact fork
+     * `BillUnitOwnershipsService` avoids by calling the lease run's own proration.
+     *
+     * @return array<int, CreditNote>
+     */
+    private function forAgreementEnding(BillableAgreement $agreement, CarbonImmutable $lastEarnedDay, string $reason): array
+    {
+        $terminationDate = $lastEarnedDay->startOfDay();
+
+        $link = $agreement->invoiceLinkAttributes();
 
         $invoices = Invoice::query()
-            ->where('lease_id', $lease->id)
+            ->where(fn ($q) => collect($link)
+                ->reject(fn ($v) => $v === null)
+                ->each(fn ($v, $column) => $q->where($column, $v)))
             // Cancelled and written-off invoices claim nothing, so there is nothing to give back.
             ->whereIn('status', ['draft', 'issued', 'partially_paid', 'overdue', 'paid'])
             ->whereNotNull('period_start')
@@ -55,7 +95,7 @@ class CreditUnearnedBillingService
         $notes = [];
 
         foreach ($invoices as $invoice) {
-            $note = $this->creditUnearnedPortion($lease, $invoice, $terminationDate);
+            $note = $this->creditUnearnedPortion($agreement, $invoice, $terminationDate, $reason);
 
             if ($note !== null) {
                 $notes[] = $note;
@@ -65,7 +105,7 @@ class CreditUnearnedBillingService
         return $notes;
     }
 
-    private function creditUnearnedPortion(Lease $lease, Invoice $invoice, CarbonImmutable $terminationDate): ?CreditNote
+    private function creditUnearnedPortion(BillableAgreement $agreement, Invoice $invoice, CarbonImmutable $terminationDate, string $reason): ?CreditNote
     {
         $periodStart = CarbonImmutable::instance($invoice->period_start)->startOfDay();
         $periodEnd = CarbonImmutable::instance($invoice->period_end)->startOfDay();
@@ -125,10 +165,16 @@ class CreditUnearnedBillingService
             return null;
         }
 
-        return DB::transaction(function () use ($lease, $invoice, $terminationDate, $subtotal, $vat, $total, $periodEnd, $byRate) {
+        return DB::transaction(function () use ($agreement, $invoice, $terminationDate, $subtotal, $vat, $total, $periodEnd, $byRate, $reason) {
             $note = CreditNote::create([
-                'tenant_id' => $lease->tenant_id,
-                'lease_id' => $lease->id,
+                'tenant_id' => $agreement->billingTenantId(),
+                // `credit_notes` has no `unit_ownership_id`, and does not need one: the note names
+                // the INVOICE, and the invoice names the ownership. What it must carry is the
+                // property, because that is what binds the contra-revenue to one mall's books —
+                // and for an owner assessment `lease->unit` is null, which is the exact hole
+                // `CreditNoteService` closed on 2026-08-18 by reading `invoices.asset_id`.
+                'lease_id' => $agreement instanceof Lease ? $agreement->getKey() : null,
+                'asset_id' => $invoice->asset_id,
                 'invoice_id' => $invoice->id,
                 'status' => 'draft',
                 // The date the tenancy ended is the date the revenue stops being earned, so it is
@@ -137,7 +183,7 @@ class CreditUnearnedBillingService
                 // termination and losing the credit inside a best-effort job.
                 'issue_date' => $terminationDate,
                 'reason' => 'adjustment',
-                'reason_notes' => __('admin.credit_notes.unearned_on_termination', [
+                'reason_notes' => __("admin.credit_notes.unearned_on_{$reason}", [
                     'invoice' => $invoice->number,
                     'date' => $terminationDate->format('d/m/Y'),
                     'through' => $periodEnd->format('d/m/Y'),

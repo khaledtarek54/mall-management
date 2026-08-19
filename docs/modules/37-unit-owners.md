@@ -1,5 +1,57 @@
 # 37 · Unit Owners (ملّاك الوحدات)
 
+> **⚠️ An ownership could never be given a schedule, so no owner was ever billed (fixed 2026-08-19).**
+> `BillUnitOwnershipsService` bills an ownership from its `charges` rows and skips it when there are
+> none — and **no surface in the application created such a row**. `UnitOwnershipResource` had no
+> relation managers, its form has no repeater, `ChargeScheduleRelationManager` is mounted only on
+> `LeaseResource`, and `ChargeImporter` resolves a `lease_reference` only. The only ownerships with a
+> schedule were the ones `DemoSeeder` wrote directly.
+>
+> So an operator registered a sold unit, the ownership read `handed_over`, `isBillableForPeriod()`
+> returned true — and every month the run reported it as an unremarkable `skipped`. **Every owner
+> onboarded through the panel went un-billed, permanently and silently.** The third instance of a
+> pattern this project has already named twice: the assessment run itself shipped unscheduled, and
+> `RemeasureUnitService` shipped with no caller. `ServiceReachability` proves a SERVICE can be
+> started; nothing proved the DATA it needs can be created.
+>
+> Three parts to the fix, and each fails independently:
+> - **[`UnitOwnershipChargesRelationManager`](../../app/Filament/Admin/RelationManagers/UnitOwnershipChargesRelationManager.php)**
+>   — the assessment schedule, mounted on the resource. Deliberately NOT the lease's
+>   `ChargeScheduleRelationManager`: that class types its owner record as a `Lease`, gates on
+>   `leases.edit` and the lease's status, and excludes the three types a lease derives from its own
+>   services. An ownership has none of that. Rows are **added and ended, never edited** — the same
+>   discipline the lease schedule keeps, because an amount edited in place restates months already
+>   billed and paid.
+> - **`Charge::assertNoScheduleOverlap()` now keys on the AGREEMENT**, not on `lease_id`. It returned
+>   early on `blank($lease_id)`, so an ownership's schedule was exempt from the one guard that stops a
+>   charge being billed twice — unreachable while there was no schedule screen, and reachable the
+>   moment there was.
+> - **The run counts `unconfigured` separately from `skipped`.** A skip means "nothing to bill this
+>   month"; a handed-over ownership in tenure with no schedule at all means "nobody is billing this
+>   unit". `{"considered":8,"created":6,"skipped":2,"failed":0}` read like success.
+>
+> Pinned by `UnitOwnerAssessmentIsReachableTest`.
+
+> **⚠️ A mid-month resale now rebalances the month (fixed 2026-08-19).** `billOne()` prorates on
+> tenure and this doc claimed "a resale on the 10th bills the seller 10/30 and the buyer the rest".
+> That is only true if the month is billed *after* the transfer is recorded. In the real sequence —
+> the scheduled run raises the assessment on the 1st, the sale completes on the 11th — measured: the
+> seller stood billed **3,000.00** for a month they owned 10 of 31 days of (967.74 owed), nothing
+> ever corrected it (`Transferred` is not `isBillable()`, so a re-run skips them by design), and the
+> buyer was billed **nothing** — then or later, because the transfer carried the terms but not the
+> schedule.
+>
+> `TransferUnitOwnershipService` now, inside the same transaction: **credits the seller's unearned
+> days** via `CreditUnearnedBillingService::forOwnershipTransfer()` — the lease side's own
+> instrument, generalised to a `BillableAgreement`, so a mid-month move-out and a mid-month resale
+> can never give back different amounts for the same shape of month — and **carries the recurring
+> schedule to the buyer** from the transfer date, closing the seller's rows on their last owned day.
+> One-offs are not carried: a one-off was an event on the seller's holding.
+>
+> Verified end to end: seller 967.74 + buyer 2,032.26 = exactly one month.
+> Pinned by `ResaleRebalancesTheMonthTest`.
+
+
 > The buyer who bought a shop instead of renting one. A peer of the lease, not a variant of it —
 > and **not** the mall owner ([module 32](32-owner-statements.md)), who is the opposite money direction.
 >

@@ -111,6 +111,7 @@ return [
         'line_unearned' => 'مدة مفوترة غير مستحقة على :invoice بعد :through',
         'line_cam_recovery' => 'ردّ فائض تحصيل المصروفات المشتركة — تسوية :year',
         'unearned_on_termination' => 'الجزء غير المستحق من الفاتورة :invoice — انتهى العقد في :date، وكانت الفاتورة محتسبة حتى :through.',
+        'unearned_on_transfer' => 'الجزء غير المستحق من الفاتورة :invoice — انتقلت ملكية الوحدة في :date، وكانت الفاتورة محتسبة حتى :through.',
     ],
     'write_off_reasons' => [
         'tenant_insolvent' => 'إعسار المستأجر',

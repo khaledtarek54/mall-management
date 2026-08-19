@@ -99,10 +99,63 @@ class DepositHoldings
         return round($settled, 2);
     }
 
+    /**
+     * Deposits BILLED and not yet settled — a receivable, and the GL's counterpart to it.
+     *
+     * Not held, and deliberately not part of {@see held()}: nothing has been received, so nothing
+     * can be refunded. It exists because `InvoiceJournalizer` credits `deposits_held` at ISSUE
+     * (Dr Tenant Receivables / Cr Deposits Held — the correct entry for the billing rail), while
+     * `billedAndSettled()` counts only what the tenant has actually paid. Both are right, and for
+     * the whole window between issuing a deposit invoice and its payment they differ by exactly
+     * this figure.
+     *
+     * Without it the weekly `billing:reconcile` reported a books discrepancy on every deposit in
+     * flight — measured, a 150,000 deposit billed and unpaid moved the GL and not the register, and
+     * the check failed until the payment landed (pre-staging QA, F-11). With terms of 7 days and a
+     * Friday sweep, a deposit billed on a Thursday failed it every time. A check that cries wolf is
+     * a check people switch off.
+     */
+    public static function billedAndOutstanding(?array $assetIds = null): float
+    {
+        $invoices = Invoice::query()
+            ->whereNotIn('status', ['draft', 'cancelled', 'credited', 'written_off'])
+            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
+            ->with('items');
+
+        if ($assetIds !== null) {
+            $invoices->whereIn('asset_id', $assetIds);
+        }
+
+        $outstanding = 0.0;
+
+        foreach ($invoices->get() as $invoice) {
+            // The line's OWN outstanding, from the same per-item derivation `billedAndSettled()`
+            // reads — so the two can never disagree about what a part-settled deposit line means.
+            $outstanding += (float) InvoiceItemSettlement::for($invoice)
+                ->where('type', 'security_deposit')
+                ->sum('outstanding');
+        }
+
+        return round($outstanding, 2);
+    }
+
     /** Both roads — what the operator holds, and therefore owes back. */
     public static function held(?array $assetIds = null): float
     {
         return round(self::recorded($assetIds) + self::billedAndSettled($assetIds), 2);
+    }
+
+    /**
+     * What the `deposits_held` control account should read: everything held, PLUS everything billed
+     * and still owed, because the ledger recognises the liability at issue.
+     *
+     * The tie-out compares against THIS, not against {@see held()} — the register answers "what do
+     * we owe back today", the ledger answers "what have we recognised", and the second legitimately
+     * runs ahead of the first.
+     */
+    public static function expectedGlBalance(?array $assetIds = null): float
+    {
+        return round(self::held($assetIds) + self::billedAndOutstanding($assetIds), 2);
     }
 
     /**

@@ -39,6 +39,23 @@ class RentEscalationService
 
         $dueIds = Lease::query()
             ->where('status', 'active')
+            // A lease whose TERM has run out must not keep escalating. `status` alone was the only
+            // filter until 2026-08-19, and nothing moves a lease to `expired` by itself — so a
+            // tenancy that ended in January still had its rent stepped in August, writing schedule
+            // rows for months it does not cover and putting rent for a dead lease into the rent
+            // roll and the 24-month forecast (pre-staging QA, F-04). Invoices were never affected:
+            // billing refuses an ended lease with `lease_ended`.
+            //
+            // Kept SEPARATE from the `leases:expire` sweep on purpose. That sweep fixes the state;
+            // this guards against acting on a lease it has not reached yet — a sweep that fails, or
+            // has not run since the expiry, must not leave this one escalating.
+            //
+            // A converted HOLDOVER is deliberately still in scope: its expiry is in the past by
+            // design, `holdover_from` is what keeps it billing, and its rent may legitimately step.
+            ->where(fn ($q) => $q
+                ->whereNull('expiry_date')
+                ->orWhereDate('expiry_date', '>=', $today->toDateString())
+                ->orWhereNotNull('holdover_from'))
             ->whereIn('escalation_type', ['fixed_percent', 'fixed_amount', 'cpi'])
             ->whereNotNull('next_escalation_date')
             ->whereDate('next_escalation_date', '<=', $today->toDateString())
@@ -104,6 +121,14 @@ class RentEscalationService
                 || $lease->status !== 'active'
                 || $lease->next_escalation_date === null
                 || $lease->next_escalation_date->gt($today)) {
+                return 'skipped';
+            }
+
+            // The term guard, re-checked under the lock alongside due-ness — the outer query
+            // snapshotted this lease as live, and `leases:expire` may have ended it since.
+            if ($lease->expiry_date !== null
+                && $lease->expiry_date->lt($today)
+                && blank($lease->holdover_from)) {
                 return 'skipped';
             }
 

@@ -151,6 +151,40 @@ class Unit extends Model
     }
 
     /**
+     * The same question, asked as a LOCKING read — for a writer deciding whether it may let this
+     * unit.
+     *
+     * **Why a second method rather than a flag on the first.** Under MySQL REPEATABLE READ a
+     * transaction's consistent-read snapshot is established at its first plain read, and every
+     * later plain read is served from it. `LeaseCreationService` reads the tenant, THEN takes
+     * `Unit::lockForUpdate()`, THEN asks this question — so the lock correctly serialises the two
+     * writers, and the guard behind it still answers from a snapshot taken before the wait. It
+     * cannot see the lease the other transaction just committed.
+     *
+     * Measured with two processes on two connections (pre-staging QA, F-09): the second
+     * transaction's plain read returned `false` and `count 0` while the first transaction's lease
+     * was committed on that very unit — and a LOCKING read of the same query on the same
+     * connection at the same moment returned `1`. Nothing corrupted, because the UNIQUE index on
+     * `leases.reference` refused the second insert — but the operator got a duplicate-key 500
+     * instead of "this unit already has an active lease", and the guard the comment calls
+     * authoritative was not.
+     *
+     * A locking read bypasses the snapshot and reads the latest committed row, which is what makes
+     * the check authoritative. Kept OFF the plain method deliberately: that one is called from
+     * form validation and from a table column, where taking row locks on every render would be a
+     * cost with no reader waiting on it.
+     */
+    public function isActivelyLeasedForUpdate(?int $excludeLeaseId = null): bool
+    {
+        return Lease::constrainToNotYetReleased(
+            $this->allLeases()->where('leases.status', 'active')
+        )
+            ->when($excludeLeaseId, fn ($q, $id) => $q->where('leases.id', '!=', $id))
+            ->lockForUpdate()
+            ->exists();
+    }
+
+    /**
      * Options that tie this unit up until they are resolved (story OP-03).
      *
      * An expansion right, ROFR, ROFO or purchase option on ANOTHER tenant's lease means this space

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\UnitOwnershipStatus;
+use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Models\UnitOwnership;
@@ -27,6 +28,22 @@ use Illuminate\Support\Facades\DB;
  *     in is a figure nobody can stand behind.
  *  3. **Outstanding arrears do not silently pass to the buyer.** They are stated. Transferring over
  *     a debt is a decision the operator makes explicitly and it is recorded on the ownership.
+ *
+ * ## The month the sale falls in (added 2026-08-19, pre-staging QA F-02)
+ *
+ * An assessment is raised on the 1st for the whole month, and a sale completes on the 11th. Two
+ * things then have to happen, and neither used to:
+ *
+ *  - **The seller is credited the days they did not own.** `Transferred` is not a billable status,
+ *    so the run never revisits them — measured, a seller stayed billed 3,000.00 for a month they
+ *    owned ten days of, permanently, with nothing anywhere correcting it. The credit uses
+ *    `CreditUnearnedBillingService`, the same instrument and the same `monthsCovered()` proration
+ *    the lease side has used since MF-02, so a mid-month resale and a mid-month move-out can never
+ *    give back different amounts for the same shape of month.
+ *  - **The buyer gets a schedule.** The tenure carried the terms and not the assessment rows, so a
+ *    buyer was billable in principle and had nothing to bill — every month, forever. The seller's
+ *    ACTIVE recurring rows are copied forward from the transfer date; one-offs are not, because a
+ *    one-off was an event on the seller's holding, not a term of the unit.
  */
 class TransferUnitOwnershipService
 {
@@ -80,6 +97,12 @@ class TransferUnitOwnershipService
                     .($reason ? " {$reason}" : '')),
             ]);
 
+            // Give back the part of the month the seller has been billed and will not own. Inside
+            // this transaction: a transfer that then fails must not leave a credit note standing
+            // against a sale that never happened.
+            $sellerCredits = app(CreditUnearnedBillingService::class)
+                ->forOwnershipTransfer($seller->fresh(), $on);
+
             // The buyer inherits the TERMS, not the debt: same tenure type, same assessment basis,
             // same share of the unit. What he does not inherit is the seller's arrears, which the
             // certificate above states and which stay on the seller's own ledger.
@@ -99,6 +122,40 @@ class TransferUnitOwnershipService
                 'payment_terms_days' => $seller->payment_terms_days,
                 'currency' => $seller->currency,
             ]);
+
+            // Carry the assessment schedule onto the buyer, dated from the day their tenure opens.
+            //
+            // RECURRING rows only. A one-off the seller was charged — a special levy, a fit-out
+            // contribution — was an event on their holding; re-opening it on the buyer would bill
+            // the same one-off twice for one unit.
+            foreach ($seller->charges()->where('is_active', true)->where('frequency', '!=', 'one_time')->get() as $row) {
+                /** @var Charge $row */
+                Charge::create([
+                    'unit_ownership_id' => $bought->getKey(),
+                    'name' => $row->name,
+                    'type' => $row->type,
+                    'origin' => Charge::ORIGIN_RENEWAL,
+                    'amount' => $row->amount,
+                    'currency' => $row->currency ?? $bought->currency ?? 'EGP',
+                    'frequency' => $row->frequency,
+                    'vat_applicable' => (bool) $row->vat_applicable,
+                    // The OVERRIDE is carried, not the resolved rate — null stays null so the
+                    // catalogue keeps answering for each invoice's own date.
+                    'vat_rate' => $row->vat_rate,
+                    'start_date' => $on->toDateString(),
+                    'is_active' => true,
+                ]);
+            }
+
+            // Close the seller's rows on their last owned day, so the register shows a holding that
+            // ended rather than one still accruing. `is_active` false also keeps them out of the
+            // overlap guard's way if the same unit is ever sold back.
+            $seller->charges()->where('is_active', true)->update([
+                'end_date' => $on->subDay()->toDateString(),
+                'is_active' => false,
+            ]);
+
+            $bought->setAttribute('transfer_credit_notes', collect($sellerCredits));
 
             return ['certificate' => $certificate, 'seller' => $seller->fresh(), 'buyer' => $bought];
         });

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
@@ -26,7 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PostingDateGuardedBy(guard: Payment::class)]
 class Payment extends Model
 {
-    use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
+    use AllocatesDocumentNumber, GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
 
     /**
      * Receipt reference, the cheque it came on, and the gateway's own transaction id —
@@ -209,11 +210,23 @@ class Payment extends Model
         }
 
         foreach (Invoice::whereIn('id', $invoiceIds)->lockForUpdate()->get() as $invoice) {
+            // LOCKING reads, all four. Locking the INVOICE row serialises two concurrent
+            // allocations, but it does not make the sums below authoritative: under MySQL
+            // REPEATABLE READ a plain read is served from the snapshot this transaction took at its
+            // first read, which is BEFORE it waited for the lock — so the second writer sums a
+            // pivot that does not yet contain the first writer's allocation and concludes there is
+            // room. Measured with two processes on two connections (pre-staging QA, F-09): the
+            // guard passed on a fully-settled invoice; what actually refused the second receipt was
+            // the UNIQUE index on `payments.reference`, which is not a guarantee anyone chose.
+            //
+            // A locking read bypasses the snapshot and sees the latest committed rows. All four
+            // channels take it, because all four settle the same invoice and the guard is only as
+            // strong as its weakest term.
             $allocated = round(
-                (float) $invoice->payments()->whereIn('payments.status', self::RECEIVED_STATUSES)->sum('invoice_payment.allocated_amount')
+                (float) $invoice->payments()->whereIn('payments.status', self::RECEIVED_STATUSES)->lockForUpdate()->sum('invoice_payment.allocated_amount')
                 + (float) $invoice->credit_applied_amount
-                + (float) TenantCreditApplication::where('invoice_id', $invoice->id)->sum('amount')
-                + (float) DepositApplication::where('invoice_id', $invoice->id)->sum('amount'),
+                + (float) TenantCreditApplication::where('invoice_id', $invoice->id)->lockForUpdate()->sum('amount')
+                + (float) DepositApplication::where('invoice_id', $invoice->id)->lockForUpdate()->sum('amount'),
                 2,
             );
 
@@ -276,13 +289,18 @@ class Payment extends Model
                 // against a cancelled invoice.
                 $fittable = 0.0;
             } else {
+                // Locking reads for the same reason as the throw-guard above (F-09): this runs
+                // inside the capture transaction, so a plain read here would clamp against a
+                // snapshot that predates a concurrent settlement and let the card money
+                // over-settle the invoice anyway.
                 $otherCaptured = (float) $invoice->payments()
                     ->whereIn('payments.status', self::RECEIVED_STATUSES)
                     ->where('payments.id', '!=', $this->getKey())
+                    ->lockForUpdate()
                     ->sum('invoice_payment.allocated_amount');
 
-                $appliedTenantCredit = (float) TenantCreditApplication::where('invoice_id', $invoice->getKey())->sum('amount');
-                $appliedDeposit = (float) DepositApplication::where('invoice_id', $invoice->getKey())->sum('amount');
+                $appliedTenantCredit = (float) TenantCreditApplication::where('invoice_id', $invoice->getKey())->lockForUpdate()->sum('amount');
+                $appliedDeposit = (float) DepositApplication::where('invoice_id', $invoice->getKey())->lockForUpdate()->sum('amount');
 
                 $fittable = max(0.0, round(
                     (float) $invoice->total
@@ -355,7 +373,19 @@ class Payment extends Model
         static::creating(function (self $payment) {
             // Always (re)generate at save time to avoid stale references cached
             // in form state by the time the request reaches the DB.
-            $payment->reference = static::generateUniqueReference();
+            //
+            // Under the DOCUMENT-NUMBER LOCK since 2026-08-19. `Payment` was the one money model
+            // that carried a UNIQUE reference and did not use `AllocatesDocumentNumber`: it had a
+            // retry loop, but the loop's existence check is a plain read, so two receipts taken in
+            // the same second both computed the same number and one died on the unique index.
+            // Reproduced with two processes on two connections (pre-staging QA, F-10): both
+            // computed `PAY-202608-0195`, and the loser got a duplicate-key 500 rather than a
+            // number of its own. The lock spans the INSERT, so the second writer waits and takes
+            // the next number instead of colliding.
+            $payment->reference = $payment->allocateDocumentNumber(
+                'PAY-'.now()->format('Ym').'-',
+                fn (): string => static::generateUniqueReference(),
+            );
 
             if (empty($payment->currency)) {
                 $payment->currency = 'EGP';

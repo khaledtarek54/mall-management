@@ -225,6 +225,19 @@ Schedule::command('sales:estimate-missing')
 // repeats faster than anyone can act on it is an alert people learn to ignore.
 Schedule::command('inventory:scan-low-stock')->dailyAt('07:30');
 
+// Expire leases whose term has run out, and re-project any unit whose occupancy went stale with
+// them (F-04 / F-05). Runs BEFORE the escalation sweep at 05:30, deliberately: an ended lease that
+// this moves to `expired` is then out of scope for the escalation run in the same night rather than
+// the next one. The escalation query carries its own term guard as well — this ordering is a
+// convenience, not the thing that makes it correct.
+//
+// 05:15 rather than the small hours: it re-projects every unit, so it belongs beside the other
+// portfolio sweeps rather than competing with the 02:00 billing window.
+Schedule::command('leases:expire')
+    ->dailyAt('05:15')
+    ->name('atriom-expire-leases')
+    ->withoutOverlapping();
+
 // Apply due contractual rent escalations (fixed_percent) to active leases and roll
 // next_escalation_date forward a year. Idempotent + lock-safe; a missed anniversary would
 // otherwise leak revenue. Daily so a due lease escalates the day it comes due.

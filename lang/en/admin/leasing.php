@@ -280,6 +280,20 @@ return [
     ],
 
     'unit_ownerships' => [
+        'charges' => [
+            'title' => 'Assessment schedule',
+            'add' => 'Add assessment',
+            'add_hint' => 'What this owner is billed, and from when. The monthly run bills every active row — an ownership with no schedule is never billed at all.',
+            'default_name' => 'Service charge (صيانة)',
+            'amount_hint' => 'The full assessment for the unit. A co-owner is billed their share of it, not the whole.',
+            'from_hint' => 'The first month this is assessed. Defaults to handover — the operator stops carrying the unit\'s cost when the keys change hands.',
+            'added' => 'Assessment added.',
+            'end' => 'Stop assessment',
+            'end_hint' => 'Stops future assessments of this charge. Everything already billed stays exactly as billed.',
+            'ended' => 'Assessment stopped.',
+            'empty_heading' => 'No assessment schedule',
+            'empty_body' => 'This owner is not being billed anything. The monthly run skips an ownership with no schedule, so nothing will be assessed until a charge is added here.',
+        ],
         'singular' => 'Unit ownership',
         'plural' => 'Unit owners',
         'sections' => [

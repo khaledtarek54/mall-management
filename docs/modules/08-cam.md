@@ -1,5 +1,35 @@
 # CAM (Common Area Maintenance) Reconciliation
 
+> **⚠️ A contractually stated share could over-recover the pool, silently (fixed 2026-08-19).** A
+> lease whose contract names its percentage takes that percentage (RC-03), and the other
+> participants keep their own area share — deliberately, because their leases say *"your pro-rata
+> share"* and re-cutting them to cover a discount a third party negotiated would over-bill them
+> against their own terms. A stated share BELOW the area share therefore recovers less of the pool,
+> with the landlord bearing the difference; that is the behaviour `CamDenominatorTest` pins and it is
+> unchanged.
+>
+> **The other direction was never considered.** Measured on four equal 250 m² shops with one stated
+> at 40%: Σ shares **115%**, and **1,150,000 recovered against 1,000,000 of actual common cost** —
+> tenants billed 15% more than the cost incurred, on the tenant-facing recovery invoice. Recovery is
+> capped at actual cost in almost every service-charge clause, so that is a commercial and legal
+> exposure rather than a rounding question.
+>
+> `generateAllocations()` now projects what the shares WOULD sum to before writing anything, and
+> **refuses** when that exceeds 100%. The test is on the projected total, not on `Σ stated`: a single
+> lease stated at 12.5% against a 2% area share over-recovers by 10.5% while the stated figures sum
+> to well under 100 — a guard reading only the stated shares passed the very pool that failed.
+> Refused rather than clamped, because scaling somebody's agreed percentage down is a decision no
+> engine may take on its own.
+>
+> **And the tie-out that should have caught it could not.** The residual is stored as
+> `actual − Σ allocated`, so `billing:reconcile`'s check of `Σ + residual == actual` is an identity
+> the generator has just made true. (It is not a pure tautology — mutation-tested, it catches an
+> allocation tampered with AFTER generation — but it cannot see an over-recovery the generator itself
+> produced.) `BooksReconciliationService` now also compares Σ allocated against the pool expense
+> **directly**, independently of the stored residual. Pinned by
+> `CamStatedShareDoesNotOverRecoverTest`.
+
+
 > Allocates annual CAM expenses pro-rata by leased area among tenants in a mall property, reconciles what was estimated vs. actual, and bills the shortfall (or credits overpayment) as one-off charges.
 
 ## 1. Purpose & business context

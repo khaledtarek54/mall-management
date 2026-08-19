@@ -101,7 +101,44 @@ class CamReconciliationService
 
         $basis = $pool->apportionmentBasis($occupancyPct);
 
-        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis) {
+        // ── STATED SHARES MAY NOT PROMISE AWAY MORE THAN THE POOL (2026-08-19, pre-staging QA F-08) ──
+        //
+        // A lease whose contract names its percentage takes that percentage (RC-03), and the other
+        // participants keep their own area share — deliberately, because their leases say "your
+        // pro-rata share" and re-cutting them to cover someone else's negotiated discount would
+        // over-bill them against their own terms. A stated share BELOW the area share therefore
+        // recovers less of the pool, with the landlord bearing the difference; that is the
+        // behaviour `CamDenominatorTest` pins and it is not changed here.
+        //
+        // What was never considered is the OTHER direction. Measured on four equal 250 m² shops
+        // with one stated at 40%: Σ shares 115%, and 1,150,000 recovered against 1,000,000 of
+        // actual common cost — tenants billed 15% more than the cost incurred, on the tenant-facing
+        // recovery invoice, with nothing reporting it. Recovery is capped at actual cost in almost
+        // every service-charge clause, so that is a commercial and legal exposure rather than a
+        // rounding question.
+        //
+        // Refused rather than clamped: scaling somebody's agreed percentage down is a decision no
+        // engine may take on its own, and billing them all in full is the over-recovery itself. The
+        // operator reviews the clauses and reconciles again.
+        //
+        // The test is on the TOTAL that would be allocated, not on the stated shares alone. A single
+        // lease stated at 12.5% against a 2% area share over-recovers by 10.5% while the stated
+        // figures sum to well under 100 — so a guard reading only `Σ stated` would have passed the
+        // very pool that failed (measured: Σ allocated 1,102,168.95 against 1,000,000 of cost).
+        //
+        // A re-run reuses its frozen shares and never reaches this.
+        $statedShares = $isRerun ? collect() : $this->statedShares($pool, $leases);
+        $projectedShare = $isRerun
+            ? 0.0
+            : $this->projectedTotalShare($leases, $statedShares, $totalSqm, $periodStart, $periodEnd);
+
+        if ($projectedShare > 1.000001) {
+            throw new \DomainException(__('admin.cam.errors.stated_shares_exceed_pool', [
+                'total' => number_format($projectedShare * 100, 2),
+            ]));
+        }
+
+        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis, $statedShares) {
             $count = 0;
             $allocatedTotal = 0.0;
 
@@ -122,15 +159,25 @@ class CamReconciliationService
                     // A lease whose contract NAMES its percentage wins over any derived one — no
                     // denominator can produce a number the parties simply agreed (RC-03). Common in
                     // Egyptian leases, and previously unrepresentable.
-                    $stated = $isLease ? $lease->statedCamSharePct((int) $pool->period_year) : null;
+                    $stated = $statedShares->get(self::agreementKeyFor($lease));
 
                     if ($stated !== null) {
-                        $share = $stated / 100;
+                        $share = (float) $stated;
                     } else {
                         $sqm = self::areaForPeriod($lease, $periodStart, $periodEnd);
                         if ($sqm <= 0) {
                             continue;
                         }
+
+                        // A neighbour's share is NOT re-cut because someone else's contract names a
+                        // percentage. Their own lease says "your pro-rata share of the pool", and
+                        // charging them more because a third party negotiated a discount would
+                        // over-bill them against their own terms. So a stated share BELOW the area
+                        // share simply means less of the pool is recovered and the landlord bears
+                        // the difference — the deliberate behaviour pinned by `CamDenominatorTest`.
+                        //
+                        // The harmful direction is the other one, and it is guarded before the loop:
+                        // stated shares that together exceed the pool are refused rather than billed.
                         $share = $sqm / $totalSqm;
                     }
                 }
@@ -540,6 +587,67 @@ class CamReconciliationService
      *
      * Idempotent + lock-safe: re-billing an already-billed allocation is a no-op.
      */
+    /**
+     * The participants whose contract names their own percentage, as a FRACTION, keyed by agreement.
+     *
+     * Read once, before the loop, because the figure is needed twice — to size the residual
+     * denominator the others divide by, and to assign each stated participant its own share. Asking
+     * the lease twice would be two reads of the same clause that could, in principle, disagree.
+     *
+     * An ownership brings no CAM clause, so it never appears here.
+     *
+     * @param  Collection<int, mixed>  $leases
+     * @return Collection<string, float>
+     */
+    private function statedShares(CamExpensePool $pool, $leases): Collection
+    {
+        return $leases
+            ->filter(fn ($participant): bool => $participant instanceof Lease)
+            ->mapWithKeys(function (Lease $lease) use ($pool): array {
+                $stated = $lease->statedCamSharePct((int) $pool->period_year);
+
+                return $stated === null ? [] : [self::agreementKeyFor($lease) => $stated / 100];
+            });
+    }
+
+    /**
+     * What the shares would sum to — the stated ones plus every derived one — before anything is
+     * written.
+     *
+     * The single number the over-recovery guard turns on. Computed here rather than by summing the
+     * allocations afterwards, because "afterwards" means the recovery invoices have already been
+     * raised against the tenants.
+     *
+     * @param  Collection<int, mixed>  $leases
+     * @param  Collection<string, float>  $statedShares
+     */
+    private function projectedTotalShare($leases, $statedShares, float $totalSqm, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): float
+    {
+        if ($totalSqm <= 0) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+
+        foreach ($leases as $participant) {
+            $stated = $statedShares->get(self::agreementKeyFor($participant));
+
+            if ($stated !== null) {
+                $total += (float) $stated;
+
+                continue;
+            }
+
+            $sqm = self::areaForPeriod($participant, $periodStart, $periodEnd);
+
+            if ($sqm > 0) {
+                $total += $sqm / $totalSqm;
+            }
+        }
+
+        return round($total, 6);
+    }
+
     /**
      * A plain-language breakdown of how one lease's CAM true-up is worked out — so an operator (and a
      * disputing tenant) can SEE every leg, not just the bare allocated/true-up columns. Surfaces the

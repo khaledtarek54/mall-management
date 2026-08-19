@@ -54,8 +54,13 @@ class Budget extends Page implements HasSchemas
     public static function canAccess(): bool
     {
         // Setting the plan the business is measured against is a management act, not a reporting
-        // one — so it is gated on managing settings rather than on `reports.view`.
-        return Auth::user()?->can('settings.manage') ?? false;
+        // one — so it is NOT gated on `reports.view`.
+        //
+        // It used to gate on `settings.manage`, which only super_admin holds, so neither `manager`
+        // nor `accounting` could open this screen at all: the finance lead could not load a budget
+        // without a super-admin (pre-staging QA, F-07). `budget.manage` says the same thing about
+        // intent while being grantable to the people whose job it is.
+        return Auth::user()?->can('budget.manage') ?? false;
     }
 
     public static function getNavigationLabel(): string

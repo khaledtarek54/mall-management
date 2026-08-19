@@ -1,5 +1,35 @@
 # Payments & Allocation
 
+> **⚠️ The over-allocation guard did not fire under real concurrency (fixed 2026-08-19).**
+> `Payment::assertInvoicesNotOverAllocated()` locks the invoice ROWS and then sums the four
+> settlement channels — with **plain** reads. Under MySQL REPEATABLE READ those are served from the
+> snapshot the transaction took before it waited for the lock, so the second writer sums a pivot that
+> does not yet contain the first writer's allocation and concludes there is room. Proven with two
+> processes on two connections: the guard passed on a fully-settled invoice, and what refused the
+> second receipt was the UNIQUE index on `payments.reference`.
+>
+> All four sums are now **locking** reads — the guard is only as strong as its weakest term — and so
+> are the three in `refitAllocationsToBalance()`, which runs inside the gateway capture transaction
+> for the same reason. `Payment` also now uses `AllocatesDocumentNumber`: it was the one money model
+> carrying a UNIQUE reference without the lock, so two receipts taken in the same second both
+> computed `PAY-202608-0195` and one died with a duplicate-key 500. After the fix the race ends in
+> *"Allocation to invoice … cannot exceed EGP 0.00"*.
+>
+> **The suite cannot prove this** — SQLite compiles locks to nothing and one connection never
+> interleaves. `ConcurrencyGuardsReadUnderLockTest` pins the structure via `LockSpy`;
+> `docs/qa/scripts/race.sh` is the real proof and must be run against MySQL.
+
+> **⚠️ An unpaid security-deposit invoice is no longer a books discrepancy (fixed 2026-08-19).**
+> `InvoiceJournalizer` credits `deposits_held` at ISSUE, while `DepositHoldings::held()` counts a
+> billed deposit only once SETTLED — both correct, and compared directly by `deposits_tie_out`. So
+> every deposit in flight was reported as drift: a 150,000 deposit billed and unpaid moved the GL and
+> not the register, and the check failed until the payment landed. With `billing:reconcile --deep`
+> running Friday and terms of 7 days, a deposit billed on a Thursday failed it every time — the
+> "cries wolf" failure the CAM check's own comment warns about. The tie-out now expects
+> `held + billed-and-outstanding`. Pinned by `DepositInFlightTiesOutTest`, whose second case proves
+> a REAL one-road gap is still caught.
+
+
 > System for recording tenant payments against invoices, tracking AR balances, integrating with Paymob gateway, and managing late fees.
 >
 > **Plain-language companion:** [docs/business-model/06-payments.md](../business-model/06-payments.md) — how payments work with worked scenarios.

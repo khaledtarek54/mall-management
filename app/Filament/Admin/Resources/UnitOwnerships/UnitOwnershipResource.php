@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\UnitOwnerships;
 
+use App\Filament\Admin\RelationManagers\UnitOwnershipChargesRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -79,6 +80,24 @@ class UnitOwnershipResource extends Resource
     public static function table(Table $table): Table
     {
         return UnitOwnershipsTable::configure($table);
+    }
+
+    /**
+     * The assessment schedule — what this owner is actually billed.
+     *
+     * Mounted 2026-08-19. Until then this resource had NO relation managers, and
+     * `BillUnitOwnershipsService` bills an ownership from its `charges` rows: no screen anywhere
+     * could create one, so every ownership an operator registered was skipped by the monthly run
+     * forever. The register existed and nothing could add to it — the same shape as
+     * `RemeasureUnitService` before the Remeasure action landed.
+     *
+     * @return array<int, class-string>
+     */
+    public static function getRelations(): array
+    {
+        return [
+            UnitOwnershipChargesRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

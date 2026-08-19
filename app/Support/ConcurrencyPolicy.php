@@ -122,7 +122,12 @@ final class ConcurrencyPolicy
         // ── Money in ─────────────────────────────────────────────────────────────────────────
         'app/Actions/Api/V1/Payments/RecordDemoPaymentAction.php' => 1,
         'app/Http/Controllers/Paymob/CallbackController.php' => 1,   // the double-charge race that bit
-        'app/Models/Payment.php' => 2,
+        // Two row locks on the invoices being allocated to, PLUS the six LOCKING READS the two
+        // over-allocation guards take across the four settlement channels (2026-08-19, F-09).
+        // Locking the invoice row serialises two writers; it does not let either SEE the other's
+        // allocation, because under REPEATABLE READ a plain read is served from the snapshot taken
+        // before the wait. Measured with two processes: the guard passed on a fully-settled invoice.
+        'app/Models/Payment.php' => 8,
         'app/Services/ApplyDepositToInvoiceService.php' => 1,
         'app/Services/Banking/MatchBankStatementLineService.php' => 1,
         // One row lock on the lease, re-read inside the txn. The shortfall is check-then-act over
@@ -174,6 +179,13 @@ final class ConcurrencyPolicy
 
         // ── Leasing and space ────────────────────────────────────────────────────────────────
         'app/Services/AssignRentableItemService.php' => 1,
+        // The locking read behind the double-booking guard. `LeaseCreationService` locks the UNIT
+        // row (registered in PROVEN); this is the read of `leases` that the lock exists to make
+        // authoritative, and without it the guard looks past the very lease it waited for.
+        'app/Models/Unit.php' => 1,
+        // One row lock per lease, re-checking its expiry inside the transaction, so a sweep cannot
+        // expire a lease another request is renewing or holding over at the same moment.
+        'app/Console/Commands/ExpireLeasesCommand.php' => 1,
         'app/Services/LeaseRenewalService.php' => 2,
         'app/Services/RemeasureUnitService.php' => 1,
         'app/Services/RentEscalationService.php' => 1,

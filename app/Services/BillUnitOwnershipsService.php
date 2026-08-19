@@ -41,7 +41,7 @@ class BillUnitOwnershipsService
      * run cannot race the scheduled one, and a per-ownership overlap probe inside the transaction so
      * a retry cannot double-bill.
      *
-     * @return array{period:string, considered:int, created:int, skipped:int, failed:int}
+     * @return array{period:string, considered:int, created:int, skipped:int, unconfigured:int, failed:int}
      */
     public function runForPeriod(?CarbonImmutable $period = null, ?int $assetId = null): array
     {
@@ -56,19 +56,27 @@ class BillUnitOwnershipsService
         if ($result === false) {
             OpsLog::warning('Assessment run skipped — one is already in progress', ['period' => $period->format('Y-m')]);
 
-            return ['period' => $period->format('Y-m'), 'considered' => 0, 'created' => 0, 'skipped' => 0, 'failed' => 0];
+            return ['period' => $period->format('Y-m'), 'considered' => 0, 'created' => 0, 'skipped' => 0, 'unconfigured' => 0, 'failed' => 0];
         }
 
         return $result;
     }
 
-    /** @return array{period:string, considered:int, created:int, skipped:int, failed:int} */
+    /** @return array{period:string, considered:int, created:int, skipped:int, unconfigured:int, failed:int} */
     private function bill(CarbonImmutable $period, ?int $assetId): array
     {
         $periodStart = $period;
         $periodEnd = $period->endOfMonth();
 
-        $stats = ['period' => $period->format('Y-m'), 'considered' => 0, 'created' => 0, 'skipped' => 0, 'failed' => 0];
+        // `unconfigured` is counted SEPARATELY from `skipped`, and that distinction is the point.
+        //
+        // A skip means "nothing to bill this month" — a tenure that had not started, a resold unit,
+        // a period already billed. All ordinary. An ownership that is HANDED OVER, in tenure, and
+        // carries no assessment schedule at all is not ordinary: it is a unit nobody is billing,
+        // and it will stay that way every month until someone notices. Both used to land in one
+        // counter, so `{"considered":8,"created":6,"skipped":2,"failed":0}` read like success while
+        // two owners went un-billed (pre-staging QA, F-01).
+        $stats = ['period' => $period->format('Y-m'), 'considered' => 0, 'created' => 0, 'skipped' => 0, 'unconfigured' => 0, 'failed' => 0];
 
         UnitOwnership::query()
             ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
@@ -80,7 +88,19 @@ class BillUnitOwnershipsService
                     try {
                         $invoice = DB::transaction(fn (): ?Invoice => $this->billOne($ownership, $periodStart, $periodEnd));
 
-                        $invoice ? $stats['created']++ : $stats['skipped']++;
+                        if ($invoice) {
+                            $stats['created']++;
+                        } elseif ($this->isUnconfigured($ownership, $periodStart, $periodEnd)) {
+                            $stats['unconfigured']++;
+                            OpsLog::warning('Unit ownership is billable but has no assessment schedule — nothing will ever be billed for it', [
+                                'unit_ownership_id' => $ownership->id,
+                                'reference' => $ownership->reference,
+                                'unit' => $ownership->unit?->code,
+                                'period' => $periodStart->format('Y-m'),
+                            ]);
+                        } else {
+                            $stats['skipped']++;
+                        }
                     } catch (\Throwable $e) {
                         $stats['failed']++;
                         OpsLog::error('Assessment billing failed for a unit ownership', [
@@ -92,7 +112,11 @@ class BillUnitOwnershipsService
                 }
             });
 
-        OpsLog::info('Assessment run complete', $stats);
+        // A run that left owners un-billed is not an `info` event. Raising the level is what puts
+        // it in front of somebody without needing a new screen.
+        $stats['unconfigured'] > 0
+            ? OpsLog::warning('Assessment run complete — some ownerships have no schedule and were not billed', $stats)
+            : OpsLog::info('Assessment run complete', $stats);
 
         return $stats;
     }
@@ -193,6 +217,21 @@ class BillUnitOwnershipsService
             // a back-filled assessment is not born overdue and immediately penalised.
             dueDate: $dueBasis->addDays($locked->paymentTermsDays()),
         );
+    }
+
+    /**
+     * Billable, in tenure, and yet nothing to bill — the state that means MISCONFIGURED.
+     *
+     * Deliberately narrow. It asks only about the case a person has to fix: the ownership is
+     * handed over, its tenure covers the period, it has not already been billed, and it has **no
+     * active schedule row at all**. An ownership whose rows simply do not apply to this month
+     * (a one-off that billed last year) is an ordinary skip and stays one.
+     */
+    private function isUnconfigured(UnitOwnership $ownership, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
+    {
+        return $ownership->isBillableForPeriod($periodStart, $periodEnd)
+            && ! $this->alreadyBilled($ownership, $periodStart, $periodEnd)
+            && $ownership->charges()->where('is_active', true)->doesntExist();
     }
 
     /**

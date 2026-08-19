@@ -30,24 +30,28 @@ class LeaseCreationService
                 ? Tenant::findOrFail($payload['tenant_id'])
                 : $this->createTenant($payload['tenant']);
 
-            // lockForUpdate, not a plain read. The isActivelyLeased() check below is check-then-act:
-            // under MySQL's REPEATABLE READ a snapshot read cannot see another transaction's
-            // uncommitted lease, so two concurrent creates on the same unit — a double-clicked
-            // "Create lease", two leasing agents on the same shop — both find it free and both
-            // commit. There is no unique constraint to catch the second one; the result is a
-            // double-booked unit billed twice a month. Locking the unit row makes the guard
-            // authoritative: the second transaction waits, then sees the first lease and is
-            // refused. Same row the renewal path locks.
+            // lockForUpdate, not a plain read. The check below is check-then-act: two concurrent
+            // creates on the same unit — a double-clicked "Create lease", two leasing agents on the
+            // same shop — would otherwise both find it free and both commit, leaving a
+            // double-booked unit billed twice a month. Locking the unit row serialises them: the
+            // second transaction waits here until the first commits. Same row the renewal path locks.
+            //
+            // The lock is only half of it, and the half that was missing until 2026-08-19 is the
+            // read underneath. Waiting is not seeing: under REPEATABLE READ the guard's own query
+            // is served from a snapshot taken at this transaction's FIRST plain read — the tenant
+            // lookup on the line above — so it looked past the very lease it was waiting for.
+            // `isActivelyLeasedForUpdate()` is a locking read and therefore reads the latest
+            // committed state. Proven with two processes on two connections (F-09).
             $unit = Unit::with('asset')->lockForUpdate()->findOrFail($payload['lease']['unit_id']);
 
-            // Pivot-aware (master OR additional unit) — see Unit::isActivelyLeased().
-            if ($unit->isActivelyLeased()) {
+            // Pivot-aware (master OR additional unit), and a LOCKING read — see
+            // Unit::isActivelyLeasedForUpdate(). The row lock above serialises the two writers;
+            // only a locking read here can SEE what the one that went first committed.
+            if ($unit->isActivelyLeasedForUpdate()) {
                 throw ValidationException::withMessages([
                     'lease.unit_id' => __('admin.validation.unit_has_active_lease'),
                 ]);
             }
-
-            $assetCode = $unit->asset?->code ?? 'AW';
 
             $commencement = CarbonImmutable::parse($payload['lease']['commencement_date']);
             $termMonths = (int) $payload['lease']['term_months'];
@@ -57,7 +61,12 @@ class LeaseCreationService
             $service = (float) ($payload['lease']['service_charge_monthly'] ?? 0);
 
             $lease = Lease::create([
-                'reference' => Lease::generateReference($assetCode),
+                // Reference deliberately NOT set here (2026-08-19). `Lease::creating` allocates it
+                // under the document-number lock, and that hook returns early when a reference is
+                // already filled — so pre-computing one here bypassed the lock entirely. Reproduced
+                // with two processes: both computed `LSE-AW-2026-0034` and one died on the unique
+                // index (pre-staging QA, F-10). The model derives the same property code from the
+                // unit it is being given.
                 'unit_id' => $unit->id,
                 'tenant_id' => $tenant->id,
                 'status' => 'active',

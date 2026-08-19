@@ -113,6 +113,7 @@ return [
     ],
 
     'permission_modules' => [
+        'budget' => 'الموازنة',
         'unit_ownerships' => 'مُلّاك الوحدات',
         'bank_accounts' => 'الحسابات البنكية',
         'charge_codes' => 'أكواد الرسوم',

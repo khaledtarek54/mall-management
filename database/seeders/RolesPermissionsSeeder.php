@@ -401,6 +401,15 @@ class RolesPermissionsSeeder extends Seeder
             'reports.view' => 'View reports',
             'reports.download' => 'Download monthly close PDF',
         ],
+        // Setting the plan the business is measured against. Its OWN permission rather than
+        // `settings.manage`, which only super_admin holds — so the finance lead could not load a
+        // budget without one (pre-staging QA, F-07). Still a deliberate right, not part of
+        // `reports.view`: reading variance is oversight, deciding the target is a management act.
+        // `manager` picks it up through the blanket non-delete grant; accounting is granted it
+        // explicitly below.
+        'budget' => [
+            'budget.manage' => 'Set the annual budget',
+        ],
         'activity_log' => [
             'activity_log.view' => 'View the activity log',
         ],
@@ -601,6 +610,13 @@ class RolesPermissionsSeeder extends Seeder
             'unit_ownerships.view', 'unit_ownerships.create', 'unit_ownerships.edit',
             'tenant_sales.view', 'tenant_sales.lock', 'tenant_sales.dispute',
             'notes.view', 'notes.create',
+            // The leasing REPORTS — rent roll, expiration schedule, occupancy cost, billing-run
+            // preview, sales analytics. Every report page in the panel gates on this one
+            // permission, and leasing did not hold it: measured against the running panel, the role
+            // that creates, renews and terminates leases could not open the rent roll or the expiry
+            // schedule, while the read-only `viewer` could open both (pre-staging QA, F-06). Those
+            // are a leasing manager's two most-used screens.
+            'reports.view', 'reports.download',
         ];
 
         // operations: Maintenance, Vendors, Utility Meters, Inventory.
@@ -613,6 +629,11 @@ class RolesPermissionsSeeder extends Seeder
             'facility.edit', 'facility.complete',
             // Facility zones — operations owns the mall's operational layout.
             'areas.view', 'areas.create', 'areas.edit',
+            // The unit register, READ-ONLY. Work orders and tenant requests route to a unit and a
+            // zone, so operations must be able to open the shop it is being sent to — it could not,
+            // measured (pre-staging QA, F-06). Create/edit stay with leasing: what a unit IS, and
+            // how big it is, is a leasing and valuation fact, not an operational one.
+            'units.view',
             // Tenant violations (FR-REQ-15/16/17) — operations records + notices them.
             'violations.view', 'violations.create', 'violations.edit', 'violations.notify',
             'vendors.view', 'vendors.create', 'vendors.edit',
@@ -730,6 +751,8 @@ class RolesPermissionsSeeder extends Seeder
             'disbursements.pay', 'disbursements.cancel',
             'post_dated_cheques.view', 'post_dated_cheques.create', 'post_dated_cheques.edit',
             'reports.view', 'reports.download',
+            // The plan the variance report measures against is the finance lead's to set.
+            'budget.manage',
         ];
 
         // marketing: Marketing Budgets + spend, plus tenant announcements.

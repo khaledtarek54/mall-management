@@ -1,5 +1,43 @@
 # Leases
 
+> **⚠️ Nothing ever moved a lease from `active` to `expired` (fixed 2026-08-19).** There was a
+> `vendors:expire-contracts` sweep for vendor contracts and no equivalent for leases, so a lease
+> whose term had run out stayed `active` indefinitely unless a person renewed, terminated or held it
+> over. Measured on a lease that expired 2026-01-31, with today at 2026-08-19: it still read
+> `active`, its unit still read `occupied` (so every occupancy figure and the rent roll overstated),
+> **the unit could not be re-let** — creation refused with *"this unit already has an active lease"*
+> on a shop that was physically empty — and `RentEscalationService` kept stepping its rent, writing
+> schedule rows for years the tenancy did not cover. Invoices were never at risk: billing refuses an
+> ended lease with `lease_ended`. What was wrong was the STATE, and everything that reads it.
+>
+> [`leases:expire`](../../app/Console/Commands/ExpireLeasesCommand.php), daily at 05:15. A converted
+> **holdover is excluded** — its expiry is in the past by design and `holdover_from` is what keeps it
+> billing. The escalation sweep carries **its own** term guard as well, because the two protect
+> different things: the sweep fixes the state, and the query refuses to act on a lease the sweep has
+> not reached yet. Pinned by `LeaseExpirySweepTest`.
+
+> **⚠️ The double-booking guard did not fire under real concurrency (fixed 2026-08-19).**
+> `LeaseCreationService` takes `Unit::lockForUpdate()`, and this doc called the `isActivelyLeased()`
+> check behind it *authoritative*. It was not. Under MySQL REPEATABLE READ the transaction's
+> consistent-read snapshot is fixed at its FIRST plain read — the tenant lookup, one line above the
+> lock — so the guard was answered from before the wait. Proven with two processes on two
+> connections: the second transaction's guard returned **false** with the first transaction's lease
+> committed on that unit, while a **locking** read of the same query at the same instant returned 1.
+>
+> What actually prevented the double-booking was the UNIQUE index on `leases.reference` — and only
+> because both writers computed the SAME number from the same stale snapshot, so the loser got a
+> duplicate-key **500** instead of the intended refusal. `Unit::isActivelyLeasedForUpdate()` is the
+> locking read; the plain method stays for form validation and table columns, where taking row locks
+> on every render would cost with no reader waiting.
+>
+> Separately, the numbering lock was being bypassed: `Lease::creating` allocates the reference under
+> `AllocatesDocumentNumber` and returns early when one is already filled, so `LeaseCreationService`
+> and `LeaseRenewalService` pre-computing it skipped the lock entirely. Both now let the model
+> allocate. After the fix the race ends in *"This unit already has an active lease"*.
+> Pinned by `ConcurrencyGuardsReadUnderLockTest` (structure) and `docs/qa/scripts/race.sh` (the real
+> two-process proof, which the SQLite suite cannot give).
+
+
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
 > **⚠️ The lease hub is complete — the Summary landed (2026-08-17, UX-01).** Every tab already made

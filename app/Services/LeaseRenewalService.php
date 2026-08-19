@@ -67,8 +67,6 @@ class LeaseRenewalService
                 );
             }
 
-            $assetCode = $original->unit?->asset?->code ?? 'AW';
-
             // ── The payload is DERIVED from $fillable, never enumerated ───────────────────────
             //
             // This was a literal array written when `leases` had ~24 columns. It now has 43, and a
@@ -96,7 +94,12 @@ class LeaseRenewalService
 
             $renewal = Lease::create(array_merge($carried, [
                 // The renewal's own identity and term — these are what a renewal IS.
-                'reference' => Lease::generateReference($assetCode),
+                // Reference deliberately NOT set here (2026-08-19). `Lease::creating` allocates it
+                // under the document-number lock, and that hook returns early when a reference is
+                // already filled — so pre-computing one here bypassed the lock entirely. Reproduced
+                // with two processes: both computed `LSE-AW-2026-0034` and one died on the unique
+                // index (pre-staging QA, F-10). The model derives the same property code from the
+                // unit it is being given.
                 'previous_lease_id' => $original->id,
                 'status' => 'active',
                 'commencement_date' => $commencement,

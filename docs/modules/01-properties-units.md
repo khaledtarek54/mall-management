@@ -1,5 +1,20 @@
 # Properties & Units
 
+> **⚠️ The stored `units.status` went stale on a date boundary (fixed 2026-08-19).** The occupancy
+> projection is correctly DATE-AWARE — `constrainToCurrentlyHeld` / `constrainToNotYetReleased`, so a
+> future-dated expansion reads `reserved` and a past-dated give-back reads `vacant`. But
+> `recomputeStatus()` only ever ran from a lease observer event, the unit create/edit pages, or
+> `LeaseSpaceChangeService`: **nothing ran on a schedule**. So a give-back effective 1 January,
+> recorded in August, left `units.status = 'occupied'` on 1 January and every day after, until
+> something unrelated touched that lease. Confirmed by simulating the date — the projection answered
+> "no lease currently holds this unit" while the column still said `occupied`.
+>
+> `leases:expire` (daily 05:15) re-projects any unit whose stored status disagrees with the
+> projection, in the same run that expires ended leases — both are a stored value going stale on a
+> date boundary that no write crossed. `maintenance` is never touched: it is a manual override the
+> projection already refuses to overwrite. Pinned by `LeaseExpirySweepTest`.
+
+
 > Manage physical mall properties, their subdivisions into units, and track occupancy through lease relationships with automatic status projection.
 
 ## 1. Purpose & business context

@@ -209,6 +209,29 @@ class BooksReconciliationService
                     'detail' => "allocations sum {$summed} + landlord-borne {$unrecovered} ≠ pool expense {$pool->total_actual_expense}",
                 ];
             }
+
+            // OVER-RECOVERY, checked INDEPENDENTLY of the stored residual (2026-08-19, F-08).
+            //
+            // The comparison above cannot see this case and never could: the generator writes
+            // `landlord_unrecovered_amount = actual − Σ allocated`, so the identity it tests holds
+            // by construction whatever the shares sum to. It still earns its place — mutation-
+            // tested, it catches an allocation tampered with AFTER generation — but an
+            // over-recovery the generator itself produced passes it silently. That is exactly what
+            // a contractually stated share used to do: Σ shares 115%, 1,150,000 recovered against
+            // 1,000,000 of cost, and a clean books report.
+            //
+            // A NEGATIVE residual is the signature, and it is unambiguous: the field means "cost the
+            // landlord bore", so below zero means tenants were billed more than the pool spent.
+            // Checked against the sum rather than the column so the finding does not depend on the
+            // same stored number being right.
+            $overRecovered = round($summed - (float) $pool->total_actual_expense, 2);
+
+            if ($overRecovered > $tolerance) {
+                $d[] = [
+                    'ref' => "pool #{$pool->id} ({$pool->period_year})",
+                    'detail' => "allocations sum {$summed} EXCEEDS the pool expense {$pool->total_actual_expense} by {$overRecovered} — tenants are being recovered more than the common cost incurred",
+                ];
+            }
             foreach ($pool->allocations->where('status', 'billed') as $alloc) {
                 /** @var CamAllocation $alloc */
                 // A billed allocation must be backed by a charge (positive true-up),
@@ -438,7 +461,12 @@ class BooksReconciliationService
             return [];
         }
 
-        $held = DepositHoldings::held();
+        // Compared against `expectedGlBalance()`, not `held()`. The ledger recognises the deposit
+        // liability when the invoice is ISSUED; the register counts it as held only once the tenant
+        // has paid. Both are correct, and the difference is exactly the deposits in flight — so
+        // comparing the register directly against the ledger reported a discrepancy on every one of
+        // them (pre-staging QA, F-11).
+        $held = DepositHoldings::expectedGlBalance();
         $delta = round($held - $gl, 2);
 
         if (abs($delta) <= self::EPS) {
@@ -447,11 +475,12 @@ class BooksReconciliationService
 
         $recorded = DepositHoldings::recorded();
         $billed = DepositHoldings::billedAndSettled();
+        $inFlight = DepositHoldings::billedAndOutstanding();
 
         return [[
             'ref' => 'Security deposits',
-            'detail' => "held {$held} (recorded movements {$recorded} + billed & settled {$billed}) "
-                ."≠ GL deposits_held {$gl} (delta {$delta})",
+            'detail' => "expected {$held} (recorded movements {$recorded} + billed & settled {$billed} "
+                ."+ billed & unpaid {$inFlight}) ≠ GL deposits_held {$gl} (delta {$delta})",
         ]];
     }
 

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Models\Vendor;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Queue\Failed\FailedJobProviderInterface;
 use Illuminate\Queue\Failed\NullFailedJobProvider;
@@ -69,6 +70,7 @@ class Health
             'storage' => self::checkStorage(),
             'two_factor' => self::checkTwoFactor(),
             'accounting' => self::checkAccounting(),
+            'withholding_tax' => self::checkWithholdingTax(),
             'books_tie_out' => self::checkBooksTieOut(),
             'admin_access' => self::checkAdminAccess(),
             'demo_accounts' => self::checkDemoAccounts(),
@@ -322,6 +324,47 @@ class Health
         }
 
         return ['ok' => $verdict['ok'], 'detail' => $verdict['detail']];
+    }
+
+    /**
+     * Withholding tax switched ON but with no rate that can ever resolve.
+     *
+     * `WithholdingTax::taxCodeFor()` reads the vendor's own code, then falls back to
+     * `TaxSettings::wht_default_tax_code` — which ships EMPTY, and an empty code resolves to 0%. So
+     * `wht_enabled = true` on its own withholds nothing at all: measured, a 114,000 bill withheld
+     * 0.00 with the switch on, and 3,000.00 once a default code was set (pre-staging QA, C-01).
+     *
+     * Fail-safe by design — the alternative is inventing a statutory rate — but silent, and an
+     * operator who turns withholding on and sees nothing happen has no way to tell whether the
+     * feature is broken or the bills simply are not subject to it. This says which.
+     *
+     * A WARNING rather than a failure: a portfolio where every vendor carries its own code, or is
+     * exempt, is correctly configured with no default at all.
+     */
+    private static function checkWithholdingTax(): array
+    {
+        if (! WithholdingTax::enabled()) {
+            return ['ok' => true, 'detail' => 'not enabled'];
+        }
+
+        if (WithholdingTax::defaultTaxCode() !== '') {
+            return ['ok' => true, 'detail' => 'enabled · default code '.WithholdingTax::defaultTaxCode()];
+        }
+
+        // No default — fine ONLY if the vendors carry their own codes.
+        $withCode = Vendor::query()
+            ->whereNotNull('withholding_tax_code')
+            ->where('withholding_tax_code', '!=', '')
+            ->count();
+
+        if ($withCode > 0) {
+            return ['ok' => true, 'detail' => "enabled · no default code, {$withCode} vendor(s) carry their own"];
+        }
+
+        return [
+            'ok' => false,
+            'detail' => 'enabled but NOTHING will be withheld — no default withholding code (Settings → Tax) and no vendor carries one',
+        ];
     }
 
     /**

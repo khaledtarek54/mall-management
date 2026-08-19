@@ -163,12 +163,45 @@ class Charge extends Model
         }
     }
 
+    /**
+     * The agreement this row hangs off, as a `[column => id]` pair.
+     *
+     * A charge belongs to a lease OR a unit ownership ({@see assertBelongsToExactlyOneAgreement}),
+     * so every query that means "the other rows on the SAME agreement" has to key on whichever one
+     * it is. Named once here because the overlap guard below is not the only caller that will want
+     * it, and a second copy is how the two come to disagree about what an agreement is.
+     *
+     * @return array{0: string, 1: int}|null null only while the row belongs to neither, which
+     *                                       `assertBelongsToExactlyOneAgreement()` refuses anyway
+     */
+    public function agreementKey(): ?array
+    {
+        if ($this->lease_id !== null) {
+            return ['lease_id', (int) $this->lease_id];
+        }
+
+        if ($this->unit_ownership_id !== null) {
+            return ['unit_ownership_id', (int) $this->unit_ownership_id];
+        }
+
+        return null;
+    }
+
     /** @throws \DomainException when this row's date range overlaps another of the same type */
     public function assertNoScheduleOverlap(): void
     {
-        if (blank($this->lease_id) || $this->frequency === 'one_time' || ! $this->is_active) {
+        // Keyed on the AGREEMENT, not on `lease_id`. Until 2026-08-19 this returned early whenever
+        // `lease_id` was blank — so a unit ownership's assessment schedule was exempt from the one
+        // guard that stops a charge being billed twice. Nothing could reach that state while
+        // module 37 had no schedule screen; adding one (the same change) is what made it reachable,
+        // and two overlapping صيانة rows double-bill an owner exactly as they would a tenant.
+        $agreement = $this->agreementKey();
+
+        if ($agreement === null || $this->frequency === 'one_time' || ! $this->is_active) {
             return;
         }
+
+        [$agreementColumn, $agreementId] = $agreement;
 
         $start = $this->start_date ? CarbonImmutable::instance($this->start_date) : null;
         $end = $this->end_date ? CarbonImmutable::instance($this->end_date) : null;
@@ -182,7 +215,7 @@ class Charge extends Model
         }
 
         $clash = static::query()
-            ->where('lease_id', $this->lease_id)
+            ->where($agreementColumn, $agreementId)
             ->where('type', $this->type)
             ->where('is_active', true)
             ->where('frequency', '!=', 'one_time')

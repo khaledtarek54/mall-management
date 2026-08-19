@@ -1,5 +1,27 @@
 # RBAC & Multi-Property Scoping
 
+> **⚠️ The leasing role could not open a single leasing report (fixed 2026-08-19).** Every report page
+> gates on the one permission `reports.view`, held by `manager`, `accounting` and **`viewer`** — and
+> not by `leasing`. Measured against the running panel as each of the seven demo roles: the role that
+> creates, renews and terminates leases could not open the **rent roll**, the **expiration schedule**
+> or the **occupancy-cost** report, while a read-only viewer could open all three. Separately,
+> `operations` held `facility.*`, `areas.*`, `requests.*` and `procurement.*` but not `units.view`,
+> so the role that routes work orders to units could not open the unit register.
+>
+> Neither was a security hole — both fail closed — and both are the kind of role-design defect a
+> permission matrix in a seeder makes easy to miss and an operator meets on day one. `leasing` now
+> holds `reports.view` + `reports.download`; `operations` holds `units.view` (read-only: what a unit
+> IS, and how big it is, stays a leasing and valuation fact).
+>
+> **Budget got its own permission.** `Budget::canAccess()` gated on `settings.manage`, held only by
+> super_admin, so the finance lead could not load a budget without one. `budget.manage` says the same
+> thing about intent while being grantable: `manager` picks it up through the blanket non-delete
+> grant, `accounting` is granted it explicitly, and it stays out of `reports.view` because reading
+> variance is oversight while deciding the target is a management act. Pinned by
+> `LeasingAndOperationsRolesReachTheirScreensTest`, which asserts the new access AND that the grants
+> did not widen either role generally.
+
+
 Role-based access control (RBAC) + tenant-per-property isolation, ensuring staff see only their assigned properties while super_admin has unrestricted access.
 
 > **Total property isolation** (reads **and** writes) has a dedicated reference:

@@ -116,6 +116,7 @@ return [
     ],
 
     'permission_modules' => [
+        'budget' => 'Budget',
         'unit_ownerships' => 'Unit owners',
         'bank_accounts' => 'Bank accounts',
         'charge_codes' => 'Charge codes',
