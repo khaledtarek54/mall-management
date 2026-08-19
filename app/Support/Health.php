@@ -69,6 +69,7 @@ class Health
             'backup_capability' => self::checkBackupCapability(),
             'storage' => self::checkStorage(),
             'two_factor' => self::checkTwoFactor(),
+            'browser_origin_policy' => self::checkBrowserOriginPolicy(),
             'accounting' => self::checkAccounting(),
             'withholding_tax' => self::checkWithholdingTax(),
             'books_tie_out' => self::checkBooksTieOut(),
@@ -230,6 +231,62 @@ class Health
         return $missing === []
             ? ['ok' => true, 'detail' => 'enforced for '.count($forced).' role(s)']
             : ['ok' => true, 'detail' => 'enforced, but these money-touching roles are not covered: '.implode(', ', $missing)];
+    }
+
+    /**
+     * Which browser origins may call this application, and whether session payloads are
+     * encrypted at rest. Both are decisions that used to be made by an absent file.
+     *
+     * `config/cors.php` did not exist until 2026-08-19, and `HandleCors` sits in the global
+     * middleware stack regardless — so the effective policy was the framework's fallback,
+     * `allowed_origins: ['*']`. That is checked here rather than only fixed in config,
+     * because the failure mode is a file being deleted or an env var being pasted wide
+     * during a debugging session and never narrowed again. A wildcard is a legitimate
+     * answer for someone; it is not a legitimate answer for nobody.
+     *
+     * DEPLOYED environments only. A workstation running `*` is fine and says so.
+     */
+    private static function checkBrowserOriginPolicy(): array
+    {
+        $origins = (array) config('cors.allowed_origins', []);
+        $patterns = (array) config('cors.allowed_origins_patterns', []);
+        $credentials = (bool) config('cors.supports_credentials', false);
+        $encrypted = (bool) config('session.encrypt', false);
+
+        $wildcard = in_array('*', $origins, true);
+
+        if (! Deployment::isDeployed()) {
+            return ['ok' => true, 'detail' => 'local/testing — origins: '
+                .($origins === [] ? 'none' : implode(', ', $origins))];
+        }
+
+        $problems = [];
+
+        if ($wildcard) {
+            $problems[] = 'CORS allows ANY origin (`*`) — set CORS_ALLOWED_ORIGINS to the '
+                .'origins that actually call this application';
+        }
+
+        if ($origins === [] && $patterns === []) {
+            $problems[] = 'CORS allow-list is EMPTY and no patterns are set — APP_URL is unset, '
+                .'so no browser origin can call /api/*';
+        }
+
+        // The genuinely dangerous pair. Either alone is a posture; together they let a
+        // hostile page make authenticated cross-origin calls with the user's cookies.
+        if ($wildcard && $credentials) {
+            $problems[] = 'CORS allows any origin AND sends credentials — a hostile page can '
+                .'call this API as the signed-in user';
+        }
+
+        if (! $encrypted) {
+            $problems[] = 'session payloads are NOT encrypted at rest on '.Deployment::name()
+                .' — set SESSION_ENCRYPT=true (everyone signs in once more; that is the whole migration)';
+        }
+
+        return $problems === []
+            ? ['ok' => true, 'detail' => 'origins: '.implode(', ', $origins).' · sessions encrypted']
+            : ['ok' => false, 'detail' => implode(' · ', $problems)];
     }
 
     /**

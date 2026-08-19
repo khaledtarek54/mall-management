@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SecurityDefaults;
 use Illuminate\Support\Str;
 
 return [
@@ -47,7 +48,21 @@ return [
     |
     */
 
-    'encrypt' => env('SESSION_ENCRYPT', false),
+    /*
+    | Default ON wherever this is a real deployment, OFF on a workstation — the
+    | same shape as `security.force_https`, and for the same reason: a security
+    | posture that depends on somebody remembering an env var is the posture you
+    | do not have. Sessions live in the `sessions` TABLE here (SESSION_DRIVER=
+    | database), so an unencrypted payload is readable by anything that can read
+    | the database — a restored backup, a support query, a compromised read
+    | replica. The payload carries the Filament panel's state, including which
+    | property the operator is working inside.
+    |
+    | Cost of switching it on: existing sessions cannot be decrypted, so everyone
+    | signs in once more after the deploy that flips it. That is the entire
+    | migration, and it is why this is safe to default rather than schedule.
+    */
+    'encrypt' => (bool) env('SESSION_ENCRYPT', SecurityDefaults::encryptSessionsByDefault()),
 
     /*
     |--------------------------------------------------------------------------

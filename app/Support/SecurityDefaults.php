@@ -32,4 +32,33 @@ class SecurityDefaults
         'hr',
         'marketing',
     ];
+
+    /**
+     * The environments that are a workstation rather than a deployment.
+     *
+     * `App\Support\Deployment` answers the same question for the RUNNING application, and is
+     * the right thing to use everywhere except here: config files are evaluated before the
+     * container exists, so they cannot ask it. Kept as one constant so the two readings of
+     * "is this a real box?" cannot drift into disagreeing.
+     */
+    public const WORKSTATION_ENVIRONMENTS = ['local', 'testing'];
+
+    /**
+     * Should session payloads be encrypted at rest, absent an explicit SESSION_ENCRYPT?
+     *
+     * Sessions are stored in the `sessions` table, so an unencrypted payload is readable by
+     * anything that can read the database — a restored backup, a support query, a compromised
+     * read replica. On by default for a deployment, off on a workstation.
+     *
+     * This lives in code rather than inline in `config/session.php` so it can be tested
+     * directly. A default that can only be observed by re-evaluating a config file under a
+     * mutated environment is a default nothing asserts, and an unasserted security default is
+     * how `.env.example` came to pin `SESSION_ENCRYPT=false` and quietly defeat it.
+     */
+    public static function encryptSessionsByDefault(?string $environment = null): bool
+    {
+        $environment ??= (string) env('APP_ENV', 'production');
+
+        return ! in_array($environment, self::WORKSTATION_ENVIRONMENTS, true);
+    }
 }

@@ -52,12 +52,17 @@ trusting a module doc instead of grepping. The roadmap's 2026-08-18 verification
 **thirteen** rows claiming something was missing that the code already had, one of them the
 #2-priority item.
 
-**Writing a row here means grepping first and saying what you grepped.** And the check runs in
-both directions: while re-verifying this document, three capabilities came back "absent" on the
-first search and were present under another name — low-stock alerting (`LowStockAlert`, not
-`low_stock`), asset criticality (`Equipment::CRITICAL`) and the post-month override
-(`posting_month_overrides`). An absence claim is a hypothesis until you have searched for the
-**capability**, not the spelling.
+**Writing a row here means grepping first and saying what you grepped** — and grepping for the
+CAPABILITY, not for the name you would have given it. Four capabilities came back "absent" on a
+first search here and were present under another name: low-stock alerting (`LowStockAlert`, not
+`low_stock`), asset criticality (`Equipment::CRITICAL`), the post-month override
+(`posting_month_overrides`), and the three-way match (`PurchaseRequest::billingVariance()`, not
+`match_status`).
+
+The last of those was published as an open row in this document and corrected within the day —
+so this is not a rule the document has earned the right to state from above. An absence claim is
+a hypothesis until the capability has been searched for under the names someone else would
+plausibly have chosen.
 
 ### What this document is not
 
@@ -146,18 +151,15 @@ a pivot column, a migration and a backfill.
 | O5 | **Contractor permit-to-work / safety permits** — no hot-work or isolation permit. A mall operator is legally exposed. Composes with O4: both are "permission to do physical work, with conditions" | 26 | FM specialists | 🟠 | M |
 | O6 | **In-house labour cost on a work order** — parts and external quotes are costed and posted; internal hours are not captured at all, so the true maintenance cost is understated on every in-house job | 26 | every CMMS | 🟡 | M |
 | O7 | **Capex bid / quote comparison** — one vendor per request, no tender, no "three quotes compared" on tier-3 spend. A governance gap owners ask about | 29 | Maximo · Odoo Enterprise | 🟡 | M |
-| O8 | **3-way-match tolerance / variance hold** — the bill clears GRNI up to received value, but there is no tolerance band, no variance hold and no match status, so overbilling **above** the receipt passes silently as expense | 29 | Odoo · Maximo | 🟠 | M |
 | O9 | **Clause abstract** — co-tenancy, kick-out, exclusivity, radius. PDF only; nothing is queryable or alertable | 04 | Yardi lease abstraction | 🟡 | M |
-| O10 | **Revenue forecast** — budget-vs-actual ships (`Budget`, per account per property per month), but nothing projects forward *lease* revenue from the charge ladder, which LS-01 made almost free | 17 | Yardi Forecast Manager | 🟡 | S–M |
+| O10 | **Portfolio revenue forecast** — budget-vs-actual ships (`Budget`), and `StraightLineRentService::scheduleFor()` already projects one lease's **base rent** across its term from the charge ladder. What is missing is the portfolio view: every lease, every recurring charge type, by month, forward. The projection logic exists; the aggregation and the screen do not | 17 | Yardi Forecast Manager | 🟡 | S–M |
 | O11 | **Reorder-driven auto-purchase** — `inventory:scan-low-stock` alerts daily per property; nothing drafts the purchase request. Half-open, and the open half is a policy question: who approves a system-raised commitment? | 22 · 29 | Odoo · Fiix | 🟡 | S |
 | O12 | **Photo-evidence completion gate** — a work order closes on its checklist with no required evidence | 26 | ServiceChannel | 🟡 | S |
 | O13 | **Failure codes / downtime history → reliability analytics** — only `is_active` today. Build the primitives before the dashboard | 26 · 23 | Maximo Health · Fiix Foresight | 🟡 | L |
-| O14 | **CPI / index escalation** — the collar ships (`escalation_floor_rate`/`escalation_ceiling_rate`); the index does not, because there is no Egyptian index feed to consume. Refusing to invent a number is correct; an index *register* the operator keys is the honest middle | 04 | Yardi | 🟡 | M |
-| O15 | **Deposit top-up on escalation** — when rent steps up, nothing asks for the matching deposit increase. (`deposit_shortfall` exists but is the move-out statement's reconciliation, a different thing) | 04 · 06 | Yardi | 🟡 | S |
+| O14 | **CPI escalation has no index register** — smaller than it looks: `escalation_type = 'cpi'` ships, the anniversary sweep applies it, and the collar clamps it. What is missing is where the published figure comes from — today an operator keys the rate onto the lease. Refusing to invent a number is correct; an index register the operator maintains once per year, which every CPI lease then reads, is the honest middle | 04 | Yardi | 🟡 | M |
 | O16 | **Mobile / barcode parts issue + guided cycle counts** — issue, receive and count are web forms; counts are ad-hoc adjustments with no guided workflow or freeze | 22 | every CMMS | 🟡 | M |
 | O17 | **PDC series exhaustion alert** — no warning when a tenant's lodged cheques run out before the lease term. No benchmark; Egyptian practice is a year lodged up front, so running dry mid-term is the *normal* failure | 33 | none | 🟡 | S |
 | O18 | **Repeat-violation ladder** — fines are priced by hand; the register makes the pattern visible and nothing reads it | 31 | none | ⚪ | S |
-| O19 | **Bounce-after-clearing** — modelled as impossible; a bank can return a cheque after provisional credit. The remedy (void the payment) is documented and honest, but manual | 33 | none | ⚪ | S |
 
 ### ⚙️ Hygiene the analysis argues for
 
@@ -236,7 +238,7 @@ a pivot column, a migration and a backfill.
 | AR aging | By charge code | Bucket summary + drill-down + per-tenant collections worklist + aging **by charge type** | ✅ KEEP | ⚪ |
 | Deposit as a GL liability, refund/forfeit | ✅ | `DepositTransaction` journalized, numbered, bilingual; both disposal paths posted | ✅ KEEP | ⚪ |
 | Itemised move-out disposition | ✅ one document | One statement nets AR against the deposit and freezes into the termination event | ✅ KEEP | ⚪ |
-| Deposit top-up on escalation | 🟡 | Absent | ➕ **EXTEND — O15** | 🟡 |
+| Deposit requirement tracks rent | 🟡 Yardi tracks the requirement against rent | ✅ **ROW CORRECTED 2026-08-19 — built, and at a better seam than a form.** `security_deposit_months` re-derives `security_deposit` in `Lease::saving`, so the escalation sweep, the Change Rent action, a renewal, the importer and the API are all covered by one hook — only one of those five writers is a form. **Null means flat and nothing moves**, deliberately: a deposit agreed as a sum unrelated to rent is a real deal, and dividing deposit by rent to infer a multiple would invent a term nobody agreed to | ✅ KEEP | ⚪ |
 | Bank deposit batches | ✅ | Absent | ⏭️ **DECLINE** — PDCs and transfers dominate this market | ⚪ |
 | Interest-bearing / segregated deposits | ✅ | Absent | ⏭️ **DECLINE** — not an Egyptian requirement | ⚪ |
 
@@ -401,6 +403,9 @@ employer social insurance and gratuity, which could still move the books.
 | **Fit-out permit: ❌ → 🟡** | The approve/reject decision with a mandatory reason shipped 2026-08-15; only conditions-on-the-grant remain. The stale *"NO approval step"* comment the round-3 plan flagged is also fixed |
 | **Revenue forecast: refined** | `Budget` (plan vs actual per account/property/month) ships; the open half is specifically the forward projection from the charge ladder |
 | **Deposit top-up: confirmed open** | `deposit_shortfall` exists but belongs to the move-out statement — a different mechanism that a keyword search reads as coverage |
+| **3-way match: ❌ → ✅ (2026-08-19, same day)** | `PurchaseRequest::billingVariance()` ships, is shown live on the vendor-bill form, and has its own regression test. The row was written off a grep for `match_tolerance` / `variance_hold` / `match_status` — none of which is what it is called. **This document warned about exactly that failure two sections earlier and then committed it**, which is why §0's rule is now stated as *search for the capability, not the spelling*. Worth keeping on the record: the feature's own docblock had already reasoned to the same design conclusion this analysis was about to re-derive — that blocking would be wrong, because a bill legitimately covers freight and labour beyond the goods, so the variance is a number to SHOW |
+| **Deposit-on-escalation: ❌ → ✅ (same day)** | `security_deposit_months` re-derives the deposit whenever rent moves. The row was written off a grep that hit `deposit_shortfall` — the move-out statement's reconciliation — and concluded the capability was absent because the *name* it expected was missing |
+| **Bounce-after-clearing: 🟡 → ✅ (same day)** | The row called it "modelled as impossible … the remedy is manual". Both halves were wrong: `PostDatedCheque::updating` carries an explicit carve-out for `cleared → bounced`, and `Payment::saved` drives it automatically when the clearing payment is voided, so a bank returning a cheque after provisional credit is a modelled path rather than a stranded row |
 | **Nine documents merged into this one** | The retired set had the same rows in three states of staleness. Every open row above now names its module and its evidence |
 | **Census metric retired** | `atriom:dump-system-census` counted `docs/gap-analysis/NN-*.md` to surface the modules never audited. Round 3 closed that hole; a metric whose question has been answered goes on printing a number about the shape of a directory |
 
@@ -416,11 +421,29 @@ guides openly, so a claim marked as inferred is exactly that. See
 **FM and ERP competitor claims** are edition-, region- and version-sensitive. Treat any specific
 capability as *verify before quoting to a client*.
 
-**Atriom claims** are grounded in code. Rows in §3 were verified during the Yardi cycle
-(2026-08-09 → 08-11); every row still open, plus every row this update changed, was re-verified
-2026-08-19 by reading the source. The rows carried forward without re-verification are those marked
-✅ KEEP with no open sub-item — and the standing warning applies to them too: **if you are about to
-act on a row, grep first.**
+**Atriom claims** are grounded in code, and the grounding is uneven — stated here rather than
+implied, because the first version of this section overstated it.
+
+| Rows | How well grounded |
+|---|---|
+| §3 ✅ KEEP rows | Verified during the Yardi cycle (2026-08-09 → 08-11), carried forward since |
+| §2 open rows | Each one **read in the source** on 2026-08-19 — see the caveat below |
+| §7 corrections | Read in the source, and the correcting evidence is named in the row |
+
+**The caveat, because it cost four rows in one day.** The first pass over the open list was done
+with a keyword grep, and a keyword grep answers *"is this word here?"* rather than *"does this
+capability exist?"*. Four rows were published as open and corrected within hours: the three-way
+match (`billingVariance()`), deposit-on-escalation (`security_deposit_months`), bounce-after-
+clearing (a carve-out in `PostDatedCheque::updating`), and the stacking plan (`/admin/occupancy-map`).
+Each existed under a name the grep did not guess, and in three cases the shipped design was better
+reasoned than the row proposing to build it.
+
+**So: if you are about to act on a row, open the code first.** Not to be careful — because the base
+rate of error on this page has been measured, and it is not low.
+
+**Every ✅ KEEP row is carried forward without individual re-verification.** That is the honest
+statement of what this document is: a map that is right about the shape of the system and can be
+wrong about any single square.
 
 **Where each module's own detail lives:** [`docs/modules/NN-*.md`](../modules/README.md) — business
 rules, extension points and gotchas, per module. This document says what is *missing*; those say
