@@ -5,6 +5,58 @@
 >
 > Benchmark: [docs/benchmarks/yardi/09-yardi-space-and-parking.md](../benchmarks/yardi/09-yardi-space-and-parking.md).
 
+
+## The holder is an AGREEMENT, not a lease (2026-08-19)
+
+`lease_rentable_item` is now **`rentable_item_holdings`**, keyed on a polymorphic
+`holder_type`/`holder_id` over `BillableAgreement`. A tenant holds a bay through a **lease**; an
+owner-occupier holds one through his **unit ownership**.
+
+**This is Voyager's model read correctly, not an extension of it.** Rentable items are assigned to
+the customer RECORD — *(cited, [benchmark 09](../benchmarks/yardi/09-yardi-space-and-parking.md)
+§2)* "you can assign Rentable Items and Service Charges to both new and existing **residents**" —
+and in Voyager Condo/Co-Op the unit owner simply **is** that record, with dues posting to his
+ledger (see [modules/37 §7](37-unit-owners.md)). Atriom had narrowed "customer record" to "lease"
+only because, when rentable items were built, a lease was the only agreement that existed.
+Operator's decision (2026-08-19): an owner can hold a bay, and its charge **rides his monthly
+صيانة assessment**, exactly as a tenant's rides the lease schedule.
+
+**What did NOT change**, and must not: a rentable item still carries no leasable area, so it never
+reaches `totalUnitAreaSqm()`, `occupiedAreaSqm()`, the CAM denominator or the rent roll's per-m²
+figure. That is the market rule the benchmark cites from three independent sources, and it is
+independent of who holds the bay.
+
+### The guard most at risk, and how it is held
+
+`RentableItem::isHeldOn()` is the **double-let** guard, and it asked only about leases. That was
+correct while a lease was the only holder and becomes a real double-booking the moment an ownership
+can hold one — a bay held by an owner would have looked free to the next tenant. It now asks per
+holder, because "live" means different things:
+
+| Holder | Counts as holding while |
+|---|---|
+| `Lease` | `active` or `pending_approval` |
+| `UnitOwnership` | not `transferred` — a sold-on unit's former owner holds nothing |
+
+A **`contracted` owner can take a bay before handover**, deliberately: the bay is part of what he is
+buying, and `isBillable()` (handover) governs when it starts being *charged*, not when it can be
+*recorded*. Both directions of the clash are pinned by `AnOwnerCanHoldAParkingBayTest`, each
+refusal paired with a control.
+
+### One picker, three surfaces
+
+`App\Support\RentableItemOptions` builds both lists (what an agreement *could* take, what it
+*holds*) for every surface. It exists because the copies drifted: the list lived twice — once on
+`LeaseActions`, once inside the lease relation manager — and by 2026-08-18 one picked the item with
+a plain `Select` over a raw column while the other went through the registry, so the same act found
+different things depending on which button you pressed. A third copy for ownerships would have made
+it three answers to one question.
+
+`LeaseActionTopologyTest` was narrowed to LEASE tabs at the same time: `LeaseActions::forOwner()`
+takes a `Lease`, so an ownership tab cannot compose it and cannot drift a lease act either. The
+narrowing carries a vacuity guard, because a filter that matched nothing would make the gate pass by
+examining no files.
+
 ## 1. Purpose & business context
 
 A mall earns real money from things that are not shops. Atriom could not record any of it: `parking`

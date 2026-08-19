@@ -150,9 +150,26 @@ it('defines each lease act ONCE — a tab composes it, never re-declares it', fu
     ];
 
     $offenders = [];
+    $examined = 0;
 
     foreach (glob(app_path('Filament/Admin/RelationManagers/*.php')) as $file) {
         $body = (string) file_get_contents($file);
+
+        // LEASE tabs only. `LeaseActions::forOwner()` takes a `Lease` and every act it carries is
+        // type-hinted to one, so a tab whose owner record is NOT a lease cannot compose it — and
+        // cannot drift a lease act either, which is the whole thing this gate protects.
+        //
+        // The narrowing arrived 2026-08-19 with `UnitOwnershipRentableItemsRelationManager`: a
+        // rentable item's holder became an AGREEMENT (a lease for a tenant, a unit ownership for an
+        // owner-occupier), so an ownership tab legitimately calls `AssignRentableItemService`
+        // directly. Before that every rentable-item surface was lease-shaped and the glob was exact.
+        // The shared part — the picker both surfaces read — lives in `RentableItemOptions`, which is
+        // where the copies actually drifted.
+        if (! str_contains($body, 'use App\\Models\\Lease;')) {
+            continue;
+        }
+
+        $examined++;
 
         foreach ($services as $service) {
             // Calling a lease service from a tab means that tab is DOING the act rather than
@@ -165,4 +182,8 @@ it('defines each lease act ONCE — a tab composes it, never re-declares it', fu
 
     expect($offenders)->toBe([], "These re-implement a lease act instead of composing it:\n  "
         .implode("\n  ", $offenders));
+
+    // Vacuity guard. The narrowing above is a filter, and a filter that matched nothing would make
+    // this test pass by examining no files at all — the exact way a gate stops gating.
+    expect($examined)->toBeGreaterThan(0, 'The sweep examined no lease relation managers at all.');
 });

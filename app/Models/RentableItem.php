@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UnitOwnershipStatus;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
@@ -10,7 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -107,31 +108,84 @@ class RentableItem extends Model
         return $this->belongsTo(Floor::class);
     }
 
-    /** @return BelongsToMany<Lease, $this> */
-    public function leases(): BelongsToMany
+    /**
+     * The leases holding this item.
+     *
+     * `morphedByMany` since 2026-08-19 — see {@see holdingsOn} for why the holder is an agreement
+     * rather than a lease.
+     *
+     * @return MorphToMany<Lease, $this>
+     */
+    public function leases(): MorphToMany
     {
-        return $this->belongsToMany(Lease::class, 'lease_rentable_item')
+        return $this->morphedByMany(Lease::class, 'holder', 'rentable_item_holdings')
             ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
             ->withTimestamps();
     }
 
     /**
-     * Is this item held by a lease on the given day?
+     * The unit ownerships holding this item — an owner-occupier who bought his shop and rents a bay
+     * with it.
+     *
+     * @return MorphToMany<UnitOwnership, $this>
+     */
+    public function ownerships(): MorphToMany
+    {
+        return $this->morphedByMany(UnitOwnership::class, 'holder', 'rentable_item_holdings')
+            ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Is this item held by ANY live agreement on the given day?
+     *
+     * **This is the double-let guard, and it must see every kind of holder.** Until 2026-08-19 it
+     * asked only about leases, which was correct while a lease was the only agreement that could
+     * hold a bay — and would have become a real double-let the moment an ownership could, because a
+     * bay held by an owner would have looked free to the next lease.
      *
      * Date-ranged like the premises (`lease_unit`): an item released at the end of March is still
-     * held on 31 March, and free on 1 April. A null `effective_to` means open-ended.
+     * held on 31 March and free on 1 April. A null `effective_to` is open-ended.
+     *
+     * "Live" differs by holder, so it is asked per holder rather than flattened: a lease counts
+     * while `active` or `pending_approval`, an ownership while it is not `transferred` — a sold-on
+     * unit's former owner holds nothing.
+     *
+     * @param  array{type: string, id: int}|null  $ignore  a holding to disregard, so re-assigning
+     *                                                     an item to its own current holder is not
+     *                                                     refused as a clash with itself
      */
-    public function isHeldOn(?CarbonImmutable $on = null, ?int $ignoreLeaseId = null): bool
+    public function isHeldOn(?CarbonImmutable $on = null, ?array $ignore = null): bool
     {
         $on = $on ?? CarbonImmutable::now();
+        $date = $on->toDateString();
 
-        return $this->leases()
-            ->when($ignoreLeaseId, fn ($q, $id) => $q->where('leases.id', '!=', $id))
+        $dated = fn ($q) => $q
+            ->where(fn ($w) => $w->whereNull('rentable_item_holdings.effective_from')
+                ->orWhereDate('rentable_item_holdings.effective_from', '<=', $date))
+            ->where(fn ($w) => $w->whereNull('rentable_item_holdings.effective_to')
+                ->orWhereDate('rentable_item_holdings.effective_to', '>=', $date));
+
+        $heldByLease = $this->leases()
+            ->when(
+                $ignore && $ignore['type'] === 'lease',
+                fn ($q) => $q->where('leases.id', '!=', $ignore['id']),
+            )
             ->whereIn('leases.status', ['active', 'pending_approval'])
-            ->where(fn ($q) => $q->whereNull('lease_rentable_item.effective_from')
-                ->orWhereDate('lease_rentable_item.effective_from', '<=', $on->toDateString()))
-            ->where(fn ($q) => $q->whereNull('lease_rentable_item.effective_to')
-                ->orWhereDate('lease_rentable_item.effective_to', '>=', $on->toDateString()))
+            ->where($dated)
+            ->exists();
+
+        if ($heldByLease) {
+            return true;
+        }
+
+        return $this->ownerships()
+            ->when(
+                $ignore && $ignore['type'] === 'unit_ownership',
+                fn ($q) => $q->where('unit_ownerships.id', '!=', $ignore['id']),
+            )
+            ->where('unit_ownerships.status', '!=', UnitOwnershipStatus::Transferred->value)
+            ->where($dated)
             ->exists();
     }
 

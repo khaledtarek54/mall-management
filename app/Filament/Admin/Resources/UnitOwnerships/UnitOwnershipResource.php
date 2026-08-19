@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\UnitOwnerships;
 
 use App\Filament\Admin\RelationManagers\UnitOwnershipChargesRelationManager;
+use App\Filament\Admin\RelationManagers\UnitOwnershipRentableItemsRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
@@ -97,6 +98,11 @@ class UnitOwnershipResource extends Resource
     {
         return [
             UnitOwnershipChargesRelationManager::class,
+            // The bays, stores and signage this owner holds. Same screen as the lease's, because
+            // an operator who has let a bay to a tenant already knows how to let one to an owner —
+            // making the owner version look different would invent a distinction the business
+            // does not have.
+            UnitOwnershipRentableItemsRelationManager::class,
         ];
     }
 

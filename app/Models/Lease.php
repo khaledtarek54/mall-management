@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -552,9 +553,18 @@ class Lease extends Model implements BillableAgreement, HasMedia
      *
      * @return BelongsToMany<RentableItem, $this>
      */
-    public function rentableItems(): BelongsToMany
+    /**
+     * Parking bays, storage and signage this lease holds.
+     *
+     * A MORPH since 2026-08-19: the holder of a rentable item is the agreement with the ledger, not
+     * specifically a lease. That is Voyager's own model — rentable items are assigned to the
+     * customer RECORD (`docs/benchmarks/yardi/09-yardi-space-and-parking.md` §2, "assign Rentable
+     * Items … to both new and existing residents"), and in its condo product the unit owner simply
+     * is that record. A `UnitOwnership` therefore holds bays through the identical relation.
+     */
+    public function rentableItems(): MorphToMany
     {
-        return $this->belongsToMany(RentableItem::class, 'lease_rentable_item')
+        return $this->morphToMany(RentableItem::class, 'holder', 'rentable_item_holdings')
             ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
             ->withTimestamps();
     }

@@ -64,7 +64,7 @@ class LeasesTable
             // Filtered in PHP rather than SQL: "held on a date" is a date-ranged predicate over the
             // pivot that the model already owns, and duplicating it as a subquery is how the two
             // drift apart.
-            ->reject(fn (RentableItem $i) => $i->isHeldOn(null, ignoreLeaseId: $record->id))
+            ->reject(fn (RentableItem $i) => $i->isHeldOn(null, ignore: ['type' => 'lease', 'id' => (int) $record->id]))
             ->mapWithKeys(fn (RentableItem $i) => [
                 $i->id => $i->label().' · EGP '.number_format((float) $i->monthly_rate, 2),
             ])
@@ -76,8 +76,9 @@ class LeasesTable
     {
         // The negotiated rate comes from the pivot table directly: the relation carries no declared
         // pivot type to read through, and this is one query either way.
-        $rates = DB::table('lease_rentable_item')
-            ->where('lease_id', $record->id)
+        $rates = DB::table('rentable_item_holdings')
+            ->where('holder_type', 'lease')
+            ->where('holder_id', $record->id)
             ->whereNull('effective_to')
             ->pluck('monthly_rate', 'rentable_item_id');
 

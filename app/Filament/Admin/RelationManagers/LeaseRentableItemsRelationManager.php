@@ -6,6 +6,7 @@ use App\Filament\Admin\Actions\LeaseActions;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
+use App\Support\RentableItemOptions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -114,7 +115,7 @@ class LeaseRentableItemsRelationManager extends RelationManager
                             ->send();
                     }),
             ])
-            ->defaultSort('lease_rentable_item.effective_from', 'desc')
+            ->defaultSort('rentable_item_holdings.effective_from', 'desc')
             ->emptyStateIcon('heroicon-o-ticket')
             ->emptyStateHeading(__('admin.lease_rentable_items.empty_heading'))
             ->emptyStateDescription(__('admin.lease_rentable_items.empty_description'));
@@ -142,28 +143,15 @@ class LeaseRentableItemsRelationManager extends RelationManager
     }
 
     /**
-     * Items this lease could take: same property, in service, and not held by anyone on the day.
+     * Items this lease could take — through the shared, holder-agnostic list.
+     *
+     * This method used to build the list itself, and that copy is what drifted from the one in
+     * `LeaseActions`. One answer now, whichever surface asks.
      *
      * @return array<int, string>
      */
     protected function lettableOptions(): array
     {
-        $assetId = $this->lease()->unit?->asset_id;
-
-        if ($assetId === null) {
-            return [];
-        }
-
-        return RentableItem::query()
-            ->where('asset_id', $assetId)
-            ->where('status', '!=', RentableItem::STATUS_OUT_OF_SERVICE)
-            ->orderBy('code')
-            ->get()
-            ->reject(fn (RentableItem $item) => $item->isHeldOn())
-            ->mapWithKeys(fn (RentableItem $item) => [
-                $item->id => $item->code.' · '.(__('admin.enums.rentable_item_type')[$item->type] ?? $item->type)
-                    .' · '.number_format((float) $item->monthly_rate, 2).' EGP',
-            ])
-            ->all();
+        return RentableItemOptions::lettable($this->lease());
     }
 }

@@ -130,7 +130,7 @@ class LeaseRenewalService
             //   LeasePercentageRentTier `has_percentage_rent` and the `tiered` type DO carry, so
             //                           the lease reads as configured — while `ladderFor()` returns
             //                           empty and the overage is 0.00 every single month.
-            //   lease_rentable_item     the parking bays, storage and signage the tenant is paying
+            //   rentable_item_holdings  the parking bays, storage and signage the tenant is paying
             //                           for. Not carried, not billed, not noticed.
             //
             // Copied by `replicate()` rather than a field list, for the same reason the header is

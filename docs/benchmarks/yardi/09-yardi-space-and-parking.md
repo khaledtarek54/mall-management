@@ -48,6 +48,14 @@ And *(cited)* a **new rentable item mid-month prorates**, exactly like a mid-mon
 So in Yardi terms parking is: an item register + an assignment + a dated recurring charge on a
 charge code. Not a space, and not a bespoke module.
 
+> **Read "resident" as the CUSTOMER RECORD, not as "lease" (clarified 2026-08-19).** Atriom
+> implemented the assignment against a lease, because a lease was the only agreement it had when
+> rentable items were built — and that quietly excluded the unit owner, who in Voyager Condo/Co-Op
+> is himself the customer record that dues post to. The pivot is now polymorphic over
+> `BillableAgreement`, so a tenant holds a bay through a lease and an owner-occupier through his
+> ownership, each billed on its own schedule. Nothing about Voyager's model changed here; what
+> changed is that Atriom had read one word more narrowly than the benchmark meant it.
+
 ## 3. Why the separation is a money rule, not a modelling preference
 
 The industry definition backs it independently of Yardi:

@@ -4,8 +4,10 @@ namespace App\Contracts;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\RentableItem;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 /**
  * Something that gives a party the right to occupy a unit, and bills them for it.
@@ -76,6 +78,19 @@ interface BillableAgreement
      * @return HasMany<Charge, $this>
      */
     public function charges(): HasMany;
+
+    /**
+     * Parking bays, storage or signage this agreement holds.
+     *
+     * On the contract since 2026-08-19, when the holder of a rentable item stopped being
+     * specifically a lease. Voyager assigns rentable items to the customer RECORD
+     * (`docs/benchmarks/yardi/09-yardi-space-and-parking.md` §2), and its condo product makes the
+     * unit owner that record — so "who can hold a bay" is exactly "who can be billed", which is
+     * what this interface already means.
+     *
+     * @return MorphToMany<RentableItem, covariant self>
+     */
+    public function rentableItems(): MorphToMany;
 
     /**
      * The columns that record WHICH agreement raised an invoice.

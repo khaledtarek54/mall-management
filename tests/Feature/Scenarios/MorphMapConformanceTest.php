@@ -204,6 +204,10 @@ it('knows every polymorphic column, including the ones no application code owns'
         'notifications.notifiable_type',
         'personal_access_tokens.tokenable_type',
         'posting_month_overrides.source_type',
+        // Added 2026-08-19 when a rentable item's holder became an AGREEMENT rather than
+        // specifically a lease — a tenant holds a bay through a lease, an owner-occupier through
+        // his unit ownership. Both are `BillableAgreement`, which is why the pivot morphs.
+        'rentable_item_holdings.holder_type',
         'stock_movements.source_type',
         'tenant_request_comments.author_type',
         'tenant_sales_declarations.declared_by_type',

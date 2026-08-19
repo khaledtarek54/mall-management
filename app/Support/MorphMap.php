@@ -115,7 +115,8 @@ use Spatie\Permission\Models\Role;
  * **The alias every polymorphic column stores, instead of a class name.**
  *
  * Without this, `activity_log.subject_type`, `journal_entries.source_type`, `media.model_type`,
- * `notes.noteable_type`, `stock_movements.source_type` and `posting_month_overrides.source_type`
+ * `notes.noteable_type`, `stock_movements.source_type`, `posting_month_overrides.source_type`
+ * and `rentable_item_holdings.holder_type`
  * all hold fully-qualified class names — which makes a class name part of the DATABASE SCHEMA.
  * Renaming a model then silently strands every row that quoted it, and the damage is worst exactly
  * where it is least visible: `LedgerPoster::sync()` re-reads a posted entry's source to decide

@@ -72,6 +72,15 @@
 > blocked on two accounting answers rather than on code (§8).
 
 
+
+### An owner can hold a parking bay (2026-08-19)
+
+`UnitOwnership` holds rentable items through the same polymorphic pivot a lease does, and the bay's
+charge joins this agreement's schedule — so it bills on the monthly صيانة assessment run alongside
+the service charge. Voyager's condo model, where the owner IS the customer record that rentable
+items are assigned to. Screen: a **Rentable items** tab on the ownership, deliberately identical to
+the lease's. See [modules/35](35-rentable-items.md).
+
 ## 1. Purpose & business context
 
 Egyptian malls sell units (تمليك) as well as leasing them. The buyer pays no rent, but owes the

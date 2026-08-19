@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -249,6 +250,24 @@ class UnitOwnership extends Model implements BillableAgreement
      *
      * @return HasMany<Charge, $this>
      */
+    /**
+     * Parking bays, storage or signage this owner holds alongside his unit.
+     *
+     * Voyager's model, not an extension of it: a rentable item is assigned to the customer RECORD
+     * (`docs/benchmarks/yardi/09-yardi-space-and-parking.md` §2), and in Voyager Condo/Co-Op the
+     * unit owner IS that record. The bay bills as an ordinary recurring charge on this agreement's
+     * schedule — which for an owner is the monthly صيانة assessment run — exactly as it bills on a
+     * lease's schedule for a tenant. Operator's decision, 2026-08-19.
+     *
+     * @return MorphToMany<RentableItem, $this>
+     */
+    public function rentableItems(): MorphToMany
+    {
+        return $this->morphToMany(RentableItem::class, 'holder', 'rentable_item_holdings')
+            ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
+            ->withTimestamps();
+    }
+
     public function charges(): HasMany
     {
         return $this->hasMany(Charge::class);

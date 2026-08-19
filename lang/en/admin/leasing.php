@@ -280,6 +280,7 @@ return [
     ],
 
     'unit_ownerships' => [
+        'rentable_items_empty' => 'This owner holds no parking bays, storage or signage yet. Assign one and its charge joins the monthly assessment.',
         'charges' => [
             'title' => 'Assessment schedule',
             'add' => 'Add assessment',

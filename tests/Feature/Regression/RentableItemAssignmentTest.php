@@ -195,7 +195,7 @@ it('refuses to let the SAME lease take the same bay twice', function () {
     expect(fn () => $service->assign($lease->fresh(), $item->fresh(), ['effective_from' => '2026-04-01']))
         ->toThrow(DomainException::class);
 
-    expect(DB::table('lease_rentable_item')->count())->toBe(1)
+    expect(DB::table('rentable_item_holdings')->count())->toBe(1)
         ->and((float) $lease->fresh()->charges()->where('type', 'parking')->sole()->amount)->toBe(900.0);
 });
 

@@ -22,6 +22,7 @@ use App\Services\SettleMoveOutService;
 use App\Settings\BillingSettings;
 use App\Support\Filament\EntitySelect;
 use App\Support\LeaseTerm;
+use App\Support\RentableItemOptions;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -35,7 +36,6 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\DB;
 
 /**
  * **Everything you can DO to a lease, defined once.**
@@ -1037,49 +1037,24 @@ class LeaseActions
     }
 
     /**
-     * Items this lease could take: same property, free on the day, not withdrawn.
+     * Items this lease could take, and what it already holds.
+     *
+     * Both delegate to `App\Support\RentableItemOptions`, which is holder-agnostic — the same two
+     * lists serve a unit ownership's bays. They lived here as private statics AND again inside
+     * `LeaseRentableItemsRelationManager`, and the copies drifted (2026-08-18): one picker searched
+     * a raw column, the other the folded blob, so the same act found different things depending on
+     * which button you pressed.
      *
      * @return array<int, string>
      */
     private static function lettableItemOptions(Lease $record): array
     {
-        $assetId = $record->unit?->asset_id;
-
-        if (! $assetId) {
-            return [];
-        }
-
-        return RentableItem::query()
-            ->where('asset_id', $assetId)
-            ->where('status', '!=', RentableItem::STATUS_OUT_OF_SERVICE)
-            ->orderBy('code')
-            ->get()
-            // Filtered in PHP rather than SQL: "held on a date" is a date-ranged predicate over the
-            // pivot that the model already owns, and duplicating it as a subquery is how the two
-            // drift apart.
-            ->reject(fn (RentableItem $i) => $i->isHeldOn(null, ignoreLeaseId: $record->id))
-            ->mapWithKeys(fn (RentableItem $i) => [
-                $i->id => $i->label().' · EGP '.number_format((float) $i->monthly_rate, 2),
-            ])
-            ->all();
+        return RentableItemOptions::lettable($record);
     }
 
     /** @return array<int, string> */
     private static function heldItemOptions(Lease $record): array
     {
-        // The negotiated rate comes from the pivot table directly: the relation carries no declared
-        // pivot type to read through, and this is one query either way.
-        $rates = DB::table('lease_rentable_item')
-            ->where('lease_id', $record->id)
-            ->whereNull('effective_to')
-            ->pluck('monthly_rate', 'rentable_item_id');
-
-        return $record->rentableItems()
-            ->wherePivotNull('effective_to')
-            ->get()
-            ->mapWithKeys(fn (RentableItem $i) => [
-                $i->id => $i->label().' · EGP '.number_format((float) ($rates[$i->id] ?? 0), 2),
-            ])
-            ->all();
+        return RentableItemOptions::held($record);
     }
 }
