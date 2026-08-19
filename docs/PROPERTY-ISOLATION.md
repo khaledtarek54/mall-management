@@ -181,6 +181,23 @@ property to pin to).
 any `Edit*` page that declares its own `form()` / `getFormSchema()` / `content()` and would step
 outside that inheritance silently.
 
+### The two paths a property-less row can still take
+
+Pinning the pickers closes the operator's path and leaves the two that run before anyone looks at a
+screen: a CSV **import**, and a **migration** off the system the operator is leaving. A row from
+either is not merely mis-filed — `portfolioRowsWhenNull: true` puts it on **every** mall's list, it
+reaches no mall's owner statement (`GenerateOwnerStatementRunService` scopes
+`where('asset_id', $asset->id)`), and nothing about it looks wrong on screen.
+
+`php artisan atriom:audit-property-dimension` sweeps every model declaring
+`#[PropertyOwned(portfolioRowsWhenNull: true)]` and **exits non-zero** when a money document names
+no property — the same pre-deploy contract as `atriom:audit-charge-schedules`, rather than a report
+somebody remembers to read. Which nulls are *expected* is **derived** from
+`PropertyField::PORTFOLIO_LEVEL` (a global department is the normal answer for `Department`), so the
+command and the screens cannot disagree; a second hand-written list here would cry wolf on every run
+until people stopped reading it. It is read-only and never repairs a row — the correction for a
+posted entry is a reversing entry, which is not a decision a sweep should take on money.
+
 ## The self-enforcing gate
 
 **[`tests/Feature/Scenarios/PropertyIsolationConformanceTest.php`](../tests/Feature/Scenarios/PropertyIsolationConformanceTest.php)**

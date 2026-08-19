@@ -68,6 +68,7 @@ php artisan atriom:rebuild-search         # re-fold every search_text blob (afte
 php artisan atriom:backfill-notification-locales # teach bell rows written before 2026-08-12 both languages + their deep link (dry-run; --commit, --refresh)
 php artisan atriom:project-lease-schedules # backfill the contracted rent ladder onto pre-schedule leases (dry-run; --commit to write)
 php artisan atriom:audit-charge-schedules # PRE-DEPLOY/PRE-IMPORT: leases whose charge rows overlap (bill NOTHING), gap, or carry no start date; exits non-zero
+php artisan atriom:audit-property-dimension # PRE-DEPLOY/PRE-IMPORT: money documents filed against NO property — they show on EVERY mall and reach no owner statement; exits non-zero
 php artisan atriom:dump-system-census     # regenerate the census in docs/PROJECT-MAP.md
 php artisan atriom:dump-registries        # regenerate the registry-derived doc sections (GL sources, isolation)
 php artisan atriom:dump-admin-manifest    # regenerate the E2E resource manifest
