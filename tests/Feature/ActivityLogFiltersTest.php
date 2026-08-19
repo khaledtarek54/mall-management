@@ -2,11 +2,18 @@
 
 use App\Filament\Admin\Pages\ActivityLog;
 use Carbon\CarbonImmutable;
+use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
+    // Seeded 2026-08-19. `ActivityLog::canAccess()` moved from an inline role list to the
+    // `activity_log.view` PERMISSION, and with no permission catalogue in the database the page
+    // refuses to mount — so `getTable()` was null and all eight cases died inside Filament's own
+    // test helper, with an error that says nothing about authorisation.
+    $this->seed(RolesPermissionsSeeder::class);
+
     ensureAllPropertiesAsset();
     $this->actingAs(makeUser('super_admin'));
     Filament::setTenant(makeAsset(['code' => 'HW']));

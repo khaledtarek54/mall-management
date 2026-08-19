@@ -28,6 +28,7 @@ return [
             'charge_code' => 'Charge code',
             'rent_index' => 'Rent index',
             'lease_clause' => 'Lease clause',
+            'work_permit' => 'Permit to work',
             'tenant_document' => 'Tenant document',
             'account_mapping' => 'Posting map row',
             'floor' => 'Floor',

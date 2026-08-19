@@ -2,6 +2,7 @@
 
 return [
     'navigation' => [
+        'work_permits' => 'Work permits',
         'rent_indices' => 'Rent indices',
         'property_overrides' => 'Property overrides',
         'vat_return' => 'VAT return',
@@ -63,6 +64,10 @@ return [
     ],
 
     'resources' => [
+        'work_permit' => [
+            'singular' => 'Permit to work',
+            'plural' => 'Permits to work',
+        ],
         'utility_tariff' => [
             'singular' => 'Utility Tariff',
             'plural' => 'Utility Tariffs',
@@ -121,6 +126,7 @@ return [
     ],
 
     'permission_modules' => [
+        'work_permits' => 'Work permits',
         'budget' => 'Budget',
         'unit_ownerships' => 'Unit owners',
         'rent_indices' => 'Rent indices',

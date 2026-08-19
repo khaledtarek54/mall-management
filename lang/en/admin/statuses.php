@@ -148,6 +148,20 @@ return [
     ],
 
     'enums' => [
+        'work_permit_type' => [
+            'hot_work' => 'Hot work',
+            'electrical_isolation' => 'Electrical isolation',
+            'working_at_height' => 'Working at height',
+            'confined_space' => 'Confined space',
+            'excavation' => 'Excavation',
+            'general' => 'General',
+        ],
+        'work_permit_status' => [
+            'draft' => 'Draft',
+            'issued' => 'Issued',
+            'closed' => 'Closed',
+            'cancelled' => 'Cancelled',
+        ],
         'lease_clause_type' => [
             'use' => 'Permitted use',
             'exclusivity' => 'Exclusivity',

@@ -148,6 +148,20 @@ return [
     ],
 
     'enums' => [
+        'work_permit_type' => [
+            'hot_work' => 'أعمال ساخنة',
+            'electrical_isolation' => 'عزل كهربائي',
+            'working_at_height' => 'العمل على ارتفاع',
+            'confined_space' => 'أماكن مغلقة',
+            'excavation' => 'حفر',
+            'general' => 'عام',
+        ],
+        'work_permit_status' => [
+            'draft' => 'مسودة',
+            'issued' => 'صادر',
+            'closed' => 'مغلق',
+            'cancelled' => 'ملغى',
+        ],
         'lease_clause_type' => [
             'use' => 'الاستخدام المسموح',
             'exclusivity' => 'حصرية النشاط',

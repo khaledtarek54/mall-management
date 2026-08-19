@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\RentIndices\Tables;
 
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -43,8 +45,25 @@ class RentIndicesTable
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->recordActions([
+                // The register had no row actions at all, so a keyed-wrong figure was correctable
+                // only by clicking the row — and `notes`, the field that explains an unusual
+                // reading, is truncated to 40 characters in the table and hidden by default. A
+                // read-only view is where the whole row is legible.
+                ViewAction::make(),
+
+                EditAction::make()
+                    ->visible(fn (): bool => self::canWrite())
+                    ->authorize(fn (): bool => self::canWrite()),
+            ])
             // Newest month first: the figure somebody is about to enter is always the most recent
             // one, and the one they check against is the month before it.
             ->defaultSort('period', 'desc');
+    }
+
+    /** Named once so `visible()` and `authorize()` cannot drift — the double-gate rule. */
+    private static function canWrite(): bool
+    {
+        return auth()->user()?->can('rent_indices.edit') ?? false;
     }
 }

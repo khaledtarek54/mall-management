@@ -276,6 +276,25 @@ return [
         ],
     ],
 
+    'work_permits' => [
+        'purpose' => 'Written authorisation for hazardous contractor work — hot work, isolations, height, confined spaces — and the record that it was closed out safely.',
+        'steps' => [
+            'Draft the permit: what work, exactly where, who is doing it, and the hours it is allowed.',
+            'Write the conditions — fire watch, gas test, isolation certificate. The permit cannot be issued without them.',
+            'Issue it. Your name goes on the authorisation.',
+            'When the work stops, Close out and say what you checked.',
+        ],
+        'affects' => [
+            'Nothing is billed or posted. This is a safety record.',
+            'A permit cannot be issued to a contractor who is blacklisted or whose compliance documents have lapsed — the same rule that stops them being dispatched to a work order.',
+            'Permits still open after their window are reported hourly to the property team, by email as well as the bell.',
+        ],
+        'rules' => [
+            'Bound the hours to when the work actually happens. A permit good for a whole day is one somebody uses at 19:00 after the fire officer has gone home.',
+            'A permit left open after its window is a finding, not a tidiness problem: it means nobody recorded that the work stopped and the area was made safe.',
+            'Closing late is allowed and preferred over cancelling — cancelling means the work never proceeded, which is a different fact.',
+        ],
+    ],
     'rent_indices' => [
         'purpose' => 'The published index figures that CPI-linked rents escalate against — you record what was published, the system does the arithmetic.',
         'steps' => [

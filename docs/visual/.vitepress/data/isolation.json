@@ -640,5 +640,11 @@
         "label": "Warehouse",
         "classification": "owned",
         "note": null
+    },
+    {
+        "model": "WorkPermit",
+        "label": "Work Permit",
+        "classification": "owned",
+        "note": null
     }
 ]

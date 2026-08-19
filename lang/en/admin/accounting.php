@@ -140,6 +140,8 @@ return [
         'vat_payable' => 'VAT payable',
         'accrued_expenses' => 'Accrued expenses',
         'salary_tax_payable' => 'Salary tax payable',
+        'stamp_tax_payable' => 'Stamp tax payable',
+        'schedule_tax_payable' => 'Schedule tax payable',
         'withholding_tax_payable' => 'Withholding tax payable',
         'social_insurance_payable' => 'Social insurance payable',
         'employee_deductions_payable' => 'Employee deductions payable',
@@ -176,6 +178,12 @@ return [
         'admin_expense' => 'Administrative',
         'depreciation_expense' => 'Depreciation',
         'bad_debt_expense' => 'Bad debt',
+
+        // Input stamp/schedule tax is an EXPENSE, not a receivable: neither has a credit
+        // mechanism the way input VAT does, so a `vat_recoverable`-shaped role here would grow
+        // a receivable nobody can ever collect.
+        'stamp_tax_expense' => 'Stamp tax (input, expensed)',
+        'schedule_tax_expense' => 'Schedule tax (input, expensed)',
         'inventory_adjustment' => 'Inventory adjustment',
         'loss_on_disposal' => 'Loss on asset disposal',
         'bank_charges' => 'Bank charges',

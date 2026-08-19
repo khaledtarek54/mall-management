@@ -99,6 +99,7 @@ class OwnerVisibility
      * @var array<string, string>
      */
     public const OPERATOR_INTERNAL = [
+        'work_permits' => "Eltizam's own safety process and the contractors it authorises. An owner reading it learns which firms work the building and how the operator controls them — the operator's management practice, not the property's income. Reclassify if an owner ever needs to evidence safety compliance to an insurer.",
         // ---- The operator's counterparties ----
         // Deliberately internal FOR NOW, and it is a decision rather than an oversight: the
         // register names the operator's buyers, their contract numbers and their purchase

@@ -2,6 +2,7 @@
 
 return [
     'navigation' => [
+        'work_permits' => 'تصاريح العمل',
         'rent_indices' => 'الأرقام القياسية',
         'property_overrides' => 'إعدادات خاصة بالعقار',
         'vat_return' => 'الإقرار الضريبي',
@@ -63,6 +64,10 @@ return [
     ],
 
     'resources' => [
+        'work_permit' => [
+            'singular' => 'تصريح عمل',
+            'plural' => 'تصاريح العمل',
+        ],
         'utility_tariff' => ['singular' => 'تعريفة مرافق', 'plural' => 'تعريفات المرافق'],
         'bank_statement' => ['singular' => 'كشف بنكي', 'plural' => 'كشوف البنك'],
         'bank_account' => ['singular' => 'حساب بنكي', 'plural' => 'الحسابات البنكية'],
@@ -118,6 +123,7 @@ return [
     ],
 
     'permission_modules' => [
+        'work_permits' => 'تصاريح العمل',
         'budget' => 'الموازنة',
         'unit_ownerships' => 'مُلّاك الوحدات',
         'rent_indices' => 'الأرقام القياسية',

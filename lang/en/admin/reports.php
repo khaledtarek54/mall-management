@@ -332,6 +332,7 @@ return [
         'credit_note_footer' => 'This is a computer-generated credit note and does not require a signature.',
     ],
     'document_types' => [
+        'work_permit' => 'Permit to work',
         'unit_ownership' => 'Unit ownership',
         'invoice' => 'Tax invoice',
         'credit_note' => 'Credit note',

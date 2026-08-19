@@ -140,6 +140,8 @@ return [
         'vat_payable' => 'ضريبة القيمة المضافة المستحقة',
         'accrued_expenses' => 'مصروفات مستحقة',
         'salary_tax_payable' => 'ضريبة كسب العمل المستحقة',
+        'stamp_tax_payable' => 'ضريبة الدمغة المستحقة',
+        'schedule_tax_payable' => 'ضريبة الجدول المستحقة',
         'withholding_tax_payable' => 'ضريبة الخصم والإضافة المستحقة',
         'social_insurance_payable' => 'التأمينات الاجتماعية المستحقة',
         'employee_deductions_payable' => 'استقطاعات الموظفين المستحقة',
@@ -176,6 +178,11 @@ return [
         'admin_expense' => 'مصروفات إدارية',
         'depreciation_expense' => 'الإهلاك',
         'bad_debt_expense' => 'ديون معدومة',
+
+        // ضريبة الدمغة والجدول على المدخلات مصروف وليست رصيدًا قابلًا للاسترداد: لا توجد آلية خصم
+        // كما في ضريبة القيمة المضافة، فدور على شكل vat_recoverable هنا ينشئ مدينًا لا يُحصَّل أبدًا.
+        'stamp_tax_expense' => 'ضريبة الدمغة (مدخلات، مصروف)',
+        'schedule_tax_expense' => 'ضريبة الجدول (مدخلات، مصروف)',
         'inventory_adjustment' => 'تسوية المخزون',
         'loss_on_disposal' => 'خسائر بيع الأصول',
         'bank_charges' => 'مصاريف بنكية',

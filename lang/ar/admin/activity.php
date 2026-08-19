@@ -28,6 +28,7 @@ return [
             'charge_code' => 'كود رسوم',
             'rent_index' => 'رقم قياسي',
             'lease_clause' => 'بند العقد',
+            'work_permit' => 'تصريح عمل',
             'tenant_document' => 'مستند مستأجر',
             'account_mapping' => 'سطر خريطة الترحيل',
             'floor' => 'طابق',

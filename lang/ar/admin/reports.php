@@ -331,6 +331,7 @@ return [
         'credit_note_footer' => 'هذا إشعار مُنشأ إلكترونيًا ولا يتطلب توقيعًا.',
     ],
     'document_types' => [
+        'work_permit' => 'تصريح عمل',
         'unit_ownership' => 'ملكية وحدة',
         'invoice' => 'فاتورة ضريبية',
         'credit_note' => 'إشعار دائن',

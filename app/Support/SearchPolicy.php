@@ -50,6 +50,7 @@ use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
+use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
 use App\Filament\Portal\Resources\Announcements\AnnouncementResource as PortalAnnouncementResource;
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource as PortalCamAllocationResource;
 use App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource as PortalMarketingPostResource;
@@ -189,6 +190,7 @@ class SearchPolicy
 
         // ---- Facility ----
         Models\FacilityWorkOrder::class,
+        Models\WorkPermit::class,
         Models\ServicePlan::class,
         Models\Equipment::class,
         Models\UtilityMeter::class,
@@ -287,6 +289,7 @@ class SearchPolicy
         DisbursementResource::class,
         OwnerStatementRunResource::class,
         LedgerAccountResource::class,
+        WorkPermitResource::class,
         ServicePlanResource::class,
         DepartmentResource::class,
         UserResource::class,

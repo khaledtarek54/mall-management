@@ -66,6 +66,9 @@ class DocumentNumbering
         // UO, not OWN: the series identifies the OWNERSHIP agreement over one unit, which is the
         // peer of a lease (LSE) and not of the property-owner records module 32 apportions to.
         'unit_ownership' => ['default' => 'UO', 'label' => 'Unit ownership'],
+        // PTW is the universal abbreviation for a permit to work; anyone in facilities reads it
+        // without being told, which matters on a document a contractor is handed at a gate.
+        'work_permit' => ['default' => 'PTW', 'label' => 'Permit to work'],
 
         // ── Counterparty codes ────────────────────────────────────────────────────────────────
         //

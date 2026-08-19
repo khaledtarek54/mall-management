@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'work_permits.view' => 'View the permit-to-work register',
+            'work_permits.create' => 'Draft a permit to work',
+            'work_permits.edit' => 'Edit a draft permit',
+            'work_permits.issue' => 'Issue, close or cancel a permit to work',
         ],
         'tax_codes' => [
             'tax_codes.view' => 'View the tax catalogue (rates and the dates they came into force)',
@@ -671,6 +675,10 @@ class RolesPermissionsSeeder extends Seeder
             'facility.edit', 'facility.complete',
             // Facility zones — operations owns the mall's operational layout.
             'areas.view', 'areas.create', 'areas.edit',
+            // The permit-to-work register. Operations authorises hazardous work because operations
+            // is who dispatches the contractor and who walks the site — separating the two would
+            // put the signature somewhere other than the accountability.
+            'work_permits.view', 'work_permits.create', 'work_permits.edit', 'work_permits.issue',
             // The unit register, READ-ONLY. Work orders and tenant requests route to a unit and a
             // zone, so operations must be able to open the shop it is being sent to — it could not,
             // measured (pre-staging QA, F-06). Create/edit stay with leasing: what a unit IS, and

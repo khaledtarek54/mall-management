@@ -91,6 +91,13 @@ final class ProjectedState
 
         'marketing_posts.status' => 'Swept by `marketing:expire-posts` on the display window.',
 
+        'work_permits.status' => 'The one that looks most like a projection and most deliberately is '.
+            'not. An issued permit whose window has passed is EXPIRED by the clock, and a sweep '.
+            'flipping it to `expired` would quietly close the audit question the register exists to '.
+            'ask: nobody recorded that the work stopped and the area was made safe. '.
+            '`facility:scan-open-permits` reports it hourly and writes nothing; `WorkPermit::hasLapsed()` '.
+            'derives it for the badge and the filter.',
+
         'lease_options.status' => 'A lapsed option is REPORTED by `leases:scan-option-windows` and '.
             'resolved by a person. Auto-lapsing a contractual right on a date would resolve a '.
             'negotiation the system is not party to.',

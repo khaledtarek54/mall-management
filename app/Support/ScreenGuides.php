@@ -86,6 +86,7 @@ use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
+use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
 use App\Filament\Portal\Pages\CompanyProfile;
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource;
 use Filament\Pages\Page;
@@ -208,6 +209,7 @@ class ScreenGuides
         // ── Configuration & access ────────────────────────────────────────────────────────────
         ChargeCodeResource::class => 'charge_codes',
         RentIndexResource::class => 'rent_indices',
+        WorkPermitResource::class => 'work_permits',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',
         ApprovalRuleResource::class => 'approval_rules',

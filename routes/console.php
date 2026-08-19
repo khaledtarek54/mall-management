@@ -259,6 +259,14 @@ Schedule::command('pdc:scan-maturing')
 // the arrangement — and it is invisible, because every cheque in the register clears on time
 // right up until the month the money simply stops. Weekly, not daily: the answer moves when a
 // batch is lodged, not overnight.
+// Permits to work whose window has passed with no closure recorded — the safety finding. HOURLY,
+// not daily: a permit is bounded to the hour, so a daily sweep could leave hazardous work
+// unaccounted for most of a day. Reports a state; writes nothing to the permit.
+Schedule::command('facility:scan-open-permits')
+    ->hourly()
+    ->name('atriom-scan-open-work-permits')
+    ->withoutOverlapping();
+
 Schedule::command('pdc:scan-coverage')
     ->weeklyOn(1, '08:00')
     ->name('atriom-scan-cheque-coverage')

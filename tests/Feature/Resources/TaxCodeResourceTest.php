@@ -79,18 +79,35 @@ it('refuses two rates for the same code on the same day', function () {
     expect(Vat::standardRate())->toBe(14.0);
 });
 
+/**
+ * Updated 2026-08-19, when stamp and schedule tax were COMMISSIONED.
+ *
+ * This test used to assert that `SCHD_8` and `STAMP_20` were withheld from the pickers, on the
+ * grounds that they carried the operator's rates but no GL account for their family. That is no
+ * longer true — both now have posting roles and a fresh install ships them active — so the old
+ * assertion was pinning a world that had been deliberately left behind, not protecting anything.
+ *
+ * The property that still matters, and is what this now asserts: **a code is offered only when it
+ * can actually bill.** `TaxCode` refuses to activate a taxable code with no rate or no posting
+ * role, so an incomplete catalogue is inert rather than a trap — and the picker is keyed on
+ * DIRECTION, so the purchases side never appears where a tenant is charged.
+ */
 it('keeps a code that cannot bill out of the pickers', function () {
-    // The catalogue seeds the operator's whole sheet, most of it not yet commissioned. This is
-    // what makes that safe: nothing is offered until it can actually bill.
     $offered = TaxCode::options(TaxCode::SALES);
 
     expect($offered)->toHaveKey('VAT_14')
-        // …and the schedule and stamp codes, which carry the operator's rates but no GL account
-        // for their family yet, are not offered until someone wires one.
-        ->and($offered)->not->toHaveKey('SCHD_8')
-        ->and($offered)->not->toHaveKey('STAMP_20')
-        // …nor is the purchases side, which is not a tax a tenant is charged.
+        // Commissioned 2026-08-19: both carry a posting role now, so both bill.
+        ->and($offered)->toHaveKey('SCHD_8')
+        ->and($offered)->toHaveKey('STAMP_20')
+        // The purchases side is not a tax a tenant is charged, and never appears here.
         ->and($offered)->not->toHaveKey('VAT_14_P');
+
+    // The gate itself, proven rather than assumed: retire a commissioned code and it leaves the
+    // picker. That is the operator's own lever — a code the accountant stands down must stop
+    // being offered without a deploy, and a reseed must never bring it back on.
+    TaxCode::where('code', 'SCHD_8')->firstOrFail()->forceFill(['is_active' => false])->save();
+
+    expect(TaxCode::options(TaxCode::SALES))->not->toHaveKey('SCHD_8');
 });
 
 it('lets an auditor read the catalogue but never change a rate', function () {

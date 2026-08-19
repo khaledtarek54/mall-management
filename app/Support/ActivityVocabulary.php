@@ -85,6 +85,8 @@ class ActivityVocabulary
         // stopped `expense.category` being handed the retail list: pick the group by what the
         // field is, never by which keys happen to overlap.
         'lease_clause.type' => 'admin.enums.lease_clause_type',
+        'work_permit.type' => 'admin.enums.work_permit_type',
+        'work_permit.status' => 'admin.enums.work_permit_status',
         'facility_work_order.status' => 'admin.facility.statuses',
         'marketing_budget.status' => 'admin.enums.marketing_budget_status',
         'marketing_post.status' => 'admin.marketing_posts.statuses',

@@ -1,6 +1,32 @@
 <?php
 
 return [
+    'work_permits' => [
+        'no_conditions' => 'No conditions stated. A permit with none is a note, not a control — it cannot be issued.',
+        'lapsed' => 'Overdue closure',
+        'sections' => ['work' => 'The work', 'who' => 'Who is doing it', 'window' => 'When it is permitted'],
+        'filters' => ['live' => 'Authorised right now', 'overdue' => 'Expired, not closed out'],
+        'actions' => [
+            'issue' => 'Issue permit',
+            'issue_hint' => 'This authorises the work under the conditions stated. Your name goes on it.',
+            'issued' => 'Permit :ref issued.',
+            'close' => 'Close out',
+            'closed' => 'Permit :ref closed out.',
+            'cancel' => 'Cancel permit',
+            'cancelled' => 'Permit :ref cancelled.',
+        ],
+        'help' => [
+            'type' => 'The hazard being controlled. Hot work covers welding, cutting and grinding.',
+            'description' => 'What is actually being done, in enough detail that someone can check it on site.',
+            'work_order' => 'The job this covers, if one has been raised.',
+            'location' => 'Where exactly — "roof plant room, chiller 2" beats a unit number.',
+            'vendor' => 'Leave empty for a contractor who is not in the vendor register.',
+            'contractor' => 'The person on site. This is who you stop if something is wrong.',
+            'valid_to' => 'To the hour. This is the whole control.',
+            'conditions' => 'The controls required — fire watch, gas test, isolation certificate, permitted hours. Required before the permit can be issued.',
+            'closure_notes' => 'What you checked: work stopped, area cleared, isolation removed.',
+        ],
+    ],
     'facility' => [
         'generate_due' => 'Generate due work orders',
         'generate_due_confirm' => 'Raises preventive work orders for every plan due today, exactly as the nightly run does. Plans that are not due are untouched.',

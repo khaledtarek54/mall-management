@@ -19,6 +19,7 @@ use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
+use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
 use App\Models\Announcement;
 use App\Models\FacilityWorkOrder;
 use App\Models\InventoryItem;
@@ -70,6 +71,7 @@ use App\Notifications\WorkOrderAssignedNotification;
 use App\Notifications\WorkOrderRaisedNotification;
 use App\Notifications\WorkOrderResponseSlaBreachedNotification;
 use App\Notifications\WorkOrderSlaBreachedNotification;
+use App\Notifications\WorkPermitOverdueNotification;
 
 /**
  * **Where every bell notification goes when the operator clicks it.**
@@ -228,6 +230,14 @@ final class NotificationTargets
         WorkOrderAssignedNotification::class => [
             'record' => [FacilityWorkOrder::class, 'work_order_id'],
             'admin' => FacilityWorkOrderResource::class,
+            'portal' => null,
+        ],
+        // Lands on the permit REGISTER, not on one permit: the alert counts a property's open
+        // permits, and what the operator does next is walk the list. The register's own overdue
+        // filter and its navigation badge carry the count from there.
+        WorkPermitOverdueNotification::class => [
+            'record' => null,
+            'admin' => WorkPermitResource::class,
             'portal' => null,
         ],
         WorkOrderSlaBreachedNotification::class => [

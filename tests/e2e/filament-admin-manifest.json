@@ -363,6 +363,13 @@
             "hasCreate": true,
             "hasEdit": true,
             "hasView": false
+        },
+        {
+            "class": "WorkPermitResource",
+            "slug": "work-permits",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
         }
     ],
     "pages": [

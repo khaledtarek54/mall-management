@@ -350,6 +350,14 @@ return [
     ],
 
     'errors' => [
+        'work_permit_window_inverted' => 'A permit must end after it begins.',
+        'work_permit_not_draft' => 'Only a draft permit can be issued.',
+        'work_permit_needs_conditions' => 'State the conditions before issuing. A permit with no conditions is a note, not a control.',
+        'work_permit_vendor_not_dispatchable' => '​:vendor cannot be dispatched — their status or compliance documents block it. Fix that before issuing a permit.',
+        'work_permit_not_issued' => 'Only an issued permit can be closed.',
+        'work_permit_needs_closure_notes' => 'Say what you checked. A closure with no note cannot show the area was left safe.',
+        'work_permit_needs_cancel_reason' => 'Give a reason for cancelling.',
+        'work_permit_terminal' => 'This permit is already closed or cancelled.',
         'unit_ownership_already_transferred' => 'This ownership has already been transferred — the unit is on its next owner\'s record.',
         'unit_ownership_buyer_not_owner' => 'The buyer must be recorded as a unit owner first — a retailer cannot hold a unit.',
         'unit_ownership_transfer_blocked_arrears' => 'EGP :amount is still outstanding on this unit. Settle it, or transfer over it deliberately — the resale certificate states the figure either way.',
@@ -468,6 +476,8 @@ return [
     ],
 
     'notifications' => [
+        'work_permit_overdue_title' => 'Permits to work left open',
+        'work_permit_overdue_body' => ':count permit(s) passed their validity without being closed out. Nobody has recorded that the work stopped and the area was made safe.',
         'tenant_document_expiring_title' => 'Tenant document expiring',
         'tenant_document_expired_title' => 'Tenant document lapsed',
         'tenant_document_expiring_body' => ':tenant — :document expires on :date (:days days). Chase the renewal.',

@@ -334,6 +334,14 @@ return [
     ],
 
     'errors' => [
+        'work_permit_window_inverted' => 'يجب أن ينتهي التصريح بعد بدايته.',
+        'work_permit_not_draft' => 'لا يمكن إصدار إلا التصريح المسودة.',
+        'work_permit_needs_conditions' => 'اذكر الشروط قبل الإصدار. التصريح بلا شروط ملاحظة وليس ضابطًا.',
+        'work_permit_vendor_not_dispatchable' => '​:vendor غير قابل للتكليف — حالته أو مستنداته تمنع ذلك. عالج هذا قبل إصدار تصريح.',
+        'work_permit_not_issued' => 'لا يمكن إغلاق إلا تصريح صادر.',
+        'work_permit_needs_closure_notes' => 'اذكر ما تم التحقق منه. الإغلاق بلا ملاحظة لا يثبت أن الموقع تُرك آمنًا.',
+        'work_permit_needs_cancel_reason' => 'اذكر سبب الإلغاء.',
+        'work_permit_terminal' => 'هذا التصريح مغلق أو ملغى بالفعل.',
         'unit_ownership_already_transferred' => 'تم نقل هذه الملكية بالفعل — الوحدة مسجّلة الآن باسم المالك التالي.',
         'unit_ownership_buyer_not_owner' => 'يجب تسجيل المشتري كمالك وحدة أولًا — لا يمكن لمستأجر أن يمتلك وحدة.',
         'unit_ownership_transfer_blocked_arrears' => 'ما زال مستحقًا على هذه الوحدة :amount جنيه. سدّدها أو انقل الملكية رغمها بقرار صريح — وشهادة نقل الملكية تذكر المبلغ في الحالتين.',
@@ -452,6 +460,8 @@ return [
     ],
 
     'notifications' => [
+        'work_permit_overdue_title' => 'تصاريح عمل لم تُغلق',
+        'work_permit_overdue_body' => 'انتهت صلاحية :count تصريح دون إغلاقها. لم يُسجّل أحد أن العمل توقف وأن الموقع أصبح آمنًا.',
         'tenant_document_expiring_title' => 'مستند مستأجر يقترب من الانتهاء',
         'tenant_document_expired_title' => 'مستند مستأجر منتهٍ',
         'tenant_document_expiring_body' => ':tenant — ينتهي :document في :date (خلال :days يومًا). تابع التجديد.',

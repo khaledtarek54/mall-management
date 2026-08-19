@@ -156,6 +156,43 @@ it('searches only fold-normalized blobs, never a raw column', function () {
     ]));
 });
 
+/**
+ * The OTHER half of "both sides go through SearchText", and the half nothing checked.
+ *
+ * Every gate above proves the STORED side is folded: the model has the trait, the column exists,
+ * the paths end in `search_text`. None of them proved the QUERY side folds — and a resource that
+ * declares `['search_text']` without `SearchesNormalizedText` hands Filament the operator's raw
+ * keystrokes to compare against a folded blob, so "PTW-2026" is matched against "ptw20260001" and
+ * finds nothing. It fails in total silence: no error, no empty state that looks wrong, just a
+ * search bar that reports the record does not exist.
+ *
+ * Caught on a live database, not by a test — `WorkPermitResource` shipped every other search gate
+ * green and returned zero hits for its own reference (2026-08-19).
+ */
+it('folds the QUERY side too, on every globally searchable resource', function () {
+    $unfolded = [];
+
+    foreach (searchPolicyResources() as $resource) {
+        if (SearchPolicy::isGlobalSearchExempt($resource)) {
+            continue;
+        }
+
+        // The trait, or an equivalent override declared on the class itself — what matters is that
+        // `applyGlobalSearchAttributeConstraints` is not Filament's stock one, which compares raw.
+        $method = new ReflectionMethod($resource, 'applyGlobalSearchAttributeConstraints');
+
+        if (! str_starts_with((string) $method->getDeclaringClass()->getName(), 'App\\')) {
+            $unfolded[] = class_basename($resource);
+        }
+    }
+
+    expect($unfolded)->toBe([], implode('', [
+        'These search a folded blob with an UNFOLDED query, so they match nothing an operator '.
+        'types with punctuation or in Arabic: '.implode(', ', $unfolded).'. ',
+        'Add `use App\\Filament\\Concerns\\SearchesNormalizedText;` to the resource.',
+    ]));
+});
+
 it('points every relation search path at a relation that exists and carries a blob', function () {
     // A typo'd relation path throws at search time, not at boot — so it ships green and breaks the
     // first time an operator types. A VALID relation whose model has no blob is worse: it throws

@@ -564,6 +564,12 @@
         "guide": "work_orders"
     },
     {
+        "screen": "WorkPermitResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "work_permits"
+    },
+    {
         "screen": "Workflows",
         "panel": "admin",
         "kind": "page",

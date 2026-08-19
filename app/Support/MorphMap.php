@@ -109,6 +109,7 @@ use App\Models\VendorContractAmendment;
 use App\Models\VendorDocument;
 use App\Models\Violation;
 use App\Models\Warehouse;
+use App\Models\WorkPermit;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -172,6 +173,7 @@ class MorphMap
         'charge_code' => ChargeCode::class,
         'rent_index' => RentIndex::class,
         'lease_clause' => LeaseClause::class,
+        'work_permit' => WorkPermit::class,
         'credit_note' => CreditNote::class,
         'credit_note_application' => CreditNoteApplication::class,
         'credit_note_item' => CreditNoteItem::class,

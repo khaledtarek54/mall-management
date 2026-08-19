@@ -777,6 +777,73 @@ The guard lives in `FacilityWorkOrderService::assertEvidencePresent()`, beside
 protects one screen. It throws a `DomainException`, so it renders as a toast telling the engineer
 what to do rather than a 500.
 
+### Permit to work — authorising hazardous contractor work (2026-08-19)
+
+**An EXTENSION, and flagged as one.** Voyager does not model safety permits — it is lease
+administration, and the benchmark folder has *zero* hits for hot work, isolation or permit-to-work.
+This follows the FM/CMMS standard, where ServiceChannel, Facilio and Maximo all treat a permit as
+core, and ordinary safety practice. The house rule is to name the Voyager construct or admit the
+invention: admitted.
+
+`work_permits` is a register, not a form. A contractor cutting or welding in a plant room,
+isolating a panel, or working above a trading floor is a risk the operator carries whether or not
+anyone wrote it down.
+
+**Two properties make it a control rather than paperwork, and both are load-bearing:**
+
+1. **Bounded to the HOUR.** `valid_from`/`valid_to` are datetimes. "Hot work permitted on Tuesday"
+   is not a permit; a permit good for a whole day is one somebody uses at 19:00 after the fire
+   officer has gone home.
+2. **It must be CLOSED, and an issued permit past its window with no closure is *the finding*.** It
+   means nobody recorded that the welding stopped and the area was checked — the first thing an
+   insurer or a safety auditor asks for. Like the post-dated-cheque coverage gap, it is invisible on
+   every screen that shows what EXISTS, because the missing thing is a closure that was never
+   written.
+
+**There is deliberately no `expired` status.** Expiry is a fact about the clock, not a decision
+anybody made, and a sweep flipping permits to `expired` would quietly close the very question the
+register exists to ask. `WorkPermit::hasLapsed()` derives it; `work_permits.status` is recorded in
+`App\Support\ProjectedState::NOT_PROJECTED` with that reasoning, precisely because it looks like a
+projection and must not become one.
+
+**Issuing reuses `Vendor::isDispatchable()`.** A contractor who is blacklisted or whose compliance
+documents have lapsed is exactly who a permit must not be issued to. `FacilityWorkOrder::saving`
+already refuses to dispatch them; a permit issued to the same contractor would be that hazard with
+a signature on it. Reusing the predicate rather than re-testing the conditions is what stops the
+permit becoming the one door left open. A permit with **no** registered vendor is allowed — a named
+individual, a tenant's own fitter — and then the contractor's name and phone are the record.
+
+**Issuing is its own right (`work_permits.issue`), separate from `work_permits.edit`.** Editing a
+draft and authorising hazardous work are not the same act, and the second is what a named person is
+accountable for.
+
+**Closing LATE is allowed; cancelling is not the same thing.** Refusing a late closure would leave
+the register permanently wrong about a job that did finish safely, and would push people to cancel
+instead — destroying the distinction between "closed late" and "never happened", which is the only
+distinction an auditor cares about. A closure requires a note: "closed" with nothing written is
+indistinguishable from somebody tidying a list.
+
+**Where the finding surfaces.** `facility:scan-open-permits` runs **hourly** (a permit is bounded to
+the hour, so a daily sweep could leave hazardous work unaccounted for most of a day), reports
+without writing, logs off-box through `OpsLog` and mails the property's managers and operations
+staff as well as belling them. It prints and logs the finding **before** it delivers anything —
+observed, not theorised: a rate-limited mail provider returning 429 aborted the sweep mid-notify and
+the operator saw a stack trace instead of the permits. The register carries the same count as a
+**danger navigation badge**, scoped through `TenantScope::visibleAssetIds()`, because an alert
+somebody dismissed on Friday is the whole reason the state persists.
+
+**The permit must be readable after it is issued.** Edit disappears the moment a permit is issued —
+correctly, a live authorisation is not a draft — so a View action renders the abstract as a native
+infolist, and the *same* abstract is shown inside the issue confirmation. The facts a person needs
+to authorise hazardous work are exactly the facts anyone needs to check it later, and a confirmation
+dialog that says only "are you sure?" asks a named person to accept a risk they cannot see. Missing
+conditions render in red rather than as a blank.
+
+**Separate from the tenant's fit-out permit, deliberately.** `TenantRequestType::Permit` is a TENANT
+asking permission through the portal (module 11). This is the OPERATOR authorising a contractor,
+often its own vendor, with no tenant involved. Folding them together would make a safety control
+lease-shaped — the same mistake that once keyed rentable items to a lease.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -793,6 +860,7 @@ what to do rather than a 500.
 | **8 — CM parts + approval (FR-CM-09/10/11, FR-INV-04)** | `facility_work_order_parts`: an internal draw is **requested** and moves stock only on approval (its own table, *not* a pending StockMovement — see the domain model), the approver resolved by part value through the generic `ApprovalPolicy` ladder and frozen onto the row, self-approval refused, external purchases recorded with vendor + invoice ref, parts relation manager on the work order | ✅ shipped |
 | **9 — Fault attribution + cost bearer (FR-CM-12/13)** | `fault_party` + derived `cost_bearer` on the work order with provenance, a manager-only ruling, a guard against blaming a tenant who doesn't exist, and `costBearer()` on outside-sourced parts reading the job's finding. **Record-only — the FRD says *determine* and *record*, never *bill*** (scope corrected 2026-07-16 by reading the source .docx; the earlier roadmap entry here promised a recharge the FRD never asked for). The recharge seam is designed, documented, and deliberately unbuilt. | ✅ shipped |
 | **10 — Close-out sweep (2026-07-26)** | **[HIGH · money] SLA-penalty sub-hour fix** — `hoursOverSla()` truncated a sub-hour overrun to 0, so a job minutes late escaped the penalty forever (and per-day mis-counted at the day boundary); now gated on `isSlaBreached()` + `daysOverSla()` (see §7g). **Notifications** — a raised work order (`WorkOrderRaisedNotification`, FRD MNT-2) and an assigned technician (`WorkOrderAssignedNotification`, sharp because `AssignmentScope` hides the rest) are no longer silent; owner Jawad now gets the CM-breach alert too (FR MNT-5 / NOT-2). | ✅ shipped |
+| **11 — Permit to work (2026-08-19, gap O5)** | `work_permits` + `WorkPermitService` (issue/close/cancel), hourly `facility:scan-open-permits` reporting permits past their window with no closure, property-scoped register with live/overdue filters and a danger navigation badge, `work_permits.issue` as a right of its own, readable abstract on View and inside the issue confirmation, folded global search on the reference. **An EXTENSION, not a Yardi construct** — see above | ✅ shipped |
 
 ---
 

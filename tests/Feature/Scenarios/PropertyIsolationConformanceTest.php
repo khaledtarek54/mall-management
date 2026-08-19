@@ -36,6 +36,7 @@ use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
+use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
 use App\Models\AccountMapping;
 use App\Models\Area;
 use App\Models\Asset;
@@ -155,6 +156,9 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'BankAccount' => BankAccountResource::class,
             'FacilityWorkOrder' => FacilityWorkOrderResource::class,
             'ServicePlan' => ServicePlanResource::class,
+            // A permit names the mall its work happens in, and the operator picks it: the property
+            // arrives in the Livewire payload like any other, so create AND edit re-validate it.
+            'WorkPermit' => WorkPermitResource::class,
             'PurchaseRequest' => PurchaseRequestResource::class,
             // Still auto-stamped (isScopedToTenant=true): no asset_id form field — Custody derives
             // its property from the chosen employee, so the create page guards employee->asset_id.

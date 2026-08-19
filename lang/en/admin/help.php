@@ -167,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'permit_valid_to' => 'A permit good for a whole day is one somebody uses at 19:00 when the fire officer has gone home. Bound it to the hours the work actually happens.',
         'escalation_index_lag_months' => 'A statistical agency publishes a month figure weeks later, so a January step cannot read January. State the gap the lease actually says.',
         'utility_tariff' => 'A meter follows a tariff so a decreed price change is entered once, not re-typed on every meter. Readings are priced at the rate in force on the reading\'s own date, so a back-filled reading keeps the old price.',
         'utility_effective_from' => 'A price change is a new rung, never an edit to the old one — that is what keeps a past reading explicable. A rung stays in force until the next one starts, so there is no end date to get wrong.',
@@ -239,6 +240,7 @@ return [
     ],
 
     'tooltips' => [
+        'work_permits_overdue' => 'Permits to work whose validity has passed with no closure recorded — nobody has confirmed the work stopped and the area was made safe.',
         'credit_notes_ready' => 'Credit notes issued with a remaining balance — ready to apply to invoices.',
         'vendor_contracts_expiring' => 'Vendor contracts expiring within 30 days.',
     ],
