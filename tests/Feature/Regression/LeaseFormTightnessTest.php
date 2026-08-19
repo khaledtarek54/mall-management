@@ -131,12 +131,37 @@ it('shows only the amount for a fixed-amount clause — a percent collar cannot 
         ->assertFormFieldIsHidden('escalation_ceiling_rate');
 });
 
-it('shows the rate and collar for CPI — the rate arms the anniversary and the collar clamps it', function () {
+/**
+ * CPI shows the INDEX clause and the collar — and deliberately NOT the stated rate.
+ *
+ * This test read the other way until 2026-08-19, and it was right at the time: a typed
+ * `escalation_rate` was the only way an index clause could be expressed while the sweep could not
+ * apply one at all. Now a CPI lease derives its rate from the index register, so leaving that box
+ * on the clause would offer a number the sweep ignores — the most confusing kind of field there is,
+ * because it looks like it decides something.
+ *
+ * The collar stays visible, and it is the term that matters most here: S4 of the Yardi benchmark is
+ * explicit that in Egypt, where CPI has run 20–35%, an uncollared index clause is one no tenant
+ * signs.
+ */
+it('shows the index clause and the collar for CPI, and hides the stated rate', function () {
     Livewire::test(CreateLease::class)
         ->fillForm(['escalation_type' => 'cpi'])
-        ->assertFormFieldIsVisible('escalation_rate')
+        ->assertFormFieldIsVisible('escalation_index_code')
+        ->assertFormFieldIsVisible('escalation_index_base_value')
+        ->assertFormFieldIsVisible('escalation_index_lag_months')
         ->assertFormFieldIsVisible('escalation_floor_rate')
+        ->assertFormFieldIsHidden('escalation_rate')
         ->assertFormFieldIsHidden('escalation_amount');
+});
+
+/** And the mirror: a stated-percentage clause shows no index fields. */
+it('hides the index clause for a stated-percentage lease', function () {
+    Livewire::test(CreateLease::class)
+        ->fillForm(['escalation_type' => 'fixed_percent'])
+        ->assertFormFieldIsVisible('escalation_rate')
+        ->assertFormFieldIsHidden('escalation_index_code')
+        ->assertFormFieldIsHidden('escalation_index_base_value');
 });
 
 it('clears the escalation terms when a lease is switched to none, so nothing survives unseen', function () {

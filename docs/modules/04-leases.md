@@ -721,6 +721,17 @@ the collar is load-bearing rather than decorative:
 - **No index named, or no base value → skip.** An incomplete clause is not a licence to guess, and
   a zero base is not divided into: an infinite step is not a better answer than none.
 
+### A falling index does not cut the rent, and does not move the base
+
+The clause says the rent increases by the index movement; nothing in it says it decreases. So a
+negative movement is skipped — and the base **stays where it was**. That second half is the part
+worth stating: if the base rolled down to the trough, the following year would charge the tenant
+for the index merely recovering ground the landlord never gave up. A real over-charge, arriving a
+year late, out of a year in which nothing appeared to happen.
+
+The anniversary DOES roll on a fall, unlike an unpublished month — a flat year is a year that
+happened, whereas a missing statistic is a year not yet answerable.
+
 ### Two decisions worth knowing
 
 **The base ROLLS FORWARD** on each application, so year two measures year-on-year rather than

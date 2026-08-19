@@ -134,7 +134,10 @@ class RentEscalationService
     }
 
     /**
-     * The percentage this lease's index has moved since its base — BEFORE the collar.
+     * The percentage the index has moved since this lease's base — BEFORE the collar.
+     *
+     * Takes the figure rather than fetching it, so the caller can read the register once and use
+     * the same number for both the rate and the new base.
      *
      * Null when the clause is incomplete (no index named, no base figure recorded) or the figure
      * for the period has not been published yet. Every one of those is a reason to WAIT, and the
@@ -145,19 +148,13 @@ class RentEscalationService
      * A base of zero returns null rather than dividing by it: a lease recorded with no base index
      * cannot be escalated against one, and an infinite step is not a better answer than none.
      */
-    private function indexRateFor(Lease $lease): ?float
+    private function indexRateFrom(Lease $lease, ?float $current): ?float
     {
         $base = $lease->escalation_index_base_value === null
             ? null
             : (float) $lease->escalation_index_base_value;
 
-        if ($base === null || $base <= 0.0) {
-            return null;
-        }
-
-        $current = $this->indexValueFor($lease, $lease->next_escalation_date);
-
-        if ($current === null) {
+        if ($base === null || $base <= 0.0 || $current === null) {
             return null;
         }
 
@@ -207,8 +204,18 @@ class RentEscalationService
             // not been published yet (or the clause is incomplete), and the answer to that is to
             // wait, never to invent: the sweep runs daily and will pick it up the day it lands,
             // which is Voyager's "it generates the row when the index publishes".
+            $indexFigure = null;
+
             if ($type === 'cpi') {
-                $indexRate = $this->indexRateFor($lease);
+                // Read ONCE and carry it. The rate and the new base both derive from this single
+                // figure, and they are separated by a call into `LeaseRentChangeService` — reading
+                // the register a second time down there would let the two disagree if anything in
+                // between ever touched `next_escalation_date`. It does not today; a base rolled to
+                // a figure the step was not measured from would be silent and would corrupt every
+                // step after it, which is too quiet a failure to leave to a call graph staying
+                // still.
+                $indexFigure = $this->indexValueFor($lease, $lease->next_escalation_date);
+                $indexRate = $this->indexRateFrom($lease, $indexFigure);
 
                 if ($indexRate === null) {
                     return 'skipped';
@@ -264,7 +271,7 @@ class RentEscalationService
             $roll = ['next_escalation_date' => $nextDate];
 
             if ($type === 'cpi') {
-                $roll['escalation_index_base_value'] = $this->indexValueFor($lease, $lease->next_escalation_date);
+                $roll['escalation_index_base_value'] = $indexFigure;
             }
 
             $lease->forceFill($roll)->save();

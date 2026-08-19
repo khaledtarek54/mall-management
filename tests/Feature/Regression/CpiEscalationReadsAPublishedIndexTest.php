@@ -219,3 +219,48 @@ it('reports an unpublished period as null rather than zero', function () {
         ->and(RentIndex::valueFor('EGY_CPI', CarbonImmutable::parse('2026-10-01')))->toBeNull()
         ->and(RentIndex::valueFor('OTHER', CarbonImmutable::parse('2026-09-01')))->toBeNull();
 });
+
+/**
+ * A FALLING index does not cut the rent, and — the part worth pinning — it does not move the base
+ * either.
+ *
+ * Rent is contractually one-way here: the clause says the rent increases by the index movement,
+ * and nothing in it says it decreases. The step is therefore skipped. But if the base rolled to the
+ * trough on the way through, the following year would charge the tenant for the index merely
+ * recovering ground the landlord never gave up — a real over-charge, arriving a year later, from a
+ * year in which nothing appeared to happen.
+ *
+ * The behaviour falls out of the early return for a non-positive step, which sits before the roll.
+ * Asserted rather than left to that ordering, because the ordering is the whole safety property.
+ */
+it('does not cut the rent, or move the base, when the index falls', function () {
+    $lease = cpiLease($this);
+
+    publishIndex('2026-09-01', 95); // −5%
+
+    app(RentEscalationService::class)->runForToday(CarbonImmutable::parse('2027-01-01'));
+
+    expect((float) $lease->fresh()->base_rent_monthly)->toBe(100000.0)
+        // Still 100, NOT 95 — next year is measured from where the rent actually stands.
+        ->and((float) $lease->fresh()->escalation_index_base_value)->toBe(100.0)
+        // The anniversary DID roll: a flat year is a year that happened, unlike an unpublished one.
+        ->and($lease->fresh()->next_escalation_date->toDateString())->toBe('2028-01-01');
+});
+
+/**
+ * And the year after a fall measures from the unchanged base, so the tenant pays only for real
+ * growth above the last applied level.
+ */
+it('charges only the growth above the last applied level after a fall', function () {
+    $lease = cpiLease($this);
+    $service = app(RentEscalationService::class);
+
+    publishIndex('2026-09-01', 95);
+    $service->runForToday(CarbonImmutable::parse('2027-01-01'));
+
+    // Back to 105: 5% above the base of 100, not 10.5% above the trough of 95.
+    publishIndex('2027-09-01', 105);
+    $service->runForToday(CarbonImmutable::parse('2028-01-01'));
+
+    expect((float) $lease->fresh()->base_rent_monthly)->toBe(105000.0);
+});
