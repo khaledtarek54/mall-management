@@ -263,14 +263,22 @@ it('leasing can edit a lease but cannot delete it', function () {
 |--------------------------------------------------------------------------
 */
 
-it('operations covers Maintenance / Vendors / UtilityMeters and nothing else', function () {
+it('operations covers Maintenance / Vendors / UtilityMeters, and reads the unit register', function () {
     assertViewCreate($this, 'operations', [
         'Maintenance' => [true, true],
         'Vendor' => [true, true],
         'UtilityMeter' => [true, true],
+        // READ-ONLY on the unit register, and deliberate (pre-staging QA F-06, `f0f00844`). Work
+        // orders and tenant requests route to a unit, so operations must be able to open the shop
+        // it is being dispatched to — measured against the running panel, it could not.
+        //
+        // Create/edit stay false, and that is the line: what a unit IS, and how big it is, is a
+        // leasing and valuation fact, not an operational one. This row read `[false, false]` until
+        // 2026-08-19 — the grant moved and the test did not, which is how a deliberate fix showed
+        // up as a red suite on main.
+        'Unit' => [true, false],
         // Forbidden.
         'Asset' => [false, false],
-        'Unit' => [false, false],
         'Tenant' => [false, false],
         'Lease' => [false, false],
         'TenantSales' => [false, false],

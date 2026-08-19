@@ -433,15 +433,23 @@ describe('property scoping', function () {
 describe('reports.download permission', function () {
     beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
-    it('grants reports.download to viewer, accounting, manager, owner and super_admin', function () {
-        foreach (['viewer', 'accounting', 'manager', 'owner', 'super_admin'] as $role) {
+    it('grants reports.download to viewer, accounting, leasing, manager, owner and super_admin', function () {
+        // `leasing` joined this list on 2026-08-19 (pre-staging QA F-06, `f0f00844`) and the reason
+        // is worth keeping: every report page in the panel gates on this one permission, so the
+        // role that creates, renews and terminates leases could not open the rent roll or the
+        // expiration schedule — its two most-used screens — while the read-only `viewer` could open
+        // both. Measured against the running panel, not inferred.
+        foreach (['viewer', 'accounting', 'leasing', 'manager', 'owner', 'super_admin'] as $role) {
             expect(makeUser($role)->can('reports.download'))
                 ->toBeTrue("{$role} should hold reports.download");
         }
     });
 
-    it('withholds reports.download from leasing, operations, marketing and hr', function () {
-        foreach (['leasing', 'operations', 'marketing', 'hr'] as $role) {
+    it('withholds reports.download from operations, marketing and hr', function () {
+        // The control for the grant above: widening it to leasing must not have widened it to
+        // everyone. These three run the mall, the campaigns and the payroll — none of them needs
+        // the financial close pack, and a permission everybody holds is not a permission.
+        foreach (['operations', 'marketing', 'hr'] as $role) {
             expect(makeUser($role)->can('reports.download'))
                 ->toBeFalse("{$role} must NOT hold reports.download");
         }

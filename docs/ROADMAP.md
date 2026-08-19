@@ -102,6 +102,19 @@ not raised twice.
 
 ---
 
+> **⚠️ `main` was red on two tests for a day, and neither was a bug (found + fixed 2026-08-19).**
+> `AuthorizationMatrixTest` asserted `operations` cannot see the unit register, and
+> `ReportScenarioTest` asserted `leasing` cannot hold `reports.download`. Both grants had been
+> WIDENED deliberately in `f0f00844`, closing pre-staging finding F-06 with stated reasons —
+> operations could not open the shop it was being dispatched to, and the role that creates and
+> terminates leases could not open the rent roll while a read-only viewer could. The policy moved
+> and its tests did not, so a well-reasoned fix presented as a broken suite.
+>
+> **This is the cost of CI being paused, in its purest form.** A red push is silent, so nothing
+> said either test had started failing; it surfaced only because someone ran the whole conformance
+> directory. Both tests now assert the current policy and carry the reason, so nobody "fixes" the
+> grants back. **Run `vendor/bin/pest --parallel` before every push.**
+
 ## 1. Where the project actually is
 
 Feature-complete against the original requirements and live in pilot with Eltizam. **All 37
