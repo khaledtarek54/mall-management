@@ -384,7 +384,21 @@ class GeneratePreventiveWorkOrdersService
         // The line carries `equipment_id`, which is the whole point — "Extinguisher 2-17 — fail"
         // stops being a string and becomes a fact about a device, so the round can report which
         // ones failed and 2-17's own history is no longer empty.
-        foreach ($plan->stops()->with('equipment')->get() as $stop) {
+        // **A decommissioned machine drops off the round, and the round still runs.** Found by
+        // review: a retired extinguisher kept appearing on the sheet, so an engineer was sent to
+        // inspect a device that is not there — and a `fail` recorded against it would be a fact
+        // about nothing.
+        //
+        // Skipped rather than refused, and the distinction is deliberate: one dead stop out of 42
+        // must not stop the other 41 being inspected. That differs from a SINGLE-target plan whose
+        // machine is retired, where generating is a visible prompt that the plan itself is now
+        // pointless — there, producing the job is the useful signal.
+        $stops = $plan->stops()
+            ->whereHas('equipment', fn ($q) => $q->where('is_active', true))
+            ->with('equipment')
+            ->get();
+
+        foreach ($stops as $stop) {
             $order->items()->create([
                 'equipment_id' => $stop->equipment_id,
                 // `Equipment::label()` is already "CODE — Name"; prefixing the code again gave

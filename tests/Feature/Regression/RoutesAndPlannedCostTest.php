@@ -177,3 +177,48 @@ it('leaves a job un-estimated when its plan carries no estimate', function () {
         ->and($order->est_total_cost)->toBeNull()
         ->and($order->costVariance())->toBeNull();
 });
+
+/*
+|--------------------------------------------------------------------------
+| Review pass (2026-08-20)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * **A decommissioned machine drops off the round, and the round still runs.**
+ *
+ * Found by review: a retired extinguisher kept appearing on the sheet, so an engineer was sent to
+ * inspect a device that is not there — and a `fail` recorded against it would be a fact about
+ * nothing. Skipped rather than refused, because one dead stop out of 42 must not stop the other 41
+ * being inspected.
+ */
+it('drops a retired machine from the round without stopping the round', function () {
+    $order = walkTheRound($this, ['EXT-2-01', 'EXT-2-02', 'EXT-2-03']);
+    expect($order->items()->whereNotNull('equipment_id')->count())->toBe(3);
+
+    Equipment::where('code', 'EXT-2-02')->update(['is_active' => false]);
+
+    $this->plan->update(['next_due_date' => '2026-06-01']);
+    app(GeneratePreventiveWorkOrdersService::class)->run('2026-06-01');
+    $next = $this->plan->workOrders()->latest('id')->first();
+
+    expect($next->items()->whereNotNull('equipment_id')->count())->toBe(2)
+        ->and($next->items()->with('equipment')->get()->pluck('equipment.code')->all())
+        ->toBe(['EXT-2-01', 'EXT-2-03']);
+});
+
+/**
+ * The control: a round whose machines are ALL retired still raises its job. The plan is the thing
+ * that should be retired at that point, and producing an empty round is the visible prompt — where
+ * silently generating nothing would look like the scan had failed.
+ */
+it('still raises the job when every machine on the round has been retired', function () {
+    walkTheRound($this, ['EXT-2-01', 'EXT-2-02']);
+    Equipment::where('asset_id', $this->asset->id)->update(['is_active' => false]);
+
+    $this->plan->update(['next_due_date' => '2026-06-01']);
+    app(GeneratePreventiveWorkOrdersService::class)->run('2026-06-01');
+
+    expect($this->plan->workOrders()->count())->toBe(2)
+        ->and($this->plan->workOrders()->latest('id')->first()->items()->count())->toBe(0);
+});

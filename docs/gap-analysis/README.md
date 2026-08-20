@@ -397,6 +397,14 @@ fail the build on that class: `ServiceReachabilityConformanceTest` (can a person
 start it?) and `BillableAgreementIsConfigurableConformanceTest` (can the data it needs be
 created?).
 
+### ✅ The close-out is COMPLETE — all seven steps shipped and reviewed (2026-08-20)
+
+Both structural absences are closed and the five gaps downstream of them with them. What remains in
+facility and operations is **O2** (the vendor self-service portal), **O3** (a field-technician mobile
+app), **O4** (conditions on a fit-out permit) and **O16** (barcode parts and guided cycle counts) —
+none of which is a missing primitive. They are surfaces for people who are not in the admin panel,
+which is a different kind of work from what this close-out did.
+
 ### The close-out order, and why it is this order
 
 | Step | What | Why here |

@@ -1292,6 +1292,13 @@ A stop is a **machine** specifically. A round over areas is a different shape an
 carries `area_id` for it; three nullable targets here would repeat an ambiguity rather than resolve
 one.
 
+**A decommissioned machine drops off the round, and the round still runs.** Found by review: a
+retired extinguisher kept appearing on the sheet, so an engineer was sent to inspect a device that
+is not there, and a `fail` recorded against it would be a fact about nothing. Skipped rather than
+refused — one dead stop out of 42 must not stop the other 41 being inspected. That differs from a
+single-target plan whose machine is retired, where generating the job is a useful prompt that the
+plan itself is now pointless.
+
 #### Planned cost — hours on the plan, money at generation
 
 Without an estimate on the plan, every job the preventive programme raises is un-estimated for ever
