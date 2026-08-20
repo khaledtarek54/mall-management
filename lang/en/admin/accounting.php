@@ -436,7 +436,8 @@ return [
         'no_open_invoices' => 'No open invoices — property is fully settled.',
         'no_recent_payments' => 'No payments captured in this period.',
         'truncated_note' => 'Showing :shown of :total. Download CSV from the invoices list for the full set.',
-        'footer' => 'This statement is computer-generated. For queries: billing@:slug.test',
+        'footer' => 'This statement is computer-generated.',
+        'footer_queries' => 'For queries',
     ],
 
     'ar_aging_by_type' => [

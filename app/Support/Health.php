@@ -78,6 +78,7 @@ class Health
             'demo_payments' => self::checkDemoPayments(),
             'mobile_reset_url' => self::checkMobileResetUrl(),
             'runtime_drivers' => self::checkRuntimeDrivers(),
+            'php_extensions' => self::checkPhpExtensions(),
             'translations' => self::checkTranslations(),
         ];
 
@@ -120,6 +121,42 @@ class Health
             disks: (array) config('backup.backup.destination.disks', []),
             environment: Deployment::name(),
         );
+    }
+
+    /**
+     * The extensions the SAPI serving THIS request is missing.
+     *
+     * Asked over HTTP on purpose. `composer install` already refuses on a box without them, but it
+     * runs under the CLI binary — and a box whose `php-fpm` lacks `intl` while `php-cli` has it
+     * installs cleanly, schedules cleanly, and throws on every money column in the panel. See
+     * {@see PhpExtensions}.
+     */
+    private static function checkPhpExtensions(): array
+    {
+        return self::phpExtensionState(PhpExtensions::missing());
+    }
+
+    /**
+     * The decision, taking its input explicitly so the red path can be driven in a test — the same
+     * shape {@see backupCapability()} uses, and for the same reason: a health row nobody has seen
+     * fail is decoration.
+     *
+     * @param  array<string, string>  $missing
+     */
+    public static function phpExtensionState(array $missing): array
+    {
+        if ($missing === []) {
+            return ['ok' => true, 'detail' => 'all required extensions loaded in this SAPI'];
+        }
+
+        return [
+            'ok' => false,
+            'detail' => implode(' · ', array_map(
+                fn (string $extension, string $breaks): string => "missing {$extension} — {$breaks}",
+                array_keys($missing),
+                $missing,
+            )),
+        ];
     }
 
     /**

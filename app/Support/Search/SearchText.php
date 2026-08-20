@@ -108,9 +108,11 @@ class SearchText
         // round-tripped through certain PDF extractors. Without this, the two
         // spellings of the SAME name would still not match after folding.
         //
-        // Guarded: ext-intl is present on this machine but is not declared in
-        // composer.json, so a deploy target without it must degrade to
-        // "pre-composed only" rather than fatal.
+        // Guarded, and kept guarded even though `ext-intl` IS declared now
+        // (composer.json, EG-06): the declaration stops a box installing without
+        // it, and `Health::checkPhpExtensions()` catches the CLI-has-it/FPM-does-not
+        // split. Neither can help a blob folded before either existed, so the
+        // degrade-to-"pre-composed only" path stays rather than becoming fatal.
         if (class_exists(\Normalizer::class)) {
             $value = \Normalizer::normalize($value, \Normalizer::FORM_D) ?: $value;
         }

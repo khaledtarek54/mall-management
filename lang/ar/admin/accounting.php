@@ -429,7 +429,8 @@ return [
         'no_open_invoices' => 'لا توجد فواتير مفتوحة — العقار مسوّى بالكامل.',
         'no_recent_payments' => 'لا توجد مدفوعات خلال هذه الفترة.',
         'truncated_note' => 'عُرض :shown من أصل :total. حمّل CSV من قائمة الفواتير للقائمة الكاملة.',
-        'footer' => 'هذا الكشف صادر آليًا. للاستفسارات: billing@:slug.test',
+        'footer' => 'هذا الكشف صادر آليًا.',
+        'footer_queries' => 'للاستفسارات',
     ],
 
     'ar_aging_by_type' => [

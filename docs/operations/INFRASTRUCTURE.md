@@ -361,7 +361,14 @@ AWS_USE_PATH_STYLE_ENDPOINT=true
 ## 10. Provisioning order (first build)
 
 1. Create Hetzner VPS (Ubuntu 24.04, Germany), add SSH key, create sudo user, apply [§9](#9-server-hardening).
-2. `apt` base + `ondrej/php` PPA → PHP 8.4 (+ `-fpm -mysql -redis -mbstring -xml -curl -zip -gd -bcmath -intl`), nginx, redis-server, composer, restic, cloudflared.
+2. `apt` base + `ondrej/php` PPA → PHP 8.4 (+ `-fpm -mysql -redis -mbstring -xml -curl -zip -gd -bcmath -intl -exif`), nginx, redis-server, composer, restic, cloudflared.
+   **Install them for FPM as well as CLI, and prove it over HTTP.** `composer install` runs under
+   `php-cli`; the money columns render under `php-fpm`. A box with `intl` in one and not the other
+   installs cleanly, schedules cleanly, passes `atriom:health` from the console — and throws on
+   every list, infolist and dashboard showing money. `App\Support\PhpExtensions` names the nine
+   extensions and what each costs; `/health` reports the ones missing from the SAPI that answered
+   the request, which is the only reading that settles it. `composer check-platform-reqs` is the
+   cheap CLI half.
 3. Create system users `atriom-prod` / `atriom-staging` + `/var/www/atriom-{prod,staging}`.
 4. Provision Aiven Managed MySQL (Amsterdam) → two DBs + two users ([§6](#6-managed-mysql-aiven-amsterdam)); allowlist the VPS IP. Download the CA cert — TLS is mandatory.
 5. Create Hetzner Object Storage buckets + Storage Box; drop restic credentials.

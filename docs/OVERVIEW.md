@@ -77,7 +77,7 @@ the same commit.
 | Tenant writes | **only admin `TenantUser`s** submit/pay in the portal; others read-only | Portal |
 | Terminal work-orders | closed/cancelled maintenance + responded owner-requests are **immutable** | Maintenance / Owner Requests |
 | Cross-tenant API | returns **404** (not 403) — no existence enumeration | Mobile API |
-| Document issuer | Every generated document — 12 PDFs, the invoice email, the hosted payment page — names the **operator**, resolved in one place from `TaxSettings::seller_legal_name`, never a template literal. A tax document (invoice **and** credit note) also carries `seller_tax_registration_number` and a taxable-value-by-rate split; both settings default to empty and the lines print only when set, because a placeholder TRN reads as valid and fails on audit | `App\Support\IssuingEntity` · `App\Support\VatSummary` |
+| Document issuer | Every generated document — 12 PDFs, the invoice email, the hosted payment page — names the **operator**, resolved in one place from `TaxSettings::seller_legal_name`, never a template literal. A tax document (invoice **and** credit note) also carries `seller_tax_registration_number` and a taxable-value-by-rate split; and every document may carry `seller_billing_email`, the address a tenant writes to about a bill. All three default to empty and each line prints ONLY when set, because a placeholder reads as valid and fails on use — which is exactly what happened: until 2026-08-21 the invoice, tenant statement and asset statement printed `billing@{property-slug}.test`, fabricated in the template from the mall's own name | `App\Support\IssuingEntity` · `App\Support\VatSummary` |
 
 ---
 

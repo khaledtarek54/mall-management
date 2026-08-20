@@ -1065,7 +1065,12 @@ To customize the PDF:
 > ever issued was unusable for the one purpose its title claims.
 >
 > - **Seller identity is operator-level** — `TaxSettings::seller_tax_registration_number` and
->   `seller_legal_name`, at Settings → Tax. Not on `Asset`: Eltizam is one registered entity
+>   `seller_legal_name`, at Settings → Tax. **The billing-enquiries address is the third particular**
+>   — `TaxSettings::seller_billing_email`, resolved through the same `IssuingEntity` and omitted
+>   from the footer when blank. Until 2026-08-21 all three documents printed a contact built in the
+>   Blade out of the property's name against the reserved `.test` TLD, so a tenant querying an
+>   invoice wrote to nobody and the operator never learned they had asked (EG-05).
+>   Not on `Asset`: Eltizam is one registered entity
 >   operating several malls, so the seller is the operator and the building is the trading address.
 >   If a second legal entity ever issues its own invoices this becomes a per-asset *override*, never
 >   a second copy of the field.

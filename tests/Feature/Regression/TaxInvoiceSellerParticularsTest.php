@@ -2,8 +2,8 @@
 
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Services\InvoicePdfService;
 use App\Settings\TaxSettings;
-use App\Support\IssuingEntity;
 use App\Support\VatSummary;
 use Illuminate\Support\Facades\View;
 use Tests\Support\TaxCatalogue;
@@ -27,18 +27,11 @@ use Tests\Support\TaxCatalogue;
  */
 function taxInvoiceHtml(Invoice $invoice): string
 {
-    $invoice->loadMissing(['items', 'tenant', 'lease.unit.asset']);
-    $asset = $invoice->lease?->unit?->asset;
-
-    return View::make('invoices.pdf', [
-        'invoice' => $invoice,
-        'tenant' => $invoice->tenant,
-        'lease' => $invoice->lease,
-        'unit' => $invoice->lease?->unit,
-        'asset' => $asset,
-        ...IssuingEntity::forView($asset),
-        'vatSummary' => VatSummary::forItems($invoice->items),
-    ])->render();
+    // Through the SERVICE's own resolution, not a copy of it. This helper used to re-derive the
+    // view data by hand, which meant it reproduced the service's bugs faithfully instead of
+    // catching them — including resolving `$asset` only through the lease, so it could not have
+    // seen that an owner-assessment invoice had no property and crashed the template.
+    return View::make('invoices.pdf', app(InvoicePdfService::class)->viewData($invoice))->render();
 }
 
 beforeEach(function () {

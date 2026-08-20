@@ -10,6 +10,9 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "ext-intl": "*",
+        "ext-mbstring": "*",
+        "ext-zip": "*",
         "filament/filament": "^4.0",
         "filament/spatie-laravel-media-library-plugin": "^4.0",
         "laravel/framework": "^13.7",

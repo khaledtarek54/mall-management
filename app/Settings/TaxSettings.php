@@ -67,6 +67,14 @@ class TaxSettings extends Settings
     /** The registered legal name, when it differs from the trading name on the property. */
     public string $seller_legal_name = '';
 
+    /**
+     * Where a tenant writes about a bill. Printed on invoices and statements; the line is OMITTED
+     * when this is blank, because a contact that does not exist is worse than none — it is trusted,
+     * used, and fails silently. (Until 2026-08-21 these documents printed `billing@…​.test`,
+     * fabricated in the template from the property's name.)
+     */
+    public string $seller_billing_email = '';
+
     public bool $wht_enabled = false;
 
     /**

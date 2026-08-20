@@ -252,6 +252,6 @@
         </table>
     @endif
 
-    <div class="footer">{{ __('admin.statement.footer', ['slug' => str()->slug($asset->name)]) }}</div>
+    <div class="footer">{{ __('admin.statement.footer') }}@if($billingEmail) {{ __('admin.statement.footer_queries') }}: {{ $billingEmail }}@endif</div>
 </body>
 </html>

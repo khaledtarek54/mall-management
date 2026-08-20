@@ -11,25 +11,49 @@ use Mpdf\Output\Destination;
 
 class InvoicePdfService
 {
-    public function build(Invoice $invoice): string
+    /**
+     * Everything the invoice template needs, resolved once.
+     *
+     * Public and separate from {@see build()} because mpdf is a renderer and the DOCUMENT is what
+     * anyone wants to assert on — so a test can read the HTML without re-deriving the data. It used
+     * to re-derive it: `TaxInvoiceSellerParticularsTest` kept its own copy of this array, which
+     * meant it reproduced the service's bugs faithfully instead of catching them.
+     */
+    public function viewData(Invoice $invoice): array
     {
-        $invoice->loadMissing(['items', 'tenant', 'lease.unit.asset']);
+        $invoice->loadMissing(['items', 'tenant', 'lease.unit.asset', 'unitOwnership.unit.asset', 'unitOwnership.asset']);
 
-        $isRtl = app()->getLocale() === 'ar';
-        $asset = $invoice->lease?->unit?->asset;
+        // An invoice's context is its AGREEMENT, and since module 37 that is a lease OR a unit
+        // ownership — `invoices.lease_id` became nullable when owners started being billed for
+        // صيانة. Resolving only through the lease left every assessment invoice with no unit, no
+        // property and therefore no issuer block, and the template then dereferenced the null lease
+        // and 500'd on every path that renders a PDF (list, edit, portal, API).
+        $ownership = $invoice->unitOwnership;
+        $unit = $invoice->lease?->unit ?? $ownership?->unit;
+        $asset = $unit?->asset ?? $ownership?->asset;
 
-        $html = View::make('invoices.pdf', [
+        return [
             'invoice' => $invoice,
             'tenant' => $invoice->tenant,
             'lease' => $invoice->lease,
-            'unit' => $invoice->lease?->unit,
+            'ownership' => $ownership,
+            'unit' => $unit,
             'asset' => $asset,
             // The seller particulars a tax invoice is legally required to carry, and the
             // taxable-value split its reader needs. Both shared with the credit note, which is the
             // same kind of document pointing the other way.
             ...IssuingEntity::forView($asset),
             'vatSummary' => VatSummary::forItems($invoice->items),
-        ])->render();
+        ];
+    }
+
+    public function build(Invoice $invoice): string
+    {
+        $data = $this->viewData($invoice);
+        $asset = $data['asset'];
+        $isRtl = app()->getLocale() === 'ar';
+
+        $html = View::make('invoices.pdf', $data)->render();
 
         $tempDir = storage_path('app/mpdf');
         if (! is_dir($tempDir)) {

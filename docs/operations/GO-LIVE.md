@@ -130,6 +130,17 @@ owner's own instruction; this row records the gate, it does not ask for work.)*
 - [ ] Rotate it, or delete the demo accounts, **before the URL is shareable**. Every seeded user —
       including `admin@mall.test` (super_admin) — uses it.
 
+### 1.7 PHP extensions must be present in FPM, not just in the CLI ⚙️
+
+`composer install --no-dev` already refuses on a box missing `intl`, `gd` or `zip` — the dependency
+tree requires them. **But composer runs under `php-cli` and the panel renders under `php-fpm`,** and
+a box with an extension in one and not the other passes every install-time and console-time check
+while throwing on every money column in the panel. One missing `.ini` symlink does it.
+
+- [ ] `curl -s https://<host>/health | jq '.checks.php_extensions'` — **over HTTP, not from the
+      console.** It names any missing extension and what it costs. The nine and their consequences
+      are in `App\Support\PhpExtensions`; `composer check-platform-reqs` covers only the CLI half.
+
 ---
 
 ## 2. 🔴 Questions only the ACCOUNTANT can answer

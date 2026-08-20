@@ -178,6 +178,7 @@ rows in this order:
 | `admin_access` | **OK** | Nobody holds `super_admin`; the login page will simply reject everyone. |
 | `mobile_reset_url` | **OK** | Set `APP_MOBILE_RESET_URL`, or mobile reset mail 404s for every tester. |
 | `runtime_drivers` | **OK** | Still on the `database` driver — staging is then not rehearsing the production topology. |
+| `php_extensions` | **OK** | An extension is in `php-cli` and not in `php-fpm`. Everything installs and schedules; every money column throws. Read it over HTTP — the console cannot see this. |
 | `demo_payments` | **OK** | `DEMO_PAYMENTS_ENABLED` is set. Unset it. See §2. |
 | `scheduler` | red until cron is installed, then **OK** | A dead scheduler silently takes billing, GL sync and backups with it. |
 | `two_factor` | red unless `SECURITY_FORCE_2FA_ROLES` is set | **Expected on posture A. Not acceptable on posture B.** |

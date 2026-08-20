@@ -212,11 +212,15 @@
                 @if($tenant->phone)<div class="party-line">{{ $tenant->phone }}</div>@endif
             </td>
             <td>
-                <div class="label">{{ __('admin.pdf.lease_reference') }}</div>
-                <div class="party-name">{{ $lease->reference }}</div>
+                {{-- A lease OR a unit ownership: `invoices.lease_id` is nullable since module 37,
+                     and an owner's صيانة assessment has no lease to name. --}}
+                <div class="label">{{ $lease ? __('admin.pdf.lease_reference') : __('admin.pdf.ownership_reference') }}</div>
+                <div class="party-name">{{ $lease?->reference ?? ($ownership?->reference ?? '—') }}</div>
                 <div class="party-line">{{ __('admin.pdf.unit') }} {{ $unit?->code ?? '—' }}@if($unit?->floor) · {{ __('admin.pdf.floor') }} {{ $unit->floor->code }}@endif</div>
                 @if($unit?->area_sqm)<div class="party-line">{{ number_format((float) $unit->area_sqm, 1) }} {{ __('admin.pdf.sqm') }}</div>@endif
-                <div class="party-line">{{ __('admin.pdf.term') }}: {{ $lease->commencement_date->format('d/m/Y') }} – {{ $lease->expiry_date->format('d/m/Y') }}</div>
+                @if($lease?->commencement_date && $lease?->expiry_date)
+                    <div class="party-line">{{ __('admin.pdf.term') }}: {{ $lease->commencement_date->format('d/m/Y') }} – {{ $lease->expiry_date->format('d/m/Y') }}</div>
+                @endif
             </td>
         </tr>
     </table>
@@ -329,7 +333,10 @@
     @endif
 
     <div class="footer">
-        {{ __('admin.pdf.footer', ['days' => $lease->payment_terms_days, 'slug' => str()->slug($asset?->name ?? 'mall')]) }}
+        {{ __('admin.pdf.footer', ['days' => $invoice->issue_date->diffInDays($invoice->due_date)]) }}
+        {{-- Printed only when configured, exactly as the seller TRN above is. A fabricated
+             address is worse than none: it is trusted, written to, and fails silently. --}}
+        @if($billingEmail) · {{ __('admin.pdf.footer_queries') }}: {{ $billingEmail }}@endif
     </div>
 </body>
 </html>

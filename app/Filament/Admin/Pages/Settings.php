@@ -388,6 +388,11 @@ class Settings extends Page implements HasSchemas
                         ->label(__('admin.settings.fields.seller_legal_name'))
                         ->helperText(__('admin.settings.fields.seller_legal_name_helper'))
                         ->maxLength(255),
+                    TextInput::make('tax.seller_billing_email')
+                        ->label(__('admin.settings.fields.seller_billing_email'))
+                        ->helperText(__('admin.settings.fields.seller_billing_email_helper'))
+                        ->email()
+                        ->maxLength(255),
                 ]),
             Section::make(__('admin.settings.sections.vat'))
                 ->description(__('admin.settings.sections.vat_description'))

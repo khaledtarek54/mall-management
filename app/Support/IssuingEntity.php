@@ -88,6 +88,19 @@ final class IssuingEntity
     }
 
     /**
+     * The address a counterparty writes to about a bill, or '' when unset.
+     *
+     * Same contract as {@see taxRegistrationNumber()} — empty means "not configured", and every
+     * template prints the line only when it is set. Parameterless for the reason given in the class
+     * docblock: the seller is the operator, not the building. A mall that genuinely needs its own
+     * billing address grows an override HERE, so every document keeps resolving it in one place.
+     */
+    public static function billingEmail(): string
+    {
+        return trim(app(TaxSettings::class)->seller_billing_email);
+    }
+
+    /**
      * The issuer block as view data, so a service states it in one line and no template has to reach
      * for a setting itself.
      *
@@ -96,7 +109,7 @@ final class IssuingEntity
      * names for one value where a template author would reasonably pick either — and get an
      * undefined variable on ten of the twelve documents. One key, one name.
      *
-     * @return array{issuerName: string, sellerLegalName: string, sellerTrn: string}
+     * @return array{issuerName: string, sellerLegalName: string, sellerTrn: string, billingEmail: string}
      */
     public static function forView(?Asset $asset = null): array
     {
@@ -104,6 +117,7 @@ final class IssuingEntity
             'issuerName' => self::tradingName($asset),
             'sellerLegalName' => self::legalName(),
             'sellerTrn' => self::taxRegistrationNumber(),
+            'billingEmail' => self::billingEmail(),
         ];
     }
 }

@@ -108,6 +108,8 @@ return [
             'seller_trn_helper' => 'Printed on every invoice PDF. Leave blank until you have the real number — a placeholder looks valid, gets filed by the tenant, and fails on audit.',
             'seller_legal_name' => 'Registered legal name',
             'seller_legal_name_helper' => 'Only if it differs from the property name shown on the invoice.',
+            'seller_billing_email' => 'Billing enquiries address',
+            'seller_billing_email_helper' => 'Printed on invoices and statements. Left blank, the line is omitted — better than an address nobody reads.',
             'wht_enabled' => 'Withhold tax on vendor payments',
             'wht_enabled_helper' => 'When on, every vendor payment splits: cash to the vendor and a liability to the ETA. Turn on only once your accountant has confirmed the rates.',
             'vat_rates_moved' => 'Tax rates',

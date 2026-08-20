@@ -65,6 +65,13 @@ php artisan storage:link            # once — PDFs/media links
 php artisan queue:restart           # workers pick up new code
 ```
 
+> **Prove the extensions in FPM, not just in the CLI.** `composer install` above already refuses on
+> a box missing `intl`, `gd` or `zip` — but it runs under `php-cli`, and the panel renders under
+> `php-fpm`. A box with an extension in one and not the other completes every line of this sequence
+> and then throws on every money column. After `queue:restart`, read
+> `curl -s https://<host>/health | jq '.checks.php_extensions'` **over HTTP**;
+> `composer check-platform-reqs` is the CLI half and cannot see the split.
+
 > **`npm run build` is not optional.** `public/build` is gitignored, so the compiled CSS
 > exists only where it was built. Since the panels moved to a custom Filament theme
 > (`resources/css/filament/theme.css`, which sets panel density in one place), Filament no
