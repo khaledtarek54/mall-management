@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderLabour;
 use App\Models\ServicePlan;
 use App\Models\Vendor;
 use App\Notifications\PreventiveGenerationFailedNotification;
@@ -349,6 +350,17 @@ class GeneratePreventiveWorkOrdersService
                 ? $eq->defaultWorkOrderPriority()
                 : 'medium',
             'scheduled_for' => $scheduledFor,
+            // **The plan's estimate, priced on the day the job is raised** (Maximo §3). Hours live
+            // on the plan and become money at the trade's rate NOW — storing a labour cost on the
+            // plan would freeze a rate for its whole life, which is exactly what `charges.vat_rate`
+            // did wrong before 2026-08-12. Without this the whole preventive programme is
+            // un-estimated for ever and `costVariance()` is null on every job it raises.
+            'est_labour_hours' => $plan->est_labour_hours,
+            'est_labour_cost' => $plan->est_labour_hours === null
+                ? null
+                : round((float) $plan->est_labour_hours * (float) (FacilityWorkOrderLabour::rateFor($plan->trade_id) ?? 0), 2),
+            'est_material_cost' => $plan->est_material_cost,
+            'est_service_cost' => $plan->est_service_cost,
             'department_id' => $plan->department_id,
             'vendor_id' => $vendorId,
             'notes' => trim(implode("\n\n", array_filter([
@@ -362,6 +374,24 @@ class GeneratePreventiveWorkOrdersService
             if (trim((string) $label) !== '') {
                 $order->items()->create(['label' => $label]);
             }
+        }
+
+        // **A ROUTE becomes one line per machine** (Maximo §6). One work order with a line per
+        // stop, not a work order per stop: per-stop children earn their keep when each stop needs
+        // separate assignment or costing, and 42 work orders for one walk is the failure the route
+        // exists to prevent.
+        //
+        // The line carries `equipment_id`, which is the whole point — "Extinguisher 2-17 — fail"
+        // stops being a string and becomes a fact about a device, so the round can report which
+        // ones failed and 2-17's own history is no longer empty.
+        foreach ($plan->stops()->with('equipment')->get() as $stop) {
+            $order->items()->create([
+                'equipment_id' => $stop->equipment_id,
+                // `Equipment::label()` is already "CODE — Name"; prefixing the code again gave
+                // "AHU-01 AHU-01 — Air handling unit" on the engineer's sheet.
+                'label' => ($stop->equipment?->label() ?? __('admin.facility.stop_missing_machine'))
+                    .($stop->note ? ' — '.$stop->note : ''),
+            ]);
         }
 
         $this->raisedOrderIds[] = $order->id;

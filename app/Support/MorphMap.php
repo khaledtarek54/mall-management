@@ -80,6 +80,7 @@ use App\Models\RentIndex;
 use App\Models\ReportPreference;
 use App\Models\SavedReport;
 use App\Models\ServicePlan;
+use App\Models\ServicePlanStop;
 use App\Models\SlaPenalty;
 use App\Models\SlaPolicy;
 use App\Models\StockMovement;
@@ -249,6 +250,7 @@ class MorphMap
         'tax_code' => TaxCode::class,
         'tax_rate' => TaxRate::class,
         'work_order_proposal' => WorkOrderProposal::class,
+        'service_plan_stop' => ServicePlanStop::class,
         'work_order_labour' => FacilityWorkOrderLabour::class,
         'failure_code' => FailureCode::class,
         'trade' => Trade::class,

@@ -468,6 +468,12 @@
         "note": null
     },
     {
+        "model": "ServicePlanStop",
+        "label": "Service Plan Stop",
+        "classification": "owned",
+        "note": "servicePlan"
+    },
+    {
         "model": "SlaPenalty",
         "label": "Sla Penalty",
         "classification": "owned",

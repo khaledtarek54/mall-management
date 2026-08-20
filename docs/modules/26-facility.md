@@ -1268,6 +1268,46 @@ ServiceChannel's provider logs in and submits. That portal is gap **O2** and rem
 is recorded **by the operator** on the contractor's behalf, exactly as a vendor bill is. The loop is
 real; its self-service half is not built, and this does not pretend otherwise.
 
+### Routes and planned cost (2026-08-20, close-out step 7 — the last)
+
+**Benchmarks:** Maximo §6 (routes) and §3 (job-plan estimates).
+
+#### Routes — a failed line names the DEVICE
+
+Scenario S5: a quarterly round over 42 fire extinguishers, three of them fail. A `ServicePlan`
+targeted **one** machine with a free-text checklist, so an operator either created 42 plans or one
+plan whose checklist had 42 lines — and *"Extinguisher 2-17 — fail"* is a **string**, so no report
+could say which devices were overdue and 2-17's own history stayed empty however often it failed.
+
+`service_plan_stops` is the route and `facility_work_order_items.equipment_id` is what turns a failed
+line into a fact about a device. A plan with **no** stops is an ordinary single-target plan and
+behaves exactly as before, so nothing an operator already built changes.
+
+**One work order with a line per stop — not a work order per stop.** Maximo offers both. Per-stop
+children earn their keep when each stop needs separate assignment or separate costing; a
+fire-extinguisher round needs neither, and 42 work orders for one walk is the failure the route
+exists to prevent. A stated deviation — revisit if a route ever spans trades or contractors.
+
+A stop is a **machine** specifically. A round over areas is a different shape and the plan already
+carries `area_id` for it; three nullable targets here would repeat an ambiguity rather than resolve
+one.
+
+#### Planned cost — hours on the plan, money at generation
+
+Without an estimate on the plan, every job the preventive programme raises is un-estimated for ever
+and step 2's `costVariance()` is null across the whole programme.
+
+The plan stores `est_labour_hours` and the generator turns it into money **at the trade's rate on
+the day the job is raised** — the same origination rule as every other rate here. Storing a labour
+*cost* on the plan would freeze a rate for the plan's whole life, which is exactly what
+`charges.vat_rate` did wrong before 2026-08-12: a rise entered in advance reached one-off charges
+and never reached rent.
+
+A trade with no rate produces hours and **no** labour cost, visibly missing rather than invented; a
+plan with no estimate leaves its jobs un-estimated rather than estimated at zero, because "nobody
+planned this" and "this was expected to be free" are different claims and the variance depends on
+which one is true.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -1291,6 +1331,7 @@ real; its self-service half is not built, and this does not pretend otherwise.
 | **15 — Tenant confirms the resolution (2026-08-20, close-out step 4)** | Confirm / "not fixed" on a `resolved` request in the portal, recording WHICH person accepted; a dispute returns it to `in_progress` with a required reason on the comment thread. Auto-close keeps taking silence as consent, and `confirmed_at` now distinguishes a close the tenant made from one the timer did. Does **not** reopen the work order — that is a follow-up job and an operator's decision | ✅ shipped |
 | **16 — Failure codes + repeat visits (2026-08-20, close-out step 5)** | `failure_codes` (problem · cause · remedy, scoped by trade, unique within type) recorded optionally on the "Mark done" dialog; `isRepeatVisit()` derived from same-machine-or-shop + same-trade + a 30-day window, excluding planned follow-ups; a red badge on the register and a repeat-visits column on the vendor scorecard. **Three levels scoped by trade, not Maximo's chained four** — a chain is a matrix nobody populates, and an unpopulated matrix means nothing gets recorded | ✅ shipped |
 | **17 — NTE + proposals (2026-08-20, close-out step 6)** | `trades.default_nte` → `facility_work_orders.nte_amount` applied at raise time; `work_order_proposals` with the cost object's own three buckets, so approving one raises the ceiling AND sets the job's estimate; deciding gated by the `ApprovalPolicy` ladder on the quoted amount; over-NTE shown as a badge and a filter, **never blocked** — the same reasoning as the three-way match | ✅ shipped |
+| **18 — Routes + planned cost (2026-08-20, close-out step 7)** | `service_plan_stops` turns a plan into a round; `facility_work_order_items.equipment_id` makes a failed line a fact about a device rather than a string; `est_labour_hours` on the plan priced at the trade's rate when each job is raised, giving the cost object a planned side across the whole preventive programme. One job per round, not one per stop — stated deviation | ✅ shipped |
 
 ---
 

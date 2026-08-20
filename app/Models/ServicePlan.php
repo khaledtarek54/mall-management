@@ -61,6 +61,7 @@ class ServicePlan extends Model
     public const TRIGGERS = [self::TRIGGER_TIME, self::TRIGGER_USAGE];
 
     protected $fillable = [
+        'est_labour_hours', 'est_material_cost', 'est_service_cost',
         'asset_id',
         'unit_id',
         'area_id',
@@ -84,6 +85,9 @@ class ServicePlan extends Model
     ];
 
     protected $casts = [
+        'est_labour_hours' => 'decimal:2',
+        'est_material_cost' => 'decimal:2',
+        'est_service_cost' => 'decimal:2',
         'checklist' => 'array',
         'days_of_week' => 'array',
         'next_due_date' => 'date',
@@ -221,6 +225,23 @@ class ServicePlan extends Model
         return $settled === 0
             ? null
             : round((int) $this->pm_on_time_count / $settled * 100, 1);
+    }
+
+    /**
+     * The machines this plan visits — its ROUTE. Empty for an ordinary single-target plan.
+     *
+     * Ordered, because a round is walked in an order and a sheet listing the extinguishers in
+     * database order is a sheet somebody has to re-sort in their head.
+     */
+    public function stops(): HasMany
+    {
+        return $this->hasMany(ServicePlanStop::class)->orderBy('sort_order');
+    }
+
+    /** A plan is a ROUTE when it has stops — the one predicate the generator and the screens share. */
+    public function isRoute(): bool
+    {
+        return $this->stops()->exists();
     }
 
     public function workOrders(): HasMany

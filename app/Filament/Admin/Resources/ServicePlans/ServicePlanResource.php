@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\ServicePlans;
 
+use App\Filament\Admin\RelationManagers\ServicePlanStopsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\ServicePlans\Pages\CreateServicePlan;
@@ -76,6 +77,13 @@ class ServicePlanResource extends Resource
     public static function table(Table $table): Table
     {
         return ServicePlansTable::configure($table);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ServicePlanStopsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

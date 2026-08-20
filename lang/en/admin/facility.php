@@ -28,6 +28,13 @@ return [
         ],
     ],
     'facility' => [
+        'route' => [
+            'title' => 'Route',
+            'add_stop' => 'Add a machine',
+            'empty' => 'Not a route',
+            'empty_hint' => 'Add machines to make this one visit that covers all of them, with a line per device.',
+        ],
+        'stop_missing_machine' => 'Machine removed',
         'no_nte' => 'No ceiling',
         'proposal' => [
             'kind_full' => 'Whole price',
@@ -81,6 +88,11 @@ return [
         ],
         'not_estimated' => 'Not estimated',
         'help' => [
+            'route_stop' => 'A machine this visit covers. Each becomes its own line on the job, so a failure names the device.',
+            'route_order' => 'The order the round is walked in.',
+            'route_note' => 'Optional. Shown on the line for this machine.',
+            'plan_hours' => 'How long one visit should take. Priced at the trade\'s rate when each job is raised.',
+            'plan_costs' => 'Expected parts and contractor cost for one visit.',
             'supplementary' => 'Off: this is the whole price for the job and replaces any earlier one. On: it is added to what was already approved.',
             'default_nte' => 'Jobs in this trade start with this ceiling. Blank means no ceiling at all.',
             'nte' => 'The most this contractor may spend without coming back for approval.',

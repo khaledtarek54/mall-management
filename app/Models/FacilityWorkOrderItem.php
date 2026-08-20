@@ -39,6 +39,9 @@ class FacilityWorkOrderItem extends Model
 
     protected $fillable = [
         'facility_work_order_id',
+        // Which machine this line is about — set for a route stop, null for an ordinary
+        // checklist line. It is what makes a failed line a fact about a device.
+        'equipment_id',
         'label',
         'result',
         'marked_at',
@@ -52,6 +55,12 @@ class FacilityWorkOrderItem extends Model
     protected $attributes = [
         'result' => self::RESULT_PENDING,
     ];
+
+    /** The machine this line is about, on a route. Null on an ordinary checklist line. */
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
 
     public function workOrder(): BelongsTo
     {
