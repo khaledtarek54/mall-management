@@ -38,6 +38,7 @@ use App\Models\Equipment;
 use App\Models\Expense;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
+use App\Models\FacilityWorkOrderLabour;
 use App\Models\FacilityWorkOrderPart;
 use App\Models\FiscalYear;
 use App\Models\FixedAsset;
@@ -245,6 +246,7 @@ class MorphMap
         'table_view' => TableView::class,
         'tax_code' => TaxCode::class,
         'tax_rate' => TaxRate::class,
+        'work_order_labour' => FacilityWorkOrderLabour::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,
         'tenant_credit_application' => TenantCreditApplication::class,

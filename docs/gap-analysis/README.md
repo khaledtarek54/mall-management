@@ -347,7 +347,7 @@ Reading the standard rather than a feature list changes the shape of this sectio
 eight benchmark scenarios fail on one of two structural absences**, and most of what used to be
 listed here as separate gaps is downstream of them.
 
-#### The first: **a work order is not a cost object** *(Maximo §4)*
+#### The first: **a work order is not a cost object** *(Maximo §4)* — ✅ CLOSED 2026-08-20
 
 `facility_work_orders` carries no cost at all. `job_value` exists solely to feed the SLA-penalty
 percentage basis, and `FacilityWorkOrder` is **not** in `LedgerPoster::JOURNALIZERS`. Parts post
@@ -359,11 +359,17 @@ Note what this is *not*: it is not a posting gap. The money is posted. The gap i
 **management dimension** — which job, which asset, which trade consumed it — was never recorded,
 so the ledger can say what the mall spent and cannot say what it spent it on.
 
-The most consequential single consequence: **in-house labour is captured nowhere**, so internal
-work costs zero on every report, insourcing always looks free and every outsourcing decision is
-made on a number that is wrong by the whole wage bill.
+The most consequential single consequence: **in-house labour was captured nowhere**, so internal
+work cost zero on every report, insourcing always looked free and every outsourcing decision was
+made on a number wrong by the whole wage bill.
 
-#### The second: **trade is not master data** *(ServiceChannel §2)*
+**Closed.** `facility_work_orders` now carries planned and actual cost in three buckets, fed by
+`recomputeCosts()` — one source of truth, three channels, the same discipline as
+`Invoice::recomputeTotals()`. It is deliberately **not** a GL source: the money is already posted by
+`StockMovement`, `VendorBill`/`Expense` and `Payroll`, so a journalizer here would post every
+maintenance cost twice *and balanced*. A gate keeps it that way.
+
+#### The second: **trade is not master data** *(ServiceChannel §2)* — ✅ CLOSED 2026-08-20
 
 The work order's `category` — HVAC, plumbing, electrical — is a Select populated from
 `__('admin.facility.categories')`, **a translation array**. It is not in `ValueSets`, so the column
@@ -400,7 +406,7 @@ created?).
 | Step | What | Why here |
 |---|---|---|
 | **1** ✅ | **Trade as master data** — `trades` + `trade_vendor`; work orders, plans and equipment classify by a row; the vendor picker groups by eligibility; `category` dropped with a code-matched backfill. **Shipped 2026-08-20** | Must precede the cost object: in the standard a labour rate belongs to a *craft*, and building labour first would invent a second rate concept and then have to refactor it |
-| **2** | **The work order as a cost object** — planned and actual in four buckets (labour · material · service · tool), labour captured as reported hours × rate, material from the existing part draws, service from the existing vendor bills, rolled up to the asset and the location | The spine. Six of eight scenarios and every "what did this cost" question |
+| **2** ✅ | **The work order as a cost object** — planned and actual in four buckets (labour · material · service · tool), labour captured as reported hours × rate, material from the existing part draws, service from the existing vendor bills, rolled up to the asset and the location. **Shipped 2026-08-20** — three buckets, not four (tools are hired here, so they arrive as a bill and land in `service`) | The spine. Six of eight scenarios and every "what did this cost" question |
 | **3** | **PM compliance** | Cheapest real gap in the module — both dates are already stored |
 | **4** | **Tenant confirmation of completion** | A control failure, and the portal + linkage already exist |
 | **5** | **Failure vocabulary + repeat-visit detection** | The reliability primitives. Worth nothing on the day they ship and everything two years later, which is the argument for shipping them early |
@@ -470,6 +476,7 @@ employer social insurance and gratuity, which could still move the books.
 | **Revenue forecast: 🟡 → ✅ (built 2026-08-19)** | `/admin/revenue-forecast` sums `LeaseBillingForecastService` across the portfolio, so it inherits the real billing method and ties out to the per-lease tabs exactly. **The speculative half — Voyager's assumed renewals and re-lets — is deliberately NOT built**: it needs a renewal probability and a market rent this system does not hold, and a guessed figure is indistinguishable from contracted income on a page an owner may be shown |
 | **Permit to work (O5): ❌ → ✅ (built 2026-08-19)** | The one row in this document with no Yardi lineage, and it says so rather than borrowing authority it does not have — Voyager is lease administration and the benchmark folder has zero hits for hot work or isolation. Two properties carry the control and both were designed for rather than inherited: bounded **to the hour**, because a permit good for a whole day is one somebody uses at 19:00 after the fire officer has gone home; and there is deliberately **no `expired` status**, because expiry is a fact about the clock and a sweep that flipped permits to it would quietly close the audit question the register exists to ask. Issuing reuses `Vendor::isDispatchable()`, so the permit cannot become the one door left open after the work-order path was closed. Reviewing it on a live database found what 21 green tests did not: the global search returned **zero hits for the permit's own reference**, because the resource searched a folded blob with an unfolded query — the gates all proved the STORED side folds and none proved the QUERY side did. That gate now exists |
 | **Trade as master data: ❌ → ✅ (built 2026-08-20)** | Close-out step 1, and the first thing the new FM yardstick asked for. `trades` is now a register with both languages on the row and a `standard_hourly_rate` — the craft rate the cost object will read — replacing a `Select` fed from a **translation array** that was not in `ValueSets`, could not be extended without a deploy, and had been hardcoded a second and third time in `EquipmentForm` and `EquipmentTable` with four trades missing from both. `vendors` gained the trade link that made "who may we dispatch to an HVAC fault?" answerable at all. The picker **groups** rather than filters, because Filament validates a Select with `Rule::in` and refusing the unusual-but-legitimate pick is worse than suggesting the usual one. The change surfaced a live defect: `RaiseCorrectiveWorkOrderService` copied a tenant request's category onto the work order as if the two vocabularies were one, so `noise`, `parking` and `lease_copy` had been saving into the trade column silently — the tenant picks a PROBLEM, not a trade, and only the Maintenance type's subcategories are trades |
+| **The work order as a cost object: ❌ → ✅ (built 2026-08-20)** | Close-out step 2, and the structural idea six of the eight benchmark scenarios failed on. Three buckets — labour · material · service — planned and actual, with `recomputeCosts()` as the single source of truth and all three channels wired to it. The headline gap was **in-house labour, captured nowhere at all**: `facility_work_order_labour` asks how long it took and who did it, and the craft rate frozen at entry turns that into money, because a hand-typed cost is a guess with a decimal point. `vendor_bills` and `expenses` gained the job link that made contractor work attributable in the first place. **It is emphatically not a GL source** — the money is already posted three other ways, and posting it again would double every maintenance cost *and balance*, which is what makes that mistake dangerous rather than obvious; a gate now fails the build on it. `job_value` was replaced rather than kept beside `est_service_cost`, and the SLA percent-of-value basis now prefers what the contractor ACTUALLY charged — impossible before, because there was no actual. Tools are Maximo's fourth bucket and are deliberately folded into service: a mall hires the scissor lift, so it arrives as a bill |
 | **Nine documents merged into this one** | The retired set had the same rows in three states of staleness. Every open row above now names its module and its evidence |
 | **Census metric retired** | `atriom:dump-system-census` counted `docs/gap-analysis/NN-*.md` to surface the modules never audited. Round 3 closed that hole; a metric whose question has been answered goes on printing a number about the shape of a directory |
 

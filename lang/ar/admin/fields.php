@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'hours' => 'الساعات',
+        'hourly_rate' => 'سعر الساعة',
+        'worked_on' => 'تاريخ العمل',
         'standard_hourly_rate' => 'سعر الساعة القياسي',
         'trade_id' => 'التخصص',
         'active' => 'نشط',

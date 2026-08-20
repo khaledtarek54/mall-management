@@ -4,6 +4,7 @@ use App\Models\FacilityWorkOrder;
 use App\Models\SlaPenalty;
 use App\Models\SlaPolicy;
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Models\VendorContract;
 use App\Services\AssessSlaPenaltyService;
 use App\Services\FacilityWorkOrderService;
@@ -100,10 +101,35 @@ it('counts part of a day as a whole day', function () {
 });
 
 it('charges a percentage of the job value', function () {
+    // `job_value` was replaced by the cost object's own `est_service_cost` on 2026-08-20 — the two
+    // held the same number for an external job, and a hand-typed duplicate beside the estimate
+    // meant nobody reading a penalty could tell which one it used.
     contract('percent_of_value', 10);
-    $order = breachBy(externalCm(['job_value' => 8000]), 5);
+    $order = breachBy(externalCm(['est_service_cost' => 8000]), 5);
 
     expect((float) $this->svc->assess($order)->amount)->toBe(800.0);
+});
+
+/**
+ * **What the replacement bought.** A penalty assessed after the contractor has invoiced is now
+ * computed off what they ACTUALLY charged, not off a quote nobody updated. The actual could not be
+ * consulted before, because the work order had no actual — that was the whole gap.
+ */
+it('prefers what the contractor actually charged over the estimate', function () {
+    contract('percent_of_value', 10);
+    $order = breachBy(externalCm(['est_service_cost' => 8000]), 5);
+
+    VendorBill::create([
+        'vendor_id' => $order->vendor_id, 'asset_id' => $order->asset_id,
+        'facility_work_order_id' => $order->id, 'category' => 'maintenance', 'status' => 'approved',
+        'bill_date' => now()->toDateString(), 'due_date' => now()->addDays(30)->toDateString(),
+        'description' => 'The job as actually invoiced', 'subtotal' => 12000,
+        'vat_amount' => 1680, 'total' => 13680,
+    ]);
+
+    // 10% of 12,000 — the invoice — not 10% of the 8,000 estimate. And NET of VAT: the tax is not
+    // part of what the job was worth.
+    expect((float) $this->svc->assess($order->fresh())->amount)->toBe(1200.0);
 });
 
 // Sub-hour + day-boundary breaches — the money bug the whole-hour tests above never exercised.
@@ -137,7 +163,7 @@ it('counts a 48h40m overrun as THREE days, not two (day-boundary ceil)', functio
 it('assesses nothing on a percent contract when the job has no value captured', function () {
     // Returning 0 would read as "assessed, owes nothing" rather than "we don't know yet".
     contract('percent_of_value', 10);
-    $order = breachBy(externalCm(['job_value' => null]), 5);
+    $order = breachBy(externalCm(['est_service_cost' => null]), 5);
 
     expect($this->svc->assess($order))->toBeNull();
     expect(SlaPenalty::count())->toBe(0);

@@ -13,6 +13,7 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            'work_order_labour' => 'عمالة أمر عمل',
             'trade' => 'تخصص',
             'unit_ownership' => 'ملكية وحدة',
             // spatie's fallback log name. Every model now declares its own, but rows written

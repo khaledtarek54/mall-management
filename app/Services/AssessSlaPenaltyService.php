@@ -164,6 +164,22 @@ class AssessSlaPenaltyService
      *    the penalty on a job that ran while the contract was live. The **date window** is
      *    what judges history; the status only rules out agreements that never applied.
      */
+    /**
+     * What this job is worth, for a percent-of-value penalty.
+     *
+     * The ACTUAL service cost wins when there is one — a bill that has landed is a better answer
+     * than a quote — and the estimate is the fallback for a breach assessed before invoicing.
+     * Null when neither is known, which the caller renders as "we don't know yet" rather than zero.
+     */
+    private static function jobValue(FacilityWorkOrder $order): ?float
+    {
+        if ((float) $order->act_service_cost > 0) {
+            return (float) $order->act_service_cost;
+        }
+
+        return $order->est_service_cost === null ? null : (float) $order->est_service_cost;
+    }
+
     private function contractFor(FacilityWorkOrder $order): ?VendorContract
     {
         if ($order->vendor_id === null) {
@@ -210,12 +226,18 @@ class AssessSlaPenaltyService
             // 1 for any breach): charging 0.4 of a day for a nine-hour overrun invites an argument.
             SlaPenalty::BASIS_PER_DAY => round((float) $order->daysOverSla() * $rate, 2),
 
-            // Needs the job's value. Null (no quote captured) means it cannot be computed —
-            // return null rather than silently charge 0, which would look like "assessed and
-            // owed nothing" instead of "we don't know yet".
-            SlaPenalty::BASIS_PERCENT_OF_VALUE => $order->job_value === null
+            // Needs the job's value, which is now the COST OBJECT's own number rather than a
+            // hand-typed `job_value` beside it (2026-08-20). The estimate is what the contractor
+            // said they would charge; once the bill lands the ACTUAL service cost is the better
+            // figure and was simply not available before — a penalty assessed after invoicing used
+            // to be computed off a quote nobody had updated.
+            //
+            // Null (neither known) still means it cannot be computed — return null rather than
+            // silently charge 0, which would read as "assessed and owed nothing" instead of
+            // "we don't know yet".
+            SlaPenalty::BASIS_PERCENT_OF_VALUE => self::jobValue($order) === null
                 ? null
-                : round((float) $order->job_value * $rate / 100, 2),
+                : round(self::jobValue($order) * $rate / 100, 2),
 
             default => null,
         };

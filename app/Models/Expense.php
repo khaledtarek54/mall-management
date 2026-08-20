@@ -75,6 +75,8 @@ class Expense extends Model
     }
 
     protected $fillable = [
+        // Which JOB this cost belongs to — the other road into the service bucket.
+        'facility_work_order_id',
         'number',
         'asset_id',
         'category',
@@ -149,8 +151,39 @@ class Expense extends Model
         return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * The job this cost belongs to, for {@see FacilityWorkOrder::recomputeCosts()}.
+     *
+     * Named apart from any display relation so the costing hook cannot be broken by someone
+     * renaming or re-scoping a relation that exists for something else.
+     */
+    public function workOrderForCosting(): ?FacilityWorkOrder
+    {
+        return $this->facility_work_order_id === null
+            ? null
+            : FacilityWorkOrder::find($this->facility_work_order_id);
+    }
+
     protected static function booted(): void
     {
+
+        // The work order is the cost object and `recomputeCosts()` is its single source of truth,
+        // so every channel that changes what a job cost calls it — the same discipline that makes
+        // every AR settlement channel call `Invoice::recomputeTotals()`. Missing one here would
+        // leave a job quietly understating its cost, which is the failure nobody notices.
+        static::saved(function (self $m) {
+            $m->workOrderForCosting()?->recomputeCosts();
+
+            // A document MOVED between jobs leaves the old one overstated, so the previous owner
+            // recomputes too. `getOriginal()` still holds it inside `saved`.
+            $was = $m->getOriginal('facility_work_order_id');
+            if ($was !== null && (int) $was !== (int) $m->facility_work_order_id) {
+                FacilityWorkOrder::find($was)?->recomputeCosts();
+            }
+        });
+
+        static::deleted(fn (self $m) => $m->workOrderForCosting()?->recomputeCosts());
+        static::restored(fn (self $m) => $m->workOrderForCosting()?->recomputeCosts());
         static::saving(function (self $expense) {
             // Coerce blank NOT-NULL money inputs to 0 — read the RAW attribute (a
             // decimal:2 cast throws MathException if '' is read through the getter).

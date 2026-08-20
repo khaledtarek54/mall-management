@@ -252,6 +252,7 @@ class ChangeImpact
         // ─────────────────────────────── Payables ───────────────────────────────
 
         VendorBill::class => [
+
             'committed' => 'anything past draft — an approved bill recognises the payable',
             self::REFUSED => [
                 'subtotal' => 'the expense side; editing a posted bill re-derives the GL at the new total while payments stay applied — overstated expense and a phantom balance on a "paid" bill',
@@ -275,6 +276,7 @@ class ChangeImpact
                 'tax_code' => 'chooses the account the input tax debits — recoverable for VAT, an expense for stamp and schedule',
             ],
             self::NEUTRAL => [
+                'facility_work_order_id', // which JOB this paid for — a management dimension; no journalizer reads it, so re-homing a bill moves no books
                 'vendor_contract_id', 'due_date', 'reference', 'description', 'currency',
                 'approved_by_user_id', 'created_by_user_id', 'approved_at', 'tax_override_reason',
                 // AP sub-ledger state; a payment and a penalty each post their own entry.
@@ -302,6 +304,7 @@ class ChangeImpact
         ],
 
         Expense::class => [
+
             'committed' => 'recorded — which is also its normal working state, so it is posted AND editable',
             self::REFUSED => [
                 // Decided on the Yardi standard 2026-08-11: Voyager does not let a posted payable
@@ -322,6 +325,7 @@ class ChangeImpact
                 'tax_code' => 'chooses the account the input tax debits — see VendorBill',
             ],
             self::NEUTRAL => [
+                'facility_work_order_id', // which JOB this cost belongs to — a management dimension; no journalizer reads it
                 'reference', 'description', 'created_by_user_id', 'tax_override_reason',
             ],
             self::DESCRIPTIVE => ['number' => 'names the entry'],

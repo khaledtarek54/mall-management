@@ -20,6 +20,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -178,6 +179,30 @@ class FacilityWorkOrdersTable
                         'cancelled' => 'gray',
                         default => 'info',
                     }),
+                // What the job actually cost — the whole point of the cost object. Toggleable
+                // rather than always-on: a coordinator triaging today's faults is not costing
+                // them, and a column nobody reads on that screen is noise.
+                TextColumn::make('act_total_cost')
+                    ->label(__('admin.facility.fields.act_total_cost'))
+                    ->money('EGP')
+                    ->sortable()
+                    ->summarize(Sum::make()->money('EGP')->label(__('admin.facility.fields.act_total_cost')))
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                // Planned minus actual. Red when the job ran over what was expected, which is the
+                // finding — a bare "14 hours" is a number nobody can act on.
+                TextColumn::make('cost_variance')
+                    ->label(__('admin.facility.fields.cost_variance'))
+                    ->money('EGP')
+                    ->state(fn (FacilityWorkOrder $r): ?float => $r->costVariance())
+                    ->placeholder(__('admin.facility.not_estimated'))
+                    ->color(fn (FacilityWorkOrder $r): ?string => match (true) {
+                        $r->costVariance() === null => null,
+                        $r->costVariance() < 0 => 'danger',
+                        default => 'success',
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+
             ])
             ->filters([
                 // Preventive and corrective share a list; an engineer looking for faults

@@ -20,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class FacilityWorkOrderForm
 {
@@ -94,13 +95,25 @@ class FacilityWorkOrderForm
                 ->live()
                 ->helperText(__('admin.facility.help.trade'))
                 ->disabled($locked),
-            TextInput::make('job_value')
-                ->label(__('admin.facility.penalty.job_value'))
-                ->helperText(__('admin.facility.penalty.job_value_hint'))
-                ->prefix('EGP')
+            // ---- What this job is EXPECTED to cost (Maximo §3/§4: the planned half) ----
+            //
+            // Replaced the old hand-typed `job_value`, which existed only to feed the SLA
+            // percent-of-value basis and duplicated the service estimate. The penalty now reads
+            // this — and the ACTUAL service cost once a bill has landed.
+            TextInput::make('est_labour_hours')
+                ->label(__('admin.facility.fields.est_labour_hours'))
                 ->numeric()
                 ->minValue(0)
-                ->visible(fn (?FacilityWorkOrder $record) => $record?->isCorrective() ?? false)
+                ->helperText(__('admin.facility.help.est_labour_hours'))
+                ->disabled($locked),
+
+            TextInput::make('est_service_cost')
+                ->label(__('admin.facility.fields.est_service_cost'))
+                ->numeric()
+                ->minValue(0)
+                ->prefix('EGP')
+                ->helperText(__('admin.facility.help.est_service_cost'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.est_service_cost'))
                 ->disabled($locked),
             Select::make('priority')
                 ->label(__('admin.facility.fields.priority'))

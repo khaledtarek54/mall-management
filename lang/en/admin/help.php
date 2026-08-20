@@ -167,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'est_service_cost' => 'Replaces the old job value. A percent-of-value SLA penalty reads this, and the actual contractor cost once a bill has landed.',
         'standard_hourly_rate' => 'Leave it blank and no labour cost is computed for this trade — a missing number is better than an invented one.',
         'permit_valid_to' => 'A permit good for a whole day is one somebody uses at 19:00 when the fire officer has gone home. Bound it to the hours the work actually happens.',
         'escalation_index_lag_months' => 'A statistical agency publishes a month figure weeks later, so a January step cannot read January. State the gap the lease actually says.',

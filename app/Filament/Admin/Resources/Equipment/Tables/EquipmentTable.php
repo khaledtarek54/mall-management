@@ -21,7 +21,7 @@ class EquipmentTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'parent', 'trade'])->withCount('children'))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'parent', 'trade'])->withCount('children')->withSum('workOrders', 'act_total_cost'))
             ->columns([
                 TextColumn::make('code')
                     ->label(__('admin.facility.fields.code'))
@@ -72,6 +72,16 @@ class EquipmentTable
                     ->label(__('admin.facility.fields.active'))
                     ->boolean()
                     ->toggleable(),
+                // **Scenario S1.** "What has this chiller cost us?" — unanswerable before the cost
+                // object, because every figure was in the ledger and none was attributable to the
+                // machine. Summed from its work orders; `withSum` so the list stays one query.
+                TextColumn::make('work_orders_sum_act_total_cost')
+                    ->label(__('admin.facility.fields.lifetime_cost'))
+                    ->money('EGP')
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
             ])
             ->filters([
                 SelectFilter::make('criticality')

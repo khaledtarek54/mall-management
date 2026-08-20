@@ -216,6 +216,12 @@
         "note": "workOrder"
     },
     {
+        "model": "FacilityWorkOrderLabour",
+        "label": "Facility Work Order Labour",
+        "classification": "owned",
+        "note": "workOrder"
+    },
+    {
         "model": "FacilityWorkOrderPart",
         "label": "Facility Work Order Part",
         "classification": "owned",

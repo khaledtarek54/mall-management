@@ -11,6 +11,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The fields for raising a corrective job (FR-CM-02/03/04) — shared by the "raise from a
@@ -75,18 +76,31 @@ class CorrectiveWorkOrderForm
                 ->default(now())
                 ->native(false),
 
-            // FR-CM-08 — only the percent_of_value penalty basis needs this, so it is shown
-            // for vendor jobs and left optional. Without it, a percent contract cannot
-            // assess a penalty at all (the service returns null rather than charging 0).
-            TextInput::make('job_value')
-                ->label(__('admin.facility.penalty.job_value'))
-                ->helperText(__('admin.facility.penalty.job_value_hint'))
-                ->prefix('EGP')
+            // ---- What this job is EXPECTED to cost (Maximo §3/§4: the planned half) ----
+            //
+            // Replaced the old hand-typed `job_value`, which existed only to feed the SLA
+            // percent-of-value basis and duplicated the service estimate. The penalty now reads
+            // this — and the ACTUAL service cost once a bill has landed. Without a figure, a
+            // percent contract cannot assess a penalty at all (the service returns null rather
+            // than charging 0), which is why it is offered on the raise form and not left to
+            // an edit nobody makes.
+            //
+            // Nothing is `disabled()` here: this form RAISES a job, so there is no record yet
+            // and no locked state to respect. (It was, briefly — pasted from the edit form,
+            // which has a `$locked` closure this one does not, and the action 500'd on open.)
+            TextInput::make('est_labour_hours')
+                ->label(__('admin.facility.fields.est_labour_hours'))
                 ->numeric()
                 ->minValue(0)
-                ->visible(fn (Get $get) => $get('execution_type') === FacilityWorkOrder::EXECUTION_EXTERNAL),
+                ->helperText(__('admin.facility.help.est_labour_hours')),
 
-            // FR-CM-04 — what is wrong. Required here and in the model.
+            TextInput::make('est_service_cost')
+                ->label(__('admin.facility.fields.est_service_cost'))
+                ->numeric()
+                ->minValue(0)
+                ->prefix('EGP')
+                ->helperText(__('admin.facility.help.est_service_cost'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.est_service_cost')),
             Textarea::make('description')
                 ->label(__('admin.facility.fields.description'))
                 ->required()

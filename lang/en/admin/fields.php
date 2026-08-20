@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'hours' => 'Hours',
+        'hourly_rate' => 'Hourly rate',
+        'worked_on' => 'Date worked',
         'standard_hourly_rate' => 'Standard hourly rate',
         'trade_id' => 'Trade',
         'active' => 'Active',

@@ -155,7 +155,9 @@ class FacilityWorkOrder extends Model implements HasMedia
         'assigned_to_user_id',
         'notes',
         'description',
-        'job_value',
+        // Estimates are operator-entered; ACTUALS are never fillable — they are derived by
+        // recomputeCosts(), and a form that could set them would be a second truth about the money.
+        'est_labour_hours', 'est_labour_cost', 'est_material_cost', 'est_service_cost',
         'source_item_id',
         'parent_work_order_id',
         'tenant_request_id',
@@ -174,7 +176,16 @@ class FacilityWorkOrder extends Model implements HasMedia
         'sla_breach_notified_at' => 'datetime',
         'response_breach_notified_at' => 'datetime',
         'completed_at' => 'datetime',
-        'job_value' => 'decimal:2',
+        'est_labour_hours' => 'decimal:2',
+        'est_labour_cost' => 'decimal:2',
+        'est_material_cost' => 'decimal:2',
+        'est_service_cost' => 'decimal:2',
+        'est_total_cost' => 'decimal:2',
+        'act_labour_hours' => 'decimal:2',
+        'act_labour_cost' => 'decimal:2',
+        'act_material_cost' => 'decimal:2',
+        'act_service_cost' => 'decimal:2',
+        'act_total_cost' => 'decimal:2',
         'fault_recorded_at' => 'datetime',
     ];
 
@@ -191,6 +202,106 @@ class FacilityWorkOrder extends Model implements HasMedia
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('facility_work_order');
+    }
+
+    /** Hours reported against this job. {@see FacilityWorkOrderLabour} */
+    public function labour(): HasMany
+    {
+        return $this->hasMany(FacilityWorkOrderLabour::class);
+    }
+
+    /** Contractor invoices raised against this job — the service bucket. */
+    public function vendorBills(): HasMany
+    {
+        return $this->hasMany(VendorBill::class);
+    }
+
+    /** Direct/petty-cash costs booked to this job — the service bucket's other road. */
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    /**
+     * **The single source of truth for what this job cost.**
+     *
+     * Written the way `Invoice::recomputeTotals()` is, and for the same reason: several independent
+     * channels change the number, so exactly one method may compute it and every channel calls it.
+     * Never set an `act_*` column anywhere else.
+     *
+     * THREE CHANNELS, and adding a fourth means adding it here AND wiring its model events:
+     *
+     *   labour   — `facility_work_order_labour`, hours x the craft rate frozen at entry
+     *   material — approved/recorded part draws (`facility_work_order_parts.value`)
+     *   service  — vendor bills + expenses booked to this job
+     *
+     * **NET of tax, and net of any SLA penalty applied to the bill.** VAT is recoverable and is not
+     * a cost of the job; a penalty credited against a contractor's invoice genuinely reduces what
+     * the work cost us, and `SlaPenaltyJournalizer` already credits the same expense account, so
+     * taking it off here keeps this figure and the ledger telling the same story.
+     *
+     * **A cancelled document costs nothing** — excluded, exactly as `VendorBill::recompute()`
+     * excludes a voided payment.
+     *
+     * This posts NOTHING. See the migration docblock: the money is already in the ledger through
+     * three other documents, and these columns are a management dimension over it.
+     */
+    public function recomputeCosts(): void
+    {
+        $labour = $this->labour()
+            ->selectRaw('coalesce(sum(hours), 0) as h, coalesce(sum(cost), 0) as c')
+            ->first();
+
+        $this->act_labour_hours = round((float) ($labour->h ?? 0), 2);
+        $this->act_labour_cost = round((float) ($labour->c ?? 0), 2);
+
+        // Only a part that actually left the store (or was recorded as bought for the job) is a
+        // cost. A `pending` request is a proposal and a `rejected` one never happened.
+        $this->act_material_cost = round((float) $this->parts()
+            ->whereIn('status', [FacilityWorkOrderPart::STATUS_APPROVED, FacilityWorkOrderPart::STATUS_RECORDED])
+            ->sum('value'), 2);
+
+        $bills = round((float) $this->vendorBills()
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('coalesce(sum(subtotal - coalesce(penalty_applied_amount, 0)), 0) as net')
+            ->value('net'), 2);
+
+        $expenses = round((float) $this->expenses()
+            ->where('status', '!=', 'cancelled')
+            ->sum('amount'), 2);
+
+        $this->act_service_cost = round($bills + $expenses, 2);
+
+        $this->act_total_cost = round(
+            (float) $this->act_labour_cost + (float) $this->act_material_cost + (float) $this->act_service_cost,
+            2
+        );
+
+        // The planned total is derived from its parts for the same reason the actual one is: an
+        // operator who estimated two of three buckets should not also have to add them up.
+        $estimates = [$this->est_labour_cost, $this->est_material_cost, $this->est_service_cost];
+        $stated = array_filter($estimates, fn ($v) => $v !== null);
+
+        $this->est_total_cost = $stated === []
+            ? null                                   // nobody estimated anything; NOT zero
+            : round(array_sum(array_map('floatval', $stated)), 2);
+
+        // saveQuietly: a derivation, not an operator action. Logging it would bury the change
+        // somebody actually made under a cost row nobody typed.
+        $this->saveQuietly();
+    }
+
+    /**
+     * Planned minus actual on the total, or null when nothing was planned.
+     *
+     * The number an operator can act on: a job estimated at 4 hours that consumed 14 is the
+     * finding, and one showing only "14" is a figure nobody can do anything with.
+     */
+    public function costVariance(): ?float
+    {
+        return $this->est_total_cost === null
+            ? null
+            : round((float) $this->est_total_cost - (float) $this->act_total_cost, 2);
     }
 
     /** التخصص — what kind of work this is. See {@see Trade}. */

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\Schemas;
 
+use App\Models\FacilityWorkOrder;
 use App\Models\PurchaseRequest;
 use App\Models\TaxCode;
 use App\Models\Vendor;
@@ -10,6 +11,7 @@ use App\Models\VendorContract;
 use App\Support\CatalogueTaxRate;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\Modules;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -102,6 +104,23 @@ class VendorBillForm
                     //
                     // VendorBillJournalizer clears GRNI instead of charging the expense when a
                     // bill names the purchase it pays for. That code was correct and completely
+                    // **Which job this invoice paid for** — the service bucket of the work-order
+                    // cost object (2026-08-20). Without it a contractor's invoice was correctly in
+                    // accounts payable and attributable to nothing, so a chiller repaired five
+                    // times had an empty cost history.
+                    //
+                    // Suggested from the same property; NOT restricted to the same vendor, because
+                    // a job legitimately draws on more than one contractor.
+                    EntitySelect::make('facility_work_order_id')
+                        ->label(__('admin.facility.order.singular'))
+                        ->helperText(__('admin.facility.help.bill_work_order'))
+                        ->entity(FacilityWorkOrder::class)
+                        ->modifyOptionsQuery(fn ($query, Get $get) => filled($get('asset_id'))
+                            ? $query->where('asset_id', $get('asset_id'))
+                            : $query)
+                        ->searchable()
+                        ->visible(fn (): bool => Modules::enabled('facility')),
+
                     // unreachable: nothing in the application could set `purchase_request_id`, so
                     // every stock purchase with a supplier bill double-counted its cost —
                     // Inventory +500 AND Expense +500, with GRNI stuck at −500 forever. The only

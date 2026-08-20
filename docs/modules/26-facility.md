@@ -924,6 +924,90 @@ offers only trades, while every "by category" report grouped by a value that is 
 is the honest answer for a noise complaint; a coordinator raising facility work from one states the
 trade themselves, and an explicit `trade_id` always wins.
 
+### The work order as a COST OBJECT (2026-08-20, close-out step 2)
+
+**Benchmark:** `docs/benchmarks/fm/01-maximo-work-and-asset.md` §4. Six of the eight scenarios in
+`03-scenarios.md` failed on this one absence, and every maintenance report worth having needs it.
+
+**What was wrong.** `facility_work_orders` carried no cost at all. Parts posted through
+`StockMovement`, contractor work through `VendorBill`, in-house wages through `Payroll` — **every
+figure was correctly in the general ledger and none of them could be attributed to the job, the
+machine or the shop.** So "what has this chiller cost us", "what is our maintenance cost per m²" and
+"repair or replace" were unanswerable. Worst of all, **in-house labour was captured nowhere**, so
+internal work cost zero on every report, insourcing always looked free, and every outsourcing
+decision was wrong by the whole wage bill.
+
+#### It is a cost object, NOT a GL source — and that distinction is load-bearing
+
+The money is already posted, by three documents that each own their entry:
+
+| Bucket | Posted by |
+|---|---|
+| material | `StockMovement` → `InventoryMovementJournalizer` |
+| service | `VendorBill` / `Expense` → their journalizers |
+| labour | `Payroll` → `PayrollJournalizer`, as `salaries_expense`, in total |
+
+The `act_*` columns are a **management dimension over already-posted money** — which job, which
+machine, which trade consumed it. Registering a journalizer for them would post every maintenance
+cost in the business **twice, and balanced**, which is what makes it dangerous rather than obvious.
+`WorkOrderIsACostObjectNotAGlSourceTest` fails the build if anyone tries, and proves the property as
+well as the registry entry.
+
+The same caution applies to reading: **a job's labour cost does not ADD to the wage bill, it
+EXPLAINS part of it.** A report summing payroll and work-order labour double-counts.
+
+#### `recomputeCosts()` is the single source of truth
+
+Written the way `Invoice::recomputeTotals()` is, and for the same reason — several independent
+channels change the number, so exactly one method computes it and every channel calls it. **Never
+set an `act_*` column anywhere else.** Three channels feed it, and adding a fourth means adding it
+here *and* wiring that model's events:
+
+- **labour** — `facility_work_order_labour`, hours × the craft rate frozen at entry
+- **material** — approved/recorded part draws (`facility_work_order_parts.value`)
+- **service** — vendor bills + expenses booked to the job
+
+**Net of tax, and net of an applied SLA penalty.** VAT is recoverable and is not what the work cost;
+a penalty credited against a contractor's invoice genuinely reduces it, and `SlaPenaltyJournalizer`
+already credits the same expense account, so netting it here keeps this figure and the ledger
+telling one story. A cancelled document costs nothing — the same exclusion `VendorBill::recompute()`
+makes for a voided payment. **A document moved between jobs recomputes the job it left**, which is
+the failure nobody would notice because both numbers stay plausible.
+
+#### Labour: ask for time, never for money
+
+Nobody is asked "what did this cost" — they are asked "how long did it take and who did it", which
+is a question a technician can answer truthfully, and the craft rate turns it into money. A
+hand-typed cost is a guess with a decimal point.
+
+The rate is **frozen on the row at entry**, so a rise never re-prices work done last March. A trade
+with **no** rate produces hours and no cost — visibly missing rather than invented, which is also
+how an operator sees which trade still needs a rate. The craft defaults to the job's trade but a
+line may state its own: an electrician helping on an HVAC job is real, and forcing the job's trade
+onto their hours would misreport both.
+
+#### Three buckets, not Maximo's four — a stated deviation
+
+Maximo splits labour · material · service · **tool**. A mall operator holds no tool inventory: the
+scissor lift is hired, which arrives as a vendor bill or an expense and lands in `service`. An
+always-zero column is a report line nobody can read. Folded, and said so rather than implied.
+
+#### `job_value` was REPLACED, not kept beside it
+
+It was read by exactly one thing — the SLA percent-of-value penalty basis — and for an external job
+it *is* what the contractor will charge, i.e. the service estimate. Two columns holding one number
+is two truths, and nobody reading a penalty could tell which it used. Backfilled into
+`est_service_cost`, then dropped. `AssessSlaPenaltyService` now prefers the **actual** service cost
+once a bill has landed and falls back to the estimate — which it could never do before, because the
+actual did not exist: a penalty assessed after invoicing used to be computed off a quote nobody had
+updated.
+
+#### Estimates are nullable; actuals default to zero
+
+An actual is a roll-up and is always known — zero means nothing has been spent. An estimate is a
+judgement nobody may have made, and `0` would claim the job was expected to be free. Planned-vs-
+actual is the point of the pair, so "not estimated" and "estimated at nothing" must stay different.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -942,6 +1026,7 @@ trade themselves, and an explicit `trade_id` always wins.
 | **10 — Close-out sweep (2026-07-26)** | **[HIGH · money] SLA-penalty sub-hour fix** — `hoursOverSla()` truncated a sub-hour overrun to 0, so a job minutes late escaped the penalty forever (and per-day mis-counted at the day boundary); now gated on `isSlaBreached()` + `daysOverSla()` (see §7g). **Notifications** — a raised work order (`WorkOrderRaisedNotification`, FRD MNT-2) and an assigned technician (`WorkOrderAssignedNotification`, sharp because `AssignmentScope` hides the rest) are no longer silent; owner Jawad now gets the CM-breach alert too (FR MNT-5 / NOT-2). | ✅ shipped |
 | **11 — Permit to work (2026-08-19, gap O5)** | `work_permits` + `WorkPermitService` (issue/close/cancel), hourly `facility:scan-open-permits` reporting permits past their window with no closure, property-scoped register with live/overdue filters and a danger navigation badge, `work_permits.issue` as a right of its own, readable abstract on View and inside the issue confirmation, folded global search on the reference. **An EXTENSION, not a Yardi construct** — see above | ✅ shipped |
 | **12 — Trade register (2026-08-20, close-out step 1)** | `trades` + `trade_vendor`; work orders, service plans and equipment all classify by a ROW instead of a translation key; `standard_hourly_rate` (the craft rate the cost object will read); the vendor picker grouped by eligibility; `category` dropped from all three tables with a code-matched backfill. Fixed a live defect on the way: a tenant's problem category was being written into the work order's trade | ✅ shipped |
+| **13 — The work order as a cost object (2026-08-20, close-out step 2)** | Planned and actual cost in three buckets on `facility_work_orders`; `facility_work_order_labour` (the primitive that did not exist — hours × the craft rate, frozen at entry); `facility_work_order_id` on `vendor_bills` and `expenses` so contractor work is attributable at all; `recomputeCosts()` as the single source of truth with all three channels wired; cost columns on the job, lifetime cost on the machine; `job_value` replaced by `est_service_cost` and the SLA percent basis rewired to prefer the actual. **Explicitly NOT a GL source** — the money is already posted three other ways, and a gate keeps it that way | ✅ shipped |
 
 ---
 

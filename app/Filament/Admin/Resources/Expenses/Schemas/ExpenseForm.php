@@ -3,9 +3,12 @@
 namespace App\Filament\Admin\Resources\Expenses\Schemas;
 
 use App\Models\Expense;
+use App\Models\FacilityWorkOrder;
 use App\Models\TaxCode;
 use App\Support\CatalogueTaxRate;
+use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\Modules;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -44,6 +47,18 @@ class ExpenseForm
                     PropertyField::make(alsoDisabledWhen: $locked)
                         ->searchable()
                         ->preload(),
+
+                    // The other road a job's cost arrives by — petty cash and direct costs. Same
+                    // reasoning as the vendor bill: a cost object is only true if it captures both.
+                    EntitySelect::make('facility_work_order_id')
+                        ->label(__('admin.facility.order.singular'))
+                        ->helperText(__('admin.facility.help.expense_work_order'))
+                        ->entity(FacilityWorkOrder::class)
+                        ->modifyOptionsQuery(fn ($query, Get $get) => filled($get('asset_id'))
+                            ? $query->where('asset_id', $get('asset_id'))
+                            : $query)
+                        ->searchable()
+                        ->visible(fn (): bool => Modules::enabled('facility')),
 
                     Select::make('category')
                         ->label(__('admin.fields.category'))
