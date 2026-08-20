@@ -134,9 +134,19 @@ npm ci && npm run build                   # app assets AND the handbook; both pa
 php artisan filament:assets
 php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan event:cache
 php artisan storage:link
+php artisan db:seed --class='Database\Seeders\RolesPermissionsSeeder' --force   # see below
 php artisan atriom:rebuild-search         # posture B only — see below
 php artisan atriom:preflight              # health + both data audits + the books reconciliation, in order
 ```
+
+**Re-seed the roles on EVERY upgrade.** A release that adds a screen adds its permissions to
+`RolesPermissionsSeeder`, and **nothing applies that but running the seeder**. The tests seed the
+catalogue themselves, so a missing permission is invisible to a green suite — and the symptom is not
+an error: `canAccess()` simply returns false and the screen is **absent from the navigation for
+everyone, including super_admin**. That is exactly how the Trades and Failure-code registers shipped
+invisible on 2026-08-20, and it took the operator opening the panel to find it. The seeder is
+idempotent (it bulk-writes the catalogue and re-syncs every role grant), so running it on every
+deploy costs nothing and removes the question.
 
 **`atriom:rebuild-search` after an UPGRADE, not after a fresh install.** The fold blob is written by
 the model on save, so `migrate:fresh --seed` produces correct blobs and the command is a no-op.
