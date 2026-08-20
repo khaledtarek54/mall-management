@@ -16,10 +16,14 @@
 | Found by reading, not by a failure. Nothing was wrong; there were simply two of it.
 */
 
+use App\Filament\Admin\RelationManagers\EmployeePayslipsRelationManager;
+use App\Filament\Admin\Resources\Employees\EmployeeResource;
+use App\Filament\Admin\Resources\Employees\Pages\EditEmployee;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
@@ -139,4 +143,33 @@ it('freezes an approved run', function () {
 
     // Approval posts the run to the GL; restating it afterwards would desync the entry.
     expect(fn () => $run->update(['gross_salaries' => 1]))->toThrow(DomainException::class);
+});
+
+it('shows an employee what they have been paid, from their own record', function () {
+    // `payrollLines` existed on the model and NO screen read it, so "what did this employee earn in
+    // June, and what was deducted?" meant opening every payroll run in turn and finding their line
+    // (2026-08-20). The relation manager is registered on the employee, not only on the run.
+    $relations = EmployeeResource::getRelations();
+
+    expect($relations)->toContain(EmployeePayslipsRelationManager::class)
+        ->and($this->employee->payrollLines())->not->toBeNull();
+});
+
+it('mounts that tab', function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('super_admin', [$this->asset->id]));
+    Filament\Facades\Filament::setCurrentPanel(Filament\Facades\Filament::getPanel('admin'));
+    Filament\Facades\Filament::setTenant($this->asset);
+
+    $run = payrollRun($this);
+    payslipOn($run, $this->employee);
+
+    // A relation manager's columns and actions are wired when the table is BUILT, so a mistake
+    // renders as a 500 on the tab and never as a failing unit test.
+    Livewire\Livewire::test(EmployeePayslipsRelationManager::class, [
+        'ownerRecord' => $this->employee,
+        'pageClass' => EditEmployee::class,
+    ])->assertOk();
+
+    Filament\Facades\Filament::setTenant(null, isQuiet: true);
 });

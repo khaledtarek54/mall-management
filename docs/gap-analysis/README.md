@@ -434,6 +434,22 @@ have since shipped (`BankStatement` + matcher; `/admin/tax-depreciation`).
 **From here, build effort goes to property and facility, not here.** That is a standing decision,
 recorded so nobody re-audits a closed layer.
 
+> **Two of the three named gaps have since SHIPPED, and this section had not been updated
+> (2026-08-20).** `PayrollSettings::employer_social_insurance_rate` books the employer's own
+> contribution as a cost that does not reduce net pay, and `gratuity_enabled` +
+> `gratuity_days_first_five` / `_thereafter` express Labour Law 12/2003 Art. 122 — shipped **off**,
+> with the reasoning recorded on the setting: Art. 122 applies to workers **not covered by the
+> social insurance law**, and in Egypt most are, so accruing a provision nobody owes overstates the
+> liability exactly as surely as omitting a real one understates it. Whether this workforce is
+> entitled is the accountant's question.
+>
+> **What is genuinely open is different from what was written here.** Salary tax is a FLAT
+> percentage (`salary_tax_rate`) and employee social insurance a flat percentage of GROSS. Egyptian
+> income tax is a progressive schedule with a personal exemption, and social insurance is charged on
+> a capped **insurable wage** rather than on gross — so on any real payroll the generated figures are
+> a convenience default an operator must overwrite per payslip, not a computation. The per-line
+> amounts are editable, so nothing is unrecoverable; what is missing is the schedule itself.
+
 **One caution that must travel with the word "closed".** A 2026-08-11 money-lens pass over three of
 these modules found **six** correctness defects after they had been declared closed — inventory
 relieving at the catalogue cost rather than what stock was loaded at, a disposed asset's cost

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Employees;
 
 use App\Filament\Admin\RelationManagers\EmployeeAdvancesRelationManager;
+use App\Filament\Admin\RelationManagers\EmployeePayslipsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\Employees\Pages\CreateEmployee;
@@ -85,6 +86,9 @@ class EmployeeResource extends Resource
     public static function getRelations(): array
     {
         return [
+            // What they have been PAID — the question HR opens an employee to ask, and the one
+            // this record could not answer. `payrollLines` existed on the model and no screen read it.
+            EmployeePayslipsRelationManager::class,
             EmployeeAdvancesRelationManager::class,
         ];
     }

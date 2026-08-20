@@ -8,6 +8,8 @@ use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Services\GeneratePayrollService;
 use App\Services\PayslipPdfService;
+use App\Settings\PayrollSettings;
+use App\Support\Filament\RecordChanged;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -60,7 +62,7 @@ class PayrollLinesRelationManager extends RelationManager
      */
     private function refreshOwnerHeader(): void
     {
-        $this->dispatch('payroll-lines-updated');
+        RecordChanged::dispatchFrom($this);
     }
 
     public function table(Table $table): Table
@@ -131,9 +133,26 @@ class PayrollLinesRelationManager extends RelationManager
                         $run = $this->getOwnerRecord();
                         $count = app(GeneratePayrollService::class)->eligibleCount($run);
 
-                        return $count > 0
-                            ? __('admin.payroll_lines.generate.description', ['count' => $count])
-                            : __('admin.payroll_lines.generate.none');
+                        if ($count === 0) {
+                            return __('admin.payroll_lines.generate.none');
+                        }
+
+                        $line = __('admin.payroll_lines.generate.description', ['count' => $count]);
+
+                        // **Say what it will deduct, before it deducts nothing.** Both rates default
+                        // to 0 and every generated payslip is then gross = net — legally wrong in
+                        // Egypt and completely silent, because a payslip with no tax line looks like
+                        // a payslip. Measured on the seeded portfolio: 9 employees, both rates 0
+                        // (2026-08-20). Stated rather than refused: a run with no deductions is a
+                        // real case (a contractor roster, a mall whose accountant withholds
+                        // centrally), so this is the operator's call to make knowingly.
+                        $settings = app(PayrollSettings::class);
+                        $tax = (float) $settings->salary_tax_rate;
+                        $si = (float) $settings->social_insurance_rate;
+
+                        return $tax > 0 || $si > 0
+                            ? $line.' '.__('admin.payroll_lines.generate.rates', ['tax' => $tax, 'si' => $si])
+                            : $line.' '.__('admin.payroll_lines.generate.no_rates');
                     })
                     ->modalSubmitActionLabel(__('admin.payroll_lines.generate.confirm'))
                     ->action(function (): void {

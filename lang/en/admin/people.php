@@ -2,6 +2,9 @@
 
 return [
     'employees' => [
+        'payslips' => 'Payslips',
+        'no_payslips' => 'No payslips yet — this employee has not appeared on a payroll run',
+        'repays_advance' => 'Repays an advance',
         'errors' => [
             'repayment_before_advance' => 'A repayment cannot be dated before the advance was granted (:granted).',
             'repayment_already_reversed' => 'This repayment has already been reversed.',
@@ -66,6 +69,8 @@ return [
             'advance_required' => 'Choose an outstanding advance for this installment.',
         ],
         'generate' => [
+            'rates' => 'It will deduct salary tax at :tax% and social insurance at :si% of gross.',
+            'no_rates' => 'Salary tax and social insurance are both set to 0%, so every payslip will show gross = net. Set them in Settings → Payroll if that is not intended.',
             'label' => 'Generate payslips',
             'heading' => 'Generate payslips from the roster',
             'description' => 'This adds a payslip for each of the :count active employee(s) on this property, pre-filled from their base salary and the configured deduction rates. Review and adjust each line before approving.',
