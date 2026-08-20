@@ -88,6 +88,7 @@ return [
         ],
         'not_estimated' => 'غير مقدَّر',
         'help' => [
+            'attach_evidence' => 'صور للعمل بعد إنجازه. قد يشترطها إنهاء أمر العمل، وهي ما يحسم أي خلاف لاحقًا.',
             'route_stop' => 'معدة تشملها هذه الزيارة. كل واحدة تصبح سطرًا مستقلًا في أمر العمل، فيُنسب العطل إلى المعدة.',
             'route_order' => 'ترتيب السير في الجولة.',
             'route_note' => 'اختياري. يظهر في سطر هذه المعدة أمام الفني.',
@@ -368,7 +369,7 @@ return [
             'landscaping' => 'تنسيق الحدائق', 'pest_control' => 'مكافحة الآفات', 'waste' => 'إدارة المخلفات', 'security' => 'الأمن',
         ],
         'statuses' => ['open' => 'مفتوح', 'in_progress' => 'قيد التنفيذ', 'done' => 'منجز', 'cancelled' => 'ملغى'],
-        'actions' => ['start' => 'بدء', 'complete' => 'إنهاء', 'cancel' => 'إلغاء'],
+        'actions' => ['start' => 'بدء', 'complete' => 'إنهاء', 'cancel' => 'إلغاء', 'attach_evidence' => 'إرفاق صورة', 'evidence_attached' => 'تم إرفاق الصورة.'],
         'checklist_title' => 'قائمة الفحص',
         'completed_notice' => 'تم إنجاز أمر الشغل',
         'cancelled_notice' => 'تم إلغاء أمر الشغل',

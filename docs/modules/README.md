@@ -46,6 +46,7 @@ Read these in order — each one assumes the one before it.
 | 03 | [Tenant Portal Users](03-tenant-portal-users.md) | `/portal` — multi-user tenant logins; only `is_admin` may write |
 | 11 | [Tenant Requests](11-tenant-requests.md) | The tenant-facing board: maintenance, complaints, permits, access, billing queries |
 | 12 | [Vendors & Contracts](12-vendors.md) | Contracts, commitments, change orders, compliance documents, the dispatch guard, withholding tax |
+| 12b | [Vendor portal — design](12b-VENDOR-PORTAL-DESIGN.md) | **DESIGN ONLY, nothing built.** The contractor's four verbs — accept · quote · update · evidence — and the one rule they all rest on |
 | 15 | [Owner Requests & the Owner Model](15-owner-requests-and-model.md) | The owner↔operator channel, and ownership tenure |
 | 32 | [Owner Statements & Disbursements](32-owner-statements.md) | The deliverable of the operator-for-owner relationship |
 | 37 | [Unit Owners](37-unit-owners.md) | The buyer who trades from his own shop and holds **no lease** — billed for صيانة against the ownership |

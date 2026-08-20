@@ -19,6 +19,7 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -336,6 +337,42 @@ class FacilityWorkOrdersTable
                         abort_unless(self::canComplete(), 403);
                         app(FacilityWorkOrderService::class)->transition($record, 'in_progress');
                     }),
+                // **The technician's own way to attach a photograph.**
+                //
+                // A technician holds `facility.complete` and NOT `facility.edit`, so the evidence
+                // field on the work-order form is unreachable to them — while
+                // `SlaSettings::$require_completion_evidence` refuses their completion until an
+                // attachment exists. Two features that are each correct alone produced a deadlock:
+                // blocked from finishing, and unable to do the thing that would unblock them.
+                // Proven on the real permission set, not argued (2026-08-20).
+                //
+                // Gated on `facility.complete` — the same right that lets them finish the job —
+                // rather than by widening `facility.edit`, which would also let them re-home the
+                // job, change its vendor and edit its commercial fields.
+                Action::make('attachEvidence')
+                    ->label(__('admin.facility.actions.attach_evidence'))
+                    ->icon('heroicon-o-camera')
+                    ->color('gray')
+                    ->visible(fn (): bool => self::canComplete())
+                    ->authorize(fn (): bool => self::canComplete())
+                    ->schema([
+                        SpatieMediaLibraryFileUpload::make('evidence')
+                            ->label(__('admin.facility.fields.evidence'))
+                            ->collection('evidence')
+                            ->multiple()
+                            ->appendFiles()
+                            ->image()
+                            ->helperText(__('admin.facility.help.attach_evidence')),
+                    ])
+                    ->action(function (): void {
+                        // The upload component writes the media itself; this only has to refuse an
+                        // unauthorised dispatch. A success notice still belongs here — a modal that
+                        // closes silently reads as a failure.
+                        abort_unless(self::canComplete(), 403);
+
+                        Notification::make()->success()->title(__('admin.facility.actions.evidence_attached'))->send();
+                    }),
+
                 Action::make('complete')
                     ->label(__('admin.facility.actions.complete'))
                     ->icon('heroicon-o-check-circle')

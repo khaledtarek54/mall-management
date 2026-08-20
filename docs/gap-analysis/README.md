@@ -143,8 +143,7 @@ a pivot column, a migration and a backfill.
 | # | Gap | Module | Benchmark | Sev | Effort |
 |---|---|---|---|---|---|
 | O1 | **Lease document generation + e-signature** — a lease only holds an uploaded PDF; nothing generates or signs one. A daily workflow for an operator onboarding continuously | 04 | Re-Leased, Yardi Smart Lease | 🟡 | M–L |
-| O2 | **Vendor self-service portal** — no accept/quote/update/evidence loop; dispatch is an internal column change. Needs its **own** permission set, not `imports.execute` | 12 · 26 | ServiceChannel (the product *is* this loop) | 🟡 | L |
-| O3 | **Field-technician mobile app** — `/api/v1` is tenant-facing; engineers close work orders from a desktop screen | 20 · 26 | Facilio · MaintainX · Limble, all mobile-first | 🟡 | L |
+| O2 | **Vendor self-service portal** — no accept/quote/update/evidence loop; dispatch is an internal column change. **Designed 2026-08-20** — [modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md), deliberately small: three of the four verbs are already services, and the only missing primitive is a comment thread on the work order | 12 · 26 | ServiceChannel (the product *is* this loop) | 🟡 | M |
 | O4 | **Fit-out permit: conditions on the grant** — the decision ships (approve/reject with a mandatory reason, recorded); what is missing is *what was granted* — permitted hours, a security deposit, contractor details, and an audit trail of the permit itself rather than of the request carrying it | 11 | ServiceChannel compliance | 🟡 | M |
 | O7 | **Capex bid / quote comparison** — one vendor per request, no tender, no "three quotes compared" on tier-3 spend. A governance gap owners ask about | 29 | Maximo · Odoo Enterprise | 🟡 | M |
 | F1–F8 | **The facility & operations close-out** — the work order as a cost object, trade as master data, PM compliance, tenant confirmation, failure codes, NTE/proposals, routes, job-plan estimates. Ranked, with reasons, in [§4](#4-facility-vendors-assets--vs-the-fm-standard); benchmarked in [docs/benchmarks/fm/](../benchmarks/fm/) | 26 · 11 · 12 · 22 · 23 · 29 · 30 | Maximo · ServiceChannel | 🟠 | L |
@@ -385,8 +384,7 @@ trade (the first question an owner asks), and a scorecard that compares like wit
 
 | # | Gap | Standard | Sev |
 |---|---|---|---|
-| O2 | **Vendor self-service portal** — dispatch is an internal column change; no accept / quote / update / evidence loop | ServiceChannel (the product *is* this loop) | 🟡 |
-| O3 | **Field-technician mobile app** — `/api/v1` is tenant-facing; engineers close work orders from a desktop | Facilio · MaintainX | 🟡 |
+| O2 | **Vendor self-service portal** — dispatch is an internal column change. **Designed**, not built: [modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md) | ServiceChannel (the product *is* this loop) | 🟡 |
 | O4 | **Fit-out permit: conditions on the grant** | ServiceChannel compliance | 🟡 |
 | O16 | **Barcode parts issue + guided cycle counts** | every CMMS | 🟡 |
 
@@ -400,10 +398,13 @@ created?).
 ### ✅ The close-out is COMPLETE — all seven steps shipped and reviewed (2026-08-20)
 
 Both structural absences are closed and the five gaps downstream of them with them. What remains in
-facility and operations is **O2** (the vendor self-service portal), **O3** (a field-technician mobile
-app), **O4** (conditions on a fit-out permit) and **O16** (barcode parts and guided cycle counts) —
-none of which is a missing primitive. They are surfaces for people who are not in the admin panel,
-which is a different kind of work from what this close-out did.
+facility and operations is **O2** (the vendor self-service portal, now designed in
+[modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md)), **O4** (conditions on a fit-out permit) and
+**O16** (barcode parts and guided cycle counts) — none of which is a missing primitive.
+
+**O3 is declined** (§6): there is no technician app; a technician uses the admin panel under their
+own role. That turns the role's experience into a requirement, and checking it against that standard
+found a live deadlock — see §6.
 
 ### The close-out order, and why it is this order
 
@@ -446,6 +447,7 @@ employer social insurance and gratuity, which could still move the books.
 
 | Item | Why declined |
 |---|---|
+| **O3 — field-technician mobile app** | **Operator's decision, 2026-08-20: there is no technician app. A technician signs into the admin panel under the `technician` role.** That makes the role's own experience a requirement rather than a fallback, and reviewing it against that standard immediately found a deadlock: `SlaSettings::$require_completion_evidence` refuses a technician's completion until a photograph is attached, and the evidence field lives on the work-order form, which needs `facility.edit` — a permission the role deliberately does not hold. Fixed with an **Attach a photo** action gated on `facility.complete`, the same right that lets them finish the job, rather than by widening `facility.edit` (which would also let them re-home a job and change its vendor). Re-raise only if technicians turn out to need offline capture, which a browser cannot give them |
 | **Multiple books / second ledger** | One book, one property dimension. A second book is an audit surface with no Egyptian requirement behind it |
 | **Bank deposit batches** | PDCs and transfers dominate this market; batching cash deposits solves a problem the operator does not have |
 | **Interest-bearing / segregated deposits** | Not an Egyptian requirement |

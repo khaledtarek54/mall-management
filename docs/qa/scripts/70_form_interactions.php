@@ -163,7 +163,7 @@ foreach ([CreateUnit::class,
             echo '  ('.class_basename($cls)." has no asset_id in state)\n";
         }
     } catch (Throwable $e) {
-        qa_ok('property pin: '.class_basename($cls), false, mb_substr($e->getMessage(),0,140));
+        qa_ok('property pin: '.class_basename($cls), false, mb_substr($e->getMessage(), 0, 140));
     }
 }
 

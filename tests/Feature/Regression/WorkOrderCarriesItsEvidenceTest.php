@@ -144,3 +144,43 @@ it('still accepts evidence after the job is closed', function () {
 
     expect($closed->fresh()->hasEvidence())->toBeTrue();
 });
+
+/*
+|--------------------------------------------------------------------------
+| A technician could be blocked from finishing and unable to unblock themselves
+|--------------------------------------------------------------------------
+| The operator's decision (2026-08-20) is that there is NO technician app — a technician signs into
+| the admin panel under the `technician` role. That makes the role's own experience a requirement
+| rather than a fallback, and checking it against that standard found a deadlock built from two
+| features that are each correct alone:
+|
+|   `SlaSettings::$require_completion_evidence` refuses a technician's completion until a photograph
+|   is attached — and the evidence field lives on the work-order form, which needs `facility.edit`,
+|   a permission the role deliberately does not hold.
+|
+| Fixed with an **Attach a photo** action gated on `facility.complete` — the same right that lets
+| them finish — rather than by widening `facility.edit`, which would also let a technician re-home a
+| job, change its vendor and edit its commercial fields.
+*/
+
+it('lets a technician attach the evidence their own completion requires', function () {
+    $tech = makeUser('technician', [$this->asset->id]);
+
+    // The gate that blocks them…
+    expect($tech->can('facility.complete'))->toBeTrue()
+        // …and the one they do NOT hold, which is why the form is unreachable.
+        ->and($tech->can('facility.edit'))->toBeFalse();
+
+    // The attach action is gated on the right they DO hold, so the deadlock cannot re-form.
+    $source = file_get_contents(base_path(
+        'app/Filament/Admin/Resources/FacilityWorkOrders/Tables/FacilityWorkOrdersTable.php'
+    ));
+
+    expect($source)->toContain("Action::make('attachEvidence')");
+
+    $action = substr($source, strpos($source, "Action::make('attachEvidence')"));
+    $action = substr($action, 0, strpos($action, "Action::make('complete')"));
+
+    expect($action)->toContain('self::canComplete()')
+        ->and($action)->toContain("collection('evidence')");
+});

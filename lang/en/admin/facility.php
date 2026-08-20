@@ -88,6 +88,7 @@ return [
         ],
         'not_estimated' => 'Not estimated',
         'help' => [
+            'attach_evidence' => 'Photographs of the finished work. This is what a completion may require, and what settles an argument later.',
             'route_stop' => 'A machine this visit covers. Each becomes its own line on the job, so a failure names the device.',
             'route_order' => 'The order the round is walked in.',
             'route_note' => 'Optional. Shown on the line for this machine.',
@@ -370,7 +371,7 @@ return [
             'landscaping' => 'Landscaping', 'pest_control' => 'Pest Control', 'waste' => 'Waste Management', 'security' => 'Security',
         ],
         'statuses' => ['open' => 'Open', 'in_progress' => 'In progress', 'done' => 'Done', 'cancelled' => 'Cancelled'],
-        'actions' => ['start' => 'Start', 'complete' => 'Mark done', 'cancel' => 'Cancel'],
+        'actions' => ['start' => 'Start', 'complete' => 'Mark done', 'cancel' => 'Cancel', 'attach_evidence' => 'Attach a photo', 'evidence_attached' => 'Photo attached.'],
         'checklist_title' => 'Checklist',
         'completed_notice' => 'Work order completed',
         'cancelled_notice' => 'Work order cancelled',
