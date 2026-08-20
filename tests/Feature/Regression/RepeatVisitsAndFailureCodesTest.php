@@ -22,6 +22,7 @@ use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
 use App\Models\Trade;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -205,4 +206,51 @@ it('refuses to delete a code a job has recorded', function () {
     escalatorVisit($this, 1, ['failure_cause_id' => $code->id]);
 
     expect(fn () => $code->delete())->toThrow(DomainException::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Review pass (2026-08-20)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * **The list must not pay a query per row.** The badge is visible by default — a coordinator
+ * triaging today's faults is who needs it — so an N+1 there is a query per row on the module's
+ * busiest screen. Measured before the scope existed: 14 queries for 12 rows, because the column
+ * also read the same fact twice (`isRepeatVisit()` then `priorVisitCount()`).
+ */
+it('counts repeats for a whole page in one query', function () {
+    collect([20, 10, 3])->each(fn (int $d) => escalatorVisit($this, $d));
+
+    DB::enableQueryLog();
+    $rows = FacilityWorkOrder::query()->withPriorVisitCount()->get();
+    $rows->each(fn (FacilityWorkOrder $w) => $w->priorVisitCount());
+
+    expect($rows)->toHaveCount(3)
+        ->and(DB::getQueryLog())->toHaveCount(1);
+});
+
+/**
+ * **The drift guard.** The one-query subquery and the per-row definition must always agree, or the
+ * badge on a list would contradict the record it links to. They are two spellings of one rule and
+ * only a test keeps them one rule.
+ */
+it('gives a list the same count as the record', function () {
+    collect([25, 12, 3])->each(fn (int $d) => escalatorVisit($this, $d));
+
+    FacilityWorkOrder::query()->withPriorVisitCount()->get()->each(function (FacilityWorkOrder $w) {
+        expect((int) $w->prior_visit_count)
+            ->toBe(FacilityWorkOrder::query()->repeatsOf($w)->count(), "work order {$w->id}");
+    });
+});
+
+/** The subquery honours the same "match on nothing" refusal as the scope it mirrors. */
+it('counts nothing for a job naming neither machine nor shop, in the list query too', function () {
+    escalatorVisit($this, 10, ['equipment_id' => null, 'unit_id' => null, 'area_id' => null]);
+    escalatorVisit($this, 2, ['equipment_id' => null, 'unit_id' => null, 'area_id' => null]);
+
+    FacilityWorkOrder::query()->withPriorVisitCount()->get()->each(
+        fn (FacilityWorkOrder $w) => expect((int) $w->prior_visit_count)->toBe(0),
+    );
 });

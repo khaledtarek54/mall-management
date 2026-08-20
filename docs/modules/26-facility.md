@@ -1195,6 +1195,13 @@ elsewhere.
 A job naming **neither** a machine nor a shop matches nothing. Without that guard every common-area
 job would "repeat" every other job in its trade and the signal would be noise on day one.
 
+`scopeWithPriorVisitCount()` counts a whole page in **one** query — measured at 14 queries for 12
+rows before it existed, on a column that is visible by default, and the badge also read the same
+fact twice. The scope and `priorVisitCount()` are two spellings of one rule, pinned by a test that
+they agree, because a badge contradicting the record it links to is worse than no badge. Its date
+arithmetic branches on the driver (`datetime()` vs `date_sub()`), and `tests/Mysql/` executes the
+MySQL half, which the ordinary SQLite suite can never reach.
+
 It surfaces where it changes a decision: a **red badge** on the work-order list (not hidden by
 default — a coordinator triaging today's faults is exactly who needs it) and a **repeat-visits
 column on the vendor scorecard**, which is ServiceChannel's point — the provider who keeps coming

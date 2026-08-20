@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\FacilityWorkOrder;
 use App\Support\ValueSets;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
@@ -178,4 +179,36 @@ it('keeps every index and constraint name within MySQL\'s 64-character limit', f
     // satisfy the assertion above and report coverage it does not have.
     $total = DB::selectOne('select count(*) as c from information_schema.statistics where table_schema = ?', [$database]);
     expect((int) $total->c)->toBeGreaterThan(100);
+});
+
+/**
+ * The repeat-visit subquery runs on MySQL.
+ *
+ * Date arithmetic relative to each row has no portable spelling — SQLite wants
+ * `datetime(col, '-30 days')`, MySQL wants `date_sub(col, interval 30 day)` — so
+ * `scopeWithPriorVisitCount()` branches on the driver. **The suite only ever exercises the SQLite
+ * half**, which is precisely the asymmetry this tier exists for: the MySQL branch would otherwise
+ * be discovered by an operator opening the work-order list.
+ *
+ * It also proves the aliased self-subquery compiles at all. A correlated subquery over the same
+ * table needs the inner copy aliased, and the soft-delete global scope qualifies its column with
+ * the REAL table name — a combination that is easy to get wrong and impossible to see here.
+ */
+it('compiles and runs the repeat-visit subquery on the real driver', function () {
+    $rows = FacilityWorkOrder::query()
+        ->withPriorVisitCount()
+        ->limit(25)
+        ->get();
+
+    // Executed, not merely compiled — the point of the tier.
+    expect($rows)->not->toBeNull();
+
+    foreach ($rows as $row) {
+        expect((int) $row->prior_visit_count)->toBeGreaterThanOrEqual(0);
+
+        // …and the one-query answer matches the per-row definition on THIS driver too, which is
+        // the property a SQLite run cannot establish.
+        expect((int) $row->prior_visit_count)
+            ->toBe(FacilityWorkOrder::query()->repeatsOf($row)->count(), "work order {$row->id}");
+    }
 });

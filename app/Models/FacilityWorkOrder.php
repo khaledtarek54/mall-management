@@ -357,9 +357,67 @@ class FacilityWorkOrder extends Model implements HasMedia
             ->where('created_at', '<', $order->created_at ?? now());
     }
 
+    /**
+     * The same count for a LIST, in ONE query instead of one per row.
+     *
+     * `priorVisitCount()` is the definition; this is how a table reads it without an N+1 — the same
+     * pairing as `ServicePlan::complianceRate()` and its count-based twin, and pinned by a test that
+     * the two agree, because a badge disagreeing with the record it links to is worse than no badge.
+     *
+     * Measured before it existed: 14 queries for 12 rows, on a column that is not hidden by default.
+     *
+     * A correlated self-subquery, aliased — `whereColumn` against the outer `facility_work_orders`
+     * needs the inner copy under a different name. Written with `addSelect([alias => query])` rather
+     * than a raw `select *, (…)`, which SQLite accepts and MySQL rejects.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeWithPriorVisitCount(Builder $query, ?int $days = null): Builder
+    {
+        $days = $days ?? (int) config('facility.repeat_visit_days', 30);
+
+        // Date arithmetic relative to EACH row has no portable spelling: SQLite wants
+        // `datetime(col, '-30 days')`, MySQL wants `date_sub(col, interval 30 day)`. Branched here
+        // in one place rather than discovered on the first real deploy — the suite runs SQLite and
+        // would never have told us. `$days` is an int, so there is nothing to inject.
+        $cutoff = $query->getConnection()->getDriverName() === 'sqlite'
+            ? "datetime(facility_work_orders.created_at, '-{$days} days')"
+            : "date_sub(facility_work_orders.created_at, interval {$days} day)";
+
+        return $query->addSelect(['prior_visit_count' => static::query()
+            ->from('facility_work_orders as prior')
+            ->selectRaw('count(*)')
+            ->whereColumn('prior.id', '!=', 'facility_work_orders.id')
+            ->whereColumn('prior.trade_id', 'facility_work_orders.trade_id')
+            ->where('prior.status', '!=', 'cancelled')
+            ->whereNull('prior.parent_work_order_id')
+            ->whereNull('prior.deleted_at')
+            // The same "same THING" rule as the scope: the machine when there is one, else the
+            // shop, and NOTHING when there is neither.
+            ->where(fn (Builder $q) => $q
+                ->where(fn (Builder $eq) => $eq
+                    ->whereNotNull('facility_work_orders.equipment_id')
+                    ->whereColumn('prior.equipment_id', 'facility_work_orders.equipment_id'))
+                ->orWhere(fn (Builder $unit) => $unit
+                    ->whereNull('facility_work_orders.equipment_id')
+                    ->whereNotNull('facility_work_orders.unit_id')
+                    ->whereNull('prior.equipment_id')
+                    ->whereColumn('prior.unit_id', 'facility_work_orders.unit_id')))
+            ->whereColumn('prior.created_at', '<', 'facility_work_orders.created_at')
+            ->whereRaw("prior.created_at >= {$cutoff}"),
+        ]);
+    }
+
     /** How many times this same thing was already worked on inside the window. */
     public function priorVisitCount(?int $days = null): int
     {
+        // A list that used `withPriorVisitCount()` already paid for this; re-querying per row is
+        // the N+1 that scope exists to remove. Only honoured for the DEFAULT window, because a
+        // caller asking for a different one is asking a different question.
+        if ($days === null && $this->prior_visit_count !== null) {
+            return (int) $this->prior_visit_count;
+        }
+
         return $this->trade_id === null
             ? 0
             : static::query()->repeatsOf($this, $days)->count();

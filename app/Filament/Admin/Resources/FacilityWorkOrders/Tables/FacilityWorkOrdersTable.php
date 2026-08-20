@@ -43,7 +43,8 @@ class FacilityWorkOrdersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade', 'parentWorkOrder', 'sourceItem', 'penalty']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade', 'parentWorkOrder', 'sourceItem', 'penalty'])
+                ->withPriorVisitCount())
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.facility.fields.reference'))
@@ -216,9 +217,16 @@ class FacilityWorkOrdersTable
                     ->label(__('admin.facility.fields.repeat_visit'))
                     ->badge()
                     ->color('danger')
-                    ->state(fn (FacilityWorkOrder $r): ?string => $r->isRepeatVisit()
-                        ? __('admin.facility.repeat_visit_badge', ['count' => $r->priorVisitCount() + 1])
-                        : null)
+                    // Counted ONCE. Asking `isRepeatVisit()` and then `priorVisitCount()` reads the
+                    // same fact twice — a second query per repeat row, and the class of bug where
+                    // two reads can disagree.
+                    ->state(function (FacilityWorkOrder $r): ?string {
+                        $prior = $r->priorVisitCount();
+
+                        return $prior > 0 && $r->parent_work_order_id === null
+                            ? __('admin.facility.repeat_visit_badge', ['count' => $prior + 1])
+                            : null;
+                    })
                     ->placeholder('—')
                     ->toggleable(),
 
