@@ -34,6 +34,25 @@ portal), and `departments` (org units). An employee is a *payroll subject*, not 
 > by breaking the shared method and watching four of six go red.
 
 
+
+> **⚠️ A month could be paid twice (fixed 2026-08-20).** `payroll_lines` is unique on
+> `(payroll_id, employee_id)`, so nobody appears twice in ONE run — and **nothing stopped a second
+> RUN for the same property and month.** Found by driving the module on real data: two August runs
+> of nine employees each, both approvable. Approving both paid every employee twice and posted
+> **134,564 for a month whose payroll was 66,782**, with no screen and no tie-out objecting, because
+> each run is internally perfect.
+>
+> Guarded at the **transition into approved**, and on the **employee**, not the run. A supplementary
+> run is legitimate — a bonus, an off-cycle correction, a starter paid late — so refusing a second
+> run outright would block all of them; what may never happen is one person drawing two approved
+> payslips for one period. On the MODEL rather than in the approve action, for the same reason the
+> posting-date guards are: the action is one caller, and a console or a service must meet the same
+> refusal. The message names the employees and points at the correction path — cancel the earlier
+> run — and a **cancelled** run correctly stops blocking, or the operator would be told to do
+> something that does not work. `PayrollHeaderHasOneDefinitionTest`, proven by removing the guard
+> (11 of 12 red).
+
+
 ## Importing the payroll register at cut-over (`EmployeeImporter`, 2026-08-12)
 
 A mall runs dozens of staff across security, cleaning, technical and admin, and the first payroll

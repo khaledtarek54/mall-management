@@ -225,6 +225,48 @@ class Payroll extends Model
             // its own outcome, and cancelling stays possible — it is the correction path.
             // (Module 24 close-out, 2026-08-11; the mirror of the disposed-asset and settled-عهدة
             // freezes in modules 23 and 25.)
+            // ── NOBODY IS PAID TWICE FOR THE SAME MONTH (2026-08-20) ──────────────────────────
+            //
+            // `payroll_lines` is unique on (run, employee), so an employee cannot appear twice in
+            // ONE run — and nothing stopped a SECOND run for the same property and month. Found by
+            // driving it: two August runs, nine employees each, both approvable. Approving both paid
+            // every one of them twice and posted 134,564 for a month whose payroll was 66,782, with
+            // no screen and no tie-out objecting, because each run is internally perfect.
+            //
+            // Guarded at the TRANSITION INTO approved, and on the EMPLOYEE, not on the run. A
+            // supplementary run is legitimate — a bonus, an off-cycle correction, a starter paid
+            // late — and refusing a second run outright would block all of them. What may never
+            // happen is the same person drawing two approved payslips for the same period.
+            //
+            // On the model rather than in the approve action, for the reason the posting-date guards
+            // are: the action is one caller, and a console or a service restating a run must meet
+            // the same refusal.
+            if ($payroll->exists
+                && $payroll->status === 'approved'
+                && $payroll->getOriginal('status') !== 'approved'
+                && $payroll->period_month !== null) {
+                $employeeIds = $payroll->lines()->pluck('employee_id')->filter();
+
+                if ($employeeIds->isNotEmpty()) {
+                    $clashing = PayrollLine::query()
+                        ->whereIn('employee_id', $employeeIds)
+                        ->whereHas('payroll', fn ($q) => $q
+                            ->where('status', 'approved')
+                            ->where('asset_id', $payroll->asset_id)
+                            ->whereDate('period_month', $payroll->period_month)
+                            ->whereKeyNot($payroll->getKey()))
+                        ->with('employee:id,name')
+                        ->get();
+
+                    if ($clashing->isNotEmpty()) {
+                        throw new \DomainException(__('admin.payroll.errors.already_paid_this_month', [
+                            'names' => $clashing->pluck('employee.name')->filter()->unique()->take(3)->implode('، '),
+                            'count' => $clashing->pluck('employee_id')->unique()->count(),
+                        ]));
+                    }
+                }
+            }
+
             if ($payroll->exists && $payroll->getOriginal('status') === 'approved') {
                 $frozen = ['gross_salaries', 'allowances', 'salary_tax', 'social_insurance',
                     'advance_deductions', 'other_deductions', 'employer_social_insurance',

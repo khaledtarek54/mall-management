@@ -173,3 +173,70 @@ it('mounts that tab', function () {
 
     Filament\Facades\Filament::setTenant(null, isQuiet: true);
 });
+
+it('refuses to approve a SECOND payslip for the same employee and month', function () {
+    // `payroll_lines` is unique on (run, employee), so nobody appears twice in ONE run — and
+    // nothing stopped a second RUN for the same property and month. Found by driving it on real
+    // data: two August runs of nine employees each, both approvable, paying everyone twice and
+    // posting 134,564 for a month whose payroll was 66,782. Each run is internally perfect, so no
+    // tie-out could see it (2026-08-20).
+    $first = payrollRun($this);
+    payslipOn($first, $this->employee);
+    $first->update(['status' => 'approved']);
+
+    $second = payrollRun($this);
+    payslipOn($second, $this->employee);
+
+    expect(fn () => $second->update(['status' => 'approved']))->toThrow(DomainException::class);
+    expect($second->fresh()->status)->toBe('draft');
+});
+
+it('still allows a supplementary run for an employee NOT already paid that month', function () {
+    $first = payrollRun($this);
+    payslipOn($first, $this->employee);
+    $first->update(['status' => 'approved']);
+
+    $starter = Employee::create([
+        'asset_id' => $this->asset->id, 'code' => 'EMP-TEST-02', 'name' => 'Nour Hassan',
+        'position' => 'Cleaner', 'hire_date' => '2026-08-15', 'base_salary' => 6000,
+        'payment_method' => 'bank', 'status' => 'active',
+    ]);
+
+    // A starter paid late, a bonus, an off-cycle correction — all legitimate. The rule is about the
+    // PERSON, not the run, which is why refusing a second run outright would have been wrong.
+    $supplementary = payrollRun($this);
+    payslipOn($supplementary, $starter, ['gross' => 3000, 'salary_tax' => 0, 'social_insurance' => 0]);
+    $supplementary->update(['status' => 'approved']);
+
+    expect($supplementary->fresh()->status)->toBe('approved');
+});
+
+it('lets the same employee be paid in a DIFFERENT month', function () {
+    $july = payrollRun($this);
+    payslipOn($july, $this->employee);
+    $july->update(['status' => 'approved']);
+
+    $august = Payroll::create([
+        'asset_id' => $this->asset->id, 'period_month' => '2026-09-01',
+        'status' => 'draft', 'paid_from' => 'bank',
+    ]);
+    payslipOn($august, $this->employee);
+    $august->update(['status' => 'approved']);
+
+    expect($august->fresh()->status)->toBe('approved');
+});
+
+it('does not count a CANCELLED run as having paid anyone', function () {
+    $cancelled = payrollRun($this);
+    payslipOn($cancelled, $this->employee);
+    $cancelled->update(['status' => 'approved']);
+    $cancelled->update(['status' => 'cancelled']);
+
+    // Cancelling is the correction path the refusal itself points at — so it has to actually clear
+    // the way, or the operator is told to do something that does not work.
+    $replacement = payrollRun($this);
+    payslipOn($replacement, $this->employee);
+    $replacement->update(['status' => 'approved']);
+
+    expect($replacement->fresh()->status)->toBe('approved');
+});
