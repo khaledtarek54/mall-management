@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'utility_meters' => [
+        'rate' => 'Rate',
+        'no_price' => 'No price',
+        'no_price_hint' => 'No tariff and no override — a reading here cannot be billed',
+        'rate_override' => 'Override on this meter',
+    ],
     'work_permits' => [
         'no_conditions' => 'No conditions stated. A permit with none is a note, not a control — it cannot be issued.',
         'lapsed' => 'Overdue closure',

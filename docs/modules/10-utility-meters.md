@@ -2,6 +2,35 @@
 
 > Track electric, water, and gas consumption at the asset and unit level; compute consumption as monthly deltas; visualize trends by meter type across a rolling 12-month window.
 
+
+> **⚠️ The tariff catalogue that nothing ever created (fixed 2026-08-20).** The dated ladder shipped
+> complete and correct — and **no seeder created a tariff**. `atriom:install` laid down roles,
+> approvals, departments and the accounting reference data and no tariffs; `DemoSeeder` created **48
+> meters with neither a tariff nor a `rate_per_unit` override**. So on a fresh install AND in the
+> demo, a new reading priced at **0.00** (`resolvedRatePerUnit()` falls through both steps) and
+> `BillMeterReadingService` correctly refused to bill it. The capability was complete and the data to
+> make it work did not exist — which reads to an operator as a feature that does nothing.
+>
+> Found by counting rows on the seeded portfolio, not by a failing test: every number in the module
+> was right, and 48 meters could not price.
+>
+> `UtilityTariffSeeder` now ships electricity, water and gas, and runs from `atriom:install`.
+> **Seeded WITHOUT rungs, deliberately**: a published rate is the operator's to confirm against their
+> own bill, and inventing one would silently recharge every tenant at a figure nobody checked — worse
+> than not billing, and the same reasoning `rateOn()` gives for returning null rather than 0. The
+> tariffs screen already renders a rate-less tariff in danger as *"no rate yet"*, so the operator
+> meets three tariffs asking to be priced, and **entering one rung prices every meter on it at
+> once**, which is the point of a catalogue over a per-meter number.
+>
+> The durable half is on the METERS list: an **effective rate** badge showing what the meter charges
+> and, when it charges nothing, *"No tariff and no override — a reading here cannot be billed"*. The
+> refusal used to arrive at BILLING time on a reading already taken; this is the same signal one step
+> earlier, where the meter is set up. It says WHICH source answered, because an override is a
+> decision somebody made for that meter and reads differently from the published price, and the
+> query eager-loads the rungs so the badge is not an N+1.
+> `AMeterThatCannotPriceSaysSoTest`.
+
+
 ## Importing readings (`MeterReadingImporter`, 2026-08-12)
 
 The technical team reads dozens of sub-meters a month and sends a spreadsheet. Keying them one at a

@@ -17,6 +17,8 @@ class UtilityMetersTable
     public static function configure(Table $table): Table
     {
         return $table
+            // `resolvedRatePerUnit()` walks the tariff's rungs; without this the badge is an N+1.
+            ->modifyQueryUsing(fn ($query) => $query->with(['utilityTariff.rates']))
             ->columns([
                 TextColumn::make('meter_number')
                     ->label(__('admin.tables.meter.number'))
@@ -46,6 +48,30 @@ class UtilityMetersTable
                         'gas' => 'danger',
                         default => 'gray',
                     }),
+                // **What this meter charges per unit, and whether it can charge at all.**
+                //
+                // A meter with neither a tariff nor a `rate_per_unit` override prices every new
+                // reading at 0.00, and `BillMeterReadingService` then refuses to bill it — correctly,
+                // because "nobody set a price" must never be billed as "this supply is free". The
+                // refusal arrived at BILLING time, on a reading already taken, and this list said
+                // nothing. Measured on the seeded portfolio: 48 meters, none with either
+                // (2026-08-20). The tariffs screen already flags a tariff with no rate; this is the
+                // same signal one step earlier, where the meter is set up.
+                TextColumn::make('effective_rate')
+                    ->label(__('admin.utility_meters.rate'))
+                    ->state(fn (UtilityMeter $record): string => ($rate = $record->resolvedRatePerUnit()) > 0
+                        ? rtrim(rtrim(number_format($rate, 4), '0'), '.')
+                            .($record->unit_of_measurement ? ' / '.$record->unit_of_measurement : '')
+                        : __('admin.utility_meters.no_price'))
+                    ->badge()
+                    ->color(fn (UtilityMeter $record): string => $record->resolvedRatePerUnit() > 0 ? 'success' : 'danger')
+                    // Which of the two answered — an override is a decision somebody made for this
+                    // meter, and reads differently from the published price.
+                    ->description(fn (UtilityMeter $record): ?string => $record->resolvedRatePerUnit() > 0
+                        ? ($record->hasRateOverride()
+                            ? __('admin.utility_meters.rate_override')
+                            : $record->utilityTariff?->label())
+                        : __('admin.utility_meters.no_price_hint')),
                 TextColumn::make('provider')
                     ->label(__('admin.fields.meter_provider'))
                     ->sortable()

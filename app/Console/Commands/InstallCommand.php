@@ -14,6 +14,7 @@ use Database\Seeders\AccountingSeeder;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\DepartmentSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Database\Seeders\UtilityTariffSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Facades\Hash;
@@ -84,6 +85,13 @@ class InstallCommand extends Command
         // because the set is "seeded" — so on an install that skipped this the table stayed empty
         // FOREVER with no in-app remedy, and tenant-request auto-routing was permanently off.
         $this->callSilent('db:seed', ['--class' => DepartmentSeeder::class, '--force' => true]);
+
+        // The utility tariffs a mall recharges against. Seeded WITHOUT rates — a published figure is
+        // the operator's to confirm — but seeded, because until 2026-08-20 nothing created a tariff
+        // at all and every meter therefore priced a reading at 0.00, which the billing service then
+        // correctly refused. The catalogue existing is what turns that into a screen asking to be
+        // priced rather than a feature that appears to do nothing.
+        $this->callSilent('db:seed', ['--class' => UtilityTariffSeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Departments', Department::count().' departments');
 
         $this->callSilent('db:seed', ['--class' => AccountingSeeder::class, '--force' => true]);
