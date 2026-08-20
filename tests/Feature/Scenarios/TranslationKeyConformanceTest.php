@@ -7,6 +7,8 @@ use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\DemoSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Lang;
 use PhpParser\Node;
 use PhpParser\NodeTraverser;
@@ -681,3 +683,52 @@ it('I: no TENANT PORTAL screen renders a raw translation key, in either locale',
     expect(array_unique($found))->toBe([], "A translation key reached the tenant's screen:\n  ".implode("\n  ", array_unique($found)));
     expect($rendered)->toBeGreaterThan(10);
 })->group('conformance');
+
+/**
+ * Every Arabic pluralised string selects its form EXPLICITLY.
+ *
+ * **Arabic has six plural forms.** Laravel's `trans_choice` picks by index, so a two-form
+ * `singular|plural` string — which is correct for English and is what anyone writes by habit —
+ * cannot select correctly for Arabic. Measured on the dashboard before this gate existed: `1`
+ * rendered the PLURAL ("1 أوامر شغل") and `2`, `4` and `11` all rendered the SINGULAR
+ * ("4 أمر شغل"). Thirteen strings, every count on the operator's home screen, wrong in both
+ * directions and invisible to anyone reading only English.
+ *
+ * The fix is explicit ranges — `{1} …|{2} …|[3,10] …|[11,*] …` — which select correctly whatever
+ * the locale's rule table says. This gate requires them of any Arabic string that offers a choice
+ * at all.
+ */
+it('selects Arabic plural forms explicitly, never by singular|plural position', function () {
+    $offenders = [];
+    $checked = 0;
+
+    foreach (File::allFiles(lang_path('ar')) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        foreach (Arr::dot(require $file->getPathname()) as $key => $value) {
+            if (! is_string($value) || ! str_contains($value, '|')) {
+                continue;
+            }
+
+            $checked++;
+
+            // A pluralised string must declare which form belongs to which count. Anything else is
+            // positional, and position is an English assumption.
+            if (! preg_match('/(\{\d+\}|\[\d+,(\d+|\*)\])/', $value)) {
+                $offenders[] = str_replace(lang_path().'/', '', $file->getPathname()).": {$key}";
+            }
+        }
+    }
+
+    // The sweep must prove it looked at something: a glob that matched nothing would satisfy the
+    // assertion below and report coverage it does not have.
+    expect($checked)->toBeGreaterThan(5);
+
+    expect($offenders)->toBe([], implode('', [
+        'These Arabic strings choose a plural form by POSITION, which cannot be correct for a ',
+        'language with six forms: '.implode(', ', $offenders).'. ',
+        'Use explicit ranges — {1} …|{2} …|[3,10] …|[11,*] … — see the docblock above.',
+    ]));
+});

@@ -16,6 +16,7 @@
 | a policy nobody has agreed to. Strict never OVERSTATES compliance, which is the safe direction.
 */
 
+use App\Filament\Admin\Widgets\ActionRequired;
 use App\Models\FacilityWorkOrder;
 use App\Models\ServicePlan;
 use Carbon\CarbonImmutable;
@@ -150,4 +151,55 @@ it('gives a list the same figure as the record', function () {
 
     expect($listed->complianceRateFromCounts())->toBe($this->plan->complianceRate())
         ->and($listed->complianceRateFromCounts())->toBe(33.3);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Review pass (2026-08-20)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * **The boundary day is where the two definitions could drift.** The accessor compares against the
+ * end of the due day; the scope compares whole dates. If they ever disagree, a badge and a filter
+ * tell different stories about the same row — and the due date itself is the only day where that
+ * could happen.
+ */
+it('agrees between the badge and the filter on the due date itself', function () {
+    $wo = cycle($this, '2026-03-01');
+
+    foreach (['2026-03-01 00:01', '2026-03-01 23:59'] as $moment) {
+        $at = CarbonImmutable::parse($moment);
+
+        expect($wo->pmComplianceState($at))->toBe(FacilityWorkOrder::PM_DUE, "state at {$moment}")
+            ->and(FacilityWorkOrder::query()->pmOverdue($at)->count())->toBe(0, "scope at {$moment}");
+    }
+
+    // …and both flip together the moment the day is over.
+    $after = CarbonImmutable::parse('2026-03-02 00:01');
+
+    expect($wo->pmComplianceState($after))->toBe(FacilityWorkOrder::PM_OVERDUE)
+        ->and(FacilityWorkOrder::query()->pmOverdue($after)->count())->toBe(1);
+});
+
+/**
+ * The measure has to reach somebody who is not already looking for it. Step 3 shipped the states,
+ * the column and the filters, and left the finding behind a filter an operator has to choose —
+ * the "capability with no surface" pattern this codebase names twice elsewhere.
+ */
+it('puts planned work nobody did on the dashboard', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-03-05'));
+    cycle($this, '2026-03-01');
+
+    // `getViewData()` is the seam ResourceLinkConformanceTest already uses: `make()` returns a
+    // WidgetConfiguration, not the widget. Inside a tenant, because every card builds a
+    // property-scoped URL.
+    asTenant($this->asset, function () {
+        $items = collect((new ReflectionMethod(ActionRequired::class, 'getViewData'))
+            ->invoke(new ActionRequired)['items']);
+
+        expect($items->pluck('key'))->toContain('ppm_overdue');
+    });
+
+    $this->travelBack();
 });

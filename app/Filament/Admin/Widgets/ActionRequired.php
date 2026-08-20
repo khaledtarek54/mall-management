@@ -48,6 +48,7 @@ class ActionRequired extends Widget
         'sla_breached' => 'requests.view',
         'wo_sla_breached' => 'facility.view',
         'wo_response_breached' => 'facility.view',
+        'ppm_overdue' => 'facility.view',
         'ledger_without_property' => 'journal_entries.view',
         'vendor_documents' => 'vendors.view',
         'contract_notice' => 'vendors.view',
@@ -178,6 +179,13 @@ class ActionRequired extends Widget
         // made "nobody has looked at this" the one maintenance failure the dashboard was blind to.
         $woUnansweredCount = $workOrderBase()->responseBreached()->count();
 
+        // **Planned work nobody did.** Step 3 gave the module a compliance measure and left its
+        // finding behind a filter somebody has to choose — which is the "capability with no
+        // surface" pattern this codebase already names twice. A corrective breach rings here; a
+        // preventive job whose day has passed is the same class of failure and, measured on the
+        // demo portfolio, four of them were sitting unseen.
+        $ppmOverdueCount = $workOrderBase()->pmOverdue()->count();
+
         // Posted money in no property's books. A null asset is a deliberate choice — the journal
         // form offers it as "consolidated" — but every owner statement is generated per asset, so
         // such an entry reaches NO statement while the portfolio-wide trial balance still balances.
@@ -263,6 +271,20 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.wo_response_breached', $woUnansweredCount, ['count' => $woUnansweredCount]),
                 'body' => __('admin.widgets.action_required.wo_response_breached_body'),
                 'url' => ResourceLink::indexWhere(FacilityWorkOrderResource::class, 'response_breached', 'target_response_at:asc'),
+            ];
+        }
+
+        if ($ppmEnabled && $ppmOverdueCount > 0) {
+            $items[] = [
+                'key' => 'ppm_overdue',
+                'icon' => 'heroicon-o-calendar-days',
+                // Warning, not danger: unlike a breached SLA nobody is waiting on the phone, and
+                // colouring routine maintenance the same red as an urgent fault is how a dashboard
+                // stops being read.
+                'color' => 'warning',
+                'title' => trans_choice('admin.widgets.action_required.ppm_overdue', $ppmOverdueCount, ['count' => $ppmOverdueCount]),
+                'body' => __('admin.widgets.action_required.ppm_overdue_body'),
+                'url' => ResourceLink::indexWhere(FacilityWorkOrderResource::class, 'pm_overdue', 'scheduled_for:asc'),
             ];
         }
 

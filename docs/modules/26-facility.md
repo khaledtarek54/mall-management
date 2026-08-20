@@ -1079,6 +1079,13 @@ would report a different compliance from the record it links to.
 **Measured on the demo portfolio the day it shipped: 0% across all five plans, with four overdue
 preventive jobs.** That is the measure doing its job on data nobody had questioned.
 
+**The finding reaches the dashboard, not just a filter.** Step 3 first shipped the states, the
+column and the filters, and left the finding behind a filter an operator has to choose — the
+"capability with no surface" pattern this codebase names twice elsewhere. `ActionRequired` now
+carries a **ppm_overdue** card, gated on `facility.view` like every other, linking to the filtered
+register. It is **warning, not danger**: unlike a breached SLA nobody is waiting on the phone, and
+colouring routine maintenance the same red as an urgent fault is how a dashboard stops being read.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |

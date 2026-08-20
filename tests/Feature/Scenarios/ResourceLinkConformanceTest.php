@@ -133,6 +133,18 @@ beforeEach(function () {
         'target_response_at' => now()->subHours(6),
     ]);
 
+    // ppm_overdue — PLANNED work whose day has passed and which nobody did. Note it is a PPM with
+    // no acknowledgement and no SLA clock: the compliance measure asks a different question from
+    // the two cards above, and a fixture that only had corrective jobs could not raise this card.
+    FacilityWorkOrder::create([
+        'work_order_type' => FacilityWorkOrder::TYPE_PPM,
+        'asset_id' => $this->asset->id,
+        'reference' => 'WO-'.uniqid(),
+        'title' => 'Quarterly filter change', 'trade_id' => tradeId('hvac'),
+        'status' => 'open', 'priority' => 'medium',
+        'scheduled_for' => now()->subDays(10),
+    ]);
+
     // vendor_documents + contract_notice — one vendor carries both, under an ACTIVE contract
     // on this property (the card scopes by engagement, not by the shared vendor catalogue).
     $vendor = Vendor::factory()->create(['status' => 'active']);

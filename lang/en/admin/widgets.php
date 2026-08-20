@@ -98,6 +98,8 @@ return [
             'sla_breached_body' => 'Resolve or update the tenant',
             'wo_sla_breached' => ':count work order past SLA|:count work orders past SLA',
             'wo_sla_breached_body' => 'Corrective jobs running late',
+            'ppm_overdue' => ':count planned job not done|:count planned jobs not done',
+            'ppm_overdue_body' => 'Preventive work past the day it was due',
             'ledger_without_property' => ':count ledger entry has no property|:count ledger entries have no property',
             'ledger_without_property_body' => 'Posted, but in no property\'s books — so they reach no owner statement',
             'wo_response_breached' => ':count corrective job unanswered|:count corrective jobs unanswered',
