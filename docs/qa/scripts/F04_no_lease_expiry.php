@@ -26,7 +26,7 @@ $l = Lease::create(['asset_id' => $asset->id, 'tenant_id' => $tenant->id, 'unit_
     'reference' => 'QA-EXP-'.strtoupper(bin2hex(random_bytes(2))), 'status' => 'active', 'currency' => 'EGP',
     'commencement_date' => '2023-01-01', 'expiry_date' => '2026-01-31', 'term_months' => 37,
     'base_rent_monthly' => 100000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7,
+    'billing_frequency' => 'monthly', 'payment_terms_days' => 7,
     'escalation_type' => 'fixed_percent', 'escalation_rate' => 10]);
 LeaseCreationService::seedStandardCharges($l, 100000, 0, $l->commencement_date);
 $l->forceFill(['next_escalation_date' => '2026-08-01'])->save();

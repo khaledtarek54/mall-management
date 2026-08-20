@@ -66,7 +66,7 @@ $lease = function (array $a, ?float $svc = null) use ($unit, $tenantFor): Lease 
         'tenant_id' => $tenantFor()->id, 'unit_id' => $unit()->id, 'status' => 'active', 'currency' => 'EGP',
         'commencement_date' => '2025-01-01', 'expiry_date' => '2028-12-31', 'term_months' => 48,
         'service_charge_monthly' => 0, 'has_marketing_levy' => false, 'billing_frequency' => 'monthly',
-        'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none',
+        'payment_terms_days' => 7, 'escalation_type' => 'none',
     ], $a));
     LeaseCreationService::seedStandardCharges($l, (float) $l->base_rent_monthly,
         $svc ?? (float) $l->service_charge_monthly, $l->commencement_date);

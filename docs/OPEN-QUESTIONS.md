@@ -86,7 +86,7 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 
 | # | Question | What we do today | If different | | Answer |
 |---|---|---|---|---|---|
-| A1.1 | Is **14% the correct VAT rate** on service charges, utilities, parking — and is **base rent genuinely VAT-exempt**? | 14% on services; rent exempt. **The rate is now a SETTING** (/admin/settings → Tax, `TaxSettings::vat_standard_rate`) rather than a constant in the code — so a different answer is a one-field change your accountant makes, not a code release. Applies to what is billed from then on; already-issued invoices keep their rate. | Every invoice has the wrong VAT | 🔴 | |
+| A1.1 | Is **14% the correct VAT rate** on service charges, utilities, parking — and is **base rent genuinely VAT-exempt**? | 14% on services; rent exempt. **The rate is now MASTER DATA** — a dated rung on a tax code at **/admin/tax-codes** (`TaxSettings::vat_standard_rate` was removed 2026-08-12) — so a different answer, or a future rise entered in advance, is a row your accountant adds, not a code release. **But taxability itself has no lease dimension and is frozen onto each lease's charge rows at creation** — see [EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md) T-1…T-4, which matters now that Law 157/2025 has pulled property rental into the tax net. Applies to what is billed from then on; already-issued invoices keep their rate. | Every invoice has the wrong VAT | 🔴 | |
 | A1.2 | Is **percentage rent VAT-exempt**? | 0% VAT | Every %-rent invoice under-charges VAT | 🔴 | |
 | A1.3 | Are **CAM true-up charges VAT-exempt**? | 0% VAT (our assumption) | Every reconciliation invoice under-charges VAT | 🔴 | |
 | A1.4 | Are **late fees VAT-exempt**? | 0% VAT (penalty outside VAT) | Every late fee under-charges VAT | 🔴 | |
@@ -118,7 +118,7 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
 | A3.1 | Full **GL / chart of accounts here**, or accounting done elsewhere (export vs live integration, which software)? | Full double-entry GL exists (modules 21–29) | 🟡 | |
-| A3.2 | **Accrual or cash basis**? Need **straight-line rent recognition** (spread rent-free/escalations)? | Accrual, revenue-at-issue; no straight-line spread | 🟠 | |
+| A3.2 | **Accrual or cash basis**? Need **straight-line rent recognition** (spread rent-free/escalations)? | Accrual, revenue-at-issue. **Straight-line rent IS built** (`StraightLineRentAdjustment`, `PostStraightLineRentService`, a lease relation manager) and ships **off** behind `BillingSettings::straight_line_rent_enabled` — EAS 49 requires it for a lessor, so this is now a switch your accountant flips, not work to do | 🟠 | |
 | A3.3 | How is **rent-in-advance** treated — deferred/unearned until earned? | Not modelled as deferred | 🟠 | |
 | A3.4 | **Fiscal year** (Jan–Dec)? Do you **lock/close periods** to block back-dated edits? | Period close exists; closed periods refuse back-dated posts | 🟡 | |
 | A3.5 | **Bank reconciliation inside the system**, or external? | ❌ **Not built** — the cash/bank GL balance is asserted by construction, never matched to a statement. The clearest treasury gap. | 🟠 | |

@@ -21,7 +21,7 @@ $mk = function (Tenant $t, string $code, float $area) use ($asset): Lease {
     $l = Lease::create(['tenant_id' => $t->id, 'unit_id' => $u->id, 'reference' => 'QCM-'.$code, 'status' => 'active',
         'currency' => 'EGP', 'commencement_date' => '2025-01-01', 'expiry_date' => '2035-12-31', 'term_months' => 132,
         'base_rent_monthly' => 10000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-        'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+        'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
     LeaseCreationService::seedStandardCharges($l, 10000, 0, $l->commencement_date);
 
     return $l->fresh();

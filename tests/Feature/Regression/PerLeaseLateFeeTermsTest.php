@@ -113,6 +113,11 @@ it('reads the operator-editable setting rather than the config file', function (
     // Trap 2, and the live bug MF-08 uncovered. Before this, changing the rate on the Settings
     // screen had no effect at all: the screen wrote BillingSettings, the sweep read
     // config('billing.late_fee_percent') from env. Setting the config here must NOT change the fee.
+    //
+    // EG-19 has since deleted those keys from config/billing.php, so this writes a key that exists
+    // in no file — deliberately. `config([...])` writes the runtime repository either way, and the
+    // property is now stronger: if anyone re-introduces a config read, it resolves to null, the fee
+    // collapses to the minimum, and this goes red.
     CarbonImmutable::setTestNow('2028-02-01');
 
     config(['billing.late_fee_percent' => 99]);
@@ -124,6 +129,25 @@ it('reads the operator-editable setting rather than the config file', function (
     app(LateFeeService::class)->applyTo($invoice);
 
     expect((float) lateFeeItems($invoice)->sole()->amount)->toBe(300.0);
+});
+
+it('keeps the dead late-fee keys out of the shipped config file', function () {
+    // The pin that makes EG-19's deletion durable: re-adding a key is otherwise invisible, and the
+    // symptom is silent (a deployer sets LATE_FEE_PERCENT, sees no error, and bills the old rate).
+    //
+    // Asserted against the FILE, not the runtime repository — `config()` is writable, so a runtime
+    // assertion would pass on a config the deployment never shipped.
+    $shipped = array_keys(require config_path('billing.php'));
+
+    expect($shipped)
+        ->not->toContain('late_fee_percent')
+        ->not->toContain('late_fee_grace_days')
+        ->not->toContain('late_fee_minimum')
+        // The control, without which this test is satisfied by deleting the file wholesale: the
+        // scheduler keys in the same file ARE live (routes/console.php reads them as the cold-start
+        // fallback under ScheduleSetting).
+        ->toContain('monthly_billing_day')
+        ->toContain('cam_reconciliation_day');
 });
 
 it('never charges before the due date has even passed', function () {

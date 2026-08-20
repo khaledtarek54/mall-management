@@ -79,7 +79,7 @@ try {
                         'reference' => 'GP-A-'.uniqid(), 'status' => 'active', 'currency' => 'EGP',
                         'commencement_date' => '2026-09-01', 'expiry_date' => '2027-08-31', 'term_months' => 12,
                         'base_rent_monthly' => 50000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-                        'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+                        'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
                     $out('A: guard saw isActivelyLeased='.var_export($seen, true)." (count {$committed}) → inserted its lease");
                 } else {
                     usleep(500_000);
@@ -107,7 +107,7 @@ try {
                         'reference' => 'GF-A-'.uniqid(), 'status' => 'active', 'currency' => 'EGP',
                         'commencement_date' => '2026-09-01', 'expiry_date' => '2027-08-31', 'term_months' => 12,
                         'base_rent_monthly' => 50000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-                        'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+                        'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
                     $out("A: snapshot={$snapshotRead} locking={$lockingRead} → inserted");
                 } else {
                     $out("B: snapshot read sees {$snapshotRead} · LOCKING read sees {$lockingRead}");

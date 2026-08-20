@@ -19,6 +19,13 @@
 | Generic ERP — GL · AP · inventory · fixed assets · HR · treasury | **Odoo Community + Enterprise** | this document, §5 |
 | Post-dated cheques (module 33) | **no benchmark exists** — a MENA instrument the Western tools do not model | judged against Egyptian practice, and says so |
 
+> **A different axis, deliberately kept out of this document.** *"What can the operator change
+> without a developer, and does it match what Egyptian law demands?"* is answered in
+> **[EGYPT-MARKET-FIT.md](../EGYPT-MARKET-FIT.md)** (2026-08-20). A feature can be at or above the
+> benchmark here and still fail there — tax rates are best-in-class while tax *treatment* has no
+> lease dimension, and statutory payroll rates are three undated scalars. Rows that overlap cite
+> across rather than being duplicated.
+
 ---
 
 ## 0. How to read this

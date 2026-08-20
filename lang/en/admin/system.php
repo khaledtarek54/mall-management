@@ -139,8 +139,9 @@ return [
         'status' => 'Status',
         'set' => 'Set',
         'wht_off' => 'Withholding is switched off, so nothing is deducted.',
+        'payroll_no_roster' => 'No active employees, so there is no payroll to withhold from yet.',
         'severities' => ['blocking' => 'Needs attention', 'advisory' => 'Could be better'],
-        'categories' => ['tax' => 'Tax', 'accounting' => 'Accounting', 'billing' => 'Billing'],
+        'categories' => ['tax' => 'Tax', 'accounting' => 'Accounting', 'billing' => 'Billing', 'payroll' => 'Payroll'],
         'checks' => [
             'seller_tax_identity' => [
                 'name' => 'Seller tax registration number',
@@ -166,6 +167,11 @@ return [
                 'name' => 'Every posting role has an account',
                 'impact' => 'A transaction whose role has no account cannot post, so the books stop taking it: :detail',
                 'ok' => ':detail',
+            ],
+            'payroll_rates_configured' => [
+                'name' => 'Payroll withholds something',
+                'impact' => 'Your latest payroll month has :count approved run(s) that withheld nothing at all — no salary tax, no employee insurance and no employer share — so net pay was the full gross and the books carry none of the liability owed to the authority. An approved run cannot be edited, so correct the past with your accountant; set the rates under Settings → Payroll or enter each employee\'s deductions before approving, and this clears on the next run.',
+                'ok' => 'Approved payroll runs carry their statutory deductions.',
             ],
             'open_accounting_period' => [
                 'name' => 'Today falls in an open period',

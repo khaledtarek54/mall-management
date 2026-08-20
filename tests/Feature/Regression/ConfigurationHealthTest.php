@@ -19,8 +19,11 @@
 use App\Filament\Admin\Pages\ConfigurationHealth as Page;
 use App\Models\AccountingPeriod;
 use App\Models\ChargeCode;
+use App\Models\Employee;
+use App\Models\Payroll;
 use App\Models\TaxCode;
 use App\Models\Vendor;
+use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use App\Support\ConfigurationHealth;
 use Database\Seeders\AccountingSeeder;
@@ -166,6 +169,108 @@ it('reports when today falls outside an open period', function () {
     AccountingPeriod::query()->delete();
 
     expect(healthCheck('open_accounting_period')['ok'])->toBeFalse();
+});
+
+/** An active employee, so the payroll check has a roster to have an opinion about. */
+function payrollRoster(): Employee
+{
+    return Employee::create([
+        'asset_id' => makeAsset()->id,
+        'code' => 'E-'.uniqid(),
+        'name' => 'Karim Nabil',
+        'hire_date' => '2026-01-01',
+        'base_salary' => 9000,
+        'payment_method' => 'bank',
+    ]);
+}
+
+/** An approved payroll run. Created as a draft and approved, which is the real path. */
+function payrollRun(Employee $employee, array $attrs = []): Payroll
+{
+    $run = Payroll::create(array_merge([
+        'asset_id' => $employee->asset_id,
+        'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 9000,
+        'salary_tax' => 0,
+        'social_insurance' => 0,
+        'employer_social_insurance' => 0,
+        'net_paid' => 9000,
+        'paid_from' => 'bank',
+    ], $attrs));
+
+    $run->update(['status' => 'approved']);
+
+    return $run;
+}
+
+it('says nothing about payroll while nobody is on the roster', function () {
+    // The control the advisory branch needs: a fresh install ships every rate at 0, and shouting
+    // about it before anyone is employed is a nag — which teaches the operator to ignore the page.
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue()
+        ->and(healthCheck('payroll_rates_configured')['detail'])
+        ->toBe(__('admin.config_health.payroll_no_roster'));
+});
+
+it('advises once there is a roster and every statutory rate is still nil', function () {
+    payrollRoster();
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse()
+        // Advice, not an accusation: the settings screen's own help offers "leave at 0 and enter it
+        // per employee" as a supported way to work, so a blocking row here would contradict it.
+        ->and(healthCheck('payroll_rates_configured')['severity'])->toBe(ConfigurationHealth::ADVISORY);
+
+    $settings = app(PayrollSettings::class);
+    $settings->social_insurance_rate = 11.0;
+    $settings->save();
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
+});
+
+it('goes quiet when the deductions are keyed per run rather than set as rates', function () {
+    // The posture the field help explicitly supports. Rates stay at 0, the run carries real
+    // deductions, and the operator must not be left with a standing red dot for working that way.
+    $employee = payrollRoster();
+    payrollRun($employee, ['salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310]);
+
+    expect(app(PayrollSettings::class)->salary_tax_rate)->toBe(0.0)
+        ->and(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
+});
+
+it('blocks on an approved run that withheld nothing at all', function () {
+    // The failure the check exists for: net = gross on every payslip, and no liability to the
+    // authority anywhere in the books, on a run that looks exactly like a working one.
+    $employee = payrollRoster();
+    payrollRun($employee);
+
+    $check = healthCheck('payroll_rates_configured');
+
+    expect($check['ok'])->toBeFalse()
+        ->and($check['severity'])->toBe(ConfigurationHealth::BLOCKING)
+        ->and($check['count'])->toBe(1)
+        ->and($check['category'])->toBe(ConfigurationHealth::PAYROLL);
+});
+
+it('clears once the next payroll month withholds, because an approved run can never be edited', function () {
+    // The reason the check is scoped to the LATEST payroll month rather than to all time.
+    // `Payroll::booted()` refuses a dirty `salary_tax` on a run whose original status was approved,
+    // so an all-time count would pin this row for the life of the install with no remedy except
+    // cancelling a real payroll to satisfy a checklist — and a red dot nobody can clear is one
+    // everybody learns to ignore.
+    $employee = payrollRoster();
+    payrollRun($employee, ['period_month' => now()->subMonth()->startOfMonth()->toDateString()]);
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse();
+
+    // The past stays wrong — and stays uneditable, which is the point.
+    $stale = Payroll::query()->where('status', 'approved')->firstOrFail();
+    expect(fn () => $stale->update(['salary_tax' => 700]))->toThrow(DomainException::class);
+
+    payrollRun($employee, [
+        'period_month' => now()->startOfMonth()->toDateString(),
+        'salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310,
+    ]);
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
 });
 
 it('classifies every check into a known category and severity', function () {

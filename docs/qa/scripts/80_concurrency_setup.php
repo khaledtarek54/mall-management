@@ -21,13 +21,13 @@ $raceUnit = $free[0];
 $l = Lease::create(['tenant_id' => $tenant->id, 'unit_id' => $free[1]->id, 'reference' => 'RACE-BILL',
     'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
     'term_months' => 36, 'base_rent_monthly' => 40000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+    'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
 LeaseCreationService::seedStandardCharges($l, 40000, 0, $l->commencement_date);
 // 3. an invoice with exactly 30,000 open that two racers will each try to pay 30,000 against
 $l2 = Lease::create(['tenant_id' => $tenant->id, 'unit_id' => $free[2]->id, 'reference' => 'RACE-PAY',
     'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
     'term_months' => 36, 'base_rent_monthly' => 30000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+    'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
 LeaseCreationService::seedStandardCharges($l2, 30000, 0, $l2->commencement_date);
 $inv = app(MonthlyBillingService::class)->generateForLease($l2->fresh('charges'), CarbonImmutable::parse('2026-08-01'))['invoice'];
 // 4. a held cheque two racers will both try to clear

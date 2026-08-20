@@ -30,7 +30,7 @@ qa_section('DEPOSITS 1 — a deposit billed as a charge is a LIABILITY, not reve
 $l = Lease::create(['tenant_id' => $tenant->id, 'unit_id' => $free[0]->id, 'reference' => 'QA-DEP-'.uniqid(),
     'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
     'term_months' => 36, 'base_rent_monthly' => 48000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'security_deposit' => 144000, 'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+    'security_deposit' => 144000, 'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
 LeaseCreationService::seedStandardCharges($l, 48000, 0, $l->commencement_date);
 $l = $l->fresh('charges');
 
@@ -75,7 +75,7 @@ qa_refuses('re-billing a fully-held deposit is refused', fn () => app(BillSecuri
 $l2 = Lease::create(['tenant_id' => $tenant->id, 'unit_id' => $free[1]->id, 'reference' => 'QA-DEP2-'.uniqid(),
     'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
     'term_months' => 36, 'base_rent_monthly' => 30000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'security_deposit' => 90000, 'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+    'security_deposit' => 90000, 'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
 LeaseCreationService::seedStandardCharges($l2, 30000, 0, $l2->commencement_date);
 DepositTransaction::create(['lease_id' => $l2->id, 'tenant_id' => $l2->tenant_id, 'asset_id' => $asset->id,
     'type' => 'receipt', 'amount' => 40000, 'transaction_date' => '2026-02-01', 'status' => 'recorded']);
@@ -86,7 +86,7 @@ qa_section('DEPOSITS 4 — the deposit tracks rent when a MULTIPLE is agreed');
 $l3 = Lease::create(['tenant_id' => $tenant->id, 'unit_id' => $free[2]->id, 'reference' => 'QA-DEP3-'.uniqid(),
     'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
     'term_months' => 36, 'base_rent_monthly' => 50000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'security_deposit_months' => 3, 'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7,
+    'security_deposit_months' => 3, 'billing_frequency' => 'monthly', 'payment_terms_days' => 7,
     'escalation_type' => 'fixed_percent', 'escalation_rate' => 10]);
 qa_eq('the deposit is derived from the multiple', 150000.00, (float) $l3->fresh()->security_deposit);
 app(LeaseRentChangeService::class)->apply($l3->fresh(), ['base_rent_monthly' => 55000, 'reason' => 'QA step']);
@@ -94,7 +94,7 @@ qa_eq('…and follows the rent when it escalates', 165000.00, (float) $l3->fresh
 $l4 = Lease::create(['tenant_id' => $tenant->id, 'unit_id' => $free[3]->id, 'reference' => 'QA-DEP4-'.uniqid(),
     'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
     'term_months' => 36, 'base_rent_monthly' => 50000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'security_deposit' => 77000, 'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+    'security_deposit' => 77000, 'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
 app(LeaseRentChangeService::class)->apply($l4->fresh(), ['base_rent_monthly' => 60000, 'reason' => 'QA step']);
 qa_eq('a FLAT deposit (no multiple) does not move', 77000.00, (float) $l4->fresh()->security_deposit);
 

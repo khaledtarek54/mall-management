@@ -59,7 +59,7 @@ The module enforces **idempotency** through two mechanisms:
    - urgent: 24h, high: 72h, medium: 7 days (168h), low: 14 days (336h)
    - `MaintenanceRequest.target_resolution_at = created_at + priority_hours`
 
-5. **Late-fee policy** (from `config/billing.php`)  
+5. **Late-fee policy** (lease → property → `BillingSettings`, never config)  
    - Grace period: `late_fee_grace_days` (default 7 days after due_date)
    - Percent: `late_fee_percent` (default 2% of balance)
    - Minimum: `late_fee_minimum` (default EGP 50)
@@ -415,12 +415,12 @@ Edit `config/sla.php` `sla` array. The `MaintenanceRequestService` reads this at
 
 ### Changing late-fee policy:
 
-Edit `config/billing.php`. The `LateFeeService::applyTo()` reads these at run-time:
+Set them at Settings → Billing (portfolio), `/admin/property-overrides` (one mall) or on the lease itself. `LateFeeService::applyTo()` resolves all three through `Lease::lateFeeTerms()` at run time:
 - `late_fee_percent`: % of balance
 - `late_fee_grace_days`: days after due_date before fee applies
 - `late_fee_minimum`: floor amount
 
-**Changing the config takes effect immediately** on the next late-fee run. Existing fees are not retroactively adjusted.
+**A change takes effect immediately** on the next late-fee run. Existing fees are not retroactively adjusted.
 
 ---
 

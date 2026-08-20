@@ -25,7 +25,7 @@ $mk = function (array $a) use (&$n, $freeUnits, $asset, $tenant): Lease {
     $l = Lease::create(array_merge([
         'asset_id' => $asset->id, 'tenant_id' => $tenant->id, 'unit_id' => $u->id,
         'reference' => 'QA-'.strtoupper(bin2hex(random_bytes(3))), 'status' => 'active', 'currency' => 'EGP',
-        'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7,
+        'billing_frequency' => 'monthly', 'payment_terms_days' => 7,
     ], $a));
     LeaseCreationService::seedStandardCharges($l, (float) $l->base_rent_monthly, (float) $l->service_charge_monthly, $l->commencement_date);
 

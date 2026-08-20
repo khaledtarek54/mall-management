@@ -3,17 +3,19 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Late-fee policy
+    | Late-fee policy is NOT here
     |--------------------------------------------------------------------------
     |
-    | grace_days: number of calendar days after due_date before a late fee is
-    | added. The fee is calculated as max(min_amount, balance * percent / 100)
-    | and applied once per invoice (idempotent — re-runs are a no-op).
+    | Rate, grace and minimum resolve lease → property → portfolio through
+    | Lease::lateFeeTerms() (ActsAsBillableAgreement). Three env-bound keys used
+    | to sit here and were read by NOTHING; a deployer who set LATE_FEE_PERCENT
+    | got silence. Deleted 2026-08-20 (EG-20 in docs/EGYPT-MARKET-FIT.md).
+    |
+    | The env vars are still live in ONE place: the settings migration
+    | database/settings/2026_05_25_200000_create_billing_settings.php seeds the
+    | initial row from them on a FRESH install. After that the value lives at
+    | Settings → Billing, and per property at /admin/property-overrides.
     */
-
-    'late_fee_percent' => env('LATE_FEE_PERCENT', 2.0),
-    'late_fee_grace_days' => env('LATE_FEE_GRACE_DAYS', 7),
-    'late_fee_minimum' => env('LATE_FEE_MINIMUM', 50.00),
 
     /*
     |--------------------------------------------------------------------------

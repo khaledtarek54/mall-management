@@ -24,7 +24,7 @@ qa_eq('clean to start with', 0, count($rec->depositTieOutDiscrepancies()));
 $l = Lease::create(['tenant_id' => $tenant->id, 'unit_id' => $unit->id, 'reference' => 'QA-UD-'.uniqid(),
     'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
     'term_months' => 36, 'base_rent_monthly' => 50000, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-    'security_deposit' => 150000, 'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+    'security_deposit' => 150000, 'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
 LeaseCreationService::seedStandardCharges($l, 50000, 0, $l->commencement_date);
 $inv = app(BillSecurityDepositService::class)->bill($l->fresh());
 Artisan::call('accounting:sync-ledger', ['--all' => true]);

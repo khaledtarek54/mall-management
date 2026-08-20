@@ -17,8 +17,9 @@ Artisan::command('inspire', function () {
 | Scheduled jobs
 |--------------------------------------------------------------------------
 |
-| Monthly billing — first of each month at 02:00 (configurable in
-| config/billing.php). Late fees — every day at 04:00. CAM annual
+| Monthly billing — first of each month at 02:00 (Settings → Billing, with
+| config/billing.php as the cold-start fallback). Late fees — every day at
+| 04:00; their rate, grace and minimum are per lease/property, never config. CAM annual
 | reconciliation — Jan 15 at 03:00 (review-only; admin still bills each
 | allocation manually unless --auto-bill is passed).
 */

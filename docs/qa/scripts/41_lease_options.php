@@ -28,7 +28,7 @@ $mk = function (array $a = []) use ($newUnit, $tenant): Lease {
         'status' => 'active', 'currency' => 'EGP', 'commencement_date' => '2025-01-01',
         'expiry_date' => '2026-12-31', 'term_months' => 24, 'base_rent_monthly' => 100000,
         'service_charge_monthly' => 0, 'has_marketing_levy' => false, 'billing_frequency' => 'monthly',
-        'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none'], $a));
+        'payment_terms_days' => 7, 'escalation_type' => 'none'], $a));
     LeaseCreationService::seedStandardCharges($l, (float) $l->base_rent_monthly, 0, $l->commencement_date);
 
     return $l->fresh();

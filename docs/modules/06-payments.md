@@ -225,7 +225,7 @@ part-paid line is argued about for what is still owed on it, and using the gross
 suppress a fee on money already settled. The reason is required by the service.
 
 ### Late Fees (LateFeeService)
-- Config: `billing.late_fee_percent` (default 2%), `billing.late_fee_grace_days` (default 7), `billing.late_fee_minimum` (default 50 EGP).
+- Terms resolve **lease → property → portfolio** through `Lease::lateFeeTerms()` (`ActsAsBillableAgreement`): a per-lease column, else `/admin/property-overrides`, else `BillingSettings` (defaults 2% · 7 days · EGP 50). **Not config** — the `config/billing.php` keys were read by nothing and were deleted (EG-19).
 - Applied once per invoice when: `due_date + grace_days ≤ today`, balance > 0, and no late_fee item yet exists.
 - Fee = `MAX(minimum, balance × percent / 100)`, rounded to 2 decimals.
 - Idempotent via invoice-level check inside pessimistic lock (prevents double-charge on concurrent runs).
@@ -441,8 +441,8 @@ Three conditions now, all required, asked in **one** place because the predicate
 6. **DO NOT break:** Invoice::recomputeTotals only counts `captured` payments—respect this so AR math stays correct.
 
 ### Changing late-fee logic
-1. Edit LateFeeService::runForToday (grace_days, percent, minimum from config).
-2. Update config/billing.php values.
+1. To change the NUMBERS, change no code: Settings → Billing for the portfolio default, `/admin/property-overrides` for one mall, or the lease's own columns for one tenant. `LateFeeService` reads them through `Lease::lateFeeTerms()`.
+2. To change the FORMULA (`max(minimum, chargeable × percent)`), edit `LateFeeService::applyTo()`. There is deliberately no cap and no compounding — see EG-35 in [EGYPT-MARKET-FIT](../EGYPT-MARKET-FIT.md).
 3. Add or update tests in LateFeeServiceTest to cover new thresholds.
 4. **DO NOT break:** The service MUST remain idempotent (re-checking inside pessimistic lock); status must be set to overdue on apply.
 

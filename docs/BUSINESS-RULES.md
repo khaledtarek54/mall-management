@@ -192,19 +192,19 @@ These are confirmed facts about the current deployment. **Each one must be resol
 
 | Rule | Current value / formula | Configurable? | Assumption / basis | Risk | Confirm? |
 |---|---|---|---|---|---|
-| **Grace period** | **7 days** after due date before any fee. | Admin-settable (Billing settings) or env. | *Unverified* — business policy, no legal source. | 🔴 HIGH | |
-| **Late-fee rate** | **2.0%** of the outstanding balance. | Admin-settable or env. | *Unverified* — business policy. | 🔴 HIGH | |
+| **Grace period** | **7 days** after due date before any fee. | Per lease, per property, or portfolio-wide (Settings → Billing). | *Unverified* — business policy, no legal source. | 🔴 HIGH | |
+| **Late-fee rate** | **2.0%** of the outstanding balance. | Per lease, per property, or portfolio-wide. | *Unverified* — business policy. | 🔴 HIGH | |
 | **Fee formula** | fee = max(minimum, balance × 2% ), rounded 2 decimals, applied **once** per invoice. | Min/rate configurable; formula fixed. | Code implementation. | 🔴 HIGH | |
 | **Flat, not compounded** | Charged **once** — never recalculated or accrued daily/monthly however long it stays overdue. | Fixed. | Code design. | 🔴 HIGH | |
 | **Late-fee VAT** | **0% VAT** on late fees. | Fixed. | Likely exempt (penalty) — *confirm.* | 🔴 HIGH | |
 | **Idempotency / locking** | Row is locked and re-checked so a fee is never applied twice. | Fixed. | Concurrency safety. | 🔴 HIGH | |
-| **Adds to invoice total** | Fee increases the invoice's subtotal, total **and** balance (raises the legal amount owed). | Fixed. | Code design. | 🔴 HIGH | |
-| **Minimum fee** | **50.00 EGP** floor. | Admin-settable or env. | *Unverified* — business policy. | 🟠 MEDIUM | |
+| **Raised as its own invoice** | Since FS-27 the fee is a SEPARATE invoice (`invoices.late_fee_invoice_id`), dated when incurred; the overdue invoice is not restated. | Fixed. | Code design. | 🔴 HIGH | |
+| **Minimum fee** | **50.00 EGP** floor. | Per lease, per property, or portfolio-wide. | *Unverified* — business policy. | 🟠 MEDIUM | |
 | **Application time** | Computed daily at **04:00** (requires scheduler running). | Fixed schedule. | Operational. | 🟠 MEDIUM | |
 | **Status set to overdue** | Invoice marked 'overdue' when a fee is applied. | Fixed. | Workflow. | 🟠 MEDIUM | |
 | **Owner overdue alert** | Owners notified once per overdue invoice, daily scan at **06:00**. | Fixed schedule. | Operational. | 🟠 MEDIUM | |
 
-*Code references: `LateFeeService.php:62-90`; `config/billing.php:14-16`; `routes/console.php:32-35`.*
+*Code references: `LateFeeService.php` (`applyTo()`, terms via `Lease::lateFeeTerms()`); `app/Models/Concerns/Lease/ActsAsBillableAgreement.php`; `app/Support/PropertySettings.php`; `routes/console.php`.*
 
 ---
 

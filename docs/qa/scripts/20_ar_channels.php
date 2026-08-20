@@ -30,7 +30,7 @@ $mk = function (float $rent = 100000) use (&$n, $free, $asset, $tenant): Lease {
         'reference' => 'QA-'.strtoupper(bin2hex(random_bytes(3))), 'status' => 'active', 'currency' => 'EGP',
         'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31', 'term_months' => 36,
         'base_rent_monthly' => $rent, 'service_charge_monthly' => 0, 'has_marketing_levy' => false,
-        'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+        'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
     LeaseCreationService::seedStandardCharges($l, $rent, 0, $l->commencement_date);
 
     return $l->fresh('charges');

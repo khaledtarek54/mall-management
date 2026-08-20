@@ -1,10 +1,17 @@
 <?php
 
 use App\Services\LateFeeService;
+use App\Settings\BillingSettings;
 use Carbon\CarbonImmutable;
 
 it('applies late fees to invoices past due_date + grace window', function () {
-    config(['billing.late_fee_percent' => 5, 'billing.late_fee_grace_days' => 7]);
+    // The input the service actually reads. A `config([...])` setup used to sit here and was a
+    // no-op — nothing has read the billing late-fee config keys since MF-08, and EG-19 deleted the
+    // keys themselves, so the setup described a lever that did not exist.
+    tap(app(BillingSettings::class), function (BillingSettings $b) {
+        $b->late_fee_percent = 5;
+        $b->late_fee_grace_days = 7;
+    });
 
     $asset = makeAsset();
     $unit = makeUnit($asset);
@@ -30,7 +37,11 @@ it('applies late fees to invoices past due_date + grace window', function () {
 
 it('charges the MINIMUM floor when the percentage is below it (small balance)', function () {
     // fee = max(minimum, balance × pct). With balance 1000 at 2% = 20, the 50 floor is operative.
-    config(['billing.late_fee_percent' => 2, 'billing.late_fee_minimum' => 50, 'billing.late_fee_grace_days' => 7]);
+    tap(app(BillingSettings::class), function (BillingSettings $b) {
+        $b->late_fee_percent = 2;
+        $b->late_fee_minimum = 50;
+        $b->late_fee_grace_days = 7;
+    });
 
     $lease = makeLease(makeUnit(makeAsset()));
     $small = makeInvoice($lease, ['due_date' => '2026-01-01', 'status' => 'overdue', 'balance' => 1000]);
@@ -42,7 +53,10 @@ it('charges the MINIMUM floor when the percentage is below it (small balance)', 
 });
 
 it('is idempotent: a second pass does not double-apply', function () {
-    config(['billing.late_fee_percent' => 5, 'billing.late_fee_grace_days' => 7]);
+    tap(app(BillingSettings::class), function (BillingSettings $b) {
+        $b->late_fee_percent = 5;
+        $b->late_fee_grace_days = 7;
+    });
 
     $asset = makeAsset();
     $unit = makeUnit($asset);

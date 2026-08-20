@@ -4,9 +4,12 @@ namespace App\Support;
 
 use App\Models\AccountingPeriod;
 use App\Models\ChargeCode;
+use App\Models\Employee;
 use App\Models\LedgerAccount;
+use App\Models\Payroll;
 use App\Models\TaxCode;
 use App\Models\Vendor;
+use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use Carbon\CarbonImmutable;
 
@@ -48,8 +51,10 @@ class ConfigurationHealth
 
     public const BILLING = 'billing';
 
+    public const PAYROLL = 'payroll';
+
     /** @var array<int, string> */
-    public const CATEGORIES = [self::TAX, self::ACCOUNTING, self::BILLING];
+    public const CATEGORIES = [self::TAX, self::ACCOUNTING, self::BILLING, self::PAYROLL];
 
     /**
      * Every configuration check, in the order an operator should work through them.
@@ -65,7 +70,95 @@ class ConfigurationHealth
             self::withholdingConfigured(),
             self::postingMapComplete(),
             self::openAccountingPeriod(),
+            self::payrollRatesConfigured(),
         ];
+    }
+
+    /**
+     * Payroll ships every statutory rate at zero, and nothing anywhere said so.
+     *
+     * {@see PayrollSettings} defaults `social_insurance_rate`, `salary_tax_rate` and
+     * `employer_social_insurance_rate` to `0.0`, deliberately: a guessed rate would look
+     * authoritative and be wrong, and the settings screen's own help offers "leave at 0 and enter it
+     * per employee" as a supported way to work. **So a zero rate is not, by itself, a fault, and
+     * this check must not say it is** — a row that contradicts the field help beside it teaches the
+     * operator to ignore the page.
+     *
+     * What IS a fault is the outcome nobody sees: an APPROVED run that withheld nothing at all.
+     * `GeneratePayrollService` pre-fills from these rates, `PayrollJournalizer` posts what the run
+     * carries, and a run with zero salary tax, zero employee insurance AND zero employer share has
+     * put net = gross on every payslip and no liability in the books, while looking exactly like a
+     * working run. All three at nil is not a statutory position available in Egypt — an insured
+     * workforce always carries an employer share, and an uninsured one owes gratuity instead
+     * ({@see PayrollSettings::$gratuity_enabled}), which is a different switch.
+     *
+     * Two states, and the difference between them is evidence:
+     *
+     *   - **Blocking** — the LATEST payroll month's approved runs carry nothing. Money reached the
+     *     books.
+     *   - **Advisory** — a live roster, all three rates still nil, and nothing approved yet. A
+     *     heads-up before the first run, not an accusation; it goes quiet the moment a run is
+     *     approved carrying real deductions, so keying them per line never leaves a standing red dot.
+     *
+     * **Scoped to the latest payroll month so the row can CLEAR.** An approved run's amounts are
+     * frozen ({@see Payroll::booted()} refuses a dirty `salary_tax` once `status` was `approved`),
+     * so a check that counted zero-withholding runs across all time would pin a blocking row for
+     * the life of the install with no remedy but cancelling a real payroll to satisfy a checklist.
+     * A red dot nobody can clear is one everybody learns to ignore. This one states the current
+     * position — *your last payroll withheld nothing* — and goes green on the next correct run,
+     * which is also the only fix available: the past is corrected by the accountant, not by editing
+     * a posted run.
+     *
+     * **Not gated on a module flag.** `PayrollResource` derives its module key as `payrolls`
+     * (`RoleGatedActions::permissionModule()` pluralises the model), which is not in
+     * {@see Modules::KEYS} and therefore always enabled — so payroll stays fully reachable whatever
+     * the `employees` toggle says, and an early return on that toggle would silence the check while
+     * runs kept being approved. The roster is the honest gate: no active employee, nobody being paid.
+     */
+    private static function payrollRatesConfigured(): array
+    {
+        if (! Employee::query()->active()->exists()) {
+            return self::check('payroll_rates_configured', self::PAYROLL, self::ADVISORY, true, __('admin.config_health.payroll_no_roster'));
+        }
+
+        $approved = Payroll::query()->where('status', 'approved');
+        $latestPeriod = (clone $approved)->max('period_month');
+
+        // Exact equality, not `whereDate()`: the value came out of this very column via `max()`, so
+        // `=` matches it on any driver — while `whereDate()` compares a formatted `Y-m-d` against
+        // the raw bound value and silently matches nothing when that value carries a time.
+        $withheldNothing = $latestPeriod === null ? 0 : (clone $approved)
+            ->where('period_month', $latestPeriod)
+            ->where('gross_salaries', '>', 0)
+            ->where('salary_tax', '<=', 0)
+            ->where('social_insurance', '<=', 0)
+            ->where('employer_social_insurance', '<=', 0)
+            ->count();
+
+        if ($withheldNothing > 0) {
+            return self::check(
+                key: 'payroll_rates_configured',
+                category: self::PAYROLL,
+                severity: self::BLOCKING,
+                ok: false,
+                count: $withheldNothing,
+            );
+        }
+
+        $settings = app(PayrollSettings::class);
+        $allNil = $settings->salary_tax_rate <= 0.0
+            && $settings->social_insurance_rate <= 0.0
+            && $settings->employer_social_insurance_rate <= 0.0;
+
+        // Nothing approved yet: the rates are still only a default, so this is advice, not a fault.
+        $noRunYet = $latestPeriod === null;
+
+        return self::check(
+            key: 'payroll_rates_configured',
+            category: self::PAYROLL,
+            severity: self::ADVISORY,
+            ok: ! ($allNil && $noRunYet),
+        );
     }
 
     /**

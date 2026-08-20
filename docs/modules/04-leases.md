@@ -853,8 +853,20 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `percentage_rent_threshold` (decimal 12,2, nullable) | Sales floor triggering pct rent (artificial breakpoint). E.g., 100,000 EGP/month → charge on sales above this. |
 | | | `percentage_rent_rate` (decimal 5,2, nullable) | Pct rent rate (0–100, e.g., 8 → 8% of sales above threshold). |
 | | | `percentage_rent_calculation_type` (enum, nullable) | `artificial` (threshold-based) or `natural_breakpoint` (% of sales minus monthly base rent, floored at 0). Defaults to `artificial` if null when calculating. |
-| | | `billing_day` (date, nullable) | Preferred day of month to invoice (reserved for future billing logic). |
 | | | `payment_terms_days` (unsigned small int, default 7) | Invoice payment due window (7 days = due 1 week after issue). |
+
+> **There is no per-lease billing day.** `leases.billing_day` was dropped 2026-08-20 (EG-20) — it
+> shipped in the 2024 schema promising "day of month to issue invoice" and was read by nothing for
+> the whole life of the system, while being cast as a `date` (so `1` stored *1 January 1970*, not
+> *the 1st*). The **one** definition is `BillingSettings::monthly_billing_day`, which
+> `routes/console.php` turns into the cron expression for the single monthly sweep. What a lease
+> *does* carry is `billing_frequency` (monthly · quarterly · semiannual · annual) — **when the cycle
+> repeats**, not which day of the month it lands on.
+>
+> Honouring a per-lease day would not have been a column read: the run is one scheduled sweep over
+> every lease, so it would mean per-day cohorts and a reworked idempotency stamp. The question worth
+> answering first is per-**property**, which is what a multi-mall operator actually asks for — see
+> EG-18 in [EGYPT-MARKET-FIT](../EGYPT-MARKET-FIT.md).
 | | | `notes` (text, nullable) | Audit trail: appended with termination/rent-change stamps and reasons. |
 | | | `metadata` (JSON, nullable) | Flexible key-value store for future integrations. |
 | `lease_unit` | (pivot) | `lease_id`, `unit_id` | Links leases to units; supports multi-unit leases. Each lease has ≥1 pivot rows (one per unit). |

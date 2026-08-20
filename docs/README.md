@@ -20,6 +20,7 @@ are the retailers. Laravel 13 · PHP 8.4 · Filament 4.
 | **5** | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | Everything still unanswered, grouped by **who can answer it** |
 | **6** | [ROADMAP.md](ROADMAP.md) | The single prioritised list — what to build next, and what not to rebuild |
 | **7** | [DEMO.md](DEMO.md) | **Showing the system to somebody** — a 30-minute run for a non-accountant, and how to adapt it per audience |
+| **8** | [EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md) | **What the operator can change without a developer**, and what Egyptian law and Egyptian mall practice demand of it — the configurability axis, with the statute research behind it |
 
 **Pictures first?** The visual handbook lives *in the panel* at **`/admin/handbook`** (bilingual;
 built by `npm run build`). Source: [`visual/`](visual/) — [the whole system on one
@@ -48,6 +49,12 @@ last re-verified.
 
 Supporting reference — *how the benchmark itself works*, so a claim can be checked rather than
 believed: **[`benchmarks/yardi/`](benchmarks/yardi/README.md)**.
+
+**A second, different question — the same discipline.**
+**[EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md)** measures Atriom on the **configurability** axis
+(*what can the operator change without a developer?*) against **the Egyptian statute book and
+Egyptian mall practice**, rather than against a competitor's feature list. A capability can be fully
+built and still fail that test. It cites the gap analysis where the two touch, and never restates it.
 
 ---
 

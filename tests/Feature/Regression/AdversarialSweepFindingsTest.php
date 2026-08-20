@@ -104,7 +104,6 @@ it('still bills base rent for a month when the lease has an annual CAM-recovery 
 
 // ── Finding: late fee must re-check balance/status inside the lock ────────────
 it('does not apply a late fee if the invoice was paid between snapshot and lock', function () {
-    config(['billing.late_fee_percent' => 5, 'billing.late_fee_grace_days' => 7]);
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())), [
         'due_date' => '2026-01-01', 'status' => 'overdue', 'balance' => 10000,
     ]);

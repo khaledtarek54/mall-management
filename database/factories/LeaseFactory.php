@@ -75,7 +75,6 @@ class LeaseFactory extends Factory
             'percentage_rent_threshold' => null,
             'percentage_rent_rate' => null,
             'percentage_rent_calculation_type' => null,
-            'billing_day' => null,
             'payment_terms_days' => 7,
             'notes' => null,
             'metadata' => null,

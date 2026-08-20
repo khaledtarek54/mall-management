@@ -28,7 +28,7 @@ $mk = function (Tenant $t, float $area, float $rent = 20000) use (&$i, $free): L
         'reference' => 'QA-CAM-'.strtoupper(bin2hex(random_bytes(3))), 'status' => 'active', 'currency' => 'EGP',
         'commencement_date' => '2025-01-01', 'expiry_date' => '2035-12-31', 'term_months' => 132,
         'base_rent_monthly' => $rent, 'service_charge_monthly' => 5000, 'has_marketing_levy' => false,
-        'billing_frequency' => 'monthly', 'billing_day' => 1, 'payment_terms_days' => 7, 'escalation_type' => 'none']);
+        'billing_frequency' => 'monthly', 'payment_terms_days' => 7, 'escalation_type' => 'none']);
     LeaseCreationService::seedStandardCharges($l, $rent, 5000, $l->commencement_date);
 
     return $l->fresh();
