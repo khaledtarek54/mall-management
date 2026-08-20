@@ -160,6 +160,7 @@ class FacilityWorkOrder extends Model implements HasMedia
         // recomputeCosts(), and a form that could set them would be a second truth about the money.
         'est_labour_hours', 'est_labour_cost', 'est_material_cost', 'est_service_cost',
         'failure_problem_id', 'failure_cause_id', 'failure_remedy_id',
+        'nte_amount',
         'source_item_id',
         'parent_work_order_id',
         'tenant_request_id',
@@ -183,6 +184,7 @@ class FacilityWorkOrder extends Model implements HasMedia
         'est_material_cost' => 'decimal:2',
         'est_service_cost' => 'decimal:2',
         'est_total_cost' => 'decimal:2',
+        'nte_amount' => 'decimal:2',
         'act_labour_hours' => 'decimal:2',
         'act_labour_cost' => 'decimal:2',
         'act_material_cost' => 'decimal:2',
@@ -431,6 +433,43 @@ class FacilityWorkOrder extends Model implements HasMedia
     public function isRepeatVisit(?int $days = null): bool
     {
         return $this->parent_work_order_id === null && $this->priorVisitCount($days) > 0;
+    }
+
+    /** Quotes raised against this job. {@see WorkOrderProposal} */
+    public function proposals(): HasMany
+    {
+        return $this->hasMany(WorkOrderProposal::class);
+    }
+
+    /**
+     * **Has this job cost more than the contractor was authorised to spend?**
+     *
+     * The amount by which actual cost exceeds the not-to-exceed figure, or null when there is no
+     * NTE (nobody set a ceiling, so nothing was exceeded) or the job is inside it.
+     *
+     * **Shown, never blocked** — the same settled reasoning as `PurchaseRequest::billingVariance()`:
+     * a job can legitimately grow for something nobody could have proposed for, so jamming accounts
+     * payable would be wrong. The control is that a contractor should have submitted a proposal
+     * BEFORE exceeding; the enforcement is that the breach is visible and attributable. A stated
+     * deviation from ServiceChannel, which does hold the invoice.
+     */
+    public function overNteBy(): ?float
+    {
+        if ($this->nte_amount === null) {
+            return null;
+        }
+
+        $over = round((float) $this->act_total_cost - (float) $this->nte_amount, 2);
+
+        return $over > 0 ? $over : null;
+    }
+
+    /** The query twin of {@see overNteBy}, for the filter and any report. */
+    public function scopeOverNte(Builder $query): Builder
+    {
+        return $query
+            ->whereNotNull('nte_amount')
+            ->whereColumn('act_total_cost', '>', 'nte_amount');
     }
 
     /** Hours reported against this job. {@see FacilityWorkOrderLabour} */
@@ -977,6 +1016,16 @@ class FacilityWorkOrder extends Model implements HasMedia
 
     protected static function booted(): void
     {
+        // The trade's default ceiling, applied when a job is raised and not afterwards: changing
+        // a trade's default must not silently re-authorise every open job in it. An explicit
+        // amount on the form always wins, and a trade with no default leaves the job with no NTE —
+        // honest, where 0 would mean "may spend nothing".
+        static::creating(function (self $order) {
+            if ($order->nte_amount === null && $order->trade_id !== null) {
+                $order->nte_amount = Trade::query()->whereKey($order->trade_id)->value('default_nte');
+            }
+        });
+
         // The planned total is a function of its three parts, so it is derived on EVERY save.
         // `recomputeCosts()` is called by the COST channels — labour, parts, bills — and none of
         // them touches an estimate, so without this an operator editing `est_service_cost` left

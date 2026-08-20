@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\FacilityWorkOrders;
 use App\Filament\Admin\RelationManagers\ServiceChecklistRelationManager;
 use App\Filament\Admin\RelationManagers\WorkOrderLabourRelationManager;
 use App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager;
+use App\Filament\Admin\RelationManagers\WorkOrderProposalsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Pages\CreateFacilityWorkOrder;
@@ -93,6 +94,7 @@ class FacilityWorkOrderResource extends Resource
             ServiceChecklistRelationManager::class,
             WorkOrderPartsRelationManager::class,
             WorkOrderLabourRelationManager::class,
+            WorkOrderProposalsRelationManager::class,
         ];
     }
 

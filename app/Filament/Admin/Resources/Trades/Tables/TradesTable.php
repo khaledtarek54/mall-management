@@ -38,6 +38,12 @@ class TradesTable
                     // trade, which the operator should be able to see at a glance.
                     ->placeholder(__('admin.facility.no_rate')),
 
+                TextColumn::make('default_nte')
+                    ->label(__('admin.facility.fields.nte'))
+                    ->money('EGP')
+                    ->placeholder(__('admin.facility.no_nte'))
+                    ->toggleable(),
+
                 TextColumn::make('vendors_count')
                     ->label(__('admin.facility.fields.vendors'))
                     ->counts('vendors')

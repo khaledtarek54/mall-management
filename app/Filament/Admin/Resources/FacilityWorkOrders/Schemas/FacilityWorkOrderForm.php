@@ -107,6 +107,17 @@ class FacilityWorkOrderForm
                 ->helperText(__('admin.facility.help.est_labour_hours'))
                 ->disabled($locked),
 
+            // The ceiling a contractor may spend without coming back (ServiceChannel §3).
+            // Defaulted from the trade when the job is raised; an approved quote raises it.
+            TextInput::make('nte_amount')
+                ->label(__('admin.facility.fields.nte'))
+                ->numeric()
+                ->minValue(0)
+                ->prefix('EGP')
+                ->helperText(__('admin.facility.help.nte'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.nte'))
+                ->disabled($locked),
+
             TextInput::make('est_service_cost')
                 ->label(__('admin.facility.fields.est_service_cost'))
                 ->numeric()

@@ -41,6 +41,15 @@ class TradeForm
                 ->helperText(__('admin.facility.help.standard_hourly_rate'))
                 ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.standard_hourly_rate')),
 
+            // The ceiling a job in this trade starts with. Applied when a job is RAISED, so
+            // changing it never re-authorises work already under way.
+            TextInput::make('default_nte')
+                ->label(__('admin.facility.fields.nte'))
+                ->numeric()
+                ->minValue(0)
+                ->prefix('EGP')
+                ->helperText(__('admin.facility.help.default_nte')),
+
             TextInput::make('sort_order')
                 ->label(__('admin.fields.sort_order'))
                 ->numeric()

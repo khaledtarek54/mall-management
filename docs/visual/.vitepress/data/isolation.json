@@ -660,6 +660,12 @@
         "note": null
     },
     {
+        "model": "WorkOrderProposal",
+        "label": "Work Order Proposal",
+        "classification": "owned",
+        "note": "workOrder"
+    },
+    {
         "model": "WorkPermit",
         "label": "Work Permit",
         "classification": "owned",

@@ -1208,6 +1208,57 @@ column on the vendor scorecard**, which is ServiceChannel's point — the provid
 back to bill twice. Counted on the vendor's own repeat jobs, not on every repeat at their sites: a
 contractor answers for returning to their own work, not for a fault somebody else failed to fix.
 
+### Not-to-exceed and the proposal loop (2026-08-20, close-out step 6)
+
+**Benchmark:** ServiceChannel §3. Every job carries an **NTE** — the most a contractor may spend
+without coming back — and work expected to exceed it needs a **proposal first**. Scenario S4: a leak
+reported, the contractor decides the riser must be replaced, does it, and invoices EGP 46,000
+against an expected EGP 4,000 repair.
+
+**Atriom already had the AFTER control and nothing before the money.**
+`PurchaseRequest::billingVariance()` is a real three-way match — the gap analysis rates it *stronger*
+than the benchmark's — but it fires when the invoice arrives, and negotiating after the work is done
+is not negotiating. This is the other half, not a replacement.
+
+**The ceiling comes from the trade and is applied when the job is RAISED.** Changing a trade's
+default must not silently re-authorise every open job in it. A trade with no default leaves the job
+with no ceiling — honest, where `0` would mean "may spend nothing".
+
+#### A proposal IS the estimate
+
+Its three buckets **are** the cost object's three buckets, deliberately. Approving one writes
+`est_labour_cost` / `est_material_cost` / `est_service_cost` onto the job, so step 2's
+planned-vs-actual variance means *"did the contractor deliver what they quoted?"* — the question the
+whole loop exists to answer — rather than two unrelated sets of numbers about the same work. The
+total is derived from the breakdown, never typed: a quote whose total disagrees with its own parts
+is the argument nobody wants when the invoice lands.
+
+Approving **raises** the ceiling and never lowers it — approving a smaller quote must not quietly
+tighten what the contractor was already permitted for other work on the job — and **withdraws any
+competing quote**, because two live approvals make "what was agreed?" unanswerable. A refusal
+requires a reason and touches neither the ceiling nor the estimate: it says only that this price was
+not accepted.
+
+**Deciding is a spending decision**, so it goes through `ApprovalPolicy` on the quoted amount, the
+same ladder a purchase request uses. Without that a coordinator could authorise EGP 200,000 of work
+they could not have raised a purchase order for, which would make the ladder a rule about paperwork
+rather than about money.
+
+#### Over-NTE is SHOWN, never blocked — a stated deviation
+
+ServiceChannel holds the invoice. Here the breach is a badge, a filter and a number, and accounts
+payable is not jammed — **the same settled reasoning as the three-way match**, which deliberately
+does not block because a bill legitimately covers more than the goods. A job can grow for something
+nobody could have proposed for. The control is that a contractor *should have proposed before
+exceeding*; the enforcement is that the breach is visible and attributable to a figure somebody
+actually agreed to.
+
+#### The contractor does not submit it themselves — yet
+
+ServiceChannel's provider logs in and submits. That portal is gap **O2** and remains open, so a quote
+is recorded **by the operator** on the contractor's behalf, exactly as a vendor bill is. The loop is
+real; its self-service half is not built, and this does not pretend otherwise.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -1230,6 +1281,7 @@ contractor answers for returning to their own work, not for a fault somebody els
 | **14 — PM compliance (2026-08-20, close-out step 3)** | Four derived states on a preventive order (`on_time` · `late` · `overdue` · `due`) with query twins the column, the two filters and the plan figure all share; `ServicePlan::complianceRate()` per plan with a one-query list variant pinned to agree with it. Strict, with no tolerance window — a stated deviation from Maximo, because one global number is wrong for both a weekly round and an annual overhaul | ✅ shipped |
 | **15 — Tenant confirms the resolution (2026-08-20, close-out step 4)** | Confirm / "not fixed" on a `resolved` request in the portal, recording WHICH person accepted; a dispute returns it to `in_progress` with a required reason on the comment thread. Auto-close keeps taking silence as consent, and `confirmed_at` now distinguishes a close the tenant made from one the timer did. Does **not** reopen the work order — that is a follow-up job and an operator's decision | ✅ shipped |
 | **16 — Failure codes + repeat visits (2026-08-20, close-out step 5)** | `failure_codes` (problem · cause · remedy, scoped by trade, unique within type) recorded optionally on the "Mark done" dialog; `isRepeatVisit()` derived from same-machine-or-shop + same-trade + a 30-day window, excluding planned follow-ups; a red badge on the register and a repeat-visits column on the vendor scorecard. **Three levels scoped by trade, not Maximo's chained four** — a chain is a matrix nobody populates, and an unpopulated matrix means nothing gets recorded | ✅ shipped |
+| **17 — NTE + proposals (2026-08-20, close-out step 6)** | `trades.default_nte` → `facility_work_orders.nte_amount` applied at raise time; `work_order_proposals` with the cost object's own three buckets, so approving one raises the ceiling AND sets the job's estimate; deciding gated by the `ApprovalPolicy` ladder on the quoted amount; over-NTE shown as a badge and a filter, **never blocked** — the same reasoning as the three-way match | ✅ shipped |
 
 ---
 

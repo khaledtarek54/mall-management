@@ -112,6 +112,7 @@ use App\Models\VendorContractAmendment;
 use App\Models\VendorDocument;
 use App\Models\Violation;
 use App\Models\Warehouse;
+use App\Models\WorkOrderProposal;
 use App\Models\WorkPermit;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Models\Permission;
@@ -247,6 +248,7 @@ class MorphMap
         'table_view' => TableView::class,
         'tax_code' => TaxCode::class,
         'tax_rate' => TaxRate::class,
+        'work_order_proposal' => WorkOrderProposal::class,
         'work_order_labour' => FacilityWorkOrderLabour::class,
         'failure_code' => FailureCode::class,
         'trade' => Trade::class,

@@ -2,6 +2,14 @@
 
 return [
     'fields' => [
+        'default_nte' => 'الحد الافتراضي المصرّح به',
+        'labour_amount' => 'العمالة',
+        'material_amount' => 'المواد',
+        'service_amount' => 'الخدمات',
+        'total_amount' => 'الإجمالي',
+        'scope' => 'النطاق',
+        'decided_at' => 'تاريخ القرار',
+        'nte_amount' => 'الحد الأقصى المصرّح به',
         'confirmed_at' => 'تاريخ تأكيد المستأجر',
         'tenant_confirmed' => 'تأكيد المستأجر',
         'hours' => 'الساعات',

@@ -167,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'nte' => 'Leave blank for no ceiling. Approving a quote raises it to the quoted amount; exceeding it is shown on the job, never blocked.',
         'est_service_cost' => 'Replaces the old job value. A percent-of-value SLA penalty reads this, and the actual contractor cost once a bill has landed.',
         'standard_hourly_rate' => 'Leave it blank and no labour cost is computed for this trade — a missing number is better than an invented one.',
         'permit_valid_to' => 'A permit good for a whole day is one somebody uses at 19:00 when the fire officer has gone home. Bound it to the hours the work actually happens.',

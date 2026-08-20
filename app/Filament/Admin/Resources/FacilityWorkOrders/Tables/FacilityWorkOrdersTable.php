@@ -230,6 +230,20 @@ class FacilityWorkOrdersTable
                     ->placeholder('—')
                     ->toggleable(),
 
+                // **Spent more than the contractor was authorised for.** Shown, never blocked —
+                // the same settled reasoning as the three-way match: a job can legitimately grow,
+                // so the control is that a proposal should have come first and the enforcement is
+                // that the breach is visible and attributable.
+                TextColumn::make('over_nte')
+                    ->label(__('admin.facility.fields.over_nte'))
+                    ->badge()
+                    ->color('danger')
+                    ->state(fn (FacilityWorkOrder $r): ?string => ($over = $r->overNteBy()) === null
+                        ? null
+                        : __('admin.facility.over_nte_by', ['amount' => number_format($over, 2)]))
+                    ->placeholder('—')
+                    ->toggleable(),
+
                 TextColumn::make('pm_compliance')
                     ->label(__('admin.facility.fields.pm_compliance'))
                     ->badge()
@@ -261,6 +275,10 @@ class FacilityWorkOrdersTable
 
                 // The two states an operator acts on. Off the model's own scopes, so the filter,
                 // the column and the plan's compliance figure cannot drift.
+                Filter::make('over_nte')
+                    ->label(__('admin.facility.fields.over_nte'))
+                    ->query(fn ($query) => $query->overNte()),
+
                 Filter::make('pm_overdue')
                     ->label(__('admin.facility.pm_compliance.overdue_filter'))
                     ->query(fn ($query) => $query->pmOverdue()),

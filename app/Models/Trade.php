@@ -51,11 +51,12 @@ class Trade extends Model
     use HasFactory, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     protected $fillable = [
-        'code', 'name_en', 'name_ar', 'standard_hourly_rate', 'is_active', 'sort_order', 'notes',
+        'code', 'name_en', 'name_ar', 'standard_hourly_rate', 'default_nte', 'is_active', 'sort_order', 'notes',
     ];
 
     protected $casts = [
         'standard_hourly_rate' => 'decimal:2',
+        'default_nte' => 'decimal:2',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];
@@ -64,7 +65,7 @@ class Trade extends Model
     {
         return LogOptions::defaults()
             ->useLogName('trade')
-            ->logOnly(['code', 'name_en', 'name_ar', 'standard_hourly_rate', 'is_active', 'sort_order'])
+            ->logOnly(['code', 'name_en', 'name_ar', 'standard_hourly_rate', 'default_nte', 'is_active', 'sort_order'])
             ->logOnlyDirty();
     }
 

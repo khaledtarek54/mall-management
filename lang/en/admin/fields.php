@@ -2,6 +2,14 @@
 
 return [
     'fields' => [
+        'default_nte' => 'Default not-to-exceed',
+        'labour_amount' => 'Labour',
+        'material_amount' => 'Materials',
+        'service_amount' => 'Services',
+        'total_amount' => 'Total',
+        'scope' => 'Scope',
+        'decided_at' => 'Decided at',
+        'nte_amount' => 'Not-to-exceed',
         'confirmed_at' => 'Tenant confirmed at',
         'tenant_confirmed' => 'Tenant confirmed',
         'hours' => 'Hours',
