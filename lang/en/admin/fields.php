@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'is_supplementary' => 'Extra work',
         'default_nte' => 'Default not-to-exceed',
         'labour_amount' => 'Labour',
         'material_amount' => 'Materials',

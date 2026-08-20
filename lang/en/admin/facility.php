@@ -30,6 +30,8 @@ return [
     'facility' => [
         'no_nte' => 'No ceiling',
         'proposal' => [
+            'kind_full' => 'Whole price',
+            'kind_extra' => 'Extra work',
             'title' => 'Quotes',
             'record' => 'Record a quote',
             'approve' => 'Approve',
@@ -79,6 +81,7 @@ return [
         ],
         'not_estimated' => 'Not estimated',
         'help' => [
+            'supplementary' => 'Off: this is the whole price for the job and replaces any earlier one. On: it is added to what was already approved.',
             'default_nte' => 'Jobs in this trade start with this ceiling. Blank means no ceiling at all.',
             'nte' => 'The most this contractor may spend without coming back for approval.',
             'proposal_vendor' => 'Who quoted. Defaults to the contractor already on the job.',
@@ -152,6 +155,7 @@ return [
             'roots_only' => 'Top-level only',
         ],
         'fields' => [
+            'supplementary' => 'Extra work, on top of a price already agreed',
             'est_labour_cost' => 'Labour',
             'est_material_cost' => 'Materials',
             'est_service_cost_bucket' => 'Services',

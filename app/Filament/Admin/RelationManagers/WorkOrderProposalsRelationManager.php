@@ -14,6 +14,7 @@ use Filament\Actions\CreateAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -81,6 +82,15 @@ class WorkOrderProposalsRelationManager extends RelationManager
                 ->searchable()
                 ->helperText(__('admin.facility.help.proposal_vendor')),
 
+            // **Whole price, or extra on top?** The two behave differently and nothing on the
+            // screen used to say so — a supplement recorded as a revision collapsed the job's
+            // estimate to the supplement's own value.
+            Toggle::make('is_supplementary')
+                ->label(__('admin.facility.fields.supplementary'))
+                ->default(false)
+                ->helperText(__('admin.facility.help.supplementary'))
+                ->columnSpanFull(),
+
             // The cost object's own three buckets. Net of tax, like every other cost figure here.
             TextInput::make('labour_amount')->label(__('admin.facility.fields.est_labour_cost'))
                 ->numeric()->minValue(0)->default(0)->prefix('EGP'),
@@ -114,6 +124,14 @@ class WorkOrderProposalsRelationManager extends RelationManager
                     ])),
 
                 TextColumn::make('vendor.name')->label(__('admin.facility.fields.vendor'))->placeholder('—'),
+
+                TextColumn::make('is_supplementary')
+                    ->label(__('admin.facility.fields.supplementary'))
+                    ->badge()
+                    ->state(fn (WorkOrderProposal $r): string => $r->is_supplementary
+                        ? __('admin.facility.proposal.kind_extra')
+                        : __('admin.facility.proposal.kind_full'))
+                    ->color(fn (WorkOrderProposal $r): string => $r->is_supplementary ? 'info' : 'gray'),
 
                 TextColumn::make('status')
                     ->label(__('admin.fields.status'))

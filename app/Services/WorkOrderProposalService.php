@@ -66,9 +66,20 @@ class WorkOrderProposalService
      * 2. **The job's estimate is set from the quote's own buckets**, so the cost object's
      *    planned-vs-actual becomes "did the contractor deliver what they quoted?".
      *
-     * Approving a second quote replaces the estimate rather than adding to it: a revised quote is a
-     * new answer to the same question, not extra work. Any other pending quote on the job is
-     * withdrawn, because leaving two live approvals would make "what was agreed?" unanswerable.
+     * **A quote is either the whole price or EXTRA on top of one already agreed**, and the two
+     * behave differently — found by review, on the live database, after the first version treated
+     * every quote as a replacement:
+     *
+     *     approved 38,000  → ceiling 38,000, estimate 38,000
+     *     supplement 8,000 → ceiling stayed 38,000, estimate became 8,000
+     *
+     * …so the job read as 38,000 overspent. A `full` quote REPLACES (a revised price is a new
+     * answer to the same question); a `supplementary` one ADDS to both, which is what happens when
+     * a contractor opens a wall and finds more work.
+     *
+     * A full quote withdraws any other PENDING quote, because competing prices for the same work
+     * cannot both stand. A supplementary one does not: two supplements for two different pieces of
+     * extra work are not alternatives to each other.
      */
     public function approve(WorkOrderProposal $proposal, ?User $actor = null, ?string $reason = null): WorkOrderProposal
     {
@@ -84,23 +95,36 @@ class WorkOrderProposalService
                 'decided_at' => now(),
             ])->save();
 
-            // Competing quotes for the same work cannot both stand.
-            WorkOrderProposal::query()
-                ->where('facility_work_order_id', $order->getKey())
-                ->whereKeyNot($proposal->getKey())
-                ->awaitingDecision()
-                ->update([
-                    'status' => WorkOrderProposal::STATUS_WITHDRAWN,
-                    'decided_at' => now(),
-                    'updated_at' => now(),
-                ]);
+            // Competing PRICES for the same work cannot both stand. Two supplements for two
+            // different pieces of extra work are not alternatives, so they survive.
+            if (! $proposal->is_supplementary) {
+                WorkOrderProposal::query()
+                    ->where('facility_work_order_id', $order->getKey())
+                    ->whereKeyNot($proposal->getKey())
+                    ->awaitingDecision()
+                    ->update([
+                        'status' => WorkOrderProposal::STATUS_WITHDRAWN,
+                        'decided_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
 
-            $order->forceFill([
-                'nte_amount' => max((float) $order->nte_amount, (float) $proposal->total_amount),
-                'est_labour_cost' => $proposal->labour_amount,
-                'est_material_cost' => $proposal->material_amount,
-                'est_service_cost' => $proposal->service_amount,
-            ])->save();
+            $order->forceFill($proposal->is_supplementary
+                ? [
+                    // Extra work on top of what was already agreed.
+                    'nte_amount' => (float) $order->nte_amount + (float) $proposal->total_amount,
+                    'est_labour_cost' => (float) $order->est_labour_cost + (float) $proposal->labour_amount,
+                    'est_material_cost' => (float) $order->est_material_cost + (float) $proposal->material_amount,
+                    'est_service_cost' => (float) $order->est_service_cost + (float) $proposal->service_amount,
+                ]
+                : [
+                    // A revised whole price. RAISED, never lowered — approving a cheaper revision
+                    // must not tighten what the contractor was already permitted for.
+                    'nte_amount' => max((float) $order->nte_amount, (float) $proposal->total_amount),
+                    'est_labour_cost' => $proposal->labour_amount,
+                    'est_material_cost' => $proposal->material_amount,
+                    'est_service_cost' => $proposal->service_amount,
+                ])->save();
 
             // `save()` fires `saving`, which re-derives est_total_cost — the estimate and its total
             // can never disagree, whichever road set them.

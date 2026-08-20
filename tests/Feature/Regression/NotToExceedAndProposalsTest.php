@@ -232,3 +232,62 @@ it('reports no breach on a job that was never given a ceiling', function () {
     expect($job->fresh()->overNteBy())->toBeNull()
         ->and(FacilityWorkOrder::query()->overNte()->count())->toBe(0);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Review pass (2026-08-20)
+|--------------------------------------------------------------------------
+| Every quote was treated as a replacement. That is right for a REVISED price and silently wrong for
+| a SUPPLEMENT — the ordinary case where a contractor opens a wall, finds more work, and quotes for
+| the extra. Measured on the live database: approving 38,000 then a supplement of 8,000 left the
+| ceiling at 38,000 and collapsed the estimate to 8,000, so the job read as 38,000 overspent. Worse
+| than unsupported — it corrupts the number planned-vs-actual is measured against, and nothing on
+| the screen said which the operator was recording.
+*/
+
+it('adds a supplementary quote to the ceiling and the estimate', function () {
+    $job = leakJob($this);
+    $this->svc->approve(quote($this, $job, 38000, 0));
+
+    $extra = $this->svc->submit($job, [
+        'labour_amount' => 8000, 'material_amount' => 0, 'service_amount' => 0,
+        'is_supplementary' => true, 'scope' => 'Found more once the wall was open.',
+    ]);
+    $this->svc->approve($extra);
+
+    $job->refresh();
+
+    expect((float) $job->nte_amount)->toBe(46000.0)
+        ->and((float) $job->est_total_cost)->toBe(46000.0)
+        ->and((float) $job->est_labour_cost)->toBe(46000.0);
+});
+
+/** The control: a FULL quote still replaces, or a revised price would double. */
+it('still replaces the estimate when a quote is the whole price', function () {
+    $job = leakJob($this);
+    $this->svc->approve(quote($this, $job, 38000, 0));
+    $this->svc->approve(quote($this, $job, 41000, 0));
+
+    expect((float) $job->fresh()->est_total_cost)->toBe(41000.0)
+        ->and((float) $job->fresh()->nte_amount)->toBe(41000.0);
+});
+
+/**
+ * Two supplements for two different pieces of extra work are not alternatives to each other, so
+ * approving one must not withdraw the other — unlike two competing whole prices, which are.
+ */
+it('does not withdraw a pending supplement when another is approved', function () {
+    $job = leakJob($this);
+    $this->svc->approve(quote($this, $job, 38000, 0));
+
+    $first = $this->svc->submit($job, ['labour_amount' => 3000, 'material_amount' => 0, 'service_amount' => 0, 'is_supplementary' => true]);
+    $second = $this->svc->submit($job, ['labour_amount' => 5000, 'material_amount' => 0, 'service_amount' => 0, 'is_supplementary' => true]);
+
+    $this->svc->approve($first);
+
+    expect($second->fresh()->status)->toBe(WorkOrderProposal::STATUS_SUBMITTED);
+
+    // …and approving the second adds again, reaching 46,000.
+    $this->svc->approve($second->fresh());
+    expect((float) $job->fresh()->nte_amount)->toBe(46000.0);
+});

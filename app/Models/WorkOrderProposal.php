@@ -55,13 +55,14 @@ class WorkOrderProposal extends Model
     public const DECIDED = [self::STATUS_APPROVED, self::STATUS_REJECTED];
 
     protected $fillable = [
-        'facility_work_order_id', 'vendor_id', 'status',
+        'facility_work_order_id', 'vendor_id', 'status', 'is_supplementary',
         'labour_amount', 'material_amount', 'service_amount', 'total_amount',
         'scope', 'decision_reason', 'submitted_by_user_id', 'submitted_at',
         'decided_by_user_id', 'decided_at',
     ];
 
     protected $casts = [
+        'is_supplementary' => 'boolean',
         'labour_amount' => 'decimal:2',
         'material_amount' => 'decimal:2',
         'service_amount' => 'decimal:2',
@@ -92,7 +93,7 @@ class WorkOrderProposal extends Model
             ->useLogName('work_order_proposal')
             ->logOnly([
                 'facility_work_order_id', 'vendor_id', 'status', 'labour_amount', 'material_amount',
-                'service_amount', 'total_amount', 'scope', 'decision_reason', 'decided_at',
+                'service_amount', 'total_amount', 'scope', 'decision_reason', 'decided_at', 'is_supplementary',
             ])
             ->logOnlyDirty();
     }

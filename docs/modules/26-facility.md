@@ -1233,6 +1233,15 @@ whole loop exists to answer — rather than two unrelated sets of numbers about 
 total is derived from the breakdown, never typed: a quote whose total disagrees with its own parts
 is the argument nobody wants when the invoice lands.
 
+**A quote is either the whole price or EXTRA on top of one already agreed**, and the two behave
+differently. Found by review, on the live database, after the first version treated every quote as a
+replacement: approving 38,000 and then a supplement of 8,000 left the ceiling at 38,000 and
+collapsed the estimate to **8,000**, so the job read as 38,000 overspent. Worse than unsupported — it
+corrupts the figure planned-vs-actual is measured against, and nothing on the screen said which the
+operator was recording. A full quote replaces; a supplementary one **adds** to both, and a
+supplement does not withdraw other pending supplements, because two pieces of extra work are not
+alternatives to each other.
+
 Approving **raises** the ceiling and never lowers it — approving a smaller quote must not quietly
 tighten what the contractor was already permitted for other work on the job — and **withdraws any
 competing quote**, because two live approvals make "what was agreed?" unanswerable. A refusal

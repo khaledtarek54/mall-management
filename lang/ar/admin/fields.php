@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'is_supplementary' => 'عمل إضافي',
         'default_nte' => 'الحد الافتراضي المصرّح به',
         'labour_amount' => 'العمالة',
         'material_amount' => 'المواد',
