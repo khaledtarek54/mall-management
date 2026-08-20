@@ -18,6 +18,22 @@ portal), and `departments` (org units). An employee is a *payroll subject*, not 
 
 ---
 
+
+> **⚠️ The header's rollup was written twice (fixed 2026-08-20).** Seven identical sums plus the net
+> lived in **two** places — `recomputeFromLines()`, called from the payslip save/delete hooks, and the
+> `saving` hook that stops someone typing over the header while payslips exist. Both are needed, for
+> different reasons, and both computed the same rule.
+>
+> They agreed, and that is the hazard: an **eighth** component would have to be added to both, and
+> the copy that was missed would produce a payroll header disagreeing with the payslips beneath it —
+> the divergence the invoice validation sweep closed on §8 R1, and the same rule applies (several
+> channels change the number, so exactly one method computes it). `fillTotalsFromLines()` is now that
+> method; it **assigns only**, because the `saving` hook is already inside a save and must not
+> re-enter one. Found by reading, not by a failure: nothing was wrong, there were simply two of it.
+> `PayrollHeaderHasOneDefinitionTest` drives BOTH paths and compares every component, and is proven
+> by breaking the shared method and watching four of six go red.
+
+
 ## Importing the payroll register at cut-over (`EmployeeImporter`, 2026-08-12)
 
 A mall runs dozens of staff across security, cleaning, technical and admin, and the first payroll

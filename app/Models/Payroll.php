@@ -115,6 +115,40 @@ class Payroll extends Model
      * lump-sum run (no lines, no hooks) never reaches here, so its manual amounts stand.
      * saveQuietly + explicit net so it doesn't loop through the line hooks.
      */
+    /**
+     * **The one definition of what a run's header is, given its payslips.**
+     *
+     * Written out TWICE until 2026-08-20 — here and in the `saving` hook — as seven identical sums
+     * plus the net. They agreed, and that is the whole hazard: the two copies existed for different
+     * reasons (a line was saved; someone edited the header while lines exist) and an EIGHTH
+     * component would have to be added to both, with the one that was missed producing a payroll
+     * header that disagrees with the payslips beneath it. That is the divergence the invoice
+     * validation sweep closed on §8 R1, and the same rule applies: several channels change the
+     * number, so exactly one method computes it.
+     *
+     * Assigns only — persistence belongs to the caller, because the `saving` hook is already inside
+     * a save and must not re-enter one.
+     *
+     * `employer_social_insurance` is summed but NOT deducted: it is the employer's own cost, not a
+     * withholding from the employee. The advance installment and ad-hoc deductions ARE deducted —
+     * they repay the loan and withhold from pay.
+     */
+    public function fillTotalsFromLines(): void
+    {
+        $this->gross_salaries = round((float) $this->lines()->sum('gross'), 2);
+        $this->allowances = round((float) $this->lines()->sum('allowances'), 2);
+        $this->salary_tax = round((float) $this->lines()->sum('salary_tax'), 2);
+        $this->social_insurance = round((float) $this->lines()->sum('social_insurance'), 2);
+        $this->advance_deductions = round((float) $this->lines()->sum('advance_deduction'), 2);
+        $this->other_deductions = round((float) $this->lines()->sum('other_deductions'), 2);
+        $this->employer_social_insurance = round((float) $this->lines()->sum('employer_social_insurance'), 2);
+        $this->net_paid = round(
+            $this->gross_salaries - $this->salary_tax - $this->social_insurance
+                - $this->advance_deductions - $this->other_deductions,
+            2,
+        );
+    }
+
     public function recomputeFromLines(): void
     {
         if (! $this->lines()->exists()) {
@@ -131,14 +165,7 @@ class Payroll extends Model
             return;
         }
 
-        $this->gross_salaries = round((float) $this->lines()->sum('gross'), 2);
-        $this->allowances = round((float) $this->lines()->sum('allowances'), 2);
-        $this->salary_tax = round((float) $this->lines()->sum('salary_tax'), 2);
-        $this->social_insurance = round((float) $this->lines()->sum('social_insurance'), 2);
-        $this->advance_deductions = round((float) $this->lines()->sum('advance_deduction'), 2);
-        $this->other_deductions = round((float) $this->lines()->sum('other_deductions'), 2);
-        $this->employer_social_insurance = round((float) $this->lines()->sum('employer_social_insurance'), 2);
-        $this->net_paid = round($this->gross_salaries - $this->salary_tax - $this->social_insurance - $this->advance_deductions - $this->other_deductions, 2);
+        $this->fillTotalsFromLines();
         $this->saveQuietly();
     }
 
@@ -225,13 +252,7 @@ class Payroll extends Model
                 && $payroll->isDirty(['gross_salaries', 'allowances', 'salary_tax', 'social_insurance',
                     'advance_deductions', 'other_deductions', 'employer_social_insurance'])
                 && $payroll->lines()->exists()) {
-                $payroll->gross_salaries = round((float) $payroll->lines()->sum('gross'), 2);
-                $payroll->allowances = round((float) $payroll->lines()->sum('allowances'), 2);
-                $payroll->salary_tax = round((float) $payroll->lines()->sum('salary_tax'), 2);
-                $payroll->social_insurance = round((float) $payroll->lines()->sum('social_insurance'), 2);
-                $payroll->advance_deductions = round((float) $payroll->lines()->sum('advance_deduction'), 2);
-                $payroll->other_deductions = round((float) $payroll->lines()->sum('other_deductions'), 2);
-                $payroll->employer_social_insurance = round((float) $payroll->lines()->sum('employer_social_insurance'), 2);
+                $payroll->fillTotalsFromLines();
             }
 
             // net_paid is derived on every write path (employer SI is NOT deducted; the advance
