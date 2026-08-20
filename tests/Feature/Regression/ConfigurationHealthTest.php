@@ -29,6 +29,7 @@ use App\Support\ConfigurationHealth;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -316,6 +317,52 @@ it('tells an operator with no roster what it found, rather than asserting eviden
     Livewire::test(Page::class)->assertSee(__('admin.config_health.payroll_no_roster'));
 });
 
+it('advises the mall onboarded last week, even while another has been paying for a year', function () {
+    // The false negative the per-property loop exists for — and which survived on the ADVISORY
+    // branch after the blocking one was fixed. One mall's year of correct payroll must not silence
+    // the advisory for a mall that has a roster and has never run one.
+    $running = payrollRoster();
+    approvedPayrollFor($running, ['salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310]);
+
+    // A second property with a live roster and nothing approved.
+    payrollRoster();
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse()
+        ->and(healthCheck('payroll_rates_configured')['severity'])->toBe(ConfigurationHealth::ADVISORY);
+});
+
+it('never claims a payroll month it does not have', function () {
+    // The green row used to read "your latest payroll month carries its statutory deductions" the
+    // moment the rates were set — on an install that had never approved a run. Doing what the page
+    // asked should not produce a sentence about evidence that does not exist.
+    payrollRoster();
+
+    tap(app(PayrollSettings::class), function (PayrollSettings $p) {
+        $p->salary_tax_rate = 10;
+        $p->social_insurance_rate = 11;
+        $p->employer_social_insurance_rate = 18.75;
+    });
+
+    $check = healthCheck('payroll_rates_configured');
+
+    expect($check['ok'])->toBeTrue()
+        ->and($check['detail'])->toBe(__('admin.config_health.payroll_awaiting_first_run'))
+        ->and($check['detail'])->not->toBe(__('admin.config_health.payroll_ok'));
+});
+
+it('names which mall and which month withheld nothing', function () {
+    // A bare count is unactionable in a portfolio: each property is judged on its OWN latest month,
+    // so "your latest payroll month" is several different months at once.
+    $employee = payrollRoster();
+    approvedPayrollFor($employee, ['period_month' => now()->startOfMonth()->toDateString()]);
+
+    $check = healthCheck('payroll_rates_configured');
+
+    expect($check['ok'])->toBeFalse()
+        ->and($check['detail'])->toContain($employee->asset->name)
+        ->and($check['detail'])->toContain(now()->format('m/Y'));
+});
+
 it('does not show one mall its neighbour\'s broken payroll', function () {
     // `Employee` and `Payroll` are both #[PropertyOwned] and this page is open to mall_admin, a
     // property-restricted role. An unscoped count would show them a red dot for a mall whose
@@ -329,14 +376,36 @@ it('does not show one mall its neighbour\'s broken payroll', function () {
     ]);
     approvedPayrollFor($neighbour);
 
-    $restricted = makeUser('mall_admin', [$mine->id]);
-    $this->actingAs($restricted);
+    // MY OWN roster, so the check gets past its roster gate and actually runs the payroll queries.
+    // Without this the test returned at `payroll_no_roster` and would have stayed green with the
+    // payroll scope deleted — proving the Employee scope while claiming to prove the Payroll one.
+    Employee::create([
+        'asset_id' => $mine->id, 'code' => 'E-'.uniqid(), 'name' => 'Mine',
+        'hire_date' => '2026-01-01', 'base_salary' => 9000, 'payment_method' => 'bank',
+    ]);
+
+    $this->actingAs(makeUser('mall_admin', [$mine->id]));
 
     // The control: unscoped, the neighbour's run IS the finding — so a green result below is the
     // scope working, not the fixture failing to reproduce.
-    expect($withoutScope = Payroll::query()->where('status', 'approved')->count())->toBe(1);
+    expect(Payroll::query()->where('status', 'approved')->count())->toBe(1);
 
-    expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
+    $check = healthCheck('payroll_rates_configured');
+
+    // Not "green": this operator has a roster of their own and has approved nothing, so the honest
+    // answer is their OWN advisory. What must not happen is the neighbour's BLOCKING row — a red
+    // dot naming a mall whose payroll they cannot open.
+    expect($check['severity'])->toBe(ConfigurationHealth::ADVISORY)
+        ->and($check['detail'])->not->toContain($theirs->name)
+        // …and specifically because the roster gate was PASSED and the payroll queries found
+        // nothing of mine — not because there was no roster to judge.
+        ->and($check['detail'])->not->toBe(__('admin.config_health.payroll_no_roster'));
+
+    // The control: unrestricted, the same data IS a blocking row — so the assertion above is the
+    // scope working, not the fixture failing to reproduce.
+    $this->actingAs(makeUser('super_admin'));
+
+    expect(healthCheck('payroll_rates_configured')['severity'])->toBe(ConfigurationHealth::BLOCKING);
 });
 
 it('classifies every check into a known category and severity', function () {
@@ -381,6 +450,20 @@ it('renders the page for someone who may see the settings', function () {
         // The impact line reached the screen — a checklist that renders its keys instead of its
         // sentences is the failure this page exists to avoid.
         ->assertSee(__('admin.config_health.checks.seller_tax_identity.name'));
+    // The optional fourth key. A check whose advisory state is ordinary states its own case; the
+    // page falls back to `impact` when the key is absent, so this is asserted only where defined.
+    foreach (ConfigurationHealth::run() as $check) {
+        $advisory = "admin.config_health.checks.{$check['key']}.advisory";
+
+        if (! Lang::has($advisory, 'en', false)) {
+            continue;
+        }
+
+        expect(Lang::has($advisory, 'ar', false))->toBeTrue(
+            "{$check['key']} states its advisory case in English only, so an Arabic reader gets the "
+            .'blocking sentence instead.'
+        );
+    }
 });
 
 it('refuses the page to someone who cannot see the settings', function () {

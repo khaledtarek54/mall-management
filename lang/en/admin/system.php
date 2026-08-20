@@ -141,6 +141,7 @@ return [
         'wht_off' => 'Withholding is switched off, so nothing is deducted.',
         'payroll_no_roster' => 'No active employees, so there is no payroll to withhold from yet.',
         'payroll_ok' => 'Your latest payroll month carries its statutory deductions.',
+        'payroll_awaiting_first_run' => 'The rates are set; no payroll has been approved yet.',
         'severities' => ['blocking' => 'Needs attention', 'advisory' => 'Could be better'],
         'categories' => ['tax' => 'Tax', 'accounting' => 'Accounting', 'billing' => 'Billing', 'payroll' => 'Payroll'],
         'checks' => [
@@ -171,7 +172,7 @@ return [
             ],
             'payroll_rates_configured' => [
                 'name' => 'Payroll withholds something',
-                'impact' => 'Your latest payroll month has :count approved run(s) that withheld nothing at all — no salary tax, no employee insurance and no employer share — so net pay was the full gross and the books carry none of the liability owed to the authority. An approved run cannot be edited, so raise a corrective run for that month carrying the deductions (and set the rates under Settings → Payroll so the next one starts right).',
+                'impact' => ':count approved payroll run(s) withheld nothing at all — no salary tax, no employee insurance and no employer share — so net pay was the full gross and the books carry none of the liability owed to the authority. Affected: :detail. An approved run cannot be edited, so raise a corrective run for that month carrying the deductions (and set the rates under Settings → Payroll so the next one starts right).',
                 'advisory' => 'Every statutory rate is still 0, so the first payroll run generated from the roster will withhold nothing. That is fine if your accountant enters each employee\'s deductions on the run — otherwise set them under Settings → Payroll before the first run.',
                 'ok' => ':detail',
             ],

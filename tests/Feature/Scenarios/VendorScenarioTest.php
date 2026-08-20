@@ -348,7 +348,6 @@ describe('vendor contract form validation', function () {
                 'start_date' => '2026-01-01',
                 'end_date' => '2026-12-31',
                 'value' => -500, // illegal
-                'currency' => 'EGP',
             ])
             ->assertHasTableActionErrors(['value']);
 
@@ -371,7 +370,6 @@ describe('vendor contract form validation', function () {
                 'start_date' => '2026-01-01',
                 'end_date' => '2026-12-31',
                 'value' => 120000,
-                'currency' => 'EGP',
             ])
             ->assertHasNoTableActionErrors();
 

@@ -167,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'asset_currency' => 'EGP only: there is no exchange rate anywhere in the system, so any other code would post to the ledger at 1:1.',
         'nte' => 'Leave blank for no ceiling. Approving a quote raises it to the quoted amount; exceeding it is shown on the job, never blocked.',
         'est_service_cost' => 'Replaces the old job value. A percent-of-value SLA penalty reads this, and the actual contractor cost once a bill has landed.',
         'standard_hourly_rate' => 'Leave it blank and no labour cost is computed for this trade — a missing number is better than an invented one.',

@@ -71,10 +71,16 @@ it('does not offer a currency the guard would refuse', function () {
         base_path('app/Filament/Admin/Resources/Vendors/RelationManagers/ContractsRelationManager.php')
     );
 
+    // Narrowed to the FORM. The same class holds the table, and a `TextColumn::make('currency')`
+    // there would be perfectly legitimate — showing what a contract is denominated in is not the
+    // same as inviting somebody to change it.
+    $form = substr($source, $start = strpos($source, 'public function form('),
+        strpos($source, 'public function table(') - $start);
+
     // The control: the form still declares the field the currency used to sit beside, so a renamed
-    // or moved file cannot satisfy this by making both needles absent.
-    expect($source)->toContain("make('value')")
-        ->and($source)->not->toContain("make('currency')");
+    // method or a moved file cannot satisfy this by making both needles absent.
+    expect($form)->toContain("TextInput::make('value')")
+        ->and($form)->not->toContain("make('currency')");
 });
 
 it('keeps the set to exactly what the ledger can post', function () {

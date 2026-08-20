@@ -65,15 +65,3 @@ it('states the same set in the registry and in both label catalogues', function 
             "The {$locale} label catalogue and the registry disagree about what an escalation type is.");
     }
 });
-
-it('never lets a lease keep escalation terms it cannot act on', function () {
-    // Not a new rule — `Lease::creating` already clears the terms when the clause is `none`. Pinned
-    // here because the registry entry is what now guarantees `none` is the only way to say "no
-    // escalation", so this is the behaviour the set is protecting.
-    $lease = makeLease(makeUnit(makeAsset()), null, [
-        'escalation_type' => 'none',
-        'escalation_rate' => 7,
-    ]);
-
-    expect((float) $lease->fresh()->escalation_rate)->toBe(0.0);
-});

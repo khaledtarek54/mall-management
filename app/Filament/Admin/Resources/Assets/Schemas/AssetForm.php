@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Validation\Rule;
 
 class AssetForm
@@ -63,6 +64,7 @@ class AssetForm
                         ->required()
                         ->default('EGP')
                         ->readOnly()
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.asset_currency'))
                         ->rules([Rule::in(ValueSets::allowed('assets', 'currency'))])
                         ->maxLength(3),
                 ]),

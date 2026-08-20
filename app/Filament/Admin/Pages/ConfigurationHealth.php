@@ -164,10 +164,11 @@ class ConfigurationHealth extends Page implements HasTable
 
         $advisory = "{$base}.advisory";
 
-        // `Lang::has()` falls back to English by default, which is the behaviour wanted here: a
-        // check that defines the key in EN only should still render its advisory sentence rather
-        // than silently drop back to the blocking one.
-        return $check['severity'] === Checks::ADVISORY && Lang::has($advisory)
+        // `fallback: false`. `Lang::has()` falls back to English by default, so the obvious
+        // spelling would render an English sentence inside an Arabic panel — which this project
+        // treats as a defect everywhere else. A locale gap should drop to `impact`, which is
+        // translated, and `TranslationKeyConformanceTest` fails the build on the gap itself.
+        return $check['severity'] === Checks::ADVISORY && Lang::has($advisory, null, false)
             ? __($advisory, $replace)
             : __("{$base}.impact", $replace);
     }

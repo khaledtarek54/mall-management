@@ -476,7 +476,7 @@ Not part of the configurability question, but found while verifying it and worth
 | `docs/OPEN-QUESTIONS.md` A3.2 | "no straight-line spread" | Straight-line rent **exists** (`StraightLineRentAdjustment`, `PostStraightLineRentService`), shipped off behind `BillingSettings::straight_line_rent_enabled` |
 | `docs/accounting/EGYPTIAN-TAX-CATALOG.md:10-11` | `TaxCatalogueConformanceTest` gates the catalogue "in both directions" | Only the *dropped-row* direction is asserted (presence-only, no count or `array_diff`), and it runs under `RefreshDatabase` so it structurally cannot see an operator's production row |
 | `docs/modules/21-general-ledger.md:610` | Statements are "per-property **& consolidated**" | Consolidated is unreachable from the panel (S-3) |
-| `lang/en/admin/help.php:137` | Escalation type "Step = pre-agreed increases per year" | No `step` option exists in that Select (M-16) |
+| ~~`lang/en/admin/help.php:137`~~ ✅ | ~~Escalation type "Step = pre-agreed increases per year"~~ | **Fixed 2026-08-20 (EG-09)** in both languages — the helper now names the four types that exist |
 
 **Live defects:**
 
@@ -564,6 +564,33 @@ inverting the needle and watching it go red.
 |---|---|---|
 | **EG-09** | `leases.escalation_type` registered; form options derived from the registry; the "Step" helper text that named a type nobody implemented corrected in both languages | `EscalationTypeIsARegisteredValueSetTest` (new, 3 cases) + the four escalation suites + `LeaseFormTightnessTest`, `ResourceFormSmokeTest`, `FieldHelpConformanceTest` |
 | **EG-07** | Vendor-contract currency picker removed; `assets.currency` + `vendor_contracts.currency` EGP-only in `ValueSets`; asset field read-only with a server-side rule | `CurrencyIsEgpOnlyTest` (new, 3 cases, mutation-proven) + `VendorScenarioTest` |
+
+---
+
+### 2026-08-20 — milestone 2 review fixes
+
+The review of `fb06d33f` found that **EG-04 had shipped three defects of the same class it was
+rewritten to remove**, which is the finding worth recording rather than the individual fixes:
+
+| Finding | What it was |
+|---|---|
+| 🟠 | The **advisory** branch was still portfolio-wide, so one mall's year of correct payroll silenced the advisory for the mall onboarded last week — verbatim the cross-property false negative the blocking branch had just been fixed for |
+| 🟠 | The green row read *"your latest payroll month carries its statutory deductions"* the moment the rates were set, on an install that had never approved a run — the same empty claim the previous review removed from the other string |
+| 🟠 | `Payroll` is `#[PropertyOwned(portfolioRowsWhenNull: true)]`, and a bare `whereIn` excludes NULL — so a head-office run that withheld nothing was red for super_admin and **green for every mall_admin**. The null case was handled correctly ten lines lower, on the other half of the same function |
+| 🟠 | The leak test returned at the roster gate and never ran a payroll query: it proved the *Employee* scope while being named for the *Payroll* one. It now fails when the payroll scope is deleted — verified by deleting it |
+| 🟠 | The blocking sentence said "your latest payroll month" while the count summed several months across several properties, so the remedy it prescribed was unactionable. It now names which mall and which month |
+| 🟡 | The `endOfMonth()` clamp compared 10 characters against the 19 the date cast writes — true on MySQL, false on sqlite, for a run dated the last day of the month. Now an exclusive bound against next month's first day |
+
+Also: the page's `Lang::has()` defended an EN-only key by rendering English inside an Arabic panel
+(now `fallback: false`); the bilingual sweep did not know the new optional `advisory` key existed;
+one escalation test would have passed with EG-09 fully reverted, so it is gone; `CurrencyIsEgpOnlyTest`'s
+source assertion forbade a legitimate `TextColumn::make('currency')` in the same file and its control
+was satisfied by the table rather than the form, so it is now scoped to the `form()` block; two
+`VendorScenarioTest` fixtures still passed a key no form accepts; and the read-only currency field now
+explains itself on screen rather than only in three docs.
+
+**The 55-line docblock was cut to 20.** Two-thirds of it restated the commit message, and module 24
+already carried the same argument — two copies of a rationale is how one of them goes stale.
 
 ---
 

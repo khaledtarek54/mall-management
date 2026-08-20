@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\AccountingPeriod;
+use App\Models\Asset;
 use App\Models\ChargeCode;
 use App\Models\Employee;
 use App\Models\LedgerAccount;
@@ -78,61 +79,41 @@ class ConfigurationHealth
     /**
      * Payroll ships every statutory rate at zero, and nothing anywhere said so.
      *
-     * {@see PayrollSettings} defaults `social_insurance_rate`, `salary_tax_rate` and
-     * `employer_social_insurance_rate` to `0.0`, deliberately: a guessed rate would look
-     * authoritative and be wrong, and the settings screen's own help offers "leave at 0 and enter it
-     * per employee" as a supported way to work. **So a zero rate is not, by itself, a fault, and
-     * this check must not say it is** — a row that contradicts the field help beside it teaches the
-     * operator to ignore the page.
+     * **A zero rate is not, by itself, a fault** — the settings screen's own help offers "leave at 0
+     * and enter it per employee" as a supported way to work, and a checklist row that contradicts the
+     * field help beside it teaches the operator to ignore the page. So this fires on the OUTCOME
+     * nobody sees: an approved payroll month that withheld nothing at all, which put net = gross on
+     * every payslip and no liability in the books while looking exactly like a working run.
      *
-     * What IS a fault is the outcome nobody sees: an APPROVED run that withheld nothing at all.
-     * `GeneratePayrollService` pre-fills from these rates, `PayrollJournalizer` posts what the run
-     * carries, and a run with zero salary tax, zero employee insurance AND zero employer share has
-     * put net = gross on every payslip and no liability in the books, while looking exactly like a
-     * working run. All three at nil is not a statutory position available in Egypt — an insured
-     * workforce always carries an employer share, and an uninsured one owes gratuity instead
-     * ({@see PayrollSettings::$gratuity_enabled}), which is a different switch.
+     * The full reasoning — why a month rather than a run, why per property, why not in the future —
+     * is in [modules/24](../../docs/modules/24-hr-employees.md) and not repeated here. Two traps are,
+     * because both are invisible at the call site:
      *
-     * Two states, and the difference between them is evidence:
-     *
-     *   - **Blocking** — a property's most recent payroll MONTH withheld nothing at all. Money
-     *     reached the books.
-     *   - **Advisory** — a live roster, all three rates still nil, and nothing approved yet. A
-     *     heads-up before the first run, not an accusation; it goes quiet the moment a run is
-     *     approved carrying real deductions, so keying them per line never leaves a standing red dot.
-     *
-     * **Judged per property, on its most recent payroll MONTH, so the row can CLEAR.** Three
-     * decisions, each closing a way this check could have lied:
-     *
-     *   - *A month, not a run.* An approved run's amounts are frozen ({@see Payroll::booted()}
-     *     refuses a dirty `salary_tax` once `status` was `approved`), so counting individual
-     *     zero-withholding runs would pin a blocking row with no remedy but cancelling a real
-     *     payroll to satisfy a checklist. Asking whether ANY run in that month withheld something
-     *     makes the stated fix — raise a corrective run carrying the deductions — actually work.
-     *   - *Per property.* A portfolio-wide "latest month" lets one mall's correct August silence
-     *     another mall's broken July, which in a portfolio where one building runs a month behind
-     *     means it is never examined.
-     *   - *Never the future.* `period_month` is operator-typed with no upper bound, so a mistyped
-     *     2027 would otherwise become the permanent "latest month" and hide every real one.
-     *
-     * **Scoped to what the reader may see.** `Employee` and `Payroll` are both `#[PropertyOwned]`,
-     * and this page is open to `mall_admin` — a property-restricted role. Portfolio-wide counts
-     * would show them a red dot for a mall whose records they cannot open.
-     *
-     * **Not gated on a module flag.** `PayrollResource` derives its module key as `payrolls`
-     * (`RoleGatedActions::permissionModule()` pluralises the model), which is not in
-     * `Modules::KEYS` and therefore always enabled — so payroll stays fully reachable whatever the
-     * `employees` toggle says, and an early return on that toggle would silence the check while
-     * runs kept being approved. The roster is the honest gate: no active employee, nobody being paid.
+     *   - **Not gated on a module flag.** `PayrollResource` derives its module key as `payrolls`
+     *     (`RoleGatedActions::permissionModule()` pluralises the model), which is not in
+     *     {@see Modules::KEYS} and is therefore always enabled. An early return on the `employees`
+     *     toggle would silence this check while payroll stayed fully reachable.
+     *   - **An approved run's amounts are frozen** ({@see Payroll::booted()} refuses a dirty
+     *     `salary_tax` once `status` was `approved`), so the remedy has to be a second document.
+     *     That is why the question is asked of the MONTH: a corrective run carrying the deductions
+     *     clears the row, and nothing else could without cancelling a real payroll.
      */
     private static function payrollRatesConfigured(): array
     {
         $assetIds = AssignedAssets::idsForCurrentUser();
-        $scope = fn (Builder $query): Builder => $assetIds === null
-            ? $query
-            : $query->whereIn('asset_id', $assetIds);
 
-        if (! $scope(Employee::query()->active())->exists()) {
+        // `Payroll` is `#[PropertyOwned(portfolioRowsWhenNull: true)]` and `payrolls.asset_id` is
+        // nullable, so a head-office run belongs to everyone; a bare `whereIn` excludes NULL and
+        // would hide exactly the run nobody owns. `employees.asset_id` is NOT NULL, so it is strict.
+        $scope = fn (Builder $query, bool $portfolioRowsToo = false): Builder => $assetIds === null
+            ? $query
+            : $query->where(fn (Builder $inner) => $portfolioRowsToo
+                ? $inner->whereIn('asset_id', $assetIds)->orWhereNull('asset_id')
+                : $inner->whereIn('asset_id', $assetIds));
+
+        $rosterProperties = $scope(Employee::query()->active())->distinct()->pluck('asset_id');
+
+        if ($rosterProperties->isEmpty()) {
             return self::check('payroll_rates_configured', self::PAYROLL, self::ADVISORY, true,
                 __('admin.config_health.payroll_no_roster'));
         }
@@ -140,43 +121,63 @@ class ConfigurationHealth
         // Exact equality against the value `MAX()` returned, never `whereDate()`: that compares a
         // formatted `Y-m-d` against the raw bound value and silently matches nothing when the value
         // carries a time, which is how the first cut of this check reported green on a broken run.
-        $approved = fn (): Builder => $scope(Payroll::query()->where('status', 'approved'));
+        // The upper bound is EXCLUSIVE against next month's first day for the same reason — an
+        // inclusive `<= endOfMonth()` compares 10 characters against the 19 the date cast writes,
+        // which is true on MySQL and false on sqlite for a run dated the last day of the month.
+        $approved = fn (): Builder => $scope(Payroll::query()->where('status', 'approved'), true);
+        $nextMonth = CarbonImmutable::now()->addMonth()->startOfMonth()->toDateString();
 
         $latestPerProperty = $approved()
-            ->where('period_month', '<=', CarbonImmutable::now()->endOfMonth()->toDateString())
+            ->where('period_month', '<', $nextMonth)
             ->groupBy('asset_id')
             ->select('asset_id')
             ->selectRaw('MAX(period_month) as latest_period')
             ->get();
 
-        $withheldNothing = 0;
+        $offending = [];
 
         foreach ($latestPerProperty as $row) {
-            $month = fn (): Builder => $approved()
+            // One round trip per property, not two: "did anything withhold" and "how many runs paid
+            // gross" are the same aggregate over the same rows.
+            $tally = $approved()
                 ->where('period_month', $row->latest_period)
                 ->when($row->asset_id === null,
                     fn (Builder $q) => $q->whereNull('asset_id'),
-                    fn (Builder $q) => $q->where('asset_id', $row->asset_id));
+                    fn (Builder $q) => $q->where('asset_id', $row->asset_id))
+                ->selectRaw('SUM(CASE WHEN salary_tax > 0 OR social_insurance > 0 OR employer_social_insurance > 0 THEN 1 ELSE 0 END) as withheld')
+                ->selectRaw('SUM(CASE WHEN gross_salaries > 0 THEN 1 ELSE 0 END) as paying')
+                ->first();
 
-            $somethingWithheld = $month()
-                ->where(fn (Builder $q) => $q
-                    ->where('salary_tax', '>', 0)
-                    ->orWhere('social_insurance', '>', 0)
-                    ->orWhere('employer_social_insurance', '>', 0))
-                ->exists();
-
-            if (! $somethingWithheld) {
-                $withheldNothing += $month()->where('gross_salaries', '>', 0)->count();
+            if ((int) $tally->withheld === 0 && (int) $tally->paying > 0) {
+                $offending[] = ['asset_id' => $row->asset_id, 'period' => $row->latest_period, 'runs' => (int) $tally->paying];
             }
         }
 
-        if ($withheldNothing > 0) {
+        if ($offending !== []) {
+            // WHICH mall and WHICH month. The count alone is unactionable in a portfolio, because
+            // each property is judged on its own latest month — so "your latest payroll month" is
+            // several different months at once, and the operator cannot tell which run to correct.
+            $names = Asset::query()
+                ->whereIn('id', array_filter(array_column($offending, 'asset_id')))
+                ->pluck('name', 'id');
+
+            $detail = collect($offending)
+                ->map(fn (array $row): string => sprintf(
+                    '%s · %s',
+                    $row['asset_id'] === null
+                        ? __('admin.fields.portfolio')
+                        : ($names[$row['asset_id']] ?? '#'.$row['asset_id']),
+                    CarbonImmutable::parse($row['period'])->format('m/Y'),
+                ))
+                ->join('، ');
+
             return self::check(
                 key: 'payroll_rates_configured',
                 category: self::PAYROLL,
                 severity: self::BLOCKING,
                 ok: false,
-                count: $withheldNothing,
+                detail: $detail,
+                count: array_sum(array_column($offending, 'runs')),
             );
         }
 
@@ -185,17 +186,22 @@ class ConfigurationHealth
             && $settings->social_insurance_rate <= 0.0
             && $settings->employer_social_insurance_rate <= 0.0;
 
-        // Nothing approved yet: the rates are still only a default, so this is advice, not a fault.
-        // It renders its OWN sentence — a not-ok advisory borrowing the blocking text would tell an
-        // operator with no payroll at all that their books are missing a liability.
-        $noRunYet = $latestPerProperty->isEmpty();
+        // A property with a live roster and no approved month yet — judged per property for the same
+        // reason the blocking branch is, or one mall that has been running payroll for a year
+        // silences the advisory for the mall onboarded last week.
+        $awaitingFirstRun = $rosterProperties->diff($latestPerProperty->pluck('asset_id'))->isNotEmpty();
 
+        // Each state says what it FOUND. A green row reading "your latest payroll month carries its
+        // deductions" on an install that has never run payroll is the same empty claim this check
+        // was rewritten to stop making.
         return self::check(
             key: 'payroll_rates_configured',
             category: self::PAYROLL,
             severity: self::ADVISORY,
-            ok: ! ($allNil && $noRunYet),
-            detail: __('admin.config_health.payroll_ok'),
+            ok: ! ($allNil && $awaitingFirstRun),
+            detail: __($awaitingFirstRun
+                ? 'admin.config_health.payroll_awaiting_first_run'
+                : 'admin.config_health.payroll_ok'),
         );
     }
 
