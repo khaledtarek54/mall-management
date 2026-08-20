@@ -1315,6 +1315,35 @@ plan with no estimate leaves its jobs un-estimated rather than estimated at zero
 planned this" and "this was expected to be free" are different claims and the variance depends on
 which one is true.
 
+### Where the work-order concerns live (2026-08-20)
+
+The close-out tripled `FacilityWorkOrder`, to **1,149 lines carrying seven subjects that change for
+different reasons** — a compliance rule, a costing rule, a spend rule, an SLA rule, a
+fault-attribution rule. The line count was the symptom; the cost was that changing any one of them
+meant reading a file where all seven lived, which is exactly the coupling that makes a system
+expensive to add to.
+
+Four concerns are now traits in `app/Models/Concerns/FacilityWorkOrder/`, the directory pattern the
+`Invoice` and `Lease` concerns already use:
+
+| Trait | Subject |
+|---|---|
+| `HasWorkOrderCost` | the cost object — three buckets, `recomputeCosts()`, the variance |
+| `TracksPmCompliance` | was the planned work done on time |
+| `RecordsFailuresAndRepeats` | what went wrong, and whether we have been here before |
+| `ControlsSpendAgainstNte` | the ceiling, the quotes, the breach |
+
+Their lifecycle hooks moved with them, as `boot{Trait}()` — so a concern owns its own behaviour
+rather than leaving half of itself in the model's `booted()`.
+
+**The SLA and fault-attribution concerns deliberately stayed.** They are stable and nobody is
+changing them; moving code for tidiness buys churn rather than clarity. The four extracted are the
+ones that GREW — which is the honest test of whether a concern has earned its own file.
+
+The refactor is behaviour-neutral, proven by the suite returning an identical result. It also
+tripped `UnresolvedClassReferenceConformanceTest` on a missing `Trade` import — the invariant that a
+class you name must be one you imported, caught by its own gate rather than by a browser.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |

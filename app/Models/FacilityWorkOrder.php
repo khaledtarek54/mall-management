@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\FacilityWorkOrder\ControlsSpendAgainstNte;
+use App\Models\Concerns\FacilityWorkOrder\HasWorkOrderCost;
+use App\Models\Concerns\FacilityWorkOrder\RecordsFailuresAndRepeats;
+use App\Models\Concerns\FacilityWorkOrder\TracksPmCompliance;
 use App\Models\Concerns\HasSearchText;
 use App\Notifications\WorkOrderAssignedNotification;
 use App\Services\NotifyAreaSupervisorsService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\SlaResolver;
-use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -34,7 +37,24 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PropertyOwned]
 class FacilityWorkOrder extends Model implements HasMedia
 {
+    /**
+     * Four concerns, extracted 2026-08-20.
+     *
+     * This model had reached 1,149 lines carrying seven subjects that change for different reasons
+     * — a compliance rule, a costing rule, a spend rule, an SLA rule, a fault-attribution rule.
+     * The line count was the symptom; the cost was that changing any one meant reading a file where
+     * all seven lived, which is the coupling that makes a system expensive to add to.
+     *
+     * The four here are the ones that GREW this model (the facility close-out tripled it). The
+     * SLA and fault-attribution concerns stay: they are stable, and moving code nobody is changing
+     * buys churn rather than clarity.
+     */
+    use ControlsSpendAgainstNte;
+
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use HasWorkOrderCost;
+    use RecordsFailuresAndRepeats;
+    use TracksPmCompliance;
 
     public const STATUSES = ['open', 'in_progress', 'done', 'cancelled'];
 
@@ -206,388 +226,6 @@ class FacilityWorkOrder extends Model implements HasMedia
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('facility_work_order');
-    }
-
-    /** Planned work, done on time. */
-    public const PM_ON_TIME = 'on_time';
-
-    /** Planned work, done — but after the date it was due. */
-    public const PM_LATE = 'late';
-
-    /** Planned work, not done, and the date has passed. The finding. */
-    public const PM_OVERDUE = 'overdue';
-
-    /** Planned work still in its window. Not yet anything. */
-    public const PM_DUE = 'due';
-
-    /**
-     * **Was this preventive job done when it was supposed to be?** (Maximo §6.)
-     *
-     * `scheduled_for` on a generated order IS the plan's `next_due_date` — the generator copies it
-     * — so compliance is exactly "completed on or before the day it was due". Both dates have been
-     * stored since the module shipped; nothing ever compared them, so a preventive programme was a
-     * list of intentions.
-     *
-     * **Measured strictly, with no tolerance window, and that is a stated deviation from Maximo.**
-     * Maximo allows a PM tolerance, and a single global one would be wrong in both directions here:
-     * three days is most of a weekly cleaning round and nothing at all on an annual overhaul. A
-     * percentage of the cycle would be a policy nobody has agreed to. Strict never OVERSTATES
-     * compliance — it is the safe direction — and the `late` rows are visible for an operator to
-     * judge. Revisit with a per-plan tolerance if the operator asks, not before.
-     *
-     * Returns null where the question does not apply: a corrective job answers to its SLA instead,
-     * and a cancelled one was never going to happen.
-     */
-    public function pmComplianceState(?CarbonImmutable $on = null): ?string
-    {
-        if ($this->work_order_type !== self::TYPE_PPM || $this->status === 'cancelled') {
-            return null;
-        }
-
-        if ($this->scheduled_for === null) {
-            return null;
-        }
-
-        $due = CarbonImmutable::parse($this->scheduled_for)->endOfDay();
-
-        if ($this->completed_at !== null) {
-            return CarbonImmutable::parse($this->completed_at)->lte($due) ? self::PM_ON_TIME : self::PM_LATE;
-        }
-
-        return ($on ?? CarbonImmutable::now())->gt($due) ? self::PM_OVERDUE : self::PM_DUE;
-    }
-
-    /**
-     * The query twin of {@see pmComplianceState}'s `overdue` — planned work nobody has done.
-     *
-     * Shared by the filter and the plan's compliance count so they cannot drift about what
-     * "overdue" means.
-     */
-    public function scopePmOverdue(Builder $query, ?CarbonImmutable $on = null): Builder
-    {
-        return $query
-            ->where('work_order_type', self::TYPE_PPM)
-            ->where('status', '!=', 'cancelled')
-            ->whereNull('completed_at')
-            ->whereNotNull('scheduled_for')
-            ->whereDate('scheduled_for', '<', ($on ?? CarbonImmutable::now())->toDateString());
-    }
-
-    /** The query twin of `late`: done, but after the day it was due. */
-    public function scopePmLate(Builder $query): Builder
-    {
-        return $query
-            ->where('work_order_type', self::TYPE_PPM)
-            ->where('status', '!=', 'cancelled')
-            ->whereNotNull('completed_at')
-            ->whereNotNull('scheduled_for')
-            // date() on both sides: completing at 16:00 on the due date is ON TIME, and comparing
-            // a datetime against a date column would call every afternoon completion late.
-            ->whereRaw('date(completed_at) > date(scheduled_for)');
-    }
-
-    /** The query twin of `on_time`. */
-    public function scopePmOnTime(Builder $query): Builder
-    {
-        return $query
-            ->where('work_order_type', self::TYPE_PPM)
-            ->where('status', '!=', 'cancelled')
-            ->whereNotNull('completed_at')
-            ->whereNotNull('scheduled_for')
-            ->whereRaw('date(completed_at) <= date(scheduled_for)');
-    }
-
-    /** What was observed. {@see FailureCode} */
-    public function failureProblem(): BelongsTo
-    {
-        return $this->belongsTo(FailureCode::class, 'failure_problem_id');
-    }
-
-    /** Why it happened. */
-    public function failureCause(): BelongsTo
-    {
-        return $this->belongsTo(FailureCode::class, 'failure_cause_id');
-    }
-
-    /** What was done about it. */
-    public function failureRemedy(): BelongsTo
-    {
-        return $this->belongsTo(FailureCode::class, 'failure_remedy_id');
-    }
-
-    /**
-     * **Has this been fixed before, recently?** (ServiceChannel §4.)
-     *
-     * The highest-value cheap signal in retail FM: it identifies the fault that was never actually
-     * fixed, and the contractor who keeps coming back to bill twice. Scenario S6 — the same
-     * escalator handrail four times in five weeks, four invoices, and a register showing four
-     * unrelated successes.
-     *
-     * **Same THING, not merely the same property.** A machine when the job names one; otherwise the
-     * unit, because a shop is what a tenant reports about. Two jobs in the same mall are not a
-     * repeat of each other and counting them so would make every busy property look like a failure.
-     *
-     * Trade-matched as well: an electrical fault and a plumbing fault in one shop are two problems,
-     * not one recurring one.
-     *
-     * A FOLLOW-UP is excluded. `parent_work_order_id` says the operator already knows this job came
-     * out of that one — it is a continuation somebody planned, not a fault that came back.
-     *
-     * Counted BEFORE this job, never after: the question is "did we already fix this?", and a later
-     * visit is the next job's finding, not this one's.
-     */
-    public function scopeRepeatsOf(Builder $query, self $order, ?int $days = null): Builder
-    {
-        $days = $days ?? (int) config('facility.repeat_visit_days', 30);
-        $since = CarbonImmutable::parse($order->created_at ?? now())->subDays($days);
-
-        return $query
-            ->whereKeyNot($order->getKey())
-            ->where('status', '!=', 'cancelled')
-            ->where('trade_id', $order->trade_id)
-            ->whereNull('parent_work_order_id')
-            ->when(
-                $order->equipment_id !== null,
-                fn (Builder $q) => $q->where('equipment_id', $order->equipment_id),
-                // No machine named: fall back to the SHOP. Refuse to match on nothing — without
-                // this guard a job with neither would "repeat" every other job in the trade.
-                fn (Builder $q) => $order->unit_id === null
-                    ? $q->whereRaw('1 = 0')
-                    : $q->where('unit_id', $order->unit_id)->whereNull('equipment_id'),
-            )
-            ->where('created_at', '>=', $since)
-            ->where('created_at', '<', $order->created_at ?? now());
-    }
-
-    /**
-     * The same count for a LIST, in ONE query instead of one per row.
-     *
-     * `priorVisitCount()` is the definition; this is how a table reads it without an N+1 — the same
-     * pairing as `ServicePlan::complianceRate()` and its count-based twin, and pinned by a test that
-     * the two agree, because a badge disagreeing with the record it links to is worse than no badge.
-     *
-     * Measured before it existed: 14 queries for 12 rows, on a column that is not hidden by default.
-     *
-     * A correlated self-subquery, aliased — `whereColumn` against the outer `facility_work_orders`
-     * needs the inner copy under a different name. Written with `addSelect([alias => query])` rather
-     * than a raw `select *, (…)`, which SQLite accepts and MySQL rejects.
-     *
-     * @param  Builder<static>  $query
-     */
-    public function scopeWithPriorVisitCount(Builder $query, ?int $days = null): Builder
-    {
-        $days = $days ?? (int) config('facility.repeat_visit_days', 30);
-
-        // Date arithmetic relative to EACH row has no portable spelling: SQLite wants
-        // `datetime(col, '-30 days')`, MySQL wants `date_sub(col, interval 30 day)`. Branched here
-        // in one place rather than discovered on the first real deploy — the suite runs SQLite and
-        // would never have told us. `$days` is an int, so there is nothing to inject.
-        $cutoff = $query->getConnection()->getDriverName() === 'sqlite'
-            ? "datetime(facility_work_orders.created_at, '-{$days} days')"
-            : "date_sub(facility_work_orders.created_at, interval {$days} day)";
-
-        return $query->addSelect(['prior_visit_count' => static::query()
-            ->from('facility_work_orders as prior')
-            ->selectRaw('count(*)')
-            ->whereColumn('prior.id', '!=', 'facility_work_orders.id')
-            ->whereColumn('prior.trade_id', 'facility_work_orders.trade_id')
-            ->where('prior.status', '!=', 'cancelled')
-            ->whereNull('prior.parent_work_order_id')
-            ->whereNull('prior.deleted_at')
-            // The same "same THING" rule as the scope: the machine when there is one, else the
-            // shop, and NOTHING when there is neither.
-            ->where(fn (Builder $q) => $q
-                ->where(fn (Builder $eq) => $eq
-                    ->whereNotNull('facility_work_orders.equipment_id')
-                    ->whereColumn('prior.equipment_id', 'facility_work_orders.equipment_id'))
-                ->orWhere(fn (Builder $unit) => $unit
-                    ->whereNull('facility_work_orders.equipment_id')
-                    ->whereNotNull('facility_work_orders.unit_id')
-                    ->whereNull('prior.equipment_id')
-                    ->whereColumn('prior.unit_id', 'facility_work_orders.unit_id')))
-            ->whereColumn('prior.created_at', '<', 'facility_work_orders.created_at')
-            ->whereRaw("prior.created_at >= {$cutoff}"),
-        ]);
-    }
-
-    /** How many times this same thing was already worked on inside the window. */
-    public function priorVisitCount(?int $days = null): int
-    {
-        // A list that used `withPriorVisitCount()` already paid for this; re-querying per row is
-        // the N+1 that scope exists to remove. Only honoured for the DEFAULT window, because a
-        // caller asking for a different one is asking a different question.
-        if ($days === null && $this->prior_visit_count !== null) {
-            return (int) $this->prior_visit_count;
-        }
-
-        return $this->trade_id === null
-            ? 0
-            : static::query()->repeatsOf($this, $days)->count();
-    }
-
-    /**
-     * Is this job a repeat — somebody has been here for the same thing already?
-     *
-     * A follow-up is never a repeat: see {@see scopeRepeatsOf}.
-     */
-    public function isRepeatVisit(?int $days = null): bool
-    {
-        return $this->parent_work_order_id === null && $this->priorVisitCount($days) > 0;
-    }
-
-    /** Quotes raised against this job. {@see WorkOrderProposal} */
-    public function proposals(): HasMany
-    {
-        return $this->hasMany(WorkOrderProposal::class);
-    }
-
-    /**
-     * **Has this job cost more than the contractor was authorised to spend?**
-     *
-     * The amount by which actual cost exceeds the not-to-exceed figure, or null when there is no
-     * NTE (nobody set a ceiling, so nothing was exceeded) or the job is inside it.
-     *
-     * **Shown, never blocked** — the same settled reasoning as `PurchaseRequest::billingVariance()`:
-     * a job can legitimately grow for something nobody could have proposed for, so jamming accounts
-     * payable would be wrong. The control is that a contractor should have submitted a proposal
-     * BEFORE exceeding; the enforcement is that the breach is visible and attributable. A stated
-     * deviation from ServiceChannel, which does hold the invoice.
-     */
-    public function overNteBy(): ?float
-    {
-        if ($this->nte_amount === null) {
-            return null;
-        }
-
-        $over = round((float) $this->act_total_cost - (float) $this->nte_amount, 2);
-
-        return $over > 0 ? $over : null;
-    }
-
-    /** The query twin of {@see overNteBy}, for the filter and any report. */
-    public function scopeOverNte(Builder $query): Builder
-    {
-        return $query
-            ->whereNotNull('nte_amount')
-            ->whereColumn('act_total_cost', '>', 'nte_amount');
-    }
-
-    /** Hours reported against this job. {@see FacilityWorkOrderLabour} */
-    public function labour(): HasMany
-    {
-        return $this->hasMany(FacilityWorkOrderLabour::class);
-    }
-
-    /** Contractor invoices raised against this job — the service bucket. */
-    public function vendorBills(): HasMany
-    {
-        return $this->hasMany(VendorBill::class);
-    }
-
-    /** Direct/petty-cash costs booked to this job — the service bucket's other road. */
-    public function expenses(): HasMany
-    {
-        return $this->hasMany(Expense::class);
-    }
-
-    /**
-     * **The single source of truth for what this job cost.**
-     *
-     * Written the way `Invoice::recomputeTotals()` is, and for the same reason: several independent
-     * channels change the number, so exactly one method may compute it and every channel calls it.
-     * Never set an `act_*` column anywhere else.
-     *
-     * THREE CHANNELS, and adding a fourth means adding it here AND wiring its model events:
-     *
-     *   labour   — `facility_work_order_labour`, hours x the craft rate frozen at entry
-     *   material — approved/recorded part draws (`facility_work_order_parts.value`)
-     *   service  — vendor bills + expenses booked to this job
-     *
-     * **NET of tax, and net of any SLA penalty applied to the bill.** VAT is recoverable and is not
-     * a cost of the job; a penalty credited against a contractor's invoice genuinely reduces what
-     * the work cost us, and `SlaPenaltyJournalizer` already credits the same expense account, so
-     * taking it off here keeps this figure and the ledger telling the same story.
-     *
-     * **A cancelled document costs nothing** — excluded, exactly as `VendorBill::recompute()`
-     * excludes a voided payment.
-     *
-     * This posts NOTHING. See the migration docblock: the money is already in the ledger through
-     * three other documents, and these columns are a management dimension over it.
-     */
-    public function recomputeCosts(): void
-    {
-        $labour = $this->labour()
-            ->selectRaw('coalesce(sum(hours), 0) as h, coalesce(sum(cost), 0) as c')
-            ->first();
-
-        $this->act_labour_hours = round((float) ($labour->h ?? 0), 2);
-        $this->act_labour_cost = round((float) ($labour->c ?? 0), 2);
-
-        // Only a part that actually left the store (or was recorded as bought for the job) is a
-        // cost. A `pending` request is a proposal and a `rejected` one never happened.
-        $this->act_material_cost = round((float) $this->parts()
-            ->whereIn('status', [FacilityWorkOrderPart::STATUS_APPROVED, FacilityWorkOrderPart::STATUS_RECORDED])
-            ->sum('value'), 2);
-
-        $bills = round((float) $this->vendorBills()
-            ->where('status', '!=', 'cancelled')
-            ->selectRaw('coalesce(sum(subtotal - coalesce(penalty_applied_amount, 0)), 0) as net')
-            ->value('net'), 2);
-
-        $expenses = round((float) $this->expenses()
-            ->where('status', '!=', 'cancelled')
-            ->sum('amount'), 2);
-
-        $this->act_service_cost = round($bills + $expenses, 2);
-
-        $this->act_total_cost = round(
-            (float) $this->act_labour_cost + (float) $this->act_material_cost + (float) $this->act_service_cost,
-            2
-        );
-
-        $this->deriveEstimatedTotal();
-
-        // saveQuietly: a derivation, not an operator action. Logging it would bury the change
-        // somebody actually made under a cost row nobody typed.
-        $this->saveQuietly();
-    }
-
-    /**
-     * The planned total, from its parts.
-     *
-     * Derived for the same reason the actual one is: an operator who estimated two of three buckets
-     * should not also have to add them up — and a stored total nothing re-derives is a second truth
-     * about the same money.
-     *
-     * **Called from `saving` as well as from `recomputeCosts()`, and that is the whole point.** The
-     * cost channels are what call `recomputeCosts()`, and none of them touches an estimate — so
-     * editing `est_service_cost` on the form left `est_total_cost` at whatever it had been, and
-     * `costVariance()` (the number an operator acts on) was computed from the stale figure.
-     * Measured on the live database, not theorised.
-     */
-    private function deriveEstimatedTotal(): void
-    {
-        $stated = array_filter(
-            [$this->est_labour_cost, $this->est_material_cost, $this->est_service_cost],
-            fn ($v) => $v !== null,
-        );
-
-        $this->est_total_cost = $stated === []
-            ? null                                   // nobody estimated anything; NOT zero
-            : round(array_sum(array_map('floatval', $stated)), 2);
-    }
-
-    /**
-     * Planned minus actual on the total, or null when nothing was planned.
-     *
-     * The number an operator can act on: a job estimated at 4 hours that consumed 14 is the
-     * finding, and one showing only "14" is a figure nobody can do anything with.
-     */
-    public function costVariance(): ?float
-    {
-        return $this->est_total_cost === null
-            ? null
-            : round((float) $this->est_total_cost - (float) $this->act_total_cost, 2);
     }
 
     /** التخصص — what kind of work this is. See {@see Trade}. */
@@ -1016,23 +654,6 @@ class FacilityWorkOrder extends Model implements HasMedia
 
     protected static function booted(): void
     {
-        // The trade's default ceiling, applied when a job is raised and not afterwards: changing
-        // a trade's default must not silently re-authorise every open job in it. An explicit
-        // amount on the form always wins, and a trade with no default leaves the job with no NTE —
-        // honest, where 0 would mean "may spend nothing".
-        static::creating(function (self $order) {
-            if ($order->nte_amount === null && $order->trade_id !== null) {
-                $order->nte_amount = Trade::query()->whereKey($order->trade_id)->value('default_nte');
-            }
-        });
-
-        // The planned total is a function of its three parts, so it is derived on EVERY save.
-        // `recomputeCosts()` is called by the COST channels — labour, parts, bills — and none of
-        // them touches an estimate, so without this an operator editing `est_service_cost` left
-        // the stored total at its previous value and `costVariance()` reported against a stale
-        // figure. `saveQuietly()` does not fire this, which is exactly right: the recompute path
-        // calls the derivation directly and cannot loop.
-        static::saving(fn (self $order) => $order->deriveEstimatedTotal());
 
         static::creating(function (self $order) {
             if (empty($order->reference)) {
