@@ -10,7 +10,7 @@
         "console_commands": 52,
         "jobs": 6,
         "notifications": 37,
-        "migrations": 251
+        "migrations": 252
     },
     "modules": {
         "documented": 37,
@@ -294,9 +294,9 @@
         }
     },
     "tests": {
-        "files": 836,
+        "files": 843,
         "e2e_specs": 22,
-        "scenarios": 138,
-        "regressions": 442
+        "scenarios": 139,
+        "regressions": 448
     }
 }

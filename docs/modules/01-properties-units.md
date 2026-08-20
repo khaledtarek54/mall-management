@@ -35,7 +35,7 @@ The Properties & Units module is the spatial foundation of the mall-management E
 | country | varchar | default='Egypt' | Country name |
 | total_area_sqm | decimal(12,2) | nullable | Gross building area (m²). Read by `Asset::leasableEfficiencyPct()` — the load factor shown under GLA on the properties table. Was write-only until 2026-08-10: the form collected it and nothing used it. |
 | leasable_area_sqm | decimal(12,2) | nullable | Rentable area (m²) |
-| currency | varchar(3) | default='EGP' | ISO 4217 currency code (e.g., "EGP") |
+| currency | varchar(3) | default='EGP' | **EGP only, enforced** by `App\Support\ValueSets` on every save. It is the code printed at the head of the owner statement — which is why the field survives on the form (read-only) while the vendor-contract one was removed. See module 12's gotcha. |
 | primary_color | varchar(7) | nullable | Hex color (e.g., "#0F766E") for Filament panel branding when tenant is active |
 | metadata | json | nullable | Flexible key–value store for owner info, branding, etc. |
 | is_active | boolean | default=true | Soft toggle; does not prevent operations (only soft-deletes hide deactivated assets) |
@@ -324,7 +324,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
   - address (textarea, 2 rows)
   - city (text, required, default Cairo)
   - country (text, required, default Egypt)
-  - currency (text, required, default EGP, max 3)
+  - currency (text, required, default EGP, max 3) — **read-only**, with a server-side `Rule::in` behind it; the system has no FX to honour any other answer
 - **Area Section:**
   - total_area_sqm (numeric, suffix m²) — gross building area; the table shows GLA as a percentage of it
   - leasable_area_sqm (numeric, suffix m²)

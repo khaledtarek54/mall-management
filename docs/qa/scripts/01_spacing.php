@@ -98,7 +98,7 @@ $lease = Lease::create([
     'asset_id' => $qaAsset->id, 'tenant_id' => $t->id, 'unit_id' => $u2->id,
     'reference' => 'QA-LSE-'.uniqid(), 'status' => 'draft',
     'commencement_date' => '2026-01-01', 'expiry_date' => '2027-12-31', 'term_months' => 24,
-    'base_rent_monthly' => 10000, 'billing_frequency' => 'monthly', ]);
+    'base_rent_monthly' => 10000, 'billing_frequency' => 'monthly']);
 qa_eq('draft lease projects unit to reserved', 'reserved', $u2->fresh()->status);
 $lease->update(['status' => 'active']);
 qa_eq('active lease projects unit to occupied', 'occupied', $u2->fresh()->status);
@@ -107,7 +107,7 @@ $tmp = Lease::create([
     'asset_id' => $qaAsset->id, 'tenant_id' => $t->id, 'unit_id' => $u3->id,
     'reference' => 'QA-TMP-'.uniqid(), 'status' => 'active',
     'commencement_date' => '2026-01-01', 'expiry_date' => '2026-03-31', 'term_months' => 3,
-    'base_rent_monthly' => 1000, 'billing_frequency' => 'monthly', ]);
+    'base_rent_monthly' => 1000, 'billing_frequency' => 'monthly']);
 qa_eq('active lease occupies the second unit', 'occupied', $u3->fresh()->status);
 $tmp->update(['status' => 'expired']);
 qa_eq('expired lease projects unit back to vacant', 'vacant', $u3->fresh()->status);

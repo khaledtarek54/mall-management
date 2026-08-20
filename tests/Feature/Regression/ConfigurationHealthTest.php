@@ -185,7 +185,7 @@ function payrollRoster(): Employee
 }
 
 /** An approved payroll run. Created as a draft and approved, which is the real path. */
-function payrollRun(Employee $employee, array $attrs = []): Payroll
+function approvedPayrollFor(Employee $employee, array $attrs = []): Payroll
 {
     $run = Payroll::create(array_merge([
         'asset_id' => $employee->asset_id,
@@ -230,7 +230,7 @@ it('goes quiet when the deductions are keyed per run rather than set as rates', 
     // The posture the field help explicitly supports. Rates stay at 0, the run carries real
     // deductions, and the operator must not be left with a standing red dot for working that way.
     $employee = payrollRoster();
-    payrollRun($employee, ['salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310]);
+    approvedPayrollFor($employee, ['salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310]);
 
     expect(app(PayrollSettings::class)->salary_tax_rate)->toBe(0.0)
         ->and(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
@@ -240,7 +240,7 @@ it('blocks on an approved run that withheld nothing at all', function () {
     // The failure the check exists for: net = gross on every payslip, and no liability to the
     // authority anywhere in the books, on a run that looks exactly like a working one.
     $employee = payrollRoster();
-    payrollRun($employee);
+    approvedPayrollFor($employee);
 
     $check = healthCheck('payroll_rates_configured');
 
@@ -250,25 +250,91 @@ it('blocks on an approved run that withheld nothing at all', function () {
         ->and($check['category'])->toBe(ConfigurationHealth::PAYROLL);
 });
 
-it('clears once the next payroll month withholds, because an approved run can never be edited', function () {
-    // The reason the check is scoped to the LATEST payroll month rather than to all time.
-    // `Payroll::booted()` refuses a dirty `salary_tax` on a run whose original status was approved,
-    // so an all-time count would pin this row for the life of the install with no remedy except
-    // cancelling a real payroll to satisfy a checklist — and a red dot nobody can clear is one
-    // everybody learns to ignore.
+it('clears when a corrective run in the same month carries the deductions', function () {
+    // The remedy the impact line actually promises, and the reason the check asks about a MONTH
+    // rather than a run. `Payroll::booted()` refuses a dirty `salary_tax` on a run whose original
+    // status was approved, so counting individual runs would pin this row for the life of the
+    // install with no remedy except cancelling a real payroll to satisfy a checklist — and a red
+    // dot nobody can clear is one everybody learns to ignore.
     $employee = payrollRoster();
-    payrollRun($employee, ['period_month' => now()->subMonth()->startOfMonth()->toDateString()]);
+    $month = now()->startOfMonth()->toDateString();
+    approvedPayrollFor($employee, ['period_month' => $month]);
 
     expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse();
 
-    // The past stays wrong — and stays uneditable, which is the point.
+    // The original stays wrong — and stays uneditable, which is exactly why the remedy has to be a
+    // second document rather than a correction in place.
     $stale = Payroll::query()->where('status', 'approved')->firstOrFail();
     expect(fn () => $stale->update(['salary_tax' => 700]))->toThrow(DomainException::class);
 
-    payrollRun($employee, [
-        'period_month' => now()->startOfMonth()->toDateString(),
+    approvedPayrollFor($employee, [
+        'period_month' => $month,
         'salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310,
     ]);
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
+});
+
+it('is never silenced by a payroll month somebody typed into the future', function () {
+    // `period_month` is an unbounded DatePicker, so without the clamp a mistyped year becomes the
+    // permanent "latest payroll month" and hides every real one behind it.
+    $employee = payrollRoster();
+    approvedPayrollFor($employee, ['period_month' => now()->startOfMonth()->toDateString()]);
+    approvedPayrollFor($employee, [
+        'period_month' => now()->addYears(2)->startOfMonth()->toDateString(),
+        'salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310,
+    ]);
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse();
+});
+
+it('states the advisory case in its own words, not the blocking one', function () {
+    // The failure this replaced: the advisory branch borrowed the blocking sentence and told an
+    // operator with no payroll at all that ":count approved runs withheld nothing" — with a count
+    // of zero, about books that carry nothing. Asserted on the RENDERED page, because the defect
+    // was invisible to a test that read only `ok`, `severity` and `count`.
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setTenant(makeAsset());
+    payrollRoster();
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse();
+
+    Livewire::test(Page::class)
+        ->assertSee('Every statutory rate is still 0')
+        ->assertDontSee('Your latest payroll month has');
+});
+
+it('tells an operator with no roster what it found, rather than asserting evidence it lacks', function () {
+    // The green row used to read "approved payroll runs carry their statutory deductions" on an
+    // install that had never run payroll — a claim about evidence that did not exist, while the
+    // sentence describing the real state was computed, translated, and unreachable.
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setTenant(makeAsset());
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
+
+    Livewire::test(Page::class)->assertSee(__('admin.config_health.payroll_no_roster'));
+});
+
+it('does not show one mall its neighbour\'s broken payroll', function () {
+    // `Employee` and `Payroll` are both #[PropertyOwned] and this page is open to mall_admin, a
+    // property-restricted role. An unscoped count would show them a red dot for a mall whose
+    // records they cannot open — and no other check on this page reads property-owned data.
+    $mine = makeAsset();
+    $theirs = makeAsset();
+
+    $neighbour = Employee::create([
+        'asset_id' => $theirs->id, 'code' => 'E-'.uniqid(), 'name' => 'Not mine',
+        'hire_date' => '2026-01-01', 'base_salary' => 9000, 'payment_method' => 'bank',
+    ]);
+    approvedPayrollFor($neighbour);
+
+    $restricted = makeUser('mall_admin', [$mine->id]);
+    $this->actingAs($restricted);
+
+    // The control: unscoped, the neighbour's run IS the finding — so a green result below is the
+    // scope working, not the fixture failing to reproduce.
+    expect($withoutScope = Payroll::query()->where('status', 'approved')->count())->toBe(1);
 
     expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
 });

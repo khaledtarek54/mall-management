@@ -288,6 +288,22 @@ employee in the run's property, pre-filled:
 | `salary_tax` | `gross × PayrollSettings::salary_tax_rate` (0 by default) |
 | `social_insurance` | `gross × PayrollSettings::social_insurance_rate` (0 by default) |
 
+> **The zero defaults are watched, not just documented (EG-04, 2026-08-20).**
+> `/admin/configuration-health` carries a `payroll_rates_configured` row. It does **not** call a zero
+> rate a fault — the settings screen's own help offers *"leave at 0 and enter it per employee"* as a
+> supported way to work, and a checklist that contradicts the field help beside it teaches the
+> operator to ignore the page. It fires on **evidence** instead:
+>
+> - **Blocking** — a property's most recent payroll MONTH has an approved run with gross pay and no
+>   salary tax, no employee insurance and no employer share. Net was the full gross and the books
+>   carry none of the liability. Cleared by raising a corrective run for that month carrying the
+>   deductions; an approved run's amounts are frozen, so it cannot be edited in place.
+> - **Advisory** — a live roster, every rate still nil, and nothing approved yet.
+>
+> Judged per property, never on a future-dated month, and scoped to the assets the reader may see.
+> The reasoning is in `ConfigurationHealth::payrollRatesConfigured()`'s docblock and is not repeated
+> anywhere else.
+
 The generated lines **are** the review surface — the operator adjusts any line, then approves.
 Nothing about posting changes: the run header still **derives** from Σ lines
 (`Payroll::recomputeFromLines`) and the existing payroll journalizer posts the (unchanged)

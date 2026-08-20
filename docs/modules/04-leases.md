@@ -847,13 +847,17 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `escalation_rate` (decimal 5,2) | Annual rent-increase percentage (0–100, e.g., 7 → 7%). |
 | | | `escalation_floor_rate` / `escalation_ceiling_rate` (decimal 5,2, nullable) | **The collar** (الحد الأدنى/الأقصى للزيادة) — the *"greater of CPI or 3%, capped at 10%"* clause. `RentEscalationService::collar()` clamps whatever rate is about to be applied, whatever produced it, so the bounds bite **before** CPI exists: on a `fixed_percent` lease the ceiling is a rail against a mistyped rate (a `70` entered for `7` would otherwise step the rent seventy percent on the anniversary, unattended). Each bound applies only when set — a floor with no ceiling is not a cap at zero. A floor above the ceiling is **refused at the model** (`Lease::saving`), because the ceiling would silently win and the minimum typed would be the one increase that could never happen. |
 | | | `escalation_amount` (decimal 14,2, nullable) | The flat monthly increase for a `fixed_amount` lease — *"rent rises by EGP 5,000 a month each year"*, an ordinary anchor-tenant term. Used **instead of** `escalation_rate`, never alongside it; the percentage collar is not applied to it, because a bound stated in percent has no meaning against a step stated in pounds. |
-| | | `escalation_type` (enum) | One of: `none`, `fixed_percent` (escalation_rate %, **auto-applied**), `fixed_amount` (escalation_amount EGP, **auto-applied**), `cpi` (inflation-indexed — **skipped by the sweep until an index feed exists**; no number is invented). Default `none`. |
+| | | `escalation_type` (string 32, NOT NULL, default `none`) | **Not a DB enum** — it stopped being one on 2026-08-10 when `fixed_amount` was added, and the value set now lives in `App\Support\ValueSets` (`leases.escalation_type`), which refuses an out-of-set value on every model save. The lease form derives its options from that registry, so the picker cannot offer what the model would reject. One of: `none`, `fixed_percent` (escalation_rate %, **auto-applied**), `fixed_amount` (escalation_amount EGP, **auto-applied**), `cpi` (inflation-indexed — **skipped by the sweep until an index feed exists**; no number is invented). Default `none`. |
 | | | `next_escalation_date` (date, nullable) | Next scheduled escalation. **Armed automatically on create** by `Lease::creating` = `commencement + 1yr` whenever escalation is configured (`fixed_percent`/`cpi`, rate > 0) — converged in the model so the wizard, standard form, and renewal all set it consistently (before this, NO creation path populated it, so the sweep never fired for a real lease). The daily `leases:apply-escalations` sweep (`RentEscalationService`) applies a due `fixed_percent` increase through `LeaseRentChangeService` and rolls this forward a year — idempotent + lock-safe. `none`/rate-0 leases stay null (never escalate). |
 | | | `has_percentage_rent` (boolean, NOT NULL, default false) | Whether sales-based rent (pct rent) applies. |
 | | | `percentage_rent_threshold` (decimal 12,2, nullable) | Sales floor triggering pct rent (artificial breakpoint). E.g., 100,000 EGP/month → charge on sales above this. |
 | | | `percentage_rent_rate` (decimal 5,2, nullable) | Pct rent rate (0–100, e.g., 8 → 8% of sales above threshold). |
 | | | `percentage_rent_calculation_type` (enum, nullable) | `artificial` (threshold-based) or `natural_breakpoint` (% of sales minus monthly base rent, floored at 0). Defaults to `artificial` if null when calculating. |
 | | | `payment_terms_days` (unsigned small int, default 7) | Invoice payment due window (7 days = due 1 week after issue). |
+| | | `notes` (text, nullable) | Audit trail: appended with termination/rent-change stamps and reasons. |
+| | | `metadata` (JSON, nullable) | Flexible key-value store for future integrations. |
+| `lease_unit` | (pivot) | `lease_id`, `unit_id` | Links leases to units; supports multi-unit leases. Each lease has ≥1 pivot rows (one per unit). |
+| | | `is_master` (boolean, default false) | Exactly one `is_master=true` per lease. The master is the "primary" unit and is mirrored to `leases.unit_id`. |
 
 > **There is no per-lease billing day.** `leases.billing_day` was dropped 2026-08-20 (EG-20) — it
 > shipped in the 2024 schema promising "day of month to issue invoice" and was read by nothing for
@@ -867,10 +871,6 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 > every lease, so it would mean per-day cohorts and a reworked idempotency stamp. The question worth
 > answering first is per-**property**, which is what a multi-mall operator actually asks for — see
 > EG-18 in [EGYPT-MARKET-FIT](../EGYPT-MARKET-FIT.md).
-| | | `notes` (text, nullable) | Audit trail: appended with termination/rent-change stamps and reasons. |
-| | | `metadata` (JSON, nullable) | Flexible key-value store for future integrations. |
-| `lease_unit` | (pivot) | `lease_id`, `unit_id` | Links leases to units; supports multi-unit leases. Each lease has ≥1 pivot rows (one per unit). |
-| | | `is_master` (boolean, default false) | Exactly one `is_master=true` per lease. The master is the "primary" unit and is mirrored to `leases.unit_id`. |
 
 **Relationships:**
 - `Lease::unit()` → `belongsTo(Unit::class)` (the master via `unit_id`)
@@ -1172,7 +1172,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `billing_frequency` (Select: monthly / quarterly / semiannual / annual, default monthly) — the invoicing cadence. The cadence rule lives on the model: `Lease::billingCycleMonths()` (1/3/6/12) and `isBillingCycleStart()` (commencement-anchored, post-fit-out), used by `MonthlyBillingService` (bill the whole cycle on cycle-start months) and the "unbilled leases" card (don't nag off-cycle months). A manual "Generate Invoice" for an off-cycle month returns reason `off_cycle` with a clear notice.
    - `security_deposit` (TextInput, numeric, ≥0).
    - `escalation_rate` (TextInput, numeric, 0–100, default 7, suffix '%').
-   - `escalation_type` (Select) — none, fixed_percent, cpi; default fixed_percent.
+   - `escalation_type` (Select) — none, fixed_percent, fixed_amount, cpi (options derived from `ValueSets`); default fixed_percent.
    - `payment_terms_days` (TextInput, numeric, default 7, suffix ' days').
    - `security_deposit_received` (Toggle, column full).
 

@@ -140,6 +140,7 @@ return [
         'set' => 'Set',
         'wht_off' => 'Withholding is switched off, so nothing is deducted.',
         'payroll_no_roster' => 'No active employees, so there is no payroll to withhold from yet.',
+        'payroll_ok' => 'Your latest payroll month carries its statutory deductions.',
         'severities' => ['blocking' => 'Needs attention', 'advisory' => 'Could be better'],
         'categories' => ['tax' => 'Tax', 'accounting' => 'Accounting', 'billing' => 'Billing', 'payroll' => 'Payroll'],
         'checks' => [
@@ -170,8 +171,9 @@ return [
             ],
             'payroll_rates_configured' => [
                 'name' => 'Payroll withholds something',
-                'impact' => 'Your latest payroll month has :count approved run(s) that withheld nothing at all — no salary tax, no employee insurance and no employer share — so net pay was the full gross and the books carry none of the liability owed to the authority. An approved run cannot be edited, so correct the past with your accountant; set the rates under Settings → Payroll or enter each employee\'s deductions before approving, and this clears on the next run.',
-                'ok' => 'Approved payroll runs carry their statutory deductions.',
+                'impact' => 'Your latest payroll month has :count approved run(s) that withheld nothing at all — no salary tax, no employee insurance and no employer share — so net pay was the full gross and the books carry none of the liability owed to the authority. An approved run cannot be edited, so raise a corrective run for that month carrying the deductions (and set the rates under Settings → Payroll so the next one starts right).',
+                'advisory' => 'Every statutory rate is still 0, so the first payroll run generated from the roster will withhold nothing. That is fine if your accountant enters each employee\'s deductions on the run — otherwise set them under Settings → Payroll before the first run.',
+                'ok' => ':detail',
             ],
             'open_accounting_period' => [
                 'name' => 'Today falls in an open period',

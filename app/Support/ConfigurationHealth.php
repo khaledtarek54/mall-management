@@ -12,6 +12,7 @@ use App\Models\Vendor;
 use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * What is not configured yet, and what each gap actually breaks.
@@ -94,46 +95,80 @@ class ConfigurationHealth
      *
      * Two states, and the difference between them is evidence:
      *
-     *   - **Blocking** — the LATEST payroll month's approved runs carry nothing. Money reached the
-     *     books.
+     *   - **Blocking** — a property's most recent payroll MONTH withheld nothing at all. Money
+     *     reached the books.
      *   - **Advisory** — a live roster, all three rates still nil, and nothing approved yet. A
      *     heads-up before the first run, not an accusation; it goes quiet the moment a run is
      *     approved carrying real deductions, so keying them per line never leaves a standing red dot.
      *
-     * **Scoped to the latest payroll month so the row can CLEAR.** An approved run's amounts are
-     * frozen ({@see Payroll::booted()} refuses a dirty `salary_tax` once `status` was `approved`),
-     * so a check that counted zero-withholding runs across all time would pin a blocking row for
-     * the life of the install with no remedy but cancelling a real payroll to satisfy a checklist.
-     * A red dot nobody can clear is one everybody learns to ignore. This one states the current
-     * position — *your last payroll withheld nothing* — and goes green on the next correct run,
-     * which is also the only fix available: the past is corrected by the accountant, not by editing
-     * a posted run.
+     * **Judged per property, on its most recent payroll MONTH, so the row can CLEAR.** Three
+     * decisions, each closing a way this check could have lied:
+     *
+     *   - *A month, not a run.* An approved run's amounts are frozen ({@see Payroll::booted()}
+     *     refuses a dirty `salary_tax` once `status` was `approved`), so counting individual
+     *     zero-withholding runs would pin a blocking row with no remedy but cancelling a real
+     *     payroll to satisfy a checklist. Asking whether ANY run in that month withheld something
+     *     makes the stated fix — raise a corrective run carrying the deductions — actually work.
+     *   - *Per property.* A portfolio-wide "latest month" lets one mall's correct August silence
+     *     another mall's broken July, which in a portfolio where one building runs a month behind
+     *     means it is never examined.
+     *   - *Never the future.* `period_month` is operator-typed with no upper bound, so a mistyped
+     *     2027 would otherwise become the permanent "latest month" and hide every real one.
+     *
+     * **Scoped to what the reader may see.** `Employee` and `Payroll` are both `#[PropertyOwned]`,
+     * and this page is open to `mall_admin` — a property-restricted role. Portfolio-wide counts
+     * would show them a red dot for a mall whose records they cannot open.
      *
      * **Not gated on a module flag.** `PayrollResource` derives its module key as `payrolls`
      * (`RoleGatedActions::permissionModule()` pluralises the model), which is not in
-     * {@see Modules::KEYS} and therefore always enabled — so payroll stays fully reachable whatever
-     * the `employees` toggle says, and an early return on that toggle would silence the check while
+     * `Modules::KEYS` and therefore always enabled — so payroll stays fully reachable whatever the
+     * `employees` toggle says, and an early return on that toggle would silence the check while
      * runs kept being approved. The roster is the honest gate: no active employee, nobody being paid.
      */
     private static function payrollRatesConfigured(): array
     {
-        if (! Employee::query()->active()->exists()) {
-            return self::check('payroll_rates_configured', self::PAYROLL, self::ADVISORY, true, __('admin.config_health.payroll_no_roster'));
+        $assetIds = AssignedAssets::idsForCurrentUser();
+        $scope = fn (Builder $query): Builder => $assetIds === null
+            ? $query
+            : $query->whereIn('asset_id', $assetIds);
+
+        if (! $scope(Employee::query()->active())->exists()) {
+            return self::check('payroll_rates_configured', self::PAYROLL, self::ADVISORY, true,
+                __('admin.config_health.payroll_no_roster'));
         }
 
-        $approved = Payroll::query()->where('status', 'approved');
-        $latestPeriod = (clone $approved)->max('period_month');
+        // Exact equality against the value `MAX()` returned, never `whereDate()`: that compares a
+        // formatted `Y-m-d` against the raw bound value and silently matches nothing when the value
+        // carries a time, which is how the first cut of this check reported green on a broken run.
+        $approved = fn (): Builder => $scope(Payroll::query()->where('status', 'approved'));
 
-        // Exact equality, not `whereDate()`: the value came out of this very column via `max()`, so
-        // `=` matches it on any driver — while `whereDate()` compares a formatted `Y-m-d` against
-        // the raw bound value and silently matches nothing when that value carries a time.
-        $withheldNothing = $latestPeriod === null ? 0 : (clone $approved)
-            ->where('period_month', $latestPeriod)
-            ->where('gross_salaries', '>', 0)
-            ->where('salary_tax', '<=', 0)
-            ->where('social_insurance', '<=', 0)
-            ->where('employer_social_insurance', '<=', 0)
-            ->count();
+        $latestPerProperty = $approved()
+            ->where('period_month', '<=', CarbonImmutable::now()->endOfMonth()->toDateString())
+            ->groupBy('asset_id')
+            ->select('asset_id')
+            ->selectRaw('MAX(period_month) as latest_period')
+            ->get();
+
+        $withheldNothing = 0;
+
+        foreach ($latestPerProperty as $row) {
+            $month = fn (): Builder => $approved()
+                ->where('period_month', $row->latest_period)
+                ->when($row->asset_id === null,
+                    fn (Builder $q) => $q->whereNull('asset_id'),
+                    fn (Builder $q) => $q->where('asset_id', $row->asset_id));
+
+            $somethingWithheld = $month()
+                ->where(fn (Builder $q) => $q
+                    ->where('salary_tax', '>', 0)
+                    ->orWhere('social_insurance', '>', 0)
+                    ->orWhere('employer_social_insurance', '>', 0))
+                ->exists();
+
+            if (! $somethingWithheld) {
+                $withheldNothing += $month()->where('gross_salaries', '>', 0)->count();
+            }
+        }
 
         if ($withheldNothing > 0) {
             return self::check(
@@ -151,13 +186,16 @@ class ConfigurationHealth
             && $settings->employer_social_insurance_rate <= 0.0;
 
         // Nothing approved yet: the rates are still only a default, so this is advice, not a fault.
-        $noRunYet = $latestPeriod === null;
+        // It renders its OWN sentence — a not-ok advisory borrowing the blocking text would tell an
+        // operator with no payroll at all that their books are missing a liability.
+        $noRunYet = $latestPerProperty->isEmpty();
 
         return self::check(
             key: 'payroll_rates_configured',
             category: self::PAYROLL,
             severity: self::ADVISORY,
             ok: ! ($allNil && $noRunYet),
+            detail: __('admin.config_health.payroll_ok'),
         );
     }
 

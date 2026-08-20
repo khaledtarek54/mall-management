@@ -83,6 +83,11 @@ class ValueSets
         // pushed this text" and no form can know that.
         'announcements.status' => ['draft', 'scheduled', 'sent'],
         'announcements.category' => ['general', 'operations', 'event', 'emergency', 'hours'],
+        // EGP only, and enforced rather than assumed. There is no exchange-rate table, no rate on
+        // any document and no currency column on `journal_lines`, so a non-EGP value would be
+        // posted to the ledger at 1:1 — silently. Until FX exists (EG-31), the set IS the
+        // support: the column may carry the code it prints, and nothing else.
+        'assets.currency' => ['EGP'],
         'assets.type' => ['mall', 'retail_walk', 'mixed_use', 'office', 'residential'],
         'cam_allocations.status' => ['pending', 'billed', 'disputed', 'closed'],
         'cam_expense_pools.status' => ['draft', 'reconciling', 'reconciled', 'closed'],
@@ -113,6 +118,14 @@ class ValueSets
         'work_permits.status' => ['draft', 'issued', 'closed', 'cancelled'],
         'lease_clauses.type' => ['use', 'exclusivity', 'radius', 'co_tenancy', 'kick_out', 'assignment', 'insurance', 'operating_hours', 'signage', 'parking', 'repairs', 'guarantor', 'other'],
         'leases.billing_frequency' => ['monthly', 'quarterly', 'semiannual', 'annual'],
+        // Missed by the 2026-08-12 enum sweep for a reason worth stating: this column stopped
+        // being a DB enum two days EARLIER (2026_08_10_240000, which added `fixed_amount`), so the
+        // generator that read the live schema could not see it. It has been a `string(32)` with no
+        // runtime refusal ever since, while its option list came from a translation array — the
+        // shape banned after `Trade.category`. An out-of-set value here is silent and permanent:
+        // `RentEscalationService` filters on the three escalating types, so a lease carrying
+        // `annual_increase` is skipped by the sweep for ever and its rent simply never steps.
+        'leases.escalation_type' => ['none', 'fixed_percent', 'fixed_amount', 'cpi'],
         'leases.percentage_rent_calculation_type' => ['natural_breakpoint', 'artificial', 'tiered'],
         // The two halves of a percentage-rent clause that are constantly confused for each other:
         // how the overage is WORKED OUT, and when it is CHARGED. The first was an enumerated string
@@ -181,6 +194,7 @@ class ValueSets
         'vendor_bills.status' => ['draft', 'approved', 'partially_paid', 'paid', 'cancelled'],
         'vendor_contracts.sla_penalty_basis' => ['none', 'flat', 'per_day', 'percent_of_value'],
         'vendor_contracts.status' => ['draft', 'active', 'expired', 'terminated'],
+        'vendor_contracts.currency' => ['EGP'],
         'vendors.status' => ['active', 'inactive', 'blacklisted'],
         'vendors.type' => ['contractor', 'supplier', 'service_provider', 'consultant', 'other'],
     ];

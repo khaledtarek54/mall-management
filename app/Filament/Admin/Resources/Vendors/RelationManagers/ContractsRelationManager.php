@@ -118,12 +118,13 @@ class ContractsRelationManager extends RelationManager
                     ->prefix('EGP')
                     ->numeric()
                     ->minValue(0),
-                Select::make('currency')
-                    ->label(__('admin.fields.currency'))
-                    ->options(['EGP' => 'EGP', 'USD' => 'USD', 'EUR' => 'EUR', 'GBP' => 'GBP', 'SAR' => 'SAR', 'AED' => 'AED'])
-                    ->default('EGP')
-                    ->required()
-                    ->native(false),
+                // The currency picker that used to sit here offered five foreign codes one line below
+                // an amount field prefixed EGP, and NOTHING downstream honoured the choice: there is
+                // no rate table, no rate on any document, and no currency on a journal line. Picking
+                // a foreign code posted a foreign number to an EGP ledger at 1:1, silently — and the
+                // contract value feeds the SLA-penalty basis, so it reached the GL. The column stays
+                // (it is what the row is denominated in) but it is EGP-only, enforced by ValueSets;
+                // a field that offers what the system cannot honour is worse than no field.
                 // FR-CM-08 — what this vendor owes when a corrective job misses its SLA.
                 // The FRD never says on what basis, so it is agreed per contract rather
                 // than guessed in code. `none` (the default) = no penalty negotiated.

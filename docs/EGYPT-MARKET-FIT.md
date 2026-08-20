@@ -282,7 +282,7 @@ The one area where the books may be quietly wrong on data the system already hol
 | M-4 ✅ | **FIXED 2026-08-20 (EG-20).** ~~`leases.billing_day` is an inert column~~ — fillable, cast, migration comment *"day of month to issue invoice"*, **zero readers**. Combined with M-5, a multi-mall operator has exactly one billing date for the whole portfolio | `app/Models/Lease.php:373,411` | 🟠 |
 | M-5 | **`monthly_billing_day` is portfolio-wide and capped at 28.** One mall cannot bill on the 25th while another bills on the 1st. Same for `auto_apply_tenant_credit`. Both are **one line each** in `PropertySettings::OVERRIDABLE` away from being per-property — the override screen is registry-derived, so no UI work | `app/Settings/BillingSettings.php:71,73`; `app/Support/PropertySettings.php:48-69` | 🟠 |
 | M-6 | **Escalation is annual-only** — `->addYear()`, and no `escalation_frequency` column exists. A biennial or 18-month clause cannot be automated | `app/Services/RentEscalationService.php:196` | 🟠 |
-| M-7 | **`leases.escalation_type` has no `ValueSets` entry** — a freed `string(32)` column whose options live in a **translation array**. The wildcard save-listener does not refuse out-of-set values here, so an import can write `annual_increase` and the sweep silently skips that lease forever. This is the exact pattern CLAUDE.md bans after the `Trade.category` episode | `lang/en/admin/statuses.php:311`; migration `2026_08_10_240000_...:44`; absent from `app/Support/ValueSets.php` | 🔴 |
+| M-7 ✅ | **FIXED 2026-08-20 (EG-09).** ~~`leases.escalation_type` has no `ValueSets` entry~~ — a freed `string(32)` column whose options live in a **translation array**. The wildcard save-listener does not refuse out-of-set values here, so an import can write `annual_increase` and the sweep silently skips that lease forever. This is the exact pattern CLAUDE.md bans after the `Trade.category` episode | `lang/en/admin/statuses.php:311`; migration `2026_08_10_240000_...:44`; absent from `app/Support/ValueSets.php` | 🔴 |
 | M-8 | **Late fees have no cap and no compounding option.** One fee per invoice; a large arrears produces an uncapped penalty and a six-months-late tenant is penalised once. Neither is settable, and both are things a real clause states | `app/Services/LateFeeService.php:130-135,158` | 🟠 |
 | M-9 | **Document numbers reset monthly, per property, by construction** — only the prefix letters are configurable; the mask is a `sprintf`. Egyptian tax-invoice series are conventionally expected to run continuously. Worth a deliberate decision **before go-live**, because it is not renumberable afterwards | `app/Models/Concerns/Invoice/AllocatesInvoiceNumber.php:33,38-44` | 🟠 |
 | M-10 | **Rounding is 2dp with PHP's default mode, in 540 places.** No `PHP_ROUND_HALF_*` anywhere, no config. An accountant asking for banker's rounding cannot have it | 540 `round(…, 2)` under `app/` | 🟡 |
@@ -338,7 +338,7 @@ operator will want to change in week one.
 |---|---|---|---|
 | X-1 | **No FX of any kind.** `exchange_rate\|fx_rate\|conversion_rate\|base_currency\|functional_currency` across `app/` and `database/migrations/` → **zero hits**. `journal_lines` carries no currency or rate column | absence proven | 🔴 |
 | X-2 | **…and `currency` looks like it works.** 15 tables carry `currency string(3) default 'EGP'`, 8 models hard-set `'EGP'` on create, **260 `->money('EGP')` display calls read none of them**, and zero currency comparisons exist anywhere (`currency !==` → 0 hits) | `app/Models/Invoice.php:472` et al. | 🔴 |
-| X-3 | **The sharpest edge in the audit:** the vendor-contract form offers a currency Select of **EGP/USD/EUR/GBP/SAR/AED** one line below an amount field hardcoded `->prefix('EGP')`. Pick USD today and a USD number posts to an EGP ledger at 1:1, silently. **Either remove the non-EGP options or build the rate** | `app/Filament/Admin/Resources/Vendors/RelationManagers/ContractsRelationManager.php:117-126` (verified) | 🔴 |
+| X-3 ✅ | **FIXED 2026-08-20 (EG-07).** ~~The sharpest edge in the audit:~~ the vendor-contract form offers a currency Select of **EGP/USD/EUR/GBP/SAR/AED** one line below an amount field hardcoded `->prefix('EGP')`. Pick USD today and a USD number posts to an EGP ledger at 1:1, silently. **Either remove the non-EGP options or build the rate** | `app/Filament/Admin/Resources/Vendors/RelationManagers/ContractsRelationManager.php:117-126` (verified) | 🔴 |
 | X-4 | **The cheaper path is probably the right one.** Egyptian malls overwhelmingly write **USD-indexed, EGP-denominated** leases — the rent *amount* moves with a published rate while the books stay single-currency. That is an addition to `RentEscalationService` (which already steps rent on a schedule and already reads a dated `rent_indices` register), needs **no GL change**, and is **M** effort against **XL** for true multi-currency. Worth putting to the client as the actual question behind open question A7.4 / Q-F | `app/Services/RentEscalationService.php`; `app/Models/RentIndex` | — |
 | X-5 | **A payment rail cannot be added without a deploy** — 9–14 files including two lang catalogues, a hardcoded 7-value expectation in `TranslationCoverageTest.php:54`, and two `->only()` filter lists. `ValueSets`' own docblock names the failure mode — *"Egypt's payment rails keep moving: Fawry, Meeza, Aman, Vodafone Cash"* — and then keeps them in a `const`. **InstaPay is present; Fawry, Meeza and BNPL are not** | `app/Support/ValueSets.php:141,59-63` | 🟠 |
 | X-6 | **Every non-cash rail debits one `bank` account on capture day** — `$cashRole = $method === 'cash' ? 'cash' : 'bank';`. No clearing account, no undeposited funds, no PSP receivable (`PostingRoles` has only `cash` and `bank`). **The bank reconciliation just built will show a gross unmatched population every month**, because the book line is dated capture and the bank line is dated settlement (T+1/T+2 for Paymob, longer for Fawry). This surfaces on the *first real reconciliation* | `app/Services/Accounting/Journalizers/PaymentJournalizer.php:75` + 9 siblings | 🔴 |
@@ -391,9 +391,9 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-04**~~ ✅ | **DONE 2026-08-20.** `payroll_rates_configured`, in a new `payroll` category. **Not** the blocking-on-zero-rates row this line originally asked for: the settings screen's own help offers *"leave at 0 and enter it per employee"* as a supported posture, so a red row saying otherwise would contradict the field help beside it. It fires on **evidence** — BLOCKING when the latest payroll month's approved runs withheld nothing at all (net = gross, no liability in the books), ADVISORY when there is a roster, every rate is still nil and nothing has been approved yet. Scoped to the **latest** month so the row can clear, because an approved run's amounts are frozen and an all-time count would pin a red dot with no remedy but cancelling a real payroll | P-4 | 🧑‍💻 | S |
 | **EG-05** | **Remove the fake `billing@…test` address from every issued document.** One settings field (billing contact) + four lang strings | S-7 | 🧑‍💻 | S |
 | **EG-06** | **Declare `ext-intl` in `composer.json` and add it to the go-live checklist.** Without it every money column 500s | S-9 | 🧑‍💻 + ⚙️ | S |
-| **EG-07** | **Close the vendor-contract currency hole** — remove the non-EGP options, or gate them behind a real rate. A USD number posting to an EGP ledger at 1:1 is silent | X-3 | 🧑‍💻 | S |
+| ~~**EG-07**~~ ✅ | **DONE 2026-08-20.** The picker is gone and `ValueSets` now refuses a non-EGP value on `vendor_contracts.currency` **and** `assets.currency` — the guard, not the dropdown, is what makes it true. The rule both screens follow is stated: **a currency field survives only where the value is PRINTED**, so the asset's stays (it leads the owner statement) visible and read-only with a server-side `Rule::in`, and the vendor contract's went. Not inert, which is why it ranked: the contract value feeds the SLA-penalty basis, so a foreign number reached the GL | X-3 | 🧑‍💻 | S |
 | **EG-08** | **A working calendar: working days + working hours + a `holidays` table, per property**, on the same three-tier shape as `SlaResolver`. Then re-base every SLA clock, PM compliance and the reporting week on it | C-1..C-6, §3.4 | 🧑‍💻 | L |
-| **EG-09** | **Register `leases.escalation_type` in `ValueSets`** — the one freed money column in the leasing core with no runtime refusal, whose options live in a translation array | M-7 | 🧑‍💻 | S |
+| ~~**EG-09**~~ ✅ | **DONE 2026-08-20.** Registered (`none · fixed_percent · fixed_amount · cpi`), and the lease form's options now DERIVE from the registry rather than from the label catalogue, so the picker cannot offer what the model would refuse. It also closed the drift that proved the point: the field help advertised a **"Step"** type that existed in neither list, and omitted `fixed_amount`. Why the sweep missed it: the column stopped being a DB enum on 2026-08-10, two days before the generator read the live schema | M-7 | 🧑‍💻 | S |
 | **EG-10** | **Decide the document-number reset rule before go-live.** Monthly-per-property reset is a convention nobody chose and cannot be changed afterwards | M-9, §3.6 | 🔑 | S |
 
 ### P1 — real operator pain in the first weeks
@@ -512,28 +512,67 @@ Not part of the configurability question, but found while verifying it and worth
 | **EG-19** | Dead config keys deleted; `.env.example` documents the one thing the env vars still do; 4 false-pass test setups made reachable; 3 module docs + BUSINESS-RULES corrected | `PerLeaseLateFeeTermsTest` (+1 pin), `LateFeeServiceTest`, `AdversarialSweepFindingsTest` — pass |
 | **EG-20** | Column dropped + model/factory/27 fixtures cleaned; module doc explains the one definition | `LeaseRenewalCarriesTermsTest`, `FixtureColumnsExistConformanceTest`, `ApiResourceFieldConformanceTest` — pass |
 
-**Three things the adversarial pass changed about the work itself**, recorded because each was a plan
-that read as correct:
+**The adversarial passes changed the work itself seven times.** Each was a plan or an implementation
+that read as correct. The reasoning for each decision lives in
+`ConfigurationHealth::payrollRatesConfigured()`'s docblock — cited here rather than restated, since
+two copies of a rationale is how one of them goes stale:
 
-1. **EG-04 was going to gate on `Modules::enabled('employees')`.** Wrong: `PayrollResource` derives
-   its module key as `payrolls` (`RoleGatedActions::permissionModule()` pluralises the model), which
-   is not in `Modules::KEYS` and is therefore always enabled. The gate would have silenced the check
-   while payroll stayed fully reachable. The roster is the honest gate.
-2. **EG-04's blocking row could never have cleared.** Approved payroll amounts are frozen
-   (`Payroll::booted()` refuses a dirty `salary_tax`), so counting zero-withholding runs across all
-   time pins a red dot for the life of the install, remediable only by cancelling a real payroll to
-   satisfy a checklist. Scoping to the latest payroll month makes it both able to fail and able to go
-   green.
-3. **`whereDate()` against a `max()` value silently matches nothing** when the value carries a time
-   component — the check was written that way, the test caught it, and it is now exact equality.
+*Caught before the code was written:* gating on `Modules::enabled('employees')` would have silenced
+the check while payroll stayed reachable (`PayrollResource` derives `payrolls`, which is not a module
+key); and a blocking row counting zero-withholding runs across all time could never have cleared,
+because approved payroll amounts are frozen.
+
+*Caught by the tests:* `whereDate()` compared against a `max()` value silently matches nothing when
+that value carries a time component.
+
+*Caught by the review of the commit:* the advisory branch rendered the **blocking** sentence, telling
+an operator with no payroll at all that ":count runs withheld nothing" — with a count of zero; the
+"no roster" sentence was computed, translated into both languages, and unreachable, so the green row
+asserted evidence that did not exist; a portfolio-wide "latest month" let one mall's correct month
+silence another's broken one, and a future-dated month silenced everything; and the check read
+property-owned data with no property scope on a page `mall_admin` can open. Also a genuine
+build-breaker: the new test helper `payrollRun()` collided with a file-scope declaration of the same
+name in `PayrollHeaderHasOneDefinitionTest`, which is a fatal redeclaration the single-file test run
+could never have shown.
+
+### 2026-08-20 — milestone 2: review fixes · EG-09 · EG-07
+
+Milestone 1 was reviewed before this was started, and the review changed it. **Six findings, one of
+them a build-breaker**, all fixed in this change:
+
+| # | Finding | Fix |
+|---|---|---|
+| 🔴 | The new test helper `payrollRun()` collided with a file-scope declaration of the same name in `PayrollHeaderHasOneDefinitionTest` — a fatal redeclaration that a single-file test run can never show, and that `TestHelperUniquenessConformanceTest` exists to catch | Renamed to `approvedPayrollFor()`; the gate is green |
+| 🔴 | The advisory branch rendered the **blocking** sentence, telling an operator with no payroll at all that ":count runs withheld nothing" — with a count of zero | A distinct `advisory` string in both languages, selected by `ConfigurationHealth::sentenceFor()`; asserted on the rendered page |
+| 🟠 | The "no roster" sentence was computed, translated twice, and unreachable — the green row asserted evidence that did not exist | `ok` is now `:detail`, following `posting_map_complete` |
+| 🟠 | The remedy the impact line promised did not work: a corrective run in the same month could not clear the row | The check asks about a **month**, not a run — so raising a corrective run carrying the deductions genuinely clears it |
+| 🟠 | Two false negatives: a portfolio-wide "latest month" let one mall's correct month silence another's broken one, and a future-dated month silenced everything | Judged **per property**, never beyond the current month |
+| 🟠 | The check read `#[PropertyOwned]` data with no property scope, on a page `mall_admin` can open | Scoped to `AssignedAssets::idsForCurrentUser()`, with a leak test |
+
+Plus the polish: the config tombstone cited the wrong ticket, a doc blockquote had been inserted
+*inside* a table (breaking four rows of module 04's domain model), the late-fee floor case restated
+the shipped defaults so its mutation could not bite, two QA fixtures kept a trailing comma, and
+module 24 + GO-LIVE had not been told about the new check. `docs/PROJECT-MAP.md`'s census was
+regenerated.
+
+**One finding was mine, caught by mutation-testing my own new test.** EG-07's second case used
+`assertTableActionDataSet()` with a closure — which passes just as happily when the predicate is
+inverted, i.e. it asserted nothing. Replaced with a single-file source assertion, and proven by
+inverting the needle and watching it go red.
+
+| Item | What shipped | Tests |
+|---|---|---|
+| **EG-09** | `leases.escalation_type` registered; form options derived from the registry; the "Step" helper text that named a type nobody implemented corrected in both languages | `EscalationTypeIsARegisteredValueSetTest` (new, 3 cases) + the four escalation suites + `LeaseFormTightnessTest`, `ResourceFormSmokeTest`, `FieldHelpConformanceTest` |
+| **EG-07** | Vendor-contract currency picker removed; `assets.currency` + `vendor_contracts.currency` EGP-only in `ValueSets`; asset field read-only with a server-side rule | `CurrencyIsEgpOnlyTest` (new, 3 cases, mutation-proven) + `VendorScenarioTest` |
+
+---
 
 **Two deployment notes this milestone creates:**
 
 - `docs/qa/scripts/baseline.sql` is now stale — it predates the `billing_day` drop. Re-run
   `composer qa:baseline` before `composer qa` or `composer test:mysql`, per that script's own note.
-- `docs/PROJECT-MAP.md`'s generated census (migration and test counts) is stale. Regenerate with
-  `php artisan atriom:dump-system-census` **once the working tree is clean** — running it now would
-  bake in another session's uncommitted files.
+- ~~`docs/PROJECT-MAP.md`'s generated census is stale.~~ **Regenerated 2026-08-20** — the other
+  session's work had landed, so the counts are now honest.
 
 ---
 

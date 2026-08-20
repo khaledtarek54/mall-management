@@ -17,6 +17,7 @@ use App\Support\PropertySettings;
 use App\Support\SalesExclusions;
 use App\Support\Search\RecordOption;
 use App\Support\TenantScope;
+use App\Support\ValueSets;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
@@ -515,7 +516,17 @@ class LeaseForm
                         // no clause is configured, which also covers the importer and the API.
                         Select::make('escalation_type')
                             ->label(__('admin.fields.escalation_type'))
-                            ->options(fn () => __('admin.enums.escalation_type'))
+                            // Options from the REGISTRY, labels from the catalogue — so the picker
+                            // can only offer what the model will accept on save. Reading the
+                            // translation array for both let the two drift, which is how a
+                            // helper advertising a "Step" type nobody implemented survived.
+                            ->options(function (): array {
+                                $labels = __('admin.enums.escalation_type');
+
+                                return collect(ValueSets::allowed('leases', 'escalation_type'))
+                                    ->mapWithKeys(fn (string $type): array => [$type => is_array($labels) ? ($labels[$type] ?? $type) : $type])
+                                    ->all();
+                            })
                             ->default('fixed_percent')
                             ->required() // NOT-NULL column — never dehydrate null
                             ->native(false)

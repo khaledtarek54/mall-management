@@ -9,7 +9,7 @@ return [
     | Rate, grace and minimum resolve lease → property → portfolio through
     | Lease::lateFeeTerms() (ActsAsBillableAgreement). Three env-bound keys used
     | to sit here and were read by NOTHING; a deployer who set LATE_FEE_PERCENT
-    | got silence. Deleted 2026-08-20 (EG-20 in docs/EGYPT-MARKET-FIT.md).
+    | got silence. Deleted 2026-08-20 (EG-19 in docs/EGYPT-MARKET-FIT.md).
     |
     | The env vars are still live in ONE place: the settings migration
     | database/settings/2026_05_25_200000_create_billing_settings.php seeds the

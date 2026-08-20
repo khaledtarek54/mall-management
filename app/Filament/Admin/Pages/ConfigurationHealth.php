@@ -13,6 +13,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * What is not configured yet, and what each gap breaks.
@@ -99,9 +100,14 @@ class ConfigurationHealth extends Page implements HasTable
                     'name' => __("admin.config_health.checks.{$check['key']}.name"),
                     // What happens if you leave it — the field that earns the page. A passing check
                     // says what it found instead, so "green" is evidence rather than an assertion.
-                    'impact' => $check['ok']
-                        ? __("admin.config_health.checks.{$check['key']}.ok", ['detail' => $check['detail'], 'count' => $check['count']])
-                        : __("admin.config_health.checks.{$check['key']}.impact", ['detail' => $check['detail'], 'count' => $check['count']]),
+                    //
+                    // A failing check may state its case TWICE: `impact` for the blocking reading and
+                    // an optional `advisory` for the softer one. Without that split, a check whose
+                    // advisory state is ordinary borrows the blocking sentence and tells the operator
+                    // something untrue about their books — which is exactly what the payroll row did
+                    // in its first cut, reporting ":count runs withheld nothing" with a count of 0.
+                    // Checks with no `advisory` key are unaffected.
+                    'impact' => self::sentenceFor($check),
                     'ok' => $check['ok'],
                     'severity' => $check['severity'],
                 ])
@@ -134,5 +140,35 @@ class ConfigurationHealth extends Page implements HasTable
             ->defaultGroup('category')
             ->paginated(false)
             ->emptyStateIcon('heroicon-o-clipboard-document-check');
+    }
+
+    /**
+     * The sentence a check renders, given its state.
+     *
+     * Three keys, not two: `ok` for a passing check, `impact` for a failing BLOCKING one, and an
+     * optional `advisory` for a failing advisory one. The optional third exists because the two
+     * readings can be genuinely different claims — "your books are missing a liability" versus
+     * "nothing is wrong yet, but the first run will withhold nothing" — and a check forced to
+     * borrow the blocking wording states a falsehood in its most ordinary state.
+     *
+     * @param  array{key: string, severity: string, ok: bool, detail: string, count: int}  $check
+     */
+    private static function sentenceFor(array $check): string
+    {
+        $base = "admin.config_health.checks.{$check['key']}";
+        $replace = ['detail' => $check['detail'], 'count' => $check['count']];
+
+        if ($check['ok']) {
+            return __("{$base}.ok", $replace);
+        }
+
+        $advisory = "{$base}.advisory";
+
+        // `Lang::has()` falls back to English by default, which is the behaviour wanted here: a
+        // check that defines the key in EN only should still render its advisory sentence rather
+        // than silently drop back to the blocking one.
+        return $check['severity'] === Checks::ADVISORY && Lang::has($advisory)
+            ? __($advisory, $replace)
+            : __("{$base}.impact", $replace);
     }
 }

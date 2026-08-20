@@ -134,7 +134,7 @@ return [
         'locked_after_invoicing' => 'Locked — this lease has been invoiced, and these dates are what those invoices were billed from.',
         'security_deposit' => 'One-time deposit, typically 3× monthly rent. Refundable at lease termination if no damages.',
         'escalation_rate' => 'Annual rent increase percentage. Applied on the lease anniversary.',
-        'escalation_type' => 'Fixed percent = same % every year. CPI = pegged to inflation index. Step = pre-agreed increases per year.',
+        'escalation_type' => 'Fixed % = same rate yearly. Fixed amount = same EGP step. CPI = pegged to a published index.',
         'percentage_rent_calculation_type' => 'How the sales-based rent is worked out.',
         'percentage_rent_frequency' => 'How often the breakpoint resets.',
         'percentage_rent_threshold' => 'Monthly sales level above which percentage rent applies. Tenant declares sales each month; below threshold = no extra rent.',

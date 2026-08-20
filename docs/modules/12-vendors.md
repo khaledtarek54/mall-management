@@ -44,7 +44,7 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 | | | `start_date` (date, required) | Effective start. |
 | | | `end_date` (date, nullable) | Expiry date (inclusive). Null = open-ended contract (never expires via command). |
 | | | `value` (decimal 14,2, nullable) | Contract value (EGP). Must be ≥0 (validated in form). |
-| | | `currency` (string 3, default 'EGP') | ISO 4217 code; currently always EGP. |
+| | | `currency` (string 3, default 'EGP') | **EGP only, enforced** — `App\Support\ValueSets` refuses anything else on every save. Not a placeholder for multi-currency: see the gotcha below. |
 | | | `scope` (text, nullable) | Description of work/services (e.g., "Quarterly filter replacement, lubrication, and testing"). |
 | | | `notes` (text, nullable) | Additional notes or audit trail. |
 | | | `created_at`, `updated_at`, `deleted_at` | Timestamps; soft delete enabled. |
@@ -484,7 +484,7 @@ The 'operations' role has all three (view, create, edit).
 - `start_date` (DatePicker, required, native=false)
 - `end_date` (DatePicker, native=false, nullable)
 - `value` (TextInput, prefix 'EGP', numeric, minValue 0)
-- `currency` (TextInput, default 'EGP', maxLength 3, hidden in normal form flow)
+- *(no currency field — removed 2026-08-20, EG-07. The column is EGP-only and the value is never printed on a vendor document, so the form does not ask.)*
 
 *Section 2: Notes (collapsed)*
 - `scope` (Textarea, rows 3, label 'Description', full-width)
@@ -627,6 +627,21 @@ The 'operations' role has all three (view, create, edit).
 ### Concurrent contract updates
 
 **Risk:** If two operators edit the same contract simultaneously, one update could be lost (race condition).
+
+### The contract currency picker offered five currencies nothing honoured
+
+Until 2026-08-20 the contract form carried a `Select` offering EGP/USD/EUR/GBP/SAR/AED, one line
+below an amount field prefixed `EGP`. Nothing downstream honoured the choice: there is no
+exchange-rate table anywhere in the system, no rate stamped on any document, and no currency or
+base-amount column on `journal_lines`. And it was not inert — `vendor_contracts.value` feeds the
+SLA-penalty basis (`AssessSlaPenaltyService`), which posts. Choosing a foreign code put a foreign
+number into an EGP ledger at 1:1, silently, with every downstream total still balancing.
+
+The field is gone and `vendor_contracts.currency` is EGP-only in `ValueSets`. The rule the codebase
+now follows: **a currency field survives only where the value is PRINTED** — the asset's is (it leads
+the owner statement) and stays, visible and read-only; this one was not, so it went. Widening either
+set is a decision about FX, not a typo fix (EG-31 in [EGYPT-MARKET-FIT](../EGYPT-MARKET-FIT.md)).
+Pinned by `tests/Feature/Regression/CurrencyIsEgpOnlyTest.php`.
 
 **Mitigation:** Filament uses optimistic locking (last-write-wins). No pessimistic database locking is in place. For high-concurrency scenarios, add a `version` column or use a service with explicit locking.
 

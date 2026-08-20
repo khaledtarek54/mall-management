@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Assets\Schemas;
 
+use App\Support\ValueSets;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -10,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rule;
 
 class AssetForm
 {
@@ -49,10 +51,19 @@ class AssetForm
                         ->required()
                         ->maxLength(255)
                         ->default('Egypt'),
+                    // The rule this and the vendor contract follow: a currency field survives only
+                    // where the value is PRINTED — this one leads the owner statement. It is shown
+                    // rather than hidden so the operator can see what their statements are
+                    // denominated in, and read-only because the system has no FX to honour any
+                    // other answer. `readOnly()` is a UI truth, so the set is enforced server-side
+                    // too — a crafted payload would otherwise reach the model guard as a 403-ish
+                    // toast instead of a field error.
                     TextInput::make('currency')
                         ->label(__('admin.fields.currency'))
                         ->required()
                         ->default('EGP')
+                        ->readOnly()
+                        ->rules([Rule::in(ValueSets::allowed('assets', 'currency'))])
                         ->maxLength(3),
                 ]),
             Section::make(__('admin.sections.area'))

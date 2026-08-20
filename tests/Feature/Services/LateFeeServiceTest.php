@@ -36,10 +36,13 @@ it('applies late fees to invoices past due_date + grace window', function () {
 });
 
 it('charges the MINIMUM floor when the percentage is below it (small balance)', function () {
-    // fee = max(minimum, balance × pct). With balance 1000 at 2% = 20, the 50 floor is operative.
+    // fee = max(minimum, balance × pct). With balance 1000 at 2% = 20, the 75 floor is operative.
+    //
+    // 75, not the shipped default of 50: a setup that merely restates the defaults is satisfied by
+    // deleting itself, so it proves nothing about whether the service reads the setting at all.
     tap(app(BillingSettings::class), function (BillingSettings $b) {
         $b->late_fee_percent = 2;
-        $b->late_fee_minimum = 50;
+        $b->late_fee_minimum = 75;
         $b->late_fee_grace_days = 7;
     });
 
@@ -49,7 +52,7 @@ it('charges the MINIMUM floor when the percentage is below it (small balance)', 
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-02-15'));
 
     $fee = lateFeeItems($small)->first();
-    expect((float) $fee->amount)->toBe(50.0); // the floor, NOT 20 (2% × 1000)
+    expect((float) $fee->amount)->toBe(75.0); // the floor, NOT 20 (2% × 1000)
 });
 
 it('is idempotent: a second pass does not double-apply', function () {
