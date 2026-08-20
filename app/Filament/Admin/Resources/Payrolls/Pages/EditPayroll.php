@@ -4,28 +4,28 @@ namespace App\Filament\Admin\Resources\Payrolls\Pages;
 
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Services\PayrollService;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\On;
 
 class EditPayroll extends EditRecord
 {
-    protected static string $resource = PayrollResource::class;
+    use RefreshesRecordState;
 
     /**
-     * The payroll-lines relation manager fires this after any line mutation
-     * (generate / add / edit / delete). The line hooks have already re-derived the
-     * run header in the DB (Payroll::recomputeFromLines) — re-pull the record and
-     * refill the derived amount fields so they update live, no page refresh needed.
+     * The run header is Σ lines (`Payroll::recomputeFromLines`), and every line mutation happens
+     * in the relation manager below — a separate component from the one showing the totals.
+     *
+     * @return array<int, string>
      */
-    #[On('payroll-lines-updated')]
-    public function refreshDerivedTotals(): void
+    protected function derivedStatePaths(): array
     {
-        $this->record->refresh();
-        $this->refreshFormData(['gross_salaries', 'salary_tax', 'social_insurance', 'net_paid']);
+        return ['status', 'gross_salaries', 'salary_tax', 'social_insurance', 'net_paid'];
     }
+
+    protected static string $resource = PayrollResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array
     {

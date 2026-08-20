@@ -30,6 +30,15 @@ use Filament\Actions\Action;
  * true when no `->authorize()` was set, so an action that gates itself with `abort_unless` — or
  * genuinely needs no gate — is unaffected.
  *
+ * **This class carries a second, unrelated responsibility, for the same reason.** After the
+ * action runs it announces {@see RecordChanged} — the signal that lets the page's own summary
+ * widget, and any sibling component describing the same record, re-read instead of going on
+ * showing the state from before the click. A Filament screen is several Livewire components and
+ * only the one that handled the click re-renders; the announcement is what reaches the rest. It
+ * belongs here because this is the one place every custom action in the app already passes
+ * through, and a refresh that has to be remembered per call site is one that will be missing
+ * exactly where a number matters. See `RecordChanged::announceAfterAction()` for what it skips.
+ *
  * `ActionAuthzConformanceTest` still requires every write action to declare *a* gate; this makes
  * whichever one it declared actually run at dispatch. `FilamentActionDispatchContractTest` pins the
  * upstream behaviour, and `ActionCallIsAuthorizedTest` pins this one — including that the binding is
@@ -47,6 +56,12 @@ class AuthorizedAction extends Action
         // action this user may not run, which is not an operator mistake to explain.
         abort_unless($this->isAuthorized(), 403);
 
-        return parent::call($parameters);
+        $result = parent::call($parameters);
+
+        // Whatever this action just did, anything else on screen describing the same record is
+        // now showing the state from before it. Tell them to re-read.
+        RecordChanged::announceAfterAction($this->getLivewire(), $result);
+
+        return $result;
     }
 }

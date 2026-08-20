@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\DepositTransactions\Pages;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\Lease;
 use App\Services\DepositService;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -12,6 +13,18 @@ use Illuminate\Support\Facades\Auth;
 
 class EditDepositTransaction extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Refund / forfeit move the movement's state from elsewhere on the screen.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     protected static string $resource = DepositTransactionResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

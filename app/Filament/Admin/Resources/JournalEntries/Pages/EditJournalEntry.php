@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\JournalEntries\Pages;
 
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Services\Accounting\JournalPostingService;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -12,6 +13,18 @@ use Illuminate\Support\Facades\Auth;
 
 class EditJournalEntry extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Posting and voiding are service decisions; the form only reports them.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     protected static string $resource = JournalEntryResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

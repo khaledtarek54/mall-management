@@ -22,6 +22,13 @@
  * statically, costs no database and no boot, and catches the next one on any code path, closure or
  * not, before anyone clicks anything.
  *
+ * Four forms name a class by symbol and all four are read: `Foo::`, `new Foo`, `instanceof Foo`,
+ * and a TYPE DECLARATION (`fn (Foo $x)`, `private Foo $y`, `catch (Foo $e)`). The last was added
+ * after a type-hinted closure parameter with no import shipped and 500'd the utility-meters list
+ * while this gate was green — a gate reading three of the four ways is a gate that reports
+ * coverage it does not have, which is worse than no gate for exactly the reason the class
+ * docblock above gives.
+ *
  * If you are here because this failed: you referenced a class the file never imported. Add the
  * `use` statement — do not fully-qualify it inline, which is how the two above read as deliberate.
  */
@@ -149,6 +156,88 @@ it('resolves every class named by symbol under app/', function () {
 
                     $fqcn = $prefix.trim($clause, '\\');
                     $uses[Str::afterLast($fqcn, '\\')] = $fqcn;
+                }
+
+                continue;
+            }
+
+            // ---- A TYPE DECLARATION: `fn (Foo $x)`, `private Foo $y;`, `catch (Foo $e)`
+            //
+            // The fourth way PHP resolves a class name by symbol, and the one this gate did not
+            // read until a `TextColumn->state(fn (UtilityMeter $record) => …)` with no import
+            // shipped and 500'd the whole utility-meters list. A type hint fails at CALL time, in
+            // the same closures the `::`-form fails in, and reads identically in review — the file
+            // says `UtilityMeter` and means `App\Filament\…\Tables\UtilityMeter`.
+            //
+            // A type is the run of names immediately before a variable, so union and intersection
+            // members are each resolved: `A|B $x` must resolve BOTH, or the gate passes on the
+            // half it happened to look at.
+            if ($token[0] === T_VARIABLE) {
+                $at = $i - 1;
+                $names = [];
+                $seenName = false;
+
+                while ($at >= 0) {
+                    $prev = $tokens[$at];
+
+                    if (is_array($prev) && in_array($prev[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                        $at--;
+
+                        continue;
+                    }
+
+                    // `&$ref` and `...$variadic` sit between the type and the variable. They are
+                    // safe to step over BEFORE a name because a name must still follow to collect
+                    // anything — `$a & $b` walks back to a T_VARIABLE and stops with nothing.
+                    if (! $seenName && (in_array($prev, ['&'], true) || (is_array($prev) && $prev[0] === T_ELLIPSIS))) {
+                        $at--;
+
+                        continue;
+                    }
+
+                    // `?` and `|` / `&` may only continue a run that has ALREADY produced a name.
+                    // This is the whole difference between a nullable type and a ternary: `?Foo $x`
+                    // puts the `?` BEFORE the name, while `$a->notes ? $b : $c` puts it after — and
+                    // reading `?` as a nullable marker in the leading position made the gate report
+                    // every ternary whose left side ends in a property as a missing import.
+                    if ($seenName && in_array($prev, ['?', '|', '&'], true)) {
+                        $at--;
+
+                        continue;
+                    }
+
+                    if (is_array($prev) && in_array($prev[0], [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)) {
+                        // A property or class constant, not a type: `$x->notes`, `Foo::BAR`. The
+                        // class half of `Foo::BAR` is resolved by the `::` branch below.
+                        $before = $at - 1;
+                        while ($before >= 0 && is_array($tokens[$before]) && in_array($tokens[$before][0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                            $before--;
+                        }
+                        $beforeToken = $tokens[$before] ?? null;
+                        if (is_array($beforeToken) && in_array($beforeToken[0], [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION], true)) {
+                            break;
+                        }
+
+                        $names[] = [$prev[1], $prev[2]];
+                        $seenName = true;
+                        $at--;
+
+                        continue;
+                    }
+
+                    break;
+                }
+
+                foreach ($names as [$name, $line]) {
+                    // Builtin types and relative-scope keywords name no class.
+                    if (in_array(strtolower($name), [
+                        'int', 'float', 'string', 'bool', 'array', 'object', 'callable', 'iterable',
+                        'mixed', 'void', 'never', 'null', 'false', 'true', 'self', 'static', 'parent',
+                    ], true)) {
+                        continue;
+                    }
+
+                    $refs[] = [$name, $line];
                 }
 
                 continue;

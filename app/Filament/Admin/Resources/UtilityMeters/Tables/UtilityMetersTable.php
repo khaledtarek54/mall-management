@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\UtilityMeters\Tables;
 
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
+use App\Models\UtilityMeter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;

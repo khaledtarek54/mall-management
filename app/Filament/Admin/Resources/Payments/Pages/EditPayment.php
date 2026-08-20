@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\VoidPaymentService;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\Textarea;
@@ -16,6 +17,18 @@ use Illuminate\Support\Facades\DB;
 
 class EditPayment extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Allocation and voiding are re-derived, never typed.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status', 'amount'];
+    }
+
     protected static string $resource = PaymentResource::class;
 
     protected array $allocations = [];

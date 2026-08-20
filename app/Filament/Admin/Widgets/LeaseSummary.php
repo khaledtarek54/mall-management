@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\LeaseOption;
 use App\Services\ChargeScheduleService;
 use App\Services\MoveOutStatementService;
+use App\Support\Filament\RefreshesOnRecordChange;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -33,6 +34,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class LeaseSummary extends StatsOverviewWidget
 {
+    use RefreshesOnRecordChange;
+
     /** Injected by the resource page — Filament passes `record` to a record page's header widgets. */
     public ?Lease $record = null;
 

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\VendorBills\Pages;
 
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Services\VendorBillService;
+use App\Support\Filament\RefreshesRecordState;
 use App\Support\PostingDate;
 use App\Support\WithholdingTax;
 use Filament\Actions\Action;
@@ -21,6 +22,19 @@ use Illuminate\Validation\ValidationException;
 
 class EditVendorBill extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Voiding a payment from the payments relation manager re-opens the bill's AP. The bill's
+     * own actions already refresh these; the child's did not reach them.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status', 'paid_amount', 'balance'];
+    }
+
     protected static string $resource = VendorBillResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

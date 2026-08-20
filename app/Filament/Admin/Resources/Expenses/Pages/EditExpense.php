@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Expenses\Pages;
 
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Services\ExpenseService;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -11,6 +12,18 @@ use Illuminate\Support\Facades\Auth;
 
 class EditExpense extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Approval state is re-derived by the service, not typed on this form.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     protected static string $resource = ExpenseResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

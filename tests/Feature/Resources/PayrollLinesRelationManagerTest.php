@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use App\Support\Filament\RecordChanged;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -100,7 +101,7 @@ it('generates payslips from the active roster and derives the header', function 
         ->callTableAction('generate_from_roster')
         ->assertHasNoTableActionErrors()
         // Tells the parent Edit form to re-pull the derived totals (live, no refresh).
-        ->assertDispatched('payroll-lines-updated');
+        ->assertDispatched(RecordChanged::EVENT);
 
     expect(PayrollLine::where('payroll_id', $this->run->id)->count())->toBe(2);
     // Header derives from Σ lines (default rates 0 → net = gross).

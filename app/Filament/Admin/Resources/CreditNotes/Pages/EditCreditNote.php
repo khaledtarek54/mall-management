@@ -8,6 +8,7 @@ use App\Models\Lease;
 use App\Services\CreditNotePdfService;
 use App\Services\CreditNoteService;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\RefreshesRecordState;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -19,6 +20,19 @@ use Illuminate\Support\Facades\Auth;
 
 class EditCreditNote extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Un-applying an application from the relation manager below re-opens this note's balance
+     * and can move it back out of `applied`. The figures are on this form; the button is not.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status', 'applied_amount', 'balance'];
+    }
+
     protected static string $resource = CreditNoteResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

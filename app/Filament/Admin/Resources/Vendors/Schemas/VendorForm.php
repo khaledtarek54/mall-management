@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Vendors\Schemas;
 
 use App\Models\TaxCode;
 use App\Models\Trade;
+use App\Models\Vendor;
 use App\Support\WithholdingTax;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;

@@ -9,6 +9,7 @@ use App\Models\Lease;
 use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use App\Support\BillingWindow;
+use App\Support\Filament\RefreshesRecordState;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -21,7 +22,26 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditLease extends EditRecord
 {
+    use RefreshesRecordState;
+
     protected static string $resource = LeaseResource::class;
+
+    /**
+     * The lease columns the commercial actions rewrite. This page IS the record hub — renew,
+     * change rent, extend, convert to holdover and terminate all run from its own header and
+     * all land on fields rendered a few centimetres below the button. Without this the operator
+     * raises the rent, is told it worked, and goes on reading the old rent.
+     *
+     * `notes` is deliberately absent even though termination appends to it: it is a field the
+     * operator types, and refilling it would discard an edit in progress.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return [
+            'status', 'base_rent_monthly', 'base_rent_rate_per_sqm_year', 'service_charge_monthly',
+            'expiry_date', 'term_months', 'security_deposit', 'escalation_rate', 'escalation_amount',
+        ];
+    }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {

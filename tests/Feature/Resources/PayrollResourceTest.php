@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Payrolls\Pages\ListPayrolls;
 use App\Models\Employee;
 use App\Models\Payroll;
 use App\Services\Accounting\FiscalCalendar;
+use App\Support\Filament\RecordChanged;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -88,10 +89,10 @@ it('refreshes the derived header totals live when lines change (no manual refres
     expect((float) $page->get('data.gross_salaries'))->toBe(0.0);
 
     // A line is added (the model hook re-derives the run header in the DB). The relation
-    // manager dispatches 'payroll-lines-updated'; the page must re-pull without a reload.
+    // manager announces RecordChanged; the page must re-pull without a reload.
     $run->lines()->create(['employee_id' => $employee->id, 'gross' => 9000, 'salary_tax' => 800, 'social_insurance' => 600]);
 
-    $page->dispatch('payroll-lines-updated');
+    $page->dispatch(RecordChanged::EVENT);
 
     expect((float) $page->get('data.gross_salaries'))->toBe(9000.0);
     expect((float) $page->get('data.net_paid'))->toBe(7600.0);

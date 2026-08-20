@@ -11,6 +11,7 @@ use App\Services\ApplyTenantCreditService;
 use App\Services\InvoicePdfService;
 use App\Services\VoidInvoiceService;
 use App\Services\WriteOffInvoiceService;
+use App\Support\Filament\RefreshesRecordState;
 use App\Support\OpsLog;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
@@ -27,6 +28,20 @@ use Illuminate\Support\Facades\Auth;
 
 class EditInvoice extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Everything about this invoice that is DERIVED — recomputed by `Invoice::recomputeTotals()`
+     * from the four settlement channels, never typed. A payment recorded against this invoice
+     * from another surface, or a credit note applied to it, moves all three.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status', 'paid_amount', 'balance'];
+    }
+
     protected static string $resource = InvoiceResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array
@@ -199,6 +214,11 @@ class EditInvoice extends EditRecord
 
                         return;
                     }
+
+                    // The netted deposit is one of the four settlement channels, so reversing it
+                    // re-opens this invoice's AR — the same three fields its four sibling actions
+                    // refresh. This one did not, so the balance on screen stayed settled.
+                    $this->refreshFormData(['status', 'paid_amount', 'balance']);
 
                     Notification::make()
                         ->success()

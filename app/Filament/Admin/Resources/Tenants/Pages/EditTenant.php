@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Tenants\Pages;
 
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Services\TenantStatementPdfService;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -17,6 +18,19 @@ use Illuminate\Support\Str;
 
 class EditTenant extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * Setting up portal access activates the tenant — from this page's own header action, on a
+     * field this form renders.
+     *
+     * @return array<int, string>
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     protected static string $resource = TenantResource::class;
 
     protected function getHeaderActions(): array
@@ -53,6 +67,8 @@ class EditTenant extends EditRecord
                         'password' => Hash::make($data['password']),
                         'status' => 'active',
                     ]);
+                    // Setting up the portal ACTIVATES the tenant — and `status` is on this form.
+                    $this->refreshFormData(['status']);
 
                     Notification::make()
                         ->title(__('admin.tenants.portal_set'))

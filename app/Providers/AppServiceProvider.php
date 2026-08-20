@@ -15,6 +15,9 @@ use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
 use App\Settings\IntegrationsSettings;
 use App\Support\ActivityVocabulary;
+use App\Support\Filament\AnnouncingCreateAction;
+use App\Support\Filament\AnnouncingDeleteAction;
+use App\Support\Filament\AnnouncingEditAction;
 use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\LedgerRealtimeSync;
@@ -22,7 +25,10 @@ use App\Support\MorphMap;
 use App\Support\TableDefaults;
 use App\Support\ValueSets;
 use Filament\Actions\Action as FilamentAction;
+use Filament\Actions\CreateAction as FilamentCreateAction;
+use Filament\Actions\DeleteAction as FilamentDeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction as FilamentEditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
@@ -61,6 +67,17 @@ class AppServiceProvider extends ServiceProvider
         // alone. `Action::make()` resolves through the container, which is the one seam that fixes
         // all of them at once. See App\Support\Filament\AuthorizedAction.
         $this->app->bind(FilamentAction::class, AuthorizedAction::class);
+
+        // A Filament screen is SEVERAL Livewire components — the page, each relation manager, each
+        // widget — and only the one that handled the click re-renders. So a relation manager that
+        // re-derives its parent, or an action that moves a figure a widget above it is reporting,
+        // leaves the rest of the screen showing the state from before the click, under a success
+        // toast. `AuthorizedAction` announces the change for every custom action; these three
+        // announce it for Filament's own CRUD actions, which resolve their own class and so never
+        // saw that binding. See App\Support\Filament\RecordChanged.
+        $this->app->bind(FilamentCreateAction::class, AnnouncingCreateAction::class);
+        $this->app->bind(FilamentEditAction::class, AnnouncingEditAction::class);
+        $this->app->bind(FilamentDeleteAction::class, AnnouncingDeleteAction::class);
 
         // Every bell notification gets a panel-correct "Open …" link. Laravel resolves the
         // `database` channel through the container, so this one binding reaches all 36 notification
