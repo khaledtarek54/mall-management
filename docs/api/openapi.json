@@ -225,6 +225,52 @@
                 }
             }
         },
+        "/v1/me/requests/{id}/confirm": {
+            "post": {
+                "operationId": "v1.me.requests.confirm",
+                "tags": [
+                    "ConfirmTenantRequest"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantRequestResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Thank you \u2014 the request is now closed."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/sales-declarations": {
             "post": {
                 "operationId": "v1.me.sales.store",
@@ -510,6 +556,65 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/requests/{id}/dispute": {
+            "post": {
+                "operationId": "v1.me.requests.dispute",
+                "tags": [
+                    "DisputeTenantRequest"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DisputeTenantRequestRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantRequestResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Reopened. The team has been told."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -3546,6 +3651,20 @@
                 ],
                 "title": "DeviceTokenResource"
             },
+            "DisputeTenantRequestRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Required here AND in the service: this validates the shape, the service owns the rule\nso the portal and the API refuse identically.",
+                        "maxLength": 1000
+                    }
+                },
+                "required": [
+                    "reason"
+                ],
+                "title": "DisputeTenantRequestRequest"
+            },
             "ForgotPasswordRequest": {
                 "type": "object",
                 "properties": {
@@ -4583,7 +4702,7 @@
             },
             "SaveMarketingPostRequest": {
                 "type": "object",
-                "description": "Validation for a retailer creating or editing their own post from the mobile app.\n\nTwo fields a client MAY NOT set are deliberately absent from the rules, and their absence is the\npoint: `status` and `is_featured`. Accepting either would let a retailer publish straight to the\nmall's feed or promote themselves into the carousel \u2014 the two things the whole review workflow\nexists to prevent. They are not validated-and-rejected, they are simply never read\n({@see \\App\\Actions\\Api\\V1\\MarketingPosts\\SaveMarketingPostAction} builds its own attribute\nlist), so a future edit that adds a rule here still cannot hand them over.\n\n`asset_id` IS accepted, because a chain trading in three of the operator's malls has to say\nwhich one \u2014 but it is re-checked server-side against the tenant's actual leases in\n{@see \\App\\Services\\MarketingPost\\SubmitMarketingPostService::assertTenantTradesIn()}. The rule\nbelow is a fast fail, not the guard.",
+                "description": "Validation for a retailer creating or editing their own post from the mobile app.\n\nTwo fields a client MAY NOT set are deliberately absent from the rules, and their absence is the\npoint: `status` and `is_featured`. Accepting either would let a retailer publish straight to the\nmall's feed or promote themselves into the carousel \u2014 the two things the whole review workflow\nexists to prevent. They are not validated-and-rejected, they are simply never read\n({@see SaveMarketingPostAction} builds its own attribute\nlist), so a future edit that adds a rule here still cannot hand them over.\n\n`asset_id` IS accepted, because a chain trading in three of the operator's malls has to say\nwhich one \u2014 but it is re-checked server-side against the tenant's actual leases in\n{@see SubmitMarketingPostService::assertTenantTradesIn()}. The rule\nbelow is a fast fail, not the guard.",
                 "properties": {
                     "assetId": {
                         "type": "integer"
@@ -4829,6 +4948,14 @@
                         "type": "boolean",
                         "description": "Whether the tenant can submit a satisfaction rating \u2014 true once the\nrequest is resolved/closed. Mirrors the rate endpoint's guard."
                     },
+                    "canConfirm": {
+                        "type": "boolean",
+                        "description": "Whether the tenant may accept or dispute the resolution \u2014 true only while\n`resolved`, which is NARROWER than can_rate: rating is feedback after the fact and\nstays open on a closed request, confirming is a control before closure. Mirrors the\nconfirm/dispute endpoints' guard so the app shows both buttons or neither."
+                    },
+                    "confirmedAt": {
+                        "type": "string",
+                        "description": "Null on a closed request means the operator or the auto-close timer shut it, not the\ntenant \u2014 so a client can say \"you confirmed this\" only when they actually did."
+                    },
                     "csatRating": {
                         "type": [
                             "integer",
@@ -4971,6 +5098,8 @@
                     "isOverdue",
                     "canCancel",
                     "canRate",
+                    "canConfirm",
+                    "confirmedAt",
                     "csatRating",
                     "csatComment",
                     "submittedAt",

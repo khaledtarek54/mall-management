@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'request_confirmed' => 'Thank you — the request is now closed.',
+    'request_disputed' => 'Reopened. The team has been told.',
     'request_cannot_confirm' => 'Only a resolved request can be confirmed or disputed.',
     'request_dispute_needs_reason' => 'Say what is still wrong.',
 

@@ -18,8 +18,10 @@
 
 use App\Models\TenantRequest;
 use App\Models\TenantUser;
+use App\Notifications\TenantRequestStatusChangedNotification;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
@@ -158,4 +160,49 @@ it('distinguishes a close the tenant confirmed from one the timer made', functio
         // Closed by the timer — and visibly not by anybody.
         ->and($timedOut->fresh()->status)->toBe('closed')
         ->and($timedOut->fresh()->confirmedByTenant())->toBeFalse();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Review pass (2026-08-20)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * **Do not tell somebody what they just did.** `transition()` notifies the requesting tenant on
+ * every move, with a carve-out for `cancelled` because the tenant triggers that themselves.
+ * Confirming and disputing are the same case, and without the same carve-out a tenant who clicks
+ * "confirm" is immediately notified that their request was closed — which is how people learn to
+ * ignore the bell.
+ *
+ * The operator IS still told about a dispute: it arrives as the tenant's comment on the thread.
+ */
+it('does not notify the tenant about their own confirmation or dispute', function () {
+    Notification::fake();
+
+    $this->svc->confirmResolution(resolvedRequest($this), $this->tenantUser);
+    $this->svc->disputeResolution(resolvedRequest($this), $this->tenantUser, 'Still leaking.');
+
+    Notification::assertNotSentTo(
+        [$this->tenant],
+        TenantRequestStatusChangedNotification::class,
+    );
+});
+
+/**
+ * The control: an OPERATOR-driven move still notifies the tenant, or the carve-out would have
+ * silenced the thing it exists to protect.
+ */
+it('still notifies the tenant when the operator moves the request', function () {
+    Notification::fake();
+
+    // Any operator-driven move will do; `submitted → acknowledged` avoids the completion-evidence
+    // guard that (correctly) refuses a resolve with no photo and no linked work order.
+    $request = resolvedRequest($this, ['status' => 'submitted']);
+    $this->svc->transition($request, 'acknowledged');
+
+    Notification::assertSentTo(
+        [$this->tenant],
+        TenantRequestStatusChangedNotification::class,
+    );
 });

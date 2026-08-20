@@ -39,7 +39,9 @@ use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicPostController;
 use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicStoreController;
 use App\Http\Controllers\Api\V1\Requests\CancelTenantRequestController;
 use App\Http\Controllers\Api\V1\Requests\CommentTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\ConfirmTenantRequestController;
 use App\Http\Controllers\Api\V1\Requests\CreateTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\DisputeTenantRequestController;
 use App\Http\Controllers\Api\V1\Requests\ListTenantRequestsController;
 use App\Http\Controllers\Api\V1\Requests\RateTenantRequestController;
 use App\Http\Controllers\Api\V1\Requests\ShowTenantRequestAttachmentController;
@@ -209,6 +211,10 @@ Route::prefix('v1')->group(function () {
         Route::post('me/requests/{id}/comments', CommentTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.comment');
         Route::post('me/requests/{id}/cancel', CancelTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.cancel');
         Route::post('me/requests/{id}/rate', RateTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.rate');
+        // The tenant accepts, or sends it back. Same surface as the portal, different renderer —
+        // the mobile app is where a shop manager actually is.
+        Route::post('me/requests/{id}/confirm', ConfirmTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.confirm');
+        Route::post('me/requests/{id}/dispute', DisputeTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.dispute');
         Route::get('me/requests/{id}/attachments/{media}', ShowTenantRequestAttachmentController::class)->whereNumber('id')->whereNumber('media')->name('api.v1.me.requests.attachment');
 
         // --- Sales declarations (percentage-rent leases) ---

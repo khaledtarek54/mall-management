@@ -1123,6 +1123,17 @@ one is an operator's decision about who to send and when — not something a ten
 on their behalf. What the click does is make the request the operator's problem again, which is what
 a tenant can legitimately demand.
 
+#### The portal and `/api/v1` are the same surface — both, or neither
+
+Step 4 first shipped the two actions to the web portal alone. That breaks a stated invariant, and it
+matters beyond consistency: **the mobile app is where a shop manager actually is**, so a control
+living only on a desktop screen is one most tenants would never use.
+`POST /me/requests/{id}/confirm` and `/dispute` mirror it, through the same service so the two
+refuse identically, and the resource carries **`canConfirm`** beside `canCancel`/`canRate` so the
+app never re-derives the rule. `canConfirm` is narrower than `canRate` — rating stays open on a
+closed request, confirming does not — and `docs/api/MOBILE-API.md` says so, marked as a change the
+app has to make rather than a fact about the backend.
+
 #### Silence is consent, and the two are now distinguishable
 
 `requests:auto-close` keeps its behaviour and gains a meaning: a tenant who does not answer within

@@ -38,6 +38,14 @@ class TenantRequestResource extends JsonResource
             // Whether the tenant can submit a satisfaction rating — true once the
             // request is resolved/closed. Mirrors the rate endpoint's guard.
             'can_rate' => in_array($this->status, TenantRequestService::RATEABLE, true),
+            // Whether the tenant may accept or dispute the resolution — true only while
+            // `resolved`, which is NARROWER than can_rate: rating is feedback after the fact and
+            // stays open on a closed request, confirming is a control before closure. Mirrors the
+            // confirm/dispute endpoints' guard so the app shows both buttons or neither.
+            'can_confirm' => in_array($this->status, TenantRequestService::CONFIRMABLE, true),
+            // Null on a closed request means the operator or the auto-close timer shut it, not the
+            // tenant — so a client can say "you confirmed this" only when they actually did.
+            'confirmed_at' => optional($this->confirmed_at)->toIso8601String(),
             'csat_rating' => $this->csat_rating,
             'csat_comment' => $this->csat_comment,
             'submitted_at' => optional($this->submitted_at)->toIso8601String(),

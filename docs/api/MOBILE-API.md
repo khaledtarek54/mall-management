@@ -60,7 +60,7 @@ mall. Here's the world they live in, and it's all they can ever see:
 - A **Tenant** signs a **Lease** for a Unit. A tenant usually has exactly one active lease.
 - A **Lease** carries **Charges** (base rent, service charge, parking, …). Each month the mall runs billing and every active charge on the lease becomes a line on one monthly **Invoice**.
 - A tenant settles invoices with **Payments**. One payment can be split across several invoices — each split is an **allocation** (`allocated_amount`).
-- A tenant can raise **Requests** of any type (maintenance, complaint, inquiry, access, billing query, document request, …) against their unit, comment on them, cancel one that hasn't been started, and rate one once it's resolved. (⚠️ **Breaking, 2026-07-19:** these endpoints moved from `/me/maintenance-requests` to `/me/requests`. There is **no alias** — the old paths `404`.)
+- A tenant can raise **Requests** of any type (maintenance, complaint, inquiry, access, billing query, document request, …) against their unit, comment on them, cancel one that hasn't been started, **confirm or dispute one the operator has resolved**, and rate one once it's resolved. (⚠️ **Breaking, 2026-07-19:** these endpoints moved from `/me/maintenance-requests` to `/me/requests`. There is **no alias** — the old paths `404`.)
 - Some retail/F&B leases have **percentage rent**: the tenant must declare their monthly **Sales** (a **Sales Declaration**); when staff *lock* it, the system creates a "percentage rent" charge that lands on next month's invoice.
 
 **The golden rule of this API:** a tenant only ever sees their own data. Every
@@ -525,7 +525,8 @@ Query: `status`, `page`, `per_page`.
   "title": "AC not cooling", "description": "...", "status": "in_progress",
   "priority": "high", "category": "hvac", "channel": "portal",
   "isOpen": true, "isOverdue": false, "canCancel": false,
-  "canRate": false, "csatRating": null, "csatComment": null,
+  "canRate": false, "canConfirm": false, "confirmedAt": null,
+  "csatRating": null, "csatComment": null,
   "submittedAt": "2026-05-20T09:00:00+00:00",
   "acknowledgedAt": "...", "resolvedAt": null, "closedAt": null,
   "targetResolutionAt": "...", "resolutionNotes": null,
@@ -540,8 +541,9 @@ Query: `status`, `page`, `per_page`.
 `medium`, `high`, `urgent`. `category` is the **type's sub-category** (e.g.
 maintenance → `electrical`…`other`; access → `parking`…; `null` for types with
 none). Use **`canCancel`** to show/hide the cancel button (true only while
-`submitted`/`acknowledged`) and **`canRate`** to show the rating prompt (true
-once `resolved`/`closed`).
+`submitted`/`acknowledged`), **`canRate`** to show the rating prompt (true once
+`resolved`/`closed`), and **`canConfirm`** to show the *confirm / not fixed* pair
+(true only while `resolved` — see below).
 
 #### The outcome — `requiresDecision` · `decision` · `decisionReason`
 
@@ -617,6 +619,36 @@ No body. → `200` with the cancelled request. `422` if work has already started
 with the updated request (`csatRating`/`csatComment` populated). `422` if the
 request isn't `resolved`/`closed` yet (check `canRate` first). Re-rating
 overwrites the previous score.
+
+#### 🔒 `POST /me/requests/{id}/confirm` — the tenant accepts the resolution *(new 2026-08-20)*
+No body. → `200` with the updated request: `status` becomes `closed` and
+`confirmedAt` is populated. `422` if the request isn't `resolved` (check
+**`canConfirm`** first).
+
+#### 🔒 `POST /me/requests/{id}/dispute` — "it isn't fixed" *(new 2026-08-20)*
+```json
+{ "reason": "It flooded again the next morning." }
+```
+`reason` is **required** (≤1000 chars) — a bare "not fixed" sends an engineer back
+knowing no more than the first time, and the text is posted to the request's
+comment thread where the operator reads it. → `200`; `status` returns to
+`in_progress` and `confirmedAt` is cleared. `422` if the request isn't `resolved`,
+or if `reason` is missing/blank.
+
+> **⚠️ This is a control, not a courtesy.** Until now the operator (or a
+> seven-day auto-close timer) closed a resolved request and the tenant had no
+> say. Treat `canConfirm` as a **prompt**: when it is true the app should ask
+> *"Is this resolved?"* with **two** buttons — confirm and "not fixed" — rather
+> than burying them in a menu. Confirming and disputing are the same decision;
+> showing only one of them is worse than showing neither.
+>
+> Note `canConfirm` is **narrower than `canRate`**: rating stays available on a
+> `closed` request (feedback after the fact), confirming does not (a control
+> before closure). Do not reuse one flag for both.
+>
+> If the tenant does nothing, `requests:auto-close` still closes the request
+> after the configured window — silence is treated as consent — and `confirmedAt`
+> stays `null`, which is how the operator can tell the two apart.
 
 ---
 

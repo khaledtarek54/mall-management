@@ -304,10 +304,13 @@ class TenantRequestService
 
         $request->update($payload);
 
-        // Notify the requesting tenant. Skip the cancelled-by-tenant case
-        // because the tenant just triggered it themselves (their own
-        // cancellation doesn't need a self-notification).
-        if ($next !== 'cancelled' && $request->tenant) {
+        // Notify the requesting tenant. Skip when the TENANT is the one who caused the move —
+        // telling somebody what they just did trains them to ignore the bell. `cancelled` was the
+        // original case; confirming and disputing a resolution (2026-08-20) are the same thing, and
+        // they pass `notify_tenant => false` rather than adding a second hardcoded status here.
+        $notifyTenant = $extra['notify_tenant'] ?? true;
+
+        if ($next !== 'cancelled' && $notifyTenant && $request->tenant) {
             try {
                 $request->tenant->notifyPortal(
                     new TenantRequestStatusChangedNotification($request->refresh(), $current)
@@ -378,7 +381,7 @@ class TenantRequestService
             // Through `transition()`, never a direct status write: that method owns the legal-move
             // matrix, the timestamps and the notification, and a second road to `closed` would
             // eventually disagree with it.
-            return $this->transition($request->refresh(), 'closed');
+            return $this->transition($request->refresh(), 'closed', ['notify_tenant' => false]);
         });
     }
 
@@ -425,7 +428,7 @@ class TenantRequestService
             // still read as accepted.
             $request->forceFill(['confirmed_at' => null, 'confirmed_by_tenant_user_id' => null])->save();
 
-            return $this->transition($request->refresh(), 'in_progress');
+            return $this->transition($request->refresh(), 'in_progress', ['notify_tenant' => false]);
         });
     }
 
