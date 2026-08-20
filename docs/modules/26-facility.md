@@ -1002,6 +1002,24 @@ once a bill has landed and falls back to the estimate — which it could never d
 actual did not exist: a penalty assessed after invoicing used to be computed off a quote nobody had
 updated.
 
+#### The planned total is derived on EVERY save, not only by the cost channels
+
+`recomputeCosts()` is called by the three **cost** channels — labour, parts, bills — and none of
+them touches an estimate. So editing `est_service_cost` on the form left the stored `est_total_cost`
+at whatever it had been, and `costVariance()` — the number an operator acts on — was computed from
+the stale figure. `deriveEstimatedTotal()` now runs from `saving` as well, which `saveQuietly()`
+does not fire, so the recompute path calls it directly and cannot loop.
+
+#### Hours may be booked on a job already `done`; a part draw may not
+
+The distinction is not arbitrary. A part draw **moves stock** — an inventory transaction with a
+general-ledger consequence — and that must not happen against work that is over. An hour booked is
+the opposite: it records what a person already did, allocating a wage payroll has **already**
+posted, and timesheets routinely arrive after the job was marked done. Refusing them would simply
+mean the hours never get recorded, which is the gap the whole feature exists to close. A
+**cancelled** job is refused, because it did not happen, so hours against it are a data error rather
+than a late entry. Nothing here can un-freeze an SLA penalty: that basis reads the *service* cost.
+
 #### Estimates are nullable; actuals default to zero
 
 An actual is a roll-up and is always known — zero means nothing has been spent. An estimate is a

@@ -29,6 +29,7 @@ return [
     ],
     'facility' => [
         'labour' => [
+            'vs_estimate' => 'تم تسجيل :booked ساعة مقابل تقدير :estimate ساعة.',
             'title' => 'العمالة',
             'book' => 'تسجيل ساعات',
             'empty' => 'لا توجد ساعات مسجلة',

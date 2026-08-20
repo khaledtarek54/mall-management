@@ -134,7 +134,11 @@ return new class extends Migration
                 $table->timestamps();
                 $table->softDeletes();
 
-                $table->index(['facility_work_order_id', 'worked_on']);
+                // Named explicitly: Laravel's generated name would be
+                // `facility_work_order_labour_facility_work_order_id_worked_on_index` — 65
+                // characters, and MySQL's identifier limit is 64. SQLite does not enforce it, so
+                // the whole suite passes and the FIRST real deploy fails on the index.
+                $table->index(['facility_work_order_id', 'worked_on'], 'fwo_labour_order_date_index');
             });
         }
 
@@ -176,6 +180,15 @@ return new class extends Migration
         }
     }
 
+    /**
+     * Reverses the SCHEMA exactly — round-tripped against the live database on 2026-08-20:
+     * `est_service_cost` goes back into `job_value` with no mismatches, and forward again the same.
+     *
+     * **It cannot reverse the DATA this feature created.** Rolling back drops
+     * `facility_work_order_labour` and both `facility_work_order_id` columns, so every hour anyone
+     * booked and every job↔invoice attribution is gone and no backfill can reconstruct them. A
+     * rollback after go-live means the maintenance cost history restarts from zero.
+     */
     public function down(): void
     {
         Schema::table('expenses', function (Blueprint $table) {

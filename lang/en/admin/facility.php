@@ -29,6 +29,7 @@ return [
     ],
     'facility' => [
         'labour' => [
+            'vs_estimate' => 'Booked :booked h against an estimate of :estimate h.',
             'title' => 'Labour',
             'book' => 'Book hours',
             'empty' => 'No hours booked',

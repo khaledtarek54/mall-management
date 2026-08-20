@@ -19,6 +19,11 @@ use Illuminate\Support\Facades\Schema;
  *  3. **`select tbl.*, x, *` is a syntax error.** SQLite accepts it. `FixedAssetResource` built
  *     exactly that shape, and the fixed-asset list, the register CSV and **every query typed into
  *     the global search bar** 500'd on the real database while 5,180 tests passed.
+ *  4. **An identifier may not exceed 64 characters.** SQLite has no such limit, so a migration
+ *     whose auto-generated index name is too long passes the entire suite and fails on the FIRST
+ *     real deploy — after some of its statements have already run, because MySQL does not roll DDL
+ *     back. `facility_work_order_labour` shipped with exactly that (2026-08-20): Laravel derived
+ *     `facility_work_order_labour_facility_work_order_id_worked_on_index`, 65 characters.
  *
  * These do not use `RefreshDatabase`: they read the shape of a database that already exists
  * (`composer qa:baseline` builds it) rather than migrating a fresh one, because what is under test
@@ -135,4 +140,42 @@ it('executes every globally-searchable resource query', function () {
     }
 
     expect($failures)->toBe([], "These resource queries are invalid on MySQL:\n  ".implode("\n  ", $failures));
+});
+
+/**
+ * No identifier exceeds MySQL's 64-character limit.
+ *
+ * Laravel derives index and constraint names from the table and every column in them, so a long
+ * table name plus a two-column index overflows silently — silently, because SQLite has no limit
+ * and the whole suite is green. The failure lands on the first `migrate --force` against a real
+ * database, halfway through a migration MySQL will not roll back.
+ *
+ * Reads `information_schema` rather than the migration files: what matters is the name that
+ * actually exists, whoever generated it.
+ */
+it('keeps every index and constraint name within MySQL\'s 64-character limit', function () {
+    $database = DB::connection()->getDatabaseName();
+
+    $long = collect(DB::select('
+        select table_name, index_name as name, length(index_name) as len
+          from information_schema.statistics
+         where table_schema = ? and length(index_name) > 64
+        union
+        select table_name, constraint_name as name, length(constraint_name) as len
+          from information_schema.table_constraints
+         where table_schema = ? and length(constraint_name) > 64
+    ', [$database, $database]))
+        ->map(fn ($r): string => "{$r->table_name}.{$r->name} ({$r->len} chars)")
+        ->all();
+
+    expect($long)->toBe([], implode('', [
+        'These identifiers exceed MySQL\'s 64-character limit: '.implode(', ', $long).'. ',
+        'Name the index explicitly in the migration — Laravel derives the name from the table plus ',
+        'every column, and SQLite will not tell you.',
+    ]));
+
+    // The sweep must prove it looked at something: an empty `information_schema` read would
+    // satisfy the assertion above and report coverage it does not have.
+    $total = DB::selectOne('select count(*) as c from information_schema.statistics where table_schema = ?', [$database]);
+    expect((int) $total->c)->toBeGreaterThan(100);
 });

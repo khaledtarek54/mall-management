@@ -51,10 +51,26 @@ class WorkOrderLabourRelationManager extends RelationManager
         return $this->getOwnerRecord();
     }
 
-    /** Booking time is completing work, not editing a document — the same right the checklist uses. */
+    /**
+     * Booking time is completing work, not editing a document — the same right the checklist uses.
+     *
+     * **Allowed on a job that is `done`, refused on one that is `cancelled`**, and the difference
+     * is not arbitrary. Parts are refused the moment a job is terminal because a part draw MOVES
+     * STOCK: it is an inventory transaction with a general-ledger consequence, and that must not
+     * happen against work that is over. An hour booked is the opposite — it records what a person
+     * already did, allocating a wage the payroll has ALREADY posted, and timesheets routinely
+     * arrive after the job was marked done. Refusing them would simply mean the hours never get
+     * recorded, which is the gap this whole feature exists to close.
+     *
+     * A CANCELLED job did not happen, so hours against it are a data error rather than a late
+     * entry. (Nothing here can un-freeze an SLA penalty: that basis reads the SERVICE cost, not
+     * labour.)
+     */
     private function canBook(): bool
     {
-        return auth()->user()?->can('facility.complete') ?? false;
+        return ($auth = auth()->user()) !== null
+            && $auth->can('facility.complete')
+            && $this->order()->status !== 'cancelled';
     }
 
     public function form(Schema $schema): Schema
@@ -105,6 +121,20 @@ class WorkOrderLabourRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // **Planned beside actual, where the booking happens.** `est_labour_hours` was captured
+            // on two forms and displayed nowhere — a number an operator enters and never sees again
+            // is the same debt as a dead column. This is the one screen where "estimated 4, booked
+            // 11.5" changes what somebody does next.
+            ->description(function (): ?string {
+                $estimate = $this->order()->est_labour_hours;
+
+                return $estimate === null
+                    ? null                      // nothing planned; a bare actual needs no caption
+                    : __('admin.facility.labour.vs_estimate', [
+                        'booked' => number_format((float) $this->order()->act_labour_hours, 2),
+                        'estimate' => number_format((float) $estimate, 2),
+                    ]);
+            })
             ->modifyQueryUsing(fn ($query) => $query->with(['trade', 'user']))
             ->columns([
                 TextColumn::make('worked_on')

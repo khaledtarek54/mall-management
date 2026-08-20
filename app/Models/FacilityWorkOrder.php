@@ -277,18 +277,36 @@ class FacilityWorkOrder extends Model implements HasMedia
             2
         );
 
-        // The planned total is derived from its parts for the same reason the actual one is: an
-        // operator who estimated two of three buckets should not also have to add them up.
-        $estimates = [$this->est_labour_cost, $this->est_material_cost, $this->est_service_cost];
-        $stated = array_filter($estimates, fn ($v) => $v !== null);
-
-        $this->est_total_cost = $stated === []
-            ? null                                   // nobody estimated anything; NOT zero
-            : round(array_sum(array_map('floatval', $stated)), 2);
+        $this->deriveEstimatedTotal();
 
         // saveQuietly: a derivation, not an operator action. Logging it would bury the change
         // somebody actually made under a cost row nobody typed.
         $this->saveQuietly();
+    }
+
+    /**
+     * The planned total, from its parts.
+     *
+     * Derived for the same reason the actual one is: an operator who estimated two of three buckets
+     * should not also have to add them up — and a stored total nothing re-derives is a second truth
+     * about the same money.
+     *
+     * **Called from `saving` as well as from `recomputeCosts()`, and that is the whole point.** The
+     * cost channels are what call `recomputeCosts()`, and none of them touches an estimate — so
+     * editing `est_service_cost` on the form left `est_total_cost` at whatever it had been, and
+     * `costVariance()` (the number an operator acts on) was computed from the stale figure.
+     * Measured on the live database, not theorised.
+     */
+    private function deriveEstimatedTotal(): void
+    {
+        $stated = array_filter(
+            [$this->est_labour_cost, $this->est_material_cost, $this->est_service_cost],
+            fn ($v) => $v !== null,
+        );
+
+        $this->est_total_cost = $stated === []
+            ? null                                   // nobody estimated anything; NOT zero
+            : round(array_sum(array_map('floatval', $stated)), 2);
     }
 
     /**
@@ -730,6 +748,14 @@ class FacilityWorkOrder extends Model implements HasMedia
 
     protected static function booted(): void
     {
+        // The planned total is a function of its three parts, so it is derived on EVERY save.
+        // `recomputeCosts()` is called by the COST channels — labour, parts, bills — and none of
+        // them touches an estimate, so without this an operator editing `est_service_cost` left
+        // the stored total at its previous value and `costVariance()` reported against a stale
+        // figure. `saveQuietly()` does not fire this, which is exactly right: the recompute path
+        // calls the derivation directly and cannot loop.
+        static::saving(fn (self $order) => $order->deriveEstimatedTotal());
+
         static::creating(function (self $order) {
             if (empty($order->reference)) {
                 $order->reference = static::generateReference(

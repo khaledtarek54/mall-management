@@ -245,3 +245,49 @@ it('rolls a machine\'s jobs up into what it has cost', function () {
 
     expect((float) $lifetime)->toBe(11000.0);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Review pass — what the cost channels do NOT cover (2026-08-20)
+|--------------------------------------------------------------------------
+| `recomputeCosts()` is called by the three COST channels, and none of them touches an estimate —
+| so editing `est_service_cost` on the form left the stored `est_total_cost` at whatever it had
+| been, and `costVariance()`, the number an operator acts on, was computed from the stale figure.
+| Found on the live database during the step-2 review, with 5,763 tests green.
+*/
+
+it('re-derives the planned total when an estimate is edited on the form', function () {
+    $this->wo->update(['est_labour_cost' => 1000, 'est_service_cost' => 2000]);
+
+    expect((float) $this->wo->fresh()->est_total_cost)->toBe(3000.0);
+
+    // …and again when one is changed, not just when the first is set.
+    $this->wo->update(['est_service_cost' => 500]);
+
+    expect((float) $this->wo->fresh()->est_total_cost)->toBe(1500.0);
+});
+
+/** Clearing every estimate returns the job to "not estimated" — not to "estimated at nothing". */
+it('returns the planned total to null when every estimate is cleared', function () {
+    $this->wo->update(['est_labour_cost' => 1000, 'est_service_cost' => 2000]);
+    expect($this->wo->fresh()->est_total_cost)->not->toBeNull();
+
+    $this->wo->update(['est_labour_cost' => null, 'est_service_cost' => null]);
+
+    expect($this->wo->fresh()->est_total_cost)->toBeNull()
+        ->and($this->wo->fresh()->costVariance())->toBeNull();
+});
+
+/**
+ * Hours may be booked on a job already marked `done` — a timesheet routinely arrives after the
+ * work did, and refusing it means the hours are never recorded, which is the gap this feature
+ * exists to close. A part draw is refused at that point because it MOVES STOCK; an hour booked
+ * only allocates a wage payroll has already posted.
+ */
+it('still books hours against a job that has been completed', function () {
+    $this->wo->update(['status' => 'done', 'completed_at' => now()]);
+
+    bookHours($this, 4);
+
+    expect((float) $this->wo->fresh()->act_labour_cost)->toBe(1200.0);
+});
