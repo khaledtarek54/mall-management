@@ -28,6 +28,17 @@ return [
         ],
     ],
     'facility' => [
+        'failure_code' => [
+            'singular' => 'Failure code',
+            'plural' => 'Failure codes',
+        ],
+        'failure_types' => [
+            'problem' => 'Problem',
+            'cause' => 'Cause',
+            'remedy' => 'Remedy',
+        ],
+        'failure_any_trade' => 'Every trade',
+        'repeat_visit_badge' => 'Visit :count',
         'pm_compliance' => [
             'on_time' => 'On time',
             'late' => 'Late',
@@ -47,6 +58,11 @@ return [
         ],
         'not_estimated' => 'Not estimated',
         'help' => [
+            'failure_type' => 'Problem is what was seen, cause is why, remedy is what was done.',
+            'failure_code_code' => 'The stable key. Unique within its type, so «leak» can be both a problem and a cause.',
+            'failure_trade' => 'Leave blank to offer this code on every job, whatever the trade.',
+            'failure_active' => 'Inactive codes stay on the jobs that recorded them but are no longer offered.',
+            'failure_codes' => 'Optional. What was wrong, why, and what you did — this is what makes reliability reporting possible.',
             'bill_work_order' => 'Which job this invoice paid for. Attributes the cost to the machine and the shop.',
             'expense_work_order' => 'Which job this cost belongs to, if any. Attributes it to the machine and the shop.',
             'est_labour_hours' => 'How long this should take. Compared against the hours actually booked.',
@@ -109,6 +125,10 @@ return [
             'roots_only' => 'Top-level only',
         ],
         'fields' => [
+            'failure_problem' => 'Problem',
+            'failure_cause' => 'Cause',
+            'failure_remedy' => 'Remedy',
+            'repeat_visit' => 'Repeat',
             'pm_compliance' => 'On time?',
             'est_labour_hours' => 'Estimated hours',
             'est_service_cost' => 'Estimated contractor cost',

@@ -228,6 +228,12 @@
         "note": "workOrder"
     },
     {
+        "model": "FailureCode",
+        "label": "Failure Code",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "FiscalYear",
         "label": "Fiscal Year",
         "classification": "shared",

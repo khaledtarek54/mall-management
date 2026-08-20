@@ -159,6 +159,7 @@ class FacilityWorkOrder extends Model implements HasMedia
         // Estimates are operator-entered; ACTUALS are never fillable — they are derived by
         // recomputeCosts(), and a form that could set them would be a second truth about the money.
         'est_labour_hours', 'est_labour_cost', 'est_material_cost', 'est_service_cost',
+        'failure_problem_id', 'failure_cause_id', 'failure_remedy_id',
         'source_item_id',
         'parent_work_order_id',
         'tenant_request_id',
@@ -292,6 +293,86 @@ class FacilityWorkOrder extends Model implements HasMedia
             ->whereNotNull('completed_at')
             ->whereNotNull('scheduled_for')
             ->whereRaw('date(completed_at) <= date(scheduled_for)');
+    }
+
+    /** What was observed. {@see FailureCode} */
+    public function failureProblem(): BelongsTo
+    {
+        return $this->belongsTo(FailureCode::class, 'failure_problem_id');
+    }
+
+    /** Why it happened. */
+    public function failureCause(): BelongsTo
+    {
+        return $this->belongsTo(FailureCode::class, 'failure_cause_id');
+    }
+
+    /** What was done about it. */
+    public function failureRemedy(): BelongsTo
+    {
+        return $this->belongsTo(FailureCode::class, 'failure_remedy_id');
+    }
+
+    /**
+     * **Has this been fixed before, recently?** (ServiceChannel §4.)
+     *
+     * The highest-value cheap signal in retail FM: it identifies the fault that was never actually
+     * fixed, and the contractor who keeps coming back to bill twice. Scenario S6 — the same
+     * escalator handrail four times in five weeks, four invoices, and a register showing four
+     * unrelated successes.
+     *
+     * **Same THING, not merely the same property.** A machine when the job names one; otherwise the
+     * unit, because a shop is what a tenant reports about. Two jobs in the same mall are not a
+     * repeat of each other and counting them so would make every busy property look like a failure.
+     *
+     * Trade-matched as well: an electrical fault and a plumbing fault in one shop are two problems,
+     * not one recurring one.
+     *
+     * A FOLLOW-UP is excluded. `parent_work_order_id` says the operator already knows this job came
+     * out of that one — it is a continuation somebody planned, not a fault that came back.
+     *
+     * Counted BEFORE this job, never after: the question is "did we already fix this?", and a later
+     * visit is the next job's finding, not this one's.
+     */
+    public function scopeRepeatsOf(Builder $query, self $order, ?int $days = null): Builder
+    {
+        $days = $days ?? (int) config('facility.repeat_visit_days', 30);
+        $since = CarbonImmutable::parse($order->created_at ?? now())->subDays($days);
+
+        return $query
+            ->whereKeyNot($order->getKey())
+            ->where('status', '!=', 'cancelled')
+            ->where('trade_id', $order->trade_id)
+            ->whereNull('parent_work_order_id')
+            ->when(
+                $order->equipment_id !== null,
+                fn (Builder $q) => $q->where('equipment_id', $order->equipment_id),
+                // No machine named: fall back to the SHOP. Refuse to match on nothing — without
+                // this guard a job with neither would "repeat" every other job in the trade.
+                fn (Builder $q) => $order->unit_id === null
+                    ? $q->whereRaw('1 = 0')
+                    : $q->where('unit_id', $order->unit_id)->whereNull('equipment_id'),
+            )
+            ->where('created_at', '>=', $since)
+            ->where('created_at', '<', $order->created_at ?? now());
+    }
+
+    /** How many times this same thing was already worked on inside the window. */
+    public function priorVisitCount(?int $days = null): int
+    {
+        return $this->trade_id === null
+            ? 0
+            : static::query()->repeatsOf($this, $days)->count();
+    }
+
+    /**
+     * Is this job a repeat — somebody has been here for the same thing already?
+     *
+     * A follow-up is never a repeat: see {@see scopeRepeatsOf}.
+     */
+    public function isRepeatVisit(?int $days = null): bool
+    {
+        return $this->parent_work_order_id === null && $this->priorVisitCount($days) > 0;
     }
 
     /** Hours reported against this job. {@see FacilityWorkOrderLabour} */

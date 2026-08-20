@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\FacilityWorkOrders\Tables;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Models\FacilityWorkOrder;
+use App\Models\FailureCode;
 use App\Models\Trade;
 use App\Models\VendorBill;
 use App\Services\ApplySlaPenaltyService;
@@ -207,6 +208,20 @@ class FacilityWorkOrdersTable
                 // stored since the module shipped and nothing compared them, so a preventive
                 // programme was a list of intentions. Blank on a corrective job — that one
                 // answers to its SLA instead.
+                // **Scenario S6.** Somebody has already been here for this, recently. The single
+                // highest-value cheap signal in retail FM: the fault that was never actually fixed,
+                // and the contractor who keeps coming back to bill twice. Not toggleable-off by
+                // default — a coordinator triaging today's faults is exactly who needs to know.
+                TextColumn::make('repeat_visit')
+                    ->label(__('admin.facility.fields.repeat_visit'))
+                    ->badge()
+                    ->color('danger')
+                    ->state(fn (FacilityWorkOrder $r): ?string => $r->isRepeatVisit()
+                        ? __('admin.facility.repeat_visit_badge', ['count' => $r->priorVisitCount() + 1])
+                        : null)
+                    ->placeholder('—')
+                    ->toggleable(),
+
                 TextColumn::make('pm_compliance')
                     ->label(__('admin.facility.fields.pm_compliance'))
                     ->badge()
@@ -300,12 +315,45 @@ class FacilityWorkOrdersTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
+                    // **Capture the failure where the engineer already is.** Maximo §7 records
+                    // problem/cause/remedy at completion, and a screen they have to go and find
+                    // afterwards is one nobody visits. All three are OPTIONAL: a required code
+                    // gets whatever clears the validation fastest, which is worse than a blank
+                    // because it looks like data. Same posture as completion evidence.
+                    ->schema(fn (FacilityWorkOrder $record): array => [
+                        Select::make('failure_problem_id')
+                            ->label(__('admin.facility.fields.failure_problem'))
+                            ->options(fn () => FailureCode::options(FailureCode::TYPE_PROBLEM, $record->trade_id, $record->failure_problem_id))
+                            ->native(false)
+                            ->helperText(__('admin.facility.help.failure_codes')),
+                        Select::make('failure_cause_id')
+                            ->label(__('admin.facility.fields.failure_cause'))
+                            ->options(fn () => FailureCode::options(FailureCode::TYPE_CAUSE, $record->trade_id, $record->failure_cause_id))
+                            ->native(false),
+                        Select::make('failure_remedy_id')
+                            ->label(__('admin.facility.fields.failure_remedy'))
+                            ->options(fn () => FailureCode::options(FailureCode::TYPE_REMEDY, $record->trade_id, $record->failure_remedy_id))
+                            ->native(false),
+                    ])
+                    ->fillForm(fn (FacilityWorkOrder $record): array => [
+                        'failure_problem_id' => $record->failure_problem_id,
+                        'failure_cause_id' => $record->failure_cause_id,
+                        'failure_remedy_id' => $record->failure_remedy_id,
+                    ])
                     ->visible(fn (FacilityWorkOrder $record) => ! $record->isTerminal() && self::canComplete())
                     ->authorize(fn () => self::canComplete())
-                    ->action(function (FacilityWorkOrder $record): void {
+                    ->action(function (FacilityWorkOrder $record, array $data): void {
                         abort_unless(self::canComplete(), 403);
 
                         try {
+                            // Recorded BEFORE the transition, so a checklist refusal does not lose
+                            // what the engineer typed — they re-open the modal to a filled form.
+                            $record->forceFill([
+                                'failure_problem_id' => $data['failure_problem_id'] ?? null,
+                                'failure_cause_id' => $data['failure_cause_id'] ?? null,
+                                'failure_remedy_id' => $data['failure_remedy_id'] ?? null,
+                            ])->save();
+
                             app(FacilityWorkOrderService::class)->transition($record, 'done');
                         } catch (\DomainException $e) {
                             // FR-PPM-07: unmarked checklist items block closure. A refusal

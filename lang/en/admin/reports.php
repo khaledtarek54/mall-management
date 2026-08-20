@@ -24,6 +24,7 @@ return [
         'vendor_scorecard_summary' => ':vendors vendor(s) active in this window · :breaches SLA breach(es) · :penalties penalised.',
         'vendor_scorecard_empty' => 'No vendor did work or was penalised in this window',
         'vendor_scorecard_columns' => [
+            'repeat_visits' => 'Repeat visits',
             'work_orders' => 'Jobs',
             'completed' => 'Completed',
             'open' => 'Open',

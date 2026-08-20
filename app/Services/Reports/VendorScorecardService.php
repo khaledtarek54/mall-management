@@ -84,6 +84,13 @@ class VendorScorecardService
                 // Breached its target, whether or not anyone penalised it — the two are
                 // different facts and a vendor is not owed the benefit of an un-chased breach.
                 'sla_breaches' => $vendorOrders->filter(fn (FacilityWorkOrder $o) => self::breached($o))->count(),
+                // **The provider who keeps coming back to bill twice** (ServiceChannel §4). A
+                // vendor whose jobs are disproportionately repeats is either not fixing the fault
+                // or being sent to a machine that needs replacing — and both are conversations the
+                // renewal should have. Counted on the vendor's OWN jobs that are repeats, not on
+                // every repeat at their sites: a contractor is answerable for returning to their
+                // own work, not for a fault somebody else failed to fix first.
+                'repeat_visits' => $vendorOrders->filter(fn (FacilityWorkOrder $o) => $o->isRepeatVisit())->count(),
                 'penalties_applied' => $vendorPenalties->count(),
                 'penalty_total' => round((float) $vendorPenalties->sum('amount'), 2),
                 'expired_documents' => $vendor->documents()

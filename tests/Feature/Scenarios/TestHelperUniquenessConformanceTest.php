@@ -51,6 +51,64 @@
  * `Tests\Support` — a class, not file-scope functions, for the same reason: a parallel worker only
  * loads the test files it owns, so shared file-scope helpers re-declared per shard are a fatal.
  */
+if (! function_exists('testFileScopeFunctions')) {
+    /**
+     * Every file-scope function `tests/` declares, as `name => [files]`.
+     *
+     * Read as TEXT so nothing needs loading, and shared by both gates below so they cannot disagree
+     * about what counts as a helper.
+     *
+     * @return array<string, array<int, string>>
+     */
+    function testFileScopeFunctions(): array
+    {
+        $declarations = [];
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('tests')));
+
+        /** @var SplFileInfo $file */
+        foreach ($it as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $tokens = token_get_all(file_get_contents($file->getPathname()));
+            $depth = 0;
+
+            foreach ($tokens as $i => $token) {
+                if (! is_array($token)) {
+                    if ($token === '{') {
+                        $depth++;
+                    } elseif ($token === '}') {
+                        $depth--;
+                    }
+
+                    continue;
+                }
+
+                if ($token[0] !== T_FUNCTION || $depth !== 0) {
+                    continue;
+                }
+
+                for ($j = $i + 1; $j < count($tokens); $j++) {
+                    $next = $tokens[$j];
+
+                    if (is_array($next) && in_array($next[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                        continue;
+                    }
+
+                    if (is_array($next) && $next[0] === T_STRING) {
+                        $declarations[$next[1]][] = str_replace(base_path().'/', '', $file->getPathname());
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        return $declarations;
+    }
+}
+
 it('declares no test helper function in two different files', function () {
     $declarations = [];
 
@@ -111,4 +169,55 @@ it('declares no test helper function in two different files', function () {
         $collisions->map(fn (array $files, string $name) => "  {$name}: ".implode(', ', $files))
             ->implode("\n"),
     ));
+});
+
+/**
+ * …and none of them shadows a function PEST or LARAVEL already defines.
+ *
+ * **The same fatal, from a direction the check above cannot see.** That one compares test files
+ * with each other; it has no idea what the framework already put in the global function table. A
+ * helper called `visit()` is a perfectly ordinary name for "make a work order for this machine" —
+ * and Pest 4 defines `visit()` for browser testing, so declaring it is a redeclaration fatal with
+ * **zero bytes of output**, exactly like the cross-file case and with none of the same clues:
+ * grepping `tests/` for a second declaration finds nothing at all.
+ *
+ * Cost an hour on 2026-08-20 building the repeat-visit tests. Asking the RUNTIME which functions a
+ * package defined is the only source that cannot go stale as Pest and Laravel evolve.
+ */
+it('declares no test helper that shadows a Pest or Laravel global', function () {
+    // What the packages already define, and where.
+    $vendorFunctions = [];
+
+    foreach (get_defined_functions()['user'] as $name) {
+        try {
+            $file = (string) (new ReflectionFunction($name))->getFileName();
+        } catch (ReflectionException) {
+            continue;
+        }
+
+        if (str_starts_with($file, base_path('vendor'))) {
+            $vendorFunctions[strtolower($name)] = str_replace(base_path().'/', '', $file);
+        }
+    }
+
+    $shadowed = [];
+    $checked = 0;
+
+    foreach (testFileScopeFunctions() as $name => $files) {
+        $checked++;
+
+        if (isset($vendorFunctions[strtolower($name)])) {
+            $shadowed[] = $files[0]." declares {$name}(), already defined by ".$vendorFunctions[strtolower($name)];
+        }
+    }
+
+    // Prove the sweep saw something: an empty helper list would satisfy the assertion below while
+    // examining nothing, which is the failure mode every gate here is written against.
+    expect($checked)->toBeGreaterThan(20);
+    expect($vendorFunctions)->not->toBeEmpty();
+
+    expect($shadowed)->toBe([], implode('', [
+        'These test helpers shadow a function a package already defines, which is a redeclaration ',
+        'fatal with NO output: '.implode('; ', $shadowed).'. Rename the helper.',
+    ]));
 });

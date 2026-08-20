@@ -53,6 +53,7 @@ use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
+use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
@@ -212,6 +213,7 @@ class ScreenGuides
         RentIndexResource::class => 'rent_indices',
         WorkPermitResource::class => 'work_permits',
         TradeResource::class => 'trades',
+        FailureCodeResource::class => 'failure_codes',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',
         ApprovalRuleResource::class => 'approval_rules',

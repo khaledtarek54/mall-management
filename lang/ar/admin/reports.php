@@ -23,6 +23,7 @@ return [
         'vendor_scorecard_summary' => ':vendors مورّد نشط خلال الفترة · :breaches مخالفة لاتفاقية مستوى الخدمة · غرامات :penalties.',
         'vendor_scorecard_empty' => 'لا يوجد مورّد نفّذ أعمالًا أو وُقّعت عليه غرامة خلال هذه الفترة',
         'vendor_scorecard_columns' => [
+            'repeat_visits' => 'زيارات متكررة',
             'work_orders' => 'أوامر العمل',
             'completed' => 'المنجزة',
             'open' => 'المفتوحة',

@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'failure_codes.view' => 'View the failure-code library',
+            'failure_codes.create' => 'Add a failure code',
+            'failure_codes.edit' => 'Edit a failure code',
+            'failure_codes.delete' => 'Remove an unused failure code',
             'trades.view' => 'View the trade register',
             'trades.create' => 'Add a trade',
             'trades.edit' => 'Edit a trade, including its hourly rate',
@@ -686,6 +690,8 @@ class RolesPermissionsSeeder extends Seeder
             // The trade register. Operations owns which kinds of work exist and which contractor
             // is eligible; the RATE is money, so it stays with manager (see below).
             'trades.view',
+            // The failure-code library — operations records the codes, so operations reads them.
+            'failure_codes.view',
             // The unit register, READ-ONLY. Work orders and tenant requests route to a unit and a
             // zone, so operations must be able to open the shop it is being sent to — it could not,
             // measured (pre-staging QA, F-06). Create/edit stay with leasing: what a unit IS, and

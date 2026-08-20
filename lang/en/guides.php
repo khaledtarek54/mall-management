@@ -276,6 +276,25 @@ return [
         ],
     ],
 
+    'failure_codes' => [
+        'purpose' => 'The words your engineers use to record what went wrong, why, and what they did about it. Recorded when a job is marked done, this is what makes reliability reporting possible at all — which machines fail most, whether a fault was ever really fixed, and whether to repair or replace.',
+        'steps' => [
+            'Pick a type: problem is what was seen, cause is why, remedy is what was done.',
+            'Give it a code and its name in both languages.',
+            'Leave the trade blank to offer it on every job, or pick one to keep the pickers short.',
+            'Deactivate a code you no longer use; it stays on the jobs that recorded it.',
+        ],
+        'affects' => [
+            'The three pickers on the "Mark done" dialog offer these codes, filtered to the job\'s trade plus every code with no trade.',
+            'Nothing here is required. A code nobody chose is better than one chosen to clear a validation, because the second looks like data.',
+            'These are worth nothing on the day they ship and everything two years later — a reliability report built before the codes has nothing to read.',
+        ],
+        'rules' => [
+            'A code is unique within its TYPE, not overall: "leak" is a legitimate problem and a legitimate cause, and one row cannot honestly serve both.',
+            'A code recorded on a finished job cannot be deleted — deactivate it. Deleting strands the history every reliability figure groups by.',
+            'The starter set is a starting point, not a description of your business. Replace it with the words your engineers actually use.',
+        ],
+    ],
     'trades' => [
         'purpose' => 'The kinds of work the mall needs done, and which contractor is eligible for each. The trade routes a job, suggests who to dispatch, and is the axis every maintenance-spend report groups by.',
         'steps' => [

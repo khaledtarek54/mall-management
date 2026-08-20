@@ -1143,6 +1143,64 @@ one somebody did, so `confirmed_at` tells them apart, and the admin list says ei
 **"Confirmed by Ahmed Hassan"** or **"Closed unconfirmed"**. An operator asking "did the tenant
 actually say this was fixed?" can now get an answer.
 
+### Failure codes and repeat visits (2026-08-20, close-out step 5)
+
+**Benchmarks:** Maximo §7 (failure class → problem → cause → remedy) and ServiceChannel §4
+(repeat-visit tracking, *"the highest-value cheap signal in retail FM"*). Scenario S6 is the
+failure: the same escalator handrail reported four times in five weeks, four contractor visits,
+EGP 8,800 — and a register showing four unrelated successes.
+
+#### Three levels, scoped by trade rather than chained — a stated deviation
+
+Maximo chains causes to problems and problems to an asset's failure class. **That chain is a matrix
+somebody must populate before anything can be recorded**, and an unpopulated matrix offers no codes,
+so nobody records anything and the primitive is dead on arrival.
+
+Here `Trade` **is** the class — it already classifies work orders, plans and machines, and a second
+taxonomy would be one more list to keep in step — and a code is *scoped* to a trade rather than
+chained to a parent. A code with **no** trade is offered everywhere, which is what makes a starter
+set possible and stops a newly-added trade having an empty picker. Revisit the chain if the operator
+ever asks which causes belong to which problem, and not before.
+
+A code is unique **within its type**, not globally: "leak" is a legitimate problem *and* a
+legitimate cause, and one row serving both would make the pickers lie.
+
+#### Optional at completion, and that is the design
+
+Nothing is required. Switching a requirement on refuses the next completion every engineer attempts,
+and the reliable outcome is whichever code clears the validation fastest — worse than a blank,
+because it looks like data. Same posture as `require_completion_evidence`. The three pickers sit on
+the **"Mark done" dialog**, where the engineer already is; a screen they have to go and find
+afterwards is one nobody visits. Codes are written **before** the transition, so a checklist refusal
+does not lose what they typed.
+
+**The starter set is fifteen obvious codes, all trade-null, and it is a starting point rather than a
+claim about this operator's business.** Maximo ships none and expects the library to be built;
+shipping thirty invented Egyptian-mall codes would be exactly the guess this project refuses
+elsewhere.
+
+#### Repeat visits — same THING, not merely the same property
+
+`isRepeatVisit()` asks whether somebody has already been here, for this, recently:
+
+- the **same machine** where the job names one, otherwise the **same shop** — two jobs in one mall
+  are not a repeat of each other, and counting them so would make every busy property look like a
+  failure;
+- the **same trade** — an electrical fault and a plumbing fault in one shop are two problems;
+- inside `config('facility.repeat_visit_days')`, default 30 (the retail-FM convention, and a
+  judgement rather than a law);
+- **excluding follow-ups** — `parent_work_order_id` says the operator planned this continuation; it
+  is not a fault that came back.
+
+A job naming **neither** a machine nor a shop matches nothing. Without that guard every common-area
+job would "repeat" every other job in its trade and the signal would be noise on day one.
+
+It surfaces where it changes a decision: a **red badge** on the work-order list (not hidden by
+default — a coordinator triaging today's faults is exactly who needs it) and a **repeat-visits
+column on the vendor scorecard**, which is ServiceChannel's point — the provider who keeps coming
+back to bill twice. Counted on the vendor's own repeat jobs, not on every repeat at their sites: a
+contractor answers for returning to their own work, not for a fault somebody else failed to fix.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -1164,6 +1222,7 @@ actually say this was fixed?" can now get an answer.
 | **13 — The work order as a cost object (2026-08-20, close-out step 2)** | Planned and actual cost in three buckets on `facility_work_orders`; `facility_work_order_labour` (the primitive that did not exist — hours × the craft rate, frozen at entry); `facility_work_order_id` on `vendor_bills` and `expenses` so contractor work is attributable at all; `recomputeCosts()` as the single source of truth with all three channels wired; cost columns on the job, lifetime cost on the machine; `job_value` replaced by `est_service_cost` and the SLA percent basis rewired to prefer the actual. **Explicitly NOT a GL source** — the money is already posted three other ways, and a gate keeps it that way | ✅ shipped |
 | **14 — PM compliance (2026-08-20, close-out step 3)** | Four derived states on a preventive order (`on_time` · `late` · `overdue` · `due`) with query twins the column, the two filters and the plan figure all share; `ServicePlan::complianceRate()` per plan with a one-query list variant pinned to agree with it. Strict, with no tolerance window — a stated deviation from Maximo, because one global number is wrong for both a weekly round and an annual overhaul | ✅ shipped |
 | **15 — Tenant confirms the resolution (2026-08-20, close-out step 4)** | Confirm / "not fixed" on a `resolved` request in the portal, recording WHICH person accepted; a dispute returns it to `in_progress` with a required reason on the comment thread. Auto-close keeps taking silence as consent, and `confirmed_at` now distinguishes a close the tenant made from one the timer did. Does **not** reopen the work order — that is a follow-up job and an operator's decision | ✅ shipped |
+| **16 — Failure codes + repeat visits (2026-08-20, close-out step 5)** | `failure_codes` (problem · cause · remedy, scoped by trade, unique within type) recorded optionally on the "Mark done" dialog; `isRepeatVisit()` derived from same-machine-or-shop + same-trade + a 30-day window, excluding planned follow-ups; a red badge on the register and a repeat-visits column on the vendor scorecard. **Three levels scoped by trade, not Maximo's chained four** — a chain is a matrix nobody populates, and an unpopulated matrix means nothing gets recorded | ✅ shipped |
 
 ---
 

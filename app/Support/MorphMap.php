@@ -40,6 +40,7 @@ use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
 use App\Models\FacilityWorkOrderLabour;
 use App\Models\FacilityWorkOrderPart;
+use App\Models\FailureCode;
 use App\Models\FiscalYear;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
@@ -247,6 +248,7 @@ class MorphMap
         'tax_code' => TaxCode::class,
         'tax_rate' => TaxRate::class,
         'work_order_labour' => FacilityWorkOrderLabour::class,
+        'failure_code' => FailureCode::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,
         'tenant_credit_application' => TenantCreditApplication::class,

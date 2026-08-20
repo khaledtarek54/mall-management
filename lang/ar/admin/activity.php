@@ -13,6 +13,7 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            'failure_code' => 'كود عطل',
             'work_order_labour' => 'عمالة أمر عمل',
             'trade' => 'تخصص',
             'unit_ownership' => 'ملكية وحدة',

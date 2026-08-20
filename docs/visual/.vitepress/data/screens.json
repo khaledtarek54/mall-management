@@ -162,6 +162,12 @@
         "guide": "expiration_schedule"
     },
     {
+        "screen": "FailureCodeResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "failure_codes"
+    },
+    {
         "screen": "FixedAssetResource",
         "panel": "admin",
         "kind": "resource",

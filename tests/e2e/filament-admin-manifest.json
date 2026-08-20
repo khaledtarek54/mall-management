@@ -134,6 +134,13 @@
             "hasView": false
         },
         {
+            "class": "FailureCodeResource",
+            "slug": "failure-codes",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "FixedAssetResource",
             "slug": "fixed-assets",
             "hasCreate": true,

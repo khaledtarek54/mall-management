@@ -161,6 +161,7 @@ class VendorScorecard extends Page implements DeliverableReport, HasSchemas, Has
                 __('admin.reports.vendor_scorecard_columns.avg_response_hours'),
                 __('admin.reports.vendor_scorecard_columns.avg_resolution_hours'),
                 __('admin.reports.vendor_scorecard_columns.sla_breaches'),
+                __('admin.reports.vendor_scorecard_columns.repeat_visits'),
                 __('admin.reports.vendor_scorecard_columns.penalties_applied'),
                 __('admin.reports.vendor_scorecard_columns.penalty_total'),
                 __('admin.reports.vendor_scorecard_columns.expired_documents'),
@@ -174,6 +175,7 @@ class VendorScorecard extends Page implements DeliverableReport, HasSchemas, Has
                 $hours($r['avg_response_hours']),
                 $hours($r['avg_resolution_hours']),
                 (string) $r['sla_breaches'],
+                (string) $r['repeat_visits'],
                 (string) $r['penalties_applied'],
                 number_format((float) $r['penalty_total'], 2, '.', ''),
                 (string) $r['expired_documents'],
@@ -229,6 +231,13 @@ class VendorScorecard extends Page implements DeliverableReport, HasSchemas, Has
                     ->alignEnd()
                     ->color(fn (array $record): ?string => $record['sla_breaches'] > 0 ? 'danger' : null)
                     ->weight(fn (array $record): ?string => $record['sla_breaches'] > 0 ? 'bold' : null),
+                // The provider who keeps coming back. Bold and red for the same reason a breach is:
+                // it is a conversation the renewal has to have.
+                TextColumn::make('repeat_visits')
+                    ->label(__('admin.reports.vendor_scorecard_columns.repeat_visits'))
+                    ->alignEnd()
+                    ->color(fn (array $record): ?string => $record['repeat_visits'] > 0 ? 'danger' : null)
+                    ->weight(fn (array $record): ?string => $record['repeat_visits'] > 0 ? 'bold' : null),
                 TextColumn::make('penalties_applied')
                     ->label(__('admin.reports.vendor_scorecard_columns.penalties_applied'))
                     ->alignEnd()
