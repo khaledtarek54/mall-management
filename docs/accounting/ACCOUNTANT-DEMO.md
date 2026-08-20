@@ -3,6 +3,9 @@
 > Companion to [ACCOUNTANT-BRIEFING.md](ACCOUNTANT-BRIEFING.md) (the bilingual hand-out; PDF beside
 > it). This is the *demo*: what to open, in what order, and what each step proves.
 >
+> **Showing someone who is NOT an accountant?** Use [../DEMO.md](../DEMO.md) instead — same idea,
+> different question (does one event travel end to end, rather than do the books hold).
+>
 > **Every figure below was run on the demo data on 2026-07-31.** If you reseed, the numbers move —
 > re-run the two commands and read the new ones off the screen.
 

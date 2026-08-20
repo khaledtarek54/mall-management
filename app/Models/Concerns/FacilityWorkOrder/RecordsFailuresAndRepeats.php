@@ -65,6 +65,13 @@ trait RecordsFailuresAndRepeats
         return $query
             ->whereKeyNot($order->getKey())
             ->where('status', '!=', 'cancelled')
+            // CORRECTIVE work only, on both sides. A preventive visit recurring at the frequency
+            // somebody planned is the programme working, not a fault coming back — and counting it
+            // buries the signal: a fortnightly plan makes every one of its own visits a "repeat" of
+            // the last, so on the demo data 18 of 20 flagged jobs were scheduled PPM and 2 were the
+            // real thing. Maximo and ServiceChannel both scope repeat analysis to demand work for
+            // this reason.
+            ->where('work_order_type', self::TYPE_CM)
             ->where('trade_id', $order->trade_id)
             ->whereNull('parent_work_order_id')
             ->when(
@@ -113,6 +120,8 @@ trait RecordsFailuresAndRepeats
             ->whereColumn('prior.id', '!=', 'facility_work_orders.id')
             ->whereColumn('prior.trade_id', 'facility_work_orders.trade_id')
             ->where('prior.status', '!=', 'cancelled')
+            // Corrective only — see scopeRepeatsOf. The two must agree about what counts.
+            ->where('prior.work_order_type', self::TYPE_CM)
             ->whereNull('prior.parent_work_order_id')
             ->whereNull('prior.deleted_at')
             // The same "same THING" rule as the scope: the machine when there is one, else the
@@ -127,7 +136,12 @@ trait RecordsFailuresAndRepeats
                     ->whereNull('prior.equipment_id')
                     ->whereColumn('prior.unit_id', 'facility_work_orders.unit_id')))
             ->whereColumn('prior.created_at', '<', 'facility_work_orders.created_at')
-            ->whereRaw("prior.created_at >= {$cutoff}"),
+            ->whereRaw("prior.created_at >= {$cutoff}")
+            // The SUBJECT must be corrective too, so this returns 0 for a preventive row exactly
+            // as priorVisitCount() does. Without it the two paths disagree — the model method
+            // returns 0 for a PPM job while a list rendering the same job shows a count — and a
+            // badge that contradicts the record it links to is worse than no badge.
+            ->whereRaw('facility_work_orders.work_order_type = ?', [self::TYPE_CM]),
         ]);
     }
 
@@ -141,7 +155,8 @@ trait RecordsFailuresAndRepeats
             return (int) $this->prior_visit_count;
         }
 
-        return $this->trade_id === null
+        // A preventive job is never a repeat of anything: it happened because a schedule said so.
+        return $this->trade_id === null || $this->work_order_type !== self::TYPE_CM
             ? 0
             : static::query()->repeatsOf($this, $days)->count();
     }

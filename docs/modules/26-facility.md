@@ -1143,6 +1143,26 @@ one somebody did, so `confirmed_at` tells them apart, and the admin list says ei
 **"Confirmed by Ahmed Hassan"** or **"Closed unconfirmed"**. An operator asking "did the tenant
 actually say this was fixed?" can now get an answer.
 
+### What the demo data shows (2026-08-20)
+
+Everything in this module worked before `DemoSeeder` exercised any of it, which meant Operations
+rendered a register of jobs with **0.00 in every cost column** and empty NTE, failure, permit and
+compliance screens. A capability nobody can SEE reads exactly like one that was never built — the
+same failure class as a service with no entry point — so the fixture is part of the feature.
+
+`seedFacilityCosts()`, `seedPmHistory()` and `seedRepeatVisits()` now lay down: labour and parts on
+a completed visit; a contractor's quote, an approved supplementary and a bill filed **against the
+job**; one job **over its NTE with nobody's approval on it**; 26 past preventive visits so
+compliance reads 60–86% instead of a uniform 0%; the three-visit S6 repeat on a shop; and three
+permits — live, closed, and one **lapsed with no sign-off**. `seedTradeCostBase()` runs BEFORE the
+generator, because a plan's hours are priced when the job is raised: with rates still null every
+generated job carries a zero estimate for the life of the demo.
+
+Trade rates and NTE ceilings are seeded there and **not** at install, deliberately — they are the
+operator's own cost base, a plausible default silently misprices every hour booked against it, and
+ServiceChannel likewise ships NTE opt-in per category. The demo run that uses all of this is
+[docs/DEMO.md](../DEMO.md) §3–§4.
+
 ### Failure codes and repeat visits (2026-08-20, close-out step 5)
 
 **Benchmarks:** Maximo §7 (failure class → problem → cause → remedy) and ServiceChannel §4
@@ -1190,10 +1210,25 @@ elsewhere.
 - inside `config('facility.repeat_visit_days')`, default 30 (the retail-FM convention, and a
   judgement rather than a law);
 - **excluding follow-ups** — `parent_work_order_id` says the operator planned this continuation; it
-  is not a fault that came back.
+  is not a fault that came back;
+- **corrective work only, on BOTH sides** (2026-08-20) — a preventive visit recurring at the
+  frequency somebody planned is the programme working, not a fault returning.
 
 A job naming **neither** a machine nor a shop matches nothing. Without that guard every common-area
 job would "repeat" every other job in its trade and the signal would be noise on day one.
+
+**The corrective-only rule was added after the fact, and how it was found is the point.** Seeding a
+preventive HISTORY into the demo data (so compliance had something to measure) lit up **20 repeat
+flags, 18 of them scheduled PPM**: a fortnightly plan makes every one of its own visits a repeat of
+the last, so on any real preventive programme the signal that exists to find the unfixed fault would
+have been ~90% noise. The whole suite was green throughout — every existing test raised corrective
+work, so none had ever put a preventive job through the question. It is guarded in three places
+(candidate side of both the scope and its count twin, and the subject side of each), because the
+model path and the list path must agree: a badge that contradicts the record it links to is worse
+than no badge. All three are mutation-proven in `RepeatVisitsAndFailureCodesTest`, and the case that
+separates the subject-side guards from the candidate-side one is a **scheduled visit following a
+corrective fix** — without them, every plan on a machine that ever broke reads as a recurring
+failure.
 
 `scopeWithPriorVisitCount()` counts a whole page in **one** query — measured at 14 queries for 12
 rows before it existed, on a column that is visible by default, and the badge also read the same
@@ -1365,7 +1400,7 @@ class you name must be one you imported, caught by its own gate rather than by a
 | **13 — The work order as a cost object (2026-08-20, close-out step 2)** | Planned and actual cost in three buckets on `facility_work_orders`; `facility_work_order_labour` (the primitive that did not exist — hours × the craft rate, frozen at entry); `facility_work_order_id` on `vendor_bills` and `expenses` so contractor work is attributable at all; `recomputeCosts()` as the single source of truth with all three channels wired; cost columns on the job, lifetime cost on the machine; `job_value` replaced by `est_service_cost` and the SLA percent basis rewired to prefer the actual. **Explicitly NOT a GL source** — the money is already posted three other ways, and a gate keeps it that way | ✅ shipped |
 | **14 — PM compliance (2026-08-20, close-out step 3)** | Four derived states on a preventive order (`on_time` · `late` · `overdue` · `due`) with query twins the column, the two filters and the plan figure all share; `ServicePlan::complianceRate()` per plan with a one-query list variant pinned to agree with it. Strict, with no tolerance window — a stated deviation from Maximo, because one global number is wrong for both a weekly round and an annual overhaul | ✅ shipped |
 | **15 — Tenant confirms the resolution (2026-08-20, close-out step 4)** | Confirm / "not fixed" on a `resolved` request in the portal, recording WHICH person accepted; a dispute returns it to `in_progress` with a required reason on the comment thread. Auto-close keeps taking silence as consent, and `confirmed_at` now distinguishes a close the tenant made from one the timer did. Does **not** reopen the work order — that is a follow-up job and an operator's decision | ✅ shipped |
-| **16 — Failure codes + repeat visits (2026-08-20, close-out step 5)** | `failure_codes` (problem · cause · remedy, scoped by trade, unique within type) recorded optionally on the "Mark done" dialog; `isRepeatVisit()` derived from same-machine-or-shop + same-trade + a 30-day window, excluding planned follow-ups; a red badge on the register and a repeat-visits column on the vendor scorecard. **Three levels scoped by trade, not Maximo's chained four** — a chain is a matrix nobody populates, and an unpopulated matrix means nothing gets recorded | ✅ shipped |
+| **16 — Failure codes + repeat visits (2026-08-20, close-out step 5)** | `failure_codes` (problem · cause · remedy, scoped by trade, unique within type) recorded optionally on the "Mark done" dialog; `isRepeatVisit()` derived from same-machine-or-shop + same-trade + a 30-day window, corrective work only, excluding planned follow-ups; a red badge on the register and a repeat-visits column on the vendor scorecard. **Three levels scoped by trade, not Maximo's chained four** — a chain is a matrix nobody populates, and an unpopulated matrix means nothing gets recorded | ✅ shipped |
 | **17 — NTE + proposals (2026-08-20, close-out step 6)** | `trades.default_nte` → `facility_work_orders.nte_amount` applied at raise time; `work_order_proposals` with the cost object's own three buckets, so approving one raises the ceiling AND sets the job's estimate; deciding gated by the `ApprovalPolicy` ladder on the quoted amount; over-NTE shown as a badge and a filter, **never blocked** — the same reasoning as the three-way match | ✅ shipped |
 | **18 — Routes + planned cost (2026-08-20, close-out step 7)** | `service_plan_stops` turns a plan into a round; `facility_work_order_items.equipment_id` makes a failed line a fact about a device rather than a string; `est_labour_hours` on the plan priced at the trade's rate when each job is raised, giving the cost object a planned side across the whole preventive programme. One job per round, not one per stop — stated deviation | ✅ shipped |
 

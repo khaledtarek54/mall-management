@@ -254,3 +254,64 @@ it('counts nothing for a job naming neither machine nor shop, in the list query 
         fn (FacilityWorkOrder $w) => expect((int) $w->prior_visit_count)->toBe(0),
     );
 });
+
+/* ---- a scheduled visit is not a repeat ---------------------------------- */
+
+/*
+| Found 2026-08-20 by seeding a preventive HISTORY into the demo data and looking at the result:
+| 20 jobs flagged as repeat visits, 18 of them scheduled PPM. A fortnightly plan makes every one
+| of its own visits a "repeat" of the last one, so the signal that exists to find the fault nobody
+| fixed was ~90% noise — and the whole suite was green, because every test above raises corrective
+| work and none had ever put a preventive job through the same question.
+*/
+
+it('does not call a preventive visit a repeat of the one before it', function () {
+    // A plan running fortnightly on the same machine — three visits inside the 30-day window.
+    $first = escalatorVisit($this, 28, ['work_order_type' => FacilityWorkOrder::TYPE_PPM, 'execution_type' => null]);
+    $second = escalatorVisit($this, 14, ['work_order_type' => FacilityWorkOrder::TYPE_PPM, 'execution_type' => null]);
+    $third = escalatorVisit($this, 1, ['work_order_type' => FacilityWorkOrder::TYPE_PPM, 'execution_type' => null]);
+
+    expect($first->isRepeatVisit())->toBeFalse()
+        ->and($second->isRepeatVisit())->toBeFalse()
+        ->and($third->isRepeatVisit())->toBeFalse();
+
+    // ...and the list twin must say the same thing, or the badge contradicts the record.
+    $counts = FacilityWorkOrder::withPriorVisitCount()->get()->keyBy('id');
+
+    expect((int) $counts[$second->id]->prior_visit_count)->toBe(0)
+        ->and((int) $counts[$third->id]->prior_visit_count)->toBe(0);
+});
+
+it('still counts a corrective repeat, and ignores the preventive visits around it', function () {
+    // The control: without this the fix above could simply have disabled the feature.
+    escalatorVisit($this, 20, ['work_order_type' => FacilityWorkOrder::TYPE_PPM, 'execution_type' => null]);
+    $realFirst = escalatorVisit($this, 15);
+    escalatorVisit($this, 8, ['work_order_type' => FacilityWorkOrder::TYPE_PPM, 'execution_type' => null]);
+    $realSecond = escalatorVisit($this, 2);
+
+    expect($realFirst->isRepeatVisit())->toBeFalse()
+        ->and($realSecond->isRepeatVisit())->toBeTrue()
+        // ONE prior — the corrective one. The two preventive visits in between are not fixes.
+        ->and($realSecond->priorVisitCount())->toBe(1);
+
+    $counts = FacilityWorkOrder::withPriorVisitCount()->get()->keyBy('id');
+    expect((int) $counts[$realSecond->id]->prior_visit_count)->toBe(1);
+});
+
+it('does not call a scheduled visit a repeat of the corrective job before it', function () {
+    // The case that separates the SUBJECT-side guards from the candidate-side one: a real
+    // corrective fix, then the plan comes round. Without a subject guard the scheduled visit
+    // inherits the corrective job as a "prior visit" and every plan on a machine that ever broke
+    // reads as a recurring failure.
+    escalatorVisit($this, 10);
+    $scheduled = escalatorVisit($this, 2, [
+        'work_order_type' => FacilityWorkOrder::TYPE_PPM,
+        'execution_type' => null,
+    ]);
+
+    expect($scheduled->isRepeatVisit())->toBeFalse()
+        ->and($scheduled->priorVisitCount())->toBe(0);
+
+    $counts = FacilityWorkOrder::withPriorVisitCount()->get()->keyBy('id');
+    expect((int) $counts[$scheduled->id]->prior_visit_count)->toBe(0);
+});

@@ -19,6 +19,7 @@ are the retailers. Laravel 13 · PHP 8.4 · Filament 4.
 | **4** | [PROPERTY-ISOLATION.md](PROPERTY-ISOLATION.md) | The invariant that confines every module to one mall — read before adding a property-owned module |
 | **5** | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | Everything still unanswered, grouped by **who can answer it** |
 | **6** | [ROADMAP.md](ROADMAP.md) | The single prioritised list — what to build next, and what not to rebuild |
+| **7** | [DEMO.md](DEMO.md) | **Showing the system to somebody** — a 30-minute run for a non-accountant, and how to adapt it per audience |
 
 **Pictures first?** The visual handbook lives *in the panel* at **`/admin/handbook`** (bilingual;
 built by `npm run build`). Source: [`visual/`](visual/) — [the whole system on one

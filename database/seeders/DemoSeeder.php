@@ -23,6 +23,8 @@ use App\Models\Equipment;
 use App\Models\Expense;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
+use App\Models\FacilityWorkOrderLabour;
+use App\Models\FailureCode;
 use App\Models\FixedAsset;
 use App\Models\Floor;
 use App\Models\InventoryItem;
@@ -64,6 +66,7 @@ use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
 use App\Models\VendorDocument;
 use App\Models\Warehouse;
+use App\Models\WorkPermit;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\SetPostMonthService;
 use App\Services\AllocatePaymentToInvoiceItemsService;
@@ -94,6 +97,9 @@ use App\Services\SendAnnouncementAction;
 use App\Services\SettleCustodyService;
 use App\Services\StockMovementService;
 use App\Services\VendorBillService;
+use App\Services\WorkOrderPartService;
+use App\Services\WorkOrderProposalService;
+use App\Services\WorkPermitService;
 use App\Support\MorphMap;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
@@ -463,6 +469,7 @@ class DemoSeeder extends Seeder
         $this->seedPreventiveMaintenance($atriomWalk);
         $this->seedVendorBills($atriomWalk);
         $this->seedExpenses($atriomWalk);
+        $this->seedFacilityCosts($atriomWalk);
         $this->seedSecurityDeposits();
         $this->seedPostDatedCheques($atriomWalk);
 
@@ -3068,8 +3075,160 @@ class DemoSeeder extends Seeder
      * orders immediately, then one work order walked all the way to done with its
      * checklist ticked — showing the full plan → work order → completion flow.
      */
+    /**
+     * The demo cost base: EGP/hour per trade, and the ceiling above which a contractor must come
+     * back for approval.
+     *
+     * **Seeded here and NOT at install, deliberately.** These are the operator's own numbers: a
+     * plausible-looking default hourly rate silently misprices every hour anybody books against
+     * it, and a default ceiling silently authorises spend nobody agreed to. A fresh install ships
+     * both null and the trade screen asks for them — which is also what ServiceChannel does, where
+     * NTE is opt-in per category rather than one global figure.
+     *
+     * Runs BEFORE the preventive generator, because a plan's estimated hours are priced at the
+     * moment the job is raised: with the rates still null, every generated work order would carry
+     * a zero estimate and the est-vs-act column would be empty for the life of the demo.
+     */
+    /**
+     * A HISTORY of preventive visits, so the compliance metric has something to measure.
+     *
+     * PM compliance — what share of planned visits happened by the date they were due — is the
+     * headline number every FM system leads with, and it is meaningless against a single cycle.
+     * Seeded fresh, every plan had exactly one generated job, all of them still open and all past
+     * due, so every plan read **0%**: arithmetically correct and useless, and on screen it reads as
+     * a broken system rather than a new one.
+     *
+     * These rows are written directly rather than through the generator, because the generator
+     * raises only what is due TODAY — six months of scans cannot be replayed after the fact. The
+     * shape is the generator's (see GeneratePreventiveWorkOrdersService::raiseOrder), including
+     * pricing the plan's hours at the trade rate, so a history row and a raised one agree about
+     * what a visit is. They carry no checklist items: the closed-out detail of a visit from four
+     * months ago is not something the demo needs, and inventing per-item results would be fiction
+     * dressed as evidence.
+     *
+     * The late ones are deliberate. A programme that is 100% compliant everywhere teaches nobody
+     * what the number is for, and the operator's real question — which plan is slipping — needs a
+     * plan that is slipping.
+     */
+    private function seedPmHistory(): void
+    {
+        // occurrences to write, and which of them (counting back from the most recent) ran late
+        $history = [
+            'HVAC filter & coil service' => ['count' => 8, 'late' => [2]],
+            'Monthly fire-safety inspection' => ['count' => 6, 'late' => []],
+            'Elevator quarterly maintenance' => ['count' => 4, 'late' => [1]],
+            'Generator monthly test-run' => ['count' => 6, 'late' => [3]],
+            'Chiller annual overhaul' => ['count' => 2, 'late' => []],
+        ];
+
+        $engineer = User::where('email', 'operations@mall.test')->value('id');
+        $written = 0;
+
+        foreach (ServicePlan::all() as $plan) {
+            $spec = $history[$plan->title] ?? null;
+
+            if ($spec === null) {
+                continue;
+            }
+
+            $rate = (float) (FacilityWorkOrderLabour::rateFor($plan->trade_id) ?? 0);
+
+            for ($i = 1; $i <= $spec['count']; $i++) {
+                // Step back one full plan interval per occurrence, from the cycle before the one
+                // that is currently open — so history never collides with the live job.
+                $due = $this->stepBack(Carbon::parse($plan->next_due_date), $plan, $i + 1);
+
+                // Late visits landed a few days after they were due; the rest on the day.
+                $late = in_array($i, $spec['late'], true);
+                $completed = $late ? $due->copy()->addDays(6) : $due->copy();
+
+                $order = $plan->workOrders()->create([
+                    'asset_id' => $plan->asset_id,
+                    'unit_id' => $plan->unit_id,
+                    'area_id' => $plan->area_id,
+                    'equipment_id' => $plan->equipment_id,
+                    'title' => $plan->title,
+                    'trade_id' => $plan->trade_id,
+                    'work_order_type' => FacilityWorkOrder::TYPE_PPM,
+                    'status' => 'done',
+                    'priority' => 'medium',
+                    'scheduled_for' => $due->toDateString(),
+                    'est_labour_hours' => $plan->est_labour_hours,
+                    'est_labour_cost' => $plan->est_labour_hours === null
+                        ? null
+                        : round((float) $plan->est_labour_hours * $rate, 2),
+                    'est_material_cost' => $plan->est_material_cost,
+                    'est_service_cost' => $plan->est_service_cost,
+                    'department_id' => $plan->department_id,
+                    'vendor_id' => $plan->vendor_id,
+                    'notes' => (string) $plan->description,
+                ]);
+
+                // `completed_at` is what the compliance state reads; set after creation so the
+                // model's own hooks see a normal open→done shape.
+                $order->forceFill([
+                    'completed_at' => $completed->copy()->setTime(15, 0),
+                    'assigned_to_user_id' => $engineer,
+                ])->save();
+
+                // The hours actually booked — a little over on the late ones, which is usually why
+                // they were late. This is what gives the register a real est-vs-act spread.
+                if ($plan->est_labour_hours !== null && $engineer !== null) {
+                    FacilityWorkOrderLabour::create([
+                        'facility_work_order_id' => $order->id,
+                        'user_id' => $engineer,
+                        'worked_on' => $completed->toDateString(),
+                        'hours' => round((float) $plan->est_labour_hours * ($late ? 1.25 : 1.0), 2),
+                        'recorded_by_user_id' => $engineer,
+                    ]);
+                }
+
+                $written++;
+            }
+        }
+
+        $this->command->info("   Seeded {$written} past preventive visits (so compliance has a history to measure)");
+    }
+
+    /** One plan interval back, `$times` times — the same units a plan schedules in. */
+    private function stepBack(Carbon $from, ServicePlan $plan, int $times): Carbon
+    {
+        $step = (int) $plan->frequency_value * $times;
+
+        return match ($plan->frequency_unit) {
+            'days' => $from->copy()->subDays($step),
+            'weeks' => $from->copy()->subWeeks($step),
+            'years' => $from->copy()->subYears($step),
+            default => $from->copy()->subMonths($step),
+        };
+    }
+
+    private function seedTradeCostBase(): void
+    {
+        // Only the trades this mall actually books against; the rest stay null, which is the
+        // honest state for a trade nobody has priced yet.
+        $rates = [
+            'elevator' => ['rate' => 250, 'nte' => 15000],
+            'hvac' => ['rate' => 200, 'nte' => 10000],
+            'electrical' => ['rate' => 180, 'nte' => 8000],
+            'plumbing' => ['rate' => 160, 'nte' => 6000],
+            'fire-safety' => ['rate' => 220, 'nte' => 12000],
+            'generator' => ['rate' => 240, 'nte' => 12000],
+            'cleaning' => ['rate' => 90, 'nte' => 3000],
+        ];
+
+        foreach ($rates as $code => $v) {
+            Trade::where('code', $code)->update([
+                'standard_hourly_rate' => $v['rate'],
+                'default_nte' => $v['nte'],
+            ]);
+        }
+    }
+
     private function seedPreventiveMaintenance(Asset $asset): void
     {
+        $this->seedTradeCostBase();
+
         $ops = Department::where('slug', 'operations')->value('id');
         $coolAir = Vendor::where('email', 'ops@cool-air.eg')->value('id');
         $fireSafe = Vendor::where('email', 'audit@firesafe.eg')->value('id');
@@ -3091,16 +3250,16 @@ class DemoSeeder extends Seeder
         // `equip` = the machine this plan services (FR-PPM-01/03). A plan naming one is
         // `fixed` (per-asset) maintenance; the rest stay `routine` and property-wide.
         $plans = [
-            ['title' => 'HVAC filter & coil service',      'category' => 'hvac',        'unit' => 'weeks',  'freq' => 2, 'due' => -6,  'dept' => $ops, 'vendor' => $coolAir,     'equip' => 'AHU-01',
+            ['title' => 'HVAC filter & coil service',      'category' => 'hvac',        'unit' => 'weeks',  'freq' => 2, 'due' => -6, 'hours' => 3,  'dept' => $ops, 'vendor' => $coolAir,     'equip' => 'AHU-01',
                 'checklist' => ['Inspect filter condition', 'Replace filter cartridge', 'Clean condenser coil', 'Check airflow pressure']],
-            ['title' => 'Monthly fire-safety inspection',  'category' => 'fire-safety', 'unit' => 'months', 'freq' => 1, 'due' => -3,  'dept' => $ops, 'vendor' => $fireSafe,    'equip' => null,
+            ['title' => 'Monthly fire-safety inspection',  'category' => 'fire-safety', 'unit' => 'months', 'freq' => 1, 'due' => -3, 'hours' => 4,  'dept' => $ops, 'vendor' => $fireSafe,    'equip' => null,
                 'checklist' => ['Inspect fire extinguishers', 'Test fire-alarm panel', 'Check emergency exits', 'Verify signage & lighting']],
-            ['title' => 'Elevator quarterly maintenance',  'category' => 'elevator',    'unit' => 'months', 'freq' => 3, 'due' => -10, 'dept' => $ops, 'vendor' => null,         'equip' => 'LFT-01',
+            ['title' => 'Elevator quarterly maintenance',  'category' => 'elevator',    'unit' => 'months', 'freq' => 3, 'due' => -10, 'hours' => 7, 'dept' => $ops, 'vendor' => null,         'equip' => 'LFT-01',
                 'checklist' => ['Inspect cables & pulleys', 'Test brakes & governor', 'Check door mechanisms', 'Load test', 'Certify safety']],
-            ['title' => 'Generator monthly test-run',      'category' => 'generator',   'unit' => 'months', 'freq' => 1, 'due' => -2,  'dept' => $ops, 'vendor' => $brightSpark, 'equip' => 'GEN-01',
+            ['title' => 'Generator monthly test-run',      'category' => 'generator',   'unit' => 'months', 'freq' => 1, 'due' => -2, 'hours' => 2,  'dept' => $ops, 'vendor' => $brightSpark, 'equip' => 'GEN-01',
                 'checklist' => ['Check fuel & oil levels', 'Run under load 15 min', 'Inspect battery', 'Log readings']],
             // Yearly (FR-PPM-02) — the unit that used to fire monthly.
-            ['title' => 'Chiller annual overhaul',         'category' => 'hvac',        'unit' => 'years',  'freq' => 1, 'due' => -1,  'dept' => $ops, 'vendor' => $coolAir,     'equip' => 'CH-01',
+            ['title' => 'Chiller annual overhaul',         'category' => 'hvac',        'unit' => 'years',  'freq' => 1, 'due' => -1, 'hours' => 16,  'dept' => $ops, 'vendor' => $coolAir,     'equip' => 'CH-01',
                 'checklist' => ['Strip & inspect compressor', 'Replace refrigerant', 'Pressure-test circuit', 'Recommission']],
         ];
 
@@ -3124,6 +3283,10 @@ class DemoSeeder extends Seeder
                 'frequency_unit' => $p['unit'],
                 'frequency_value' => $p['freq'],
                 'checklist' => $p['checklist'],
+                // What the visit is expected to take. Priced at GENERATION against the trade's
+                // rate, so a scheduled job arrives with an estimate to answer its actuals — the
+                // est-vs-act column is empty and meaningless without it.
+                'est_labour_hours' => $p['hours'],
                 'department_id' => $p['dept'],
                 'vendor_id' => $p['vendor'],
                 'next_due_date' => Carbon::now()->addDays($p['due'])->toDateString(),
@@ -3184,7 +3347,323 @@ class DemoSeeder extends Seeder
             ]);
         }
 
+        $this->seedPmHistory();
+
         $this->command->info('   Seeded '.count($plans)." preventive plans, {$created} work orders generated (1 completed)");
+    }
+
+    /**
+     * What a job COSTS — the operational close-out, made demonstrable.
+     *
+     * Everything below already worked; none of it had any demo data, so Operations rendered a
+     * register of jobs with 0.00 in every cost column and empty NTE/failure/permit screens. A
+     * capability nobody can SEE reads exactly like one that was never built, which is the same
+     * failure class as a service with no entry point — so the fixture is part of the feature.
+     *
+     * Driven through the real services wherever one exists (proposals, parts, permits, vendor
+     * bills), so the demo data cannot encode a state the application would refuse.
+     *
+     * **Trade rates and NTE ceilings are seeded HERE and not at install, deliberately.** They are
+     * the operator's own cost base: a plausible-looking default hourly rate silently misprices
+     * every hour anybody books against it, and a default ceiling silently authorises spend. A
+     * fresh install ships them null and the trade screen asks for them — which is also what
+     * ServiceChannel does, where NTE is opt-in per category rather than a global figure.
+     */
+    private function seedFacilityCosts(Asset $asset): void
+    {
+        $engineer = User::where('email', 'operations@mall.test')->first();
+        $manager = User::where('email', 'manager@mall.test')->first();
+        $coolAir = Vendor::where('email', 'ops@cool-air.eg')->first();
+
+        if (! $engineer || ! $manager) {
+            return;
+        }
+
+        $done = FacilityWorkOrder::where('status', 'done')->orderBy('id')->first();
+        $corrective = FacilityWorkOrder::where('reference', 'like', 'CM-%')
+            ->where('execution_type', FacilityWorkOrder::EXECUTION_EXTERNAL)
+            ->orderBy('id')->first();
+
+        // ── The completed PPM visit: hours, so a finished job reports what it cost ──────────
+        //
+        // The rate is frozen onto the row at entry (see FacilityWorkOrderLabour::rateFor) — a
+        // later rate change must never restate the cost of work already done.
+        if ($done) {
+            foreach ([['d' => 3, 'h' => 4.0], ['d' => 2, 'h' => 3.0]] as $shift) {
+                FacilityWorkOrderLabour::create([
+                    'facility_work_order_id' => $done->id,
+                    'user_id' => $engineer->id,
+                    'worked_on' => Carbon::now()->subDays($shift['d'])->toDateString(),
+                    'hours' => $shift['h'],
+                    'recorded_by_user_id' => $engineer->id,
+                    'notes' => 'Scheduled visit — inspection and adjustment.',
+                ]);
+            }
+
+            // Problem · cause · remedy — the Maximo failure triad. This is what makes a register of
+            // jobs answer "what keeps breaking, and why", rather than only "what did we spend".
+            $done->forceFill([
+                'failure_problem_id' => FailureCode::where('code', 'noise')->value('id'),
+                'failure_cause_id' => FailureCode::where('code', 'wear')->value('id'),
+                'failure_remedy_id' => FailureCode::where('code', 'adjusted')->value('id'),
+            ])->save();
+        }
+
+        // ── The corrective job: a quote, a ceiling, and a supplementary that breaches it ────
+        if ($corrective && $coolAir) {
+            $corrective->forceFill([
+                'nte_amount' => Trade::whereKey($corrective->trade_id)->value('default_nte'),
+            ])->save();
+
+            $proposals = app(WorkOrderProposalService::class);
+
+            // The contractor quotes; approval sets the estimate. Under the ceiling, so it passes
+            // without argument — the control should be invisible when it is respected.
+            $first = $proposals->submit($corrective, [
+                'vendor_id' => $coolAir->id,
+                'labour_amount' => 6000,
+                'material_amount' => 4000,
+                'scope' => 'Strip and inspect the traction gear, replace worn sheave bearings, re-tension and re-certify.',
+            ], $manager);
+            $proposals->approve($first, $manager);
+
+            // Then the job opens up — the classic contractor moment, and the one the ceiling
+            // exists for. A supplementary quote does NOT restate the original (that would erase
+            // what was agreed); it adds to it, and the total now sits above the NTE, which the
+            // job says out loud without blocking anybody. Deciding to spend it is the operator's
+            // call, made visibly rather than discovered on the invoice.
+            $supp = $proposals->submit($corrective, [
+                'vendor_id' => $coolAir->id,
+                'is_supplementary' => true,
+                'material_amount' => 7000,
+                'scope' => 'Additional: governor rope found glazed on strip-down — replace and re-test.',
+            ], $manager);
+            $proposals->approve($supp, $manager);
+
+            // Parts off the shelf, on the same job as the contractor's labour: requested by the
+            // engineer, approved by somebody else (self-approval is refused — the control is a
+            // second pair of eyes), which is what moves the stock and lands the cost.
+            $parts = app(WorkOrderPartService::class);
+            $breaker = InventoryItem::where('sku', 'CB-16A')->first();
+
+            if ($breaker) {
+                $draw = $parts->requestInternal($corrective, [
+                    'inventory_item_id' => $breaker->id,
+                    'warehouse_id' => Warehouse::where('name', 'Parts Store')->value('id') ?? 1,
+                    'quantity' => 2,
+                ], $engineer->id);
+                $parts->approve($draw, $manager);
+            }
+
+            $corrective->forceFill([
+                'failure_problem_id' => FailureCode::where('code', 'noise')->value('id'),
+                'failure_cause_id' => FailureCode::where('code', 'part_failure')->value('id'),
+                'failure_remedy_id' => FailureCode::where('code', 'part_replaced')->value('id'),
+            ])->save();
+
+            // The contractor's invoice, FILED AGAINST THE JOB. This is the whole point of the
+            // work order being a cost object: the bill posts to the ledger exactly as it always
+            // did, and the job it belongs to can now say what it actually cost.
+            $billDate = Carbon::now()->subDays(4);
+            $subtotal = 17000.0;
+            $vat = round($subtotal * 0.14, 2);
+
+            $bill = VendorBill::create([
+                'vendor_id' => $coolAir->id,
+                'asset_id' => $asset->id,
+                'facility_work_order_id' => $corrective->id,
+                'category' => 'maintenance',
+                'bill_date' => $billDate->toDateString(),
+                'due_date' => $billDate->copy()->addDays(30)->toDateString(),
+                'reference' => 'CA-'.strtoupper(Str::random(6)),
+                'subtotal' => $subtotal,
+                'vat_amount' => $vat,
+                'total' => $subtotal + $vat,
+                'status' => 'draft',
+            ]);
+            app(VendorBillService::class)->approve($bill);
+
+            $corrective->refresh()->recomputeCosts();
+        }
+
+        // ── The breach: an invoice above what was authorised, with nobody's approval on it ──
+        //
+        // This is what the ceiling is FOR, and it is a different event from the supplementary
+        // above: approving a supplementary IS the authorisation, so an approved one can never be
+        // a breach — it raises the ceiling by its own amount. A breach is the contractor invoicing
+        // past the ceiling having asked nobody. Shown, never blocked (see overNteBy) — the work is
+        // done and jamming accounts payable would punish the wrong party; the control is that the
+        // overspend is visible and attributable instead of surfacing months later in the P&L.
+        $scheduled = FacilityWorkOrder::where('reference', 'like', 'WO-%')
+            ->where('status', '!=', 'done')
+            ->whereNotNull('vendor_id')
+            ->orderBy('id')->first();
+
+        if ($scheduled && $coolAir) {
+            $scheduled->forceFill([
+                'nte_amount' => Trade::whereKey($scheduled->trade_id)->value('default_nte'),
+            ])->save();
+
+            $overDate = Carbon::now()->subDays(2);
+            $overSubtotal = 12500.0;
+            $overVat = round($overSubtotal * 0.14, 2);
+
+            $overBill = VendorBill::create([
+                'vendor_id' => $coolAir->id,
+                'asset_id' => $asset->id,
+                'facility_work_order_id' => $scheduled->id,
+                'category' => 'maintenance',
+                'bill_date' => $overDate->toDateString(),
+                'due_date' => $overDate->copy()->addDays(30)->toDateString(),
+                'reference' => 'CA-'.strtoupper(Str::random(6)),
+                'subtotal' => $overSubtotal,
+                'vat_amount' => $overVat,
+                'total' => $overSubtotal + $overVat,
+                'status' => 'draft',
+            ]);
+            app(VendorBillService::class)->approve($overBill);
+
+            $scheduled->refresh()->recomputeCosts();
+        }
+
+        $this->seedRepeatVisits($asset, $engineer);
+
+        $this->seedWorkPermits($asset, $corrective, $coolAir, $engineer);
+
+        $costed = FacilityWorkOrder::where('act_total_cost', '>', 0)->count();
+        $overNte = FacilityWorkOrder::overNte()->count();
+        $this->command->info("   Seeded work-order costs on {$costed} jobs (labour · parts · contractor bills), 2 proposals, {$overNte} over NTE, 3 permits");
+    }
+
+    /**
+     * Permits to work — the safety control, in the three states that matter.
+     *
+     * The register is only worth having if the LAPSED one is in it: an issued permit whose window
+     * has passed and which nobody closed out means no one recorded that the welding stopped and
+     * the area was checked. That is the row a safety audit looks for, so the demo has one.
+     */
+    /**
+     * The fault that keeps coming back (benchmark scenario S6).
+     *
+     * The cheapest high-value signal in retail FM: three visits to the same shop for the same
+     * trade inside a month is one unfixed fault and three invoices, and without the link the
+     * register shows three unrelated successes. ServiceChannel surfaces it; so does Maximo.
+     *
+     * Seeded on a UNIT with no equipment named, deliberately — that exercises the fallback a
+     * tenant-reported fault actually takes (a shop is what a tenant reports about), which the
+     * plant-room jobs never do.
+     *
+     * **`created_at` is set explicitly, and that is the point.** Repeat detection orders by it, and
+     * everything a seeder writes shares one timestamp — so a repeat pair written the obvious way
+     * ends up with neither job before the other and the signal silently reads clean. Real jobs are
+     * days apart; the fixture has to be too, or it is not a fixture of the thing.
+     */
+    private function seedRepeatVisits(Asset $asset, User $engineer): void
+    {
+        $unitId = Unit::where('asset_id', $asset->id)
+            ->where('status', 'occupied')
+            ->orderBy('id')
+            ->value('id');
+
+        $tradeId = Trade::where('code', 'electrical')->value('id');
+
+        if ($unitId === null || $tradeId === null) {
+            return;
+        }
+
+        $visits = [
+            ['days' => 24, 'note' => 'Lighting circuit in the shopfront tripping intermittently. Breaker reset, tested and left working.'],
+            ['days' => 12, 'note' => 'Same circuit tripped again over the weekend. Reset and load-tested — no fault found on site.'],
+            ['days' => 3,  'note' => 'Tripped a third time. Tenant reports it happens under full display lighting.'],
+        ];
+
+        foreach ($visits as $i => $v) {
+            $raisedOn = Carbon::now()->subDays($v['days']);
+            $last = $i === count($visits) - 1;
+
+            $order = FacilityWorkOrder::create([
+                'asset_id' => $asset->id,
+                'unit_id' => $unitId,
+                'title' => 'Shopfront lighting circuit tripping',
+                'trade_id' => $tradeId,
+                'work_order_type' => FacilityWorkOrder::TYPE_CM,
+                // A corrective job must say who does it (FR-CM-02) — the model refuses one that
+                // does not, which is how this fixture got caught being unrealistic.
+                'execution_type' => FacilityWorkOrder::EXECUTION_INTERNAL,
+                'status' => $last ? 'open' : 'done',
+                'priority' => 'high',
+                'scheduled_for' => $raisedOn->toDateString(),
+                'assigned_to_user_id' => $engineer->id,
+                'department_id' => Department::where('slug', 'operations')->value('id'),
+                'description' => $v['note'],
+            ]);
+
+            $order->forceFill([
+                'created_at' => $raisedOn,
+                'completed_at' => $last ? null : $raisedOn->copy()->addHours(3),
+                // The first two were closed "no fault found" — which is exactly how a recurring
+                // fault survives three visits and reads as three successes.
+                'failure_problem_id' => FailureCode::where('code', 'intermittent')->value('id'),
+                'failure_remedy_id' => $last ? null : FailureCode::where('code', 'no_fault_found')->value('id'),
+            ])->save();
+
+            if (! $last) {
+                FacilityWorkOrderLabour::create([
+                    'facility_work_order_id' => $order->id,
+                    'user_id' => $engineer->id,
+                    'worked_on' => $raisedOn->toDateString(),
+                    'hours' => 1.5,
+                    'recorded_by_user_id' => $engineer->id,
+                ]);
+            }
+        }
+    }
+
+    private function seedWorkPermits(Asset $asset, ?FacilityWorkOrder $order, ?Vendor $vendor, User $issuer): void
+    {
+        $svc = app(WorkPermitService::class);
+
+        // Live now — what a guard on the door checks against.
+        $live = WorkPermit::create([
+            'asset_id' => $asset->id,
+            'type' => WorkPermit::TYPE_HOT_WORK,
+            'vendor_id' => $vendor?->id,
+            'contractor_name' => $vendor?->name ?? 'Cool Air Services',
+            'facility_work_order_id' => $order?->id,
+            'location' => 'Lift machine room, roof level',
+            'description' => 'Cutting and welding of bracketry for the replacement sheave bearing.',
+            'conditions' => 'Fire watch posted throughout and for 60 minutes after. Extinguisher and blanket on site. Detector head isolated and RESTORED at close.',
+            'valid_from' => Carbon::now()->subHours(2),
+            'valid_to' => Carbon::now()->addHours(3),
+        ]);
+        $svc->issue($live, $issuer);
+
+        // Issued, window passed, nobody signed it off — the finding the nightly scan reports.
+        $lapsed = WorkPermit::create([
+            'asset_id' => $asset->id,
+            'type' => WorkPermit::TYPE_ELECTRICAL_ISOLATION,
+            'contractor_name' => 'BrightSpark Electrical',
+            'location' => 'Main switch room, basement',
+            'description' => 'Isolation of distribution board DB-3 to change a faulty breaker.',
+            'conditions' => 'Lock-off applied and keys held by the duty engineer. Prove dead before work.',
+            'valid_from' => Carbon::now()->subDays(2)->setTime(9, 0),
+            'valid_to' => Carbon::now()->subDays(2)->setTime(17, 0),
+        ]);
+        $svc->issue($lapsed, $issuer);
+
+        // Closed out properly — the control working, which the register should also show.
+        $closed = WorkPermit::create([
+            'asset_id' => $asset->id,
+            'type' => WorkPermit::TYPE_WORKING_AT_HEIGHT,
+            'contractor_name' => 'CleanFleet Services',
+            'location' => 'Atrium, level 2 void',
+            'description' => 'Cleaning the atrium glazing from a mobile tower.',
+            'conditions' => 'Area barriered below. Tower erected and inspected by a competent person.',
+            'valid_from' => Carbon::now()->subDays(6)->setTime(7, 0),
+            'valid_to' => Carbon::now()->subDays(6)->setTime(12, 0),
+        ]);
+        $svc->issue($closed, $issuer);
+        $svc->close($closed, 'Tower struck, barriers removed, area inspected and left clear.', $issuer);
     }
 
     /**
