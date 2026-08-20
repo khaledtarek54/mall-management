@@ -1086,6 +1086,52 @@ carries a **ppm_overdue** card, gated on `facility.view` like every other, linki
 register. It is **warning, not danger**: unlike a breached SLA nobody is waiting on the phone, and
 colouring routine maintenance the same red as an urgent fault is how a dashboard stops being read.
 
+### The tenant confirms the work is done (2026-08-20, close-out step 4)
+
+**Benchmark:** ServiceChannel §4/§6 — *"A tenant confirming completion is a control, not a courtesy.
+It is what stops a job being closed by the person who was paid to do it."* Scenario S7 is the shape
+of the failure: a drain partially cleared, marked done, and the shop floods two days later during
+trading hours.
+
+**What already existed, checked before anything was built.** The lifecycle was already right —
+`resolved → closed` and `resolved → in_progress` are both legal — `requests:auto-close` already
+closed a resolved request after `config('requests.auto_close_after_days')`, and a tenant could
+already **rate** one. So the gap was narrower than "no confirmation concept": the tenant could give
+feedback *after the fact* and could not **accept or dispute the resolution itself**. The operator
+closed it, or the timer did, and a tenant's only recourse to "it is not actually fixed" was to raise
+a second request that nothing connected to the first.
+
+**Two actions on a `resolved` request, in the portal:**
+
+- **Confirm** → `closed`, stamping `confirmed_at` and **which person** accepted. The portal is
+  multi-user; a confirmation nobody signed is the same evidence as no confirmation. The modal shows
+  the resolution notes, so nobody confirms work they have not read.
+- **Not fixed** → back to `in_progress`, with a **required** reason posted to the comment thread. A
+  bare "not fixed" sends an engineer back knowing no more than the first time, and it is the
+  tenant's own words that say whether this is the same fault or a new one. The thread rather than a
+  column, because a second dispute would overwrite a column and the history is the point.
+
+`CONFIRMABLE` is deliberately narrower than `RATEABLE`: a tenant may rate a job that is already
+closed, but may only confirm one that is still `resolved` — confirming is a control *before*
+closure, and there is nothing left to control once it is shut.
+
+#### It does not reopen the work order, deliberately
+
+A terminal work order is immutable here, and the module already has the right construct: a
+**follow-up** job, linked to the original by `parent_work_order_id` and separately costed. Raising
+one is an operator's decision about who to send and when — not something a tenant's click should do
+on their behalf. What the click does is make the request the operator's problem again, which is what
+a tenant can legitimately demand.
+
+#### Silence is consent, and the two are now distinguishable
+
+`requests:auto-close` keeps its behaviour and gains a meaning: a tenant who does not answer within
+the window is taken to have accepted. That is the right default — chasing a retailer for a click is
+how a queue of "resolved" requests never closes. But a close nobody confirmed must not *look* like
+one somebody did, so `confirmed_at` tells them apart, and the admin list says either
+**"Confirmed by Ahmed Hassan"** or **"Closed unconfirmed"**. An operator asking "did the tenant
+actually say this was fixed?" can now get an answer.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -1106,6 +1152,7 @@ colouring routine maintenance the same red as an urgent fault is how a dashboard
 | **12 — Trade register (2026-08-20, close-out step 1)** | `trades` + `trade_vendor`; work orders, service plans and equipment all classify by a ROW instead of a translation key; `standard_hourly_rate` (the craft rate the cost object will read); the vendor picker grouped by eligibility; `category` dropped from all three tables with a code-matched backfill. Fixed a live defect on the way: a tenant's problem category was being written into the work order's trade | ✅ shipped |
 | **13 — The work order as a cost object (2026-08-20, close-out step 2)** | Planned and actual cost in three buckets on `facility_work_orders`; `facility_work_order_labour` (the primitive that did not exist — hours × the craft rate, frozen at entry); `facility_work_order_id` on `vendor_bills` and `expenses` so contractor work is attributable at all; `recomputeCosts()` as the single source of truth with all three channels wired; cost columns on the job, lifetime cost on the machine; `job_value` replaced by `est_service_cost` and the SLA percent basis rewired to prefer the actual. **Explicitly NOT a GL source** — the money is already posted three other ways, and a gate keeps it that way | ✅ shipped |
 | **14 — PM compliance (2026-08-20, close-out step 3)** | Four derived states on a preventive order (`on_time` · `late` · `overdue` · `due`) with query twins the column, the two filters and the plan figure all share; `ServicePlan::complianceRate()` per plan with a one-query list variant pinned to agree with it. Strict, with no tolerance window — a stated deviation from Maximo, because one global number is wrong for both a weekly round and an annual overhaul | ✅ shipped |
+| **15 — Tenant confirms the resolution (2026-08-20, close-out step 4)** | Confirm / "not fixed" on a `resolved` request in the portal, recording WHICH person accepted; a dispute returns it to `in_progress` with a required reason on the comment thread. Auto-close keeps taking silence as consent, and `confirmed_at` now distinguishes a close the tenant made from one the timer did. Does **not** reopen the work order — that is a follow-up job and an operator's decision | ✅ shipped |
 
 ---
 

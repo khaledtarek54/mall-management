@@ -2,6 +2,8 @@
 
 return [
     'fields' => [
+        'confirmed_at' => 'Tenant confirmed at',
+        'tenant_confirmed' => 'Tenant confirmed',
         'hours' => 'Hours',
         'hourly_rate' => 'Hourly rate',
         'worked_on' => 'Date worked',

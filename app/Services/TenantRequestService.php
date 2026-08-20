@@ -8,6 +8,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
+use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\PortalRequestSubmittedNotification;
@@ -339,6 +340,94 @@ class TenantRequestService
 
     /** Statuses at which the tenant may submit a close-out satisfaction rating. */
     public const RATEABLE = ['resolved', 'closed'];
+
+    /**
+     * The one status a tenant may accept or dispute.
+     *
+     * Deliberately narrower than {@see RATEABLE}: a tenant may rate a request that is already
+     * closed — feedback after the fact — but may only CONFIRM one that is still `resolved`, because
+     * confirming is a control BEFORE closure and there is nothing left to control once it is shut.
+     */
+    public const CONFIRMABLE = ['resolved'];
+
+    /**
+     * **"Yes, this is actually done."** — `resolved → closed`, with a name on it.
+     *
+     * ServiceChannel §6: a tenant confirming completion is a control, not a courtesy. It is what
+     * stops a job being closed by the party who was paid to close it. Until 2026-08-20 the operator
+     * closed the request, or `requests:auto-close` did, and the tenant's only recourse to "it is not
+     * actually fixed" was to raise a second request that nothing connected to the first.
+     *
+     * The portal is multi-user, so this records WHICH person accepted — a confirmation nobody signed
+     * is the same evidence as no confirmation at all.
+     */
+    public function confirmResolution(TenantRequest $request, ?TenantUser $by = null): TenantRequest
+    {
+        if (! in_array($request->status, self::CONFIRMABLE, true)) {
+            throw ValidationException::withMessages([
+                'status' => [__('api.request_cannot_confirm')],
+            ]);
+        }
+
+        return DB::transaction(function () use ($request, $by) {
+            $request->forceFill([
+                'confirmed_at' => now(),
+                'confirmed_by_tenant_user_id' => $by?->getKey(),
+            ])->save();
+
+            // Through `transition()`, never a direct status write: that method owns the legal-move
+            // matrix, the timestamps and the notification, and a second road to `closed` would
+            // eventually disagree with it.
+            return $this->transition($request->refresh(), 'closed');
+        });
+    }
+
+    /**
+     * **"No, it is not fixed."** — `resolved → in_progress`, with the reason on the thread.
+     *
+     * The reason is REQUIRED. "Not fixed" on its own sends an engineer back with no more information
+     * than they had the first time, which is how a job gets closed and reopened three times; and it
+     * is the tenant's own words that tell an operator whether this is the same fault or a new one.
+     *
+     * **It does NOT reopen the work order**, and that is deliberate. A terminal work order is
+     * immutable here, and the module already has the right construct for this: a FOLLOW-UP job,
+     * linked to the original and separately costed (`parent_work_order_id`). Raising one is an
+     * operator's decision about who to send and when — not something a tenant's click should do on
+     * their behalf. What the tenant's click does is make the request the operator's problem again,
+     * which is what they can legitimately demand.
+     */
+    public function disputeResolution(TenantRequest $request, ?TenantUser $by, string $reason): TenantRequest
+    {
+        if (! in_array($request->status, self::CONFIRMABLE, true)) {
+            throw ValidationException::withMessages([
+                'status' => [__('api.request_cannot_confirm')],
+            ]);
+        }
+
+        if (trim($reason) === '') {
+            throw ValidationException::withMessages([
+                'reason' => [__('api.request_dispute_needs_reason')],
+            ]);
+        }
+
+        return DB::transaction(function () use ($request, $reason) {
+            // On the comment thread rather than in a column of its own: the operator reads the
+            // dispute where they read everything else about the job, and the history survives a
+            // second dispute — which a single column would overwrite.
+            $this->comment(
+                $request,
+                $request->tenant,
+                __('admin.tenant_requests.disputed_comment', ['reason' => trim($reason)]),
+                false,
+            );
+
+            // Clearing the stamp matters: a request disputed after an earlier confirmation must not
+            // still read as accepted.
+            $request->forceFill(['confirmed_at' => null, 'confirmed_by_tenant_user_id' => null])->save();
+
+            return $this->transition($request->refresh(), 'in_progress');
+        });
+    }
 
     /**
      * Record the tenant's close-out satisfaction (CSAT 1–5 + optional comment).

@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'request_cannot_confirm' => 'Only a resolved request can be confirmed or disputed.',
+    'request_dispute_needs_reason' => 'Say what is still wrong.',
 
     // Profile
     'profile_updated' => 'Profile updated.',

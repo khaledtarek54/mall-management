@@ -2,6 +2,8 @@
 
 return [
     'fields' => [
+        'confirmed_at' => 'تاريخ تأكيد المستأجر',
+        'tenant_confirmed' => 'تأكيد المستأجر',
         'hours' => 'الساعات',
         'hourly_rate' => 'سعر الساعة',
         'worked_on' => 'تاريخ العمل',

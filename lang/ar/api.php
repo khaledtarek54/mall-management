@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'request_cannot_confirm' => 'لا يمكن تأكيد أو رفض سوى طلب تم حله.',
+    'request_dispute_needs_reason' => 'اذكر ما الذي ما زال غير سليم.',
 
     // Profile
     'profile_updated' => 'تم تحديث الملف الشخصي.',

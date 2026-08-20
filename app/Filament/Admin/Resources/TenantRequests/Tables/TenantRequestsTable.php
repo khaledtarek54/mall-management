@@ -162,6 +162,24 @@ class TenantRequestsTable
                     ->placeholder('—')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                // **Did the tenant actually say this was fixed, or did the timer close it?**
+                // `requests:auto-close` takes silence as consent after the configured window —
+                // the right default — but a close nobody confirmed must not look like one somebody
+                // did, and that question was previously unanswerable.
+                TextColumn::make('confirmed_at')
+                    ->label(__('admin.fields.tenant_confirmed'))
+                    ->badge()
+                    ->state(fn (TenantRequest $r): ?string => match (true) {
+                        $r->confirmedByTenant() => __('admin.tenant_requests.confirmed_by', [
+                            'who' => $r->confirmedBy?->name ?? __('admin.tenant_requests.the_tenant'),
+                        ]),
+                        $r->status === 'closed' => __('admin.tenant_requests.closed_unconfirmed'),
+                        default => null,
+                    })
+                    ->color(fn (TenantRequest $r): ?string => $r->confirmedByTenant() ? 'success' : 'gray')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('csat_rating')
                     ->label(__('admin.fields.csat'))
                     ->formatStateUsing(fn (?int $state) => $state ? str_repeat('★', $state).str_repeat('☆', 5 - $state) : null)

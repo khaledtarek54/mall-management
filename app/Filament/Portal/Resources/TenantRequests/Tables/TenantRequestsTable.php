@@ -20,6 +20,18 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TenantRequestsTable
 {
+    /**
+     * Named once so `visible()` and `abort_unless()` cannot drift — the double-gate rule.
+     *
+     * Read-only portal users may not write anything (`Portal::isAdmin()`), and only a `resolved`
+     * request is open to a decision.
+     */
+    private static function tenantMayConfirm(TenantRequest $record): bool
+    {
+        return Portal::isAdmin()
+            && in_array($record->status, TenantRequestService::CONFIRMABLE, true);
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -91,6 +103,54 @@ class TenantRequestsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                // **The control ServiceChannel §6 calls out: the doer must not be the one who
+                // closes the job.** Offered only while the request is `resolved` — confirming is a
+                // control BEFORE closure, and there is nothing left to control once it is shut.
+                //
+                // ⚠️ visible() styles the page; the abort_unless() in action() is the gate.
+                Action::make('confirmResolution')
+                    ->label(__('admin.tenant_requests.confirm_resolution'))
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (TenantRequest $record) => __('admin.tenant_requests.confirm_modal_heading', ['ref' => $record->reference]))
+                    // What was actually done, so nobody confirms a resolution they have not read.
+                    ->modalDescription(fn (TenantRequest $record) => $record->resolution_notes
+                        ?: __('admin.tenant_requests.confirm_no_notes'))
+                    ->visible(fn (TenantRequest $record) => self::tenantMayConfirm($record))
+                    ->action(function (TenantRequest $record) {
+                        abort_unless(self::tenantMayConfirm($record), 403);
+
+                        app(TenantRequestService::class)->confirmResolution($record, Portal::user());
+
+                        Notification::make()->title(__('admin.tenant_requests.confirmed'))->success()->send();
+                    }),
+
+                Action::make('disputeResolution')
+                    ->label(__('admin.tenant_requests.dispute_resolution'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->modalHeading(fn (TenantRequest $record) => __('admin.tenant_requests.dispute_modal_heading', ['ref' => $record->reference]))
+                    ->schema([
+                        Textarea::make('reason')
+                            ->label(__('admin.tenant_requests.dispute_reason'))
+                            ->required()
+                            ->rows(3)
+                            ->maxLength(1000)
+                            // Required for a reason: "not fixed" alone sends an engineer back
+                            // knowing no more than the first time.
+                            ->helperText(__('admin.tenant_requests.dispute_reason_hint')),
+                    ])
+                    ->visible(fn (TenantRequest $record) => self::tenantMayConfirm($record))
+                    ->action(function (TenantRequest $record, array $data) {
+                        abort_unless(self::tenantMayConfirm($record), 403);
+
+                        app(TenantRequestService::class)
+                            ->disputeResolution($record, Portal::user(), $data['reason']);
+
+                        Notification::make()->title(__('admin.tenant_requests.disputed'))->warning()->send();
+                    }),
+
                 Action::make('rate')
                     ->label(__('admin.actions.rate_request'))
                     ->icon('heroicon-o-star')

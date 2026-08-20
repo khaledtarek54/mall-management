@@ -67,7 +67,7 @@ class TenantRequest extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'valid_from', 'valid_to', 'resolution_notes', 'decision', 'decision_reason', 'csat_rating'])
+            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'valid_from', 'valid_to', 'resolution_notes', 'decision', 'decision_reason', 'csat_rating', 'confirmed_at'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('tenant_request');
@@ -118,6 +118,7 @@ class TenantRequest extends Model implements HasMedia
         'acknowledged_at' => 'datetime',
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
+        'confirmed_at' => 'datetime',
         'target_resolution_at' => 'datetime',
         'scheduled_from' => 'datetime',
         'scheduled_to' => 'datetime',
@@ -236,6 +237,25 @@ class TenantRequest extends Model implements HasMedia
         static::created(function (self $request) {
             app(NotifyAreaSupervisorsService::class)->notify($request);
         });
+    }
+
+    /** Which person at the tenant accepted the resolution. {@see confirmedByTenant} */
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(TenantUser::class, 'confirmed_by_tenant_user_id');
+    }
+
+    /**
+     * Did the TENANT accept this, or did the operator or the timer close it?
+     *
+     * The distinction is the whole point of storing `confirmed_at`: `requests:auto-close` takes
+     * silence as consent after `config('requests.auto_close_after_days')`, which is the right
+     * default — chasing a retailer for a click is how a queue of "resolved" requests never closes —
+     * but a close nobody confirmed must not LOOK like one somebody did.
+     */
+    public function confirmedByTenant(): bool
+    {
+        return $this->confirmed_at !== null;
     }
 
     public function tenant(): BelongsTo
