@@ -145,7 +145,12 @@ class TenantStatementPdfService
             'open_count' => $openInvoices->count(),
         ];
 
-        $asset = $tenant->leases->first()?->unit?->asset;
+        // Not `leases->first()?->unit?->asset`: a unit OWNER is a `tenants` row (module 37) and may
+        // hold no lease at all, while the invoice query below happily lists their assessments — so
+        // that chain rendered their statement with no property and no issuer block. The invoices'
+        // own `asset_id` is the answer, and it is NOT NULL.
+        $asset = $tenant->leases->first()?->unit?->asset
+            ?? $invoicesAll->first()?->asset;
 
         return [
             'tenant' => $tenant,

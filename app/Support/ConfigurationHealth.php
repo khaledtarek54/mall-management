@@ -67,6 +67,7 @@ class ConfigurationHealth
     {
         return [
             self::sellerTaxIdentity(),
+            self::billingContact(),
             self::chargeCodesClassified(),
             self::taxCodesCommissioned(),
             self::withholdingConfigured(),
@@ -231,6 +232,28 @@ class ConfigurationHealth
             severity: self::BLOCKING,
             ok: $trn !== '',
             detail: $trn !== '' ? $trn : '',
+        );
+    }
+
+    /**
+     * Nobody can ask about a bill.
+     *
+     * Advisory rather than blocking: an invoice with no contact line is still a valid invoice, and
+     * every other particular on it is right. It is here because EG-05 turned a WRONG contact into
+     * NO contact — the documents used to print `billing@{property-slug}.test`, which reached nobody
+     * — and the honest version of that fix is silence plus a row telling the operator to fill it,
+     * not silence alone.
+     */
+    private static function billingContact(): array
+    {
+        $email = IssuingEntity::billingEmail();
+
+        return self::check(
+            key: 'billing_contact',
+            category: self::BILLING,
+            severity: self::ADVISORY,
+            ok: $email !== '',
+            detail: $email,
         );
     }
 

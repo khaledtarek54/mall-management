@@ -67,6 +67,25 @@ it('reports a missing seller tax registration number, and stops once it is set',
         ->and(healthCheck('seller_tax_identity')['detail'])->toBe('123-456-789');
 });
 
+it('says nobody can ask about a bill until a contact is set', function () {
+    // EG-05 turned a WRONG contact into NO contact — the documents used to print a fabricated
+    // address that reached nobody. The honest version of that fix is silence PLUS a row telling the
+    // operator to fill it; silence alone just moves the failure somewhere quieter.
+    $settings = app(TaxSettings::class);
+    $settings->seller_billing_email = '';
+    $settings->save();
+
+    expect(healthCheck('billing_contact')['ok'])->toBeFalse()
+        // Advisory: an invoice with no contact line is still a valid invoice.
+        ->and(healthCheck('billing_contact')['severity'])->toBe(ConfigurationHealth::ADVISORY);
+
+    $settings->seller_billing_email = 'billing@eltizam.example';
+    $settings->save();
+
+    expect(healthCheck('billing_contact')['ok'])->toBeTrue()
+        ->and(healthCheck('billing_contact')['detail'])->toBe('billing@eltizam.example');
+});
+
 it('names the charge codes nobody has ruled on for tax', function () {
     // The seeded catalogue classifies every code, so the control comes first.
     expect(healthCheck('charge_codes_classified')['ok'])->toBeTrue();

@@ -152,6 +152,11 @@ return [
                 'impact' => 'Your tax invoices print without a registration number, so a tenant cannot use them to reclaim the VAT you charged them. Set it under Settings → Tax.',
                 'ok' => 'Printed on every tax invoice as :detail.',
             ],
+            'billing_contact' => [
+                'name' => 'Tenants can ask about a bill',
+                'impact' => 'Your invoices and statements print no billing contact, so a tenant querying one has no address to write to. Set it under Settings → Tax. (Until 2026-08-21 these documents printed a fabricated address that reached nobody, which is why the line is now omitted rather than invented.)',
+                'ok' => 'Printed on invoices and statements as :detail.',
+            ],
             'charge_codes_classified' => [
                 'name' => 'Every charge code is ruled on for tax',
                 'impact' => ':count charge code(s) name no tax code, so they bill at the assumed standard rate rather than your accountant\'s ruling — on every invoice, until somebody notices. Set them under General Ledger → Charge codes. (:detail)',

@@ -41,6 +41,18 @@ final class PhpExtensions
     public const SELF_DECLARED = ['intl', 'mbstring', 'zip'];
 
     /**
+     * Required to INSTALL but not worth failing a running box over.
+     *
+     * `exif` is the whole list: `spatie/image` hard-requires it, so `composer install` already
+     * refuses without it, and the only thing its absence costs at request time is image
+     * conversions — thumbnails. `/health` answers 503 on any failed check, and paging the on-call
+     * because a logo has no thumbnail is how a health endpoint stops being read.
+     *
+     * @var array<int, string>
+     */
+    public const DEGRADES_ONLY = ['exif'];
+
+    /**
      * extension => what an operator loses at request time without it.
      *
      * @var array<string, string>
@@ -49,11 +61,11 @@ final class PhpExtensions
         'intl' => 'every money and numeric column throws — Number::currency() refuses without it, and the search fold silently stops matching «أحمد» to «احمد»',
         'mbstring' => 'text handling fails app-wide; Arabic is mangled rather than merely unsorted',
         'gd' => 'no PDF renders — mpdf needs it for every invoice, statement, payslip and purchase order',
-        'zip' => 'no XLSX export, no owner pack, and backup:run writes nothing',
+        'zip' => 'no XLSX export and no owner pack — and backup:run writes nothing, though that one fails in the CLI',
         'fileinfo' => 'uploads are rejected or mis-typed — the media library detects MIME through it',
-        'exif' => 'image conversions fail, so tenant logos and unit photos never generate their thumbnails',
         'dom' => 'XLSX export and HTML sanitisation fail',
-        'curl' => 'no outbound HTTP — the payment gateway, push notifications and error reporting all go silent',
+        'iconv' => 'the invoice payment-link QR fails to render — bacon/bacon-qr-code needs it, and the QR is in the operator-facing modal',
+        'curl' => 'error reporting stops (sentry hard-requires it) and outbound HTTP falls back to the slower stream handler',
         'openssl' => 'sessions, signed URLs and encrypted columns fail',
     ];
 

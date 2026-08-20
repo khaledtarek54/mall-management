@@ -625,10 +625,41 @@ catching it** — it resolved `$asset` through the lease too. The assembly is no
 
 ---
 
-**Two deployment notes this milestone creates:**
+### 2026-08-21 — milestone 3 review fixes
 
-- `docs/qa/scripts/baseline.sql` is now stale — it predates the `billing_day` drop. Re-run
-  `composer qa:baseline` before `composer qa` or `composer test:mysql`, per that script's own note.
+The review found the fix was real and the **evidence for it was not**, which is the honest summary:
+
+| Finding | What it was |
+|---|---|
+| 🟠 | **No test proved the new contact PRINTS on any of the three documents.** The file asserted the *absence* of the fabricated address and never the *presence* of the real one, so deleting `@if($billingEmail)` from all three templates left every case green. The case named for the asset statement asserted `class_exists()` — a tautology |
+| 🟠 | **The same null-lease defect was still live on the RECEIPT** — `$payment->invoices->first()?->lease?->unit?->asset`. An owner paying their صيانة assessment got a counter receipt with no property and no issuer. It degrades quietly instead of crashing, which is why nobody reported it |
+| 🟠 | **…and on the TENANT STATEMENT**, in a file this milestone edited: a unit owner *is* a `tenants` row and may hold no lease, while the invoice query below happily listed their assessments |
+| 🟠 | `viewData()` rebuilt the property by walking the agreement when `invoices.asset_id` exists, is NOT NULL, and is stamped `withTrashed()`. `CreditNotePdfService` solved the identical problem on 2026-08-15 and left a docblock warning against exactly the chain I wrote |
+| 🟠 | ROADMAP still listed EG-05 as open; module 17 claimed a footer that does not exist; and nothing told the operator to fill the field the documents now depend on — the fix turned a *wrong* contact into *no* contact silently |
+| 🟡 | `PhpExtensions` missed `iconv` (the payment-link QR needs it), and `exif` would have 503'd a perfectly healthy box over missing thumbnails |
+
+**The lesson is the one this repo already records:** I fixed the invoice and did not enumerate its
+peers. The receipt and the tenant statement had the same line, in the same shape, for the same
+reason — and one of them was in a file the same commit was editing.
+
+**A false pass of my own, again in the new test.** `expect($html)->toContain($needle, $message)` —
+Pest's `toContain()` takes VARIADIC needles, so the "message" became a second string it looked for
+and the assertion could never pass for the right reason. Restructured to collect the offenders and
+assert on the list, which `toBe()` does take a message for.
+
+`AssetStatementPdfService` gained a `data()` seam so the owner statement can be asserted at all,
+mirroring `InvoicePdfService::viewData()`; a `billing_contact` advisory row joined
+`/admin/configuration-health`; GO-LIVE gained A1.3; and the census is regenerated (845 test files).
+
+---
+
+**Deployment notes, cumulative across all three milestones:**
+
+- **`docs/qa/scripts/baseline.sql` must be regenerated before `composer qa` or `composer test:mysql`.**
+  It now predates two things: the `leases.billing_day` drop (milestone 1) and the
+  `tax.seller_billing_email` settings row (milestone 3). The second is the sharper one — it is an
+  **exception**, not drift: `reset.sh` restores the dump without migrating, so the first
+  `app(TaxSettings::class)` throws `MissingSettings`. Run `composer qa:baseline`.
 - ~~`docs/PROJECT-MAP.md`'s generated census is stale.~~ **Regenerated 2026-08-20** — the other
   session's work had landed, so the counts are now honest.
 

@@ -21,16 +21,20 @@ class InvoicePdfService
      */
     public function viewData(Invoice $invoice): array
     {
-        $invoice->loadMissing(['items', 'tenant', 'lease.unit.asset', 'unitOwnership.unit.asset', 'unitOwnership.asset']);
+        $invoice->loadMissing(['items', 'tenant', 'asset', 'lease.unit.floor', 'unitOwnership.unit.floor']);
 
         // An invoice's context is its AGREEMENT, and since module 37 that is a lease OR a unit
         // ownership — `invoices.lease_id` became nullable when owners started being billed for
         // صيانة. Resolving only through the lease left every assessment invoice with no unit, no
         // property and therefore no issuer block, and the template then dereferenced the null lease
         // and 500'd on every path that renders a PDF (list, edit, portal, API).
+        // The property comes from the invoice's OWN `asset_id`, not from walking the agreement —
+        // `CreditNotePdfService::data()` left the reasoning for exactly this on 2026-08-15, and it
+        // applies here verbatim: the chain answers NULL for a document whose `lease_id` is null.
+        // `asset_id` is NOT NULL and stamped `withTrashed()`, so it survives a soft-deleted unit.
         $ownership = $invoice->unitOwnership;
         $unit = $invoice->lease?->unit ?? $ownership?->unit;
-        $asset = $unit?->asset ?? $ownership?->asset;
+        $asset = $invoice->asset ?? $unit?->asset;
 
         return [
             'invoice' => $invoice,
@@ -50,7 +54,6 @@ class InvoicePdfService
     public function build(Invoice $invoice): string
     {
         $data = $this->viewData($invoice);
-        $asset = $data['asset'];
         $isRtl = app()->getLocale() === 'ar';
 
         $html = View::make('invoices.pdf', $data)->render();

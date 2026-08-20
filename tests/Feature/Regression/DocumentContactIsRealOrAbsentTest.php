@@ -56,31 +56,74 @@ it('prints the billing address on a tenant statement once it is configured, and 
         ->toBe('billing@eltizam.example');
 });
 
-it('resolves the same contact for the owner-facing asset statement', function () {
-    // The third affected document, and the one the original ticket missed: an owner statement
-    // carried the same fabricated address as the tenant's.
+it('prints the contact on all three documents, and omits the line entirely without one', function () {
+    // The assertion this file was missing: it proved the ABSENCE of a fabricated address and never
+    // the PRESENCE of the real one, so deleting `@if($billingEmail) … @endif` from all three
+    // templates left every case green.
     $settings = app(TaxSettings::class);
     $settings->seller_billing_email = 'billing@eltizam.example';
     $settings->save();
 
-    expect(IssuingEntity::forView($this->asset))
-        ->toHaveKey('billingEmail')
-        ->and(IssuingEntity::forView($this->asset)['billingEmail'])->toBe('billing@eltizam.example');
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    $lease = makeLease(makeUnit($this->asset), $tenant);
+    $invoice = makeInvoice($lease);
 
-    // And it reaches the renderer rather than merely existing on the resolver.
-    expect(class_exists(AssetStatementPdfService::class))->toBeTrue();
+    $rendered = [
+        'invoice' => View::make('invoices.pdf', app(InvoicePdfService::class)->viewData($invoice))->render(),
+        'tenant statement' => View::make('tenants.statement', app(TenantStatementPdfService::class)->data($tenant))->render(),
+        'asset statement' => View::make('assets.statement', app(AssetStatementPdfService::class)->data($this->asset))->render(),
+    ];
+
+    // Collected rather than asserted in the loop: `toContain()` takes VARIADIC needles, so a second
+    // argument is another string it looks for, not a failure message — the trap this repo already
+    // records. `toBe()` does take one.
+    $silent = array_keys(array_filter(
+        $rendered,
+        fn (string $html): bool => ! str_contains($html, 'billing@eltizam.example'),
+    ));
+
+    expect($silent)->toBe([], 'These documents do not print the billing contact: '.implode(', ', $silent));
+
+    // …and the other half: unset, the LABEL goes with it, so no document carries a dangling
+    // "Queries:" with nothing after it.
+    $settings->seller_billing_email = '';
+    $settings->save();
+
+    $blank = [
+        'invoice' => [View::make('invoices.pdf', app(InvoicePdfService::class)->viewData($invoice->fresh()))->render(), __('admin.pdf.footer_queries')],
+        'tenant statement' => [View::make('tenants.statement', app(TenantStatementPdfService::class)->data($tenant))->render(), __('admin.statement.footer_queries')],
+        'asset statement' => [View::make('assets.statement', app(AssetStatementPdfService::class)->data($this->asset))->render(), __('admin.statement.footer_queries')],
+    ];
+
+    $dangling = array_keys(array_filter(
+        $blank,
+        fn (array $pair): bool => str_contains($pair[0], $pair[1]),
+    ));
+
+    expect($dangling)->toBe([], 'These print a Queries label with no address after it: '.implode(', ', $dangling));
 });
 
 it('never lets a fabricated contact back into a document string', function () {
-    // The pin. `.test` and `.example` are reserved so they can never resolve; `.invalid` likewise.
-    // A contact belongs in settings, never in a translation or a template.
+    // The pin. `.test`, `.example` and `.invalid` are reserved by RFC 2606 so they can never
+    // resolve — and so are the second-level `example.com/.net/.org`, which are the ones people
+    // actually type. A contact belongs in settings, never in a translation or a template.
+    //
+    // Scoped to DOCUMENTS — `lang/` and `resources/views/`. Three non-routable addresses live
+    // outside that scope on purpose, and each is right where it is:
+    //   · `PaymobClient` sends one as the cardholder's billing email when the tenant has none. The
+    //     gateway requires the field; non-routable is the correct choice, because the alternative
+    //     is mailing a stranger's card receipt to somebody real.
+    //   · `config/backup.php` falls back to one when no alert address is configured. "Unset means
+    //     no alerts" is covered by GO-LIVE §1.2, not by inventing a recipient.
+    //   · `config/mail.php` carries Laravel's own `hello@example.com` default for
+    //     `MAIL_FROM_ADDRESS`, which the deploy sets.
     $offenders = [];
 
     foreach (['en', 'ar'] as $locale) {
         foreach (File::allFiles(lang_path($locale)) as $file) {
             $contents = File::get($file->getPathname());
 
-            if (preg_match('/[\w:.-]+@[\w:.-]*\.(test|example|invalid|localhost)\b/i', $contents, $m)) {
+            if (preg_match('/[\w:.-]+@(?:[\w:.-]*\.(?:test|example|invalid|localhost)|example\.(?:com|net|org))\b/i', $contents, $m)) {
                 $offenders[] = $file->getRelativePathname().' — '.$m[0];
             }
         }
@@ -89,7 +132,7 @@ it('never lets a fabricated contact back into a document string', function () {
     foreach (File::allFiles(resource_path('views')) as $file) {
         $contents = File::get($file->getPathname());
 
-        if (preg_match('/[\w:.-]+@[\w:.-]*\.(test|example|invalid|localhost)\b/i', $contents, $m)) {
+        if (preg_match('/[\w:.-]+@(?:[\w:.-]*\.(?:test|example|invalid|localhost)|example\.(?:com|net|org))\b/i', $contents, $m)) {
             $offenders[] = $file->getRelativePathname().' — '.$m[0];
         }
     }

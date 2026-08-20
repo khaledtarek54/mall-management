@@ -24,6 +24,22 @@ class AssetStatementPdfService
 {
     public function build(Asset $asset): string
     {
+        $isRtl = app()->getLocale() === 'ar';
+        $html = View::make('assets.statement', $this->data($asset))->render();
+
+        return $this->render($html, $isRtl);
+    }
+
+    /**
+     * Everything the statement template needs, resolved once.
+     *
+     * Split out for the reason {@see InvoicePdfService::viewData()} was: mpdf is a renderer, and the
+     * DOCUMENT is what anyone wants to assert on. Without a seam here the only way to test what an
+     * owner statement says was to re-derive the data in the test — which is how the invoice's own
+     * test came to reproduce a bug faithfully instead of catching it.
+     */
+    public function data(Asset $asset): array
+    {
         $asset->loadMissing(['units.leases.tenant']);
 
         $asOf = CarbonImmutable::now();
@@ -80,9 +96,7 @@ class AssetStatementPdfService
             'units_occupied' => $asset->units->where('status', 'occupied')->count(),
         ];
 
-        $isRtl = app()->getLocale() === 'ar';
-
-        $html = View::make('assets.statement', [
+        return [
             'asset' => $asset,
             'asOf' => $asOf,
             'since' => $since,
@@ -92,8 +106,12 @@ class AssetStatementPdfService
             'payments' => $payments,
             'delinquentTenants' => $delinquentTenants,
             ...IssuingEntity::forView($asset),
-        ])->render();
+        ];
+    }
 
+    /** mpdf, and only mpdf. */
+    private function render(string $html, bool $isRtl): string
+    {
         $tempDir = storage_path('app/mpdf');
         if (! is_dir($tempDir)) {
             @mkdir($tempDir, 0775, true);

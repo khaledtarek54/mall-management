@@ -386,9 +386,11 @@ public function build(CarbonImmutable $period): string
 - Renders `resources/views/reports/monthly-close.blade.php`.
 - RTL-aware: switches font + directionality when locale is 'ar'.
 - mPDF temp dir: `storage/app/mpdf`.
-- Header names the **operator** via `App\Support\IssuingEntity`, not a literal — see below. The
-  FOOTER resolves through the same class: `seller_billing_email`, printed only when set. Both the
-  tenant and asset statements previously carried a fabricated `billing@…​.test` address (EG-05).
+- Header names the **operator** via `App\Support\IssuingEntity`, not a literal — see below.
+- The **tenant and asset statements** additionally print `seller_billing_email` in their footer,
+  only when set; both previously carried a fabricated `billing@…​.test` address (EG-05). The
+  monthly-close pack receives the key and does not print it — it is an internal document, so
+  there is nobody to invite an enquiry from.
 
 #### `filename(CarbonImmutable $period): string`
 **Returns:** e.g., `atriom-monthly-close-2026-02.pdf`.

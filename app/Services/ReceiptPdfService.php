@@ -19,12 +19,17 @@ class ReceiptPdfService
 {
     public function build(Payment $payment): string
     {
-        $payment->loadMissing(['tenant', 'invoices.lease.unit.asset', 'receiver']);
+        $payment->loadMissing(['tenant', 'invoices.asset', 'receiver']);
 
         $isRtl = app()->getLocale() === 'ar';
 
         // Brand off the first allocated invoice's mall (a receipt is issued at the property counter).
-        $asset = $payment->invoices->first()?->lease?->unit?->asset;
+        // Read the invoice's OWN `asset_id`, never `lease?->unit?->asset`: `invoices.lease_id` is
+        // nullable since module 37, so the chain answers null for a unit owner paying their صيانة
+        // assessment — and the receipt then prints no property and no issuer. It degrades quietly
+        // (the template is null-safe) which is why nobody reported it. `asset_id` is NOT NULL:
+        // `Invoice::deriveAssetId()` stamps it with `withTrashed()` and the model refuses to save
+        // without one.
 
         $html = View::make('payments.receipt', [
             'payment' => $payment,

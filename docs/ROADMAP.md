@@ -19,8 +19,8 @@
 > and is not restated here; where a row below overlaps one, it cites it. The four items that document
 > rates 🔴 and that nothing in this file currently covers: taxability frozen per lease at creation
 > (EG-01/02), statutory payroll as undated scalars with no insurable-wage cap (EG-03), the absent
-> working calendar behind every SLA clock (EG-08), and a fake `.test` billing address printing on
-> issued invoice PDFs (EG-05).
+> working calendar behind every SLA clock (EG-08). **EG-01/02 and EG-08 are the ones still open** —
+> EG-03's health row (EG-04) and the fabricated billing address (EG-05) shipped 2026-08-20/21.
 
 > ### ⚠️ Read this before picking up any row
 >
