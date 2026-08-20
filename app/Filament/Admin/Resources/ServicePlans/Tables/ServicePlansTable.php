@@ -23,7 +23,7 @@ class ServicePlansTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'trade'])->withComplianceCounts())
             ->columns([
                 TextColumn::make('title')
                     ->label(__('admin.facility.fields.title'))
@@ -68,6 +68,32 @@ class ServicePlansTable
                     ->description(fn (ServicePlan $record) => $record->generationIsFailing()
                         ? __('admin.facility.generation_failing', ['reason' => (string) $record->last_generation_error])
                         : null),
+                // **Which plans are we failing?** One portfolio percentage tells an operator
+                // nothing they can act on; "the generator monthly test-run is 40%" names the thing
+                // to fix. Counted in the list query, never per row.
+                TextColumn::make('compliance')
+                    ->label(__('admin.facility.fields.pm_compliance'))
+                    ->badge()
+                    ->state(fn (ServicePlan $r): ?string => ($rate = $r->complianceRateFromCounts()) === null
+                        ? null
+                        : $rate.'%')
+                    // A plan whose cycles have not settled yet has no compliance — 0% and 100%
+                    // would both be inventions.
+                    ->placeholder(__('admin.facility.pm_compliance.no_history'))
+                    ->color(fn (ServicePlan $r): ?string => match (true) {
+                        $r->complianceRateFromCounts() === null => 'gray',
+                        $r->complianceRateFromCounts() >= 90 => 'success',
+                        $r->complianceRateFromCounts() >= 70 => 'warning',
+                        default => 'danger',
+                    })
+                    ->description(fn (ServicePlan $r): ?string => $r->complianceRateFromCounts() === null
+                        ? null
+                        : __('admin.facility.pm_compliance.breakdown', [
+                            'on_time' => (int) $r->pm_on_time_count,
+                            'late' => (int) $r->pm_late_count,
+                            'overdue' => (int) $r->pm_overdue_count,
+                        ])),
+
                 IconColumn::make('is_active')
                     ->label(__('admin.facility.fields.active'))
                     ->boolean(),

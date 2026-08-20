@@ -1026,6 +1026,59 @@ An actual is a roll-up and is always known — zero means nothing has been spent
 judgement nobody may have made, and `0` would claim the job was expected to be free. Planned-vs-
 actual is the point of the pair, so "not estimated" and "estimated at nothing" must stay different.
 
+### PM compliance — is the preventive programme actually being done? (2026-08-20, step 3)
+
+**Benchmark:** Maximo §6 makes PM compliance a first-class measure, because a preventive programme
+nobody measures is a list of intentions.
+
+**What was wrong.** `scheduled_for` on a generated order **is** the plan's `next_due_date` — the
+generator copies it — and `completed_at` is stamped on completion. Both have been stored since the
+module shipped and **nothing ever compared them.** The quarterly generator load-bank test could
+generate in March, sit open, and be closed in July with a tick: complete, four months late, and no
+measure able to say so. The raw material was all present; only the question was missing.
+
+**Four states**, derived and never stored — `overdue` is a function of *today*, so storing it would
+need a sweep and would go wrong on a day when nothing happened (`App\Support\ProjectedState`'s
+whole subject):
+
+| State | Meaning |
+|---|---|
+| `on_time` | completed on or before the day it was due |
+| `late` | completed, but after |
+| `overdue` | not completed, and the day has passed — **the finding** |
+| `due` | not completed, still inside its window — not yet anything |
+
+`null` where the question does not apply: a corrective job answers to its SLA instead, and a
+cancelled cycle was never going to happen.
+
+**Completing at 16:00 on the due day is ON TIME.** Comparing a datetime against a date column would
+call every afternoon completion late — reporting a compliant programme as failing, and destroying
+trust in the measure on day one. Both the accessor and the scopes compare whole days.
+
+#### Measured strictly, with no tolerance — a stated deviation
+
+Maximo allows a PM tolerance window. There is none here, deliberately: a single global tolerance is
+wrong in both directions — three days is most of a weekly cleaning round and nothing at all on an
+annual overhaul — and a percentage of the cycle would be a policy nobody has agreed to. Strict never
+**overstates** compliance, which is the safe direction, and the `late` rows are visible for an
+operator to judge. Revisit with a per-plan tolerance if the operator asks for one, not before.
+
+#### Rated per PLAN, not as one portfolio number
+
+"87% compliant" tells an operator nothing they can act on; *"the generator monthly test-run is 40%"*
+names the thing to fix. `ServicePlan::complianceRate()` is the share of that plan's **settled**
+cycles done on time — settled meaning the answer is known (completed, or overdue with nobody having
+done it). A cycle still inside its window is excluded: counting it as a failure would make every
+plan look bad the day after it generated, and counting it as a success would be a claim nobody can
+make yet. A plan with nothing settled has **no** rate — 0% and 100% would both be inventions.
+
+`scopeWithComplianceCounts()` gives a list the same figure in one query instead of four per row.
+Both paths go through the same three scopes, and a test pins that they agree — otherwise a table
+would report a different compliance from the record it links to.
+
+**Measured on the demo portfolio the day it shipped: 0% across all five plans, with four overdue
+preventive jobs.** That is the measure doing its job on data nobody had questioned.
+
 ## 4. Roadmap
 
 | Phase | Scope | Status |
@@ -1045,6 +1098,7 @@ actual is the point of the pair, so "not estimated" and "estimated at nothing" m
 | **11 — Permit to work (2026-08-19, gap O5)** | `work_permits` + `WorkPermitService` (issue/close/cancel), hourly `facility:scan-open-permits` reporting permits past their window with no closure, property-scoped register with live/overdue filters and a danger navigation badge, `work_permits.issue` as a right of its own, readable abstract on View and inside the issue confirmation, folded global search on the reference. **An EXTENSION, not a Yardi construct** — see above | ✅ shipped |
 | **12 — Trade register (2026-08-20, close-out step 1)** | `trades` + `trade_vendor`; work orders, service plans and equipment all classify by a ROW instead of a translation key; `standard_hourly_rate` (the craft rate the cost object will read); the vendor picker grouped by eligibility; `category` dropped from all three tables with a code-matched backfill. Fixed a live defect on the way: a tenant's problem category was being written into the work order's trade | ✅ shipped |
 | **13 — The work order as a cost object (2026-08-20, close-out step 2)** | Planned and actual cost in three buckets on `facility_work_orders`; `facility_work_order_labour` (the primitive that did not exist — hours × the craft rate, frozen at entry); `facility_work_order_id` on `vendor_bills` and `expenses` so contractor work is attributable at all; `recomputeCosts()` as the single source of truth with all three channels wired; cost columns on the job, lifetime cost on the machine; `job_value` replaced by `est_service_cost` and the SLA percent basis rewired to prefer the actual. **Explicitly NOT a GL source** — the money is already posted three other ways, and a gate keeps it that way | ✅ shipped |
+| **14 — PM compliance (2026-08-20, close-out step 3)** | Four derived states on a preventive order (`on_time` · `late` · `overdue` · `due`) with query twins the column, the two filters and the plan figure all share; `ServicePlan::complianceRate()` per plan with a one-query list variant pinned to agree with it. Strict, with no tolerance window — a stated deviation from Maximo, because one global number is wrong for both a weekly round and an annual overhaul | ✅ shipped |
 
 ---
 

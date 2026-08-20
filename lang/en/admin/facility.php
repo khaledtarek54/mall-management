@@ -28,6 +28,16 @@ return [
         ],
     ],
     'facility' => [
+        'pm_compliance' => [
+            'on_time' => 'On time',
+            'late' => 'Late',
+            'overdue' => 'Overdue',
+            'due' => 'Due',
+            'overdue_filter' => 'Planned work not done',
+            'late_filter' => 'Done late',
+            'no_history' => 'No cycles settled yet',
+            'breakdown' => ':on_time on time · :late late · :overdue not done',
+        ],
         'labour' => [
             'vs_estimate' => 'Booked :booked h against an estimate of :estimate h.',
             'title' => 'Labour',
@@ -99,6 +109,7 @@ return [
             'roots_only' => 'Top-level only',
         ],
         'fields' => [
+            'pm_compliance' => 'On time?',
             'est_labour_hours' => 'Estimated hours',
             'est_service_cost' => 'Estimated contractor cost',
             'act_total_cost' => 'Cost',

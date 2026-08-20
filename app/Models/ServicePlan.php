@@ -166,6 +166,63 @@ class ServicePlan extends Model
         return $this->belongsTo(Vendor::class);
     }
 
+    /**
+     * **Is this plan actually being done?** (Maximo §6 — PM compliance.)
+     *
+     * The percentage of this plan's SETTLED cycles that were completed on or before the day they
+     * were due. Settled means the answer is known: completed, or overdue with nobody having done
+     * it. A cycle still inside its window is excluded — counting it as a failure would make every
+     * plan look bad the day after it generated, and counting it as a success would be a claim
+     * nobody can make yet.
+     *
+     * Null when nothing has settled: a new plan has no compliance, and showing 0% or 100% would
+     * both be inventions.
+     *
+     * **Per PLAN rather than one portfolio number**, because "87% compliant" tells an operator
+     * nothing they can act on, while "the generator monthly test-run is 40%" names the thing to fix.
+     */
+    public function complianceRate(): ?float
+    {
+        $settled = $this->workOrders()->pmOnTime()->count()
+            + $this->workOrders()->pmLate()->count()
+            + $this->workOrders()->pmOverdue()->count();
+
+        if ($settled === 0) {
+            return null;
+        }
+
+        return round($this->workOrders()->pmOnTime()->count() / $settled * 100, 1);
+    }
+
+    /**
+     * The same figure for a LIST, in one query instead of four per row.
+     *
+     * `complianceRate()` is the definition; this is how a table reads it without an N+1. Both go
+     * through the same three scopes, so they cannot disagree about what "on time" means.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeWithComplianceCounts(Builder $query): Builder
+    {
+        return $query->withCount([
+            'workOrders as pm_on_time_count' => fn ($q) => $q->pmOnTime(),
+            'workOrders as pm_late_count' => fn ($q) => $q->pmLate(),
+            'workOrders as pm_overdue_count' => fn ($q) => $q->pmOverdue(),
+        ]);
+    }
+
+    /** The list's counterpart to {@see complianceRate}, reading the counts the scope loaded. */
+    public function complianceRateFromCounts(): ?float
+    {
+        $settled = (int) ($this->pm_on_time_count ?? 0)
+            + (int) ($this->pm_late_count ?? 0)
+            + (int) ($this->pm_overdue_count ?? 0);
+
+        return $settled === 0
+            ? null
+            : round((int) $this->pm_on_time_count / $settled * 100, 1);
+    }
+
     public function workOrders(): HasMany
     {
         return $this->hasMany(FacilityWorkOrder::class);

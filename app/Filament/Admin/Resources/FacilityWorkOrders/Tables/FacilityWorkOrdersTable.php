@@ -203,6 +203,25 @@ class FacilityWorkOrdersTable
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                // **Was the planned work done when it was supposed to be?** Both dates have been
+                // stored since the module shipped and nothing compared them, so a preventive
+                // programme was a list of intentions. Blank on a corrective job — that one
+                // answers to its SLA instead.
+                TextColumn::make('pm_compliance')
+                    ->label(__('admin.facility.fields.pm_compliance'))
+                    ->badge()
+                    ->state(fn (FacilityWorkOrder $r): ?string => ($k = $r->pmComplianceState()) === null
+                        ? null
+                        : __("admin.facility.pm_compliance.{$k}"))
+                    ->placeholder('—')
+                    ->color(fn (FacilityWorkOrder $r): ?string => match ($r->pmComplianceState()) {
+                        FacilityWorkOrder::PM_ON_TIME => 'success',
+                        FacilityWorkOrder::PM_LATE => 'warning',
+                        FacilityWorkOrder::PM_OVERDUE => 'danger',
+                        default => 'gray',
+                    })
+                    ->toggleable(),
+
             ])
             ->filters([
                 // Preventive and corrective share a list; an engineer looking for faults
@@ -216,6 +235,16 @@ class FacilityWorkOrdersTable
                 SelectFilter::make('trade_id')
                     ->label(__('admin.facility.fields.trade'))
                     ->options(fn () => Trade::options(activeOnly: false)),
+
+                // The two states an operator acts on. Off the model's own scopes, so the filter,
+                // the column and the plan's compliance figure cannot drift.
+                Filter::make('pm_overdue')
+                    ->label(__('admin.facility.pm_compliance.overdue_filter'))
+                    ->query(fn ($query) => $query->pmOverdue()),
+
+                Filter::make('pm_late')
+                    ->label(__('admin.facility.pm_compliance.late_filter'))
+                    ->query(fn ($query) => $query->pmLate()),
 
                 SelectFilter::make('work_order_type')
                     ->label(__('admin.facility.fields.work_order_type'))

@@ -28,6 +28,16 @@ return [
         ],
     ],
     'facility' => [
+        'pm_compliance' => [
+            'on_time' => 'في الموعد',
+            'late' => 'متأخرة',
+            'overdue' => 'فات موعدها',
+            'due' => 'مستحقة',
+            'overdue_filter' => 'أعمال مخططة لم تُنفَّذ',
+            'late_filter' => 'نُفِّذت متأخرة',
+            'no_history' => 'لا توجد دورات مكتملة بعد',
+            'breakdown' => ':on_time في الموعد · :late متأخرة · :overdue لم تُنفَّذ',
+        ],
         'labour' => [
             'vs_estimate' => 'تم تسجيل :booked ساعة مقابل تقدير :estimate ساعة.',
             'title' => 'العمالة',
@@ -99,6 +109,7 @@ return [
             'roots_only' => 'الرئيسية فقط',
         ],
         'fields' => [
+            'pm_compliance' => 'في موعدها؟',
             'est_labour_hours' => 'الساعات المقدَّرة',
             'est_service_cost' => 'التكلفة المقدَّرة للمقاول',
             'act_total_cost' => 'التكلفة',
