@@ -283,7 +283,7 @@ accountant can verify the accounting treatment. `[role]` resolves via `account_m
 | **Security deposit — refund** استرداد تأمين | `deposits_held` | `bank`/`cash` |
 | **Security deposit — forfeit** مصادرة تأمين | `deposits_held` | `misc_income` |
 | **CAM positive true-up** تسوية صيانة موجبة | `accounts_receivable` | `cam_recovery_revenue` (+ `vat_payable` if taxed) |
-| **Vendor bill** فاتورة مورد | `*_expense` (net, by category) + `vat_recoverable` (input VAT) | `accounts_payable` (total) |
+| **Vendor bill** فاتورة مورد | the category's own account, else `*_expense` by the floor map (net) + `vat_recoverable` (input VAT) | `accounts_payable` (total) |
 | **Pay vendor** سداد مورد | `accounts_payable` | `bank` / `cash` |
 | **Direct / petty-cash expense** مصروف مباشر | `*_expense` (net) + `vat_recoverable` (input VAT) | `cash` / `bank` (total) |
 | **Marketing spend** مصروف تسويق | `marketing_expense` (amount) | `cash` / `bank` (amount) — per `paid_from` |

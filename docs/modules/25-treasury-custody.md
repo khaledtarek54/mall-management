@@ -88,8 +88,12 @@ custodian's hands) — NOT accounts receivable — so the AR tie-out is unaffect
 | **Expense settlement** | `CustodyTransaction` (expense) | Dr **Expense (by category)** / Cr Custodies |
 | **Cash return** | `CustodyTransaction` (return) | Dr **Cash \| Bank** (per `method`) / Cr Custodies |
 
-- The expense **category → P&L account** uses the shared `MapsExpenseCategory` trait (same
-  map as vendor bills / direct expenses; `other` → admin_expense).
+- The expense **category → P&L account** goes through the shared `MapsExpenseCategory` trait, which
+  since EG-13 asks the `expense_categories` CATALOGUE first and falls back to the six-entry map
+  (`other` → admin_expense). Same resolution as vendor bills and direct expenses, so the three
+  cannot drift. A category with no row, or a row with no account, books exactly where it always did.
+- The **return** branch is deliberately not catalogued: `custody_transactions.method` holds
+  cash|bank and is not widened by the payment-rail catalogue, so it stays on the role map.
 - Grant + settlements net Custodies back toward zero as the عهدة is spent/returned.
 - **Denormalised `asset_id`** — the entry's dimension survives the custodian's archival; the
   journalizer resolves the custodian name `withTrashed`.

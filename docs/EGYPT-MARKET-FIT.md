@@ -66,7 +66,7 @@ value, or a row with a code-side twin that must move with it · **HARDCODED** = 
 | 6 | **Roles** | 🟢 DYNAMIC | Full role CRUD with permission sync and audit; permission *keys* stay in code (correct) |
 | 7 | **Reporting parameters** | 🟢 DYNAMIC | Saved views, per-user memory, scheduled email delivery, CSV+XLSX |
 | 8 | **Reporting *shape*** | 🔴 HARDCODED | No report builder; every column is a PHP literal; statement layout is a `match()` on account type |
-| 9 | **Master-data lists** | 🟠 MIXED | Trades, failure codes, charge codes, tax codes, SLA policies, rent indices = rows. Expense category, retail mix, request types, violation types, vendor document types = PHP/lang arrays |
+| 9 | **Master-data lists** | 🟠 MIXED | Trades, failure codes, charge codes, tax codes, SLA policies, rent indices, **payment rails (EG-11)** and **expense categories (EG-13)** = rows. Still a lang array or a const: retail mix, tenant-request types, violation types, vendor document types, departments |
 | 10 | **Statutory payroll** | 🔴 HARDCODED | Three flat undated rates; no brackets, no exemption, no insurable-wage cap |
 | 11 | **Time / working calendar** | ✅ DONE | `holidays` register + `CalendarSettings` + `WorkingCalendar` (Fri–Sat weekend, Ramadan short days, per-property dates). Both SLA modules freeze the clock they promised on. Ships **off** — EG-08 + EG-38 |
 | 12 | **Currency / FX** | 🔴 ABSENT | 15 tables carry `currency`; nothing reads it; no rate table; no GL currency |
@@ -304,7 +304,7 @@ operator will want to change in week one.
 
 | # | List | Storage | Where | Rating |
 |---|---|---|---|---|
-| D-1 | **Expense / vendor-bill category** — six values, and **the only thing deciding which P&L account a supplier bill hits**, via a `private const` in a trait. *Insurance, government fees & licences, bank charges, legal & professional, fuel/generator* all silently collapse into `other → admin_expense` with a `Log::warning`. Also drives `CostNature` (fixed vs variable) and the CAM pool | LANG-ARRAY + private const | `lang/en/admin/statuses.php:371`; `app/Services/Accounting/Journalizers/Concerns/MapsExpenseCategory.php:17-23`; `app/Support/CostNature.php:29-36` | 🔴 |
+| ~~D-1~~ ✅ | **FIXED 2026-08-21 (EG-13).** `expense_categories` — a row per kind of cost, carrying the P&L account it books to and whether it is fixed or variable. All four cost journalizers (Expense, VendorBill, SlaPenalty, CustodyTransaction) resolve through it; null takes the floor, which is the same six-entry map, so it ships behaviour-identical. Insurance, government fees & licences, bank charges, legal & professional and fuel ship present and **switched off**. Registering the value sets also closed an enforcement gap: the three category columns had NO set at all, and the guard immediately caught 13 fixtures billing under `hvac`/`services` — trade codes no form offers, every one of which was booking to `admin_expense`. ~~Expense / vendor-bill category — six values, and **the only thing deciding which P&L account a supplier bill hits**, via a `private const` in a trait~~ | `app/Models/ExpenseCategory.php`; `MapsExpenseCategory.php`; `app/Support/CostNature.php` | 🔴 |
 | D-2 | **Tenant retail category / merchandising mix** — 12 hardcoded values driving the store directory, the public API filter and all tenant-mix analysis. In Yardi and MRI this is a row, revised per mall and per season | PHP-CONST | `app/Models/Tenant.php:54-67` | 🔴 |
 | D-3 | **Tenant request types + subcategories + their SLA hours** — a PHP enum with a `match()`; **and it has already drifted from the trades register.** `tradeForRequest()` matches `tenant_requests.category` against `trades.code`, but maintenance subcategories are 7 values while `trades` seeds 14. **A tenant cannot report a stuck lift, a generator failure, a fire-safety fault, a pest problem or a security issue as such**, and no operator-added trade is ever reachable from the tenant-request path. The enum's own docblock concedes *"Phase 2 reads these from settings/the request_types table"* | PHP-ENUM | `app/Enums/TenantRequestType.php:23-30,76-84,120-134`; `app/Services/RaiseCorrectiveWorkOrderService.php:139-144` | 🔴 |
 | D-4 | **Violation categories** — seven values, where the migration that created the column **promised the opposite in writing**: *"the operator's set of violation types is theirs to extend without a migration"* | PHP-CONST | `app/Models/Violation.php:65`; `database/migrations/2026_07_23_180000_add_category_to_violations.php:13` | 🟠 |
@@ -406,7 +406,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-38**~~ ✅ | **DONE 2026-08-21.** Module 11 now resolves its SLA on the same clock module 26 does. `SlaResolver` gained the canonical `CLOCK_CALENDAR`/`CLOCK_WORKING` constants both modules reference (module 11 does not reach into module 26 for them); `tenant_requests.sla_clock` freezes the promise at intake; all **three** intake roads write it — portal and `/api/v1` through `TenantRequestService::create()`, plus the admin `CreateTenantRequest` page. Two things the row as written did not ask for and the work needed anyway: `TenantRequest::hoursOverSla()`, because the breach bell was quoting a **calendar** overrun for a request promised on the working clock (67 hours for a 3-hour failure), and a test pinning that a crafted payload cannot choose its own clock | C-1 | 🧑‍💻 | M |
 | ~~**EG-11**~~ ✅ | **DONE 2026-08-21.** Closed X-5, X-6 and X-8 together. **A rail names its ledger account DIRECTLY, not a `PostingRoles` key** — a role exists so a code path can ask for "the bank account" without knowing the chart, and a rail is operator data pointing at operator data. Decisive against roles: `Health::accountingReadiness()` requires every role to be mapped, so a clearing role per rail would have turned a BLOCKING health row red on every existing install, and two rails could never have had two different clearing accounts. **Six journalizers, not the four the row named** — `Expense` and `Disbursement` read columns this widens and carried the mirror ternary, which sends `bank_transfer` to CASH once the set grows | X-5, X-6, X-8 | 🧑‍💻 | M |
 | **EG-12** | **`bank_account_id` on the money documents**, and teach the journalizers to read `BankAccount::ledger_account_id` | X-7 | 🧑‍💻 | M |
-| **EG-13** | **Expense categories become rows with a `posting_role`** — the only thing deciding which P&L account a supplier bill hits | D-1 | 🧑‍💻 | M |
+| ~~**EG-13**~~ ✅ | **DONE 2026-08-21.** Built on EG-11's pattern with its review's lessons applied up front rather than after: all four journalizers and all eight surfaces converted in one pass, the seeder wired into all three entry points, and the surface gate GENERALISED to both catalogues rather than duplicated. Two things the row did not name and the work needed: `CostNature::categoriesOf()` — the REVERSE direction — still read only the const, so a category an operator marked `fixed` would answer `fixed` one way and be absent the other, and a CAM pool filtered by nature would omit a cost that was itself classified correctly. And the three category columns had no value set at all | D-1 | 🧑‍💻 | M |
 | **EG-14** | **Tenant request types + subcategories + SLA hours become rows**, and re-seat `tradeForRequest()` on the trades register so lifts, generators, fire safety, pest and security are reportable | D-3 | 🧑‍💻 | M |
 | **EG-15** | **Operator-editable document/message templates** — invoice terms, footer, bank details, dunning wording. A `document_templates` table + a rich editor + a mail tab | S-6 | 🧑‍💻 | L |
 | **EG-16** | **Mall logo on PDFs** — the media collection already exists | S-8 | 🧑‍💻 | S |
@@ -837,18 +837,40 @@ real Egyptian chart has not been supplied. See §6.
 
 ---
 
-**Deployment notes, cumulative across all seven milestones:**
+### 2026-08-21 — milestone 8: EG-13, an expense category is a row
+
+The same shape as EG-11, built with EG-11's review already in hand — which is the point of doing
+them back to back. All four cost journalizers and all eight surfaces converted in one pass, the
+seeder wired into all three entry points, and the surface gate **generalised** to both catalogues
+rather than duplicated.
+
+| | |
+|---|---|
+| **What was wrong** | The category decided which P&L account every supplier bill, expense and custody spend hit, from a six-entry `private const` inside a journalizer trait. Insurance, government fees, bank charges, legal fees and generator fuel — most of an Egyptian mall's overhead — fell past it into `admin_expense` behind a `Log::warning` nobody reads |
+| **Why an account, not a role** | `Health::accountingReadiness()` requires every `PostingRoles` key to be mapped, so "Insurance" as a role would turn a BLOCKING health row red on every install until the accountant mapped it. Same reasoning as the payment rails |
+| **Two things D-1 did not name** | `CostNature::categoriesOf()` — the REVERSE direction — still read only the const, so a category marked `fixed` answered `fixed` one way and was ABSENT the other; a CAM pool filtered by nature would omit a cost that was itself classified correctly. And the three category columns had **no value set at all**, so the column accepted anything |
+| **What the new enforcement caught immediately** | 13 fixtures billing under `hvac` and `services` — trade codes, not expense categories, that no form has ever offered. Every one of those bills was silently booking to `admin_expense`, so the fixtures were encoding the bug they were meant to be independent of |
+
+**No false-pass test this milestone** — the first one I have been able to write that of. The reason
+is worth naming: I wrote each assertion by first stating the one-line edit that should red it, and
+ran that edit. One mutation script broke PHP syntax rather than the logic, which reds everything and
+proves nothing; I caught that only because *four* cases went red instead of one, and redid it
+properly.
+
+---
+
+**Deployment notes, cumulative across all eight milestones:**
 
 - **`docs/qa/scripts/baseline.sql` must be regenerated before `composer qa` or `composer test:mysql`.**
   It now predates four things: the `leases.billing_day` drop (milestone 1), the
   `tax.seller_billing_email` settings row (milestone 3), the `holidays` table plus the
   `calendar.*` / `sla.sla_working_clock_priorities` settings rows (milestone 4), and
-  `tenant_requests.sla_clock` (milestone 5), and the `payment_methods` table (milestone 7). The settings rows are the sharp ones — an
+  `tenant_requests.sla_clock` (milestone 5), the `payment_methods` table (milestone 7), and the `expense_categories` table (milestone 8). The settings rows are the sharp ones — an
   **exception**, not drift: `reset.sh` restores the dump without migrating, so the first
   `app(TaxSettings::class)` / `app(CalendarSettings::class)` throws `MissingSettings`. Run
   `composer qa:baseline` (needs MySQL).
 - **`RolesPermissionsSeeder` must be re-run** for the `holidays.*` permissions (milestone 4) and the
-  `payment_methods.*` permissions (milestone 7).
+  `payment_methods.*` (milestone 7) and `expense_categories.*` (milestone 8) permissions.
   A permission that exists only in the seeder file leaves the screen absent from the navigation for
   everyone, super_admin included, with no error to say why.
 - ~~`docs/PROJECT-MAP.md`'s generated census is stale.~~ **Regenerated 2026-08-20** — the other
