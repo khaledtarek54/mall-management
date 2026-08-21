@@ -5,7 +5,6 @@ return [
         'singular' => 'Vendor document type',
         'plural' => 'Supplier document types',
         'on_file' => 'On file',
-        'blocks_dispatch' => 'Blocks work assignment',
         'blocks_dispatch_yes' => 'A lapse of this document stops the vendor being sent to site.',
         'blocks_dispatch_no' => 'A lapse is chased but does not stop site work.',
         'help' => [

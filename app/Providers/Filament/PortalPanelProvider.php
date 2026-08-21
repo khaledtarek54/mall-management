@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Portal\Widgets\AccountBalance;
 use App\Filament\Portal\Widgets\OpenTenantRequests;
 use App\Http\Middleware\SetLocale;
+use App\Support\Filament\PortalBranding;
 use App\Support\Search\AtriomGlobalSearchProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -13,6 +14,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -48,13 +50,24 @@ class PortalPanelProvider extends PanelProvider
             // maintenance status change / sales declaration locked here.
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
-            ->brandName('Atriom · Tenant Portal')
-            // Explicit light/dark variants wired to Filament's theme toggle —
-            // the auto atriom-logo.svg keys off the OS scheme and desyncs.
-            ->brandLogo(asset('images/atriom-logo-light.svg'))
-            ->darkModeBrandLogo(asset('images/atriom-logo-dark.svg'))
+            // WHITE-LABELLED, like the admin panel has been since it gained tenancy (EG-22). A
+            // retailer signing into their landlord's portal saw the software vendor's name in an
+            // untranslated English literal; they now see their mall's name, logo, favicon and
+            // colour. `PortalBranding` answers null for a tenant trading in SEVERAL malls — see its
+            // docblock for why that is the honest answer rather than a missing feature.
+            //
+            // Closures, not values: a panel builder argument is evaluated ONCE at boot, so a value
+            // here could not depend on who is signed in. Same trap that made `->colors()` and the
+            // 2FA condition unusable per-user.
+            ->brandName(fn (): string => PortalBranding::brandName())
+            ->brandLogo(fn (): string => PortalBranding::logo())
+            ->darkModeBrandLogo(fn (): string => PortalBranding::logo(dark: true))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('atriom-favicon.svg'))
+            ->favicon(fn (): string => PortalBranding::favicon())
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => PortalBranding::themeOverride(),
+            )
             ->authGuard('portal')
             // The portal had a live global search bar that nobody had configured:
             // whichever of its resources happened to carry a $recordTitleAttribute

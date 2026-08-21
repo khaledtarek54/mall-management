@@ -157,7 +157,7 @@ class OwnerStatementRunsTable
                             ->label(__('admin.disbursements.fields.method'))
                             // The catalogue, not a constant: an operator who activates a rail must
                             // see it here without a deploy, and a new rail has no lang key.
-                            ->options(fn () => PaymentMethod::options('outbound', 'admin.disbursements.methods'))
+                            ->options(fn () => PaymentMethod::optionsFor('disbursements.method', 'admin.disbursements.methods'))
                             ->default(Disbursement::METHOD_BANK_TRANSFER)
                             ->required()->native(false),
                     ])

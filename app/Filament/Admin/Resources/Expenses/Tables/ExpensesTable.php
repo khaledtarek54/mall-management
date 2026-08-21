@@ -90,7 +90,7 @@ class ExpensesTable
                     ->options(fn () => __('admin.statuses.expense')),
                 SelectFilter::make('category')
                     ->label(__('admin.fields.category'))
-                    ->options(fn () => ExpenseCategory::options()),
+                    ->options(fn () => ExpenseCategory::filterOptions()),
                 SelectFilter::make('cost_nature')
                     ->label(__('admin.fields.cost_nature'))
                     ->options(fn () => __('admin.enums.cost_nature'))
@@ -99,7 +99,7 @@ class ExpensesTable
                         : $query),
                 SelectFilter::make('paid_from')
                     ->label(__('admin.fields.paid_from'))
-                    ->options(fn () => PaymentMethod::options('outbound', 'admin.enums.expense_paid_from')),
+                    ->options(fn () => PaymentMethod::filterOptionsFor('expenses.paid_from', 'admin.enums.expense_paid_from')),
                 TrashedFilter::make(),
             ])
             // Category is the axis the owner's cost report is built on.

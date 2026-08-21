@@ -85,7 +85,7 @@ class VendorBillsTable
                     ->options(fn () => __('admin.statuses.vendor_bill')),
                 SelectFilter::make('category')
                     ->label(__('admin.fields.category'))
-                    ->options(fn () => ExpenseCategory::options()),
+                    ->options(fn () => ExpenseCategory::filterOptions()),
                 EntitySelectFilter::make('vendor_id')
                     ->label(__('admin.fields.vendor'))
                     ->relationship('vendor')

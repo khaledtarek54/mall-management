@@ -128,19 +128,19 @@ trait RoleGatedActions
         return static::hasPermission('edit');
     }
 
+    /**
+     * Money and audit records are never deletable — not even by super_admin. A financial document
+     * is a record of something that happened; it is corrected through its own workflow (cancel /
+     * void / credit note), which leaves a trail an auditor can follow. Everything else: super_admin
+     * only, ignoring the `{module}.delete` permission.
+     *
+     * DELEGATED to {@see DeletionPolicy::actorMayDelete()} rather than restated, because Filament's
+     * own `DeleteAction` has to ask the same question and had been answering it with
+     * `Response::allow()` — see that method's docblock. Two layers, one predicate.
+     */
     public static function canDelete(Model $record): bool
     {
-        // Money and audit records are never deletable — not even by super_admin. A financial
-        // document is a record of something that happened; it is corrected through its own
-        // workflow (cancel / void / credit note), which leaves a trail an auditor can follow.
-        // See App\Support\DeletionPolicy. Checked here, not per resource, so the answer is the
-        // same everywhere it is asked.
-        if (DeletionPolicy::isNeverDeletable(static::getModel())) {
-            return false;
-        }
-
-        // Otherwise: only super_admin can delete — ignores the {module}.delete permission.
-        return static::isSuperAdmin();
+        return DeletionPolicy::actorMayDelete($record);
     }
 
     public static function canDeleteAny(): bool

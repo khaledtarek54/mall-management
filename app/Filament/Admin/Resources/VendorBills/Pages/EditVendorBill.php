@@ -145,7 +145,7 @@ class EditVendorBill extends EditRecord
                         }),
                     Select::make('method')
                         ->label(__('admin.fields.method'))
-                        ->options(fn () => PaymentMethod::options('outbound', 'admin.enums.vendor_bill_payment_method'))
+                        ->options(fn () => PaymentMethod::optionsFor('vendor_bill_payments.method', 'admin.enums.vendor_bill_payment_method'))
                         ->default('bank_transfer')
                         ->native(false)
                         ->required(),

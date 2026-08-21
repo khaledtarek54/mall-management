@@ -49,6 +49,24 @@ it('offers, accepts and labels a rule the operator adds', function () {
     // `is_active` inert, which is the bug `ExpenseCategory` shipped.
     expect(ViolationCategory::options())->toBe(['fire_exit' => 'Blocked fire exit']);
 
+    // …and OFFERED BY THE REAL FORM. Asserting the model alone leaves the actual `Select` free to
+    // carry a hard-coded literal — no `__()` for the grep gate to see, and `ResourceFormSmokeTest`
+    // only proves the page mounts. That is exactly the shape of the regression this case names.
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAs(makeUser('super_admin', [$this->asset->id]));
+    Filament::setTenant($this->asset);
+
+    $offered = Livewire::test(CreateViolation::class)
+        ->instance()
+        ->form
+        ->getComponent('category')
+        ->getOptions();
+
+    expect($offered)->toHaveKey('fire_exit')
+        ->and($offered['fire_exit'])->toBe('Blocked fire exit');
+
+    Filament::setTenant(null, isQuiet: true);
+
     // ACCEPTED — the saving listener reads `forTable()`, not `allowed()`, and only one `widen()`
     // feeds both.
     expect(ValueSets::allowed('violations', 'category'))->toContain('fire_exit')
@@ -161,7 +179,31 @@ it('quotes the operator\'s own wording on the fine invoice', function () {
     // The words the operator chose, not `admin.violations.categories.fire_exit` — which is what a
     // rule with no lang key would have printed on a document the tenant receives.
     expect($line)->toContain('Blocked fire exit')
-        ->and($line)->not->toContain('admin.violations');
+        ->and($line)->not->toContain('admin.violations')
+        // The lease is what the fine is billed against — named so the assertion above is about the
+        // wording on a document that reached a real agreement, not about a string in isolation.
+        ->and($violation->fresh()->billedInvoice->lease_id)->toBe($lease->id);
+});
 
-    expect($lease->fresh()->id)->not->toBeNull();
+it('follows a tariff the operator revises, in the same request', function () {
+    // `defaultFineFor()` memoises like every other catalogue read, under its own `fines` suffix. A
+    // suffix left out of `catalogueMemoSuffixes()` is never dropped on write — the exact shape of the
+    // bug the shared concern was extracted to kill, one memo along. Nothing proved this one.
+    $rule = ViolationCategory::create([
+        'code' => 'fire_exit',
+        'name_en' => 'Blocked fire exit',
+        'name_ar' => 'مخرج طوارئ مسدود',
+        'default_fine_amount' => 5000,
+    ]);
+
+    expect((float) ViolationCategory::defaultFineFor('fire_exit'))->toBe(5000.0);
+
+    $rule->update(['default_fine_amount' => 7500]);
+
+    expect((float) ViolationCategory::defaultFineFor('fire_exit'))->toBe(7500.0);
+
+    // The control: a rule with no tariff answers null rather than the last one read.
+    ViolationCategory::create(['code' => 'noise_late', 'name_en' => 'Late noise', 'name_ar' => 'إزعاج ليلي']);
+
+    expect(ViolationCategory::defaultFineFor('noise_late'))->toBeNull();
 });

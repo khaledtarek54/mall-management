@@ -24,7 +24,7 @@ class ViolationCategoriesTable
                     ->state(fn (ViolationCategory $record): string => $record->label()),
 
                 TextColumn::make('default_fine_amount')
-                    ->label(__('admin.violation_categories_screen.default_fine'))
+                    ->label(__('admin.fields.default_fine_amount'))
                     ->money(config('app.currency', 'EGP'))
                     // Null and zero are different claims — most house rules are warned about before
                     // they are charged for, and a blank says the book names no tariff.

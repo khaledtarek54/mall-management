@@ -85,3 +85,45 @@ it('covers every catalogue that uses the shared concern', function () use ($cata
     expect($onDisk)->not->toBeEmpty()
         ->and($covered)->toBe($onDisk, 'A model uses IsCodeCatalogue and is not swept here.');
 });
+
+foreach ($catalogues as $name => [$model, $attributes]) {
+    it("keeps a retired {$name} findable in its own filter, and out of the form", function () use ($model, $attributes) {
+        // A form asks "what may I file under?"; a filter asks "what is already filed?". Pointing a
+        // filter at `options()` meant retiring a code hid every record ever classified under it
+        // from the list those records are on.
+        $row = $model::create($attributes);
+        $row->update(['is_active' => false]);
+
+        $filter = $model === PaymentMethod::class
+            ? $model::filterOptions('inbound')
+            : ($model === TenantRequestSubcategory::class ? $model::filterOptions() : $model::filterOptions());
+
+        expect($filter)->toHaveKey($attributes['code']);
+
+        // …and the label survives too, which is the other half: a retired code must not render as
+        // its raw code on the history it still explains.
+        expect($model::labelFor($attributes['code']))->toBe($attributes['name_en']);
+    });
+}
+
+it('never falls back to a raw translation key', function () {
+    // The trait's third stated rule. An operator-added code has no lang key, so resolving the
+    // fallback group against it would print `admin.enums.method.zzz_no_such_key` on the very screen
+    // whose filter lists it. The last resort is the CODE.
+    expect(PaymentMethod::labelFor('zzz_no_such_key'))->toBe('zzz_no_such_key')
+        ->and(ViolationCategory::labelFor('zzz_no_such_key'))->toBe('zzz_no_such_key')
+        ->and(VendorDocumentType::labelFor('zzz_no_such_key'))->toBe('zzz_no_such_key')
+        // The control: a code the lang group DOES name still resolves through it, so the assertions
+        // above are about the fallback and not about the group being unreachable.
+        ->and(PaymentMethod::labelFor('cash'))->not->toBe('cash');
+});
+
+it('coerces a blanked sort order to zero on every catalogue', function () use ($catalogues) {
+    // `sort_order` is NOT NULL with a default, and a column default applies when the column is
+    // OMITTED — never when null is written to it. A blanked numeric field in Filament submits null.
+    foreach ($catalogues as $name => [$model, $attributes]) {
+        $row = $model::create($attributes + ['sort_order' => null]);
+
+        expect($row->fresh()->sort_order)->toBe(0, "{$name} let a null sort_order through.");
+    }
+});

@@ -120,7 +120,9 @@ class DocumentsRelationManager extends RelationManager
             ->filters([
                 SelectFilter::make('type')
                     ->label(__('admin.vendors.documents.type'))
-                    ->options(fn () => VendorDocumentType::options()),
+                    // filterOptions(), not options(): a retired type must still find the
+                    // certificates already filed under it.
+                    ->options(fn () => VendorDocumentType::filterOptions()),
                 Filter::make('needs_attention')
                     ->label(__('admin.filters.document_attention'))
                     ->query(function (Builder $query): Builder {

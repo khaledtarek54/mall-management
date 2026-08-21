@@ -107,6 +107,16 @@ class ValueSets
         // the column was unenforced and the list could not be widened without a deploy. Same floor
         // as the other three, widened by the same catalogue.
         'disbursements.method' => ['cash', 'bank_transfer', 'cheque'],
+        // The SIXTH money rail, and the one EG-11 missed. It is INBOUND — the employee is paying
+        // the operator back, so the journalizer DEBITS cash/bank. Until 2026-08-22 the column had no
+        // set at all and `RecordAdvanceRepaymentService` clamped anything that was not `bank` to
+        // `cash`, which is a WRONG RAIL rather than a refusal: an InstaPay repayment posted to the
+        // cash account and the operator was never told.
+        'employee_advance_repayments.method' => ['cash', 'bank'],
+        // …and the other half of the same money movement, in the other DIRECTION: granting an
+        // advance PAYS the employee, so it is an outbound rail like an expense. `paid_from` had no
+        // set either, and `EmployeeAdvanceJournalizer` carried the same mirror ternary.
+        'employee_advances.paid_from' => ['cash', 'bank'],
         'employees.status' => ['active', 'terminated'],
         // The expense CATEGORY had no set at all, on any of its three columns: it lived in a lang
         // array and a `private const` inside a journalizer trait, so a typo'd or imported value
@@ -316,6 +326,8 @@ class ValueSets
      * @var array<string, callable(): array<int, string>>
      */
     private const CATALOGUE_WIDENED = [
+        'employee_advance_repayments.method' => [PaymentMethod::class, 'inboundCodes'],
+        'employee_advances.paid_from' => [PaymentMethod::class, 'outboundCodes'],
         'payments.method' => [PaymentMethod::class, 'inboundCodes'],
         'deposit_transactions.method' => [PaymentMethod::class, 'inboundCodes'],
         'vendor_bill_payments.method' => [PaymentMethod::class, 'outboundCodes'],
@@ -329,6 +341,20 @@ class ValueSets
         'vendor_documents.type' => [VendorDocumentType::class, 'codes'],
         'violations.category' => [ViolationCategory::class, 'codes'],
     ];
+
+    /**
+     * The catalogue-widened columns, for the gate that checks every catalogue widens one.
+     *
+     * Exposed rather than left private because `CatalogueWidensItsColumnsConformanceTest` derives
+     * its expectation from the MODELS ON DISK and needs this side to compare against — a gate that
+     * read only this registry could not see what the registry omits, which is the whole defect.
+     *
+     * @return array<string, array{0: class-string, 1: string}>
+     */
+    public static function catalogueWidenedColumns(): array
+    {
+        return self::CATALOGUE_WIDENED;
+    }
 
     public static function allowed(string $table, string $column): ?array
     {
@@ -376,6 +402,19 @@ class ValueSets
     public static function flushCatalogueCache(): void
     {
         self::$byTable = null;
+
+        // …AND the catalogues' own memos, because the enforced set is DERIVED from them and the two
+        // caches are one fact stored twice. Without this the flush cleared `$byTable` and the
+        // rebuild immediately re-read the stale container memo behind `codes()` — so `guard()`'s
+        // last-chance re-derive, the whole point of which is to recover from a stale map in a
+        // long-lived worker, could not recover from anything. It was a no-op from the day it was
+        // written and every test passed, because a test process activates a rail and reads it back
+        // through the same flush that filled the memo in the first place.
+        foreach (array_unique(array_column(self::CATALOGUE_WIDENED, 0)) as $catalogue) {
+            if (method_exists($catalogue, 'forgetCatalogueMemos')) {
+                $catalogue::forgetCatalogueMemos();
+            }
+        }
     }
 
     /**

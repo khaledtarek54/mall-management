@@ -93,7 +93,9 @@ class ViolationTable
                 // Filter by kind — the point of categorising: "show me this quarter's signage breaches".
                 SelectFilter::make('category')
                     ->label(__('admin.violations.fields.category'))
-                    ->options(fn () => ViolationCategory::options()),
+                    // filterOptions(), not options(): a filter is about what is already RECORDED,
+                    // so a retired rule must still find its own history.
+                    ->options(fn () => ViolationCategory::filterOptions()),
                 TrashedFilter::make(),
             ])
             ->recordActions([

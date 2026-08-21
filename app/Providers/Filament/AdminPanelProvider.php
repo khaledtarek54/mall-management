@@ -8,6 +8,7 @@ use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
 use App\Http\Middleware\ForceTwoFactorForRoles;
 use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
+use App\Support\Filament\PanelBranding;
 use App\Support\Search\AtriomGlobalSearchProvider;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
@@ -188,69 +189,28 @@ class AdminPanelProvider extends PanelProvider
     protected static function resolveBrandLogo(bool $dark = false): string
     {
         $tenant = Filament::getTenant();
-        if ($tenant instanceof Asset && ! $tenant->isAllProperties()) {
-            if ($logo = $tenant->logoUrl()) {
-                return $logo;
-            }
-        }
 
-        return asset($dark ? 'images/atriom-logo-dark.svg' : 'images/atriom-logo-light.svg');
+        return PanelBranding::logo($tenant instanceof Asset ? $tenant : null, $dark);
     }
 
     protected static function resolveFavicon(): string
     {
         $tenant = Filament::getTenant();
-        if ($tenant instanceof Asset && ! $tenant->isAllProperties()) {
-            if ($favicon = $tenant->faviconUrl()) {
-                return $favicon;
-            }
-        }
 
-        return asset('atriom-favicon.svg');
+        return PanelBranding::favicon($tenant instanceof Asset ? $tenant : null);
     }
 
     /**
-     * Inject a per-request <style> block overriding Filament's CSS primary
-     * colour variables from the active tenant's `primary_color` hex.
+     * The active property's colour, as a `<style>` block overriding Filament's `--primary-*`.
      *
-     * Filament 4's `->colors()` is evaluated once at panel boot, so to
-     * per-tenant-skin the chrome we override the `--primary-N` palette per
-     * request. Filament's compiled CSS uses these directly
-     * (e.g. `background-color: var(--primary-600)`), so the values must be
-     * complete colours — not RGB triplets. We pin the hex at the 500 shade
-     * and derive lighter (50-400) and darker (600-950) variations with
-     * `color-mix()`, which is supported in all evergreen browsers.
-     *
-     * Empty string when no tenant / not a real tenant / no colour set.
+     * The palette derivation lives in {@see PanelBranding} because the tenant portal skins itself
+     * the same way; what stays here is the panel's own answer to WHICH property, which is a
+     * different question on each panel — an explicit switcher choice here, a derivation there.
      */
     protected static function renderPerTenantThemeOverride(): string
     {
         $tenant = Filament::getTenant();
-        if (! $tenant instanceof Asset || $tenant->isAllProperties() || ! $tenant->primary_color) {
-            return '';
-        }
 
-        $hex = '#'.ltrim($tenant->primary_color, '#');
-        if (! preg_match('/^#[0-9a-fA-F]{6}$/', $hex)) {
-            return '';
-        }
-
-        return <<<HTML
-<style>
-:root {
-    --primary-50:  color-mix(in oklab, {$hex} 6%,  white);
-    --primary-100: color-mix(in oklab, {$hex} 12%, white);
-    --primary-200: color-mix(in oklab, {$hex} 24%, white);
-    --primary-300: color-mix(in oklab, {$hex} 40%, white);
-    --primary-400: color-mix(in oklab, {$hex} 65%, white);
-    --primary-500: {$hex};
-    --primary-600: color-mix(in oklab, {$hex} 88%, black);
-    --primary-700: color-mix(in oklab, {$hex} 70%, black);
-    --primary-800: color-mix(in oklab, {$hex} 55%, black);
-    --primary-900: color-mix(in oklab, {$hex} 40%, black);
-    --primary-950: color-mix(in oklab, {$hex} 25%, black);
-}
-</style>
-HTML;
+        return PanelBranding::themeOverride($tenant instanceof Asset ? $tenant : null);
     }
 }

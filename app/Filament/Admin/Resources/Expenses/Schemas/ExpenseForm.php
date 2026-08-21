@@ -72,7 +72,7 @@ class ExpenseForm
 
                     Select::make('paid_from')
                         ->label(__('admin.fields.paid_from'))
-                        ->options(fn () => PaymentMethod::options('outbound', 'admin.enums.expense_paid_from'))
+                        ->options(fn () => PaymentMethod::optionsFor('expenses.paid_from', 'admin.enums.expense_paid_from'))
                         ->default('cash')
                         ->native(false)
                         ->required()

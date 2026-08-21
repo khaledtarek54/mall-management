@@ -64,7 +64,7 @@ class TenantPaymentsRelationManager extends RelationManager
             ->filters([
                 SelectFilter::make('method')
                     ->label(__('admin.tables.payment.method'))
-                    ->options(fn () => PaymentMethod::options('inbound')),
+                    ->options(fn () => PaymentMethod::filterOptionsFor('payments.method')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.payment')),

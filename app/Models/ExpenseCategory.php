@@ -201,6 +201,28 @@ class ExpenseCategory extends Model
     }
 
     /**
+     * `code => label` for a FILTER — retired categories included, so a category switched off can
+     * still find the costs already booked under it. See {@see IsCodeCatalogue::filterOptions()}.
+     *
+     * @return array<string, string>
+     */
+    public static function filterOptions(?string $fallbackGroup = null): array
+    {
+        try {
+            $rows = static::query()->orderBy('sort_order')->get()
+                ->mapWithKeys(fn (self $c) => [$c->code => $c->label()])->all();
+
+            if ($rows !== []) {
+                return $rows;
+            }
+        } catch (\Throwable) {
+            // Before the table exists.
+        }
+
+        return static::options($fallbackGroup);
+    }
+
+    /**
      * Fixed or variable, from the row; the floor is {@see CostNature::MAP}.
      *
      * Memoized like every other read here. A per-call query was an N+1 in the two places that

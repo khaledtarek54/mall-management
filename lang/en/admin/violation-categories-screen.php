@@ -5,7 +5,6 @@ return [
         'singular' => 'Violation category',
         'plural' => 'House rules',
         'recorded' => 'Recorded',
-        'default_fine' => 'Standard fine',
         'no_fine' => 'No standard fine',
         'help' => [
             'code' => 'Stored on every violation recorded under it. Cannot change once saved.',

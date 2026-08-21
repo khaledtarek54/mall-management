@@ -100,6 +100,31 @@ trait IsCodeCatalogue
     /** Drop every memo this catalogue fills, and `ValueSets`' per-process table map. */
     public static function flushCatalogue(): void
     {
+        static::forgetCatalogueMemos();
+
+        // The enforced set is derived from this catalogue — see ValueSets::CATALOGUE_WIDENED.
+        ValueSets::flushCatalogueCache();
+    }
+
+    /**
+     * Drop this catalogue's OWN memos and nothing else.
+     *
+     * Separate from {@see flushCatalogue()} so `ValueSets::flushCatalogueCache()` can call it
+     * without recursing back into itself — and it must, because the two caches are one fact stored
+     * twice. `guard()`'s last chance before refusing a value re-derives the enforced set from the
+     * database, for the case its own docblock describes: a `queue:work` daemon that answered once
+     * before an operator activated Fawry keeps refusing a value the web request accepts, and a
+     * wrong REFUSAL is the worse direction because the row is lost and the failure reads as a bug
+     * in the job.
+     *
+     * That recovery was a NO-OP from the day it was written. `flushCatalogueCache()` cleared only
+     * `ValueSets::$byTable`; the rebuild then called `codes()`, which answered from the container
+     * memo that was stale in the first place — so the re-derive re-read the exact cache it was
+     * trying to get past. Laravel does not help either: a worker resets `forgetScopedInstances()`
+     * between jobs, and these are plain instance bindings.
+     */
+    public static function forgetCatalogueMemos(): void
+    {
         $key = static::catalogueMemoKey();
 
         foreach (array_merge(['codes'], static::catalogueMemoSuffixes()) as $suffix) {
@@ -109,9 +134,6 @@ trait IsCodeCatalogue
         foreach (static::catalogueLocales() as $locale) {
             app()->forgetInstance($key.'.labels.'.$locale);
         }
-
-        // The enforced set is derived from this catalogue — see ValueSets::CATALOGUE_WIDENED.
-        ValueSets::flushCatalogueCache();
     }
 
     /** The reader's language, falling back to the other rather than to a blank cell. */
@@ -210,6 +232,36 @@ trait IsCodeCatalogue
                 $code => $fallbackGroup === null ? static::labelFor($code) : static::labelFor($code, $fallbackGroup),
             ])
             ->all();
+    }
+
+    /**
+     * `code => label` for a FILTER — active rows and retired ones alike.
+     *
+     * A form asks "what may I file under?" and a filter asks "what is already filed?", and those are
+     * different questions. Pointing a filter at {@see options()} meant that retiring a code made its
+     * own history unfindable: the violations recorded under it, the certificates filed under it and
+     * the payments taken on it were all still there and no longer reachable from the list they were
+     * on. Same reasoning as {@see labelFor()} including inactive rows.
+     *
+     * @return array<string, string>
+     */
+    public static function filterOptions(): array
+    {
+        try {
+            $rows = static::query()
+                ->orderBy('sort_order')
+                ->get()
+                ->mapWithKeys(fn ($row) => [$row->code => $row->label()])
+                ->all();
+
+            if ($rows !== []) {
+                return $rows;
+            }
+        } catch (\Throwable) {
+            // Before the table exists.
+        }
+
+        return static::options();
     }
 
     /**

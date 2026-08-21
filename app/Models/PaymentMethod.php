@@ -46,13 +46,15 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * ## Direction
  *
- * One catalogue serves four columns. `for_inbound` covers `payments.method` and
- * `deposit_transactions.method`; `for_outbound` covers `vendor_bill_payments.method`,
- * `expenses.paid_from` and `Disbursement`. Cash and bank transfer are both; a collection network is
+ * One catalogue serves SEVEN columns. `for_inbound` covers `payments.method`,
+ * `deposit_transactions.method` and `employee_advance_repayments.method` (the employee is paying the
+ * operator BACK, so that one debits cash/bank); `for_outbound` covers `vendor_bill_payments.method`,
+ * `expenses.paid_from`, `employee_advances.paid_from` (granting an advance PAYS the employee) and
+ * `Disbursement`. Cash and bank transfer are both; a collection network is
  * inbound only. Without this, unifying the registries would offer nonsense on one side.
  */
 #[DeletableWhenUnused(
-    blockedBy: ['payments', 'vendorBillPayments', 'depositTransactions', 'expenses', 'disbursements'],
+    blockedBy: ['payments', 'vendorBillPayments', 'depositTransactions', 'expenses', 'disbursements', 'employeeAdvanceRepayments', 'employeeAdvances'],
     instead: 'Deactivate it. A rail that carried money stays in the catalogue, because every document that names it reads its label — deleting the row would leave those documents naming a code nothing can explain.',
 )]
 // Shared, not property-owned: a payment rail is operator-level infrastructure. Eltizam banks the
@@ -222,38 +224,65 @@ class PaymentMethod extends Model
     }
 
     /**
-     * Active rail codes usable in a direction.
+     * `code => label` for the picker on ONE column.
      *
-     * INACTIVE rows are excluded: switching a rail off stops it being offered. It does not
-     * invalidate the documents that already name it, which is why `ValueSets` keeps its literal
-     * floor and only ever WIDENS from here.
+     * **The column, not a direction.** The direction and the FLOOR are both derived from it, and
+     * that is the whole point: taking a direction and then flooring from a hard-coded table meant a
+     * picker offered the floor of a DIFFERENT column. `expenses.paid_from` accepts `cash|bank` and
+     * its form offered the five `vendor_bill_payments` rails on any database without the catalogue
+     * seeded — a value the saving listener refuses, which is the 2026-08-18 deposit bug in its
+     * original form. `OfferedValuesAreAcceptedValuesConformanceTest` could not see it: that gate
+     * compares `allowed()` with `forTable()`, and both were right about the column; it was the
+     * PICKER that was reading somebody else's set.
      *
-     * @return array<int, string>
-     */
-    public static function codesFor(string $direction): array
-    {
-        return $direction === 'outbound' ? static::outboundCodes() : static::inboundCodes();
-    }
-
-    /**
-     * `code => label` for a picker, in the reader's language.
+     * `$fallbackGroup` stays per call site, because one catalogue serves seven columns that each had
+     * their own lang group — a vendor-bill payment reads `admin.enums.vendor_bill_payment_method`,
+     * an expense reads `admin.enums.expense_paid_from`. Only reached on an unseeded database.
      *
-     * `$fallbackGroup` is per CALL SITE rather than per model, because one catalogue now serves five
-     * columns that each had their own lang group — a vendor-bill payment reads
-     * `admin.enums.vendor_bill_payment_method`, an expense reads `admin.enums.expense_paid_from`.
-     * Only reached on an unseeded database; a seeded one answers from the rows.
-     *
+     * @param  string  $column  `table.column`, e.g. `expenses.paid_from`
      * @return array<string, string>
      */
-    public static function options(string $direction, ?string $fallbackGroup = null): array
+    public static function optionsFor(string $column, ?string $fallbackGroup = null): array
     {
-        $outbound = $direction === 'outbound';
+        [$table, $name] = explode('.', $column, 2);
+
+        // Which direction this column is, taken from the registry that already says so rather than
+        // from a second list. `PaymentMethodPickersMatchTheirColumnTest` fails on an unregistered one.
+        $reader = ValueSets::catalogueWidenedColumns()[$column][1] ?? 'outboundCodes';
+        $outbound = $reader === 'outboundCodes';
 
         return static::catalogueOptions(
             scope: fn (Builder $q) => $q->where($outbound ? 'for_outbound' : 'for_inbound', true),
-            floor: ValueSets::allowed($outbound ? 'vendor_bill_payments' : 'payments', 'method') ?? [],
+            floor: ValueSets::allowed($table, $name) ?? [],
             fallbackGroup: $fallbackGroup,
         );
+    }
+
+    /**
+     * `code => label` for a FILTER on one column — retired rails included.
+     *
+     * A form asks what may be recorded; a filter asks what already WAS. Pointing a filter at
+     * `optionsFor()` meant retiring a rail hid every payment ever taken on it from the list it is on.
+     *
+     * @return array<string, string>
+     */
+    public static function filterOptionsFor(string $column, ?string $fallbackGroup = null): array
+    {
+        $reader = ValueSets::catalogueWidenedColumns()[$column][1] ?? 'outboundCodes';
+        $direction = $reader === 'outboundCodes' ? 'for_outbound' : 'for_inbound';
+
+        try {
+            $rows = static::query()->where($direction, true)->orderBy('sort_order')->get()
+                ->mapWithKeys(fn (self $m) => [$m->code => $m->label()])->all();
+
+            if ($rows !== []) {
+                return $rows;
+            }
+        } catch (\Throwable) {
+            // Before the table exists.
+        }
+
+        return static::optionsFor($column, $fallbackGroup);
     }
 
     public function ledgerAccount(): BelongsTo
@@ -284,6 +313,16 @@ class PaymentMethod extends Model
     public function disbursements()
     {
         return $this->hasMany(Disbursement::class, 'method', 'code');
+    }
+
+    public function employeeAdvanceRepayments()
+    {
+        return $this->hasMany(EmployeeAdvanceRepayment::class, 'method', 'code');
+    }
+
+    public function employeeAdvances()
+    {
+        return $this->hasMany(EmployeeAdvance::class, 'paid_from', 'code');
     }
 
     public function getActivitylogOptions(): LogOptions

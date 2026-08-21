@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
+use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Support\PostingDate;
 use DomainException;
@@ -52,7 +53,11 @@ class RecordAdvanceRepaymentService
                 'asset_id' => $locked->asset_id, // denormalised — the books dimension
                 'amount' => $amount,
                 'repaid_on' => $repaidOn->toDateString(),
-                'method' => ($data['method'] ?? 'cash') === 'bank' ? 'bank' : 'cash',
+                // NOT clamped. It used to read `=== 'bank' ? 'bank' : 'cash'`, which turned every
+                // other rail into cash silently — a wrong account rather than a refusal, and the
+                // operator saw a success toast. `employee_advance_repayments.method` is a registered
+                // value set now, so `ValueSets` refuses anything the catalogue does not carry.
+                'method' => $data['method'] ?? PaymentMethod::FLOOR_CASH_ROLE,
                 'notes' => $data['notes'] ?? null,
                 'created_by_user_id' => auth()->id(),
             ]);

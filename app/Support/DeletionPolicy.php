@@ -5,7 +5,10 @@ namespace App\Support;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\NeverDeletable;
+use App\Support\Filament\AnnouncingDeleteAction;
+use App\Support\Filament\ResourceAbility;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use ReflectionClass;
 
 /**
@@ -197,6 +200,53 @@ class DeletionPolicy
     public static function isNeverDeletable(string $model): bool
     {
         return self::declared($model, NeverDeletable::class) !== null;
+    }
+
+    /**
+     * **May the SIGNED-IN actor delete this record?** The one predicate, asked by two layers.
+     *
+     * `RoleGatedActions::canDelete()` states the rule — a never-deletable model is refused outright,
+     * everything else is super_admin only — and every resource in the panel inherits it. What
+     * nothing enforced was Filament's OWN `DeleteAction`: in v4 the built-in CRUD actions route
+     * their authorization to a Laravel POLICY, this application has none, and
+     * `Filament\get_authorization_response()` therefore falls through to `Response::allow()`.
+     * `canCreate()`/`canEdit()` survived by accident because the Create and Edit PAGES re-check them
+     * on mount; a `DeleteAction` has no page, so a `manager` could delete an unreferenced tenant, a
+     * holiday — or a user account. Proven, then fixed at the one seam the actions already pass
+     * through: see {@see AnnouncingDeleteAction}.
+     *
+     * Lives here rather than on the trait because a relation manager's delete button has no
+     * resource to ask, and the rule is about the MODEL and the actor, not about the screen.
+     */
+    public static function actorMayDelete(?Model $record, mixed $livewire = null): bool
+    {
+        if (! $record instanceof Model) {
+            // No record means nothing to authorize against. Refuse: a delete button that cannot say
+            // what it is deleting is not one to wave through.
+            return false;
+        }
+
+        // ── The screen's own answer, when the screen has one ───────────────────────────────────
+        // A resource may be MORE permissive than the project default and legitimately so: the
+        // portal lets a tenant admin delete their own draft marketing post, which is their content
+        // and never a record of anything that happened. Asking the resource keeps that working and
+        // keeps `DepartmentResource::canDelete() => false` working too — this seam adds a layer,
+        // it does not replace the answers already written.
+        //
+        // The record's class must match the resource's, or this is a relation manager whose owner
+        // resource describes a different model entirely and would be answering the wrong question.
+        $fromResource = ResourceAbility::may('canDelete', $livewire, $record);
+
+        if ($fromResource !== null) {
+            return $fromResource;
+        }
+
+        // ── The floor: the project-wide rule, for a child row with no resource to ask ──────────
+        if (self::isNeverDeletable($record::class)) {
+            return false;
+        }
+
+        return Auth::user()?->hasRole('super_admin') ?? false;
     }
 
     /** How the operator is told to correct this record instead of deleting it. */

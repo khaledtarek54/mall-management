@@ -28,7 +28,8 @@ class ViolationCategoryForm
             TextInput::make('name_ar')->label(__('admin.fields.name_ar'))->required()->maxLength(96),
 
             TextInput::make('default_fine_amount')
-                ->label(__('admin.violation_categories_screen.default_fine'))
+                // `admin.fields.*` — the same word the activity log uses for this column.
+                ->label(__('admin.fields.default_fine_amount'))
                 ->numeric()
                 ->minValue(0)
                 ->prefix(config('app.currency', 'EGP'))

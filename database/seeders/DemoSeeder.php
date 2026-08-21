@@ -65,6 +65,8 @@ use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
 use App\Models\VendorDocument;
+use App\Models\Violation;
+use App\Models\ViolationCategory;
 use App\Models\Warehouse;
 use App\Models\WorkPermit;
 use App\Services\Accounting\FiscalCalendar;
@@ -72,6 +74,7 @@ use App\Services\Accounting\SetPostMonthService;
 use App\Services\AllocatePaymentToInvoiceItemsService;
 use App\Services\AssignRentableItemService;
 use App\Services\BillUnitOwnershipsService;
+use App\Services\BillViolationFineService;
 use App\Services\CamReconciliationService;
 use App\Services\CreditNoteService;
 use App\Services\DepreciationService;
@@ -460,6 +463,9 @@ class DemoSeeder extends Seeder
 
         $this->seedAnnouncements($atriomWalk);
         $this->command->info('   Mall news: sent notices with read receipts, one scheduled, one draft');
+
+        $this->seedViolations($atriomWalk);
+        $this->command->info('   House rules: a tariff on the register, four breaches, one fine billed');
 
         // --- Operational + financial modules (22–26 + AP / expenses / deposits) ---
         $employees = $this->seedHrEmployees($atriomWalk);
@@ -2683,6 +2689,88 @@ class DemoSeeder extends Seeder
      * A few read receipts are then stamped so the admin table's read rate shows something other
      * than "0 / n" — which is what the screen looks like the day it ships and reads like a bug.
      */
+    /**
+     * The house-rules register with a tariff on it, and four breaches recorded against it.
+     *
+     * Demo data is part of the feature: with none of this, `/admin/violation-categories` shows seven
+     * rules with a blank fine and `/admin/violations` is empty, so the register, the standard-fine
+     * prefill and the "bill the fine" action all read as unbuilt to anyone opening the demo. The
+     * SEEDER deliberately ships no tariff — a schedule of penalties is the operator's handbook and
+     * inventing figures on a real install would put numbers in front of a field officer that nobody
+     * agreed. A DEMO mall is exactly where the figures should exist.
+     */
+    private function seedViolations(Asset $asset): void
+    {
+        $tariff = [
+            'safety' => 5000,
+            'unauthorized_works' => 3000,
+            'signage' => 1500,
+            'operating_hours' => 1000,
+            'cleanliness' => 750,
+            'noise' => 500,
+        ];
+
+        foreach ($tariff as $code => $fine) {
+            ViolationCategory::query()->where('code', $code)->update(['default_fine_amount' => $fine]);
+        }
+
+        ViolationCategory::flushCatalogue();
+
+        $officer = User::where('email', 'operations@mall.test')->first();
+        $tenants = Tenant::query()->where('party_type', 'retailer')->orderBy('id')->take(4)->get();
+
+        if ($tenants->count() < 4) {
+            return;
+        }
+
+        $rows = [
+            // Open, unbilled, with the standard fine — the ordinary case a field officer records.
+            ['category' => 'signage', 'days' => 6, 'fine' => 1500, 'status' => Violation::STATUS_OPEN,
+                'description' => 'Pull-up banner placed outside the demise line, blocking the mall walkway.'],
+            // Open, notified, no fine — a warning first, which is most of the rule book in practice.
+            ['category' => 'cleanliness', 'days' => 11, 'fine' => null, 'status' => Violation::STATUS_OPEN,
+                'notified' => true, 'description' => 'Back-of-house corridor left with uncollected packaging overnight.'],
+            // Resolved — the shop fixed it, so the record explains a fine that was never charged.
+            ['category' => 'operating_hours', 'days' => 24, 'fine' => 1000, 'status' => Violation::STATUS_RESOLVED,
+                'notified' => true, 'description' => 'Shutters down 40 minutes before mall closing on three consecutive days.'],
+            // The one that gets BILLED below — a safety breach at the top of the tariff.
+            ['category' => 'safety', 'days' => 18, 'fine' => 5000, 'status' => Violation::STATUS_OPEN,
+                'notified' => true, 'description' => 'Rear fire exit obstructed by stock pallets.'],
+        ];
+
+        $billable = null;
+
+        foreach ($rows as $i => $row) {
+            $violation = Violation::create([
+                'asset_id' => $asset->id,
+                'tenant_id' => $tenants[$i]->id,
+                'category' => $row['category'],
+                'description' => $row['description'],
+                'fine_amount' => $row['fine'],
+                'violation_date' => now()->subDays($row['days'])->toDateString(),
+                'status' => $row['status'],
+                'notified_at' => ($row['notified'] ?? false) ? now()->subDays($row['days'] - 1) : null,
+                'created_by_user_id' => $officer?->id,
+            ]);
+
+            if ($row['category'] === 'safety') {
+                $billable = $violation;
+            }
+        }
+
+        // One fine actually billed, so the AR side of module 31 is visible too: a VAT-exempt
+        // `violation_fine` line on a normal invoice, booking to misc_income.
+        if ($billable !== null) {
+            try {
+                app(BillViolationFineService::class)->bill($billable);
+            } catch (\Throwable $e) {
+                // A demo tenant with no active lease in this property cannot be billed, and that is
+                // not a reason to fail the seed — the four records are the point.
+                $this->command->warn('   (violation fine not billed: '.$e->getMessage().')');
+            }
+        }
+    }
+
     private function seedAnnouncements(Asset $asset): void
     {
         $marketingLead = User::where('email', 'marketing@mall.test')->first();

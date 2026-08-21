@@ -58,18 +58,17 @@ class DepositTransaction extends Model
      */
     public static function methodOptions(): array
     {
-        // Labels from the CATALOGUE, not from `admin.enums.expense_paid_from` — that group has two
-        // keys (`cash`, `bank`) and this set now has eight, so six options rendered as their raw
-        // snake_case code and an InstaPay deposit printed `admin.enums.expense_paid_from.instapay`
-        // in the list. The lang group survives as the fallback for the two legacy values.
+        // Through the catalogue, keyed on THIS COLUMN — `optionsFor()` derives both the direction
+        // and the floor from `deposit_transactions.method`, so it cannot offer a value the saving
+        // listener refuses, which is the whole reason this method exists (2026-08-18).
         //
-        // Keyed off `forTable()`, the set the SAVING LISTENER accepts, so this cannot offer a value
-        // the column refuses — which is the whole reason this method exists (2026-08-18).
-        $enforced = ValueSets::forTable('deposit_transactions')['method'] ?? [];
-
-        return collect($enforced)
-            ->mapWithKeys(fn (string $v) => [$v => PaymentMethod::labelFor($v, 'admin.enums.expense_paid_from')])
-            ->all();
+        // It reads the ROWS first rather than the enforced set. Keying it off `forTable()` looked
+        // safer and was subtly wrong in the other direction: the enforced set is floor ∪ ACTIVE, and
+        // the floor is permanent, so a rail the operator switched off stayed in this dropdown for
+        // ever — `is_active` was inert here exactly as it had been on the expense categories.
+        //
+        // The lang group survives as the fallback for the two legacy values on an unseeded database.
+        return PaymentMethod::optionsFor('deposit_transactions.method', 'admin.enums.expense_paid_from');
     }
 
     public function searchTextSources(): array

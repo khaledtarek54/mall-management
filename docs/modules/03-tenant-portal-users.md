@@ -215,6 +215,32 @@ This broadcasts to:
 
 ## 8. Extension points — how to change/extend SAFELY
 
+### Branding (EG-22)
+
+The portal is **white-labelled per property**. `App\Support\Filament\PortalBranding` answers "which
+mall?" and `App\Support\Filament\PanelBranding` turns an `Asset` into a name, a logo, a favicon and a
+`--primary-*` palette — the same seam the admin panel reads, so a colour rule cannot drift between the
+two and leave a mall's portal the wrong green.
+
+**The rule is exactly one mall, or the platform.** A tenant trading in ONE property (an active lease,
+or a `handed_over` unit ownership — a unit owner is a `tenants` row too and pays their service charge
+here) sees that mall's name, logo, favicon and colour. A tenant with shops in three sees `portal.brand`,
+because branding their portal as one of the three is a claim about the other two. That is deliberately
+the same rule `IssuingEntity::forViewScopedTo()` applies to the tenant-facing PDFs: a statement and a
+portal must not tell one tenant two different things.
+
+Three things to keep if you touch it:
+
+- **Closures, not values.** A panel builder argument is evaluated once at boot, so `->brandName('…')`
+  cannot depend on who is signed in. Same trap that makes `->colors()` and the 2FA condition unusable
+  per-user.
+- **Memoise per REQUEST, not in a static.** The panel asks four times a page plus the theme hook; a
+  static outlives the request in a queue worker or under Octane. `PortalBranding::forget()` exists for
+  tests that sign in as a second tenant.
+- **A malformed `primary_color` emits nothing.** The field is operator-typed and a broken `<style>`
+  would take the panel's whole chrome with it.
+
+
 ### Adding a new portal resource (e.g., a new form tenants must fill)
 
 1. **Create the model** (in `app/Models/`):

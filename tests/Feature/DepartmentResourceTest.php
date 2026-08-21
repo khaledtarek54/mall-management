@@ -7,6 +7,7 @@ use App\Models\Department;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -86,4 +87,31 @@ it('refuses a viewer the create page', function () {
     $this->actingAs(makeUser('viewer'));
 
     expect(DepartmentResource::canCreate())->toBeFalse();
+});
+
+it('gives a new department a role, so a member can actually be attached', function () {
+    // The other half of "a department can be added": `roleName()` returns the slug verbatim and the
+    // slug IS the spatie role name, so attaching a member reached `assignRole('security')` and threw
+    // spatie's `RoleDoesNotExist`. That extends `InvalidArgumentException`, not `DomainException`,
+    // so it rendered as the 500 PAGE — and Filament's AttachAction commits the pivot BEFORE the
+    // `after()` hook, so the write was half-applied behind an error screen and the department stayed
+    // permanently un-attachable.
+    $this->actingAs(makeUser('manager'));
+
+    $dept = Department::create(['name' => 'Security']);
+
+    expect(Role::where('name', $dept->slug)->where('guard_name', 'web')->exists())->toBeTrue()
+        // With NO permissions: membership grants the department scope marker, and what that role may
+        // do stays a deliberate act on the roles screen.
+        ->and(Role::findByName($dept->slug, 'web')->permissions)->toBeEmpty();
+
+    $member = makeUser('viewer');
+    $dept->registerMember($member);
+
+    expect($member->fresh()->hasRole($dept->slug))->toBeTrue();
+
+    // And through the path that actually 500'd — the relation manager's `after()` hook.
+    $dept->assignRolesToMembers();
+
+    expect($member->fresh()->hasRole($dept->slug))->toBeTrue();
 });

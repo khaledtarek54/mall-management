@@ -20,10 +20,23 @@ namespace App\Support\Filament;
 trait AnnouncesRecordChange
 {
     /**
+     * The second layer, for the CRUD actions that had none.
+     *
+     * Filament v4 routes `Create`/`Edit`/`View`/`Delete`/`ForceDelete`/`Restore` authorization to a
+     * Laravel policy; this application has none, so `get_authorization_response()` returns
+     * `Response::allow()`. Create and Edit survive because their PAGES re-check on mount — a
+     * `DeleteAction` has no page. A no-op by default so the create/edit subclasses are unchanged;
+     * the destructive ones override it.
+     */
+    protected function assertActionAuthorized(): void {}
+
+    /**
      * @param  array<string, mixed>  $parameters
      */
     public function call(array $parameters = []): mixed
     {
+        $this->assertActionAuthorized();
+
         $result = parent::call($parameters);
 
         RecordChanged::announceAfterAction($this->getLivewire(), $result);

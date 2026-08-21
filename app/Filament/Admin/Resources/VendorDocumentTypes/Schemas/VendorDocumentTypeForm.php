@@ -29,7 +29,9 @@ class VendorDocumentTypeForm
             TextInput::make('name_ar')->label(__('admin.fields.name_ar'))->required()->maxLength(96),
 
             Toggle::make('blocks_dispatch')
-                ->label(__('admin.vendor_document_types_screen.blocks_dispatch'))
+                // `admin.fields.*`, the catalogue the ACTIVITY LOG labels from too. Two strings
+                // for one field agree until the day somebody edits one of them.
+                ->label(__('admin.fields.blocks_dispatch'))
                 ->default(false)
                 ->helperText(__('admin.vendor_document_types_screen.help.blocks_dispatch'))
                 ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.vendor_document_blocks_dispatch')),

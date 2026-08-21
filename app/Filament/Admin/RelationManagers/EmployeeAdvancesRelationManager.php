@@ -5,6 +5,7 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
+use App\Models\PaymentMethod;
 use App\Services\GrantEmployeeAdvanceService;
 use App\Services\RecordAdvanceRepaymentService;
 use App\Support\Modules;
@@ -110,7 +111,9 @@ class EmployeeAdvancesRelationManager extends RelationManager
                             ->native(false),
                         Select::make('paid_from')
                             ->label(__('admin.employees.advance_fields.paid_from'))
-                            ->options(['cash' => __('admin.employees.methods.cash'), 'bank' => __('admin.employees.methods.bank')])
+                            // The catalogue, not a two-entry literal. OUTBOUND: granting an advance
+                            // pays the employee, so it is the same direction as an expense.
+                            ->options(fn () => PaymentMethod::optionsFor('employee_advances.paid_from', 'admin.employees.methods'))
                             ->default('cash')
                             ->required()
                             ->native(false),
@@ -155,7 +158,10 @@ class EmployeeAdvancesRelationManager extends RelationManager
                             ->native(false),
                         Select::make('method')
                             ->label(__('admin.employees.advance_fields.method'))
-                            ->options(['cash' => __('admin.employees.methods.cash'), 'bank' => __('admin.employees.methods.bank')])
+                            // The catalogue, not a two-entry literal: an operator who activates
+                            // InstaPay can take a deposit by it and could not record a repayment by
+                            // it. Inbound — the employee is paying the operator back.
+                            ->options(fn () => PaymentMethod::optionsFor('employee_advance_repayments.method', 'admin.employees.methods'))
                             ->default('cash')
                             ->required()
                             ->native(false),

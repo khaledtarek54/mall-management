@@ -84,7 +84,7 @@ class PaymentsTable
                     // Was an `->only()` list of five, hand-kept beside the seven the column accepts —
                 // so `wallet` and `other` could be recorded and never filtered for. The catalogue
                 // answers both questions with one list.
-                    ->options(fn () => PaymentMethod::options('inbound')),
+                    ->options(fn () => PaymentMethod::filterOptionsFor('payments.method')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.payment'))->only(['captured', 'reconciled', 'failed', 'refunded'])->all()),

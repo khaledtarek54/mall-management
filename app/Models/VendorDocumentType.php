@@ -106,12 +106,18 @@ class VendorDocumentType extends Model
      * Read on every dispatchability check and inside the assignable-vendor picker's subquery, so it
      * is memoised and dropped on write like the rest of the catalogue.
      *
-     * Two things this must get right, both fail-open if it does not:
+     * Three things this must get right, all fail-OPEN if it does not:
      *
-     * - an UNSEEDED table falls back to {@see VendorDocument::BLOCKING_TYPES}, because `whereIn([])`
-     *   matches nothing and would make every vendor dispatchable;
-     * - INACTIVE rows are INCLUDED, because `is_active` decides what a picker offers, not whether a
-     *   certificate already on file counts.
+     * - **the floor is applied PER CODE, not per table.** A shipped blocking type keeps blocking
+     *   unless a ROW for that code says otherwise. Keying it on "the table has any row at all" was
+     *   wrong in the case that will actually happen: on a box where the seeder step was missed, the
+     *   operator's FIRST custom type would have made the table non-empty and silently un-blocked
+     *   insurance for every vendor — a liability event caused by adding an unrelated row.
+     * - **INACTIVE rows still block.** `is_active` decides what a picker OFFERS, not whether a
+     *   certificate already on file counts; retiring a type must not release every uninsured
+     *   contractor on the books.
+     * - **an operator who unticks everything meant it.** Rows exist and none block, so nothing
+     *   blocks. That is a decision, not an empty catalogue, and it is honoured.
      *
      * @return array<int, string>
      */
@@ -124,13 +130,28 @@ class VendorDocumentType extends Model
         }
 
         try {
-            $codes = static::query()->exists()
-                ? static::query()->where('blocks_dispatch', true)->pluck('code')->all()
-                : VendorDocument::BLOCKING_TYPES;
+            // Every row, inactive included — see above.
+            $rows = static::query()->pluck('blocks_dispatch', 'code')->all();
         } catch (\Throwable) {
             // Before the table exists.
             return VendorDocument::BLOCKING_TYPES;
         }
+
+        $codes = [];
+
+        foreach (VendorDocument::BLOCKING_TYPES as $shipped) {
+            if (! array_key_exists($shipped, $rows) || $rows[$shipped]) {
+                $codes[] = $shipped;
+            }
+        }
+
+        foreach ($rows as $code => $blocks) {
+            if ($blocks) {
+                $codes[] = (string) $code;
+            }
+        }
+
+        $codes = array_values(array_unique($codes));
 
         app()->instance($memo, $codes);
 

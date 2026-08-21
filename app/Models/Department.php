@@ -18,6 +18,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
+use Spatie\Permission\Models\Role;
 
 /**
  * An operator (Eltizam) organizational unit — the backbone of the
@@ -215,6 +216,23 @@ class Department extends Model
                 }
                 $department->slug = $slug;
             }
+        });
+
+        // ── The access role, created with the department ───────────────────────────────────────
+        // A department's slug IS its spatie role name ({@see roleName()}), and until 2026-08-22
+        // nothing created a role for a department the OPERATOR added. The five seeded ones work
+        // because `leasing`/`operations`/`accounting`/`marketing`/`hr` are all in
+        // `RolesPermissionsSeeder::ROLES`. Attaching a member to a new department reached
+        // `assignRole($slug)`, which throws spatie's `RoleDoesNotExist` — an
+        // `InvalidArgumentException`, so it rendered as the 500 PAGE rather than a refusal toast,
+        // and Filament's `AttachAction` had already committed the pivot. The department then stayed
+        // permanently un-attachable, because `assignRolesToMembers()` loops over every member.
+        //
+        // Created with NO permissions on purpose: membership grants the department SCOPE MARKER,
+        // and what that role may do stays a deliberate act on the roles screen. `findOrCreate` is
+        // idempotent, so the seeded five are untouched and a reseed changes nothing.
+        static::created(function (self $department) {
+            Role::findOrCreate($department->slug, 'web');
         });
     }
 }

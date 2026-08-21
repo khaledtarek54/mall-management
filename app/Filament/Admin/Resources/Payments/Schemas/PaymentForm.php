@@ -95,7 +95,7 @@ class PaymentForm
                             }),
                         Select::make('method')
                             ->label(__('admin.fields.method'))
-                            ->options(fn () => PaymentMethod::options('inbound'))
+                            ->options(fn () => PaymentMethod::optionsFor('payments.method'))
                             ->required()
                             ->disabled($locked)
                             ->native(false),

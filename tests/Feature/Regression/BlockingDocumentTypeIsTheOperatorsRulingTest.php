@@ -113,3 +113,51 @@ it('agrees between the row question and the query question', function () {
         ->and(VendorDocument::query()->blocking()->pluck('id'))->toContain($doc->id)
         ->and($vendor->fresh()->isDispatchable())->toBeFalse();
 });
+
+it('keeps blocking insurance on a box where only a custom type was added', function () {
+    // The floor is PER CODE, not per table. Keyed on "the table has any row at all", the operator's
+    // FIRST custom type on a box where the seeder step was missed would have made the table
+    // non-empty and silently released every uninsured contractor — a liability event caused by
+    // adding an unrelated row.
+    expect(VendorDocumentType::query()->count())->toBe(0);
+
+    VendorDocumentType::create([
+        'code' => 'civil_defence',
+        'name_en' => 'Civil-defence permit',
+        'name_ar' => 'تصريح دفاع مدني',
+        'blocks_dispatch' => false,
+    ]);
+
+    $vendor = activeVendor('Uninsured Contractor');
+    lapsedDoc($vendor, VendorDocument::TYPE_INSURANCE_COI);
+
+    expect($vendor->fresh()->isDispatchable())->toBeFalse();
+
+    // The control: the custom type genuinely did not block, so the row was read rather than ignored.
+    $other = activeVendor('Permit Lapsed Ltd');
+    lapsedDoc($other, 'civil_defence');
+
+    expect($other->fresh()->isDispatchable())->toBeTrue();
+});
+
+it('honours an operator who unticks everything', function () {
+    // Rows exist and none block. That is a decision, not an empty catalogue, and it must not be
+    // overridden by the floor — this is the distinction the per-code rule above exists to draw, and
+    // it is the only case where nothing blocks at all.
+    $this->seed(VendorDocumentTypeSeeder::class);
+
+    VendorDocumentType::query()->update(['blocks_dispatch' => false]);
+    VendorDocumentType::flushCatalogue();
+
+    $vendor = activeVendor('Deliberately Unblocked');
+    lapsedDoc($vendor, VendorDocument::TYPE_INSURANCE_COI);
+
+    expect(VendorDocumentType::blockingCodes())->toBe([])
+        ->and($vendor->fresh()->isDispatchable())->toBeTrue();
+
+    // The control, in the same test: ticking one back on re-blocks in the same request.
+    VendorDocumentType::query()->where('code', VendorDocument::TYPE_INSURANCE_COI)
+        ->first()->update(['blocks_dispatch' => true]);
+
+    expect($vendor->fresh()->isDispatchable())->toBeFalse();
+});

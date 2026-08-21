@@ -24,7 +24,7 @@ class VendorDocumentTypesTable
                     ->state(fn (VendorDocumentType $record): string => $record->label()),
 
                 IconColumn::make('blocks_dispatch')
-                    ->label(__('admin.vendor_document_types_screen.blocks_dispatch'))
+                    ->label(__('admin.fields.blocks_dispatch'))
                     ->boolean()
                     // The consequence, on the list, because this is the only column here that
                     // changes who may be sent to site.
@@ -42,7 +42,7 @@ class VendorDocumentTypesTable
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label(__('admin.fields.is_active')),
-                TernaryFilter::make('blocks_dispatch')->label(__('admin.vendor_document_types_screen.blocks_dispatch')),
+                TernaryFilter::make('blocks_dispatch')->label(__('admin.fields.blocks_dispatch')),
             ])
             ->recordActions([
                 // A read-only view, for the role that holds `.view` and not `.edit`. Its schema is the

@@ -62,7 +62,7 @@ class PaymentsTable
                 SelectFilter::make('method')
                     ->label(__('admin.tables.payment.method'))
                     // The catalogue, not a hand-kept `->only()` list — see the admin twin.
-                    ->options(fn () => PaymentMethod::options('inbound')),
+                    ->options(fn () => PaymentMethod::filterOptionsFor('payments.method')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.payment'))->only(['captured', 'reconciled', 'settled', 'failed', 'refunded'])->all()),

@@ -3,13 +3,14 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\EmployeeAdvance;
+use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Employee advance/loan grant → GL (module 24, Phase 2):
  *
- *   Dr Employee Advances (amount)   / Cr Cash | Bank (per paid_from)
+ *   Dr Employee Advances (amount)   / Cr the rail's account (PaymentMethod, per paid_from)
  *
  * Employee Advances is a receivable (money owed BY the employee) — NOT accounts
  * receivable (which ties out to tenant invoices), so the AR tie-out is unaffected.
@@ -35,7 +36,6 @@ class EmployeeAdvanceJournalizer implements Journalizer
             return null;
         }
 
-        $cashRole = $advance->paid_from === 'bank' ? 'bank' : 'cash';
         // Resolve the name withTrashed so an archived employee still labels the entry.
         $name = $advance->employee()->withTrashed()->value('name') ?? '';
 
@@ -46,7 +46,9 @@ class EmployeeAdvanceJournalizer implements Journalizer
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('employee_advances', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
-                ['ledger_account_id' => $this->accounts->id($cashRole, $assetId), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
+                // The RAIL names its account — the eighth journalizer carrying the mirror ternary
+                // EG-11 removed from the other six, so an InstaPay advance credited CASH.
+                ['ledger_account_id' => PaymentMethod::accountIdOrFloor($advance->paid_from, $assetId, $this->accounts), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
             ],
         ];
     }
