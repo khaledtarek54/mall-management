@@ -58,7 +58,7 @@ final class PhpExtensions
      * @var array<string, string>
      */
     public const REQUIRED = [
-        'intl' => 'every money and numeric column throws — Number::currency() refuses without it, and the search fold silently stops matching «أحمد» to «احمد»',
+        'intl' => 'every money and numeric column throws — Number::currency() refuses without it, so lists, infolists and dashboards break wherever an amount appears',
         'mbstring' => 'text handling fails app-wide; Arabic is mangled rather than merely unsorted',
         'gd' => 'no PDF renders — mpdf needs it for every invoice, statement, payslip and purchase order',
         'zip' => 'no XLSX export and no owner pack — and backup:run writes nothing, though that one fails in the CLI',

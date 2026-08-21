@@ -39,9 +39,12 @@ Three things make this urgent rather than academic, and all three are Egyptian:
 2. **Statutory payroll numbers change every January and the system holds them as three flat, undated
    settings** — with no brackets, no personal exemption, and no insurable-wage cap ([§4.2](#42-payroll)).
    Egypt raised the insurable wage ceiling on 1 January 2026; Atriom has no place to put it.
-3. **There is no working calendar.** Egypt's weekend is Friday–Saturday, and every SLA clock in the
-   system is `now()->addHours()` ([§4.5](#45-time-and-the-working-calendar)). Vendor SLA penalties post
-   real money off that clock.
+3. ~~**There is no working calendar.**~~ **FIXED 2026-08-21 (EG-08 + EG-38).** Egypt's weekend is
+   Friday–Saturday, and every SLA clock was `now()->addHours()`
+   ([§4.5](#45-time-and-the-working-calendar)) — with vendor SLA penalties posting real money off it.
+   There is now a `holidays` register, `CalendarSettings` and `App\Support\WorkingCalendar`; both
+   modules freeze the clock they promised on, and all four overrun measures read it. It **ships off**
+   until the operator rules on which priorities are office work.
 
 The rest of this document is the evidence, then the worklist.
 
@@ -65,7 +68,7 @@ value, or a row with a code-side twin that must move with it · **HARDCODED** = 
 | 8 | **Reporting *shape*** | 🔴 HARDCODED | No report builder; every column is a PHP literal; statement layout is a `match()` on account type |
 | 9 | **Master-data lists** | 🟠 MIXED | Trades, failure codes, charge codes, tax codes, SLA policies, rent indices = rows. Expense category, retail mix, request types, violation types, vendor document types = PHP/lang arrays |
 | 10 | **Statutory payroll** | 🔴 HARDCODED | Three flat undated rates; no brackets, no exemption, no insurable-wage cap |
-| 11 | **Time / working calendar** | 🔴 ABSENT | No weekend, no holidays, no business hours anywhere in `app/` |
+| 11 | **Time / working calendar** | ✅ DONE | `holidays` register + `CalendarSettings` + `WorkingCalendar` (Fri–Sat weekend, Ramadan short days, per-property dates). Both SLA modules freeze the clock they promised on. Ships **off** — EG-08 + EG-38 |
 | 12 | **Currency / FX** | 🔴 ABSENT | 15 tables carry `currency`; nothing reads it; no rate table; no GL currency |
 | 13 | **Payment rails** | 🔴 HARDCODED | A PHP const in 4 parallel registries; adding one is a 9–14 file change |
 | 14 | **Document & message wording** | 🔴 ABSENT | No template table, no rich editor, no mail tab — every invoice footer and dunning letter is a deploy |

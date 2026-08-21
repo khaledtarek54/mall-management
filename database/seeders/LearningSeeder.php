@@ -93,12 +93,18 @@ class LearningSeeder extends Seeder
     public function run(): void
     {
         // ── 1. Reference data ──────────────────────────────────────────────────────────────────
-        // The same four, in the same order, that `atriom:install` runs on a real first deploy.
-        // AccountingSeeder is last because a charge code names the tax code it bills under.
+        // The same SIX, in the same order, that `atriom:install` runs on a real first deploy.
+        // AccountingSeeder is last because a charge code names the tax code it bills under. Both
+        // UtilityTariffSeeder and HolidaySeeder are portfolio-wide (`asset_id` null), so neither
+        // needs the property this seeder creates below — and without them the empty-mall variant
+        // shipped no tariff catalogue and a BLANK working calendar, which is not "the same
+        // reference data `atriom:install` lays down" however the comment above it read.
         $this->call([
             RolesPermissionsSeeder::class,
             ApprovalRulesSeeder::class,
             DepartmentSeeder::class,
+            UtilityTariffSeeder::class,
+            HolidaySeeder::class,
             AccountingSeeder::class,
         ]);
 

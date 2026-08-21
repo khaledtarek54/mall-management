@@ -11,17 +11,17 @@
 >
 > **This is not the go-live gate either.** Configuration, credentials and the decisions someone else
 > has to make are **[operations/GO-LIVE.md](operations/GO-LIVE.md)**, which
-> `/admin/configuration-health` now checks seven rows of automatically.
+> `/admin/configuration-health` now checks eight rows of automatically.
 >
 > **Nor is it the configurability list.** *What the operator can change without a developer*, measured
 > against the Egyptian statute book and Egyptian mall practice, is
-> **[EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md)** (2026-08-20). Its worklist is numbered **EG-01…EG-37**
-> and is not restated here; where a row below overlaps one, it cites it. The four items that document
-> rates 🔴 and that nothing in this file currently covers: taxability frozen per lease at creation
-> (EG-01/02), statutory payroll as undated scalars with no insurable-wage cap (EG-03), the absent
-> working calendar behind every SLA clock (EG-08). **EG-01/02 and EG-03 are the two still open, and
-> both wait on somebody else** — the accountant's ruling on which units carry the schedule tax,
-> and the payroll bracket table. EG-04/05/06/07/08/09/19/20 shipped 2026-08-20/21.
+> **[EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md)** (2026-08-20). Its worklist is numbered **EG-01…EG-38**
+> and is not restated here; where a row below overlaps one, it cites it. The items that documented
+> rates 🔴 and that nothing in this file covers: taxability frozen per lease at creation (EG-01/02)
+> and statutory payroll as undated scalars with no insurable-wage cap (EG-03). **Both are still open
+> and both wait on somebody else** — the accountant's ruling on which units carry the schedule tax,
+> and the payroll bracket table. EG-04/05/06/07/08/09/19/20/38 shipped 2026-08-20/21, the working
+> calendar among them.
 
 > ### ⚠️ Read this before picking up any row
 >

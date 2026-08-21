@@ -1,7 +1,9 @@
-> **Six of these items are now checked in the app** (2026-08-12): `/admin/configuration-health`
-> reads the live database for the seller's tax registration number, unclassified charge codes,
-> uncommissioned tax codes, withholding with nothing to withhold, the posting map, and whether today
-> falls in an open period. Each row says what the gap breaks.
+> **Eight of these items are now checked in the app** (2026-08-12, extended 2026-08-21):
+> `/admin/configuration-health` reads the live database for the seller's tax registration number,
+> the billing contact printed on every document, unclassified charge codes, uncommissioned tax
+> codes, withholding with nothing to withhold, the posting map, whether today falls in an open
+> period, and whether the statutory payroll rates were actually applied to the latest approved run.
+> Each row says what the gap breaks.
 >
 > This file is still the wider gate — it covers credentials, infrastructure and unanswered questions
 > that no query can see — but the parts a query CAN see no longer depend on somebody re-verifying
