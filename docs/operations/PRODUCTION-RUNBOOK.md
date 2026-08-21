@@ -69,8 +69,10 @@ php artisan queue:restart           # workers pick up new code
 > a box missing `intl`, `gd` or `zip` — but it runs under `php-cli`, and the panel renders under
 > `php-fpm`. A box with an extension in one and not the other completes every line of this sequence
 > and then throws on every money column. After `queue:restart`, read
-> `curl -s https://<host>/health | jq '.checks.php_extensions'` **over HTTP**;
-> `composer check-platform-reqs` is the CLI half and cannot see the split.
+> `curl -s -H "X-Health-Token: $HEALTH_TOKEN" https://<host>/health | jq '.checks.php_extensions'`
+> **over HTTP**; `composer check-platform-reqs` is the CLI half and cannot see the split. The token
+> is required — without it the endpoint answers `status` only and this prints `null` on a healthy
+> box.
 
 > **`npm run build` is not optional.** `public/build` is gitignored, so the compiled CSS
 > exists only where it was built. Since the panels moved to a custom Filament theme

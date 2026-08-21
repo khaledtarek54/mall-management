@@ -137,9 +137,13 @@ tree requires them. **But composer runs under `php-cli` and the panel renders un
 a box with an extension in one and not the other passes every install-time and console-time check
 while throwing on every money column in the panel. One missing `.ini` symlink does it.
 
-- [ ] `curl -s https://<host>/health | jq '.checks.php_extensions'` — **over HTTP, not from the
-      console.** It names any missing extension and what it costs. The nine and their consequences
-      are in `App\Support\PhpExtensions`; `composer check-platform-reqs` covers only the CLI half.
+- [ ] `curl -s -H "X-Health-Token: $HEALTH_TOKEN" https://<host>/health | jq '.checks.php_extensions'`
+      — **over HTTP, not from the console.** It names any missing extension and what it costs. The
+      nine and their consequences are in `App\Support\PhpExtensions`; `composer check-platform-reqs`
+      covers only the CLI half. **The token is required**: without it the endpoint returns `status`
+      alone (detail names internal subsystems and can carry a DB error), so the un-tokened form of
+      this command prints `null` on a perfectly healthy box — which reads as "no answer" and was
+      wrong in both runbooks until 2026-08-21.
 
 ---
 

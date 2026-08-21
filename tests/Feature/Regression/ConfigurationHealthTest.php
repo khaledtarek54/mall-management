@@ -26,6 +26,7 @@ use App\Models\Vendor;
 use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use App\Support\ConfigurationHealth;
+use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -494,4 +495,71 @@ it('refuses the page to someone who cannot see the settings', function () {
     $this->actingAs(makeUser('super_admin'));
 
     expect(Page::canAccess())->toBeTrue();
+});
+
+it('sees a head-office payroll run that belongs to no single property', function () {
+    // `payrolls.asset_id` is nullable — `#[PropertyOwned(portfolioRowsWhenNull: true)]` — and a bare
+    // `whereIn` excludes NULL, so a head-office run was invisible to a property-restricted reader:
+    // exactly the run nobody owns and therefore nobody chases. The `orWhereNull` that fixes it
+    // shipped with NO test, and deleting it left the whole suite green, because the one restricted
+    // case had no null-asset fixture and every other payroll case runs as super_admin, where the
+    // scope closure short-circuits.
+    $mine = makeAsset();
+
+    // A roster at my mall, so the check gets past its roster gate and actually runs the payroll
+    // queries — without this it returns at `payroll_no_roster` and proves nothing.
+    $employee = Employee::create([
+        'asset_id' => $mine->id, 'code' => 'E-'.uniqid(), 'name' => 'Mine',
+        'hire_date' => '2026-01-01', 'base_salary' => 9000, 'payment_method' => 'bank',
+    ]);
+
+    // Rates SET, so the advisory branch (all-nil + awaiting a first run) cannot fire and turn this
+    // red for an unrelated reason — the first cut of this test passed with the fix deleted for
+    // exactly that reason. Only the blocking branch can produce a red below.
+    tap(app(PayrollSettings::class), function (PayrollSettings $p) {
+        $p->salary_tax_rate = 10;
+        $p->social_insurance_rate = 11;
+        $p->employer_social_insurance_rate = 18.75;
+    });
+
+    // The control first: with no head-office run at all, the row is green. So the red below is
+    // caused by the null-asset run and nothing else.
+    $this->actingAs(makeUser('mall_admin', [$mine->id]));
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
+
+    // The head-office run: approved, no deductions, no property.
+    approvedPayrollFor($employee, ['asset_id' => null]);
+
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse(
+        'A run with no property belongs to everyone, including this reader.');
+});
+
+it('does not admit next month as the latest run on the 31st', function () {
+    // `now()->addMonth()->startOfMonth()` overflows on the 29th–31st: 2026-08-31 + 1 month is
+    // 2026-10-01, so the "not future" bound became the month AFTER next and a genuinely future run
+    // was admitted as "latest" — hiding a broken current month on seven days of the year. The old
+    // `endOfMonth()` expression could never do that, so the rewrite was strictly worse in the
+    // clamp's own class. Existing coverage used `addYears(2)`, which the overflowed bound still
+    // excluded.
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-31 09:00'));
+
+    $asset = makeAsset();
+    $employee = Employee::create([
+        'asset_id' => $asset->id, 'code' => 'E-'.uniqid(), 'name' => 'Mine',
+        'hire_date' => '2026-01-01', 'base_salary' => 9000, 'payment_method' => 'bank',
+    ]);
+
+    // August is broken — no deductions — and September has been approved ahead of time, correctly.
+    approvedPayrollFor($employee, ['period_month' => '2026-08-01']);
+    approvedPayrollFor($employee, [
+        'period_month' => '2026-09-01',
+        'salary_tax' => 500, 'social_insurance' => 400, 'employer_social_insurance' => 900,
+        'net_paid' => 7200,
+    ]);
+
+    $this->actingAs(makeUser('super_admin'));
+
+    // With the overflow, September is "latest", it carries deductions, and August's breakage is
+    // invisible. The bound must exclude September so the broken August is still the latest month.
+    expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse();
 });

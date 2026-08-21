@@ -188,7 +188,7 @@ return [
             ],
             'payroll_rates_configured' => [
                 'name' => 'Payroll withholds something',
-                'impact' => ':count approved payroll run(s) withheld nothing at all — no salary tax, no employee insurance and no employer share — so net pay was the full gross and the books carry none of the liability owed to the authority. Affected: :detail. An approved run cannot be edited, so raise a corrective run for that month carrying the deductions (and set the rates under Settings → Payroll so the next one starts right).',
+                'impact' => ':count approved payroll run(s) withheld nothing at all — no salary tax, no employee insurance and no employer share — so net pay was the full gross and the books carry none of the liability owed to the authority. Affected: :detail. An approved run cannot be edited, and approving a SECOND run for the same people in the same month is refused — so cancel the run and re-issue it with the deductions (and set the rates under Settings → Payroll first, so the re-issue starts right).',
                 'advisory' => 'Every statutory rate is still 0, so the first payroll run generated from the roster will withhold nothing. That is fine if your accountant enters each employee\'s deductions on the run — otherwise set them under Settings → Payroll before the first run.',
                 'ok' => ':detail',
             ],

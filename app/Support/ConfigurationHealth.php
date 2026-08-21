@@ -96,8 +96,11 @@ class ConfigurationHealth
      *     toggle would silence this check while payroll stayed fully reachable.
      *   - **An approved run's amounts are frozen** ({@see Payroll::booted()} refuses a dirty
      *     `salary_tax` once `status` was `approved`), so the remedy has to be a second document.
-     *     That is why the question is asked of the MONTH: a corrective run carrying the deductions
-     *     clears the row, and nothing else could without cancelling a real payroll.
+     *     That is why the question is asked of the MONTH. The remedy is to CANCEL the run and
+     *     re-issue it with the deductions — not to raise a second one alongside it, which
+     *     {@see Payroll::booted()} refuses outright ("approving this run would give N employees a
+     *     SECOND approved payslip for this month"). The row then clears because the month's latest
+     *     approved run is the corrected one.
      */
     private static function payrollRatesConfigured(): array
     {
@@ -126,7 +129,12 @@ class ConfigurationHealth
         // inclusive `<= endOfMonth()` compares 10 characters against the 19 the date cast writes,
         // which is true on MySQL and false on sqlite for a run dated the last day of the month.
         $approved = fn (): Builder => $scope(Payroll::query()->where('status', 'approved'), true);
-        $nextMonth = CarbonImmutable::now()->addMonth()->startOfMonth()->toDateString();
+        // `startOfMonth()` FIRST. `addMonth()` on the 29th–31st overflows — 2026-08-31 + 1 month is
+        // 2026-10-01, verified against this project's Carbon — so on seven days of 2026 the bound
+        // was the month AFTER next and a genuinely future payroll month was admitted as "latest",
+        // hiding a broken current month. That is a false negative in the clamp's own class, and the
+        // `endOfMonth()` expression this replaced could never produce it.
+        $nextMonth = CarbonImmutable::now()->startOfMonth()->addMonth()->toDateString();
 
         $latestPerProperty = $approved()
             ->where('period_month', '<', $nextMonth)
@@ -190,7 +198,16 @@ class ConfigurationHealth
         // A property with a live roster and no approved month yet — judged per property for the same
         // reason the blocking branch is, or one mall that has been running payroll for a year
         // silences the advisory for the mall onboarded last week.
+        // ANY property still awaiting its first run — the right quantifier for the VERDICT, because
+        // one mall running payroll for a year must not silence the advisory for the mall onboarded
+        // last week.
         $awaitingFirstRun = $rosterProperties->diff($latestPerProperty->pluck('asset_id'))->isNotEmpty();
+
+        // …but the WRONG quantifier for the sentence. "No payroll has been approved yet" is false
+        // for every mall that has been running one, and in a mixed portfolio that is most of them —
+        // the same empty claim, inverted, that this check was rewritten to stop making. The sentence
+        // is chosen on whether ANYTHING has been approved anywhere.
+        $nothingApprovedAnywhere = $latestPerProperty->isEmpty();
 
         // Each state says what it FOUND. A green row reading "your latest payroll month carries its
         // deductions" on an install that has never run payroll is the same empty claim this check
@@ -200,7 +217,7 @@ class ConfigurationHealth
             category: self::PAYROLL,
             severity: self::ADVISORY,
             ok: ! ($allNil && $awaitingFirstRun),
-            detail: __($awaitingFirstRun
+            detail: __($nothingApprovedAnywhere
                 ? 'admin.config_health.payroll_awaiting_first_run'
                 : 'admin.config_health.payroll_ok'),
         );

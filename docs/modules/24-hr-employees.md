@@ -296,11 +296,17 @@ employee in the run's property, pre-filled:
 >
 > - **Blocking** — a property's most recent payroll MONTH has an approved run with gross pay and no
 >   salary tax, no employee insurance and no employer share. Net was the full gross and the books
->   carry none of the liability. Cleared by raising a corrective run for that month carrying the
->   deductions; an approved run's amounts are frozen, so it cannot be edited in place.
+>   carry none of the liability. An approved run's amounts are frozen, so it cannot be edited in
+>   place — and a SECOND approved run for the same people in the same month is refused outright
+>   (`Payroll::booted()`: "…would give N employees a second approved payslip for this month").
+>   So the remedy is to **cancel the run and re-issue it** with the deductions, after setting the
+>   rates. The row clears because the month's latest approved run is then the corrected one.
 > - **Advisory** — a live roster, every rate still nil, and nothing approved yet.
 >
 > Judged per property, never on a future-dated month, and scoped to the assets the reader may see.
+> The future-month bound is `startOfMonth()->addMonth()`, in that order: `addMonth()` first overflows
+> on the 29th–31st (2026-08-31 + 1 month is 2026-10-01), which on seven days of the year admitted a
+> genuinely future run as "latest" and hid the broken current month.
 > The reasoning is in `ConfigurationHealth::payrollRatesConfigured()`'s docblock and is not repeated
 > anywhere else.
 
