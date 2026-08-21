@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'sla_clock' => 'SLA clock',
         'kind' => 'Kind',
         'opens_at' => 'Opens at',
         'closes_at' => 'Closes at',

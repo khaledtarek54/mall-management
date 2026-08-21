@@ -14,6 +14,10 @@ class DatabaseSeeder extends Seeder
             ApprovalRulesSeeder::class,
             DepartmentSeeder::class,
             AccountingSeeder::class,
+            // Without this the holiday register is empty on every dev machine, across the whole
+            // test suite and in the QA baseline — so the one screen that decides SLA deadlines
+            // is never exercised on realistic data and renders a blank table.
+            HolidaySeeder::class,
             DemoSeeder::class,
         ]);
     }

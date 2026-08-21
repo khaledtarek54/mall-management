@@ -64,6 +64,7 @@ return [
             ],
         ],
         'over_nte_by' => 'تجاوز بمقدار :amount',
+        'sla_clocks' => ['calendar' => 'ساعات تقويمية', 'working' => 'وقت العمل'],
         'holiday' => [
             'singular' => 'إجازة',
             'plural' => 'الإجازات',

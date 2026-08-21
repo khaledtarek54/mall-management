@@ -232,7 +232,7 @@ class FacilityWorkOrder extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['service_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'trade_id', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_response_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes'])
+            ->logOnly(['service_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'trade_id', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_response_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes', 'sla_clock'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('facility_work_order');
@@ -524,12 +524,17 @@ class FacilityWorkOrder extends Model implements HasMedia
     /**
      * `$from` plus `$hours`, on whichever clock this job was promised.
      *
+     * Public because the ACCEPTANCE path needs it too: `FacilityWorkOrderService` re-derives the
+     * resolution deadline from the moment a job is taken on, and doing that in bare calendar hours
+     * discarded the working deadline while leaving `sla_clock` saying `working` — two clocks in one
+     * penalty calculation.
+     *
      * The calendar branch is `->copy()->addHours()` and must stay byte-identical to what it
      * replaced: it is the path every existing work order takes, and the one that multiplies money
      * through `daysOverSla()`. A "tidier" rewrite here changes penalties with the feature switched
      * off.
      */
-    private static function advance(CarbonInterface $from, int $hours, string $clock, ?int $assetId): CarbonInterface
+    public static function advance(CarbonInterface $from, int $hours, string $clock, ?int $assetId): CarbonInterface
     {
         return $clock === self::SLA_CLOCK_WORKING
             ? WorkingCalendar::addWorkingHours($from, $hours, $assetId)

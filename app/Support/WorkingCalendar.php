@@ -42,7 +42,14 @@ use Carbon\CarbonInterface;
  */
 final class WorkingCalendar
 {
-    /** A deadline cannot be pushed past this many days of walking; a mistyped calendar must not hang the request. */
+    /**
+     * How far {@see addWorkingHours()} will walk looking for a working day before giving up.
+     *
+     * Only that method needs a bound: it searches forward for an open window, and a calendar with no
+     * working day at all would otherwise loop. {@see workingDaysBetween()} is bounded by its own
+     * range and must NOT be capped — doing so under-counted a long overrun, and that number
+     * multiplies money.
+     */
     private const MAX_WALK_DAYS = 400;
 
     /** Is any work done on this date at this property? */
@@ -56,10 +63,16 @@ final class WorkingCalendar
      *
      * @return array{0: CarbonImmutable, 1: CarbonImmutable}|null [opens, closes] in app time
      */
-    public static function windowFor(CarbonInterface $date, ?int $assetId = null): ?array
+    public static function windowFor(CarbonInterface $date, ?int $assetId = null, ?array $preloaded = null): ?array
     {
         $day = CarbonImmutable::parse($date)->setTimezone(config('app.timezone'))->startOfDay();
-        $exception = self::exceptionOn($day, $assetId);
+
+        // `$preloaded` is the whole span's rows, fetched once by the callers that walk a range.
+        // Without it `exceptionOn()` is a query PER DAY, and `daysOverSla()` runs from the hourly
+        // breach scan for every overdue order — a 180-day-old breach was 180 queries an hour.
+        $exception = $preloaded !== null
+            ? ($preloaded[$day->toDateString()] ?? null)
+            : self::exceptionOn($day, $assetId);
 
         if ($exception?->isClosure()) {
             return null;
@@ -67,20 +80,37 @@ final class WorkingCalendar
 
         $settings = app(CalendarSettings::class);
 
+        // A short day carries its OWN hours; one with none is a data error, not a licence. The form
+        // requires both, but a seeder, an import or a direct write does not — and without this an
+        // hours-less short day fell through to the standard window AND skipped the weekday check,
+        // turning any Friday into a full working day.
+        $hasHours = $exception !== null && $exception->opens_at !== null && $exception->closes_at !== null;
+
         // A short day is worked even when it falls on a weekend — Ramadan hours are announced for
         // the days people are in, and an operator who enters one on a Friday means it.
-        if ($exception === null && ! in_array($day->dayOfWeekIso, self::workingDays(), true)) {
+        if (! $hasHours && ! in_array($day->dayOfWeekIso, self::workingDays(), true)) {
             return null;
         }
 
-        $opens = (string) ($exception?->opens_at ?: $settings->day_opens_at);
-        $closes = (string) ($exception?->closes_at ?: $settings->day_closes_at);
+        $opens = (string) ($hasHours ? $exception->opens_at : $settings->day_opens_at);
+        $closes = (string) ($hasHours ? $exception->closes_at : $settings->day_closes_at);
 
         [$start, $end] = [self::at($day, $opens), self::at($day, $closes)];
 
-        // A window that closes before it opens is a typo, not a rule. Treat the day as unworked
-        // rather than looping forever or billing a negative one.
-        return $end->greaterThan($start) ? [$start, $end] : null;
+        if ($end->greaterThan($start)) {
+            return [$start, $end];
+        }
+
+        // A closes-before-opens EXCEPTION is one bad row: that day is unworked. A closes-before-opens
+        // SETTING would make every day unworked for ever, which is silent and total — so it clamps
+        // back to the shipped window, the same shape `workingDays()` uses for an emptied week.
+        if ($hasHours) {
+            return null;
+        }
+
+        [$start, $end] = [self::at($day, '09:00'), self::at($day, '17:00')];
+
+        return [$start, $end];
     }
 
     /**
@@ -95,8 +125,11 @@ final class WorkingCalendar
         $cursor = CarbonImmutable::parse($from)->setTimezone(config('app.timezone'));
         $remaining = max(0.0, $hours) * 3600;
 
+        // One query for the plausible span rather than one per day walked.
+        $exceptions = self::exceptionsBetween($cursor, $cursor->addDays(self::MAX_WALK_DAYS), $assetId);
+
         for ($walked = 0; $walked <= self::MAX_WALK_DAYS; $walked++) {
-            $window = self::windowFor($cursor, $assetId);
+            $window = self::windowFor($cursor, $assetId, $exceptions);
 
             if ($window === null) {
                 $cursor = $cursor->addDay()->startOfDay();
@@ -133,33 +166,83 @@ final class WorkingCalendar
     }
 
     /**
-     * Whole working days from `$from` to `$to`, counting a part-day as a day.
+     * Elapsed WORKING time between two instants, in seconds.
      *
-     * Used for the SLA-penalty overrun, where "part of a day counts as a day" is the documented
-     * rule and a zero would read as "assessed and owed nothing". Returns 0 only when `$to` is not
-     * after `$from`; the caller decides what a breach with no working time in it should charge.
+     * Only time inside a working window counts: nights, weekends and holidays contribute nothing.
+     * This is the primitive {@see workingDaysBetween()} is built on, and the reason that method had
+     * to be rewritten — counting working days *touched* is a different quantity from elapsed
+     * working time, and the two are not interchangeable when one of them multiplies a penalty.
      */
-    public static function workingDaysBetween(CarbonInterface $from, CarbonInterface $to, ?int $assetId = null): int
+    public static function workingSecondsBetween(CarbonInterface $from, CarbonInterface $to, ?int $assetId = null): int
     {
-        $start = CarbonImmutable::parse($from)->setTimezone(config('app.timezone'));
-        $end = CarbonImmutable::parse($to)->setTimezone(config('app.timezone'));
+        $tz = config('app.timezone');
+        $start = CarbonImmutable::parse($from)->setTimezone($tz);
+        $end = CarbonImmutable::parse($to)->setTimezone($tz);
 
         if ($end->lessThanOrEqualTo($start)) {
             return 0;
         }
 
-        $days = 0;
+        $seconds = 0;
         $cursor = $start->startOfDay();
+        $exceptions = self::exceptionsBetween($start, $end, $assetId);
 
-        for ($walked = 0; $walked <= self::MAX_WALK_DAYS && $cursor->lessThanOrEqualTo($end); $walked++) {
-            if (self::isWorkingDay($cursor, $assetId)) {
-                $days++;
+        // Bounded by the range itself, so it always terminates and never truncates.
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $window = self::windowFor($cursor, $assetId, $exceptions);
+
+            if ($window !== null) {
+                [$opens, $closes] = $window;
+
+                // The slice of this day's window that lies inside [start, end].
+                $sliceStart = $opens->greaterThan($start) ? $opens : $start;
+                $sliceEnd = $closes->lessThan($end) ? $closes : $end;
+
+                if ($sliceEnd->greaterThan($sliceStart)) {
+                    $seconds += $sliceEnd->diffInSeconds($sliceStart, absolute: true);
+                }
             }
 
             $cursor = $cursor->addDay();
         }
 
-        return $days;
+        return $seconds;
+    }
+
+    /**
+     * Elapsed working time expressed in WORKING DAYS, rounding a part-day up.
+     *
+     * **Commensurate with the calendar measure, deliberately.** `FacilityWorkOrder::daysOverSla()`
+     * charges an SLA penalty per day, and its calendar branch is `ceil(elapsedSeconds / 86400)` —
+     * elapsed *duration*. The first cut of this method counted working days *touched* instead, and
+     * the two are different quantities: an overrun from Sunday 17:00 to Monday 09:00 has no working
+     * time in it at all, but touches two working days. That made the working clock charge an EXTRA
+     * day on any overrun crossing a midnight — the ordinary Sunday-to-Thursday case — while being
+     * sold as the option that charges a contractor less. Same rate, two incommensurate units.
+     *
+     * So: elapsed working seconds over the length of a standard working day, rounded up. A part-day
+     * counts as a day, which is the documented rule; zero working time counts as zero, and the
+     * CALLER decides what a breach with no working time in it should charge.
+     */
+    public static function workingDaysBetween(CarbonInterface $from, CarbonInterface $to, ?int $assetId = null): int
+    {
+        $seconds = self::workingSecondsBetween($from, $to, $assetId);
+
+        return $seconds === 0 ? 0 : (int) ceil($seconds / self::standardDaySeconds());
+    }
+
+    /** How long a standard working day is, in seconds — the divisor above. */
+    public static function standardDaySeconds(): int
+    {
+        $settings = app(CalendarSettings::class);
+        $day = CarbonImmutable::now()->setTimezone(config('app.timezone'))->startOfDay();
+
+        $seconds = self::at($day, $settings->day_closes_at)
+            ->diffInSeconds(self::at($day, $settings->day_opens_at), absolute: true);
+
+        // Clamp rather than divide by zero: a closes-before-opens setting is a typo, and the
+        // shipped 09:00–17:00 is the honest fallback.
+        return $seconds > 0 ? (int) $seconds : 8 * 3600;
     }
 
     /**
@@ -186,11 +269,45 @@ final class WorkingCalendar
         return $configured !== [] ? $configured : CalendarSettings::EGYPTIAN_WEEK;
     }
 
+    /**
+     * Every governing row across a span, keyed by date — one query instead of one per day.
+     *
+     * The property's own row beats the national one, which is why the ordering matters and why the
+     * later assignment must NOT overwrite an earlier property row.
+     *
+     * @return array<string, Holiday>
+     */
+    private static function exceptionsBetween(CarbonImmutable $from, CarbonImmutable $to, ?int $assetId): array
+    {
+        $rows = Holiday::query()
+            ->active()
+            // Datetime bounds, not `Y-m-d`: sqlite stores the cast value as `Y-m-d H:i:s`, so a
+            // date-only upper bound excludes the very day it names. A range keeps the index usable
+            // on MySQL, which a `DATE()` wrapper would not.
+            ->whereBetween('date', [$from->startOfDay()->toDateTimeString(), $to->endOfDay()->toDateTimeString()])
+            ->for($assetId)
+            // Portfolio rows LAST, so a property row already in the map is never displaced.
+            ->orderByRaw('CASE WHEN asset_id IS NULL THEN 1 ELSE 0 END')
+            ->get();
+
+        $map = [];
+
+        foreach ($rows as $row) {
+            $map[$row->date->toDateString()] ??= $row;
+        }
+
+        return $map;
+    }
+
     /** The row that governs this date at this property: its own first, else the portfolio's. */
     private static function exceptionOn(CarbonImmutable $day, ?int $assetId): ?Holiday
     {
         return Holiday::query()
             ->active()
+            // `whereDate`, deliberately: Eloquent's `date` cast writes `Y-m-d H:i:s` on sqlite and a
+            // bare `where('date', 'Y-m-d')` therefore matches nothing there while working on MySQL —
+            // the driver divergence CLAUDE.md warns about. This is the ad-hoc single-day path; the
+            // loops that actually matter for index use go through `exceptionsBetween()`.
             ->whereDate('date', $day->toDateString())
             ->for($assetId)
             // A property's own row beats the national one. `orderByRaw` rather than a sort on the

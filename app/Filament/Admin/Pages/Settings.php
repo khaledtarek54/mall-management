@@ -344,7 +344,12 @@ class Settings extends Page implements HasSchemas
                         ->seconds(false),
                     TimePicker::make('calendar.day_closes_at')
                         ->label(__('admin.settings.fields.day_closes_at'))
-                        ->seconds(false),
+                        ->seconds(false)
+                        // Without this, 17:00–09:00 makes every day unworked: the calendar silently
+                        // dies, every deadline falls through to the plain-hours fallback, and the
+                        // screen says nothing. `WorkingCalendar` clamps back to the shipped window
+                        // as a backstop, but the operator should be told at the point of typing.
+                        ->after('calendar.day_opens_at'),
                     // The ruling this whole feature waits on. Empty = every clock stays on the
                     // calendar, which is what the system did before the working week existed.
                     CheckboxList::make('sla.sla_working_clock_priorities')

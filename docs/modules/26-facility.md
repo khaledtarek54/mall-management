@@ -155,9 +155,27 @@ recomputed on every hourly scan and `SlaPenalty.amount` is DERIVED, so the poste
 void-and-reposted. Same principle as labour freezing the craft rate at entry. Null means calendar,
 which is what every order predating the feature carries and what a PPM order always will.
 
-**The working overrun is floored at 1 day.** A breach whose overrun falls entirely across a weekend
-has zero working days in it, and `0 × rate` would write a penalty reading "assessed and owed
-nothing" while a flat-basis penalty charged in full for the same breach.
+**The two overrun measures are COMMENSURATE, and that took a correction.** `daysOverSla()` charges
+per day, and its calendar branch is `ceil(elapsedSeconds / 86400)` — elapsed *duration*. The first
+cut of the working branch counted working days *touched*, which is a different quantity: an overrun
+from Sunday 17:00 to Monday 09:00 contains no working time at all but touches two working days. So
+the option sold as *"don't charge a contractor for Friday and Saturday"* charged an EXTRA day on any
+overrun crossing a midnight — the ordinary case. It is now elapsed working seconds over the length of
+a standard working day, rounded up, which is the same unit the calendar branch uses against the same
+`sla_penalties.rate`.
+
+**Floored at 1 day.** A breach falling entirely inside the weekend has zero working time in it, and
+`0 × rate` would write a penalty reading "assessed and owed nothing" while a flat-basis penalty
+charged in full for the same breach.
+
+**Acceptance re-derives on the promised clock too.** FR-CM-07 recomputes the resolution deadline from
+the moment a job is taken on; doing that in bare hours discarded the working deadline, and since the
+working one is always later in wall-clock the `min()` that follows picked the calendar figure every
+time — leaving a job stamped `working` whose deadline was not.
+
+**Module 11 is NOT wired yet.** `TenantRequestService`'s two clocks are still bare
+`now()->addHours()`, so the shared `SlaSettings` knob is honoured by module 26 and ignored by module
+11. Tracked as EG-38 in [EGYPT-MARKET-FIT](../EGYPT-MARKET-FIT.md).
 
 **Deliberately NOT in scope: PM compliance.** A PPM order never receives an SLA clock —
 `stampSlaClocks()` returns early for anything non-corrective — and skipping Fri/Sat before calling a

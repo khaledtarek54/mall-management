@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'sla_clock' => 'مؤشر الخدمة',
         'kind' => 'النوع',
         'opens_at' => 'يبدأ الساعة',
         'closes_at' => 'ينتهي الساعة',

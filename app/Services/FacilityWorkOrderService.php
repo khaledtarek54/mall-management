@@ -88,8 +88,15 @@ class FacilityWorkOrderService
             if ($next === 'in_progress' && $locked->isCorrective() && $locked->acknowledged_at === null) {
                 $payload['acknowledged_at'] = now();
 
-                $fromAcceptance = now()->addHours(
-                    SlaResolver::hoursFor($locked->asset_id, $locked->priority)
+                // On the clock this job was PROMISED, not on bare hours. Re-deriving in calendar
+                // time discarded the working deadline — and because the working one is always later
+                // in wall-clock, the `min()` below then picked the calendar figure every time,
+                // leaving `sla_clock` saying `working` while the deadline said otherwise.
+                $fromAcceptance = FacilityWorkOrder::advance(
+                    now(),
+                    SlaResolver::hoursFor($locked->asset_id, $locked->priority),
+                    $locked->sla_clock ?? FacilityWorkOrder::SLA_CLOCK_CALENDAR,
+                    $locked->asset_id,
                 );
 
                 $payload['target_resolution_at'] = $locked->target_resolution_at === null

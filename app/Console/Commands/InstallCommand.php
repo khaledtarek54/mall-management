@@ -95,13 +95,14 @@ class InstallCommand extends Command
         // priced rather than a feature that appears to do nothing.
         $this->callSilent('db:seed', ['--class' => UtilityTariffSeeder::class, '--force' => true]);
 
+        $this->components->twoColumnDetail('Departments', Department::count().' departments');
+
         // Egypt's fixed-date public holidays, this year and next. Without this a fresh deploy
         // ships an EMPTY calendar, and a missing holiday is completely silent — an SLA measured
         // straight across Eid, with nothing on any screen to say why. The moon-sighted dates are
         // deliberately not seeded; the operator adds those, which the screen guide says.
         $this->callSilent('db:seed', ['--class' => HolidaySeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Holidays', Holiday::count().' fixed-date holidays (the moon-sighted ones are yours to add)');
-        $this->components->twoColumnDetail('Departments', Department::count().' departments');
 
         $this->callSilent('db:seed', ['--class' => AccountingSeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Chart of accounts', LedgerAccount::count().' accounts');

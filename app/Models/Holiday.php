@@ -6,10 +6,8 @@ use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\WorkingCalendar;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -34,7 +32,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PropertyOwned(portfolioRowsWhenNull: true)]
 class Holiday extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use LogsActivity;
 
     /** Nobody is at work; the working clock does not run at all. */
     public const KIND_CLOSURE = 'closure';

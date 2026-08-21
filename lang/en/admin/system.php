@@ -102,7 +102,7 @@ return [
             'day_opens_at' => 'Working day starts',
             'day_closes_at' => 'Working day ends',
             'sla_working_clock_priorities' => 'Measured in working time',
-            'sla_working_clock_priorities_helper' => 'Priorities whose SLA skips weekends and holidays. Leave all unticked to measure every clock in plain hours, as before.',
+            'sla_working_clock_priorities_helper' => 'Priorities whose SLA skips weekends and holidays. Untick all to measure every clock in plain hours.',
             'sla_urgent_hours' => 'Urgent priority — resolution within',
             'sla_high_hours' => 'High priority — resolution within',
             'sla_medium_hours' => 'Medium priority — resolution within',

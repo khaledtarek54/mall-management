@@ -19,7 +19,9 @@ return [
         'steps' => [
             'Add a row per date. Choose Closure for a day nobody works, or Short day for reduced hours — Ramadan is the case that exists for.',
             'Leave the property blank for a national holiday. Name a mall only when that one mall differs.',
-            'Once a year, add the moon-sighted dates when they are announced: the two Eids, the Islamic New Year, the Prophet\'s birthday, Coptic Easter and Sham El-Nessim. Only the fixed-date holidays ship with the system.',
+            'Once a year, top the register up. The system seeds only the seven FIXED-date holidays, and only for the install year and the one after — so from the third year even those need adding.',
+            'The moon-sighted dates are never seeded and must be added when announced: the two Eids, the Islamic New Year, the Prophet\'s birthday, Coptic Easter and Sham El-Nessim.',
+            'Check the seeded dates against the decree each year. A mid-week public holiday is often moved to the neighbouring Thursday, so the nominal date is not always the day off.',
             'Deactivate a row rather than deleting it if you want it out of the way.',
         ],
         'affects' => [

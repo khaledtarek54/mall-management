@@ -159,6 +159,13 @@ class ScanWorkOrderSlaBreachesCommand extends Command
             ->chunkById(200, function ($orders) use (&$healed) {
                 foreach ($orders as $order) {
                     try {
+                        // A heal must never grant a promise retroactively. This query only ever
+                        // selects orders raised BEFORE the clock existed, so the day an operator
+                        // switches the working calendar on, `stampSlaClocks()` would otherwise
+                        // resolve the CURRENT setting and hand the whole legacy backlog a deadline
+                        // — and a penalty basis — nobody ever promised them. Quietly, via
+                        // saveQuietly. They were promised the calendar; they keep it.
+                        $order->sla_clock ??= FacilityWorkOrder::SLA_CLOCK_CALENDAR;
                         $order->stampSlaClocks();
                         if ($order->isDirty()) {
                             $order->saveQuietly();

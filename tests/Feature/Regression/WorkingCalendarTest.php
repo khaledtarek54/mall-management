@@ -18,6 +18,11 @@
 | in the other. The boundary cases this feature exists for are exactly the ones a UTC-only test gets
 | wrong, so every case here sets the clock in Cairo explicitly.
 |
+| Precisely: `config(['app.timezone' => …])` pins what `WorkingCalendar` reads, because that class
+| asks `config()` directly. It does NOT call `date_default_timezone_set()`, so Eloquent's own
+| datetime round-trip stays on the suite's UTC — a Cairo-only PERSISTENCE bug would not be caught
+| here. What is covered is the calendar's day-and-window arithmetic, which is where the risk is.
+|
 | **The working clock ships OFF.** `SlaSettings::sla_working_clock_priorities` is empty by default,
 | which is the behaviour that predates the calendar. Whether a given priority is office work or a
 | round-the-clock promise is the operator's ruling — so these tests switch it on for the priority
@@ -26,8 +31,10 @@
 
 use App\Models\FacilityWorkOrder;
 use App\Models\Holiday;
+use App\Services\FacilityWorkOrderService;
 use App\Settings\CalendarSettings;
 use App\Settings\SlaSettings;
+use App\Support\SlaResolver;
 use App\Support\WorkingCalendar;
 use Carbon\CarbonImmutable;
 
@@ -193,15 +200,18 @@ it('freezes the clock on the job, so changing the policy never re-prices work in
         ->and($stamped->target_resolution_at->equalTo($deadline))->toBeTrue();
 });
 
-it('never charges nothing for a breach that fell across the weekend', function () {
-    // The money bug the design review caught before it shipped. Deadline Thursday 23:00, finished
-    // Saturday 10:00: a real breach with no working time in it. Measured naively that is 0 working
-    // days, `BASIS_PER_DAY` computes `0 × rate = 0`, and the row reads "assessed and owed nothing"
-    // — while BASIS_FLAT would still charge in full for the same breach.
+it('never charges nothing for a breach that fell entirely inside the weekend', function () {
+    // The money bug the design review caught before it shipped, now pinned on a case where the
+    // floor actually FIRES. The first version of this used a Thursday-evening deadline — and
+    // `workingDaysBetween` counts Thursday as a working day touched, so it returned 1 on its own
+    // and the floor was never exercised. Right number, wrong reason.
+    expect(WorkingCalendar::workingDaysBetween(cairo('2026-09-18 10:00'), cairo('2026-09-19 10:00')))
+        ->toBe(0, 'Friday to Saturday is entirely weekend — this is the input the floor exists for.');
+
     $order = correctiveOrder([
         'priority' => 'medium',
         'status' => 'completed',
-        'target_resolution_at' => cairo('2026-09-17 23:00'), // Thursday, after close
+        'target_resolution_at' => cairo('2026-09-18 10:00'), // Friday
         'completed_at' => cairo('2026-09-19 10:00'),         // Saturday
     ]);
 
@@ -210,8 +220,71 @@ it('never charges nothing for a breach that fell across the weekend', function (
     $order->sla_clock = FacilityWorkOrder::SLA_CLOCK_WORKING;
     $order->save();
 
+    // A real breach with no working time in it. Unfloored this computes 0, `BASIS_PER_DAY` charges
+    // `0 × rate`, and the row reads "assessed and owed nothing" — while a FLAT-basis penalty would
+    // charge in full for the very same breach.
     expect($order->isSlaBreached())->toBeTrue()
         ->and($order->daysOverSla())->toBe(1);
+});
+
+it('counts a long overrun in full rather than quietly truncating it', function () {
+    // A walk cap on `workingDaysBetween` under-counted a two-year overrun as 287 working days
+    // instead of ~520 — and that number MULTIPLIES a per-day SLA penalty, so a long-open breach was
+    // silently under-charged. The loop is bounded by its own range; it never needed a cap.
+    $days = WorkingCalendar::workingDaysBetween(cairo('2024-01-01 09:00'), cairo('2026-01-01 09:00'));
+
+    // Two years of Sun–Thu is ~520 working days. The assertion is deliberately a range, not a
+    // magic number: what matters is that it is not silently clipped at the old 400-iteration bound.
+    expect($days)->toBeGreaterThan(500)
+        ->and($days)->toBeLessThan(540);
+});
+
+it('measures an overrun in the same unit the calendar branch does', function () {
+    // The money bug the FIRST review of this feature caught. The working branch counted working
+    // days TOUCHED while the calendar branch measures elapsed DURATION — different quantities,
+    // quoted against the same `sla_penalties.rate`. An overrun from Sunday 17:00 to Monday 09:00
+    // has no working time in it at all but touches two working days, so the option sold as
+    // "don't charge a contractor for the weekend" charged an EXTRA day on the ordinary
+    // Sunday-to-Thursday overrun.
+    $cases = [
+        // [from, to, working days, why]
+        ['2026-09-20 17:00', '2026-09-21 09:00', 0, 'overnight between two working days is no working time'],
+        ['2026-09-20 09:00', '2026-09-23 09:00', 3, 'three full working days'],
+        ['2026-09-20 09:00', '2026-09-20 10:00', 1, 'one hour is a part-day, which counts as a day'],
+        ['2026-09-17 16:59', '2026-09-20 09:01', 1, 'a minute either side of the weekend is one part-day'],
+    ];
+
+    foreach ($cases as [$from, $to, $expected, $why]) {
+        expect(WorkingCalendar::workingDaysBetween(cairo($from), cairo($to)))
+            ->toBe($expected, "{$from} → {$to}: {$why}");
+    }
+});
+
+it('keeps the promised clock when a job is accepted', function () {
+    // FR-CM-07 re-derives the resolution deadline from the moment of acceptance. Doing that in bare
+    // calendar hours discarded the working deadline — and because the working one is always later
+    // in wall-clock, the `min()` that follows picked the calendar figure every time, leaving the
+    // job stamped `working` while its deadline said otherwise. Two clocks, one penalty.
+    tap(app(SlaSettings::class), fn (SlaSettings $s) => $s->sla_working_clock_priorities = ['medium']);
+    CarbonImmutable::setTestNow(cairo('2026-09-17 15:00')); // Thursday afternoon
+
+    $order = correctiveOrder(['priority' => 'medium']);
+
+    app(FacilityWorkOrderService::class)->transition($order->fresh(), 'in_progress');
+
+    $accepted = $order->fresh();
+
+    // Asserted against the WORKING computation, not merely "lands on a working day" — the first
+    // version of this case checked the latter and passed with the fix reverted, because a short
+    // calendar window from Thursday afternoon lands on Thursday either way.
+    $expected = WorkingCalendar::addWorkingHours(
+        $accepted->acknowledged_at,
+        SlaResolver::hoursFor($accepted->asset_id, 'medium'),
+        $accepted->asset_id,
+    );
+
+    expect($accepted->sla_clock)->toBe(FacilityWorkOrder::SLA_CLOCK_WORKING)
+        ->and($accepted->target_resolution_at->format('Y-m-d H:i'))->toBe($expected->format('Y-m-d H:i'));
 });
 
 it('clamps a working week somebody emptied back to Egypt rather than stopping the clock', function () {

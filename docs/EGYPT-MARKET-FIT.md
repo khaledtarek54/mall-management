@@ -318,7 +318,7 @@ operator will want to change in week one.
 
 | # | Finding | Where | Rating |
 |---|---|---|---|
-| C-1 ✅ | **FIXED 2026-08-21 (EG-08).** ~~There is no working calendar.~~ Searched `isWeekend\|isWeekday\|dayOfWeek\|Carbon::FRIDAY\|nextWeekday\|businessDay\|working_day\|business_day` across `app/ config/ database/ resources/` — **one hit, in report scheduling.** Every SLA clock is `created_at->addHours(n)` | `app/Models/FacilityWorkOrder.php:491,497`; `app/Services/TenantRequestService.php:158,565`; `app/Services/FacilityWorkOrderService.php:91` | 🔴 |
+| C-1 🟠 | **PARTLY FIXED 2026-08-21 (EG-08).** A working calendar exists and module 26's work-order clocks use it. **Module 11's two clocks do not** — `TenantRequestService.php:158,565` are still bare `now()->addHours()`, `tenant_requests` has no `sla_clock` column, and the shared `SlaSettings` knob is therefore honoured by one consumer of two. An operator who ticks `medium` gets different SLA semantics depending on whether the ticket arrived as a tenant request or a work order. See EG-38. ~~There is no working calendar.~~ Searched `isWeekend\|isWeekday\|dayOfWeek\|Carbon::FRIDAY\|nextWeekday\|businessDay\|working_day\|business_day` across `app/ config/ database/ resources/` — **one hit, in report scheduling.** Every SLA clock is `created_at->addHours(n)` | `app/Models/FacilityWorkOrder.php:491,497`; `app/Services/TenantRequestService.php:158,565`; `app/Services/FacilityWorkOrderService.php:91` | 🔴 |
 | C-2 ✅ | **FIXED 2026-08-21 (EG-08).** ~~No public-holidays table.~~ `ls database/migrations \| grep -i "holiday\|calendar\|working"` → nothing. Egypt has ~15 public days; **the Eids move on the Hijri calendar and are set by moon sighting**, and mid-week holidays are routinely shifted to Thursday — so they can only ever be a table the operator maintains annually. **This gap is not recorded in the gap analysis** — it is unknown, not deferred | absence proven by the searches named | 🔴 |
 | C-3 | **This is not cosmetic — it posts money.** Vendor SLA penalties are computed off the same clock and journalised. A 24-hour urgent job raised Thursday 17:00 is due Friday 17:00 with the engineering team off; the resulting penalty is a payable an Egyptian contractor will contest and win | `SlaPenaltyJournalizer` | 🔴 |
 | C-4 ✅ | **FIXED 2026-08-21 (EG-08).** ~~No business hours, no Ramadan hours.~~ Ramadan is a `short_day` row, because the dates move every year and cannot be a standing setting. `business_hours\|opening_hours\|trading_hours\|work_start\|shift_start` → **zero**. The only "Ramadan hours" mechanism in the system is an announcement a human types | absence proven | 🟠 |
@@ -400,6 +400,7 @@ credential from the operator/accountant · ⚙️ ops.
 
 | # | Work | Refs | Owner | Size |
 |---|---|---|---|---|
+| **EG-38** | **Module 11's SLA clocks must honour the working calendar too.** `TenantRequestService::targetResolutionFor()` and `::defaultTargetResolution()` are bare `now()->addHours()`; neither takes an asset id (a `TenantRequest` is `#[PropertyOwned(via: 'unit')]`, so it must be derived from the unit) and `tenant_requests` has no frozen-clock column. Until this lands, `SlaSettings::sla_working_clock_priorities` is honoured by module 26 and silently ignored by module 11 — the split-brain the maintenance rename was done to end. Opened by the EG-08 review | C-1 | 🧑‍💻 | M |
 | **EG-11** | **A per-rail clearing account.** Make the payment method a **row with a `posting_role`**, as `charge_codes` did for revenue — this fixes X-5, X-6 and X-8 at once, and prevents the first real bank reconciliation from producing a gross unmatched population | X-5, X-6, X-8 | 🧑‍💻 | M |
 | **EG-12** | **`bank_account_id` on the money documents**, and teach the journalizers to read `BankAccount::ledger_account_id` | X-7 | 🧑‍💻 | M |
 | **EG-13** | **Expense categories become rows with a `posting_role`** — the only thing deciding which P&L account a supplier bill hits | D-1 | 🧑‍💻 | M |
@@ -689,6 +690,34 @@ the operator's ruling. That decision is now a GO-LIVE item rather than an assump
 **One pre-existing red fixed in passing:** `SearchPolicyConformanceTest` had been failing on
 `EmployeePayslipsRelationManager` since `1ae94b09` — a table rendering a search box it could never
 answer. One line, and it was blocking verification of this work.
+
+---
+
+### 2026-08-21 — milestone 4 review fixes
+
+The review's verdict was the right one: *nothing was broken today, and the feature did not work when
+switched on.* Since the switch is now a GO-LIVE line item someone will tick, that is the same thing
+as broken.
+
+| Finding | What it was |
+|---|---|
+| 🔴 | **The two overrun measures were incommensurate, and the working one OVER-charged.** The calendar branch measures elapsed duration; the working branch counted working days *touched*. Sunday 17:00 → Monday 09:00 contains no working time and touches two working days — so the option sold as charging a contractor *less* added a day to every overrun crossing a midnight, against the same rate, posting to the GL. Now elapsed working seconds ÷ a standard working day, rounded up |
+| 🔴 | **Acceptance discarded the working deadline.** FR-CM-07 re-derives from the moment of acceptance in bare hours; because the working deadline is always later in wall-clock, the `min()` picked the calendar figure every time — leaving a job stamped `working` and measured on neither clock consistently |
+| 🟠 | **The heal path re-promised the legacy backlog.** The hourly scan stamps clocks on pre-feature orders and resolved the CURRENT setting, so the day an operator switched it on the whole backlog silently changed penalty basis — via `saveQuietly`, so not even the activity log saw it. Pinned to calendar |
+| 🟠 | **A property-restricted `mall_admin` could write a NATIONAL holiday** affecting malls they cannot open. Guarded against `AssignedAssets`, with the refusal logged |
+| 🟠 | **Soft delete + `unique(asset_id, date)`** gave a 500 on re-adding a deleted date, and silently resurrected a deleted national one on the next reseed. `deleted_at` is gone — the model was already `#[DeletionAllowed]` and the guide says deactivate — and the form now refuses a duplicate as a field error |
+| 🟠 | **One DB query per day walked**, from the hourly breach scan, per overdue order. Now one query per span |
+| 🟠 | **An hours-less `short_day` turned any Friday into a full working day** by falling through to the standard window *and* skipping the weekday check |
+| 🟠 | **`sla_clock` was written and invisible** — not logged, not on any screen. Now logged with its own bilingual vocabulary |
+| 🟠 | **C-1 was marked ✅ while module 11's two clocks were untouched.** Narrowed to PARTLY FIXED, with EG-38 opened |
+| 🟡 | No holidays in demo/learning/QA data; a 19-word helper against an 18-word budget; a settings pair with no closes-after-opens rule; the hand-typed "83 screens" in CLAUDE.md (actually 99) |
+
+**Two more false passes of my own, both caught by mutation-testing my own tests.** The weekend-penalty
+case used a Thursday-evening deadline — which `workingDaysBetween` already scored 1, so the floor it
+existed to prove never fired. And the acceptance case asserted only "lands on a working day", which
+is true either way for a short window from Thursday afternoon; it now compares against the working
+computation and goes red when the fix is reverted. That is three such passes across four milestones,
+which is a rate worth naming rather than explaining away.
 
 ---
 

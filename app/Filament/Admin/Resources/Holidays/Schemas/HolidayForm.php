@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Holidays\Schemas;
 
 use App\Models\Holiday;
 use App\Support\Filament\PropertyField;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -12,6 +13,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Validation\Rules\Unique;
 
 class HolidayForm
 {
@@ -21,7 +23,21 @@ class HolidayForm
             DatePicker::make('date')
                 ->label(__('admin.fields.date'))
                 ->required()
-                ->native(false),
+                ->native(false)
+                // One row per property per date, refused as a field error rather than as the 500 the
+                // unique index would otherwise raise. Scoped by `asset_id` so a national holiday and
+                // a mall's own override of the same date can coexist — which is the whole mechanism.
+                ->unique(
+                    ignoreRecord: true,
+                    // `clampAssetId`, never the raw `$get()`: a unique rule compiles to a query no
+                    // tenancy scope touches, and field rules all run BEFORE any mutate hook — so the
+                    // 403 below cannot protect it. Blank clamps to null, which is the national row
+                    // and exactly what should be checked for a national holiday.
+                    modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where(
+                        'asset_id',
+                        TenantScope::clampAssetId($get('asset_id')),
+                    ),
+                ),
 
             // FREE, not pinned. A national holiday is a null `asset_id` and is the ordinary case;
             // `PropertyField::make()` pins and requires the field whenever a mall is selected, which

@@ -64,6 +64,7 @@ return [
             ],
         ],
         'over_nte_by' => 'Over by :amount',
+        'sla_clocks' => ['calendar' => 'Calendar hours', 'working' => 'Working time'],
         'holiday' => [
             'singular' => 'Holiday',
             'plural' => 'Holidays',

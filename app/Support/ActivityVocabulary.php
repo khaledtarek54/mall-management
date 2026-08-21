@@ -77,6 +77,10 @@ class ActivityVocabulary
      * @var array<string, string>
      */
     private const VALUE_VOCABULARY = [
+        // Both render raw without this: the `admin.statuses.{log_name}` convention only fires
+        // for a field literally called `status`.
+        'holiday.kind' => 'admin.facility.holiday.kinds',
+        'facility_work_order.sla_clock' => 'admin.facility.sla_clocks',
         // Statuses whose catalogue is not `admin.statuses.{log_name}`.
         'disbursement.status' => 'admin.disbursements.statuses',
         'employee.status' => 'admin.employees.statuses',
