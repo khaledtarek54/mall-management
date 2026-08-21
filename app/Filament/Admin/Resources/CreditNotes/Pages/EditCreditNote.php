@@ -156,8 +156,10 @@ class EditCreditNote extends EditRecord
                     // submit can pass any id — re-validate BOTH the property (never credit a property
                     // the user can't see) AND the tenant (never pay down another tenant's invoice).
                     $visibleAssetIds = TenantScope::visibleAssetIds();
+                    // `asset_id`, not the lease chain — the chain is null for a unit-owner assessment,
+                    // and `in_array(null, [...])` is false, so crediting one was a bare 403 from this page.
                     if ($visibleAssetIds !== null
-                        && ! in_array($invoice->lease?->unit?->asset_id, $visibleAssetIds, true)) {
+                        && ! in_array($invoice->asset_id, $visibleAssetIds, true)) {
                         abort(403);
                     }
                     if ((int) $invoice->tenant_id !== (int) $this->record->tenant_id) {

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Asset;
 use App\Models\Payment;
 use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\View;
@@ -17,11 +18,18 @@ use Mpdf\Output\Destination;
  */
 class ReceiptPdfService
 {
-    public function build(Payment $payment): string
+    /**
+     * Everything the receipt states, resolved once.
+     *
+     * Public and separate from `build()` for the reason `InvoicePdfService::viewData()` is: mpdf
+     * returns a binary blob, so a test that only calls `build()` can assert `%PDF` and little else —
+     * which is exactly how a receipt naming no mall passed for as long as it did.
+     *
+     * @return array<string, mixed>
+     */
+    public function viewData(Payment $payment): array
     {
         $payment->loadMissing(['tenant', 'invoices.asset', 'receiver']);
-
-        $isRtl = app()->getLocale() === 'ar';
 
         // Brand off the first allocated invoice's mall (a receipt is issued at the property counter).
         // Read the invoice's OWN `asset_id`, never `lease?->unit?->asset`: `invoices.lease_id` is
@@ -30,15 +38,31 @@ class ReceiptPdfService
         // (the template is null-safe) which is why nobody reported it. `asset_id` is NOT NULL:
         // `Invoice::deriveAssetId()` stamps it with `withTrashed()` and the model refuses to save
         // without one.
-        $asset = $payment->invoices->first()?->asset;
+        // …falling back to the cheque the payment came from. A cleared post-dated cheque lodged
+        // without an invoice produces a CAPTURED payment with zero allocations — `lodgeSeries()`
+        // creates exactly that, and it is the Egyptian year-of-cheques norm, not an edge case. Both
+        // reachable surfaces are tenant-facing (portal `ViewPayment` and
+        // `GET /api/v1/me/payments/{id}/receipt`, each gated on `isReceived()` alone), so without
+        // this the tenant's own receipt names no mall and no issuer. `originatingAssetId()` exists
+        // for precisely this state and had only one consumer, the journalizer.
+        $asset = $payment->invoices->first()?->asset
+            ?? Asset::find($payment->originatingAssetId());
 
-        $html = View::make('payments.receipt', [
+        return [
             'payment' => $payment,
             'tenant' => $payment->tenant,
             'asset' => $asset,
-            'isRtl' => $isRtl,
+            'isRtl' => app()->getLocale() === 'ar',
             ...IssuingEntity::forView($asset),
-        ])->render();
+        ];
+    }
+
+    public function build(Payment $payment): string
+    {
+        $data = $this->viewData($payment);
+        $isRtl = $data['isRtl'];
+
+        $html = View::make('payments.receipt', $data)->render();
 
         $tempDir = storage_path('app/mpdf');
         if (! is_dir($tempDir)) {

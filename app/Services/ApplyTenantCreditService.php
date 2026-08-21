@@ -41,10 +41,19 @@ class ApplyTenantCreditService
                 return 0.0;
             }
 
-            $assetId = $invoice->lease?->unit?->asset_id;
+            // The invoice's OWN column, never `lease?->unit?->asset`. `invoices.lease_id` is nullable
+            // since module 37 and null BY CONSTRUCTION for a unit-owner assessment
+            // (`UnitOwnership::invoiceLinkAttributes()` returns `lease_id => null`, and
+            // `assertBelongsToExactlyOneAgreement()` enforces it) — so the chain answered null for every
+            // owner assessment and this guard refused every one of them. Silently: the refusal is a
+            // `DomainException`, and `Invoice::saved()` catches exactly that as "the ordinary case, most
+            // invoices have no credit" without a log line. With `auto_apply_tenant_credit` shipping TRUE,
+            // no unit owner's on-account credit has ever been drawn down, and the monthly assessment
+            // re-billed them in full. `asset_id` is NOT NULL — `Invoice::creating` derives it and refuses
+            // to save without it — so the guard below is now an inert backstop rather than the live path.
+            $assetId = $invoice->asset_id;
             if ($assetId === null) {
-                // An invoice with no resolvable property must never draw from — or stamp — consolidated
-                // credit: a null scope silently widens to ALL properties (the documented leak). Refuse.
+                // A null scope silently widens to ALL properties (the documented leak). Refuse.
                 throw new DomainException(__('admin.payment.no_credit_to_apply'));
             }
 

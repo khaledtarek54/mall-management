@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\CamAllocation;
-use App\Models\Lease;
 use App\Models\Tenant;
 use App\Services\CamReconciliationService;
 use App\Services\CamStatementPdfService;
@@ -28,8 +27,9 @@ class CamAllocationsRelationManager extends RelationManager
 
     protected static function tenantName(CamAllocation $record): string
     {
-        $lease = $record->lease;
-        $tenant = $lease instanceof Lease ? $lease->tenant : null;
+        // Both agreement shapes. An allocation belongs to a lease OR a unit ownership, so reading the
+        // lease alone titled every owner's allocation modal '—'.
+        $tenant = $record->lease?->tenant ?? $record->unitOwnership?->tenant;
 
         return $tenant instanceof Tenant ? $tenant->name : '—';
     }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Lease;
+use App\Models\UnitOwnership;
 use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\View;
 use Mpdf\Mpdf;
@@ -46,6 +47,21 @@ class CamStatementPdfService
         $pool = $allocation->pool;
         /** @var Lease|null $lease */
         $lease = $allocation->lease;
+        /** @var UnitOwnership|null $ownership */
+        $ownership = $allocation->unitOwnership;
+
+        // A CAM allocation belongs to a lease OR a unit ownership — `assertBelongsToExactlyOneAgreement()`
+        // enforces exactly one — and `CamReconciliationService` creates ownership allocations for every
+        // HandedOver tenure. Resolving the party through the lease alone left this document, whose ENTIRE
+        // purpose is showing an owner the working behind a true-up he did not expect, with a blank party,
+        // a blank unit, a blank reference and 0.00 m² over correct money. The portal lists these
+        // deliberately — `CamAllocationResource::getEloquentQuery()` ORs in `unitOwnership` with a comment
+        // naming this exact reader.
+        $tenant = $lease?->tenant ?? $ownership?->tenant;
+        $asset = $pool?->asset ?? $lease?->unit?->asset ?? $ownership?->asset;
+        $unitCodes = $lease !== null
+            ? ($lease->units->pluck('code')->implode(', ') ?: $lease->unit?->code)
+            : $ownership?->unit?->code;
 
         $isRtl = app()->getLocale() === 'ar';
 
@@ -53,11 +69,14 @@ class CamStatementPdfService
             'allocation' => $allocation,
             'pool' => $pool,
             'lease' => $lease,
-            'tenant' => $lease?->tenant,
-            'asset' => $pool?->asset ?? $lease?->unit?->asset,
+            'ownership' => $ownership,
+            'agreementReference' => $lease?->reference ?? $ownership?->reference,
+            'unitCodes' => $unitCodes,
+            'tenant' => $tenant,
+            'asset' => $asset,
             'facts' => $this->facts($allocation),
             'isRtl' => $isRtl,
-            ...IssuingEntity::forView($pool?->asset ?? $lease?->unit?->asset),
+            ...IssuingEntity::forView($asset),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');
@@ -100,12 +119,19 @@ class CamStatementPdfService
         $lease = $allocation->lease;
 
         $share = (float) $allocation->pro_rata_share_pct;
-        $area = $lease?->totalAreaSqm() ?? 0.0;
+        // Both agreement shapes, and the same source the reconciliation apportioned from:
+        // `CamReconciliationService::areaForPeriod()` reads `unit->area_sqm` for an ownership.
+        $area = $lease !== null
+            ? $lease->totalAreaSqm()
+            : (float) ($allocation->unitOwnership?->unit?->area_sqm ?? 0.0);
 
         // The denominator that was USED, recovered from the share that was stored — not the one
         // that would be computed today. That distinction is the whole point of a statement issued
         // against a reconciliation rather than against the live data.
-        $denominator = $share > 0 ? round($area / ($share / 100), 2) : null;
+        // Also guarded on the AREA, not the share alone: with a non-zero share and an unresolved area
+        // this printed "your area 0.00 m² of 0.00 m²" beside a real percentage — three mutually
+        // contradictory figures. Null renders as an em-dash, which says "not stated" rather than "zero".
+        $denominator = ($share > 0 && $area > 0) ? round($area / ($share / 100), 2) : null;
 
         $capped = $allocation->capped_cost_amount !== null
             ? (float) $allocation->capped_cost_amount

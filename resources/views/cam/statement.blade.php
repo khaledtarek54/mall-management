@@ -72,7 +72,7 @@
                 <div class="doc-title">{{ __('admin.cam_statement.title') }}</div>
                 <div class="doc-meta">
                     <strong>{{ __('admin.cam_statement.period') }}:</strong> {{ $facts['year'] }}<br>
-                    <strong>{{ __('admin.tables.lease.reference') }}:</strong> {{ $lease?->reference }}<br>
+                    <strong>{{ __('admin.tables.lease.reference') }}:</strong> {{ $agreementReference }}<br>
                     <strong>{{ __('admin.cam_statement.issued') }}:</strong> {{ now()->format('d/m/Y') }}
                 </div>
             </td>
@@ -85,7 +85,7 @@
         <td style="width:50%; vertical-align:top">
             <div class="label">{{ __('admin.cam_statement.tenant') }}</div>
             <div class="party-name">{{ $tenant?->name }}</div>
-            <div class="party-line">{{ $lease?->units->pluck('code')->implode(', ') ?: $lease?->unit?->code }}</div>
+            <div class="party-line">{{ $unitCodes }}</div>
         </td>
         <td style="width:50%; vertical-align:top">
             <div class="label">{{ __('admin.cam_statement.premises') }}</div>

@@ -592,7 +592,8 @@ class Invoice extends Model
             if ($invoice->status !== 'cancelled' && $invoice->getOriginal('status') !== 'cancelled') {
                 return; // neither old nor new status is cancelled — accrual unaffected
             }
-            $assetId = $invoice->lease?->unit?->asset_id;
+            // The invoice's own column: the lease chain is null for a unit-owner assessment.
+            $assetId = $invoice->asset_id;
             $year = optional($invoice->issue_date)->year;
             if ($assetId && $year && $invoice->items()->where('type', 'marketing')->exists()) {
                 MarketingBudget::forPeriod($assetId, (int) $year)->recomputeAccrued();

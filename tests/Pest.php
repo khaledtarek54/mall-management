@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\BillableAgreement;
 use App\Models\Asset;
 use App\Models\DepositTransaction;
 use App\Models\FacilityWorkOrder;
@@ -13,6 +14,7 @@ use App\Models\TenantUser;
 use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\IssueInvoiceService;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Support\ActivityLogChangeRenderer;
 use Filament\Facades\Filament;
@@ -633,4 +635,50 @@ function correctiveOrder(array $attrs = []): FacilityWorkOrder
         'priority' => 'high',
         'scheduled_for' => now()->toDateString(),
     ], $attrs));
+}
+
+/**
+ * An issued invoice for one service-charge line, raised through the REAL service.
+ *
+ * Not hand-built: `Invoice::recomputeTotals()` persists with `saveQuietly()`, so a fixture that
+ * creates the row and then adds items never fires the `saved` hook the auto-apply rides on — it
+ * would test nothing and report a pass. `IssueInvoiceService::issue()` is what both the billing run
+ * and the operator's Raise-invoice button call, and it takes the agreement itself, so one helper
+ * serves a lease and an ownership without branching.
+ */
+function assessmentFor(BillableAgreement $agreement, int $tenantId, float $amount, string $issue = '2026-03-01'): Invoice
+{
+    return app(IssueInvoiceService::class)->issue(
+        agreement: $agreement,
+        items: [[
+            'type' => 'service_charge',
+            'description' => 'صيانة',
+            'quantity' => 1,
+            'unit_price' => $amount,
+            'vat_rate' => 0,
+            'amount' => $amount,
+        ]],
+        issueDate: $issue,
+        periodStart: $issue,
+        periodEnd: $issue,
+        dueDate: $issue,
+        tenantId: $tenantId,
+    );
+}
+
+/** Over-pay an invoice so the surplus becomes on-account credit. */
+function overpay(Invoice $invoice, float $paid): Payment
+{
+    $payment = Payment::create([
+        'tenant_id' => $invoice->tenant_id,
+        'amount' => $paid,
+        'method' => 'cash',
+        'status' => 'captured',
+        'payment_date' => $invoice->issue_date,
+    ]);
+
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => (float) $invoice->total]);
+    $invoice->recomputeTotals();
+
+    return $payment;
 }

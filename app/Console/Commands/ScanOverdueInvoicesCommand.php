@@ -62,7 +62,11 @@ class ScanOverdueInvoicesCommand extends Command
                         return false;
                     }
 
-                    $owners = app(AssetStaffRecipients::class)->owners($locked->lease?->unit?->asset_id);
+                    // `asset_id`, not the lease chain: for a unit-owner assessment the chain is null,
+                    // `owners(null)` is empty, and the method returns BELOW without stamping
+                    // `owner_overdue_notified_at` — so an overdue assessment was re-locked and re-skipped
+                    // every night for ever and the owner was never told.
+                    $owners = app(AssetStaffRecipients::class)->owners($locked->asset_id);
                     if ($owners->isEmpty()) {
                         return false;
                     }
