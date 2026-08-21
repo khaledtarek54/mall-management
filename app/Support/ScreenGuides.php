@@ -79,6 +79,7 @@ use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Filament\Admin\Resources\TaxCodes\TaxCodeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
+use App\Filament\Admin\Resources\TenantRequestSubcategories\TenantRequestSubcategoryResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Trades\TradeResource;
@@ -219,6 +220,7 @@ class ScreenGuides
         FailureCodeResource::class => 'failure_codes',
         HolidayResource::class => 'holidays',
         ExpenseCategoryResource::class => 'expense_categories',
+        TenantRequestSubcategoryResource::class => 'tenant_request_subcategories',
         PaymentMethodResource::class => 'payment_methods',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',

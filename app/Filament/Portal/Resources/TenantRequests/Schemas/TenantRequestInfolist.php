@@ -2,6 +2,8 @@
 
 namespace App\Filament\Portal\Resources\TenantRequests\Schemas;
 
+use App\Enums\TenantRequestType;
+use App\Models\TenantRequestSubcategory;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -40,7 +42,10 @@ class TenantRequestInfolist
                         ->label(__('admin.fields.category'))
                         ->badge()
                         ->color('gray')
-                        ->formatStateUsing(fn (string $state) => __("admin.enums.work_category.{$state}")),
+                        ->formatStateUsing(fn (?string $state, $record) => TenantRequestSubcategory::labelFor(
+                            $state,
+                            $record->request_type instanceof TenantRequestType ? $record->request_type : null,
+                        )),
                     TextEntry::make('priority')
                         ->label(__('admin.fields.priority'))
                         ->badge()

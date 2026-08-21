@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Exports\TenantRequestExporter;
 use App\Models\Department;
 use App\Models\TenantRequest;
+use App\Models\TenantRequestSubcategory;
 use App\Models\User;
 use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\TenantRequestService;
@@ -84,7 +85,9 @@ class TenantRequestsTable
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.tenant_request_subcategory.{$state}") : null),
+                    ->formatStateUsing(fn (?string $state, $record) => $state
+                        ? TenantRequestSubcategory::labelFor($state, $record->request_type instanceof TenantRequestType ? $record->request_type : null)
+                        : null),
                 TextColumn::make('channel')
                     ->label(__('admin.tables.requests.channel'))
                     ->badge()

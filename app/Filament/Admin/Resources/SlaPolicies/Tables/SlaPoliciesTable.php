@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\SlaPolicies\Tables;
 
+use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Models\SlaPolicy;
 use App\Support\SlaResolver;
@@ -30,6 +31,21 @@ class SlaPoliciesTable
                     ->label(__('admin.facility.fields.property'))
                     ->badge()->color('gray')
                     ->sortable(),
+                TextColumn::make('request_type')
+
+                    ->label(__('admin.facility.sla.request_type'))
+
+                    // Shown because a property can now hold several rows per priority, one per request
+
+                    // type, and without this column they read as duplicates.
+
+                    ->formatStateUsing(fn (?string $state) => $state === null || $state === SlaPolicy::ANY_TYPE
+
+                        ? __('admin.facility.sla.any_request_type')
+
+                        : (TenantRequestType::tryFrom($state)?->label() ?? $state))
+
+                    ->badge(),
                 TextColumn::make('priority')
                     ->label(__('admin.facility.fields.priority'))
                     ->badge()

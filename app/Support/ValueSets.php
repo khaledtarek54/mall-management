@@ -186,6 +186,9 @@ class ValueSets
         // types — flat, because `other` is a legitimate subcategory of four of them and the value
         // set answers "may this column hold this string", not "may this TYPE offer it". Which
         // subcategories a type offers is the form's question, and the forms ask the catalogue.
+        // `any` plus the request types that HAVE an SLA. A policy naming a type with no SLA would
+        // never be read, so the column refuses it rather than storing a row nothing consults.
+        'sla_policies.request_type' => ['any', 'maintenance', 'complaint', 'access'],
         'tenant_requests.category' => [
             'electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other',
             'keys_cards', 'parking', 'after_hours', 'visitor', 'delivery',

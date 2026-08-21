@@ -376,6 +376,7 @@ return [
             'admin' => 'إداري',
             'other' => 'أخرى',
         ],
+        'request_type' => ['any' => 'كل الطلبات', 'maintenance' => 'صيانة', 'complaint' => 'شكوى', 'inquiry' => 'استفسار', 'access' => 'دخول', 'billing' => 'فواتير', 'document' => 'مستندات', 'permit' => 'تصريح', 'other' => 'أخرى'],
         'cost_nature' => [
             'fixed' => 'ثابتة',
             'variable' => 'متغيرة',

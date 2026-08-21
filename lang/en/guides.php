@@ -1787,4 +1787,25 @@ return [
             'A category with no account set books exactly where it did before: maintenance to maintenance, utilities to utilities, and anything unrecognised to administrative expenses.',
         ],
     ],
+    'tenant_request_subcategories' => [
+        'purpose' => 'The list of problems a tenant can pick from when they report something, and which trade each one sends the job to. Before this was a list you could edit, a tenant could not report a stuck lift, a generator failure, a fire-safety fault, pests, a security issue, landscaping or waste — they picked "Other", and the job reached your team with no trade on it at all.',
+        'steps' => [
+            'Pick the kind of request it belongs under. Maintenance is the one with trades; a complaint or a document request has none.',
+            'Give it a code — this is stored on every request, so choose it once and keep it. It cannot be changed later.',
+            'Name it in both languages. This is what the tenant reads, so use their words, not yours.',
+            'For a maintenance fault, choose the trade. That is what sends the resulting work order to the right people at the right hourly rate.',
+            'To retire one, switch it off. It disappears from the tenant\'s list and every request already using it is untouched.',
+        ],
+        'affects' => [
+            'The tenant portal, the mobile app and the admin request form all offer exactly what is switched on here, for the type selected.',
+            'The trade decides which contractors are eligible for the resulting work order and which hourly rate its labour is costed at.',
+            'A subcategory with no trade produces a work order with no trade — correct for a complaint, wrong for a fault, so set it for anything maintenance.',
+        ],
+        'rules' => [
+            'A code is unique within its request type, not globally — "Other" legitimately exists under several types.',
+            'The code and the request type cannot be changed once saved, because every request stores them rather than a link to this row.',
+            'A subcategory that has been used cannot be deleted. Switch it off instead.',
+            'Only maintenance problems should carry a trade. A noise complaint is a problem, not a craft.',
+        ],
+    ],
 ];

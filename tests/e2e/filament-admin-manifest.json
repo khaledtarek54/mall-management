@@ -316,6 +316,13 @@
             "hasView": false
         },
         {
+            "class": "TenantRequestSubcategoryResource",
+            "slug": "tenant-request-subcategories",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "TenantSalesDeclarationResource",
             "slug": "tenant-sales-declarations",
             "hasCreate": true,

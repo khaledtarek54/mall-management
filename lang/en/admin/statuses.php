@@ -376,6 +376,7 @@ return [
             'admin' => 'Administrative',
             'other' => 'Other',
         ],
+        'request_type' => ['any' => 'Any request', 'maintenance' => 'Maintenance', 'complaint' => 'Complaint', 'inquiry' => 'Inquiry', 'access' => 'Access', 'billing' => 'Billing', 'document' => 'Document', 'permit' => 'Permit', 'other' => 'Other'],
         'cost_nature' => [
             'fixed' => 'Fixed',
             'variable' => 'Variable',

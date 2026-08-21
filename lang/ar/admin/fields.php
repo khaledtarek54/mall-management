@@ -3,6 +3,7 @@
 return [
     'fields' => [
         'sla_clock' => 'مؤشر الخدمة',
+        'trade' => 'التخصص',
         'for_inbound' => 'يستقبل تحصيلًا',
         'for_outbound' => 'يُستخدم في الصرف',
         'settlement_days' => 'أيام التسوية',

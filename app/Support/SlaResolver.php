@@ -78,8 +78,13 @@ class SlaResolver
     public static function respondHoursFor(?int $assetId, string $priority): int
     {
         if ($assetId !== null) {
+            // Type-blind, exactly like `hoursFor()` above and for the same reason: a work order has
+            // no request type, so reading a typed row here would apply a "complaints in 8 hours"
+            // rule to facility jobs. Leaving this one unfiltered while fixing its sibling would have
+            // meant the two halves of one property's SLA resolved from different rows.
             $override = SlaPolicy::query()
                 ->active()
+                ->where('request_type', SlaPolicy::ANY_TYPE)
                 ->where('asset_id', $assetId)
                 ->where('priority', $priority)
                 ->value('respond_hours');

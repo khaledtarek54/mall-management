@@ -336,6 +336,9 @@ return [
         ],
         'priorities' => ['low' => 'Low', 'medium' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'],
         'sla' => [
+            'request_type' => 'Applies to',
+            'request_type_hint' => 'Leave as Any request unless this priority needs its own window for one kind of request.',
+            'any_request_type' => 'Any request',
             'singular' => 'SLA Policy',
             'plural' => 'SLA Policies',
             'hours' => 'Resolve within (hours)',

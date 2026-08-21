@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'tenant_request_subcategories.view' => 'View what a tenant may report',
+            'tenant_request_subcategories.create' => 'Add a reportable problem',
+            'tenant_request_subcategories.edit' => 'Edit a reportable problem, including the trade it routes to',
+            'tenant_request_subcategories.delete' => 'Remove a reportable problem',
             'expense_categories.view' => 'View the expense-category catalogue',
             'expense_categories.create' => 'Add an expense category',
             'expense_categories.edit' => 'Edit an expense category, including the account its costs book to',
@@ -701,6 +705,7 @@ class RolesPermissionsSeeder extends Seeder
             'work_permits.view', 'work_permits.create', 'work_permits.edit', 'work_permits.issue',
             // The trade register. Operations owns which kinds of work exist and which contractor
             // is eligible; the RATE is money, so it stays with manager (see below).
+            'tenant_request_subcategories.view', 'tenant_request_subcategories.create', 'tenant_request_subcategories.edit',
             'trades.view',
             // The failure-code library — operations records the codes, so operations reads them.
             'holidays.view',

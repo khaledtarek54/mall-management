@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\TenantRequests\Tables;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequest;
+use App\Models\TenantRequestSubcategory;
 use App\Services\TenantRequestService;
 use App\Support\Portal;
 use Filament\Actions\Action;
@@ -61,7 +62,9 @@ class TenantRequestsTable
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.tenant_request_subcategory.{$state}") : null),
+                    ->formatStateUsing(fn (?string $state, $record) => $state
+                        ? TenantRequestSubcategory::labelFor($state, $record->request_type instanceof TenantRequestType ? $record->request_type : null)
+                        : null),
                 TextColumn::make('priority')
                     ->label(__('admin.tables.requests.priority'))
                     ->badge()

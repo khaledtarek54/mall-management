@@ -882,6 +882,17 @@ subcategory codes equal their trade code, so a test built on `elevator` passes w
 let an operator create a type the code has no answers for. Only the vocabulary moved. Per-type SLA
 became one new tier on the register that already answers this per property, not a new table.
 
+**Fixed after review** (2 🔴, 7 🟠): both request-list cells and the portal infolist still labelled
+subcategories from a static lang group, so the seven new codes rendered as raw keys — `labelFor()`
+existed with **zero callers**, which is EG-11's mistake verbatim, one milestone later. The helper
+gate had **two** scanners and only the inline one got the tokenizer fix, so the shadow gate still
+missed 35 names — they are one scanner now, which is what that function's own docblock always
+claimed. The per-type SLA tier was **uncreatable**: no form field, no table column, and a `unique`
+rule still citing the index this migration dropped. `sla_policies.request_type` shipped with no
+`ValueSets` entry, `respondHoursFor()` was left type-blind beside a sibling whose docblock explains
+why that is dangerous, and the catalogue had **no screen at all** — so nothing could add, retire,
+re-point or translate a subcategory while three docblocks described an operator doing exactly that.
+
 **Four things the ticket did not name:**
 
 | | |

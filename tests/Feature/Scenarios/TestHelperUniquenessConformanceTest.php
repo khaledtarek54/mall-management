@@ -85,6 +85,15 @@ if (! function_exists('testFileScopeFunctions')) {
                     continue;
                 }
 
+                // `"{$x}"` opens with T_CURLY_OPEN — an ARRAY token the branch above never sees —
+                // and closes with a PLAIN `}` that it does. Without this the counter goes negative
+                // on any file with interpolation and no file-scope function in it is ever recorded.
+                if (in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true)) {
+                    $depth++;
+
+                    continue;
+                }
+
                 if ($token[0] !== T_FUNCTION || $depth !== 0) {
                     continue;
                 }
@@ -110,70 +119,11 @@ if (! function_exists('testFileScopeFunctions')) {
 }
 
 it('declares no test helper function in two different files', function () {
-    $declarations = [];
-
-    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('tests')));
-
-    /** @var SplFileInfo $file */
-    foreach ($it as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php') {
-            continue;
-        }
-
-        $tokens = token_get_all(file_get_contents($file->getPathname()));
-        $depth = 0;
-
-        foreach ($tokens as $i => $token) {
-            if (! is_array($token)) {
-                // Track brace depth so a method inside a class, or a closure body, is not
-                // mistaken for a file-scope declaration.
-                if ($token === '{') {
-                    $depth++;
-                } elseif ($token === '}') {
-                    $depth--;
-                }
-
-                continue;
-            }
-
-            // STRING INTERPOLATION OPENS A BRACE THE TOKENIZER DOES NOT REPORT AS ONE.
-            //
-            // `"{$x}"` emits T_CURLY_OPEN (an ARRAY token, so the branch above never sees it) and
-            // then a PLAIN `}` (which it does). Every interpolated string therefore decremented the
-            // counter without incrementing it, and a file with a few of them sat at negative depth
-            // for the rest of the scan — so no file-scope `function` in it was ever recorded.
-            //
-            // `tests/Pest.php` is full of interpolation, which is why this gate did not notice a
-            // helper declared BOTH there and in a test file, and the suite exited 255 with zero
-            // bytes of output on both streams. The gate was green throughout, reporting on a set it
-            // had silently stopped collecting.
-            if (in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true)) {
-                $depth++;
-
-                continue;
-            }
-
-            if ($token[0] !== T_FUNCTION || $depth !== 0) {
-                continue;
-            }
-
-            // The next meaningful token is the name — unless this is a closure or arrow fn,
-            // where it is `(` or `use`.
-            for ($j = $i + 1; $j < count($tokens); $j++) {
-                $next = $tokens[$j];
-
-                if (is_array($next) && in_array($next[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
-                    continue;
-                }
-
-                if (is_array($next) && $next[0] === T_STRING) {
-                    $declarations[$next[1]][] = str_replace(base_path().'/', '', $file->getPathname());
-                }
-
-                break;
-            }
-        }
-    }
+    // The SHARED scanner, not a copy of it. This gate carried its own inline duplicate — which is
+    // exactly what `testFileScopeFunctions()`'s docblock says it exists to prevent ("shared by both
+    // gates below so they cannot disagree") — and when the tokenizer bug was fixed, only one of the
+    // two copies got the fix. The other went on missing 35 helper names repo-wide.
+    $declarations = testFileScopeFunctions();
 
     $collisions = collect($declarations)
         ->map(fn (array $files) => array_values(array_unique($files)))

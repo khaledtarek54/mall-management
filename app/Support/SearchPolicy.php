@@ -44,6 +44,7 @@ use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Filament\Admin\Resources\TaxCodes\TaxCodeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
+use App\Filament\Admin\Resources\TenantRequestSubcategories\TenantRequestSubcategoryResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Trades\TradeResource;
@@ -226,6 +227,7 @@ class SearchPolicy
      * @var array<class-string, string>
      */
     public const GLOBAL_SEARCH_EXEMPT = [
+        TenantRequestSubcategoryResource::class => 'A closed vocabulary of about thirty problems an operator configures once and a tenant picks from a dropdown. Nobody hunts for "Lift / escalator" from the top bar; they open a request and choose it.',
         ExpenseCategoryResource::class => 'A closed catalogue of a dozen cost types that an accountant configures once and everyone else picks from a dropdown. Nobody hunts for "Utilities" from the top bar — they open a bill and choose it. Indexing it would put eleven rows in front of every search for a vendor or an invoice.',
         PaymentMethodResource::class => 'A closed catalogue of a dozen rails that an accountant configures once and an operator picks from a dropdown. Nobody hunts for "InstaPay" from the top bar — they open a payment and choose it. Indexing it would put eleven rows in front of every search for a tenant or an invoice.',
         HolidayResource::class => 'A short, date-ordered register the operator opens once a year. Nobody searches the top bar for "Eid" — they open the calendar and read the list. Indexing it would put public holidays in the same result set as tenants and invoices, which is noise.',
