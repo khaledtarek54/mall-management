@@ -272,6 +272,8 @@ return [
         'name_en' => 'Name (English)',
         'name_ar' => 'Name (Arabic)',
         'sort_order' => 'Order',
+        'blocks_dispatch' => 'Blocks work assignment',
+        'default_fine_amount' => 'Standard fine',
         'escalation_amount' => 'Annual increase',
         'escalation_floor_rate' => 'Minimum increase',
         'escalation_ceiling_rate' => 'Maximum increase',

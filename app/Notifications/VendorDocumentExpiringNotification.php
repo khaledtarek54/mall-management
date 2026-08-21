@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\VendorDocument;
+use App\Models\VendorDocumentType;
 use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
@@ -57,7 +58,7 @@ class VendorDocumentExpiringNotification extends Notification
                 : 'admin.notifications.vendor_document_expiring_title'),
             'body' => __($body, [
                 'vendor' => $this->document->vendor->name ?? '—',
-                'document' => __("admin.vendors.documents.types.{$this->document->type}"),
+                'document' => VendorDocumentType::labelFor($this->document->type),
                 'date' => $this->document->expires_on?->format('Y-m-d') ?? '—',
                 'days' => $days,
             ]),

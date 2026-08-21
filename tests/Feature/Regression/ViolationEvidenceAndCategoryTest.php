@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Violation;
+use App\Support\ValueSets;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -27,8 +28,10 @@ it('records a violation under a category and filters by it', function () {
 
     expect(Violation::where('category', 'safety')->count())->toBe(2)
         ->and(Violation::where('category', 'signage')->count())->toBe(1)
-        // The offered set is the model's — no DB enum, extendable without a migration.
-        ->and(Violation::CATEGORIES)->toContain('signage')->toContain('safety')->toContain('other');
+        // The offered set is the CATALOGUE's, floored by `ValueSets` — no DB enum, and extendable
+        // by the operator rather than by a deploy.
+        ->and(ValueSets::allowed('violations', 'category'))
+        ->toContain('signage')->toContain('safety')->toContain('other');
 });
 
 it('attaches evidence photos on the PRIVATE disk', function () {

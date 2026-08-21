@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Holidays\Tables;
 use App\Models\Holiday;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -58,7 +59,13 @@ class HolidaysTable
             // holiday has no blob — it is a date and two names, in a list short enough to read.
             // A box that can never match anything is worse than none.
             ->searchable(false)
-            ->recordActions([EditAction::make(), DeleteAction::make()])
+            ->recordActions([
+                // A read-only view, for the role that holds `.view` and not `.edit`. Its schema is the
+                // resource's own form rendered disabled, so it cannot drift from the fields that exist.
+                ViewAction::make(),
+                EditAction::make(),
+                DeleteAction::make(),
+            ])
             ->defaultSort('date', 'desc');
     }
 }

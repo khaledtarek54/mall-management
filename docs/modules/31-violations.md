@@ -142,9 +142,16 @@ navigation group.
   disabled to the current property, enabled only in All-Properties mode.
 - **Tenant** (`tenant_id`) — required, `searchable` + `preload`,
   `TenantScope::selectableTenantOptions()` (scoped to the user's visible malls).
-- **Category** (`category`) — required Select over `Violation::CATEGORIES` (signage / operating hours /
-  cleanliness / safety / unauthorised works / noise / other). Strings, not a DB enum. A field officer
-  picks the kind instead of retyping it, and the operator can then **filter and report by it**.
+- **Category** (`category`) — required Select over `ViolationCategory::options()`, the **house-rules
+  register** (`/admin/violation-categories`, module-shared). Seven rows ship — signage, operating
+  hours, cleanliness, safety, unauthorised works, noise, other — and the operator adds their own; the
+  seven are the `ValueSets` FLOOR, so an unseeded database behaves exactly as the old
+  `Violation::CATEGORIES` const did. A field officer picks the kind instead of retyping it, and the
+  operator can then **filter and report by it**.
+- **Standard fine.** A category may name a `default_fine_amount`, which the form PREFILLS into
+  `fine_amount` when a category is picked and nothing has been typed. It is never read again:
+  revising the tariff leaves every recorded violation alone, and what the officer typed is what gets
+  billed. Nothing ships with a tariff — the schedule of penalties is the operator's handbook.
 - **Evidence photos** (`photos`) — `SpatieMediaLibraryFileUpload`, `multiple`/`image`/`reorderable`,
   max 8, on the **private** `photos` collection (`useDisk('local')`, gated by
   `MediaPrivacyConformanceTest`). The thing that makes a violation defensible.
@@ -189,7 +196,10 @@ No auto-billing, no GL, no ETA — this module touches none of the money paths.
   single sources of truth. Keep `fine_amount` as the recorded assessment.
 - **Richer lifecycle** (e.g. `disputed`, `waived`): extend `Violation::STATUSES`
   and add the `admin.statuses.violation.*` keys in EN + AR. Keep the default `open`.
-- **More attributes** (category, evidence photos, location): add nullable columns
+- **A new kind of breach** is a ROW, not a code change — add it at `/admin/violation-categories`.
+  Retire one by switching it off: it leaves the officer's picker and every breach already recorded
+  keeps its label, because `ViolationCategory::labelFor()` reads inactive rows too.
+- **More attributes** (evidence photos, location): add nullable columns
   + form fields; media collections must declare `useDisk('local')` (private) per
   the media-privacy invariant. The isolation plumbing is unaffected.
 - **Do not** relax the `assertAssetInScope` write guards, the `canNotify` dispatch

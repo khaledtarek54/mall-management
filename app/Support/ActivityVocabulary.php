@@ -192,6 +192,7 @@ class ActivityVocabulary
         'vendor.type' => 'admin.enums.vendor_type',
         'vendor_bill.category' => 'admin.enums.vendor_bill_category',
         'vendor_document.type' => 'admin.vendors.documents.types',
+        'violation.category' => 'admin.violations.categories',
         'warehouse.category' => 'admin.enums.category_suggestions.warehouse',
     ];
 

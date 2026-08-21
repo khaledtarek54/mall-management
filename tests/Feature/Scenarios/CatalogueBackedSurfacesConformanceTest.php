@@ -42,6 +42,13 @@ const RAIL_LABEL_GROUPS = [
     // decides which P&L account a supplier bill hits, so a screen offering a stale list offers the
     // wrong accounting.
     'admin.enums.vendor_bill_category',
+    // House rules — `violation_categories`. A rule the operator added has no lang key, so a screen
+    // still reading the array both fails to offer it and prints its raw code where it appears.
+    'admin.violations.categories',
+    // Supplier document types — `vendor_document_types`. The worst of the six to leave stale: a type
+    // an operator added to block dispatch cannot be FILED from a screen that does not offer it, so
+    // the liability decision they made has no way of reaching a vendor's record.
+    'admin.vendors.documents.types',
 ];
 
 /**
@@ -54,7 +61,7 @@ const NOT_CATALOGUE_WIDENED = [
     'app/Filament/Admin/Resources/MarketingBudgets/RelationManagers/MarketingSpendsRelationManager.php' => 'marketing_spends.paid_from — cash|bank only, not widened.',
     'app/Filament/Admin/Resources/MarketingBudgets/MarketingBudgetResource.php' => 'marketing_spends.paid_from — cash|bank only, not widened.',
     'app/Filament/Admin/Resources/Custodies/CustodyResource.php' => 'custodies.paid_from — cash|bank only, not widened.',
-    'app/Support/ActivityVocabulary.php' => 'A field->lang-group registry covering BOTH widened and unwidened columns; the activity log resolves a stored value, and a rail with no lang key falls through to the raw code by design (logged as a known gap, not a screen).',
+    'app/Support/ActivityVocabulary.php' => 'A field->lang-group registry covering BOTH widened and unwidened columns; the activity log resolves a stored value, and a catalogue row with no lang key falls through to the raw code by design (logged as a known gap, not a screen).',
     'app/Models/PaymentMethod.php' => 'The catalogue itself — these groups are its FALLBACK for the shipped codes.',
     'app/Models/ExpenseCategory.php' => 'The catalogue itself — the category group is its FALLBACK for the six shipped codes.',
     'app/Models/DepositTransaction.php' => 'Passes the group to PaymentMethod::labelFor() as a fallback, which is the sanctioned shape.',
@@ -77,7 +84,7 @@ it('lets no surface on a catalogue-widened column read a static rail list', func
         // Passing a group to `PaymentMethod::options()` / `::labelFor()` as the FALLBACK for the
         // shipped codes is the sanctioned shape — that call reads the catalogue first. What is
         // banned is resolving the group directly with `__()`, which never sees a rail at all.
-        $code = preg_replace('~(PaymentMethod|ExpenseCategory)::(options|labelFor)\([^;]*?\)~s', '', $code) ?? $code;
+        $code = preg_replace('~(PaymentMethod|ExpenseCategory|ViolationCategory|VendorDocumentType)::(options|labelFor)\([^;]*?\)~s', '', $code) ?? $code;
 
         foreach (RAIL_LABEL_GROUPS as $group) {
             if (preg_match('~__\(\s*["\']'.preg_quote($group, '~').'~', $code)) {

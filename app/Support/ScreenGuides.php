@@ -90,7 +90,9 @@ use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Filament\Admin\Resources\UtilityTariffs\UtilityTariffResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Filament\Admin\Resources\VendorDocumentTypes\VendorDocumentTypeResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
+use App\Filament\Admin\Resources\ViolationCategories\ViolationCategoryResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
@@ -222,6 +224,8 @@ class ScreenGuides
         HolidayResource::class => 'holidays',
         ExpenseCategoryResource::class => 'expense_categories',
         RetailCategoryResource::class => 'retail_categories',
+        ViolationCategoryResource::class => 'violation_categories',
+        VendorDocumentTypeResource::class => 'vendor_document_types',
         TenantRequestSubcategoryResource::class => 'tenant_request_subcategories',
         PaymentMethodResource::class => 'payment_methods',
         TaxCodeResource::class => 'tax_codes',

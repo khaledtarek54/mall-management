@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\IsCodeCatalogue;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
@@ -9,7 +10,6 @@ use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\CostNature;
 use App\Support\ValueSets;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -53,10 +53,9 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PortfolioShared]
 class ExpenseCategory extends Model
 {
+    use IsCodeCatalogue;
     use LogsActivity;
     use RefusesDeletionWhenReferenced;
-
-    private const MEMO = 'expense_category.map';
 
     protected $fillable = [
         'code',
@@ -82,40 +81,36 @@ class ExpenseCategory extends Model
 
     protected static function booted(): void
     {
-        // A column default applies when the column is OMITTED, never when null is written to it, and
-        // blanking a numeric field in Filament submits null.
-        static::saving(function (self $category): void {
-            $category->sort_order ??= 0;
-            $category->cost_nature ??= CostNature::VARIABLE;
-        });
-
-        $flush = function (): void {
-            app()->forgetInstance(self::MEMO);
-            foreach (config('app.supported_locales', ['en', 'ar']) as $loc) {
-                app()->forgetInstance(self::MEMO.'.labels.'.$loc);
-            }
-            app()->forgetInstance(self::MEMO.'.codes');
-            app()->forgetInstance(self::MEMO.'.natures');
-
-            // The enforced set is derived from this catalogue.
-            ValueSets::flushCatalogueCache();
-        };
-
-        static::saved($flush);
-        static::deleted($flush);
+        // A column default applies when the column is OMITTED, never when null is written to it.
+        // `sort_order` gets the same treatment from {@see IsCodeCatalogue}.
+        static::saving(fn (self $category) => $category->cost_nature ??= CostNature::VARIABLE);
     }
 
-    /** The reader's language, falling back to the other rather than to a blank cell. */
-    public function label(): string
+    protected static function catalogueMemoKey(): string
     {
-        return app()->getLocale() === 'ar'
-            ? ($this->name_ar ?: $this->name_en)
-            : ($this->name_en ?: $this->name_ar);
+        return 'expense_category';
     }
 
-    public function scopeActive(Builder $query): Builder
+    protected static function catalogueFallbackGroup(): string
     {
-        return $query->where('is_active', true);
+        return 'admin.enums.vendor_bill_category';
+    }
+
+    /**
+     * The account map and the fixed/variable map are memoised beside the codes, and all three are
+     * dropped on write — see {@see IsCodeCatalogue::flushCatalogue()}.
+     *
+     * @return array<int, string>
+     */
+    protected static function catalogueMemoSuffixes(): array
+    {
+        return ['accounts', 'natures'];
+    }
+
+    /** @return array<int, string> */
+    protected static function catalogueFloorCodes(): array
+    {
+        return ValueSets::allowed('expenses', 'category') ?? [];
     }
 
     public function ledgerAccount(): BelongsTo
@@ -139,34 +134,6 @@ class ExpenseCategory extends Model
     }
 
     /**
-     * Active codes — what {@see ValueSets} unions onto its floor, and what the pickers offer.
-     *
-     * Inactive rows are excluded: retiring a category stops it being offered, it does not invalidate
-     * the documents that already carry it — which is why `ValueSets` only ever WIDENS from here.
-     *
-     * Safe before the table exists: `ValueSets::allowed()` runs from the global `eloquent.saving`
-     * listener, including during migrations that predate this one.
-     *
-     * @return array<int, string>
-     */
-    public static function codes(): array
-    {
-        if (app()->has(self::MEMO.'.codes')) {
-            return app(self::MEMO.'.codes');
-        }
-
-        try {
-            $codes = static::query()->where('is_active', true)->orderBy('sort_order')->pluck('code')->all();
-        } catch (\Throwable) {
-            return [];
-        }
-
-        app()->instance(self::MEMO.'.codes', $codes);
-
-        return $codes;
-    }
-
-    /**
      * The P&L account this category books to, resolved through the catalogue and then the floor.
      *
      * The ONE place the fallback lives, so the four journalizers that classify a cost cannot drift.
@@ -181,9 +148,11 @@ class ExpenseCategory extends Model
         AccountResolver $accounts,
         \Closure|string $floorRole,
     ): int {
-        $map = app()->has(self::MEMO)
-            ? app(self::MEMO)
-            : tap(static::safeMap(), fn (array $m) => app()->instance(self::MEMO, $m));
+        $memo = self::catalogueMemoKey().'.accounts';
+
+        $map = app()->has($memo)
+            ? app($memo)
+            : tap(static::safeMap(), fn (array $m) => app()->instance($memo, $m));
 
         $id = $map[$code] ?? null;
 
@@ -215,83 +184,20 @@ class ExpenseCategory extends Model
     }
 
     /**
-     * The label for ONE stored code — what a table cell renders.
+     * `code => label` for a picker — ACTIVE ROWS FIRST, the floor only when the catalogue is empty.
      *
-     * Never `__("admin.enums.vendor_bill_category.{$code}")`: an operator-added category has no lang
-     * key and would print the raw key on the very screen whose filter lists it. Inactive rows are
-     * included, because retiring a category must not blank the label on documents that carry it.
-     */
-    public static function labelFor(?string $code, string $fallbackGroup = 'admin.enums.vendor_bill_category'): string
-    {
-        if ($code === null || $code === '') {
-            return '—';
-        }
-
-        $labels = app()->has(self::MEMO.'.labels.'.app()->getLocale())
-            ? app(self::MEMO.'.labels.'.app()->getLocale())
-            : tap(static::safeLabels(), fn (array $m) => app()->instance(self::MEMO.'.labels.'.app()->getLocale(), $m));
-
-        if (isset($labels[$code])) {
-            return $labels[$code];
-        }
-
-        $key = "{$fallbackGroup}.{$code}";
-        $translated = __($key);
-
-        return $translated === $key ? $code : $translated;
-    }
-
-    /** @return array<string, string> */
-    private static function safeLabels(): array
-    {
-        try {
-            return static::query()->get()->mapWithKeys(fn (self $c) => [$c->code => $c->label()])->all();
-        } catch (\Throwable) {
-            return [];
-        }
-    }
-
-    /**
-     * `code => label` for a picker.
-     *
-     * Keyed off the set the SAVING LISTENER accepts, so a surface cannot offer a value the column
-     * refuses — the rule `DepositTransaction::methodOptions()` was written to enforce, and the one
-     * EG-11 broke by widening the offer and not the guard.
+     * Keying this off `ValueSets` looked right — it guarantees a picker cannot offer a value the
+     * guard refuses — but the enforced set is floor ∪ active, and the floor holds all six shipped
+     * codes permanently. So switching one off left it in every picker and `is_active` was inert for
+     * exactly the categories anyone would want to retire. Offering FEWER values than the guard
+     * accepts is safe; offering more is the bug. A retired category still labels its historical
+     * documents, because `labelFor()` includes inactive rows.
      *
      * @return array<string, string>
      */
-    public static function options(string $fallbackGroup = 'admin.enums.vendor_bill_category'): array
+    public static function options(?string $fallbackGroup = null): array
     {
-        // ACTIVE ROWS FIRST, the floor only when the catalogue is empty.
-        //
-        // Keying this off `ValueSets` looked right — it guarantees a picker cannot offer a value the
-        // guard refuses — but the enforced set is floor ∪ active, and the floor holds all six shipped
-        // codes permanently. So switching one off left it in every picker and `is_active` was inert
-        // for exactly the categories anyone would want to retire. `PaymentMethod::options()` reads
-        // its rows first and does not have this.
-        //
-        // Offering FEWER values than the guard accepts is safe; offering more is the bug. A retired
-        // category still labels its historical documents, because `labelFor()` includes inactive rows.
-        $rows = [];
-
-        try {
-            $rows = static::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->get()
-                ->mapWithKeys(fn (self $c) => [$c->code => $c->label()])
-                ->all();
-        } catch (\Throwable) {
-            // Before the table exists — see codes().
-        }
-
-        if ($rows !== []) {
-            return $rows;
-        }
-
-        return collect(ValueSets::forTable('expenses')['category'] ?? [])
-            ->mapWithKeys(fn (string $code) => [$code => static::labelFor($code, $fallbackGroup)])
-            ->all();
+        return static::catalogueOptions(fallbackGroup: $fallbackGroup);
     }
 
     /**
@@ -307,9 +213,11 @@ class ExpenseCategory extends Model
             return null;
         }
 
-        $map = app()->has(self::MEMO.'.natures')
-            ? app(self::MEMO.'.natures')
-            : tap(static::safeNatures(), fn (array $m) => app()->instance(self::MEMO.'.natures', $m));
+        $memo = self::catalogueMemoKey().'.natures';
+
+        $map = app()->has($memo)
+            ? app($memo)
+            : tap(static::safeNatures(), fn (array $m) => app()->instance($memo, $m));
 
         return $map[$code] ?? null;
     }

@@ -150,7 +150,11 @@ beforeEach(function () {
     $vendor = Vendor::factory()->create(['status' => 'active']);
     VendorDocument::create([
         'vendor_id' => $vendor->id,
-        'type' => 'insurance',
+        // `insurance_coi`, not `insurance`. The short form is a value no form has ever offered —
+        // it saved cleanly while `vendor_documents.type` had no `ValueSets` entry, and a document
+        // filed under it is not the current document of any type the compliance gate checks, so it
+        // neither blocked dispatch nor rendered a label.
+        'type' => VendorDocument::TYPE_INSURANCE_COI,
         'reference' => 'COI-1',
         'issued_on' => now()->subYear(),
         'expires_on' => now()->subDay(),

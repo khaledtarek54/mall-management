@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\UnitOwnership;
 use App\Models\Violation;
+use App\Models\ViolationCategory;
 use App\Support\Vat;
 use Illuminate\Support\Facades\DB;
 
@@ -107,7 +108,7 @@ class BillViolationFineService
                 items: [[
                     'description' => __('admin.violations.fine_line', [
                         'reference' => $locked->reference,
-                        'category' => __("admin.violations.categories.{$locked->category}"),
+                        'category' => ViolationCategory::labelFor($locked->category),
                         'date' => $locked->violation_date->isoFormat('D MMM YYYY'),
                     ]),
                     'type' => InvoiceItemType::ViolationFine->value, // → misc_income in the GL journalizer

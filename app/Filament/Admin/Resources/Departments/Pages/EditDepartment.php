@@ -9,7 +9,8 @@ class EditDepartment extends EditRecord
 {
     protected static string $resource = DepartmentResource::class;
 
-    // No Delete header action — departments cannot be deleted (fixed set).
+    // No Delete header action. A department that routed a request or held a member is referenced
+    // by rows an auditor reads; deactivating is the retirement path here as everywhere else.
 
     /**
      * Both ends of the move, not just the submitted value.

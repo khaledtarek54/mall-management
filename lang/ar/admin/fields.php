@@ -271,6 +271,8 @@ return [
         'name_en' => 'الاسم (إنجليزي)',
         'name_ar' => 'الاسم (عربي)',
         'sort_order' => 'الترتيب',
+        'blocks_dispatch' => 'يمنع إسناد الأعمال',
+        'default_fine_amount' => 'الغرامة المعتادة',
         'escalation_amount' => 'قيمة الزيادة السنوية',
         'escalation_floor_rate' => 'الحد الأدنى للزيادة',
         'escalation_ceiling_rate' => 'الحد الأقصى للزيادة',

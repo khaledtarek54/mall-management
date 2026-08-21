@@ -21,7 +21,9 @@
 > and statutory payroll as undated scalars with no insurable-wage cap (EG-03). **Both are still open
 > and both wait on somebody else** — the accountant's ruling on which units carry the schedule tax,
 > and the payroll bracket table. EG-04/05/06/07/08/09/19/20/38 shipped 2026-08-20/21, the working
-> calendar among them.
+> calendar among them; **EG-11/13/14/16/17/18/23/24 shipped 2026-08-21/22** — six operator-editable
+> catalogues (payment rails · expense categories · request subcategories · the merchandising mix ·
+> house rules · supplier document types) now share one seam, `IsCodeCatalogue`.
 
 > ### ⚠️ Read this before picking up any row
 >

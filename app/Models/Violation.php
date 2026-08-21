@@ -55,23 +55,6 @@ class Violation extends Model implements HasMedia
     /** Photographic evidence of the breach — PRIVATE (a tenant's violation record is confidential). */
     public const PHOTOS_COLLECTION = 'photos';
 
-    /**
-     * The operator's violation kinds. Strings, not a DB enum (project convention) — extend the set
-     * without a migration. A field officer picks the kind instead of retyping it, and the operator
-     * can then filter/report by it.
-     *
-     * @var list<string>
-     */
-    public const CATEGORIES = [
-        'signage',
-        'operating_hours',
-        'cleanliness',
-        'safety',
-        'unauthorized_works',
-        'noise',
-        'other',
-    ];
-
     protected $fillable = [
         'asset_id',
         'tenant_id',

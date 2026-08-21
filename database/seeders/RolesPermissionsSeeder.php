@@ -197,6 +197,14 @@ class RolesPermissionsSeeder extends Seeder
             'retail_categories.create' => 'Add a retail category',
             'retail_categories.edit' => 'Edit a retail category',
             'retail_categories.delete' => 'Remove a retail category',
+            'violation_categories.view' => 'View the house rules and their standard fines',
+            'violation_categories.create' => 'Add a house rule',
+            'violation_categories.edit' => 'Edit a house rule or its standard fine',
+            'violation_categories.delete' => 'Remove a house rule',
+            'vendor_document_types.view' => 'View the supplier document types',
+            'vendor_document_types.create' => 'Add a supplier document type',
+            'vendor_document_types.edit' => 'Edit a document type, including whether a lapse blocks site work',
+            'vendor_document_types.delete' => 'Remove a supplier document type',
             'tenant_request_subcategories.view' => 'View what a tenant may report',
             'tenant_request_subcategories.create' => 'Add a reportable problem',
             'tenant_request_subcategories.edit' => 'Edit a reportable problem, including the trade it routes to',
@@ -720,9 +728,16 @@ class RolesPermissionsSeeder extends Seeder
             // measured (pre-staging QA, F-06). Create/edit stay with leasing: what a unit IS, and
             // how big it is, is a leasing and valuation fact, not an operational one.
             'units.view',
-            // Tenant violations (FR-REQ-15/16/17) — operations records + notices them.
+            // Tenant violations (FR-REQ-15/16/17) — operations records + notices them, and the
+            // house rules they are recorded against are theirs to maintain: a rule is added when a
+            // breach recurs, which is a thing the team on the floor notices first.
             'violations.view', 'violations.create', 'violations.edit', 'violations.notify',
+            'violation_categories.view', 'violation_categories.create', 'violation_categories.edit',
             'vendors.view', 'vendors.create', 'vendors.edit',
+            // What a supplier must keep on file — operations chases the renewals, so it owns the
+            // list. `blocks_dispatch` is the one field here that changes who may be sent to site,
+            // and operations is the team that lives with that refusal.
+            'vendor_document_types.view', 'vendor_document_types.create', 'vendor_document_types.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
             // Read-only on purpose: operations maintains meters and needs to see what one is
             // priced at, but moving a price is a money decision that sits with accounting.
@@ -759,9 +774,13 @@ class RolesPermissionsSeeder extends Seeder
             'facility.create', 'facility.edit', 'facility.complete',
             // Facility zones — the coordinator routes work by zone (FR routing, later slice).
             'areas.view', 'areas.create', 'areas.edit',
-            // Tenant violations (FR-REQ-15/16/17) — the coordinator records + notices them.
+            // Tenant violations (FR-REQ-15/16/17) — the coordinator records + notices them. Read
+            // on the rule book: they pick from it, they do not write it.
             'violations.view', 'violations.create', 'violations.edit', 'violations.notify',
+            'violation_categories.view',
             'vendors.view',
+            // Read: a coordinator dispatching a vendor needs to know WHY one was refused.
+            'vendor_document_types.view',
             'notes.view', 'notes.create',
         ];
 

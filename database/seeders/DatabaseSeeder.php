@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             ExpenseCategorySeeder::class,
             TenantRequestSubcategorySeeder::class,
             RetailCategorySeeder::class,
+            ViolationCategorySeeder::class,
+            VendorDocumentTypeSeeder::class,
             HolidaySeeder::class,
             DemoSeeder::class,
         ]);

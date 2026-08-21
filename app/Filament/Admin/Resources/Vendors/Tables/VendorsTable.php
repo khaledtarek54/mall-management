@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Vendors\Tables;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Vendor;
 use App\Models\VendorDocument;
+use App\Models\VendorDocumentType;
 use App\Support\TenantScope;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -94,7 +95,7 @@ class VendorsTable
                     // Name the offending documents so the operator knows what to chase.
                     ->description(fn (Vendor $record) => $record->documents
                         ->filter(fn (VendorDocument $d) => $d->alertStage() !== null)
-                        ->map(fn (VendorDocument $d) => __("admin.vendors.documents.types.{$d->type}"))
+                        ->map(fn (VendorDocument $d) => VendorDocumentType::labelFor($d->type))
                         ->join(', ') ?: null),
             ])
             ->filters([

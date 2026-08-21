@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TenantRequestType;
+use App\Models\Concerns\IsCodeCatalogue;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
@@ -49,10 +50,9 @@ use Spatie\Activitylog\Support\LogOptions;
 #[PortfolioShared]
 class TenantRequestSubcategory extends Model
 {
+    use IsCodeCatalogue;
     use LogsActivity;
     use RefusesDeletionWhenReferenced;
-
-    private const MEMO = 'tenant_request_subcategory.map';
 
     protected $fillable = [
         'request_type',
@@ -74,20 +74,20 @@ class TenantRequestSubcategory extends Model
         'sort_order' => 0,
     ];
 
-    protected static function booted(): void
+    protected static function catalogueMemoKey(): string
     {
-        static::saving(fn (self $row) => $row->sort_order ??= 0);
+        return 'tenant_request_subcategory';
+    }
 
-        $flush = function (): void {
-            foreach (['', '.labels', '.trades'] as $suffix) {
-                app()->forgetInstance(self::MEMO.$suffix);
-            }
+    protected static function catalogueFallbackGroup(): string
+    {
+        return 'admin.enums.tenant_request_subcategory';
+    }
 
-            ValueSets::flushCatalogueCache();
-        };
-
-        static::saved($flush);
-        static::deleted($flush);
+    /** @return array<int, string> */
+    protected static function catalogueMemoSuffixes(): array
+    {
+        return ['trades'];
     }
 
     public function trade(): BelongsTo
@@ -100,18 +100,6 @@ class TenantRequestSubcategory extends Model
     {
         return $this->hasMany(TenantRequest::class, 'category', 'code')
             ->where('request_type', $this->request_type);
-    }
-
-    public function label(): string
-    {
-        return app()->getLocale() === 'ar'
-            ? ($this->name_ar ?: $this->name_en)
-            : ($this->name_en ?: $this->name_ar);
-    }
-
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('is_active', true);
     }
 
     public function scopeOfType(Builder $query, TenantRequestType|string $type): Builder
@@ -131,19 +119,9 @@ class TenantRequestSubcategory extends Model
      */
     public static function codes(): array
     {
-        if (app()->has(self::MEMO)) {
-            return app(self::MEMO);
-        }
-
-        try {
-            $codes = static::query()->where('is_active', true)->pluck('code')->unique()->values()->all();
-        } catch (\Throwable) {
-            return [];
-        }
-
-        app()->instance(self::MEMO, $codes);
-
-        return $codes;
+        // De-duplicated because `other` is a legitimate subcategory of four different types and the
+        // value set answers a type-blind question.
+        return array_values(array_unique(static::cachedCodes('codes', fn (Builder $q) => $q)));
     }
 
     /**
@@ -156,25 +134,10 @@ class TenantRequestSubcategory extends Model
      */
     public static function optionsFor(TenantRequestType $type): array
     {
-        try {
-            $rows = static::query()
-                ->where('request_type', $type->value)
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->get()
-                ->mapWithKeys(fn (self $row) => [$row->code => $row->label()])
-                ->all();
-
-            if ($rows !== []) {
-                return $rows;
-            }
-        } catch (\Throwable) {
-            // Before the table exists.
-        }
-
-        return collect($type->subcategories())
-            ->mapWithKeys(fn (string $code) => [$code => __("admin.enums.tenant_request_subcategory.{$code}")])
-            ->all();
+        return static::catalogueOptions(
+            scope: fn (Builder $q) => $q->where('request_type', $type->value),
+            floor: $type->subcategories(),
+        );
     }
 
     /** The label for one stored code — includes inactive rows, so history keeps its words. */
@@ -184,9 +147,7 @@ class TenantRequestSubcategory extends Model
             return '—';
         }
 
-        $labels = app()->has(self::MEMO.'.labels.'.app()->getLocale())
-            ? app(self::MEMO.'.labels.'.app()->getLocale())
-            : tap(static::safeLabels(), fn (array $m) => app()->instance(self::MEMO.'.labels.'.app()->getLocale(), $m));
+        $labels = static::cachedLabels();
 
         $key = $type !== null ? "{$type->value}.{$code}" : null;
 
@@ -198,8 +159,12 @@ class TenantRequestSubcategory extends Model
         })();
     }
 
-    /** @return array<string, string> */
-    private static function safeLabels(): array
+    /**
+     * Keyed BOTH ways — `type.code` and bare `code` — because a code is unique only within a type.
+     *
+     * @return array<string, string>
+     */
+    protected static function catalogueLabels(): array
     {
         try {
             $labels = [];
@@ -229,9 +194,11 @@ class TenantRequestSubcategory extends Model
             return null;
         }
 
-        $map = app()->has(self::MEMO.'.trades')
-            ? app(self::MEMO.'.trades')
-            : tap(static::safeTrades(), fn (array $m) => app()->instance(self::MEMO.'.trades', $m));
+        $memo = self::catalogueMemoKey().'.trades';
+
+        $map = app()->has($memo)
+            ? app($memo)
+            : tap(static::safeTrades(), fn (array $m) => app()->instance($memo, $m));
 
         $key = $type !== null ? "{$type->value}.{$code}" : null;
 

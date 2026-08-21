@@ -108,6 +108,8 @@ class LearningSeeder extends Seeder
             ExpenseCategorySeeder::class,
             TenantRequestSubcategorySeeder::class,
             RetailCategorySeeder::class,
+            ViolationCategorySeeder::class,
+            VendorDocumentTypeSeeder::class,
             HolidaySeeder::class,
             AccountingSeeder::class,
         ]);

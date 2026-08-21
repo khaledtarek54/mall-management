@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Violations\Tables;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Models\Tenant;
 use App\Models\Violation;
+use App\Models\ViolationCategory;
 use App\Services\BillViolationFineService;
 use App\Services\SendViolationNoticeAction;
 use Filament\Actions\Action;
@@ -37,7 +38,7 @@ class ViolationTable
                 TextColumn::make('category')
                     ->label(__('admin.violations.fields.category'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.violations.categories.{$state}") : '—')
+                    ->formatStateUsing(fn (?string $state) => ViolationCategory::labelFor($state))
                     ->color('gray')
                     ->sortable(),
                 TextColumn::make('description')
@@ -92,8 +93,7 @@ class ViolationTable
                 // Filter by kind — the point of categorising: "show me this quarter's signage breaches".
                 SelectFilter::make('category')
                     ->label(__('admin.violations.fields.category'))
-                    ->options(fn () => collect(Violation::CATEGORIES)
-                        ->mapWithKeys(fn (string $c) => [$c => __("admin.violations.categories.{$c}")])),
+                    ->options(fn () => ViolationCategory::options()),
                 TrashedFilter::make(),
             ])
             ->recordActions([

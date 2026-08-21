@@ -168,6 +168,7 @@ return [
     */
     'hints' => [
         'subcategory_trade' => 'A work order raised from this problem goes to that trade, so it reaches the right craft rate and the right contractors.',
+        'vendor_document_blocks_dispatch' => 'Blocking is for risk the mall carries — an uninsured contractor on the floor. Paperwork should be chased loudly, not block an emergency repair.',
         'expense_category_ledger_account' => 'Point a category at its own account and every future bill of that kind lands there instead of the general admin bucket.',
         'payment_method_ledger_account' => 'A clearing account here separates the day you take the money from the day the bank receives it, so your reconciliation matches.',
         'holiday_kind' => 'Closure = nobody works. Short day = reduced hours, which is what Ramadan is.',

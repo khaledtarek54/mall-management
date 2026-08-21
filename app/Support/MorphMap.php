@@ -116,7 +116,9 @@ use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
 use App\Models\VendorDocument;
+use App\Models\VendorDocumentType;
 use App\Models\Violation;
+use App\Models\ViolationCategory;
 use App\Models\Warehouse;
 use App\Models\WorkOrderProposal;
 use App\Models\WorkPermit;
@@ -262,6 +264,8 @@ class MorphMap
         'expense_category' => ExpenseCategory::class,
         'payment_method' => PaymentMethod::class,
         'retail_category' => RetailCategory::class,
+        'violation_category' => ViolationCategory::class,
+        'vendor_document_type' => VendorDocumentType::class,
         'tenant_request_subcategory' => TenantRequestSubcategory::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,

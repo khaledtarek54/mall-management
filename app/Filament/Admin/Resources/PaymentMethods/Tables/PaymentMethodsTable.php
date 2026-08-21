@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\PaymentMethods\Tables;
 
 use App\Models\PaymentMethod;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -52,6 +53,11 @@ class PaymentMethodsTable
                 TernaryFilter::make('for_inbound')->label(__('admin.fields.for_inbound')),
                 TernaryFilter::make('for_outbound')->label(__('admin.fields.for_outbound')),
             ])
-            ->recordActions([EditAction::make()]);
+            ->recordActions([
+                // A read-only view, for the role that holds `.view` and not `.edit`. Its schema is the
+                // resource's own form rendered disabled, so it cannot drift from the fields that exist.
+                ViewAction::make(),
+                EditAction::make(),
+            ]);
     }
 }

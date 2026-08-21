@@ -13,6 +13,8 @@ use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use App\Models\RetailCategory;
 use App\Models\TenantRequestSubcategory;
+use App\Models\VendorDocumentType;
+use App\Models\ViolationCategory;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 
@@ -241,8 +243,21 @@ class ValueSets
         'vendor_contracts.sla_penalty_basis' => ['none', 'flat', 'per_day', 'percent_of_value'],
         'vendor_contracts.status' => ['draft', 'active', 'expired', 'terminated'],
         'vendor_contracts.currency' => ['EGP'],
+        // `vendor_documents.type` had NO set, so the column accepted anything — and this one decides
+        // dispatchability: a certificate filed under a typo'd type is not the CURRENT document of any
+        // type the gate checks, so it neither blocks nor gets chased. The six are the floor the
+        // constants held.
+        'vendor_documents.type' => [
+            'insurance_coi', 'tax_card', 'commercial_register', 'social_insurance', 'trade_license', 'other',
+        ],
         'vendors.status' => ['active', 'inactive', 'blacklisted'],
         'vendors.type' => ['contractor', 'supplier', 'service_provider', 'consultant', 'other'],
+        // `violations.category` had NO set either, despite its own migration promising the operator
+        // could extend it. A typo'd or imported value saved cleanly and then matched no filter and no
+        // repeat-offender report. The seven are the floor the const held.
+        'violations.category' => [
+            'signage', 'operating_hours', 'cleanliness', 'safety', 'unauthorized_works', 'noise', 'other',
+        ],
     ];
 
     /**
@@ -311,6 +326,8 @@ class ValueSets
         'vendor_bills.category' => [ExpenseCategory::class, 'codes'],
         'tenant_requests.category' => [TenantRequestSubcategory::class, 'codes'],
         'tenants.retail_category' => [RetailCategory::class, 'codes'],
+        'vendor_documents.type' => [VendorDocumentType::class, 'codes'],
+        'violations.category' => [ViolationCategory::class, 'codes'],
     ];
 
     public static function allowed(string $table, string $column): ?array

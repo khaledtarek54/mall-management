@@ -6,6 +6,7 @@ use App\Filament\Admin\RelationManagers\DepartmentMembersRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\GuardsPortfolioWideRows;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Departments\Pages\CreateDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\ListDepartments;
 use App\Filament\Admin\Resources\Departments\Schemas\DepartmentForm;
@@ -99,6 +100,7 @@ class DepartmentResource extends Resource
     {
         return [
             'index' => ListDepartments::route('/'),
+            'create' => CreateDepartment::route('/create'),
             'edit' => EditDepartment::route('/{record}/edit'),
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Violations\Schemas;
 
 use App\Models\Tenant;
 use App\Models\Violation;
+use App\Models\ViolationCategory;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DatePicker;
@@ -11,6 +12,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class ViolationForm
@@ -44,11 +47,27 @@ class ViolationForm
 
             Select::make('category')
                 ->label(__('admin.violations.fields.category'))
-                ->options(fn () => collect(Violation::CATEGORIES)
-                    ->mapWithKeys(fn ($c) => [$c => __("admin.violations.categories.{$c}")]))
+                // The catalogue, not a const: a rule the operator added has no lang key and would
+                // render as its raw code on the very screen that offers it.
+                ->options(fn () => ViolationCategory::options())
                 ->default('other')
                 ->required()
-                ->native(false),
+                ->native(false)
+                // The house rules carry a tariff, and a field officer at the shop door should not be
+                // recalling it. PREFILL only — it fills a blank and never overwrites a typed figure,
+                // because what was actually charged is the operator's decision and the record of it.
+                ->live()
+                ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
+                    if ($state === null || filled($get('fine_amount'))) {
+                        return;
+                    }
+
+                    $standard = ViolationCategory::defaultFineFor($state);
+
+                    if ($standard !== null) {
+                        $set('fine_amount', $standard);
+                    }
+                }),
 
             Textarea::make('description')
                 ->label(__('admin.violations.fields.description'))

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Vendors\RelationManagers;
 
 use App\Models\VendorDocument;
+use App\Models\VendorDocumentType;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -39,7 +40,9 @@ class DocumentsRelationManager extends RelationManager
         return $schema->columns(2)->components([
             Select::make('type')
                 ->label(__('admin.vendors.documents.type'))
-                ->options(fn () => __('admin.vendors.documents.types'))
+                // The catalogue, not the lang array: a type the operator added has no lang key and
+                // would render as its raw code on the very screen that offers it.
+                ->options(fn () => VendorDocumentType::options())
                 ->default(VendorDocument::TYPE_INSURANCE_COI)
                 ->helperText(__('admin.vendors.documents.type_hint'))
                 ->required()
@@ -84,7 +87,7 @@ class DocumentsRelationManager extends RelationManager
                 TextColumn::make('type')
                     ->label(__('admin.vendors.documents.type'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.vendors.documents.types.{$state}"))
+                    ->formatStateUsing(fn (string $state) => VendorDocumentType::labelFor($state))
                     // Only a blocking type stops work — say so, rather than making the
                     // operator remember which documents are which.
                     ->color(fn (VendorDocument $record) => $record->isBlocking() ? 'primary' : 'gray')
@@ -117,7 +120,7 @@ class DocumentsRelationManager extends RelationManager
             ->filters([
                 SelectFilter::make('type')
                     ->label(__('admin.vendors.documents.type'))
-                    ->options(fn () => __('admin.vendors.documents.types')),
+                    ->options(fn () => VendorDocumentType::options()),
                 Filter::make('needs_attention')
                     ->label(__('admin.filters.document_attention'))
                     ->query(function (Builder $query): Builder {

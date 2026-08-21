@@ -307,8 +307,8 @@ operator will want to change in week one.
 | ~~D-1~~ ✅ | **FIXED 2026-08-21 (EG-13).** `expense_categories` — a row per kind of cost, carrying the P&L account it books to and whether it is fixed or variable. All four cost journalizers (Expense, VendorBill, SlaPenalty, CustodyTransaction) resolve through it; null takes the floor, which is the same six-entry map, so it ships behaviour-identical. Insurance, government fees & licences, bank charges, legal & professional and fuel ship present and **switched off**. Registering the value sets also closed an enforcement gap: the three category columns had NO set at all, and the guard immediately caught 13 fixtures billing under `hvac`/`services` — trade codes no form offers, every one of which was booking to `admin_expense`. ~~Expense / vendor-bill category — six values, and **the only thing deciding which P&L account a supplier bill hits**, via a `private const` in a trait~~ | `app/Models/ExpenseCategory.php`; `MapsExpenseCategory.php`; `app/Support/CostNature.php` | 🔴 |
 | ~~D-2~~ ✅ | **FIXED 2026-08-21 (EG-23, part 1).** `retail_categories` — a row per category, with a screen, so the leasing team revises the mix as the mall changes. Registering the value set also closed an unenforced column: `tenants.retail_category` had NO set, so a typo'd or imported value saved cleanly and then matched no filter in the shopper app — invisible in the directory while looking correct on the tenant record. ~~12 hardcoded values driving the store directory, the public API filter and all tenant-mix analysis~~ | `app/Models/RetailCategory.php` | 🔴 |
 | ~~D-3~~ ✅ | **FIXED 2026-08-21 (EG-14).** `tenant_request_subcategories` — a row per reportable problem, LINKED to the trade register by foreign key rather than matched to it by name. The seven trades a tenant could not report (lift, generator, fire safety, pest, security, landscaping, waste) are seeded ACTIVE, because unlike the payment-rail and expense-category catalogues, activating one changes no accounting — it only lets a tenant describe a fault precisely, and the status quo of "other, with no trade" was the worse default. The link also bridges `fire_safety` → `fire-safety`, which the string match could never have done. Per-type SLA became one new tier on `sla_policies`, not a new table. **The TYPE stays a PHP enum** — it carries behaviour, and rows would let an operator create a type the code has no answers for. ~~a PHP enum with a `match()`; and it has already drifted from the trades register~~ | `app/Models/TenantRequestSubcategory.php`; `RaiseCorrectiveWorkOrderService.php` | 🔴 |
-| D-4 | **Violation categories** — seven values, where the migration that created the column **promised the opposite in writing**: *"the operator's set of violation types is theirs to extend without a migration"* | PHP-CONST | `app/Models/Violation.php:65`; `database/migrations/2026_07_23_180000_add_category_to_violations.php:13` | 🟠 |
-| D-5 | **Vendor compliance document types** — six fixed types gate the COI chase and dispatchability. Egyptian vendor compliance varies (social-insurance certificate, tax clearance, civil-defence licence) | LANG-ARRAY | `lang/en/admin/vendors.php:23` | 🟠 |
+| ~~D-4~~ ✅ | **FIXED 2026-08-22 (EG-23, part 2).** `violation_categories` — a row per house rule, with a screen, and the row carries the STANDARD FINE so a field officer at the shop door is not recalling the tariff from memory (a prefill only: `violations.fine_amount` stays the operator's number and is never re-derived). `violations.category` had NO value set either, despite the migration's promise, so the column accepted anything and a typo matched no filter and no repeat-offender report. ~~7 hardcoded values; the migration promised the opposite in writing~~ | `app/Models/ViolationCategory.php` | 🟠 |
+| ~~D-5~~ ✅ | **FIXED 2026-08-22 (EG-23, part 2).** `vendor_document_types` — and the field that earns the screen is `blocks_dispatch`, which was a one-element array literal deciding who may be sent onto the mall floor. An operator dealing with a government client may be told a lapsed social-insurance certificate blocks too; that is now a tick, not a deploy. The floor is applied only when the table holds NO rows, because `whereIn([])` matches nothing and an empty answer would have deleted the compliance gate silently; inactive types still block, because `is_active` governs what may be FILED. ~~6 fixed types gating the COI chase and dispatchability~~ | `app/Models/VendorDocumentType.php` | 🟠 |
 | ~~D-6~~ ✅ | **FIXED 2026-08-21 (EG-23, part 1).** `canCreate()` is the trait's again, i.e. gated on `departments.create` (held by manager and mall_admin — checked, not assumed). `name_ar` added and the five seeded rows backfilled, so the register is bilingual like the panel around it. DELETE stays refused for everyone: a department that routed a request is referenced by rows an auditor reads. Four tests encoded the old decision and now state the new one. ~~`canCreate()` simply `return false;`~~ | `app/Models/Department.php`; `DepartmentResource.php` | 🟠 |
 | D-7 | **No custom fields / UDFs anywhere.** Zero hits for `custom_field`; five `metadata` JSON columns with no reader in any UI, service or report. **The single biggest structural gap vs Yardi UDFs / MRI user-defined fields / Odoo Studio** | ABSENT | searches named | 🔴 |
 | D-8 | **`ValueSets` covers only the 62 columns that were DB enums on 2026-08-12.** ~25 classification columns added since are outside the registry — including `facility_work_orders.status`, which the transition matrix branches on. `NoDatabaseEnumsConformanceTest` never asks *"is this new column registered?"* | gate gap | `tests/Feature/Scenarios/NoDatabaseEnumsConformanceTest.php:75-131` | 🟠 |
@@ -416,7 +416,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-20**~~ ✅ | **DONE 2026-08-20.** Dropped (`2026_08_20_700000_drop_the_lease_billing_day_nobody_ever_read`), with the model, factory and 27 QA-harness fixtures cleaned. Honouring it was rejected on evidence, not taste: the monthly run is one scheduled sweep, so a per-lease day means per-day cohorts and a reworked idempotency stamp — and the question worth answering first is per-**property** (EG-18). No "the column is gone" test, following the project's own precedent for `security_deposit_received` | M-4 | 🧑‍💻 | S |
 | **EG-21** | **WHT Form 41 report + per-vendor certificate**, on the `VatReturn` + `PayslipPdfService` pattern. This gates switching `wht_enabled` on | T-6, §3.3 | 🧑‍💻 | M |
 | **EG-22** | **Tenant portal white-labelling** — lift the admin panel's per-property branding | S-11 | 🧑‍💻 | S |
-| **EG-23** 🟡 PART 1 DONE | **D-2 and D-6 done 2026-08-21**; **D-4 (violation categories) and D-5 (vendor document types) remain** — the same pattern, deliberately left rather than half-finished across four registries in one pass. Part 1 also fixed a bug in all FOUR shipped catalogues: the label memo was not keyed by locale, so a request that switches language — every PDF service and every queued notification does — read the other language's cache | D-2, D-4, D-5, D-6 | 🧑‍💻 | M |
+| ~~**EG-23**~~ ✅ DONE | **D-2 + D-6 (2026-08-21), D-4 + D-5 (2026-08-22).** Six catalogues now share `App\Models\Concerns\IsCodeCatalogue`, extracted in part 2 rather than written a fifth and sixth time — and the extraction immediately found a live bug the four hand-written copies had hidden: `TenantRequestSubcategory`'s flush dropped `…map.labels` while filling `…map.labels.en`, so an operator renaming a subcategory saw the old word for the rest of the request, and for the rest of the day on a `queue:work` daemon. Part 2 also closed D-6's other half: `fd1ea2d1` removed `canCreate()`'s hard `false` and announced a department could be added, while registering no create route, page or button — the gate opened and the door was never built | D-2, D-4, D-5, D-6 | 🧑‍💻 | M |
 | ~~**EG-24**~~ ✅ | **DONE 2026-08-21.** One seam over 39 scheduled events rather than 33 edits. Proven by driving it: with `facility` off the PM generator's `filtersPass()` is false while the core ledger sweep's is true — a guard that skipped everything would satisfy the first assertion alone | X-12 | 🧑‍💻 | S |
 | **EG-25** | **A WhatsApp/SMS channel + notification routing table.** With push off, tenant reach is bell + email only, and Egyptian retailers answer WhatsApp | X-10, X-11 | 🧑‍💻 + 🔑 | L |
 
@@ -920,12 +920,81 @@ symptom it exists to prevent.
   **exception**, not drift: `reset.sh` restores the dump without migrating, so the first
   `app(TaxSettings::class)` / `app(CalendarSettings::class)` throws `MissingSettings`. Run
   `composer qa:baseline` (needs MySQL).
-- **`RolesPermissionsSeeder` must be re-run** for the `holidays.*` permissions (milestone 4) and the
-  `payment_methods.*` (milestone 7) and `expense_categories.*` (milestone 8) permissions.
+- **`RolesPermissionsSeeder` must be re-run** for the `holidays.*` permissions (milestone 4), the
+  `payment_methods.*` (milestone 7), `expense_categories.*` (milestone 8),
+  `tenant_request_subcategories.*` (milestone 9), `retail_categories.*` (milestone 10) and
+  `violation_categories.*` / `vendor_document_types.*` (milestone 11) permissions.
   A permission that exists only in the seeder file leaves the screen absent from the navigation for
   everyone, super_admin included, with no error to say why.
 - ~~`docs/PROJECT-MAP.md`'s generated census is stale.~~ **Regenerated 2026-08-20** — the other
   session's work had landed, so the counts are now honest.
+
+### 2026-08-21 — milestone 10: EG-23 part 1, the merchandising mix and the frozen org chart
+
+*(Written up on 2026-08-22 with milestone 11 — the commit shipped without its progress entry, which
+is the same omission as the create page it also shipped without.)*
+
+**D-2 — the merchandising mix** was twelve values in a const on `Tenant`, driving the store
+directory, the public shopper API's category filter and every tenant-mix report an owner reads. Yardi
+and MRI make it a row for a reason a leasing team would recognise: the mix is their working
+vocabulary, revised per mall and per season. Registering the value set closed a second gap — 
+`tenants.retail_category` had NO set, so a typo'd or imported value saved cleanly and then matched no
+filter in the shopper app, invisible in the directory while looking correct on the tenant record.
+
+**D-6 — departments** were five seeded English-only names behind `canCreate() => false`. Tenant
+requests ROUTE to a department, so the freeze reached the routing and not only the org chart.
+`name_ar` was added and the seeded rows backfilled. **Half of this was not actually delivered** — see
+milestone 11.
+
+**A bug in all FOUR shipped catalogues:** the label memo was not keyed by locale, so a request that
+switches language — every PDF service and every queued notification does — read the other language's
+cache. Fixing it four times is what made the shared concern in milestone 11 obviously right.
+
+### 2026-08-22 — milestone 11: EG-23 part 2, the last two registers and the seam under all six
+
+D-4 and D-5 are the same shape as the four before them, so the first work of this milestone was
+**not** the fifth and sixth copy: `App\Models\Concerns\IsCodeCatalogue` now holds the memo, the
+flush, the labels, the floor and the options for all six, and the four shipped catalogues were
+retrofitted onto it. That paid for itself immediately — `TenantRequestSubcategory`'s hand-written
+flush dropped `…map.labels` while `labelFor()` filled `…map.labels.{locale}`, so **the key it
+invalidated had never existed**. An operator renaming a subcategory saw the old word for the rest of
+the request, and on a `queue:work` daemon — one long-lived process — for the rest of the day. Four
+copies of a thing is four chances to get it wrong and one chance in four of noticing.
+
+**D-4 — the house rules.** Seven values in a const, on a column whose own migration promised in
+writing that "the operator's set of violation types is theirs to extend without a migration". It also
+had **no `ValueSets` entry at all**, so the column accepted anything: a typo or an import saved
+cleanly and then matched no filter and no repeat-offender report, while looking correct on the
+record. The row carries the standard fine, because a rule book is a schedule of penalties and a field
+officer at the shop door should not be recalling the tariff — a PREFILL only, driven through the
+form's own `->live()` callback and proved by mutation in both directions (removing the prefill, and
+removing the guard that stops it overwriting a typed figure).
+
+**D-5 — and the one field that is not vocabulary.** `VendorDocument::BLOCKING_TYPES` was a
+one-element array literal deciding **who may be sent onto the mall floor**. Insurance is the right
+default and it still ships as the default; what was wrong is that an operator told a lapsed
+social-insurance certificate blocks site work — which an Egyptian principal dealing with a government
+client may well be told, since they carry the contractor's unpaid contributions — needed a deploy to
+say so. The failure direction is what took the care: `whereIn('type', [])` matches NOTHING, so a
+catalogue answering an empty list would have made every uninsured contractor dispatchable with no
+error anywhere and every existing test still green. The floor therefore applies when the table holds
+**no rows**, not when the blocking list is empty — an operator who unticks everything meant it —
+and INACTIVE types still block, because `is_active` governs what may be filed, not what counts.
+
+**Three tests were already red on `main` before this started, and are fixed here.** Two were mine
+from part 1:
+
+| | |
+|---|---|
+| 🔴 | **D-6 shipped its gate and not its door.** `fd1ea2d1` removed `DepartmentResource::canCreate()`'s hard `false` and the commit message said "a department can be added". There was no `create` route, no page and no button — so `departments.create` was a permission that granted nothing, the form's `disabledOn('edit')` branch was unreachable, and the register was as frozen as before. `CreateDepartment` exists now, with the same both-ends portfolio guard `EditDepartment` carries. **The test I wrote for it was a false pass first**: `assertActionExists('create')` and `Livewire::test(CreateDepartment::class)` both stay green with the route deleted, because a component can be instantiated without one and an action object exists whether or not it navigates anywhere. `assertActionHasUrl(...)` is the assertion that fails |
+| 🟠 | **Seven catalogue tables had a form and no read-only view**, five of them from earlier milestones. `ViewActionCoverageTest` had been reporting them by name and nobody read it. A role holding `.view` and not `.edit` could not open a row at all |
+| 🟠 | **A fixture writing a value no form offers**, the third instance. `ExpenseTest` posted an expense under category `insurance` to exercise the unmapped-category warning; EG-13 gave that column a value set, so the case died on its fixture. It seeds and activates the real catalogue row now, which is a truer reproduction — the warning exists for a category nobody has pointed at an account. `ResourceLinkConformanceTest` had the same shape with `vendor_documents.type = 'insurance'` (the six shipped codes have never included it), which the new value set caught on its first run |
+
+**What did not change:** `TenantRequestType` stays a PHP enum, and so does everything else that
+carries behaviour. Only vocabulary becomes rows. And the activity log still renders an operator-added
+code as its raw code — one documented gap, six catalogues, exempted by name in
+`CatalogueBackedSurfacesConformanceTest` rather than left to be discovered.
+
 
 ---
 

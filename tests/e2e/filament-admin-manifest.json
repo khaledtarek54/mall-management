@@ -87,7 +87,7 @@
         {
             "class": "DepartmentResource",
             "slug": "departments",
-            "hasCreate": false,
+            "hasCreate": true,
             "hasEdit": true,
             "hasView": false
         },
@@ -393,8 +393,22 @@
             "hasView": false
         },
         {
+            "class": "VendorDocumentTypeResource",
+            "slug": "vendor-document-types",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "VendorResource",
             "slug": "vendors",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "ViolationCategoryResource",
+            "slug": "violation-categories",
             "hasCreate": true,
             "hasEdit": true,
             "hasView": false

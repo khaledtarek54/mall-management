@@ -54,7 +54,9 @@ use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Filament\Admin\Resources\UtilityTariffs\UtilityTariffResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Filament\Admin\Resources\VendorDocumentTypes\VendorDocumentTypeResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
+use App\Filament\Admin\Resources\ViolationCategories\ViolationCategoryResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
@@ -229,6 +231,8 @@ class SearchPolicy
      */
     public const GLOBAL_SEARCH_EXEMPT = [
         RetailCategoryResource::class => 'A dozen merchandising categories the leasing team configures and everyone else picks from a dropdown. A shopper-facing directory search looks for the STORE, not the category, and that already works through the tenant blob.',
+        ViolationCategoryResource::class => 'Seven-odd house rules a compliance manager configures and a field officer picks from a dropdown. Searching for "signage" should find the BREACH, not the rule it was filed under, and that already works through the violation blob.',
+        VendorDocumentTypeResource::class => 'A handful of compliance-paper kinds an operator configures once. Searching for "insurance" should find the VENDOR whose certificate is lapsing, not the word for the certificate, and that already works through the vendor blob.',
         TenantRequestSubcategoryResource::class => 'A closed vocabulary of about thirty problems an operator configures once and a tenant picks from a dropdown. Nobody hunts for "Lift / escalator" from the top bar; they open a request and choose it.',
         ExpenseCategoryResource::class => 'A closed catalogue of a dozen cost types that an accountant configures once and everyone else picks from a dropdown. Nobody hunts for "Utilities" from the top bar — they open a bill and choose it. Indexing it would put eleven rows in front of every search for a vendor or an invoice.',
         PaymentMethodResource::class => 'A closed catalogue of a dozen rails that an accountant configures once and an operator picks from a dropdown. Nobody hunts for "InstaPay" from the top bar — they open a payment and choose it. Indexing it would put eleven rows in front of every search for a tenant or an invoice.',

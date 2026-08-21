@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\ExpenseCategories\Tables;
 use App\Models\ExpenseCategory;
 use App\Support\CostNature;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -47,6 +48,11 @@ class ExpenseCategoriesTable
                     ->options(fn () => collect(CostNature::NATURES)
                         ->mapWithKeys(fn (string $n) => [$n => __("admin.enums.cost_nature.{$n}")])->all()),
             ])
-            ->recordActions([EditAction::make()]);
+            ->recordActions([
+                // A read-only view, for the role that holds `.view` and not `.edit`. Its schema is the
+                // resource's own form rendered disabled, so it cannot drift from the fields that exist.
+                ViewAction::make(),
+                EditAction::make(),
+            ]);
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
@@ -8,6 +9,7 @@ use App\Services\Accounting\LedgerReportService;
 use App\Services\ExpenseService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\ExpenseCategorySeeder;
 use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
@@ -82,7 +84,17 @@ it('books each category to its expense account, and an unmapped one to admin wit
     $marketing = $this->poster->post(makeExpense(['category' => 'marketing'])->fresh());
     expect($marketing->lines->keyBy('ledger_account_id')->has($this->accounts->id('marketing_expense')))->toBeTrue();
 
-    // An unmapped category → admin_expense + a warning (MapsExpenseCategory trait).
+    // A category the FLOOR MAP does not name → admin_expense + a warning (MapsExpenseCategory).
+    //
+    // `insurance` has to be a real, ACTIVE catalogue row now: `expenses.category` gained a value set
+    // with EG-13, so an arbitrary string is refused at save and this case died on the fixture rather
+    // than on the behaviour it describes. It ships INACTIVE, which is the operator's decision to
+    // make, so the test makes it — and leaves `ledger_account_id` null, which is precisely the
+    // situation the warning exists for: a category nobody has pointed at an account.
+    $this->seed(ExpenseCategorySeeder::class);
+    ExpenseCategory::query()->where('code', 'insurance')->firstOrFail()
+        ->update(['is_active' => true, 'ledger_account_id' => null]);
+
     Log::spy();
     $unmapped = $this->poster->post(makeExpense(['category' => 'insurance'])->fresh());
     expect($unmapped->lines->keyBy('ledger_account_id')->has($this->accounts->id('admin_expense')))->toBeTrue();

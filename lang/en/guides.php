@@ -1828,4 +1828,45 @@ return [
             'The count beside each row is how many retailers are in it — that is what makes it undeletable, shown so the refusal is not a surprise.',
         ],
     ],
+    'violation_categories' => [
+        'purpose' => 'The mall\'s house rules, as the field officer sees them. Each row is one kind of breach — blocked fire exit, unauthorised signage, after-hours noise — and the standard fine for it. It used to be a fixed list of seven; it is yours now, and it is meant to grow as the handbook does.',
+        'steps' => [
+            'Add a rule when a breach recurs that "Other" does not describe. "Other" is where a compliance problem goes to be forgotten.',
+            'Give it a code. This is stored on every violation recorded under it, so choose it once and keep it; it cannot be changed later.',
+            'Name it in both languages. The tenant reads this on the notice served on them and on the fine invoice.',
+            'Set the standard fine if the handbook names one. It prefills the officer\'s form and they can still change it.',
+            'To retire a rule, switch it off. It disappears from the officer\'s picker and every breach already recorded keeps its label.',
+        ],
+        'affects' => [
+            'The violation form offers exactly what is switched on here, and the standard fine prefills the amount — the officer can override it, and what they type is what gets billed.',
+            'The fine invoice quotes the rule\'s name in its line description, so renaming a rule changes what future invoices say (issued ones keep their wording).',
+            'Repeat-offender and by-category reporting counts by these codes, so splitting one rule into two changes what the next report shows.',
+        ],
+        'rules' => [
+            'A code cannot be changed once saved, because every violation stores the code itself rather than a link to this row.',
+            'The standard fine is a prefill and nothing else. It is never re-applied to a violation already recorded, so revising the tariff leaves history alone.',
+            'A rule that has classified a breach cannot be deleted. Switch it off instead.',
+        ],
+    ],
+
+    'vendor_document_types' => [
+        'purpose' => 'What a supplier must keep on file with you — insurance, tax card, commercial register, and anything else you require. One field here decides more than the rest of the screen: whether a lapse stops the vendor being sent to site.',
+        'steps' => [
+            'Add a type when you require a paper the list does not name — a civil-defence permit for a fire-safety contractor, health cards for a food-court cleaner.',
+            'Give it a code. This is stored on every document filed under it and cannot be changed later.',
+            'Name it in both languages. It appears on the vendor\'s file and in the expiry alert your team receives.',
+            'Decide whether it blocks work assignment. Insurance does by default. Add another only for risk the mall itself carries.',
+            'To retire a type, switch it off. It disappears when filing a new document and everything already on file keeps its label.',
+        ],
+        'affects' => [
+            'A blocking type that lapses removes the vendor from every work-order and contract assignment picker until it is renewed — no warning, a refusal.',
+            'The renewal chase, the nightly expiry scan and the Action Required card all read these types, so a new one starts being chased as soon as a document is filed under it with an expiry.',
+            'The vendor list names the expiring documents in its compliance column using these labels.',
+        ],
+        'rules' => [
+            'Switching a type off does not un-block it. A certificate already on file under a blocking type still stops work when it lapses — the switch controls what you can file, not what counts.',
+            'A code cannot be changed once saved, because every filed document stores the code itself.',
+            'A type that has classified a filed document cannot be deleted. Switch it off instead.',
+        ],
+    ],
 ];

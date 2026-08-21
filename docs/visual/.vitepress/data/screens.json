@@ -570,6 +570,12 @@
         "guide": "vendor_bills"
     },
     {
+        "screen": "VendorDocumentTypeResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "vendor_document_types"
+    },
+    {
         "screen": "VendorScorecard",
         "panel": "admin",
         "kind": "page",
@@ -580,6 +586,12 @@
         "panel": "admin",
         "kind": "resource",
         "guide": "vendors"
+    },
+    {
+        "screen": "ViolationCategoryResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "violation_categories"
     },
     {
         "screen": "ViolationResource",

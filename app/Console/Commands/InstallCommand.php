@@ -21,6 +21,8 @@ use Database\Seeders\RetailCategorySeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Database\Seeders\TenantRequestSubcategorySeeder;
 use Database\Seeders\UtilityTariffSeeder;
+use Database\Seeders\VendorDocumentTypeSeeder;
+use Database\Seeders\ViolationCategorySeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Facades\Hash;
@@ -109,6 +111,8 @@ class InstallCommand extends Command
         $this->callSilent('db:seed', ['--class' => ExpenseCategorySeeder::class, '--force' => true]);
         $this->callSilent('db:seed', ['--class' => TenantRequestSubcategorySeeder::class, '--force' => true]);
         $this->callSilent('db:seed', ['--class' => RetailCategorySeeder::class, '--force' => true]);
+        $this->callSilent('db:seed', ['--class' => ViolationCategorySeeder::class, '--force' => true]);
+        $this->callSilent('db:seed', ['--class' => VendorDocumentTypeSeeder::class, '--force' => true]);
         $this->callSilent('db:seed', ['--class' => HolidaySeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Holidays', Holiday::count().' fixed-date holidays (the moon-sighted ones are yours to add)');
 

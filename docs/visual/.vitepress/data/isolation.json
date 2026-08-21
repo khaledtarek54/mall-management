@@ -684,9 +684,21 @@
         "note": null
     },
     {
+        "model": "VendorDocumentType",
+        "label": "Vendor Document Type",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "Violation",
         "label": "Violation",
         "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "ViolationCategory",
+        "label": "Violation Category",
+        "classification": "shared",
         "note": null
     },
     {

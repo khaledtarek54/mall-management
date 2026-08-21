@@ -5,18 +5,21 @@ namespace App\Filament\Admin\Resources\Departments\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Support\StatusTabs;
+use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListDepartments extends ListRecords
 {
     protected static string $resource = DepartmentResource::class;
 
-    // Departments are a fixed set, so there is no "New department" — but the guide is exactly
-    // what a fixed set needs, since the question here is "why can't I add one".
+    // The set is no longer fixed (D-6): a mall with its own Security or Tenant Relations team needs
+    // somewhere to put it, and tenant requests ROUTE to a department. `CreateAction` is gated on
+    // `departments.create` through the resource, like every other button here.
     protected function getHeaderActions(): array
     {
         return [
             GuideAction::for(static::getResource()),
+            CreateAction::make(),
         ];
     }
 

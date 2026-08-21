@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\RetailCategories\Tables;
 
 use App\Models\RetailCategory;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -31,6 +32,11 @@ class RetailCategoriesTable
                 IconColumn::make('is_active')->label(__('admin.fields.is_active'))->boolean(),
             ])
             ->filters([TernaryFilter::make('is_active')->label(__('admin.fields.is_active'))])
-            ->recordActions([EditAction::make()]);
+            ->recordActions([
+                // A read-only view, for the role that holds `.view` and not `.edit`. Its schema is the
+                // resource's own form rendered disabled, so it cannot drift from the fields that exist.
+                ViewAction::make(),
+                EditAction::make(),
+            ]);
     }
 }

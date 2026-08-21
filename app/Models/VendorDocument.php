@@ -47,12 +47,18 @@ class VendorDocument extends Model implements HasMedia
     public const TYPE_OTHER = 'other';
 
     /**
-     * Which document types STOP a vendor being dispatched to work once lapsed.
+     * The FLOOR for which document types stop a vendor being dispatched once lapsed.
      *
      * Deliberately just insurance: sending an uninsured contractor onto the mall floor is a
-     * liability the operator carries. A lapsed tax card is a finance-department problem — it
-     * should be chased loudly, but blocking emergency repairs over paperwork is the wrong trade.
-     * Widening this array is the single place to change that decision.
+     * liability the operator carries. A lapsed tax card is a finance-department problem — it should
+     * be chased loudly, but blocking emergency repairs over paperwork is the wrong trade.
+     *
+     * That is the shipped DEFAULT, no longer the whole decision. `vendor_document_types.blocks_dispatch`
+     * is where an operator revises it — a mall dealing with a government client may be told a lapsed
+     * social-insurance certificate blocks site work too. This array is what an UNSEEDED catalogue
+     * falls back to, because `whereIn([])` matches nothing and an empty answer here would make every
+     * vendor dispatchable and delete the compliance gate silently. See
+     * {@see VendorDocumentType::blockingCodes()}.
      *
      * @var array<int, string>
      */
@@ -64,19 +70,6 @@ class VendorDocument extends Model implements HasMedia
     public const STAGE_EXPIRING = 'expiring';
 
     public const STAGE_EXPIRED = 'expired';
-
-    /** @return array<int, string> */
-    public static function types(): array
-    {
-        return [
-            self::TYPE_INSURANCE_COI,
-            self::TYPE_TAX_CARD,
-            self::TYPE_COMMERCIAL_REGISTER,
-            self::TYPE_SOCIAL_INSURANCE,
-            self::TYPE_TRADE_LICENSE,
-            self::TYPE_OTHER,
-        ];
-    }
 
     protected $fillable = [
         'vendor_id',
@@ -121,7 +114,7 @@ class VendorDocument extends Model implements HasMedia
     /** Does a lapse of THIS document stop the vendor being sent to work? */
     public function isBlocking(): bool
     {
-        return in_array($this->type, self::BLOCKING_TYPES, true);
+        return VendorDocumentType::blocks($this->type);
     }
 
     /** Days until expiry (negative = already lapsed), or null when no expiry is tracked. */
@@ -178,9 +171,13 @@ class VendorDocument extends Model implements HasMedia
             ->whereDate('expires_on', '<', ($on ?? Carbon::today())->startOfDay()->toDateString());
     }
 
+    /**
+     * The query twin of {@see isBlocking()} — they must not drift, because a vendor the picker
+     * offers and the save guard then refuses is worse than either half being wrong alone.
+     */
     public function scopeBlocking(Builder $query): Builder
     {
-        return $query->whereIn('type', self::BLOCKING_TYPES);
+        return $query->whereIn('type', VendorDocumentType::blockingCodes());
     }
 
     public function documentOwnerColumn(): string
