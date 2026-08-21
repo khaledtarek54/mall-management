@@ -53,11 +53,16 @@ trait MapsExpenseCategory
         AccountResolver $accounts,
         string $documentRef,
     ): int {
+        // The floor role is resolved LAZILY. Passing `expenseRoleFor()` in as an argument evaluates
+        // it every time — including for a category that has its own account and never reaches the
+        // floor at all — so a correctly-classified `insurance` bill logged "unmapped category
+        // 'insurance'; booking to admin_expense" on every posting while booking correctly. A warning
+        // that fires when nothing is wrong is how a real one stops being read.
         return ExpenseCategory::accountIdOrFloor(
             $category,
             $assetId,
             $accounts,
-            $this->expenseRoleFor((string) ($category ?? 'other'), $documentRef),
+            fn (): string => $this->expenseRoleFor((string) ($category ?? 'other'), $documentRef),
         );
     }
 }

@@ -12,7 +12,11 @@ use Illuminate\Support\Facades\Schema;
  * insurance, government fees and licences, bank charges, legal and professional fees, fuel for the
  * generator. Those are not exotic costs in an Egyptian mall; they are most of the overhead, and they
  * were all landing in one bucket. The category also drives `CostNature` (fixed vs variable) and
- * therefore the CAM pool, so the miscoding reached the tenants' service charge as well as the P&L.
+ * which the expense register and the weekly-spend report read — NOT the CAM apportionment, which is
+ * `cam_pool_accounts.cost_nature`, a per-account pivot on a different table with the opposite
+ * default. What DOES reach a tenant is the ACCOUNT: `SyncCamPoolFromLedgerService` builds a pool
+ * from the GL by account, so pointing a category at an account inside a pool starts recovering
+ * those costs through it.
  *
  * Same shape as `payment_methods`, deliberately, and for the same reason a rail names its account
  * directly rather than a `PostingRoles` key: a new category would otherwise need a new role, and
@@ -39,7 +43,7 @@ return new class extends Migration
             $table->foreignId('ledger_account_id')->nullable()->constrained('ledger_accounts')->nullOnDelete();
 
             // Fixed or variable — read by `App\Support\CostNature`, which decides how a cost is
-            // apportioned in the CAM pool. A second thing the six-value const decided silently.
+            // decided silently by the six-value const. Internal reporting only — see the note above.
             $table->string('cost_nature', 16)->default('variable');
 
             $table->boolean('is_active')->default(true);

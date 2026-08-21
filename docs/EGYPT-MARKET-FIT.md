@@ -848,14 +848,20 @@ rather than duplicated.
 |---|---|
 | **What was wrong** | The category decided which P&L account every supplier bill, expense and custody spend hit, from a six-entry `private const` inside a journalizer trait. Insurance, government fees, bank charges, legal fees and generator fuel — most of an Egyptian mall's overhead — fell past it into `admin_expense` behind a `Log::warning` nobody reads |
 | **Why an account, not a role** | `Health::accountingReadiness()` requires every `PostingRoles` key to be mapped, so "Insurance" as a role would turn a BLOCKING health row red on every install until the accountant mapped it. Same reasoning as the payment rails |
-| **Two things D-1 did not name** | `CostNature::categoriesOf()` — the REVERSE direction — still read only the const, so a category marked `fixed` answered `fixed` one way and was ABSENT the other; a CAM pool filtered by nature would omit a cost that was itself classified correctly. And the three category columns had **no value set at all**, so the column accepted anything |
+| **Two things D-1 did not name** | `CostNature::categoriesOf()` — the REVERSE direction — still read only the const, so a category marked `fixed` answered `fixed` one way and was ABSENT the other — any reader filtering by nature (the expense register, the weekly-spend report) would omit a cost that was itself classified correctly. And the three category columns had **no value set at all**, so the column accepted anything |
 | **What the new enforcement caught immediately** | 13 fixtures billing under `hvac` and `services` — trade codes, not expense categories, that no form has ever offered. Every one of those bills was silently booking to `admin_expense`, so the fixtures were encoding the bug they were meant to be independent of |
 
-**No false-pass test this milestone** — the first one I have been able to write that of. The reason
-is worth naming: I wrote each assertion by first stating the one-line edit that should red it, and
-ran that edit. One mutation script broke PHP syntax rather than the logic, which reds everything and
-proves nothing; I caught that only because *four* cases went red instead of one, and redid it
-properly.
+**Corrections from the review of this milestone**, both of which I claimed the opposite of above:
+
+| | |
+|---|---|
+| 🔴 | **I wrote an unverified causal claim into two languages.** "Fixed versus variable feeds the CAM pool, so it reaches what tenants are charged" is false: `App\Support\CostNature` has exactly three readers — the expense register, its filter, and the weekly-spend report — and CAM is not one. The service-charge split is `cam_pool_accounts.cost_nature`, a per-ACCOUNT pivot on a different table with the OPPOSITE default, and `docs/modules/08-cam.md` already said so. An accountant marking insurance `fixed` to stop it being grossed up would have changed nothing, having been pointed away from the real lever. The true statement was the one I had not written: pointing a category at an account that sits in a CAM pool DOES route those costs in, because the pool is built from the GL **by account** |
+| 🔴 | **`is_active` was inert for every shipped category.** `options()` read `ValueSets`' floor ∪ active union, and the floor holds all six permanently — so switching one off left it in every picker, which the field help and both guides promised it would not. It reads its rows first now, like `PaymentMethod::options()` |
+| 🟠 | **And I claimed "no false-pass test this milestone" in the commit message, which was itself false.** The behaviour-identical case passes the floor role in as an ARGUMENT, so deleting an entry from the map it exists to protect leaves it green |
+
+The lesson is narrower than "check your work": all three are claims I could have falsified in under
+a minute with a grep, and I asserted them instead because they were plausible. The two that reached
+an operator's screen did so in two languages.
 
 ---
 

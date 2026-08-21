@@ -60,11 +60,21 @@ composer install --no-dev --optimize-autoloader
 npm ci && npm run build             # REQUIRED — app assets AND the handbook; see below
 php artisan filament:assets
 php artisan migrate --force
+php artisan atriom:install --force            # REQUIRED on any release adding reference data — see below
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 php artisan storage:link            # once — PDFs/media links
 php artisan queue:restart           # workers pick up new code
 ```
 
+> **Re-run `atriom:install` on every release, not only the first.** It is idempotent by design — it
+> re-asserts reference data and touches no business row — and it is the only thing that lays down
+> the seeded CATALOGUES. A migration creates the empty `payment_methods` and `expense_categories`
+> tables; the rows come from a seeder. Skip this and an upgraded box gets the schema and none of the
+> content: no Fawry to activate, none of the five Egyptian overheads that were the point of the
+> change, and `RolesPermissionsSeeder` alone will not fix it because the new permissions are only
+> half of what is missing. A permission that exists only in the seeder file also leaves its screen
+> absent from the navigation for **everyone, including super_admin**, with no error to say why.
+>
 > **Prove the extensions in FPM, not just in the CLI.** `composer install` above already refuses on
 > a box missing `intl`, `gd` or `zip` — but it runs under `php-cli`, and the panel renders under
 > `php-fpm`. A box with an extension in one and not the other completes every line of this sequence

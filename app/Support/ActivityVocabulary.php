@@ -132,6 +132,9 @@ class ActivityVocabulary
         'employee_advance.paid_from' => 'admin.enums.expense_paid_from',
         'employee_advance.type' => 'admin.employees.types',
         'employee_advance_repayment.method' => 'admin.employees.methods',
+        // The catalogue's own column — pointed at the group the FORM's Select reads from, which is
+        // the rule that stopped `expense.category` being handed the retail list.
+        'expense_category.cost_nature' => 'admin.enums.cost_nature',
         'expense.category' => 'admin.enums.vendor_bill_category',
         'expense.paid_from' => 'admin.enums.expense_paid_from',
         'fixed_asset_disposal.proceeds_account' => 'admin.enums.cash_or_bank',

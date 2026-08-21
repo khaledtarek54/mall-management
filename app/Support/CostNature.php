@@ -41,8 +41,13 @@ class CostNature
      * The nature of a category — the ROW first, this map as the floor, `variable` beyond both.
      *
      * The map below was the only answer, so a cost the operator added (insurance, government fees,
-     * bank charges) was silently `variable` and apportioned through the CAM pool as though it moved
-     * with occupancy. Insurance does not. A row can now say so.
+     * bank charges) was silently `variable`. A row can now say otherwise.
+     *
+     * **This is NOT the CAM lever, and it is worth saying so here because the names invite the
+     * mistake.** The service-charge split reads `cam_pool_accounts.cost_nature` — a per-LEDGER-ACCOUNT
+     * pivot with the opposite default (see `docs/modules/08-cam.md`). This value has exactly three
+     * readers: `Expense::costNature()`, `Expense::scopeOfNature()` (the register filter) and
+     * `ReportService::weeklySpend()`. All internal reporting.
      */
     public static function forCategory(?string $category): string
     {

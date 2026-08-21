@@ -109,6 +109,9 @@ class ValueSets
         // saved cleanly and then silently booked to `admin_expense`. These six are the floor the
         // trait held; `expense_categories` widens them.
         'custody_transactions.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
+        // The catalogue's OWN column. Registering three sets and forgetting the one this change
+        // introduced would be the same gap, one table along.
+        'expense_categories.cost_nature' => ['fixed', 'variable'],
         'expenses.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
         'expenses.paid_from' => ['cash', 'bank'],
         'expenses.status' => ['recorded', 'cancelled'],

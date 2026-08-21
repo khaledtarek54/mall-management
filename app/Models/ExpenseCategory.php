@@ -25,8 +25,13 @@ use Spatie\Activitylog\Support\LogOptions;
  * in a six-entry `private const` inside {@see MapsExpenseCategory}.
  * Anything outside those six fell to `admin_expense` behind a `Log::warning` — insurance, government
  * fees and licences, bank charges, legal and professional fees, generator fuel. In an Egyptian mall
- * that is most of the overhead, arriving in one bucket. It also drives {@see CostNature}, so the
- * miscoding reached the CAM pool and the tenants' service charge, not only the P&L.
+ * that is most of the overhead, arriving in one bucket.
+ *
+ * It also drives {@see CostNature} — the fixed/variable split your own expense reporting reads. That
+ * is NOT the service-charge lever, which is `cam_pool_accounts.cost_nature`, a per-account pivot on a
+ * different table. What DOES reach a tenant is `ledger_account_id`: `SyncCamPoolFromLedgerService`
+ * builds a pool from the GL BY ACCOUNT, so pointing a category at an account inside a pool starts
+ * recovering those costs through it.
  *
  * ## The floor, and why nothing moves on deploy
  *
@@ -88,6 +93,7 @@ class ExpenseCategory extends Model
             app()->forgetInstance(self::MEMO);
             app()->forgetInstance(self::MEMO.'.labels');
             app()->forgetInstance(self::MEMO.'.codes');
+            app()->forgetInstance(self::MEMO.'.natures');
 
             // The enforced set is derived from this catalogue.
             ValueSets::flushCatalogueCache();
@@ -163,11 +169,15 @@ class ExpenseCategory extends Model
      *
      * The ONE place the fallback lives, so the four journalizers that classify a cost cannot drift.
      */
+    /**
+     * @param  \Closure(): string  $floorRole  resolved only if the catalogue has no answer — see
+     *                                         MapsExpenseCategory for why it must stay lazy
+     */
     public static function accountIdOrFloor(
         ?string $code,
         ?int $assetId,
         AccountResolver $accounts,
-        string $floorRole,
+        \Closure|string $floorRole,
     ): int {
         $map = app()->has(self::MEMO)
             ? app(self::MEMO)
@@ -175,11 +185,21 @@ class ExpenseCategory extends Model
 
         $id = $map[$code] ?? null;
 
-        if ($id !== null && ($account = LedgerAccount::find($id)) !== null) {
+        // Re-checked at POSTING time, not only in the form. The picker filters to postable, active
+        // expense leaves — but an account can be retired or made a summary parent long after a
+        // category was pointed at it, and `AccountResolver` performs this check for every role-based
+        // lookup. Falling through to the floor keeps the entry balanced and postable; throwing here
+        // would kill the sync job and leave the document unposted with nothing on screen to say so.
+        $account = $id === null ? null : LedgerAccount::find($id);
+
+        if ($account !== null && $account->is_postable && $account->is_active) {
             return $account->id;
         }
 
-        return $accounts->id($floorRole, $assetId);
+        return $accounts->id(
+            $floorRole instanceof \Closure ? $floorRole() : $floorRole,
+            $assetId,
+        );
     }
 
     /** @return array<string, int|null> */
@@ -240,24 +260,65 @@ class ExpenseCategory extends Model
      */
     public static function options(string $fallbackGroup = 'admin.enums.vendor_bill_category'): array
     {
-        $enforced = ValueSets::forTable('expenses')['category'] ?? [];
+        // ACTIVE ROWS FIRST, the floor only when the catalogue is empty.
+        //
+        // Keying this off `ValueSets` looked right — it guarantees a picker cannot offer a value the
+        // guard refuses — but the enforced set is floor ∪ active, and the floor holds all six shipped
+        // codes permanently. So switching one off left it in every picker and `is_active` was inert
+        // for exactly the categories anyone would want to retire. `PaymentMethod::options()` reads
+        // its rows first and does not have this.
+        //
+        // Offering FEWER values than the guard accepts is safe; offering more is the bug. A retired
+        // category still labels its historical documents, because `labelFor()` includes inactive rows.
+        $rows = [];
 
-        return collect($enforced)
+        try {
+            $rows = static::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get()
+                ->mapWithKeys(fn (self $c) => [$c->code => $c->label()])
+                ->all();
+        } catch (\Throwable) {
+            // Before the table exists — see codes().
+        }
+
+        if ($rows !== []) {
+            return $rows;
+        }
+
+        return collect(ValueSets::forTable('expenses')['category'] ?? [])
             ->mapWithKeys(fn (string $code) => [$code => static::labelFor($code, $fallbackGroup)])
             ->all();
     }
 
-    /** Fixed or variable, from the row; the floor is {@see CostNature::MAP}. */
+    /**
+     * Fixed or variable, from the row; the floor is {@see CostNature::MAP}.
+     *
+     * Memoized like every other read here. A per-call query was an N+1 in the two places that
+     * actually use it — `ReportService::weeklySpend()` asks once per expense AND once per bill, and
+     * the expense register asks once per row.
+     */
     public static function natureFor(?string $code): ?string
     {
         if ($code === null) {
             return null;
         }
 
+        $map = app()->has(self::MEMO.'.natures')
+            ? app(self::MEMO.'.natures')
+            : tap(static::safeNatures(), fn (array $m) => app()->instance(self::MEMO.'.natures', $m));
+
+        return $map[$code] ?? null;
+    }
+
+    /** @return array<string, string> */
+    private static function safeNatures(): array
+    {
         try {
-            return static::query()->where('code', $code)->value('cost_nature');
+            return static::query()->pluck('cost_nature', 'code')->all();
         } catch (\Throwable) {
-            return null;
+            return [];
         }
     }
 

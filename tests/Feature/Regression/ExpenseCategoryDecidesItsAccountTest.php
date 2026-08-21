@@ -18,6 +18,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
 use App\Support\CostNature;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\ExpenseCategorySeeder;
@@ -54,7 +55,22 @@ it('posts identically on a database that has never seen the catalogue', function
     // and the seeder, and the whole behaviour-identical claim rests on it.
     expect(ExpenseCategory::count())->toBe(0);
 
+    // Driven through the JOURNALIZER, not through `accountIdOrFloor()` with the role handed in.
+    //
+    // My first version did the latter, and it could not fail: passing `maintenance_expense` in as an
+    // argument and asserting the answer is `maintenance_expense` tests nothing about the map that
+    // decides it — deleting an entry from `MapsExpenseCategory::EXPENSE_ROLE` left it green. The map
+    // is the thing this case exists to protect, so the case has to go through the code that reads it.
     $resolver = app(AccountResolver::class);
+    $journalizer = new class
+    {
+        use MapsExpenseCategory;
+
+        public function resolve(string $category, ?int $assetId, AccountResolver $accounts): int
+        {
+            return $this->expenseAccountIdFor($category, $assetId, $accounts, 'probe');
+        }
+    };
 
     foreach ([
         'maintenance' => 'maintenance_expense',
@@ -64,9 +80,14 @@ it('posts identically on a database that has never seen the catalogue', function
         'admin' => 'admin_expense',
         'other' => 'admin_expense',
     ] as $code => $role) {
-        expect(ExpenseCategory::accountIdOrFloor($code, $this->asset->id, $resolver, $role))
+        expect($journalizer->resolve($code, $this->asset->id, $resolver))
             ->toBe($resolver->id($role, $this->asset->id), "Category '{$code}' moved off its floor account.");
     }
+
+    // The control: the six accounts are not all the same one, so the loop above is comparing
+    // distinct values rather than agreeing with itself six times.
+    expect($resolver->id('maintenance_expense', $this->asset->id))
+        ->not->toBe($resolver->id('utilities_expense', $this->asset->id));
 });
 
 it('lets a row say a cost is fixed, in both directions', function () {

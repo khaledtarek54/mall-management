@@ -21,8 +21,12 @@ use Filament\Tables\Table;
  * The screen is the point. The category decided which expense account every supplier bill, expense
  * and custody spend hit, and it lived in a six-entry `private const` inside a journalizer trait —
  * so insurance, government fees, bank charges, legal fees and generator fuel all landed in
- * `admin_expense` behind a `Log::warning` nobody reads. It also drives `CostNature`, so the
- * miscoding reached the CAM pool and the tenants' service charge.
+ * `admin_expense` behind a `Log::warning` nobody reads.
+ *
+ * The account matters beyond the P&L: `SyncCamPoolFromLedgerService` builds a CAM pool from the GL
+ * BY ACCOUNT, so pointing a category at an account inside a pool starts recovering those costs from
+ * tenants. (`cost_nature` here does NOT — that is `cam_pool_accounts.cost_nature`, a different
+ * column on a different table.)
  *
  * **Operator-level, not per property** (`#[PortfolioShared]`): how Eltizam classifies its costs is
  * one chart of overhead, not a per-mall opinion. There is no property picker and nothing to scope.

@@ -1771,14 +1771,14 @@ return [
         'steps' => [
             'Add a row per kind of cost. The code is stored on every bill and expense, so pick it once and keep it — it cannot be changed later.',
             'Choose the account it should book to. Leave it blank and the category keeps going where it goes today, so nothing changes until you decide.',
-            'Say whether the cost is fixed or variable. Fixed means it does not move with how full the mall is — insurance, security contract. This is what the service-charge apportionment reads.',
+            'Say whether the cost is fixed or variable. Fixed means it does not move with how full the mall is — insurance, security contract. Your expense reporting and register filters read it.',
             'Five common Egyptian overheads are already here, switched off: insurance, government fees and licences, bank charges, legal and professional, and fuel. Turn one on once you know its account.',
             'To retire a category, switch it off. It disappears from the pickers and every document that used it is untouched.',
         ],
         'affects' => [
             'Supplier bills, expenses and custody spends all pick from this list, and the category decides which expense account the entry debits.',
-            'Fixed versus variable feeds the CAM pool, so it reaches what tenants are charged for service — not just your own reporting.',
-            'Changing the account RE-POSTS documents whose period is still open: the ledger here is derived, so the nightly sync voids the old entry and writes a corrected one. Anything in a closed period is left as it was.',
+            'Fixed versus variable is read by your own expense reporting and register filters. It does NOT drive the service-charge apportionment — that is a separate setting on each account inside a CAM pool. What DOES reach tenants is the account you point a category at: if that account sits in a CAM pool, those costs start being recovered through the pool.',
+            'Changing the account moves FUTURE postings immediately. Documents already posted are only corrected if they fall in the nightly sync\'s two-day window — older ones keep the account they were posted to until somebody runs a full backfill. So set the account before the costs start arriving; changing it later leaves the books split across two accounts.',
         ],
         'rules' => [
             'A code cannot be changed once saved, because every document stores the code itself rather than a link to this row.',

@@ -147,3 +147,30 @@ it('names a real column in every exemption, and proves the widened set differs',
         ->toBeGreaterThan(count(ValueSets::allowed('payrolls', 'paid_from') ?? []))
         ->and(ValueSets::allowed('expenses', 'category'))->toContain('insurance');
 });
+
+it('keeps the three expense-category floors identical', function () {
+    // `ExpenseCategory::options()` is keyed to ONE of them and drives pickers on all three columns,
+    // so a floor that drifts would offer a vendor-bill category the expenses column refuses, or the
+    // reverse — the offer/accept split again, one table along. They are hand-kept lists in
+    // `ValueSets::SETS`; nothing but this makes them agree.
+    $sets = [
+        'expenses.category' => ValueSets::allowed('expenses', 'category'),
+        'vendor_bills.category' => ValueSets::allowed('vendor_bills', 'category'),
+        'custody_transactions.category' => ValueSets::allowed('custody_transactions', 'category'),
+    ];
+
+    foreach ($sets as $key => $values) {
+        sort($values);
+        $sets[$key] = $values;
+    }
+
+    expect(array_values(array_unique(array_map('serialize', $sets))))->toHaveCount(1, implode("\n", [
+        'The three expense-category columns accept different sets. `ExpenseCategory::options()` is',
+        'keyed to `expenses.category` and drives the pickers on all three, so a picker will offer a',
+        'value one of the other columns refuses:',
+        '  '.json_encode($sets, JSON_UNESCAPED_SLASHES),
+    ]));
+
+    // The premise: these are non-empty, so agreeing is a real property and not three empty arrays.
+    expect($sets['expenses.category'])->not->toBeEmpty();
+});
