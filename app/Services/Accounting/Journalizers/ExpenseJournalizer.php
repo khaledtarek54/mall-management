@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\Expense;
+use App\Models\PaymentMethod;
 use App\Models\TaxCode;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
@@ -41,7 +42,10 @@ class ExpenseJournalizer implements Journalizer
 
         $expenseRole = $this->expenseRoleFor($expense->category, "expense {$expense->number}");
 
-        $cashRole = $expense->paid_from === 'bank' ? 'bank' : 'cash';
+        // Through the rail, like the others. This mirror ternary was CORRECT while the column
+        // held only cash|bank — but the catalogue widens `expenses.paid_from`, and `bank_transfer`
+        // fell to the else branch and credited CASH for money that left the bank.
+        $cashAccountId = PaymentMethod::accountIdOrFloor($expense->paid_from, $assetId, $this->accounts);
 
         $lines = [];
         // Guard net > 0 — a pure-VAT expense (net 0) would otherwise emit a
@@ -73,7 +77,7 @@ class ExpenseJournalizer implements Journalizer
         }
 
         $lines[] = [
-            'ledger_account_id' => $this->accounts->id($cashRole, $assetId),
+            'ledger_account_id' => $cashAccountId,
             'debit' => 0,
             'credit' => $total,
             'asset_id' => $assetId,

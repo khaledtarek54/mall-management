@@ -31,6 +31,7 @@ use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
+use App\Filament\Admin\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
@@ -224,6 +225,7 @@ class SearchPolicy
      * @var array<class-string, string>
      */
     public const GLOBAL_SEARCH_EXEMPT = [
+        PaymentMethodResource::class => 'A closed catalogue of a dozen rails that an accountant configures once and an operator picks from a dropdown. Nobody hunts for "InstaPay" from the top bar — they open a payment and choose it. Indexing it would put eleven rows in front of every search for a tenant or an invoice.',
         HolidayResource::class => 'A short, date-ordered register the operator opens once a year. Nobody searches the top bar for "Eid" — they open the calendar and read the list. Indexing it would put public holidays in the same result set as tenants and invoices, which is noise.',
         CamExpensePoolResource::class => 'A pool is identified by property + year, not by anything typed — it has no reference and no name. Reached from the property CAM page.',
         TenantSalesDeclarationResource::class => 'Identified by lease + period, both of which are filters. There is no identifier an operator would type to find one declaration.',

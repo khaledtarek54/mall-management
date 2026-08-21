@@ -408,6 +408,12 @@
         "note": "invoices"
     },
     {
+        "model": "PaymentMethod",
+        "label": "Payment Method",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "Payroll",
         "label": "Payroll",
         "classification": "owned",

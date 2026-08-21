@@ -8,6 +8,7 @@ use App\Services\OwnerAccounting\DisbursementService;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\ValueSets;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,7 +46,20 @@ class Disbursement extends Model
 
     public const METHOD_CASH = 'cash';
 
-    public const METHODS = [self::METHOD_BANK_TRANSFER, self::METHOD_CHEQUE, self::METHOD_CASH];
+    /**
+     * The rails a disbursement may use — DERIVED, never a fourth hand-kept list.
+     *
+     * This constant was the one payment-rail registry outside `ValueSets` entirely, so the column
+     * was unenforced on save and the list could not be widened without a deploy. It now reads the
+     * same set the listener refuses against, which is the floor plus whatever the operator has
+     * activated for OUTBOUND use.
+     *
+     * @return array<int, string>
+     */
+    public static function methods(): array
+    {
+        return ValueSets::allowed('disbursements', 'method') ?? [];
+    }
 
     protected $fillable = [
         'reference',
@@ -93,7 +107,10 @@ class Disbursement extends Model
             if (! in_array($d->status, self::STATUSES, true)) {
                 throw new \InvalidArgumentException("Invalid disbursement status '{$d->status}'.");
             }
-            if (! in_array($d->method, self::METHODS, true)) {
+            // Derived, so activating a rail reaches this guard too. The global `eloquent.saving`
+            // listener already refuses an out-of-set value against the same registry; this stays as
+            // the model-layer twin of the status check beside it.
+            if (! in_array($d->method, self::methods(), true)) {
                 throw new \InvalidArgumentException("Invalid disbursement method '{$d->method}'.");
             }
         });

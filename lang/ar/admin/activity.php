@@ -16,6 +16,7 @@ return [
             'work_order_proposal' => 'عرض سعر لأمر عمل',
             'failure_code' => 'كود عطل',
             'holiday' => 'إجازة',
+            'payment_method' => 'قناة سداد',
             'work_order_labour' => 'عمالة أمر عمل',
             'trade' => 'تخصص',
             'unit_ownership' => 'ملكية وحدة',

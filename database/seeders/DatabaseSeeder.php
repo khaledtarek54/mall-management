@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             // Without this the holiday register is empty on every dev machine, across the whole
             // test suite and in the QA baseline — so the one screen that decides SLA deadlines
             // is never exercised on realistic data and renders a blank table.
+            PaymentMethodSeeder::class,
             HolidaySeeder::class,
             DemoSeeder::class,
         ]);

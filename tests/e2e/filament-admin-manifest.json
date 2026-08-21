@@ -218,6 +218,13 @@
             "hasView": true
         },
         {
+            "class": "PaymentMethodResource",
+            "slug": "payment-methods",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "PaymentResource",
             "slug": "payments",
             "hasCreate": true,

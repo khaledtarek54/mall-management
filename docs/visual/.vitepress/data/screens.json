@@ -282,6 +282,12 @@
         "guide": "owner_statements"
     },
     {
+        "screen": "PaymentMethodResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "payment_methods"
+    },
+    {
         "screen": "PaymentResource",
         "panel": "admin",
         "kind": "resource",

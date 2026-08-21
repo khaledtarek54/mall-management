@@ -16,7 +16,8 @@
  * they are the ones every feature touches, so isolating them is what stops a billing change and a
  * facility change colliding when they have nothing to do with each other.
  */
-$merged = [];
+$merged = [
+];
 
 foreach (glob(__DIR__.'/admin/*.php') ?: [] as $partial) {
     $keys = require $partial;

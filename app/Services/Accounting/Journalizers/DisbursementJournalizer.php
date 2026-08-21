@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\Disbursement;
+use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 
@@ -34,7 +35,8 @@ class DisbursementJournalizer implements Journalizer
 
         $assetId = $disbursement->asset_id;
         $dueToOwner = $this->accounts->id('due_to_owner', $assetId);
-        $cash = $this->accounts->id($disbursement->method === Disbursement::METHOD_CASH ? 'cash' : 'bank', $assetId);
+        // Through the rail: `disbursements.method` is catalogue-widened too.
+        $cash = PaymentMethod::accountIdOrFloor($disbursement->method, $assetId, $this->accounts);
 
         return [
             'entry_date' => $disbursement->paid_on,

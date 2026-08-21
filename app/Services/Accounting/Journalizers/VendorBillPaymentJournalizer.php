@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting\Journalizers;
 
+use App\Models\PaymentMethod;
 use App\Models\VendorBillPayment;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
@@ -44,7 +45,8 @@ class VendorBillPaymentJournalizer implements Journalizer
 
         $assetId = $payment->bill->asset_id;
 
-        $cashRole = $payment->method === 'cash' ? 'cash' : 'bank';
+        // The rail decides the account; null takes the floor. See PaymentJournalizer.
+        $cashAccountId = PaymentMethod::accountIdOrFloor($payment->method, $assetId, $this->accounts);
 
         // Egyptian withholding tax (خصم وإضافة). The payable is discharged in FULL by $amount —
         // part in cash, part by tax the operator now owes the ETA on the vendor's behalf. So the
@@ -65,7 +67,7 @@ class VendorBillPaymentJournalizer implements Journalizer
                 'asset_id' => $assetId,
             ],
             [
-                'ledger_account_id' => $this->accounts->id($cashRole, $assetId),
+                'ledger_account_id' => $cashAccountId,
                 'debit' => 0,
                 'credit' => $net,
                 'asset_id' => $assetId,

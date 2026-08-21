@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Payments\Tables;
 
+use App\Models\PaymentMethod;
 use Carbon\Carbon;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -42,7 +43,9 @@ class PaymentsTable
                 TextColumn::make('method')
                     ->label(__('admin.tables.payment.method'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.method.{$state}"))
+                    // The catalogue, not a lang key: an operator-added rail has no key and would render
+                    // raw on the very screen whose filter lists it.
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state))
                     ->color('info'),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
@@ -58,7 +61,8 @@ class PaymentsTable
             ->filters([
                 SelectFilter::make('method')
                     ->label(__('admin.tables.payment.method'))
-                    ->options(fn () => collect(__('admin.enums.method'))->only(['card', 'bank_transfer', 'instapay', 'cash', 'cheque'])->all()),
+                    // The catalogue, not a hand-kept `->only()` list — see the admin twin.
+                    ->options(fn () => PaymentMethod::options('inbound')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.payment'))->only(['captured', 'reconciled', 'settled', 'failed', 'refunded'])->all()),

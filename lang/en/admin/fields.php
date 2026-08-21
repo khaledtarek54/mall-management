@@ -3,6 +3,9 @@
 return [
     'fields' => [
         'sla_clock' => 'SLA clock',
+        'for_inbound' => 'Accepts money in',
+        'for_outbound' => 'Pays money out',
+        'settlement_days' => 'Days to settle',
         'kind' => 'Kind',
         'opens_at' => 'Opens at',
         'closes_at' => 'Closes at',

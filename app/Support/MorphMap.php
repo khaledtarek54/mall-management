@@ -70,6 +70,7 @@ use App\Models\OwnerRequestReply;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Models\PostDatedCheque;
@@ -255,6 +256,7 @@ class MorphMap
         'work_order_labour' => FacilityWorkOrderLabour::class,
         'failure_code' => FailureCode::class,
         'holiday' => Holiday::class,
+        'payment_method' => PaymentMethod::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,
         'tenant_credit_application' => TenantCreditApplication::class,

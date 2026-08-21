@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Models\Disbursement;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
+use App\Models\PaymentMethod;
 use App\Notifications\OwnerStatementSentNotification;
 use App\Services\OwnerAccounting\BuildOwnerPackService;
 use App\Services\OwnerAccounting\DisbursementService;
@@ -154,8 +155,9 @@ class OwnerStatementRunsTable
                             ->required(),
                         Select::make('method')
                             ->label(__('admin.disbursements.fields.method'))
-                            ->options(fn () => collect(Disbursement::METHODS)
-                                ->mapWithKeys(fn (string $m) => [$m => __("admin.disbursements.methods.{$m}")])->all())
+                            // The catalogue, not a constant: an operator who activates a rail must
+                            // see it here without a deploy, and a new rail has no lang key.
+                            ->options(fn () => PaymentMethod::options('outbound', 'admin.disbursements.methods'))
                             ->default(Disbursement::METHOD_BANK_TRANSFER)
                             ->required()->native(false),
                     ])

@@ -1745,4 +1745,25 @@ return [
         ],
     ],
 
+    'payment_methods' => [
+        'purpose' => 'Every way money reaches you or leaves you, and which account each one lands in. It exists because Egypt\'s rails keep changing — Fawry, Meeza, InstaPay, wallets — and adding one used to need a developer.',
+        'steps' => [
+            'Add a row per rail. The code is what gets stored on every payment, so pick it once and keep it — it cannot be changed later.',
+            'Tick where it applies: money coming IN (a tenant paying), money going OUT (a vendor, an expense, a payout), or both.',
+            'Leave the posting account blank unless your accountant has told you otherwise. Blank means cash goes to Cash and everything else to Bank, which is how the system has always worked.',
+            'Set the settlement days to how long the money really takes to arrive — same day for cash, two days for a card.',
+            'To retire a rail, switch it off. It disappears from the pickers and every document that used it is untouched.',
+        ],
+        'affects' => [
+            'Every payment, vendor bill payment, deposit and expense screen offers exactly the rails ticked for that direction here.',
+            'The posting account decides which ledger account a receipt debits. Change it and FUTURE documents post there; documents already posted are not moved.',
+            'Turning a rail off never invalidates history — old documents keep naming it and still show its name.',
+        ],
+        'rules' => [
+            'A code cannot be changed once saved, because every document stores the code itself rather than a link to this row.',
+            'A rail that has carried money cannot be deleted. Switch it off instead.',
+            'Only asset accounts can be chosen — money received has to land somewhere it can be held.',
+            'The default is deliberate: until your accountant gives you a clearing account per rail, a card capture debits the bank on the day it is captured, even though the money arrives later.',
+        ],
+    ],
 ];

@@ -6,6 +6,7 @@ use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Exports\PaymentExporter;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\Tenant;
 use App\Services\ReceiptPdfService;
 use App\Support\Filament\EntitySelectFilter;
@@ -58,7 +59,9 @@ class PaymentsTable
                 TextColumn::make('method')
                     ->label(__('admin.tables.payment.method'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.method.{$state}"))
+                    // The catalogue, not a lang key: an operator-added rail has no key and would render
+                    // raw on the very screen whose filter lists it.
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state))
                     ->color('info'),
                 TextColumn::make('payment_date')
                     ->label(__('admin.tables.payment.date'))
@@ -78,7 +81,10 @@ class PaymentsTable
             ->filters([
                 SelectFilter::make('method')
                     ->label(__('admin.tables.payment.method'))
-                    ->options(fn () => collect(__('admin.enums.method'))->only(['card', 'bank_transfer', 'instapay', 'cash', 'cheque'])->all()),
+                    // Was an `->only()` list of five, hand-kept beside the seven the column accepts —
+                // so `wallet` and `other` could be recorded and never filtered for. The catalogue
+                // answers both questions with one list.
+                    ->options(fn () => PaymentMethod::options('inbound')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.payment'))->only(['captured', 'reconciled', 'failed', 'refunded'])->all()),

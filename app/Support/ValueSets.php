@@ -9,6 +9,7 @@ use App\Enums\TenantRequestType;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
+use App\Models\PaymentMethod;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 
@@ -97,6 +98,10 @@ class ValueSets
         'deposit_transactions.status' => ['recorded', 'cancelled'],
         'deposit_transactions.type' => ['receipt', 'refund', 'forfeit'],
         'device_tokens.platform' => ['ios', 'android'],
+        // The fourth rail registry, which lived on `Disbursement::METHODS` outside this file — so
+        // the column was unenforced and the list could not be widened without a deploy. Same floor
+        // as the other three, widened by the same catalogue.
+        'disbursements.method' => ['cash', 'bank_transfer', 'cheque'],
         'employees.status' => ['active', 'terminated'],
         'expenses.paid_from' => ['cash', 'bank'],
         'expenses.status' => ['recorded', 'cancelled'],
@@ -231,7 +236,13 @@ class ValueSets
                 // Expanded here, once, so the guard always compares against real values — an entry
                 // declared as an enum class-string would otherwise reach the comparison as a
                 // class name and refuse every value the column legitimately holds.
-                $byTable[$onTable][$column] = self::expand($values);
+                // Widened here TOO, not only in `allowed()`. The guard reads this map and the
+                // pickers read `allowed()`; building them from different sources is what let a
+                // surface offer eight values while the listener accepted two — the precise bug
+                // `DepositTransaction::methodOptions()` was written to end on 2026-08-18, where the
+                // operator picked InstaPay, Filament's `Rule::in` passed, and the save threw with
+                // nothing on screen to explain it. One derivation, so they cannot disagree.
+                $byTable[$onTable][$column] = self::widen($key, self::expand($values));
             }
 
             self::$byTable = $byTable;
@@ -241,11 +252,73 @@ class ValueSets
     }
 
     /** The values a column accepts, or null when it is not a constrained column. */
+    /**
+     * Sets whose literal list is a FLOOR that a database catalogue widens.
+     *
+     * Kept as closures rather than a class-string so the query runs only for the columns that need
+     * it — the `saving` listener asks {@see allowed()} for every column of every model save.
+     *
+     * The four payment-rail columns had drifted into four different lists (7 / 5 / 2 / 2 values),
+     * which is why a security deposit received by InstaPay could not be recorded as InstaPay. They
+     * share one catalogue now, split only by DIRECTION, because offering a collection network as a
+     * way to pay a vendor would be nonsense.
+     *
+     * @var array<string, callable(): array<int, string>>
+     */
+    private const CATALOGUE_WIDENED = [
+        'payments.method' => [PaymentMethod::class, 'inboundCodes'],
+        'deposit_transactions.method' => [PaymentMethod::class, 'inboundCodes'],
+        'vendor_bill_payments.method' => [PaymentMethod::class, 'outboundCodes'],
+        'expenses.paid_from' => [PaymentMethod::class, 'outboundCodes'],
+        'disbursements.method' => [PaymentMethod::class, 'outboundCodes'],
+    ];
+
     public static function allowed(string $table, string $column): ?array
     {
-        $set = self::SETS[$table.'.'.$column] ?? null;
+        $key = $table.'.'.$column;
+        $set = self::SETS[$key] ?? null;
 
-        return $set === null ? null : self::expand($set);
+        if ($set === null) {
+            return null;
+        }
+
+        return self::widen($key, self::expand($set));
+    }
+
+    /**
+     * Apply a catalogue's rows to a set whose literal list is a FLOOR.
+     *
+     * The same arrangement `Vat::EXEMPT_TYPES` has with the seeded tax catalogue, and for the same
+     * two reasons. An unseeded database — every test that does not seed rails, and a box mid-install
+     * — behaves exactly as the literal list this replaced; and an operator who adds Fawry gets a
+     * value the listener accepts, without a deploy.
+     *
+     * It only ever WIDENS. Switching a rail off stops it being offered; it must never invalidate the
+     * documents that already name it.
+     *
+     * @param  array<int, string>  $values
+     * @return array<int, string>
+     */
+    private static function widen(string $key, array $values): array
+    {
+        $catalogue = self::CATALOGUE_WIDENED[$key] ?? null;
+
+        return $catalogue === null
+            ? $values
+            : array_values(array_unique([...$values, ...$catalogue()]));
+    }
+
+    /**
+     * Drop the per-process table cache after a catalogue row changes.
+     *
+     * `forTable()` memoizes across the whole process because the guard runs on every model save. A
+     * catalogue makes that map mutable, so the model that owns the catalogue calls this on write —
+     * otherwise an operator activating a rail would be refused by their own request, and by every
+     * queue worker until it restarted.
+     */
+    public static function flushCatalogueCache(): void
+    {
+        self::$byTable = null;
     }
 
     /**

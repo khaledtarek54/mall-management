@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 
@@ -71,11 +72,16 @@ class PaymentJournalizer implements Journalizer
             default => null,
         };
 
-        // cash for physical cash, otherwise the bank (card / transfer / instapay / cheque…).
-        $cashRole = $payment->method === 'cash' ? 'cash' : 'bank';
+        // The RAIL says where its money lands. Null role = the floor, which is verbatim the
+        // ternary this replaced (`cash` for cash, `bank` for everything else) — so an unseeded
+        // catalogue posts exactly as before. What the floor is wrong about is the whole point: a
+        // card capture debits the bank on CAPTURE day while the money lands T+1/T+2, so the book
+        // line and the bank line carry different dates and every reconciliation shows them
+        // unmatched. Pointing the rail at a clearing account fixes that without a deploy.
+        $cashAccountId = PaymentMethod::accountIdOrFloor($payment->method, $entryAsset, $this->accounts);
 
         $lines = [[
-            'ledger_account_id' => $this->accounts->id($cashRole, $entryAsset),
+            'ledger_account_id' => $cashAccountId,
             'debit' => $amount,
             'credit' => 0,
             'asset_id' => $entryAsset,

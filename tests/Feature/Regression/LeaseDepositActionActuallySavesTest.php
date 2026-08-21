@@ -40,13 +40,18 @@ beforeEach(function () {
 });
 
 it('derives the method options from the column, so no surface can offer a value it refuses', function () {
-    $allowed = ValueSets::allowed('deposit_transactions', 'method');
+    // Measured against the set the GUARD enforces, not against `allowed()`.
+    //
+    // Those were one list when this test was written and briefly became two: the payment-rail
+    // catalogue widened `allowed()` (what a picker offers) and not `forTable()` (what
+    // `ValueSets::guard()` accepts on save), so the deposit modal offered eight methods while the
+    // listener took two — this exact bug, reintroduced, with this test still green because it
+    // compared two things that had moved together. `forTable()` is the one that can refuse a save,
+    // so it is the one an offer has to match.
+    $enforced = ValueSets::forTable('deposit_transactions')['method'] ?? [];
 
-    // Derived, not hand-picked — a hand-picked list is exactly what broke. This holds BY
-    // CONSTRUCTION now, which is the point: the assertion is here to catch someone replacing the
-    // derivation with a literal again.
-    expect(array_keys(DepositTransaction::methodOptions()))->toBe($allowed)
-        ->and($allowed)->not->toBeEmpty();
+    expect(array_keys(DepositTransaction::methodOptions()))->toBe($enforced)
+        ->and($enforced)->not->toBeEmpty();
 });
 
 it('lets no Filament surface pick its own list for a deposit method', function () {

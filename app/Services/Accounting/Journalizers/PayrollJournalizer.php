@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting\Journalizers;
 
+use App\Models\PaymentMethod;
 use App\Models\Payroll;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
@@ -60,7 +61,8 @@ class PayrollJournalizer implements Journalizer
             return null;
         }
 
-        $cashRole = $payroll->paid_from === 'cash' ? 'cash' : 'bank';
+        // The rail decides the account; null takes the floor. See PaymentJournalizer.
+        $cashAccountId = PaymentMethod::accountIdOrFloor($payroll->paid_from, $assetId, $this->accounts);
 
         $lines = [[
             'ledger_account_id' => $this->accounts->id('salaries_expense', $assetId),
@@ -96,7 +98,7 @@ class PayrollJournalizer implements Journalizer
             $lines[] = ['ledger_account_id' => $this->accounts->id('employee_deductions_payable', $assetId), 'debit' => 0, 'credit' => $otherDeductions, 'asset_id' => $assetId];
         }
         if ($net > 0) {
-            $lines[] = ['ledger_account_id' => $this->accounts->id($cashRole, $assetId), 'debit' => 0, 'credit' => $net, 'asset_id' => $assetId];
+            $lines[] = ['ledger_account_id' => $cashAccountId, 'debit' => 0, 'credit' => $net, 'asset_id' => $assetId];
         }
 
         return [

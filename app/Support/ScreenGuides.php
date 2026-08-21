@@ -65,6 +65,7 @@ use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
+use App\Filament\Admin\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
@@ -216,6 +217,7 @@ class ScreenGuides
         TradeResource::class => 'trades',
         FailureCodeResource::class => 'failure_codes',
         HolidayResource::class => 'holidays',
+        PaymentMethodResource::class => 'payment_methods',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',
         ApprovalRuleResource::class => 'approval_rules',

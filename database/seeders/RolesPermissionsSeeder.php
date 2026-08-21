@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'payment_methods.view' => 'View the payment-rail catalogue',
+            'payment_methods.create' => 'Add a payment rail',
+            'payment_methods.edit' => 'Edit a payment rail, including the account its money lands in',
+            'payment_methods.delete' => 'Remove a payment rail',
             'holidays.view' => 'View the working-calendar holidays',
             'holidays.create' => 'Add a holiday or a short day',
             'holidays.edit' => 'Edit a holiday',
@@ -802,6 +806,10 @@ class RolesPermissionsSeeder extends Seeder
             'utility_tariffs.delete',
             'account_mappings.view', 'account_mappings.create', 'account_mappings.edit',
             'account_mappings.delete',
+            // The payment-rail catalogue sits with accounting for the same reason the posting map
+            // does: what a rail IS, is operations' business, but which account its money lands in
+            // is an accounting ruling — and the two live on one row.
+            'payment_methods.view', 'payment_methods.create', 'payment_methods.edit',
             'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',
             'journal_entries.post', 'journal_entries.void',
             'accounting_periods.view', 'accounting_periods.manage',
