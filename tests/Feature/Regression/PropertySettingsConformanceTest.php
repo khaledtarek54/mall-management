@@ -77,7 +77,9 @@ it('has something actually reading every overridable key, THROUGH the resolver',
     // to the portfolio one left this gate green, so it certified wiring it was not checking.
     //
     // The override only reaches the operator if something calls `PropertySettings::get()` with the
-    // key. That is what is asserted now, across ALL of `app/`.
+    // key AND a real property. That is what is asserted now, across ALL of `app/` — a call passing
+    // `null` reads the portfolio value and would have satisfied a looser check while the override
+    // stayed dead.
     $source = collect(File::allFiles(base_path('app')))
         ->filter(fn ($f) => $f->getExtension() === 'php')
         ->map(fn ($f) => (string) file_get_contents($f->getPathname()))
@@ -90,8 +92,23 @@ it('has something actually reading every overridable key, THROUGH the resolver',
             continue;
         }
 
-        if (! str_contains($source, "PropertySettings::get('{$key}'")
-            && ! str_contains($source, "PropertySettings::get(\"{$key}\"")) {
+        // A call passing NULL as the asset is a PORTFOLIO read through the resolver — legitimate
+        // (LateFeeService does it for a portfolio-wide default) but it never exercises the override,
+        // so it must not count as wiring. Requiring one call whose asset argument is anything else
+        // is what makes this gate about the override rather than about the key appearing.
+        $calls = [];
+        preg_match_all(
+            '~PropertySettings::get\(\s*[\'"]'.preg_quote($key, '~').'[\'"]\s*,\s*([^),]+)~',
+            $source,
+            $calls,
+        );
+
+        $withAnAsset = array_filter(
+            $calls[1] ?? [],
+            fn (string $arg) => trim($arg) !== 'null',
+        );
+
+        if ($withAnAsset === []) {
             $unwired[] = $key;
         }
     }

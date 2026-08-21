@@ -23,7 +23,6 @@ return [
     |--------------------------------------------------------------------------
     | Day of month and time (24h, app TZ) to auto-run monthly billing.
     */
-    'monthly_billing_day' => env('MONTHLY_BILLING_DAY', 1),
     'monthly_billing_time' => env('MONTHLY_BILLING_TIME', '02:00'),
 
     // The unit-OWNER assessment run (module 37) bills on the same day as the lease run, staggered

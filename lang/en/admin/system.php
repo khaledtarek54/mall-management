@@ -93,6 +93,7 @@ return [
             'nsf_fee_amount' => 'Returned-cheque fee',
             'nsf_fee_amount_helper' => 'Charged when a post-dated cheque bounces, as its own invoice. 0 turns it off — the action stays hidden until you set a figure.',
             'monthly_billing_day' => 'Monthly billing day',
+            'monthly_billing_day_helper' => 'A day past the end of a short month bills on its last day instead. Individual malls can override this.',
             'monthly_billing_time' => 'Monthly billing time',
             'cam_reconciliation_month' => 'CAM reconciliation month',
             'cam_reconciliation_day' => 'CAM reconciliation day',
@@ -217,6 +218,12 @@ return [
     ],
 
     'property_overrides' => [
+
+        'yes' => 'Yes',
+
+        'no' => 'No',
+
+        'inherit_option' => 'Inherit (:value)',
         'page_title' => 'Property overrides',
         'inherits' => 'Portfolio default: :value. Leave blank to use it.',
         'inherited' => 'Inherited',

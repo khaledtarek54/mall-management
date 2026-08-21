@@ -133,6 +133,24 @@ final class IssuingEntity
         return $path !== null && is_file($path) ? $path : null;
     }
 
+    /**
+     * The issuer block for a report whose scope is a LIST of properties.
+     *
+     * One mall selected means one mall's letterhead; two or more, or none, is a portfolio document
+     * and carries the operator's identity without a property logo. Written here rather than in each
+     * report service so the "exactly one" rule cannot drift between them — the trial balance, the
+     * income statement, the balance sheet, the cash flow and the facility work log all share it.
+     *
+     * @param  array<int>|null  $assetIds  null = the whole portfolio
+     * @return array<string, mixed>
+     */
+    public static function forViewScopedTo(?array $assetIds): array
+    {
+        $ids = array_values(array_unique(array_filter((array) $assetIds)));
+
+        return self::forView(count($ids) === 1 ? Asset::find($ids[0]) : null);
+    }
+
     public static function forView(?Asset $asset = null): array
     {
         return [

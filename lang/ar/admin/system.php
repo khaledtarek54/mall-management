@@ -92,6 +92,7 @@ return [
             'nsf_fee_amount' => 'رسوم الشيك المرتجع',
             'nsf_fee_amount_helper' => 'تُحتسب عند ارتجاع شيك مؤجَّل، كفاتورة مستقلة. الصفر يعطّلها — ويبقى الإجراء مخفيًا حتى تحدد قيمة.',
             'monthly_billing_day' => 'يوم الفوترة الشهرية',
+            'monthly_billing_day_helper' => 'اليوم الذي يتجاوز نهاية شهر قصير يُفوتر في آخر يوم منه. ويمكن لكل مول تجاوز هذا الإعداد.',
             'monthly_billing_time' => 'وقت الفوترة الشهرية',
             'cam_reconciliation_month' => 'شهر تسوية المصروفات',
             'cam_reconciliation_day' => 'يوم تسوية المصروفات',
@@ -216,6 +217,12 @@ return [
     ],
 
     'property_overrides' => [
+
+        'yes' => 'نعم',
+
+        'no' => 'لا',
+
+        'inherit_option' => 'موروث (:value)',
         'page_title' => 'إعدادات خاصة بالعقار',
         'inherits' => 'الافتراضي على مستوى المحفظة: :value. اتركه فارغًا لاستخدامه.',
         'inherited' => 'موروث',

@@ -29,7 +29,7 @@ Artisan::command('inspire', function () {
 // `monthly_billing_day` is a per-property override (M-5) — so the job asks each property whether
 // today is its day. Firing monthly on one global day would make the override a setting the operator
 // can save and nothing can honour.
-Schedule::job(new RunMonthlyBilling)
+Schedule::job(new RunMonthlyBilling(dueTodayOnly: true))
     ->dailyAt((string) ScheduleSetting::billing('monthly_billing_time', 'billing.monthly_billing_time', '02:00'))
     ->name('atriom-monthly-billing')
     ->withoutOverlapping();

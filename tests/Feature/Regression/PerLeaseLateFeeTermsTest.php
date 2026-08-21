@@ -143,10 +143,16 @@ it('keeps the dead late-fee keys out of the shipped config file', function () {
         ->not->toContain('late_fee_percent')
         ->not->toContain('late_fee_grace_days')
         ->not->toContain('late_fee_minimum')
-        // The control, without which this test is satisfied by deleting the file wholesale: the
-        // scheduler keys in the same file ARE live (routes/console.php reads them as the cold-start
-        // fallback under ScheduleSetting).
-        ->toContain('monthly_billing_day')
+        // `monthly_billing_day` joined them on 2026-08-21. It was the scheduler's cold-start
+        // fallback under `ScheduleSetting` — and the run stopped reading it when the billing day
+        // became a per-property override (M-5): the schedule fires daily and `App\Support\BillingDay`
+        // asks `PropertySettings`, whose own cold start is the settings MIGRATION reading
+        // `env('MONTHLY_BILLING_DAY')` directly. Leaving the config key would have been the exact
+        // dead key EG-19 removed, re-added eight lines below the banner about it.
+        ->not->toContain('monthly_billing_day')
+        // The control, without which this test is satisfied by deleting the file wholesale:
+        // `cam_reconciliation_day` in the same file IS still live — routes/console.php reads it
+        // through ScheduleSetting.
         ->toContain('cam_reconciliation_day');
 });
 

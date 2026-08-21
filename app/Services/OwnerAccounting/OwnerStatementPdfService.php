@@ -29,7 +29,9 @@ class OwnerStatementPdfService
             // No asset: the statement is issued BY the managing agent ABOUT the property, and the
             // property is already named in the party block. The owner needs to see whose account of
             // their money this is.
-            ...IssuingEntity::forView(),
+            // The run's property. This is the document Jawad actually receives, and it rendered
+            // `$asset` in its own party block while the logo beside the issuer name was absent.
+            ...IssuingEntity::forView($statement->run->asset),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

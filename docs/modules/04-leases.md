@@ -863,7 +863,10 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 > shipped in the 2024 schema promising "day of month to issue invoice" and was read by nothing for
 > the whole life of the system, while being cast as a `date` (so `1` stored *1 January 1970*, not
 > *the 1st*). The **one** definition is `BillingSettings::monthly_billing_day`, which
-> `routes/console.php` turns into the cron expression for the single monthly sweep. What a lease
+> is now a PER-PROPERTY override — see the note below.
+>
+> **Per property since 2026-08-21 (M-5).** `billing.monthly_billing_day` is a `PropertySettings::OVERRIDABLE` key, so one mall bills on the 1st and another on the 25th. Both money runs fire DAILY and ask `App\Support\BillingDay` whose day it is — a global `->monthlyOn()` would have made the override a setting the operator saves and nothing can honour. A day past the end of a short month bills on that month's last day.
+> > `routes/console.php` turns into the cron expression for the single monthly sweep. What a lease
 > *does* carry is `billing_frequency` (monthly · quarterly · semiannual · annual) — **when the cycle
 > repeats**, not which day of the month it lands on.
 >

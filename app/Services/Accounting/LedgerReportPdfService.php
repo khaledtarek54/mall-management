@@ -22,7 +22,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.trial-balance', [
             'report' => $this->reports->trialBalance($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ]);
+        ], $assetIds);
     }
 
     public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
@@ -30,7 +30,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.income-statement', [
             'report' => $this->reports->incomeStatement($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ]);
+        ], $assetIds);
     }
 
     public function balanceSheet(?array $assetIds, CarbonInterface $asOf, string $property): string
@@ -38,7 +38,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.balance-sheet', [
             'report' => $this->reports->balanceSheet($assetIds, $asOf),
             'meta' => $this->meta($property, $asOf->format('d/m/Y')),
-        ]);
+        ], $assetIds);
     }
 
     public function cashFlow(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
@@ -46,7 +46,7 @@ class LedgerReportPdfService
         return $this->render('accounting.pdf.cash-flow', [
             'report' => $this->reports->cashFlow($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ]);
+        ], $assetIds);
     }
 
     public function filename(string $report, string $period): string
@@ -67,14 +67,17 @@ class LedgerReportPdfService
         ];
     }
 
-    private function render(string $view, array $data): string
+    /** @param  array<int>|null  $assetIds  the report's property scope; one mall means one letterhead */
+    private function render(string $view, array $data, ?array $assetIds = null): string
     {
         $isRtl = app()->getLocale() === 'ar';
         // One seam for all four statements — they share `accounting.pdf.layout`, so the issuer is
         // stated here rather than in each of balanceSheet()/incomeStatement()/trialBalance()/
-        // cashFlow(). No asset: the scope is already in `$meta['property']`, which may be the
-        // portfolio.
-        $html = View::make($view, [...$data, ...IssuingEntity::forView()])->render();
+        // cashFlow().
+        //
+        // Scoped: a statement filtered to ONE mall carries that mall's logo; two or more, or none,
+        // is a portfolio document and carries the operator's identity alone.
+        $html = View::make($view, [...$data, ...IssuingEntity::forViewScopedTo($assetIds)])->render();
 
         $tempDir = storage_path('app/mpdf');
         if (! is_dir($tempDir)) {

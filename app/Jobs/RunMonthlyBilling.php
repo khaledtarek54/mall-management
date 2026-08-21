@@ -2,8 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Models\Asset;
 use App\Services\MonthlyBillingService;
+use App\Support\BillingDay;
 use App\Support\PropertySettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -22,7 +22,12 @@ class RunMonthlyBilling implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public ?string $period = null) {}
+    /**
+     * @param  bool  $dueTodayOnly  the SCHEDULED sweep sets this; it bills only the properties whose
+     *                              billing day is today. A manual run leaves it false and bills
+     *                              every property, because somebody is asking for it now.
+     */
+    public function __construct(public ?string $period = null, public bool $dueTodayOnly = false) {}
 
     /**
      * Serialise billing runs per period so a manually-dispatched run can't race
@@ -41,9 +46,13 @@ class RunMonthlyBilling implements ShouldQueue
             ? CarbonImmutable::createFromFormat('!Y-m', $this->period)->startOfMonth()
             : CarbonImmutable::now()->startOfMonth();
 
-        // An EXPLICIT period is a manual dispatch — "bill March now" — and bills every property, as
-        // it always did. Only the scheduled run asks whose day it is.
-        if ($this->period !== null) {
+        // Keyed on an EXPLICIT flag, never on "was a period given".
+        //
+        // Inferring it from `$period === null` made `billing:run-monthly --queue` — the catch-up run
+        // after a failed billing night — a silent no-op on twenty-nine days in thirty, while printing
+        // "job dispatched" and logging "run complete". A person invoking the command is asking for it
+        // NOW; only the scheduler asks whose day it is.
+        if (! $this->dueTodayOnly) {
             $stats = $service->runForPeriod($period);
             Log::info('Monthly billing run complete', $stats);
 
@@ -66,30 +75,23 @@ class RunMonthlyBilling implements ShouldQueue
      */
     private function runPropertiesDueToday(MonthlyBillingService $service, CarbonImmutable $period): array
     {
-        $today = CarbonImmutable::now();
-        $lastDayOfMonth = (int) $today->endOfMonth()->day;
-
         $totals = [];
         $billed = [];
 
-        foreach (Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get() as $asset) {
-            $day = (int) PropertySettings::get('billing.monthly_billing_day', $asset->id);
-
-            // A property set to the 31st must still bill in February. Clamping to the month's last
-            // day is the only reading that bills every property every month; leaving it unclamped
-            // skips seven months of the year for a 31, and four for a 30.
-            $due = min(max($day, 1), $lastDayOfMonth);
-
-            if ($due !== (int) $today->day) {
-                continue;
-            }
-
-            $stats = $service->runForPeriod($period, $asset->id);
-            $billed[] = $asset->code;
+        foreach (BillingDay::propertiesDueOn(CarbonImmutable::now()) as $assetId => $code) {
+            $stats = $service->runForPeriod($period, $assetId);
+            $billed[] = $code;
 
             foreach ($stats as $key => $value) {
+                // Numeric counters accumulate; everything else (the period label, the failed lease
+                // ids) is carried through rather than dropped — `is_numeric()` alone silently ate
+                // both, so a run that failed leases logged no way to find them.
                 if (is_numeric($value)) {
                     $totals[$key] = ($totals[$key] ?? 0) + $value;
+                } elseif (is_array($value)) {
+                    $totals[$key] = array_merge($totals[$key] ?? [], $value);
+                } else {
+                    $totals[$key] ??= $value;
                 }
             }
         }

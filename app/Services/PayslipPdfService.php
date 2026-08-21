@@ -27,7 +27,9 @@ class PayslipPdfService
             'asset' => $line->payroll?->asset,
             // No asset: a payslip is issued by the EMPLOYER, so the header names the registered
             // entity and the property the employee is posted to stays in the sub-line.
-            ...IssuingEntity::forView(),
+            // The payroll's property — it is on the line above as `$asset`, and passing it is
+            // what puts that mall's logo on the payslip.
+            ...IssuingEntity::forView($line->payroll?->asset),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

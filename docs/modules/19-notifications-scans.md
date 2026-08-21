@@ -183,7 +183,7 @@ billing:scan-overdue-invoices (daily @ 06:00)
 
 | Job | Dispatched by | What it does | Timeout | Retry |
 |-----|---------------|--------------|---------|-------|
-| `RunMonthlyBilling` | `Schedule::job(new RunMonthlyBilling)` at 02:00 1st of month (or --queue flag on command) | Calls `MonthlyBillingService::runForPeriod($period)` with a YYYY-MM string. Fires InvoiceIssuedNotification per lease. | 600s | 1 try |
+| `RunMonthlyBilling` | `Schedule::job(new RunMonthlyBilling(dueTodayOnly: true))` DAILY at the configured time — it bills only the properties whose own `monthly_billing_day` is today (M-5). `billing:run-monthly` is a MANUAL run and bills every property whatever the date | Calls `MonthlyBillingService::runForPeriod($period)` with a YYYY-MM string. Fires InvoiceIssuedNotification per lease. | 600s | 1 try |
 | `ApplyLateFees` | `Schedule::job(new ApplyLateFees)` at 04:00 daily (or --queue flag on command) | Calls `LateFeeService::runForToday($date)` with optional YYYY-MM-DD. Adds late_fee line items idempotently. | 600s | 1 try |
 
 **All commands support `--dry-run`**: prints what would change without writing or notifying.

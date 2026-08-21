@@ -66,9 +66,9 @@ class FacilityWorkLogPdfService
             'from' => CarbonImmutable::parse($from),
             'to' => CarbonImmutable::parse($to),
             'scopeLabel' => $scopeLabel,
-            // No asset: the log may span the whole portfolio, and `$scopeLabel` already states
-            // which properties it covers.
-            ...IssuingEntity::forView(),
+            // Scoped: filtered to ONE mall it carries that mall's logo; across several, or all,
+            // it is a portfolio document and `$scopeLabel` already says which properties it covers.
+            ...IssuingEntity::forViewScopedTo($assetIds),
         ])->render();
 
         $tempDir = storage_path('app/mpdf');

@@ -7,6 +7,7 @@ use App\Support\PropertySettings;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -123,19 +124,49 @@ class PropertyOverrides extends Page implements HasSchemas
                 $portfolio = PropertySettings::portfolio($key);
                 $inherited = is_bool($portfolio) ? ($portfolio ? '1' : '0') : (string) $portfolio;
 
+                $hint = fn ($state) => filled($state)
+                    ? __('admin.property_overrides.overridden')
+                    : __('admin.property_overrides.inherited');
+
+                // A BOOLEAN setting is a three-state choice, not a number.
+                //
+                // Every override rendered as a numeric text box, which is fine for a percentage and
+                // wrong for `auto_apply_tenant_credit`: the operator was asked to express "off" by
+                // typing `0`, with nothing on screen saying so, and the round-trip then returned an
+                // int where the portfolio returns a bool. A Toggle cannot express the third state
+                // this screen exists for — INHERIT — so it is a Select.
+                if (is_bool($portfolio)) {
+                    return Select::make(self::field($key))
+                        ->label(__('admin.settings.fields.'.self::name($key)))
+                        ->options([
+                            '1' => __('admin.property_overrides.yes'),
+                            '0' => __('admin.property_overrides.no'),
+                        ])
+                        ->placeholder(__('admin.property_overrides.inherit_option', [
+                            'value' => $portfolio ? __('admin.property_overrides.yes') : __('admin.property_overrides.no'),
+                        ]))
+                        ->native(false)
+                        ->helperText(__('admin.property_overrides.inherits', [
+                            'value' => $portfolio ? __('admin.property_overrides.yes') : __('admin.property_overrides.no'),
+                        ]))
+                        ->hintColor('gray')
+                        ->hint($hint);
+                }
+
                 return TextInput::make(self::field($key))
                     ->label(__('admin.settings.fields.'.self::name($key)))
                     ->numeric()
                     ->minValue(0)
+                    // Whole numbers where the portfolio holds one: a billing day of `25.7` was
+                    // accepted and silently truncated.
+                    ->when(is_int($portfolio), fn (TextInput $f) => $f->integer())
                     // The portfolio's answer, twice: as the ghost text inside the empty box and as
                     // the sentence under it. A blank field that looks like a zero is the whole risk
                     // of this screen.
                     ->placeholder($inherited)
                     ->helperText(__('admin.property_overrides.inherits', ['value' => $inherited]))
                     ->hintColor('gray')
-                    ->hint(fn ($state) => filled($state)
-                        ? __('admin.property_overrides.overridden')
-                        : __('admin.property_overrides.inherited'));
+                    ->hint($hint);
             })
             ->values()
             ->all();

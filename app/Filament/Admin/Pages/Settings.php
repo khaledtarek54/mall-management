@@ -299,8 +299,15 @@ class Settings extends Page implements HasSchemas
                         ->label(__('admin.settings.fields.monthly_billing_day'))
                         ->numeric()
                         ->minValue(1)
-                        ->maxValue(28)
-                        ->required(),
+                        // 31, not 28. The cap existed because a global `->monthlyOn(29)` simply does
+                        // not fire in February — but the run is daily now and `BillingDay` clamps a
+                        // 29/30/31 to the month's last day, so "bill at month end" is expressible.
+                        // Leaving the cap here while the per-property override accepted 31 would
+                        // have been two different answers to one question.
+                        ->maxValue(31)
+                        ->integer()
+                        ->required()
+                        ->helperText(__('admin.settings.fields.monthly_billing_day_helper')),
                     TextInput::make('billing.monthly_billing_time')
                         ->label(__('admin.settings.fields.monthly_billing_time'))
                         ->placeholder('02:00')

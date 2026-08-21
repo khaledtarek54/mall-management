@@ -23,6 +23,8 @@ class MonthlyCloseReportPdfService
             'isRtl' => $isRtl,
             'generatedAt' => CarbonImmutable::now(),
             // No asset: the close pack is portfolio-wide.
+            // Deliberately portfolio: the monthly close is one document for the whole operator and
+            // has no single property to brand it with. Registered as such in the conformance gate.
             ...IssuingEntity::forView(),
         ])->render();
 

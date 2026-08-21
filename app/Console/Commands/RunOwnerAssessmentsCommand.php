@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Asset;
 use App\Services\BillUnitOwnershipsService;
-use App\Support\PropertySettings;
+use App\Support\BillingDay;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
@@ -80,25 +80,14 @@ class RunOwnerAssessmentsCommand extends Command
     /**
      * `assetId => code` for the properties whose billing day is today.
      *
-     * A property set to the 31st must still bill in February, so the day is clamped to the month's
-     * last — unclamped, a 31 would skip seven months of the year and a 30 would skip four.
+     * Delegated to {@see BillingDay} rather than repeated: this decision was copy-pasted into the
+     * lease run and this one, and two copies of a rule about WHEN MONEY IS BILLED can drift onto
+     * different days — a mall's leases billing on the 25th while its owner assessments bill on the 1st.
      *
      * @return array<int, string>
      */
     private function propertiesDueToday(): array
     {
-        $today = CarbonImmutable::now();
-        $lastDay = (int) $today->endOfMonth()->day;
-        $due = [];
-
-        foreach (Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get() as $asset) {
-            $day = (int) PropertySettings::get('billing.monthly_billing_day', $asset->id);
-
-            if (min(max($day, 1), $lastDay) === (int) $today->day) {
-                $due[$asset->id] = $asset->code;
-            }
-        }
-
-        return $due;
+        return BillingDay::propertiesDueOn(CarbonImmutable::now());
     }
 }
