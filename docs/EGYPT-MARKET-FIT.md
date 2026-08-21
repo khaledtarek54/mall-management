@@ -66,7 +66,7 @@ value, or a row with a code-side twin that must move with it · **HARDCODED** = 
 | 6 | **Roles** | 🟢 DYNAMIC | Full role CRUD with permission sync and audit; permission *keys* stay in code (correct) |
 | 7 | **Reporting parameters** | 🟢 DYNAMIC | Saved views, per-user memory, scheduled email delivery, CSV+XLSX |
 | 8 | **Reporting *shape*** | 🔴 HARDCODED | No report builder; every column is a PHP literal; statement layout is a `match()` on account type |
-| 9 | **Master-data lists** | 🟠 MIXED | Trades, failure codes, charge codes, tax codes, SLA policies, rent indices, **payment rails (EG-11)** and **expense categories (EG-13)** = rows. Still a lang array or a const: retail mix, tenant-request types, violation types, vendor document types, departments |
+| 9 | **Master-data lists** | 🟠 MIXED | Trades, failure codes, charge codes, tax codes, SLA policies, rent indices, **payment rails (EG-11)** and **expense categories (EG-13)** = rows. Still a lang array or a const: retail mix, violation types, vendor document types, departments. Tenant-request SUBCATEGORIES are rows (EG-14); the request TYPE stays an enum on purpose, because it carries behaviour |
 | 10 | **Statutory payroll** | 🔴 HARDCODED | Three flat undated rates; no brackets, no exemption, no insurable-wage cap |
 | 11 | **Time / working calendar** | ✅ DONE | `holidays` register + `CalendarSettings` + `WorkingCalendar` (Fri–Sat weekend, Ramadan short days, per-property dates). Both SLA modules freeze the clock they promised on. Ships **off** — EG-08 + EG-38 |
 | 12 | **Currency / FX** | 🔴 ABSENT | 15 tables carry `currency`; nothing reads it; no rate table; no GL currency |
@@ -306,7 +306,7 @@ operator will want to change in week one.
 |---|---|---|---|---|
 | ~~D-1~~ ✅ | **FIXED 2026-08-21 (EG-13).** `expense_categories` — a row per kind of cost, carrying the P&L account it books to and whether it is fixed or variable. All four cost journalizers (Expense, VendorBill, SlaPenalty, CustodyTransaction) resolve through it; null takes the floor, which is the same six-entry map, so it ships behaviour-identical. Insurance, government fees & licences, bank charges, legal & professional and fuel ship present and **switched off**. Registering the value sets also closed an enforcement gap: the three category columns had NO set at all, and the guard immediately caught 13 fixtures billing under `hvac`/`services` — trade codes no form offers, every one of which was booking to `admin_expense`. ~~Expense / vendor-bill category — six values, and **the only thing deciding which P&L account a supplier bill hits**, via a `private const` in a trait~~ | `app/Models/ExpenseCategory.php`; `MapsExpenseCategory.php`; `app/Support/CostNature.php` | 🔴 |
 | D-2 | **Tenant retail category / merchandising mix** — 12 hardcoded values driving the store directory, the public API filter and all tenant-mix analysis. In Yardi and MRI this is a row, revised per mall and per season | PHP-CONST | `app/Models/Tenant.php:54-67` | 🔴 |
-| D-3 | **Tenant request types + subcategories + their SLA hours** — a PHP enum with a `match()`; **and it has already drifted from the trades register.** `tradeForRequest()` matches `tenant_requests.category` against `trades.code`, but maintenance subcategories are 7 values while `trades` seeds 14. **A tenant cannot report a stuck lift, a generator failure, a fire-safety fault, a pest problem or a security issue as such**, and no operator-added trade is ever reachable from the tenant-request path. The enum's own docblock concedes *"Phase 2 reads these from settings/the request_types table"* | PHP-ENUM | `app/Enums/TenantRequestType.php:23-30,76-84,120-134`; `app/Services/RaiseCorrectiveWorkOrderService.php:139-144` | 🔴 |
+| ~~D-3~~ ✅ | **FIXED 2026-08-21 (EG-14).** `tenant_request_subcategories` — a row per reportable problem, LINKED to the trade register by foreign key rather than matched to it by name. The seven trades a tenant could not report (lift, generator, fire safety, pest, security, landscaping, waste) are seeded ACTIVE, because unlike the payment-rail and expense-category catalogues, activating one changes no accounting — it only lets a tenant describe a fault precisely, and the status quo of "other, with no trade" was the worse default. The link also bridges `fire_safety` → `fire-safety`, which the string match could never have done. Per-type SLA became one new tier on `sla_policies`, not a new table. **The TYPE stays a PHP enum** — it carries behaviour, and rows would let an operator create a type the code has no answers for. ~~a PHP enum with a `match()`; and it has already drifted from the trades register~~ | `app/Models/TenantRequestSubcategory.php`; `RaiseCorrectiveWorkOrderService.php` | 🔴 |
 | D-4 | **Violation categories** — seven values, where the migration that created the column **promised the opposite in writing**: *"the operator's set of violation types is theirs to extend without a migration"* | PHP-CONST | `app/Models/Violation.php:65`; `database/migrations/2026_07_23_180000_add_category_to_violations.php:13` | 🟠 |
 | D-5 | **Vendor compliance document types** — six fixed types gate the COI chase and dispatchability. Egyptian vendor compliance varies (social-insurance certificate, tax clearance, civil-defence licence) | LANG-ARRAY | `lang/en/admin/vendors.php:23` | 🟠 |
 | D-6 | **Departments** — rows and screen both exist; `canCreate()` simply `return false;`. Frozen at five seeded **English-only** names with no `name_ar`, inside an otherwise bilingual panel. Lowest effort on this list | ROW, seed-only | `app/Filament/Admin/Resources/Departments/DepartmentResource.php:43-46` | 🟠 |
@@ -407,7 +407,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-11**~~ ✅ | **DONE 2026-08-21.** Closed X-5, X-6 and X-8 together. **A rail names its ledger account DIRECTLY, not a `PostingRoles` key** — a role exists so a code path can ask for "the bank account" without knowing the chart, and a rail is operator data pointing at operator data. Decisive against roles: `Health::accountingReadiness()` requires every role to be mapped, so a clearing role per rail would have turned a BLOCKING health row red on every existing install, and two rails could never have had two different clearing accounts. **Six journalizers, not the four the row named** — `Expense` and `Disbursement` read columns this widens and carried the mirror ternary, which sends `bank_transfer` to CASH once the set grows | X-5, X-6, X-8 | 🧑‍💻 | M |
 | **EG-12** | **`bank_account_id` on the money documents**, and teach the journalizers to read `BankAccount::ledger_account_id` | X-7 | 🧑‍💻 | M |
 | ~~**EG-13**~~ ✅ | **DONE 2026-08-21.** Built on EG-11's pattern with its review's lessons applied up front rather than after: all four journalizers and all eight surfaces converted in one pass, the seeder wired into all three entry points, and the surface gate GENERALISED to both catalogues rather than duplicated. Two things the row did not name and the work needed: `CostNature::categoriesOf()` — the REVERSE direction — still read only the const, so a category an operator marked `fixed` would answer `fixed` one way and be absent the other, and a CAM pool filtered by nature would omit a cost that was itself classified correctly. And the three category columns had no value set at all | D-1 | 🧑‍💻 | M |
-| **EG-14** | **Tenant request types + subcategories + SLA hours become rows**, and re-seat `tradeForRequest()` on the trades register so lifts, generators, fire safety, pest and security are reportable | D-3 | 🧑‍💻 | M |
+| ~~**EG-14**~~ ✅ | **DONE 2026-08-21.** Deliberately narrower than the row as written: subcategories and per-type SLA became rows, the TYPE did not. Four things the ticket did not name — a nullable column inside a UNIQUE silently stops enforcing it (SQL treats NULLs as distinct, so two conflicting `urgent` policies both saved and the existing uniqueness test went green because its expected exception stopped being thrown); MySQL refused the migration three ways sqlite would have accepted; `request_type` is cast to the enum so `(string)` on it is a TypeError; and **the helper-uniqueness gate had been blind since it was written** — `T_CURLY_OPEN` vs a plain `}` drove its depth counter negative on any file with string interpolation, so `tests/Pest.php`, the one file CLAUDE.md says to put shared helpers in, was the one it could not see | D-3 | 🧑‍💻 | M |
 | **EG-15** | **Operator-editable document/message templates** — invoice terms, footer, bank details, dunning wording. A `document_templates` table + a rich editor + a mail tab | S-6 | 🧑‍💻 | L |
 | **EG-16** | **Mall logo on PDFs** — the media collection already exists | S-8 | 🧑‍💻 | S |
 | **EG-17** | **Publish the mail views and make them RTL-aware**, copying the PDF layer's `$isRtl` pattern | S-10 | 🧑‍💻 | S |
@@ -865,13 +865,47 @@ an operator's screen did so in two languages.
 
 ---
 
-**Deployment notes, cumulative across all eight milestones:**
+### 2026-08-21 — milestone 9: EG-14, a tenant can report a stuck lift
+
+`TenantRequestType::subcategories()` returned seven maintenance values; `trades` seeds fourteen, and
+the bridge between them was a **string match**. Seven trades the operator dispatches every week could
+not be reported — lift, generator, fire safety, pest, security, landscaping, waste — so the tenant
+picked "other" and the corrective work order was raised with **no trade at all**: invisible to every
+by-trade report, to the craft rate the cost object reads, and to vendor eligibility.
+
+A foreign key fixes it at the root, and bridges `fire_safety` → `fire-safety`, one hyphen apart,
+which the string match could never have done. **That is the case the regression test uses**: most
+subcategory codes equal their trade code, so a test built on `elevator` passes with the fix reverted
+— which is what my first one did.
+
+**A deliberate narrowing:** the request TYPE stays a PHP enum. It carries behaviour, and rows would
+let an operator create a type the code has no answers for. Only the vocabulary moved. Per-type SLA
+became one new tier on the register that already answers this per property, not a new table.
+
+**Four things the ticket did not name:**
+
+| | |
+|---|---|
+| 🔴 | **A nullable column inside a UNIQUE stops enforcing it.** My first cut made `sla_policies.request_type` nullable; SQL treats NULLs as DISTINCT, so two conflicting `urgent` policies for one property both saved and the resolver would take whichever the index returned first. The existing uniqueness test went green **because its expected exception stopped being thrown** — a test that asserts a throw silently passes when the throw disappears in the other direction |
+| 🟠 | **MySQL refused the migration three ways sqlite would have accepted** — the 64-character identifier limit on an auto-generated index name; a unique that cannot be dropped while it is the only index backing a foreign key; and no transactional DDL, so each failure left partial state. Rollback verified both ways |
+| 🟠 | **`request_type` is cast to the enum**, so `(string)` on it is a TypeError — the collision between a cast column and code expecting the raw value that `ValueSets` documents |
+| 🔴 | **The helper-uniqueness gate had been blind since it was written.** I added a helper to `tests/Pest.php` that already existed in a test file; the suite exited **255 with zero bytes on both streams** and the gate stayed green. PHP's tokenizer emits `T_CURLY_OPEN` — an ARRAY token — for `"{$x}"` and a **plain** `}` for its close, so every interpolated string decremented the depth counter without incrementing it. A file with a few of them sat at negative depth for the rest of the scan and no file-scope function in it was ever recorded. `tests/Pest.php` is full of interpolation, so the one file CLAUDE.md tells you to put shared helpers in was precisely the one this gate could not see |
+
+That last one is the most useful thing in this milestone. It is a **gate that reported on a set it
+had silently stopped collecting** — the same class as the reconciliation check that could not fail
+and the conformance sweep that matched zero models, and the third instance this project has found.
+The tell was not the gate; it was a 255 with no output, which the gate's own docblock names as the
+symptom it exists to prevent.
+
+---
+
+**Deployment notes, cumulative across all nine milestones:**
 
 - **`docs/qa/scripts/baseline.sql` must be regenerated before `composer qa` or `composer test:mysql`.**
   It now predates four things: the `leases.billing_day` drop (milestone 1), the
   `tax.seller_billing_email` settings row (milestone 3), the `holidays` table plus the
   `calendar.*` / `sla.sla_working_clock_priorities` settings rows (milestone 4), and
-  `tenant_requests.sla_clock` (milestone 5), the `payment_methods` table (milestone 7), and the `expense_categories` table (milestone 8). The settings rows are the sharp ones — an
+  `tenant_requests.sla_clock` (milestone 5), the `payment_methods` table (milestone 7), the `expense_categories` table (milestone 8), and `tenant_request_subcategories` + `sla_policies.request_type` (milestone 9). The settings rows are the sharp ones — an
   **exception**, not drift: `reset.sh` restores the dump without migrating, so the first
   `app(TaxSettings::class)` / `app(CalendarSettings::class)` throws `MissingSettings`. Run
   `composer qa:baseline` (needs MySQL).

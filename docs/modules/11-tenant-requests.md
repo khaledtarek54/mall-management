@@ -58,7 +58,7 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 
 | Type | Sub-categories | SLA | Routes to | Ref prefix |
 |------|----------------|-----|-----------|-----------|
-| maintenance | electrical, plumbing, hvac, structural, cleaning, safety, other | yes (operator-tunable via SlaSettings) | Operations | `MR` |
+| maintenance | **rows** in `tenant_request_subcategories`, each optionally linked to a `Trade` — 14 seeded, one per trade | yes (operator-tunable via SlaSettings, and per-type via an `sla_policies` row) | Operations | `MR` |
 | complaint | noise, cleanliness, conduct, other | yes (code map) | Operations | `CR` |
 | access | keys_cards, parking, after_hours, visitor, delivery | yes (code map) | Operations | `AR` |
 | document | lease_copy, renewal, termination_notice, noc_certificate | no | Leasing | `DR` |
@@ -159,6 +159,38 @@ order** (module 26), which carries its own `asset_id`.
 - low: 168 hours (default config: 336h = 14d; Settings SLA: 168h)
 
 On `create()`, the service calls `defaultTargetResolution($priority)` to compute the target: reads from SlaSettings first (via app()), then falls back to config/sla.php. If Settings fails to load, uses config only (guards against missing rows in minimal test envs).
+
+### What a tenant may report (EG-14, 2026-08-21)
+
+`tenant_request_subcategories` — a row per reportable problem, under a request type, **linked to a
+`Trade` by foreign key**.
+
+**Why a key and not a name.** `TenantRequestType::subcategories()` listed seven maintenance values;
+`trades` seeds fourteen, and `RaiseCorrectiveWorkOrderService::tradeForRequest()` bridged them by
+comparing `tenant_requests.category` against `trades.code`. Nothing kept the two in step, so a
+tenant could not report a **stuck lift, a generator failure, a fire-safety fault, a pest problem, a
+security issue, a landscaping fault or a waste problem**. They picked "other", and the corrective
+work order was raised with no trade: invisible to every by-trade report, to the craft rate
+`recomputeCosts()` reads, and to vendor eligibility. All seven are now seeded and active.
+
+The link also survives a code mismatch the string match could not: `fire_safety` points at the
+`fire-safety` trade, one hyphen apart.
+
+**A subcategory is not always a trade.** `trade_id` is NULL for a noise complaint, a lease copy, a
+parking pass — those are problems, not crafts, and copying the category across as a trade is what
+put `noise` and `lease_copy` in the trade column for the whole of module 26's life.
+
+**The TYPE is still a PHP enum, deliberately.** It carries behaviour — `requiresDecision()`,
+`allowsScheduling()`, `referencePrefix()`, `defaultDepartmentSlug()` — and CLAUDE.md's rule is that
+an enum is the better shape where one exists. Rows would let an operator create a type the code has
+no answers for. Only the vocabulary moved, and the enum's lists remain the FLOOR for an unseeded
+database.
+
+**Per-type SLA is one new tier**, not a new table: an `sla_policies` row may name a `request_type`,
+and one that does beats one that does not. `request_type` is NOT NULL with an `any` sentinel —
+nullable would have silently destroyed the per-property uniqueness, because SQL treats NULLs as
+distinct. Below that tier nothing changed: maintenance still takes the operator-wide setting, and the
+other types still take `TenantRequestType::slaHours()`.
 
 **Which CLOCK those hours run on** (EG-38, 2026-08-21). `SlaSettings::sla_working_clock_priorities`
 lists the priorities measured on the mall's **working** calendar rather than the wall clock, and it
