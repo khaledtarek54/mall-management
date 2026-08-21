@@ -30,7 +30,8 @@ class TenantRequestSlaBreachedNotification extends Notification
 
     public function toDatabase(object $notifiable): array
     {
-        $hoursOver = (int) abs($this->request->target_resolution_at?->diffInHours(now()) ?? 0);
+        // Measured on the clock the request was PROMISED on — see TenantRequest::hoursOverSla().
+        $hoursOver = $this->request->hoursOverSla();
 
         return [
             'type' => 'request_sla_breached',

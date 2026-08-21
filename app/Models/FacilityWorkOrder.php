@@ -214,14 +214,14 @@ class FacilityWorkOrder extends Model implements HasMedia
         'fault_recorded_at' => 'datetime',
     ];
 
-    /** SLA measured on bare calendar hours — the behaviour that predates the working calendar. */
-    public const SLA_CLOCK_CALENDAR = 'calendar';
+    // The canonical pair lives on `SlaResolver`, which both modules already share for SLA HOURS —
+    // module 11 needs the same two values and must not reach into module 26 for them.
+    public const SLA_CLOCK_CALENDAR = SlaResolver::CLOCK_CALENDAR;
 
-    /** SLA measured in working time: Sun–Thu, working hours, holidays skipped. */
-    public const SLA_CLOCK_WORKING = 'working';
+    public const SLA_CLOCK_WORKING = SlaResolver::CLOCK_WORKING;
 
     /** @var array<int, string> */
-    public const SLA_CLOCKS = [self::SLA_CLOCK_CALENDAR, self::SLA_CLOCK_WORKING];
+    public const SLA_CLOCKS = SlaResolver::CLOCKS;
 
     protected $attributes = [
         'status' => 'open',

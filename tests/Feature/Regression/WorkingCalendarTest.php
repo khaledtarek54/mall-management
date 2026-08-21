@@ -29,9 +29,12 @@
 | under test and, crucially, prove the default path is untouched.
 */
 
+use App\Enums\TenantRequestType;
 use App\Models\FacilityWorkOrder;
 use App\Models\Holiday;
+use App\Models\TenantRequest;
 use App\Services\FacilityWorkOrderService;
+use App\Services\TenantRequestService;
 use App\Settings\CalendarSettings;
 use App\Settings\SlaSettings;
 use App\Support\SlaResolver;
@@ -56,21 +59,14 @@ beforeEach(function () {
     });
 });
 
-afterEach(fn () => CarbonImmutable::setTestNow());
-
-/** A corrective order at this property, which is the only kind that carries an SLA. */
-function correctiveOrder(array $attrs = []): FacilityWorkOrder
-{
-    return FacilityWorkOrder::create(array_merge([
-        'asset_id' => test()->asset->id,
-        'work_order_type' => 'cm',
-        'execution_type' => 'internal',
-        'title' => 'Fix compressor',
-        'description' => 'Compressor fault.',
-        'trade_id' => tradeId('hvac'),
-        'scheduled_for' => '2026-09-17',
-    ], $attrs));
-}
+afterEach(function () {
+    CarbonImmutable::setTestNow();
+    // One case below pins the PROCESS timezone (not just the config) because it compares a stored
+    // deadline against a live `now()`. Restoring here rather than in that test means an assertion
+    // failure cannot leak Cairo into the rest of the file — or, under `--parallel`, into whatever
+    // else this worker runs next.
+    date_default_timezone_set('UTC');
+});
 
 /** Cairo, not UTC — see the header. */
 function cairo(string $when): CarbonImmutable
@@ -285,6 +281,121 @@ it('keeps the promised clock when a job is accepted', function () {
 
     expect($accepted->sla_clock)->toBe(FacilityWorkOrder::SLA_CLOCK_WORKING)
         ->and($accepted->target_resolution_at->format('Y-m-d H:i'))->toBe($expected->format('Y-m-d H:i'));
+});
+
+it('honours the same setting in module 11, not just module 26', function () {
+    // EG-38. `SlaSettings` is shared — its own docblock says so — and the first cut of the working
+    // calendar wired module 26 only. An operator ticking `medium` then got two different SLA
+    // semantics for the same priority depending on whether the fault arrived as a tenant request or
+    // as a work order: the split-brain the maintenance rename was done to end.
+    tap(app(SlaSettings::class), function (SlaSettings $s) {
+        $s->sla_working_clock_priorities = ['medium'];
+        // Pinned, not inherited: the shipped default is 72h, which from a Thursday afternoon lands
+        // on SUNDAY — a working day in Egypt either way — so a test written on the default asserts
+        // nothing. 24h is the interval that separates the two clocks.
+        $s->sla_medium_hours = 24;
+    });
+
+    CarbonImmutable::setTestNow(cairo('2026-09-17 15:00')); // Thursday, two hours before close
+
+    // The premise, asserted rather than assumed: on the bare calendar this request falls due inside
+    // the weekend, with nobody on site. If a future settings change made that untrue, this test
+    // would be measuring nothing and should say so here rather than pass quietly.
+    $onTheCalendar = now()->addHours(24);
+    expect(WorkingCalendar::isWorkingDay($onTheCalendar, $this->asset->id))->toBeFalse();
+
+    $unit = makeUnit($this->asset);
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    // `create()` clamps the unit to the tenant's OWN lease, deliberately, so a crafted payload
+    // cannot file against another retailer's shop.
+    makeLease($unit, $tenant, ['status' => 'active']);
+
+    $request = app(TenantRequestService::class)->create([
+        'unit_id' => $unit->id,
+        'request_type' => TenantRequestType::Maintenance->value,
+        'priority' => 'medium',
+        'title' => 'Air conditioning is dead',
+        'description' => 'No cooling in the unit.',
+    ], $tenant)->fresh();
+
+    expect($request->sla_clock)->toBe(TenantRequest::SLA_CLOCK_WORKING)
+        // The deadline moved off the weekend…
+        ->and(WorkingCalendar::isWorkingDay($request->target_resolution_at, $this->asset->id))->toBeTrue()
+        // …and moved LATER, which is the half a working-day check alone cannot see: Friday 15:00
+        // and the following Tuesday 15:00 are both answers, and only one of them was promised.
+        ->and($request->target_resolution_at->greaterThan($onTheCalendar))->toBeTrue();
+
+    // The control. With the setting off — the shipped state — module 11 is byte-identical to the
+    // `now()->addHours()` this replaced, so the feature costs nothing until an operator asks for it.
+    tap(app(SlaSettings::class), fn (SlaSettings $s) => $s->sla_working_clock_priorities = []);
+
+    expect(app(TenantRequestService::class)->defaultTargetResolution('medium', $this->asset->id)
+        ->equalTo(now()->addHours(24)))->toBeTrue();
+});
+
+it('will not let the party raising a request choose its own clock', function () {
+    // `sla_clock` is fillable on TenantRequest (it cannot be guarded — the admin road is a Filament
+    // CreateRecord, which would silently drop a non-fillable key). What keeps it safe is that both
+    // writers set it themselves. This pins the portal/API road: the service builds an explicit
+    // whitelist and never spreads the client payload, so a crafted submit asking for the working
+    // clock — a materially later deadline — is ignored rather than honoured.
+    tap(app(SlaSettings::class), fn (SlaSettings $s) => $s->sla_working_clock_priorities = []);
+
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    $unit = makeUnit($this->asset);
+    makeLease($unit, $tenant, ['status' => 'active']);
+
+    $request = app(TenantRequestService::class)->create([
+        'unit_id' => $unit->id,
+        'request_type' => TenantRequestType::Maintenance->value,
+        'priority' => 'medium',
+        'title' => 'Air conditioning is dead',
+        'description' => 'No cooling in the unit.',
+        'sla_clock' => TenantRequest::SLA_CLOCK_WORKING, // the crafted field
+    ], $tenant)->fresh();
+
+    expect($request->sla_clock)->toBe(TenantRequest::SLA_CLOCK_CALENDAR);
+});
+
+it('measures a tenant request\'s overrun on the clock it was promised on', function () {
+    // The bell entry quotes this number. A request promised on the working clock, breached Thursday
+    // evening and read on Sunday morning is not "62 hours late" — the mall was shut for two of
+    // them. That figure tells the operator the failure is an order of magnitude worse than it is.
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    $unit = makeUnit($this->asset);
+
+    // Both sides of the subtraction must agree on what "16:00" means. The suite pins the process to
+    // UTC, and Laravel's `datetime` cast reads a stored wall clock in the PROCESS timezone — so a
+    // Cairo 16:00 comes back out of the model as 16:00 UTC, three hours adrift, while `now()` stays
+    // honest. That is a property of the test harness, not of the code: production runs Cairo end to
+    // end (`config/app.php`) and the two agree. Pinning the process here reproduces production;
+    // `afterEach` puts UTC back.
+    date_default_timezone_set('Africa/Cairo');
+
+    $due = cairo('2026-09-17 16:00'); // Thursday, an hour before close
+
+    $request = TenantRequest::factory()->create([
+        'tenant_id' => $tenant->id,
+        'unit_id' => $unit->id,
+        'status' => 'in_progress',
+        'target_resolution_at' => $due,
+        'sla_clock' => TenantRequest::SLA_CLOCK_WORKING,
+    ]);
+
+    CarbonImmutable::setTestNow(cairo('2026-09-20 11:00')); // Sunday morning
+
+    // Thursday 16:00→17:00 is one working hour; Friday and Saturday are the weekend; Sunday
+    // 09:00→11:00 is two. Three, not the 67 a calendar subtraction reports.
+    expect($request->hoursOverSla())->toBe(3);
+
+    // The control: the same request on the calendar clock — the shipped default — still reports the
+    // full elapsed time, so this changes nothing for an operator who never turned the feature on.
+    $request->sla_clock = TenantRequest::SLA_CLOCK_CALENDAR;
+    expect($request->hoursOverSla())->toBe(67);
+
+    // And a request inside its window reports nothing rather than a negative.
+    CarbonImmutable::setTestNow(cairo('2026-09-17 10:00'));
+    expect($request->hoursOverSla())->toBe(0);
 });
 
 it('clamps a working week somebody emptied back to Egypt rather than stopping the clock', function () {

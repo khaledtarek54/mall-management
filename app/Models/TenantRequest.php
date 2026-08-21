@@ -7,6 +7,8 @@ use App\Models\Concerns\HasSearchText;
 use App\Services\NotifyAreaSupervisorsService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\SlaResolver;
+use App\Support\WorkingCalendar;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +25,24 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 class TenantRequest extends Model implements HasMedia
 {
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
+
+    // Shared with module 26 through `SlaResolver`, which both modules already use for SLA HOURS.
+    //
+    // Unlike `FacilityWorkOrder`, `sla_clock` IS fillable here, and that difference is deliberate.
+    // A work order's clock is only ever written by its service, so guarding the attribute costs
+    // nothing. A tenant request has two intake roads, and the admin one is a Filament
+    // `CreateRecord` — which mass-assigns the mutated form data, and would silently DROP a
+    // non-fillable key. The freeze would then be missing on exactly one of the two roads, with no
+    // error to say so. Both writers set the value themselves instead: the service builds an
+    // explicit whitelist (it never spreads the client payload) and the page force-sets
+    // `$data['sla_clock']` after resolving it, so a crafted Livewire submit cannot choose its own
+    // deadline semantics. A third intake road must do one of those two things.
+    public const SLA_CLOCK_CALENDAR = SlaResolver::CLOCK_CALENDAR;
+
+    public const SLA_CLOCK_WORKING = SlaResolver::CLOCK_WORKING;
+
+    /** @var array<int, string> */
+    public const SLA_CLOCKS = SlaResolver::CLOCKS;
 
     public const STATUSES = [
         'submitted',
@@ -67,7 +87,7 @@ class TenantRequest extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'valid_from', 'valid_to', 'resolution_notes', 'decision', 'decision_reason', 'csat_rating', 'confirmed_at'])
+            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'sla_clock', 'valid_from', 'valid_to', 'resolution_notes', 'decision', 'decision_reason', 'csat_rating', 'confirmed_at'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('tenant_request');
@@ -98,6 +118,10 @@ class TenantRequest extends Model implements HasMedia
         'decided_at',
         'decided_by',
         'submitted_at',
+        // Fillable because BOTH intake roads write it through mass assignment — the service's
+        // `create()` and the admin page's `mutateFormDataBeforeCreate`. No form offers it: an
+        // operator changes the POLICY, never one request's clock.
+        'sla_clock',
         'acknowledged_at',
         'resolved_at',
         'closed_at',
@@ -392,6 +416,45 @@ class TenantRequest extends Model implements HasMedia
         return $this->isOpen()
             && $this->target_resolution_at
             && $this->target_resolution_at->isPast();
+    }
+
+    /**
+     * How far past its deadline this request is, ON THE CLOCK IT WAS PROMISED (EG-38).
+     *
+     * The bell entry quotes this number to an operator, so it has to be measured the same way the
+     * deadline was set. A request promised on the working clock and breached on a Thursday evening
+     * is not "62 hours late" by Sunday morning — the mall was shut for two of those days, and a
+     * figure that counts them tells the operator the failure is fifteen times worse than it is.
+     * There is no money on this one (module 26's `daysOverSla()` drives a GL penalty; this drives a
+     * sentence), which is exactly why it needs saying once here rather than at each reader.
+     *
+     * Zero when the request is not breached at all, so a caller can print it without a guard.
+     */
+    public function hoursOverSla(): int
+    {
+        if ($this->target_resolution_at === null) {
+            return 0;
+        }
+
+        $end = now();
+
+        if ($end->lessThanOrEqualTo($this->target_resolution_at)) {
+            return 0;
+        }
+
+        if ($this->sla_clock === self::SLA_CLOCK_WORKING) {
+            // Through the unit, because that is where this model's property lives —
+            // `#[PropertyOwned(via: 'unit')]`, not a column of its own. A null unit falls back to
+            // the portfolio calendar, which is the same thing the service did when it set the
+            // deadline, so the two measures stay commensurate.
+            return (int) floor(
+                WorkingCalendar::workingSecondsBetween(
+                    $this->target_resolution_at, $end, $this->unit?->asset_id
+                ) / 3600
+            );
+        }
+
+        return (int) abs($this->target_resolution_at->diffInHours($end));
     }
 
     /**

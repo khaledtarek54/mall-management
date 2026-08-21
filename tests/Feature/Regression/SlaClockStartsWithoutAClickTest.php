@@ -37,21 +37,6 @@ beforeEach(function () {
     $settings->save();
 });
 
-function correctiveOrder(array $attrs = []): FacilityWorkOrder
-{
-    return FacilityWorkOrder::create(array_merge([
-        'asset_id' => test()->asset->id,
-        'work_order_type' => FacilityWorkOrder::TYPE_CM,
-        'execution_type' => 'internal',
-        'title' => 'Chiller down',
-        'description' => 'No cooling on level 2.',
-        'trade_id' => tradeId('hvac'),
-        'status' => 'open',
-        'priority' => 'high',
-        'scheduled_for' => now()->toDateString(),
-    ], $attrs));
-}
-
 it('gives every corrective order a deadline the moment it is raised', function () {
     // The headline. Before, both columns were null until somebody clicked Start.
     $order = correctiveOrder();

@@ -173,9 +173,14 @@ the moment a job is taken on; doing that in bare hours discarded the working dea
 working one is always later in wall-clock the `min()` that follows picked the calendar figure every
 time — leaving a job stamped `working` whose deadline was not.
 
-**Module 11 is NOT wired yet.** `TenantRequestService`'s two clocks are still bare
-`now()->addHours()`, so the shared `SlaSettings` knob is honoured by module 26 and ignored by module
-11. Tracked as EG-38 in [EGYPT-MARKET-FIT](../EGYPT-MARKET-FIT.md).
+**Module 11 is wired too** (EG-38, 2026-08-21). `SlaSettings` is shared, so a knob honoured here and
+ignored there meant `medium` had two meanings depending on whether the fault arrived as a work order
+or a tenant request. Both modules now take the canonical clock names from `SlaResolver::CLOCK_*`
+(neither owns that vocabulary) and both freeze the answer on the row —
+`facility_work_orders.sla_clock` and `tenant_requests.sla_clock`. The measure has to follow the
+clock, not just the deadline: `daysOverSla()` here prices a GL penalty, and
+`TenantRequest::hoursOverSla()` there words the breach bell. See
+[modules/11](11-tenant-requests.md).
 
 **Deliberately NOT in scope: PM compliance.** A PPM order never receives an SLA clock —
 `stampSlaClocks()` returns early for anything non-corrective — and skipping Fri/Sat before calling a

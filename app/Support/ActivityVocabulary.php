@@ -81,6 +81,9 @@ class ActivityVocabulary
         // for a field literally called `status`.
         'holiday.kind' => 'admin.facility.holiday.kinds',
         'facility_work_order.sla_clock' => 'admin.facility.sla_clocks',
+        // The SAME catalogue: module 11 and module 26 promise on one set of clocks, and a
+        // second list of words for it would be a second answer to one question.
+        'tenant_request.sla_clock' => 'admin.facility.sla_clocks',
         // Statuses whose catalogue is not `admin.statuses.{log_name}`.
         'disbursement.status' => 'admin.disbursements.statuses',
         'employee.status' => 'admin.employees.statuses',

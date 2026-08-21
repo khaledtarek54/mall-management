@@ -101,6 +101,7 @@ class OwnerVisibility
     public const OPERATOR_INTERNAL = [
         'failure_codes' => "The operator's own reliability vocabulary — what went wrong, why, and what was done about it. An owner sees the cost of the work and the condition of the asset; how Eltizam classifies its own faults is management practice, not a fact about the property.",
         'trades' => "Operator configuration: which kinds of work exist, what an hour of each costs the operator, and which contractor is eligible for it. An owner sees what the work COST on his statement; the operator's own rate card and contractor panel are how it manages the building, not a fact about the property's income.",
+        'holidays' => "The operator's working calendar — which days the mall's people are not at work, and on what hours during Ramadan. It decides when an SLA falls due, so an owner sees its effect in whether a job was late; the calendar itself is how Eltizam staffs the building, not a fact about the property.",
         'work_permits' => "Eltizam's own safety process and the contractors it authorises. An owner reading it learns which firms work the building and how the operator controls them — the operator's management practice, not the property's income. Reclassify if an owner ever needs to evidence safety compliance to an insurer.",
         // ---- The operator's counterparties ----
         // Deliberately internal FOR NOW, and it is a decision rather than an oversight: the

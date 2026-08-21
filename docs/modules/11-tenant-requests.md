@@ -109,6 +109,7 @@ these fields, so a permit is a typed request with a validity window and nothing 
 | scheduled_to | timestamp | nullable | Planned end of work window (must be ≥ scheduled_from if both set) |
 | valid_from | date | nullable | Permit validity window start (FR-REQ-14). Null for non-permit requests. |
 | valid_to | date | nullable | Permit validity window end (FR-REQ-14). Must be ≥ valid_from if both set (enforced in `TenantRequest::booted`). Null for non-permit requests. |
+| sla_clock | string(16) | nullable | Which clock this request's deadline was promised on — `calendar` or `working`. **Frozen at intake**, never re-resolved: a pending SLA is re-read on every breach scan, so resolving it at read time would re-time every running request the moment an operator changed the setting. Null on rows raised before EG-38, which read as `calendar` — the behaviour they were actually given. |
 | sla_breach_notified_at | timestamp | nullable | Stamped by scan-sla-breaches after firing alert (idempotency guard) |
 | csat_rating | tinyint | nullable | Close-out satisfaction score (1–5). Captured from the tenant once the request is resolved/closed — via the portal "Rate" action or `POST /me/requests/{id}/rate`. Recorded by `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable). Shown as a toggleable admin column. |
 | csat_comment | text | nullable | Optional free-text feedback accompanying the CSAT score |
@@ -159,8 +160,38 @@ order** (module 26), which carries its own `asset_id`.
 
 On `create()`, the service calls `defaultTargetResolution($priority)` to compute the target: reads from SlaSettings first (via app()), then falls back to config/sla.php. If Settings fails to load, uses config only (guards against missing rows in minimal test envs).
 
+**Which CLOCK those hours run on** (EG-38, 2026-08-21). `SlaSettings::sla_working_clock_priorities`
+lists the priorities measured on the mall's **working** calendar rather than the wall clock, and it
+is **shared with module 26** — the setting is named for neither module precisely because both read
+it. Until EG-38 only module 26 honoured it, so an operator who ticked `medium` got two different
+meanings for the same word depending on whether the fault arrived as a tenant request or as a work
+order. It ships **empty**, which is the pre-EG-08 behaviour: `now()->addHours($n)`, unchanged.
+
+With a priority listed, `App\Support\WorkingCalendar` advances the deadline over Egypt's Friday–
+Saturday weekend, the operator's holiday register and Ramadan short days, resolved **per property**
+(a mall closed for a fit-out day is not a national holiday). A 24-hour medium request raised
+Thursday afternoon then falls due the following week rather than on a Friday with nobody on site.
+
+Two things are frozen rather than re-derived, and both matter:
+- **`sla_clock` is stamped on the request at intake.** Changing the setting re-times nothing already
+  promised — the same rule module 26 applies to a work order.
+- **`TenantRequest::hoursOverSla()` measures the overrun on that same stored clock.** It is the one
+  definition; the breach bell quotes it. A request promised on the working clock, breached Thursday
+  evening and read Sunday morning is *three* hours late, not sixty-seven — the mall was shut for two
+  of those days, and the calendar figure told the operator the failure was twenty times worse.
+
+**Three intake roads, one answer.** The portal and `/api/v1` both go through
+`TenantRequestService::create()`, which resolves the clock from the unit's property and writes it in
+an explicit whitelist — it never spreads the client payload, so a crafted submit asking for a later
+deadline is ignored. The admin `CreateTenantRequest` page resolves the same way and force-sets
+`$data['sla_clock']`, including when the operator typed their own deadline: a hand-set target is
+still measured against something. `sla_clock` is fillable here (unlike on `FacilityWorkOrder`)
+because Filament's `CreateRecord` mass-assigns and would silently DROP a guarded key — see the
+model's docblock.
+
 **Formulas (verbatim from code)**:
-- `target_resolution_at = now() + (priority_hours from settings or config)`
+- `target_resolution_at = now() + (priority_hours from settings or config)`, advanced over the
+  working calendar when `sla_clock = 'working'`
 - `isOpen()` returns true if `status in ['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant']`
 - `isOverdue()` returns true if `isOpen() && target_resolution_at && target_resolution_at.isPast()`
 - `isTerminal()` returns true if `status in ['closed', 'cancelled']`

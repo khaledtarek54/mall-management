@@ -30,6 +30,7 @@ class ReceiptPdfService
         // (the template is null-safe) which is why nobody reported it. `asset_id` is NOT NULL:
         // `Invoice::deriveAssetId()` stamps it with `withTrashed()` and the model refuses to save
         // without one.
+        $asset = $payment->invoices->first()?->asset;
 
         $html = View::make('payments.receipt', [
             'payment' => $payment,

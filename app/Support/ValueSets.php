@@ -170,6 +170,7 @@ class ValueSets
         // deliberately not a member: it means nobody has answered (or the row predates the
         // column), which readers must not render as either outcome.
         'tenant_requests.decision' => ['approved', 'rejected'],
+        'tenant_requests.sla_clock' => ['calendar', 'working'],
         'tenant_requests.priority' => ['low', 'medium', 'high', 'urgent'],
         'tenant_requests.status' => [
             'submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled',

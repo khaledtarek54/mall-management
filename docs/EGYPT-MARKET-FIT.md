@@ -318,7 +318,7 @@ operator will want to change in week one.
 
 | # | Finding | Where | Rating |
 |---|---|---|---|
-| C-1 🟠 | **PARTLY FIXED 2026-08-21 (EG-08).** A working calendar exists and module 26's work-order clocks use it. **Module 11's two clocks do not** — `TenantRequestService.php:158,565` are still bare `now()->addHours()`, `tenant_requests` has no `sla_clock` column, and the shared `SlaSettings` knob is therefore honoured by one consumer of two. An operator who ticks `medium` gets different SLA semantics depending on whether the ticket arrived as a tenant request or a work order. See EG-38. ~~There is no working calendar.~~ Searched `isWeekend\|isWeekday\|dayOfWeek\|Carbon::FRIDAY\|nextWeekday\|businessDay\|working_day\|business_day` across `app/ config/ database/ resources/` — **one hit, in report scheduling.** Every SLA clock is `created_at->addHours(n)` | `app/Models/FacilityWorkOrder.php:491,497`; `app/Services/TenantRequestService.php:158,565`; `app/Services/FacilityWorkOrderService.php:91` | 🔴 |
+| ~~C-1~~ ✅ | **FIXED 2026-08-21 (EG-08 + EG-38).** A working calendar exists and **both** SLA consumers use it: module 26's work-order clocks (EG-08) and module 11's tenant-request clocks (EG-38). The shared `SlaSettings::sla_working_clock_priorities` knob now means one thing across both modules, each job freezes the clock it was promised on, and the overrun an operator reads is measured on that same clock. Ships **off** — the setting is empty until the operator rules on which priorities are office work. ~~There is no working calendar.~~ Searched `isWeekend\|isWeekday\|dayOfWeek\|Carbon::FRIDAY\|nextWeekday\|businessDay\|working_day\|business_day` across `app/ config/ database/ resources/` — **one hit, in report scheduling.** Every SLA clock was `created_at->addHours(n)` | `app/Support/WorkingCalendar.php`; `app/Models/FacilityWorkOrder.php`; `app/Services/TenantRequestService.php`; `app/Models/TenantRequest.php` | 🔴 |
 | C-2 ✅ | **FIXED 2026-08-21 (EG-08).** ~~No public-holidays table.~~ `ls database/migrations \| grep -i "holiday\|calendar\|working"` → nothing. Egypt has ~15 public days; **the Eids move on the Hijri calendar and are set by moon sighting**, and mid-week holidays are routinely shifted to Thursday — so they can only ever be a table the operator maintains annually. **This gap is not recorded in the gap analysis** — it is unknown, not deferred | absence proven by the searches named | 🔴 |
 | C-3 | **This is not cosmetic — it posts money.** Vendor SLA penalties are computed off the same clock and journalised. A 24-hour urgent job raised Thursday 17:00 is due Friday 17:00 with the engineering team off; the resulting penalty is a payable an Egyptian contractor will contest and win | `SlaPenaltyJournalizer` | 🔴 |
 | C-4 ✅ | **FIXED 2026-08-21 (EG-08).** ~~No business hours, no Ramadan hours.~~ Ramadan is a `short_day` row, because the dates move every year and cannot be a standing setting. `business_hours\|opening_hours\|trading_hours\|work_start\|shift_start` → **zero**. The only "Ramadan hours" mechanism in the system is an announcement a human types | absence proven | 🟠 |
@@ -400,7 +400,7 @@ credential from the operator/accountant · ⚙️ ops.
 
 | # | Work | Refs | Owner | Size |
 |---|---|---|---|---|
-| **EG-38** | **Module 11's SLA clocks must honour the working calendar too.** `TenantRequestService::targetResolutionFor()` and `::defaultTargetResolution()` are bare `now()->addHours()`; neither takes an asset id (a `TenantRequest` is `#[PropertyOwned(via: 'unit')]`, so it must be derived from the unit) and `tenant_requests` has no frozen-clock column. Until this lands, `SlaSettings::sla_working_clock_priorities` is honoured by module 26 and silently ignored by module 11 — the split-brain the maintenance rename was done to end. Opened by the EG-08 review | C-1 | 🧑‍💻 | M |
+| ~~**EG-38**~~ ✅ | **DONE 2026-08-21.** Module 11 now resolves its SLA on the same clock module 26 does. `SlaResolver` gained the canonical `CLOCK_CALENDAR`/`CLOCK_WORKING` constants both modules reference (module 11 does not reach into module 26 for them); `tenant_requests.sla_clock` freezes the promise at intake; all **three** intake roads write it — portal and `/api/v1` through `TenantRequestService::create()`, plus the admin `CreateTenantRequest` page. Two things the row as written did not ask for and the work needed anyway: `TenantRequest::hoursOverSla()`, because the breach bell was quoting a **calendar** overrun for a request promised on the working clock (67 hours for a 3-hour failure), and a test pinning that a crafted payload cannot choose its own clock | C-1 | 🧑‍💻 | M |
 | **EG-11** | **A per-rail clearing account.** Make the payment method a **row with a `posting_role`**, as `charge_codes` did for revenue — this fixes X-5, X-6 and X-8 at once, and prevents the first real bank reconciliation from producing a gross unmatched population | X-5, X-6, X-8 | 🧑‍💻 | M |
 | **EG-12** | **`bank_account_id` on the money documents**, and teach the journalizers to read `BankAccount::ledger_account_id` | X-7 | 🧑‍💻 | M |
 | **EG-13** | **Expense categories become rows with a `posting_role`** — the only thing deciding which P&L account a supplier bill hits | D-1 | 🧑‍💻 | M |
@@ -721,13 +721,57 @@ which is a rate worth naming rather than explaining away.
 
 ---
 
-**Deployment notes, cumulative across all three milestones:**
+### 2026-08-21 — milestone 5: EG-38, module 11 on the same clock
+
+Finishing what EG-08 started. `SlaSettings::sla_working_clock_priorities` is one setting read by two
+modules; only one of them honoured it. An operator ticking `medium` got a working-calendar deadline
+for a work order and a bare `now()->addHours()` deadline for a tenant request — the same word
+meaning two things, which is the split-brain the maintenance rename was done to end.
+
+| What | Why it is this way |
+|---|---|
+| `SlaResolver::CLOCK_CALENDAR` / `CLOCK_WORKING` / `CLOCKS` | The canonical constants. Module 11 must not reach into `FacilityWorkOrder` for a vocabulary that belongs to neither module — `SlaResolver` is where both already go for SLA *hours* |
+| `tenant_requests.sla_clock`, nullable, **no backfill** | Null reads as `calendar`, which is the behaviour those rows were actually given. Backfilling the current setting onto a pre-feature backlog is the exact mistake the EG-08 review caught in the heal path |
+| Frozen at intake, on all **three** roads | Portal and `/api/v1` share `TenantRequestService::create()`; the admin `CreateTenantRequest` page is the third and resolves identically — including when the operator typed their own deadline, because a hand-set target is still measured against something |
+| `TenantRequest::hoursOverSla()` | Not in the row as written, and the work needed it. The breach bell quoted a **calendar** overrun for a request promised on the working clock: 67 hours for a failure that was 3 working hours old, telling the operator it was twenty times worse than it was. One definition, on the model, next to the deadline it measures |
+| `sla_clock` fillable here, guarded on `FacilityWorkOrder` | A divergence, deliberately. The admin road is a Filament `CreateRecord`, which mass-assigns and would silently **drop** a guarded key — the freeze would then be missing on exactly one road with no error. Both writers set it themselves instead: the service uses an explicit whitelist and never spreads the client payload, the page force-sets it. Pinned by a test that goes red when the payload is spread |
+
+**Found while running the gates, not by looking for it:**
+
+| Finding | What it was |
+|---|---|
+| 🔴 | **`ReceiptPdfService` referenced an undefined `$asset`** — a fatal on every receipt PDF. My own damage from milestone 4's null-lease fix: I wrote the explanatory comment and lost the assignment line. Two test files caught it; both had been green before that milestone |
+| 🟠 | **`correctiveOrder()` was declared in two test files** — the fatal redeclaration `CLAUDE.md` warns about, which `--parallel` hides because a worker only loads its own files. Now shared in `tests/Pest.php`. Fourth occurrence in this project's history |
+| 🟠 | **`holidays` was an unclassified permission group** (`OwnerVisibility`) and the property-isolation doc block was stale — both from milestone 4, both caught by gates I had not re-run across the whole `tests/Feature/Scenarios` directory after that commit |
+
+**A false pass of my own, again caught by mutating my own test.** The first cut asserted that a
+working-clock request "falls due on a working day" — using the shipped 72-hour medium window, which
+from a Thursday afternoon lands on **Sunday**, a working day in Egypt either way. It passed with the
+whole feature reverted. It now pins the interval at 24h, asserts its own premise (that the calendar
+deadline really does land in the weekend), and requires the working deadline to be strictly later.
+Four such passes across five milestones. The pattern is consistent enough to name: every one of them
+was an assertion that happened to be true for a reason unrelated to the change.
+
+**Verification.** All five behavioural mutations go red — reverting `advance()` to bare hours,
+dropping the freeze, ignoring the stored clock, always using the working clock (kills the control),
+dropping the not-yet-breached guard — and spreading the client payload kills the crafted-clock test.
+`tests/Feature/Scenarios` 1457 passed / 3 skipped; `tests/Feature/Regression` 2909 passed / 1 skipped.
+
+---
+
+**Deployment notes, cumulative across all five milestones:**
 
 - **`docs/qa/scripts/baseline.sql` must be regenerated before `composer qa` or `composer test:mysql`.**
-  It now predates two things: the `leases.billing_day` drop (milestone 1) and the
-  `tax.seller_billing_email` settings row (milestone 3). The second is the sharper one — it is an
+  It now predates four things: the `leases.billing_day` drop (milestone 1), the
+  `tax.seller_billing_email` settings row (milestone 3), the `holidays` table plus the
+  `calendar.*` / `sla.sla_working_clock_priorities` settings rows (milestone 4), and
+  `tenant_requests.sla_clock` (milestone 5). The settings rows are the sharp ones — an
   **exception**, not drift: `reset.sh` restores the dump without migrating, so the first
-  `app(TaxSettings::class)` throws `MissingSettings`. Run `composer qa:baseline`.
+  `app(TaxSettings::class)` / `app(CalendarSettings::class)` throws `MissingSettings`. Run
+  `composer qa:baseline` (needs MySQL).
+- **`RolesPermissionsSeeder` must be re-run** for the `holidays.*` permissions (milestone 4).
+  A permission that exists only in the seeder file leaves the screen absent from the navigation for
+  everyone, super_admin included, with no error to say why.
 - ~~`docs/PROJECT-MAP.md`'s generated census is stale.~~ **Regenerated 2026-08-20** — the other
   session's work had landed, so the counts are now honest.
 

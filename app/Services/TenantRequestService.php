@@ -15,6 +15,8 @@ use App\Notifications\PortalRequestSubmittedNotification;
 use App\Notifications\TenantRequestCommentAddedNotification;
 use App\Notifications\TenantRequestStatusChangedNotification;
 use App\Settings\SlaSettings;
+use App\Support\SlaResolver;
+use App\Support\WorkingCalendar;
 use Carbon\Carbon;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
@@ -88,6 +90,12 @@ class TenantRequestService
 
             $priority = $data['priority'] ?? 'medium';
 
+            // A TenantRequest is #[PropertyOwned(via: 'unit')] and has no asset_id of its own, so
+            // the property comes from the unit — needed because the working calendar's holidays are
+            // per property: a mall closed for a fit-out day is not a national holiday.
+            $assetId = $unit?->asset_id;
+            $clock = SlaResolver::clockFor($assetId, $priority);
+
             $request = TenantRequest::create([
                 'reference' => TenantRequest::generateReference(
                     $unit?->asset?->code ?? 'AW',
@@ -108,7 +116,14 @@ class TenantRequestService
                 'title' => $data['title'],
                 'description' => $data['description'],
                 'submitted_at' => now(),
-                'target_resolution_at' => $this->targetResolutionFor($type, $priority),
+                // A TenantRequest is #[PropertyOwned(via: 'unit')] — it has no asset_id of its own,
+                // so the property comes from the unit. Needed because the working calendar's
+                // holidays are per property: a mall closed for a fit-out day is not a national one.
+                'target_resolution_at' => $this->targetResolutionFor($type, $priority, $assetId, $clock),
+                // Frozen with the deadline, for the reason module 26 freezes its own: a pending SLA
+                // is re-read on every breach scan, so resolving the clock at read time would re-time
+                // requests already running the moment an operator changed the setting.
+                'sla_clock' => $clock,
             ]);
 
             $this->notifyOperators($request);
@@ -143,19 +158,41 @@ class TenantRequestService
      * Complaint/Access request created in /admin would wrongly get the
      * maintenance window instead of its own.
      */
-    public function targetResolutionFor(TenantRequestType $type, string $priority): ?Carbon
-    {
+    public function targetResolutionFor(
+        TenantRequestType $type,
+        string $priority,
+        ?int $assetId = null,
+        ?string $clock = null,
+    ): ?Carbon {
         if (! $type->hasSla()) {
             return null;
         }
 
         if ($type === TenantRequestType::Maintenance) {
-            return $this->defaultTargetResolution($priority);
+            return $this->defaultTargetResolution($priority, $assetId, $clock);
         }
 
         $hours = $type->slaHours()[$priority] ?? null;
 
-        return $hours === null ? null : now()->addHours((int) $hours);
+        return $hours === null ? null : $this->advance((int) $hours, $priority, $assetId, $clock);
+    }
+
+    /**
+     * `now()` plus `$hours`, on whichever clock this request is promised.
+     *
+     * The two optional arguments are what let module 11 honour the same `SlaSettings` knob module 26
+     * does (EG-38). They default to null so every existing caller — including the admin create page
+     * and five direct calls in tests — keeps working: a null clock resolves from settings, and with
+     * `sla_working_clock_priorities` empty that is the calendar, byte-identical to the
+     * `now()->addHours()` this replaced.
+     */
+    private function advance(int $hours, string $priority, ?int $assetId, ?string $clock): Carbon
+    {
+        $clock ??= SlaResolver::clockFor($assetId, $priority);
+
+        return $clock === SlaResolver::CLOCK_WORKING
+            ? Carbon::instance(WorkingCalendar::addWorkingHours(now(), $hours, $assetId)->toDateTime())
+            : now()->addHours($hours);
     }
 
     /**
@@ -545,7 +582,7 @@ class TenantRequestService
      * first, then falls back to config/sla.php so a deploy without
      * Settings rows still produces a sensible target (audit M09 F-36 / D-28).
      */
-    public function defaultTargetResolution(string $priority): Carbon
+    public function defaultTargetResolution(string $priority, ?int $assetId = null, ?string $clock = null): Carbon
     {
         try {
             $settings = app(SlaSettings::class);
@@ -560,8 +597,11 @@ class TenantRequestService
             $hours = null;
         }
 
+        // Deliberately NOT folded into `SlaResolver::globalHoursFor()`, which looks equivalent and
+        // is not: this one is wrapped in a catch so a missing settings table cannot break request
+        // creation, and its last-resort fallback is 168 where the resolver's is 72.
         $hours ??= config("sla.{$priority}.resolve_hours", 168);
 
-        return now()->addHours((int) $hours);
+        return $this->advance((int) $hours, $priority, $assetId, $clock);
     }
 }

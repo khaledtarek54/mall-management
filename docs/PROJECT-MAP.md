@@ -29,7 +29,7 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 |---|---|---|---|
 | **114** models | **161** services | **57** admin resources | **9** portal resources |
 | **54** API controllers | **19** dashboard widgets | **52** console commands | **6** queued jobs |
-| **37** notifications | **255** migrations | **37** module docs | **846** test files |
+| **37** notifications | **256** migrations | **37** module docs | **846** test files |
 
 ### Coverage — what the gates actually enforce
 

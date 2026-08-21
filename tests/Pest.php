@@ -2,6 +2,7 @@
 
 use App\Models\Asset;
 use App\Models\DepositTransaction;
+use App\Models\FacilityWorkOrder;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
@@ -607,4 +608,29 @@ function depositMovement(Lease $lease, string $type, float $amount, string $stat
         'amount' => $amount,
         'transaction_date' => '2026-01-05',
     ]);
+}
+
+/**
+ * A corrective work order at `test()->asset`, which is the only kind that carries an SLA.
+ *
+ * Shared rather than per-file: two SLA-clock suites need the same fixture, and a helper of this
+ * name declared in two test files is a FATAL redeclaration on any single-process run — invisible
+ * under `--parallel`, because a worker only loads the files it owns.
+ *
+ * Every field a case cares about is passed by that case; these defaults exist only so a test can
+ * say what it is about without restating a whole work order.
+ */
+function correctiveOrder(array $attrs = []): FacilityWorkOrder
+{
+    return FacilityWorkOrder::create(array_merge([
+        'asset_id' => test()->asset->id,
+        'work_order_type' => FacilityWorkOrder::TYPE_CM,
+        'execution_type' => 'internal',
+        'title' => 'Chiller down',
+        'description' => 'No cooling on level 2.',
+        'trade_id' => tradeId('hvac'),
+        'status' => 'open',
+        'priority' => 'high',
+        'scheduled_for' => now()->toDateString(),
+    ], $attrs));
 }

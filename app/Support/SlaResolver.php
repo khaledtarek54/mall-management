@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Settings\SlaSettings;
 
@@ -29,6 +28,15 @@ use App\Settings\SlaSettings;
  */
 class SlaResolver
 {
+    /** SLA measured on bare calendar hours — the behaviour that predates the working calendar. */
+    public const CLOCK_CALENDAR = 'calendar';
+
+    /** SLA measured in working time: the working week, working hours, holidays skipped. */
+    public const CLOCK_WORKING = 'working';
+
+    /** @var array<int, string> */
+    public const CLOCKS = [self::CLOCK_CALENDAR, self::CLOCK_WORKING];
+
     /**
      * @param  int|null  $assetId  the property the job belongs to; null skips the per-mall tier
      */
@@ -92,6 +100,10 @@ class SlaResolver
      * worse than none. The `?int $assetId` is here so a per-property tier can be added ABOVE this
      * one, in this method, when a mall actually differs.
      *
+     * Answers for BOTH modules — work orders and tenant requests share `SlaSettings`, so a knob
+     * honoured by one of them and ignored by the other is the split-brain the maintenance rename
+     * was done to end.
+     *
      * @param  int|null  $assetId  reserved for the per-property tier; unused today, and said so
      */
     public static function clockFor(?int $assetId, string $priority): string
@@ -101,8 +113,8 @@ class SlaResolver
             ->all();
 
         return in_array($priority, $working, true)
-            ? FacilityWorkOrder::SLA_CLOCK_WORKING
-            : FacilityWorkOrder::SLA_CLOCK_CALENDAR;
+            ? self::CLOCK_WORKING
+            : self::CLOCK_CALENDAR;
     }
 
     /** The operator-wide response default for a priority — tier 2, falling back to tier 3. */
