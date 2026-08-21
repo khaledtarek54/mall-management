@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'kind' => 'Kind',
+        'opens_at' => 'Opens at',
+        'closes_at' => 'Closes at',
         'is_supplementary' => 'Extra work',
         'default_nte' => 'Default not-to-exceed',
         'labour_amount' => 'Labour',

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\FacilityWorkOrder;
 use App\Models\SlaPolicy;
 use App\Settings\SlaSettings;
 
@@ -75,6 +76,33 @@ class SlaResolver
         }
 
         return self::globalRespondHoursFor($priority);
+    }
+
+    /**
+     * Is a job of this priority measured on the CALENDAR or in WORKING time?
+     *
+     * Here rather than on {@see WorkingCalendar} deliberately: that class is pure
+     * date arithmetic, and this is the same resolution question `hoursFor()` answers — a second
+     * three-tier chain beside this one would be two ways to say the same thing, which is how they
+     * come to disagree.
+     *
+     * One tier today, not three. The split the operator will make is by PRIORITY (an urgent chiller
+     * failure is a 24-hour promise whatever day it is; a signage approval is office work), not by
+     * property — and `PropertySettings`' own docblock warns that an override nothing consults is
+     * worse than none. The `?int $assetId` is here so a per-property tier can be added ABOVE this
+     * one, in this method, when a mall actually differs.
+     *
+     * @param  int|null  $assetId  reserved for the per-property tier; unused today, and said so
+     */
+    public static function clockFor(?int $assetId, string $priority): string
+    {
+        $working = collect(app(SlaSettings::class)->sla_working_clock_priorities)
+            ->map(fn ($value): string => (string) $value)
+            ->all();
+
+        return in_array($priority, $working, true)
+            ? FacilityWorkOrder::SLA_CLOCK_WORKING
+            : FacilityWorkOrder::SLA_CLOCK_CALENDAR;
     }
 
     /** The operator-wide response default for a priority — tier 2, falling back to tier 3. */

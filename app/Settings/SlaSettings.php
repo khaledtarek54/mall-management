@@ -42,6 +42,24 @@ class SlaSettings extends Settings
      */
     public bool $require_completion_evidence = false;
 
+    /**
+     * The priorities whose SLA is measured in WORKING time rather than on the calendar.
+     *
+     * Empty by default, which is exactly the behaviour that existed before the working calendar:
+     * every clock runs on bare hours. That is not caution — it is that "24 hours" in a contract
+     * genuinely means different things per priority. A chiller failure is a 24-hour promise
+     * whatever day it is; a tenant's request for a signage approval is plainly office work, and
+     * measuring it across Friday and Saturday charges a contractor for days nobody was there.
+     * Which is which is the operator's ruling, not the software's assumption
+     * (docs/operations/GO-LIVE.md, and see docs/EGYPT-MARKET-FIT.md EG-08).
+     *
+     * The choice is FROZEN onto each work order when its clocks are stamped, so changing this never
+     * re-prices a job already in flight.
+     *
+     * @var array<int, string>
+     */
+    public array $sla_working_clock_priorities = [];
+
     public static function group(): string
     {
         return 'sla';

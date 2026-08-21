@@ -142,6 +142,11 @@ class ValueSets
         'facility_work_order_parts.source' => ['internal', 'external'],
         'facility_work_order_parts.status' => ['pending', 'approved', 'rejected', 'recorded'],
         'facility_work_orders.execution_type' => ['internal', 'external'],
+        // Frozen when the deadline is stamped, never on a form — an operator changes the policy,
+        // not one job's clock. Null is the fourth state and means calendar: it is what every
+        // order created before the working calendar carries, and what a PPM order always will.
+        'facility_work_orders.sla_clock' => ['calendar', 'working'],
+        'holidays.kind' => ['closure', 'short_day'],
         'facility_work_orders.priority' => ['low', 'medium', 'high', 'urgent'],
         'facility_work_orders.work_order_type' => ['ppm', 'cm'],
         'marketing_budgets.status' => ['open', 'closed'],

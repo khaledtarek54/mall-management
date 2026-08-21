@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'holidays.view' => 'View the working-calendar holidays',
+            'holidays.create' => 'Add a holiday or a short day',
+            'holidays.edit' => 'Edit a holiday',
+            'holidays.delete' => 'Remove a holiday',
             'failure_codes.view' => 'View the failure-code library',
             'failure_codes.create' => 'Add a failure code',
             'failure_codes.edit' => 'Edit a failure code',
@@ -691,6 +695,7 @@ class RolesPermissionsSeeder extends Seeder
             // is eligible; the RATE is money, so it stays with manager (see below).
             'trades.view',
             // The failure-code library — operations records the codes, so operations reads them.
+            'holidays.view',
             'failure_codes.view',
             // The unit register, READ-ONLY. Work orders and tenant requests route to a unit and a
             // zone, so operations must be able to open the shop it is being sent to — it could not,

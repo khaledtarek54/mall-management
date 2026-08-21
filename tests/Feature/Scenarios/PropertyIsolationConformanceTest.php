@@ -43,6 +43,7 @@ use App\Models\Asset;
 use App\Models\Department;
 use App\Models\DepositTransaction;
 use App\Models\Expense;
+use App\Models\Holiday;
 use App\Models\JournalEntry;
 use App\Models\Payroll;
 use App\Models\VendorBill;
@@ -464,6 +465,12 @@ it('F: pins which models treat a null asset_id as portfolio-level', function () 
         Department::class,
         DepositTransaction::class,
         Expense::class,
+        // A national holiday is ONE row for the whole portfolio and a property's own row
+        // overrides it for that date — which is how a mall trading through Eid is expressed.
+        // Confirmed deliberately (EG-08): it decides SLA deadlines rather than money directly,
+        // and the clock each job was promised on is frozen onto the job, so a row added later
+        // can never re-time a job already running.
+        Holiday::class,
         JournalEntry::class,
         Payroll::class,
         VendorBill::class,

@@ -12,10 +12,12 @@ use App\Support\Modules;
 use App\Support\SettingsRegistry;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -327,6 +329,31 @@ class Settings extends Page implements HasSchemas
     private function slaFields(): array
     {
         return [
+            Section::make(__('admin.settings.sections.working_calendar'))
+                ->description(__('admin.settings.sections.working_calendar_description'))
+                ->columns(2)
+                ->components([
+                    CheckboxList::make('calendar.working_days')
+                        ->label(__('admin.settings.fields.working_days'))
+                        ->helperText(__('admin.settings.fields.working_days_helper'))
+                        ->options(fn (): array => __('admin.settings.weekdays'))
+                        ->columns(2)
+                        ->columnSpanFull(),
+                    TimePicker::make('calendar.day_opens_at')
+                        ->label(__('admin.settings.fields.day_opens_at'))
+                        ->seconds(false),
+                    TimePicker::make('calendar.day_closes_at')
+                        ->label(__('admin.settings.fields.day_closes_at'))
+                        ->seconds(false),
+                    // The ruling this whole feature waits on. Empty = every clock stays on the
+                    // calendar, which is what the system did before the working week existed.
+                    CheckboxList::make('sla.sla_working_clock_priorities')
+                        ->label(__('admin.settings.fields.sla_working_clock_priorities'))
+                        ->helperText(__('admin.settings.fields.sla_working_clock_priorities_helper'))
+                        ->options(fn (): array => __('admin.facility.priorities'))
+                        ->columns(4)
+                        ->columnSpanFull(),
+                ]),
             Section::make(__('admin.settings.sections.sla'))
                 ->description(__('admin.settings.sections.sla_description'))
                 ->columns(2)

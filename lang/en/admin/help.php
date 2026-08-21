@@ -167,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'holiday_kind' => 'Closure = nobody works. Short day = reduced hours, which is what Ramadan is.',
         'asset_currency' => 'EGP only: there is no exchange rate anywhere in the system, so any other code would post to the ledger at 1:1.',
         'nte' => 'Leave blank for no ceiling. Approving a quote raises it to the quoted amount; exceeding it is shown on the job, never blocked.',
         'est_service_cost' => 'Replaces the old job value. A percent-of-value SLA penalty reads this, and the actual contractor cost once a bill has landed.',

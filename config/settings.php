@@ -2,6 +2,7 @@
 
 use App\Settings\AccountingSettings;
 use App\Settings\BillingSettings;
+use App\Settings\CalendarSettings;
 use App\Settings\EtaSettings;
 use App\Settings\IntegrationsSettings;
 use App\Settings\MarketingSettings;
@@ -26,6 +27,7 @@ return [
         AccountingSettings::class,
         BillingSettings::class,
         SlaSettings::class,
+        CalendarSettings::class,
         IntegrationsSettings::class,
         EtaSettings::class,
         ModulesSettings::class,

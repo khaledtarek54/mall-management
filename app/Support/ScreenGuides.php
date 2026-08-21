@@ -55,6 +55,7 @@ use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
+use App\Filament\Admin\Resources\Holidays\HolidayResource;
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
@@ -214,6 +215,7 @@ class ScreenGuides
         WorkPermitResource::class => 'work_permits',
         TradeResource::class => 'trades',
         FailureCodeResource::class => 'failure_codes',
+        HolidayResource::class => 'holidays',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',
         ApprovalRuleResource::class => 'approval_rules',

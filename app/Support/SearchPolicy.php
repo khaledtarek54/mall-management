@@ -22,6 +22,7 @@ use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
+use App\Filament\Admin\Resources\Holidays\HolidayResource;
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
@@ -223,6 +224,7 @@ class SearchPolicy
      * @var array<class-string, string>
      */
     public const GLOBAL_SEARCH_EXEMPT = [
+        HolidayResource::class => 'A short, date-ordered register the operator opens once a year. Nobody searches the top bar for "Eid" — they open the calendar and read the list. Indexing it would put public holidays in the same result set as tenants and invoices, which is noise.',
         CamExpensePoolResource::class => 'A pool is identified by property + year, not by anything typed — it has no reference and no name. Reached from the property CAM page.',
         TenantSalesDeclarationResource::class => 'Identified by lease + period, both of which are filters. There is no identifier an operator would type to find one declaration.',
         AccountingPeriodResource::class => 'Configuration, chosen from the period picker. Its only key is `period_no`, an integer — searching "1" would return periods 1, 10, 11 and 12.',

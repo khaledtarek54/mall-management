@@ -148,6 +148,13 @@
             "hasView": false
         },
         {
+            "class": "HolidayResource",
+            "slug": "holidays",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "InventoryItemResource",
             "slug": "inventory-items",
             "hasCreate": true,

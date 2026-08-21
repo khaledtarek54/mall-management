@@ -258,6 +258,12 @@
         "note": null
     },
     {
+        "model": "Holiday",
+        "label": "Holiday",
+        "classification": "owned",
+        "note": null
+    },
+    {
         "model": "InventoryItem",
         "label": "Inventory Item",
         "classification": "shared",

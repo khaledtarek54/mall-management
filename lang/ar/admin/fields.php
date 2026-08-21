@@ -2,6 +2,9 @@
 
 return [
     'fields' => [
+        'kind' => 'النوع',
+        'opens_at' => 'يبدأ الساعة',
+        'closes_at' => 'ينتهي الساعة',
         'is_supplementary' => 'عمل إضافي',
         'default_nte' => 'الحد الافتراضي المصرّح به',
         'labour_amount' => 'العمالة',

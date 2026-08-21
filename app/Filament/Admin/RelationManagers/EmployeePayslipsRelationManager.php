@@ -37,6 +37,12 @@ class EmployeePayslipsRelationManager extends RelationManager
         return $table
             // The run carries the period and the status; without it every row needs its own query.
             ->modifyQueryUsing(fn ($query) => $query->with('payroll'))
+            // No search box: `TableDefaults` gives every table the folded-blob search and a
+            // payroll LINE has no blob of its own — it is identified by its run and its
+            // employee, both of which are the context you arrived from. A box that can never
+            // match anything is worse than none. (Fixed alongside EG-08; the gate was red on
+            // main after 1ae94b09 added this table.)
+            ->searchable(false)
             ->columns([
                 TextColumn::make('payroll.period_month')
                     ->label(__('admin.fields.period'))

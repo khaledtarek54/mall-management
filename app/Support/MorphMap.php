@@ -45,6 +45,7 @@ use App\Models\FiscalYear;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Models\Floor;
+use App\Models\Holiday;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -253,6 +254,7 @@ class MorphMap
         'service_plan_stop' => ServicePlanStop::class,
         'work_order_labour' => FacilityWorkOrderLabour::class,
         'failure_code' => FailureCode::class,
+        'holiday' => Holiday::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,
         'tenant_credit_application' => TenantCreditApplication::class,

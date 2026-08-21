@@ -12,6 +12,7 @@ use App\Services\NotifyAreaSupervisorsService;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\SlaResolver;
+use App\Support\WorkingCalendar;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -212,6 +213,15 @@ class FacilityWorkOrder extends Model implements HasMedia
         'act_total_cost' => 'decimal:2',
         'fault_recorded_at' => 'datetime',
     ];
+
+    /** SLA measured on bare calendar hours — the behaviour that predates the working calendar. */
+    public const SLA_CLOCK_CALENDAR = 'calendar';
+
+    /** SLA measured in working time: Sun–Thu, working hours, holidays skipped. */
+    public const SLA_CLOCK_WORKING = 'working';
+
+    /** @var array<int, string> */
+    public const SLA_CLOCKS = [self::SLA_CLOCK_CALENDAR, self::SLA_CLOCK_WORKING];
 
     protected $attributes = [
         'status' => 'open',
@@ -485,17 +495,45 @@ class FacilityWorkOrder extends Model implements HasMedia
 
         $priority = (string) ($this->priority ?? 'medium');
 
+        // Frozen with the deadlines, in the same branch, for the same reason they are: resolving
+        // the clock at read time would let an operator flipping the setting re-price every penalty
+        // in flight, and a pending penalty is rewritten on every hourly scan.
+        $clock = $this->sla_clock ?? SlaResolver::clockFor($this->asset_id, $priority);
+
         if ($this->target_response_at === null) {
-            $this->target_response_at = ($this->created_at ?? now())
-                ->copy()
-                ->addHours(SlaResolver::respondHoursFor($this->asset_id, $priority));
+            $this->sla_clock = $clock;
+            $this->target_response_at = self::advance(
+                $this->created_at ?? now(),
+                SlaResolver::respondHoursFor($this->asset_id, $priority),
+                $clock,
+                $this->asset_id,
+            );
         }
 
         if ($this->target_resolution_at === null) {
-            $this->target_resolution_at = $this->target_response_at
-                ->copy()
-                ->addHours(SlaResolver::hoursFor($this->asset_id, $priority));
+            $this->sla_clock = $clock;
+            $this->target_resolution_at = self::advance(
+                $this->target_response_at,
+                SlaResolver::hoursFor($this->asset_id, $priority),
+                $clock,
+                $this->asset_id,
+            );
         }
+    }
+
+    /**
+     * `$from` plus `$hours`, on whichever clock this job was promised.
+     *
+     * The calendar branch is `->copy()->addHours()` and must stay byte-identical to what it
+     * replaced: it is the path every existing work order takes, and the one that multiplies money
+     * through `daysOverSla()`. A "tidier" rewrite here changes penalties with the feature switched
+     * off.
+     */
+    private static function advance(CarbonInterface $from, int $hours, string $clock, ?int $assetId): CarbonInterface
+    {
+        return $clock === self::SLA_CLOCK_WORKING
+            ? WorkingCalendar::addWorkingHours($from, $hours, $assetId)
+            : $from->copy()->addHours($hours);
     }
 
     /**
@@ -610,6 +648,17 @@ class FacilityWorkOrder extends Model implements HasMedia
 
         $end = $this->completed_at ?? now();
 
+        // The WORKING branch exists because a job that breached on Thursday evening should not
+        // accrue Friday and Saturday against a contractor who was not due in — the same reasoning
+        // that moved the deadline. Floored at 1: a breach is a breach, "part of a day counts as a
+        // whole day" is the documented rule, and an overrun that fell entirely across a weekend
+        // would otherwise compute 0 and write a penalty row reading "assessed and owed nothing".
+        if ($this->sla_clock === self::SLA_CLOCK_WORKING) {
+            return max(1, WorkingCalendar::workingDaysBetween($this->target_resolution_at, $end, $this->asset_id));
+        }
+
+        // Byte-identical to what predates the working calendar. This is the line that multiplies
+        // money for BASIS_PER_DAY, and every existing order takes it.
         return (int) ceil($this->target_resolution_at->diffInSeconds($end) / 86400);
     }
 

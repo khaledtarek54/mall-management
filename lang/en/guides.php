@@ -14,6 +14,25 @@
  * at and what happens if I touch it".
  */
 return [
+    'holidays' => [
+        'purpose' => 'The days your people are not at work. Egypt\'s holidays cannot be calculated — the Eids move with the moon and a mid-week holiday is often shifted to the Thursday beside it — so this list is yours to keep, once a year.',
+        'steps' => [
+            'Add a row per date. Choose Closure for a day nobody works, or Short day for reduced hours — Ramadan is the case that exists for.',
+            'Leave the property blank for a national holiday. Name a mall only when that one mall differs.',
+            'Once a year, add the moon-sighted dates when they are announced: the two Eids, the Islamic New Year, the Prophet\'s birthday, Coptic Easter and Sham El-Nessim. Only the fixed-date holidays ship with the system.',
+            'Deactivate a row rather than deleting it if you want it out of the way.',
+        ],
+        'affects' => [
+            'SLA deadlines for any priority you have set to be measured in working time, under Settings → SLA. A job raised before a holiday gets those days back.',
+            'Nothing about money dates. Invoice due dates, ageing and late-fee grace stay calendar days, because that is what the lease says.',
+            'Never a job already running: each work order records the clock it was promised on when it is raised, so a holiday added today cannot re-time yesterday\'s work — or re-price a penalty.',
+        ],
+        'rules' => [
+            'A property\'s own row beats the national one for that date. That is how one mall trades through Eid.',
+            'A short day needs both an opening and a closing time, and must close after it opens.',
+            'One row per property per date.',
+        ],
+    ],
     'vendor_scorecard' => [
         'purpose' => 'How each vendor has actually performed — jobs done, how fast, how often they missed the target, and what it cost them.',
         'steps' => [

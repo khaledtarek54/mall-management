@@ -15,6 +15,7 @@ return [
         'subjects' => [
             'work_order_proposal' => 'Work order quote',
             'failure_code' => 'Failure code',
+            'holiday' => 'Holiday',
             'work_order_labour' => 'Work order labour',
             'trade' => 'Trade',
             'unit_ownership' => 'Unit ownership',

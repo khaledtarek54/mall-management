@@ -318,10 +318,10 @@ operator will want to change in week one.
 
 | # | Finding | Where | Rating |
 |---|---|---|---|
-| C-1 | **There is no working calendar.** Searched `isWeekend\|isWeekday\|dayOfWeek\|Carbon::FRIDAY\|nextWeekday\|businessDay\|working_day\|business_day` across `app/ config/ database/ resources/` — **one hit, in report scheduling.** Every SLA clock is `created_at->addHours(n)` | `app/Models/FacilityWorkOrder.php:491,497`; `app/Services/TenantRequestService.php:158,565`; `app/Services/FacilityWorkOrderService.php:91` | 🔴 |
-| C-2 | **No public-holidays table.** `ls database/migrations \| grep -i "holiday\|calendar\|working"` → nothing. Egypt has ~15 public days; **the Eids move on the Hijri calendar and are set by moon sighting**, and mid-week holidays are routinely shifted to Thursday — so they can only ever be a table the operator maintains annually. **This gap is not recorded in the gap analysis** — it is unknown, not deferred | absence proven by the searches named | 🔴 |
+| C-1 ✅ | **FIXED 2026-08-21 (EG-08).** ~~There is no working calendar.~~ Searched `isWeekend\|isWeekday\|dayOfWeek\|Carbon::FRIDAY\|nextWeekday\|businessDay\|working_day\|business_day` across `app/ config/ database/ resources/` — **one hit, in report scheduling.** Every SLA clock is `created_at->addHours(n)` | `app/Models/FacilityWorkOrder.php:491,497`; `app/Services/TenantRequestService.php:158,565`; `app/Services/FacilityWorkOrderService.php:91` | 🔴 |
+| C-2 ✅ | **FIXED 2026-08-21 (EG-08).** ~~No public-holidays table.~~ `ls database/migrations \| grep -i "holiday\|calendar\|working"` → nothing. Egypt has ~15 public days; **the Eids move on the Hijri calendar and are set by moon sighting**, and mid-week holidays are routinely shifted to Thursday — so they can only ever be a table the operator maintains annually. **This gap is not recorded in the gap analysis** — it is unknown, not deferred | absence proven by the searches named | 🔴 |
 | C-3 | **This is not cosmetic — it posts money.** Vendor SLA penalties are computed off the same clock and journalised. A 24-hour urgent job raised Thursday 17:00 is due Friday 17:00 with the engineering team off; the resulting penalty is a payable an Egyptian contractor will contest and win | `SlaPenaltyJournalizer` | 🔴 |
-| C-4 | **No business hours, no Ramadan hours.** `business_hours\|opening_hours\|trading_hours\|work_start\|shift_start` → **zero**. The only "Ramadan hours" mechanism in the system is an announcement a human types | absence proven | 🟠 |
+| C-4 ✅ | **FIXED 2026-08-21 (EG-08).** ~~No business hours, no Ramadan hours.~~ Ramadan is a `short_day` row, because the dates move every year and cannot be a standing setting. `business_hours\|opening_hours\|trading_hours\|work_start\|shift_start` → **zero**. The only "Ramadan hours" mechanism in the system is an announcement a human types | absence proven | 🟠 |
 | C-5 | **PM compliance compounds it** — strict whole-day comparison with no tolerance window, so a PM due Friday is "overdue" on Saturday although nobody worked | `app/Models/Concerns/FacilityWorkOrder/TracksPmCompliance.php:44-47` | 🟠 |
 | C-6 | **Reporting weeks are Mon–Sun**, hardcoded, splitting Egypt's Sun–Thu business week across two buckets | `app/Services/Reports/ReportService.php:170-187`; `WeeklySpend.php:81-83`; `ReportHub.php:190` | 🟡 |
 | C-7 | Calendar days for AR due dates, ageing and late-fee grace is **correct and matches Yardi** — and the numbers are configurable. Do not change this | `BillingSettings.php:41,45`; `app/Support/AgingBuckets.php` | 🟢 |
@@ -392,7 +392,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-05**~~ ✅ | **DONE 2026-08-21.** `TaxSettings::seller_billing_email`, resolved through `IssuingEntity` like the seller's other particulars and **omitted when unset** — the same contract the TRN has. **THREE documents, not two**: the owner-facing asset statement carried the same fabrication. Pinned by a sweep that fails on any `@…​.test/.example/.invalid` in a lang file or a Blade. It also surfaced a **live 500**: `invoices.lease_id` became nullable when module 37 started billing owners, and the template dereferenced it — so every صيانة assessment invoice's PDF crashed on the list, the edit page, the portal and the API. Fixed by resolving the invoice's context from its AGREEMENT (lease **or** ownership) | S-7 | 🧑‍💻 | S |
 | ~~**EG-06**~~ ✅ | **DONE 2026-08-21.** Declared (`intl`, `mbstring`, `zip` — what the app itself calls; the rest arrive through the tree). **The report overstated the risk and understated the real one:** `filament/support` already hard-requires intl, so `composer install --no-dev` refuses on a box without it. What composer structurally *cannot* see is the SAPI split — it runs under `php-cli`, the money columns render under `php-fpm`, and a box with intl in one and not the other installs, schedules and passes console health while throwing on every list. So the substance is a **runtime** check: `App\Support\PhpExtensions` (nine extensions, each with what it costs) read by `/health` over HTTP | S-9 | 🧑‍💻 + ⚙️ | S |
 | ~~**EG-07**~~ ✅ | **DONE 2026-08-20.** The picker is gone and `ValueSets` now refuses a non-EGP value on `vendor_contracts.currency` **and** `assets.currency` — the guard, not the dropdown, is what makes it true. The rule both screens follow is stated: **a currency field survives only where the value is PRINTED**, so the asset's stays (it leads the owner statement) visible and read-only with a server-side `Rule::in`, and the vendor contract's went. Not inert, which is why it ranked: the contract value feeds the SLA-penalty basis, so a foreign number reached the GL | X-3 | 🧑‍💻 | S |
-| **EG-08** | **A working calendar: working days + working hours + a `holidays` table, per property**, on the same three-tier shape as `SlaResolver`. Then re-base every SLA clock, PM compliance and the reporting week on it | C-1..C-6, §3.4 | 🧑‍💻 | L |
+| ~~**EG-08**~~ ✅ | **DONE 2026-08-21.** `holidays` (a register, because Egypt's are ANNOUNCED — the Eids move with the moon and mid-week holidays shift to the Thursday), `CalendarSettings` (Sun–Thu, 09:00–17:00) and `App\Support\WorkingCalendar`. The SLA clock each job is promised on is **frozen onto the job**, and the feature **ships off** — `SlaSettings::sla_working_clock_priorities` is empty, so nothing changes until the operator rules on which priorities are office work. **Three deliberate narrowings from this row, all argued below:** the working WEEK is portfolio-wide (individual dates are per property); PM compliance is excluded; and the reporting week is untouched | C-1..C-4, §3.4 | 🧑‍💻 | L |
 | ~~**EG-09**~~ ✅ | **DONE 2026-08-20.** Registered (`none · fixed_percent · fixed_amount · cpi`), and the lease form's options now DERIVE from the registry rather than from the label catalogue, so the picker cannot offer what the model would refuse. It also closed the drift that proved the point: the field help advertised a **"Step"** type that existed in neither list, and omitted `fixed_amount`. Why the sweep missed it: the column stopped being a DB enum on 2026-08-10, two days before the generator read the live schema | M-7 | 🧑‍💻 | S |
 | **EG-10** | **Decide the document-number reset rule before go-live.** Monthly-per-property reset is a convention nobody chose and cannot be changed afterwards | M-9, §3.6 | 🔑 | S |
 
@@ -650,6 +650,45 @@ assert on the list, which `toBe()` does take a message for.
 `AssetStatementPdfService` gained a `data()` seam so the owner statement can be asserted at all,
 mirroring `InvoicePdfService::viewData()`; a `billing_contact` advisory row joined
 `/admin/configuration-health`; GO-LIVE gained A1.3; and the census is regenerated (845 test files).
+
+---
+
+### 2026-08-21 — milestone 4: EG-08, the working calendar
+
+Designed before it was written, and the design pass changed it in six ways. Recording those is the
+point of the entry — each was a plan that read as correct:
+
+| Caught | What it would have done |
+|---|---|
+| 🔴 | **Resolving the clock at read time** would have re-priced every job in flight the moment the setting changed: a PENDING penalty is recomputed on every hourly scan and `SlaPenalty.amount` is DERIVED, so its posted entry gets void-and-reposted. The clock is now **frozen onto the work order** with the deadline, the same way labour freezes the craft rate |
+| 🔴 | **A weekend-only overrun would have charged nothing.** Deadline Thursday 23:00, finished Saturday 10:00: a real breach with no working time in it, `0 × rate = 0`, and a penalty row reading "assessed and owed nothing" — while a FLAT-basis penalty charged in full for the same breach. Floored at 1, which is the documented rule ("part of a day counts as a whole day") |
+| 🔴 | **PM compliance was in scope and had to come out.** A PPM order never receives a clock (`stampSlaClocks()` returns early for anything non-corrective), so the change would have been dead code — and routing around that would have made skipping Fri/Sat a *tolerance window*, which module 26 refuses by design |
+| 🟠 | **A NOT-NULL column with a model default** would have made the `??=` never fire: every order stamped `calendar` for ever, and no test able to notice. The column is nullable, and null is also the honest value for the orders that predate it |
+| 🟠 | **The suite runs UTC and production runs Africa/Cairo.** A job raised Friday 00:30 in Cairo is Thursday 22:30 in UTC — a working day in one and the weekend in the other, i.e. exactly the boundary the feature exists for. Every case in the test pins Cairo explicitly rather than merely freezing the clock |
+| 🟠 | **`PropertyField::make()` hard-requires and pins the property**, so a national holiday — the ordinary case — was unreachable through its own form. It uses `PropertyField::free()` with a registered reason |
+
+**And two narrowings, stated because a narrowing is still a deviation:**
+
+- **The working WEEK is portfolio-wide**, not per property. `WorkingCalendar` takes an `?int $assetId`
+  so the tier can be added when a mall's FM shift genuinely differs; shipping an override nothing
+  consults is what `PropertySettings`' own docblock calls worse than no override. Individual DATES
+  are per property, which is the part operators actually need.
+- **The reporting week (C-6) is untouched.** Mon–Sun in `ReportService` splits Egypt's Sun–Thu week
+  across two buckets, but a reporting anchor is not a fact about when engineers are on duty, and the
+  ISO-key collision makes it its own job.
+
+**It ships OFF.** `sla_working_clock_priorities` is empty, so every clock still runs on bare hours —
+exactly as before. Whether a 24-hour promise means calendar hours (a chiller does not stop on Friday)
+or working hours (a signage approval is plainly office work) is a contract question per priority, and
+the operator's ruling. That decision is now a GO-LIVE item rather than an assumption in code.
+
+| Shipped | Tests |
+|---|---|
+| `holidays` register + Filament screen + bilingual guide + permissions seeded; `CalendarSettings`; `WorkingCalendar`; frozen `facility_work_orders.sla_clock`; `HolidaySeeder` (fixed-date holidays only) wired into `atriom:install` | `WorkingCalendarTest` (8 cases) + 19 conformance gates re-run green |
+
+**One pre-existing red fixed in passing:** `SearchPolicyConformanceTest` had been failing on
+`EmployeePayslipsRelationManager` since `1ae94b09` — a table rendering a search box it could never
+answer. One line, and it was blocking verification of this work.
 
 ---
 

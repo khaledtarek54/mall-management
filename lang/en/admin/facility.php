@@ -64,6 +64,14 @@ return [
             ],
         ],
         'over_nte_by' => 'Over by :amount',
+        'holiday' => [
+            'singular' => 'Holiday',
+            'plural' => 'Holidays',
+            'all_properties' => 'Every property',
+            'property_hint' => 'Leave blank for a national holiday. Name a mall only when that one mall differs.',
+            'is_active_hint' => 'Deactivate rather than delete: a past holiday explains why a job took as long as it did.',
+            'kinds' => ['closure' => 'Closure', 'short_day' => 'Short day'],
+        ],
         'failure_code' => [
             'singular' => 'Failure code',
             'plural' => 'Failure codes',

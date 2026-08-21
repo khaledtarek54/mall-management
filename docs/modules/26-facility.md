@@ -130,6 +130,39 @@ property. Deleting a row returns that property to the default. Resolution is
 > true cold-start default. Don't "fix" config to match: it is what a fresh install with no settings
 > row gets, and changing it would silently re-time every such install.
 
+### The working calendar — which clock an SLA is measured on (EG-08)
+
+Egypt's weekend is **Friday–Saturday**, and until 2026-08-21 no clock in this system knew: every
+deadline was `created_at->addHours($n)`, so a 24-hour urgent job raised Thursday 17:00 fell due
+Friday 17:00 with nobody on site — and the vendor SLA penalty was charged off that.
+
+Three pieces:
+
+| | What it is |
+|---|---|
+| `holidays` | The register. Egypt's holidays are **announced, not computable** — the Eids move with the moon and mid-week holidays are routinely shifted to the Thursday — so the operator keeps the list. Two kinds: `closure` (nobody works) and `short_day` (reduced hours; **Ramadan** is the case it exists for). A null `asset_id` is national; a row naming a property beats it for that date, which is how one mall trades through Eid |
+| `CalendarSettings` | The working week and the working day, portfolio-wide. Ships Sun–Thu 09:00–17:00 |
+| `App\Support\WorkingCalendar` | The resolver. Pure date arithmetic — `isWorkingDay`, `windowFor`, `addWorkingHours`, `workingDaysBetween`. **Which** clock applies is `SlaResolver::clockFor()`, beside `hoursFor()`, because a second three-tier chain would be two ways to say the same thing |
+
+**It ships off.** `SlaSettings::sla_working_clock_priorities` is empty, so every clock runs on bare
+hours exactly as before. Whether "24 hours" means calendar or working hours is a contract term that
+differs by priority, and it is the operator's ruling (GO-LIVE C-SLA).
+
+**The clock is FROZEN on the job.** `facility_work_orders.sla_clock` is stamped in
+`stampSlaClocks()` alongside the two deadlines, and `daysOverSla()` reads it. Resolving it at read
+time would have re-priced every job in flight when the setting changed — a pending penalty is
+recomputed on every hourly scan and `SlaPenalty.amount` is DERIVED, so the posted entry would be
+void-and-reposted. Same principle as labour freezing the craft rate at entry. Null means calendar,
+which is what every order predating the feature carries and what a PPM order always will.
+
+**The working overrun is floored at 1 day.** A breach whose overrun falls entirely across a weekend
+has zero working days in it, and `0 × rate` would write a penalty reading "assessed and owed
+nothing" while a flat-basis penalty charged in full for the same breach.
+
+**Deliberately NOT in scope: PM compliance.** A PPM order never receives an SLA clock —
+`stampSlaClocks()` returns early for anything non-corrective — and skipping Fri/Sat before calling a
+preventive round late would be a *tolerance window*, which this module refuses by design.
+
 ### `sla_penalties` — what a vendor owes for missing an SLA (FR-CM-08)
 | Column | Meaning |
 |--------|---------|

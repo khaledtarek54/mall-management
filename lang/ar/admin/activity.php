@@ -15,6 +15,7 @@ return [
         'subjects' => [
             'work_order_proposal' => 'عرض سعر لأمر عمل',
             'failure_code' => 'كود عطل',
+            'holiday' => 'إجازة',
             'work_order_labour' => 'عمالة أمر عمل',
             'trade' => 'تخصص',
             'unit_ownership' => 'ملكية وحدة',

@@ -186,6 +186,12 @@
         "guide": "handbook"
     },
     {
+        "screen": "HolidayResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "holidays"
+    },
+    {
         "screen": "IncomeStatement",
         "panel": "admin",
         "kind": "page",

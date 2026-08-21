@@ -7,12 +7,14 @@ use App\Models\AccountMapping;
 use App\Models\ApprovalRule;
 use App\Models\ChargeCode;
 use App\Models\Department;
+use App\Models\Holiday;
 use App\Models\LedgerAccount;
 use App\Models\User;
 use App\Support\Health;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\DepartmentSeeder;
+use Database\Seeders\HolidaySeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Database\Seeders\UtilityTariffSeeder;
 use Illuminate\Console\Command;
@@ -92,6 +94,13 @@ class InstallCommand extends Command
         // correctly refused. The catalogue existing is what turns that into a screen asking to be
         // priced rather than a feature that appears to do nothing.
         $this->callSilent('db:seed', ['--class' => UtilityTariffSeeder::class, '--force' => true]);
+
+        // Egypt's fixed-date public holidays, this year and next. Without this a fresh deploy
+        // ships an EMPTY calendar, and a missing holiday is completely silent — an SLA measured
+        // straight across Eid, with nothing on any screen to say why. The moon-sighted dates are
+        // deliberately not seeded; the operator adds those, which the screen guide says.
+        $this->callSilent('db:seed', ['--class' => HolidaySeeder::class, '--force' => true]);
+        $this->components->twoColumnDetail('Holidays', Holiday::count().' fixed-date holidays (the moon-sighted ones are yours to add)');
         $this->components->twoColumnDetail('Departments', Department::count().' departments');
 
         $this->callSilent('db:seed', ['--class' => AccountingSeeder::class, '--force' => true]);
