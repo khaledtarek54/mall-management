@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\BillableAgreement;
+use App\Enums\TenantRequestType;
 use App\Models\Asset;
 use App\Models\DepositTransaction;
 use App\Models\FacilityWorkOrder;
@@ -16,6 +17,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Services\IssueInvoiceService;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Services\TenantRequestService;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ValueSets;
 use Filament\Facades\Filament;
@@ -706,4 +708,17 @@ function staleTheValueSetCache(): void
     // Now let the catalogue answer truthfully again; only the table map stays stale.
     app()->forgetInstance('payment_method.roles.inbound');
     app()->forgetInstance('payment_method.roles.outbound');
+}
+
+/** A maintenance request from this tenant, on this unit, under one subcategory. */
+function reportFaultThroughTheService(Tenant $tenant, Unit $unit, string $category): TenantRequest
+{
+    return app(TenantRequestService::class)->create([
+        'unit_id' => $unit->id,
+        'request_type' => TenantRequestType::Maintenance->value,
+        'priority' => 'medium',
+        'category' => $category,
+        'title' => 'Reported fault',
+        'description' => 'Something is wrong.',
+    ], $tenant);
 }

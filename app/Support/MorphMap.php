@@ -97,6 +97,7 @@ use App\Models\TenantCreditApplication;
 use App\Models\TenantDocument;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
+use App\Models\TenantRequestSubcategory;
 use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Models\Trade;
@@ -259,6 +260,7 @@ class MorphMap
         'holiday' => Holiday::class,
         'expense_category' => ExpenseCategory::class,
         'payment_method' => PaymentMethod::class,
+        'tenant_request_subcategory' => TenantRequestSubcategory::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,
         'tenant_credit_application' => TenantCreditApplication::class,

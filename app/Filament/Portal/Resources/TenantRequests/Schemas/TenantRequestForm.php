@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\TenantRequests\Schemas;
 
 use App\Enums\TenantRequestType;
 use App\Models\Tenant;
+use App\Models\TenantRequestSubcategory;
 use App\Models\Unit;
 use App\Support\Filament\EntitySelect;
 use App\Support\Portal;
@@ -41,12 +42,12 @@ class TenantRequestForm
                         ->columnSpanFull(),
                     Select::make('category')
                         ->label(__('admin.fields.subcategory'))
-                        ->options(fn (Get $get) => collect(
-                            (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
-                        )->mapWithKeys(fn (string $s) => [$s => __("admin.enums.tenant_request_subcategory.{$s}")]))
-                        ->visible(fn (Get $get) => filled(
-                            (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
+                        ->options(fn (Get $get) => TenantRequestSubcategory::optionsFor(
+                            TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default()
                         ))
+                        ->visible(fn (Get $get) => filled(TenantRequestSubcategory::optionsFor(
+                            TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default()
+                        )))
                         ->native(false),
                     Select::make('priority')
                         ->label(__('admin.fields.priority'))

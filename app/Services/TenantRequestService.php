@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Enums\TenantRequestType;
 use App\Models\Department;
 use App\Models\Lease;
+use App\Models\SlaPolicy;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
+use App\Models\TenantRequestSubcategory;
 use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\User;
@@ -111,7 +113,7 @@ class TenantRequestService
                 // `category` holds the type's sub-category (electrical, parking,
                 // lease_copy, …). Forced null for types that have none (inquiry,
                 // billing) so a stray cross-type value can never persist.
-                'category' => $type->subcategories() === [] ? null : ($data['category'] ?? null),
+                'category' => TenantRequestSubcategory::optionsFor($type) === [] ? null : ($data['category'] ?? null),
                 'department_id' => $data['department_id'] ?? $this->defaultDepartmentIdFor($type),
                 'title' => $data['title'],
                 'description' => $data['description'],
@@ -171,6 +173,23 @@ class TenantRequestService
             return null;
         }
 
+        // ONE new tier, above everything that was here. A `sla_policies` row naming this request
+        // type wins; below it, nothing changes. `TenantRequestType::slaHours()` was a second
+        // hardcoded map living beside the policy register, with its own docblock conceding "Phase 2
+        // reads these from settings/the request_types table" — it is the floor now, not the answer.
+        $typeOverride = SlaPolicy::query()
+            ->active()
+            ->where('asset_id', $assetId)
+            ->where('request_type', $type->value)
+            ->where('priority', $priority)
+            ->value('resolve_hours');
+
+        if ($typeOverride !== null) {
+            return $this->advance((int) $typeOverride, $priority, $assetId, $clock);
+        }
+
+        // Unchanged below this line. Maintenance takes the operator-wide setting through the
+        // resolver's own tiers; the others take the enum's per-type figures.
         if ($type === TenantRequestType::Maintenance) {
             return $this->defaultTargetResolution($priority, $assetId, $clock);
         }

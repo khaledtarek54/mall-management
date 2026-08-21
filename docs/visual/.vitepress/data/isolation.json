@@ -570,6 +570,12 @@
         "note": "request.unit"
     },
     {
+        "model": "TenantRequestSubcategory",
+        "label": "Tenant Request Subcategory",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "TenantSalesDeclaration",
         "label": "Tenant Sales Declaration",
         "classification": "owned",

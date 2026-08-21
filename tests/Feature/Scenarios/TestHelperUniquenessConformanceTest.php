@@ -136,6 +136,23 @@ it('declares no test helper function in two different files', function () {
                 continue;
             }
 
+            // STRING INTERPOLATION OPENS A BRACE THE TOKENIZER DOES NOT REPORT AS ONE.
+            //
+            // `"{$x}"` emits T_CURLY_OPEN (an ARRAY token, so the branch above never sees it) and
+            // then a PLAIN `}` (which it does). Every interpolated string therefore decremented the
+            // counter without incrementing it, and a file with a few of them sat at negative depth
+            // for the rest of the scan — so no file-scope `function` in it was ever recorded.
+            //
+            // `tests/Pest.php` is full of interpolation, which is why this gate did not notice a
+            // helper declared BOTH there and in a test file, and the suite exited 255 with zero
+            // bytes of output on both streams. The gate was green throughout, reporting on a set it
+            // had silently stopped collecting.
+            if (in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true)) {
+                $depth++;
+
+                continue;
+            }
+
             if ($token[0] !== T_FUNCTION || $depth !== 0) {
                 continue;
             }

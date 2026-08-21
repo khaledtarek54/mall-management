@@ -18,6 +18,7 @@ return [
             'holiday' => 'إجازة',
             'payment_method' => 'قناة سداد',
             'expense_category' => 'بند مصروف',
+            'tenant_request_subcategory' => 'تصنيف فرعي للطلب',
             'work_order_labour' => 'عمالة أمر عمل',
             'trade' => 'تخصص',
             'unit_ownership' => 'ملكية وحدة',

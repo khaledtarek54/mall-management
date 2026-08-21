@@ -11,6 +11,7 @@ use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
+use App\Models\TenantRequestSubcategory;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 
@@ -180,6 +181,18 @@ class ValueSets
         'purchase_requests.status' => ['draft', 'requested', 'approved', 'rejected', 'ordered', 'received', 'cancelled'],
         'sla_policies.priority' => ['low', 'medium', 'high', 'urgent'],
         'stock_movements.type' => ['receipt', 'consumption', 'adjustment', 'transfer_in', 'transfer_out'],
+        // `tenant_requests.category` had NO set, so a typo'd or imported subcategory saved cleanly
+        // and then resolved to no trade. The floor is every subcategory the enum listed, across all
+        // types — flat, because `other` is a legitimate subcategory of four of them and the value
+        // set answers "may this column hold this string", not "may this TYPE offer it". Which
+        // subcategories a type offers is the form's question, and the forms ask the catalogue.
+        'tenant_requests.category' => [
+            'electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other',
+            'keys_cards', 'parking', 'after_hours', 'visitor', 'delivery',
+            'lease_copy', 'renewal', 'termination_notice', 'noc_certificate',
+            'fit_out', 'temporary_installation', 'signage',
+            'noise', 'cleanliness', 'conduct',
+        ],
         'tenant_requests.channel' => ['portal', 'whatsapp', 'phone', 'email', 'walk_in', 'admin'],
         // The answer a request that ASKED for something was given. Null is the third state and
         // deliberately not a member: it means nobody has answered (or the row predates the
@@ -285,6 +298,7 @@ class ValueSets
         'custody_transactions.category' => [ExpenseCategory::class, 'codes'],
         'expenses.category' => [ExpenseCategory::class, 'codes'],
         'vendor_bills.category' => [ExpenseCategory::class, 'codes'],
+        'tenant_requests.category' => [TenantRequestSubcategory::class, 'codes'],
     ];
 
     public static function allowed(string $table, string $column): ?array

@@ -45,8 +45,14 @@ class SlaResolver
         if ($assetId !== null) {
             // active() only: deactivating an override is how a manager returns a property
             // to the default, since deleting the row is super_admin-only project-wide.
+            //
+            // Type-blind on purpose. A `sla_policies` row may NAME a request type (module 11 added
+            // that dimension), and the per-type tier is resolved by `TenantRequestService`, which is
+            // the only caller that has a type — a work order does not. Reading a typed row here
+            // would apply a "complaints in 8 hours" rule to facility jobs.
             $override = SlaPolicy::query()
                 ->active()
+                ->where('request_type', SlaPolicy::ANY_TYPE)
                 ->where('asset_id', $assetId)
                 ->where('priority', $priority)
                 ->value('resolve_hours');

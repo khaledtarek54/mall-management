@@ -7,6 +7,7 @@ use App\Models\Area;
 use App\Models\Department;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
+use App\Models\TenantRequestSubcategory;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Vendor;
@@ -135,12 +136,12 @@ class TenantRequestForm
                             // Options + visibility follow the chosen type: each type
                             // exposes its own sub-categories (electrical…, parking…,
                             // lease_copy…); types with none hide the field entirely.
-                            ->options(fn (Get $get) => collect(
-                                (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
-                            )->mapWithKeys(fn (string $s) => [$s => __("admin.enums.tenant_request_subcategory.{$s}")]))
-                            ->visible(fn (Get $get) => filled(
-                                (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
+                            ->options(fn (Get $get) => TenantRequestSubcategory::optionsFor(
+                                TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default()
                             ))
+                            ->visible(fn (Get $get) => filled(TenantRequestSubcategory::optionsFor(
+                                TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default()
+                            )))
                             ->native(false),
                         Select::make('channel')
                             ->label(__('admin.fields.channel'))
@@ -165,16 +166,16 @@ class TenantRequestForm
 
                     FormTab::make('admin.sections.request_details', [
 
-                        TextInput::make('title')
-                            ->label(__('admin.fields.request_title'))
-                            ->required()
-                            ->maxLength(150)
-                            ->columnSpanFull(),
-                        Textarea::make('description')
-                            ->label(__('admin.fields.description'))
-                            ->required()
-                            ->rows(4)
-                            ->columnSpanFull(),
+                            TextInput::make('title')
+                                ->label(__('admin.fields.request_title'))
+                                ->required()
+                                ->maxLength(150)
+                                ->columnSpanFull(),
+                            Textarea::make('description')
+                                ->label(__('admin.fields.description'))
+                                ->required()
+                                ->rows(4)
+                                ->columnSpanFull(),
                     ])->columns(1),
 
                     // FR-REQ-13 / FR-REQ-14 — permit validity window. Shown + required only for the `permit`
@@ -189,20 +190,20 @@ class TenantRequestForm
                     // permitted hours, a deposit, contractor details — which competitors/06 §3.2
                     // describes and plan 10 §3.1 carries.
                     FormTab::make('admin.sections.permit_validity', [
-                        Placeholder::make('__tab_help')
-                            ->hiddenLabel()
-                            ->content(__('admin.sections.permit_validity_description'))
-                            ->columnSpanFull(),
+                            Placeholder::make('__tab_help')
+                                ->hiddenLabel()
+                                ->content(__('admin.sections.permit_validity_description'))
+                                ->columnSpanFull(),
 
-                        DatePicker::make('valid_from')
-                            ->label(__('admin.fields.valid_from'))
-                            ->native(false)
-                            ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value),
-                        DatePicker::make('valid_to')
-                            ->label(__('admin.fields.valid_to'))
-                            ->native(false)
-                            ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value)
-                            ->afterOrEqual('valid_from'),
+                            DatePicker::make('valid_from')
+                                ->label(__('admin.fields.valid_from'))
+                                ->native(false)
+                                ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value),
+                            DatePicker::make('valid_to')
+                                ->label(__('admin.fields.valid_to'))
+                                ->native(false)
+                                ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value)
+                                ->afterOrEqual('valid_from'),
                     ])->columns(2)
                         // Permit-only, exactly as the SECTION was: a Tab takes
                         // ->visible() too, and without it every request would carry an
@@ -211,91 +212,91 @@ class TenantRequestForm
 
                     FormTab::make('admin.sections.assignment', [
 
-                        EntitySelect::make('department_id')
-                            ->label(__('admin.resources.department.singular'))
-                            ->entity(Department::class)
-                            // selectableOptions filters is_active — resolve a stored (now-inactive)
-                            // department so edit shows its name, not the raw id.
-                            ->getOptionLabelUsing(fn ($value): ?string => Department::find($value)?->name)
-                            ->searchable()
-                            ->placeholder(__('admin.fields.unassigned'))
-                            ->native(false),
-                        // The facility zone this request sits in — inherited from the unit on intake
-                        // (TenantRequest::creating), so it's shown read-only here. Disabled +
-                        // non-dehydrated: the derivation owns the value, the form only surfaces it.
-                        EntitySelect::make('area_id')
-                            ->label(__('admin.fields.area'))
-                            ->entity(Area::class)
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->placeholder(__('admin.fields.area_auto')),
-                        EntitySelect::make('assigned_to')
-                            ->label(__('admin.fields.assigned_to'))
-                            ->entity(User::class)
-                            ->placeholder(__('admin.fields.unassigned')),
-                        EntitySelect::make('assigned_to_vendor_id')
-                            ->label(__('admin.fields.assigned_vendor') ?: 'External Vendor')
-                            ->entity(Vendor::class)
-                            ->relationship('assignedVendor')
-                            ->modifyOptionsQuery(fn ($query) => $query->where('status', 'active'))
-                            // The picker offers ACTIVE vendors only; a vendor assigned while active and
-                            // later deactivated would otherwise render as its raw id on this form. This
-                            // resolves it for DISPLAY, deliberately outside the narrowing above — and
-                            // after `->entity()`, which installs its own scoped resolver.
-                            ->getOptionLabelUsing(fn ($value): ?string => Vendor::find($value)?->name)
-                            ->placeholder('—'),
-                        DateTimePicker::make('target_resolution_at')
-                            ->label(__('admin.fields.target_resolution_at'))
-                            ->native(false)
-                            ->seconds(false)
-                            // A resolution target can't predate the request itself.
-                            // On edit, floor it at the record's creation date; on
-                            // create the row doesn't exist yet, so floor at today.
-                            ->minDate(fn (?TenantRequest $record) => $record?->created_at?->startOfDay() ?? today())
-                            ->validationMessages([
-                                'after_or_equal' => __('admin.validation.request_resolution_after_creation'),
-                            ]),
-                        DateTimePicker::make('scheduled_from')
-                            ->label(__('admin.fields.scheduled_from'))
-                            ->native(false)
-                            ->seconds(false),
-                        DateTimePicker::make('scheduled_to')
-                            ->label(__('admin.fields.scheduled_to'))
-                            ->native(false)
-                            ->seconds(false)
-                            ->afterOrEqual('scheduled_from'),
+                            EntitySelect::make('department_id')
+                                ->label(__('admin.resources.department.singular'))
+                                ->entity(Department::class)
+                                // selectableOptions filters is_active — resolve a stored (now-inactive)
+                                // department so edit shows its name, not the raw id.
+                                ->getOptionLabelUsing(fn ($value): ?string => Department::find($value)?->name)
+                                ->searchable()
+                                ->placeholder(__('admin.fields.unassigned'))
+                                ->native(false),
+                            // The facility zone this request sits in — inherited from the unit on intake
+                            // (TenantRequest::creating), so it's shown read-only here. Disabled +
+                            // non-dehydrated: the derivation owns the value, the form only surfaces it.
+                            EntitySelect::make('area_id')
+                                ->label(__('admin.fields.area'))
+                                ->entity(Area::class)
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->placeholder(__('admin.fields.area_auto')),
+                            EntitySelect::make('assigned_to')
+                                ->label(__('admin.fields.assigned_to'))
+                                ->entity(User::class)
+                                ->placeholder(__('admin.fields.unassigned')),
+                            EntitySelect::make('assigned_to_vendor_id')
+                                ->label(__('admin.fields.assigned_vendor') ?: 'External Vendor')
+                                ->entity(Vendor::class)
+                                ->relationship('assignedVendor')
+                                ->modifyOptionsQuery(fn ($query) => $query->where('status', 'active'))
+                                // The picker offers ACTIVE vendors only; a vendor assigned while active and
+                                // later deactivated would otherwise render as its raw id on this form. This
+                                // resolves it for DISPLAY, deliberately outside the narrowing above — and
+                                // after `->entity()`, which installs its own scoped resolver.
+                                ->getOptionLabelUsing(fn ($value): ?string => Vendor::find($value)?->name)
+                                ->placeholder('—'),
+                            DateTimePicker::make('target_resolution_at')
+                                ->label(__('admin.fields.target_resolution_at'))
+                                ->native(false)
+                                ->seconds(false)
+                                // A resolution target can't predate the request itself.
+                                // On edit, floor it at the record's creation date; on
+                                // create the row doesn't exist yet, so floor at today.
+                                ->minDate(fn (?TenantRequest $record) => $record?->created_at?->startOfDay() ?? today())
+                                ->validationMessages([
+                                    'after_or_equal' => __('admin.validation.request_resolution_after_creation'),
+                                ]),
+                            DateTimePicker::make('scheduled_from')
+                                ->label(__('admin.fields.scheduled_from'))
+                                ->native(false)
+                                ->seconds(false),
+                            DateTimePicker::make('scheduled_to')
+                                ->label(__('admin.fields.scheduled_to'))
+                                ->native(false)
+                                ->seconds(false)
+                                ->afterOrEqual('scheduled_from'),
                     ])->columns(2),
 
                     FormTab::make('admin.sections.resolution', [
 
-                        Textarea::make('resolution_notes')
-                            ->label(__('admin.fields.resolution_notes'))
-                            ->rows(3)
-                            ->columnSpanFull(),
+                            Textarea::make('resolution_notes')
+                                ->label(__('admin.fields.resolution_notes'))
+                                ->rows(3)
+                                ->columnSpanFull(),
                     ])->columns(1),
 
                     FormTab::make('admin.sections.attachments', [
-                        Placeholder::make('__tab_help')
-                            ->hiddenLabel()
-                            ->content(__('admin.sections.attachments_description'))
-                            ->columnSpanFull(),
+                            Placeholder::make('__tab_help')
+                                ->hiddenLabel()
+                                ->content(__('admin.sections.attachments_description'))
+                                ->columnSpanFull(),
 
-                        SpatieMediaLibraryFileUpload::make('attachments')
-                            ->label(__('admin.fields.attachments'))
-                            ->collection('attachments')
-                            ->multiple()
-                            ->reorderable()
-                            ->appendFiles()
-                            ->downloadable()
-                            ->openable()
-                            ->preserveFilenames()
-                            // Images + PDF only — these are what the tenant app can
-                            // render/preview. Wider types (video, office docs) were
-                            // dropped per QA so the mobile viewer never gets a file
-                            // it can't open.
-                            ->acceptedFileTypes(['image/*', 'application/pdf'])
-                            ->maxSize(10240)
-                            ->columnSpanFull(),
+                            SpatieMediaLibraryFileUpload::make('attachments')
+                                ->label(__('admin.fields.attachments'))
+                                ->collection('attachments')
+                                ->multiple()
+                                ->reorderable()
+                                ->appendFiles()
+                                ->downloadable()
+                                ->openable()
+                                ->preserveFilenames()
+                                // Images + PDF only — these are what the tenant app can
+                                // render/preview. Wider types (video, office docs) were
+                                // dropped per QA so the mobile viewer never gets a file
+                                // it can't open.
+                                ->acceptedFileTypes(['image/*', 'application/pdf'])
+                                ->maxSize(10240)
+                                ->columnSpanFull(),
                     ]),
                 ]),
         ]);

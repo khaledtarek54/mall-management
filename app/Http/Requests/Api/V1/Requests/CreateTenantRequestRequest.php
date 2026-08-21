@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Requests;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequest;
+use App\Models\TenantRequestSubcategory;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
@@ -21,7 +22,10 @@ class CreateTenantRequestRequest extends FormRequest
         // The type drives which sub-categories are valid. Omitted → maintenance,
         // so existing app builds that only send `category` keep working.
         $type = TenantRequestType::tryFrom((string) $this->input('request_type')) ?? TenantRequestType::default();
-        $subcategories = $type->subcategories();
+        // The CATALOGUE, so the mobile app validates against the same list the panel and portal
+        // offer. Reading the enum here would refuse `elevator` — a subcategory the operator can see
+        // in both web forms — with a validation error naming no reason.
+        $subcategories = array_keys(TenantRequestSubcategory::optionsFor($type));
 
         return [
             'request_type' => ['sometimes', Rule::in(TenantRequestType::values())],

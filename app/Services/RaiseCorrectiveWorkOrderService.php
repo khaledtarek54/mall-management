@@ -7,6 +7,7 @@ use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
 use App\Models\TenantRequest;
+use App\Models\TenantRequestSubcategory;
 use App\Models\Trade;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -138,9 +139,23 @@ class RaiseCorrectiveWorkOrderService
      */
     private static function tradeForRequest(TenantRequest $request): ?int
     {
-        return blank($request->category)
-            ? null
-            : Trade::query()->where('code', $request->category)->value('id');
+        // Resolved through the SUBCATEGORY's link, not by matching the category string against
+        // `trades.code`. That match was between two lists nothing kept in step — seven maintenance
+        // subcategories against fourteen trades — so a tenant could not report a stuck lift, a
+        // generator failure, a fire-safety fault, a pest problem, a security issue, a landscaping
+        // fault or a waste problem, and any work order raised from those arrived with NO trade:
+        // invisible to every by-trade report and to vendor eligibility.
+        //
+        // It also survives a naming mismatch the string match could not: the `fire_safety`
+        // subcategory points at the `fire-safety` trade by id.
+        // `request_type` is CAST to the enum on the model, so `(string)` on it is a TypeError —
+        // the guard `ValueSets` documents for exactly this collision between a cast column and code
+        // that expects the raw value.
+        $type = $request->request_type instanceof TenantRequestType
+            ? $request->request_type
+            : TenantRequestType::tryFrom((string) $request->request_type);
+
+        return TenantRequestSubcategory::tradeIdFor($request->category, $type);
     }
 
     /**

@@ -31,8 +31,18 @@ class SlaPolicy extends Model
     /** Mirrors FacilityWorkOrder::PRIORITIES — the tiers must not drift apart. */
     public const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 
+    /**
+     * `request_type` when a policy applies to EVERY kind of request.
+     *
+     * A sentinel rather than NULL because this column is inside a UNIQUE, and SQL treats NULLs as
+     * distinct — nullable here would silently accept two conflicting "urgent" policies for one
+     * property, which is what the first cut of the migration did.
+     */
+    public const ANY_TYPE = 'any';
+
     protected $fillable = [
         'asset_id',
+        'request_type',
         'priority',
         'resolve_hours',
         'respond_hours',
@@ -45,15 +55,16 @@ class SlaPolicy extends Model
         'is_active' => 'boolean',
     ];
 
-    /** NOT-NULL — never let a blank toggle send null. */
+    /** NOT-NULL — never let a blank toggle or an omitted picker send null. */
     protected $attributes = [
         'is_active' => true,
+        'request_type' => self::ANY_TYPE,
     ];
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'priority', 'resolve_hours', 'respond_hours', 'is_active'])
+            ->logOnly(['asset_id', 'request_type', 'priority', 'resolve_hours', 'respond_hours', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('sla_policy');

@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             // is never exercised on realistic data and renders a blank table.
             PaymentMethodSeeder::class,
             ExpenseCategorySeeder::class,
+            TenantRequestSubcategorySeeder::class,
             HolidaySeeder::class,
             DemoSeeder::class,
         ]);
