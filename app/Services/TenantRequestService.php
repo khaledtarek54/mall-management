@@ -119,11 +119,14 @@ class TenantRequestService
                 // A TenantRequest is #[PropertyOwned(via: 'unit')] — it has no asset_id of its own,
                 // so the property comes from the unit. Needed because the working calendar's
                 // holidays are per property: a mall closed for a fit-out day is not a national one.
-                'target_resolution_at' => $this->targetResolutionFor($type, $priority, $assetId, $clock),
+                'target_resolution_at' => $target = $this->targetResolutionFor($type, $priority, $assetId, $clock),
                 // Frozen with the deadline, for the reason module 26 freezes its own: a pending SLA
                 // is re-read on every breach scan, so resolving the clock at read time would re-time
                 // requests already running the moment an operator changed the setting.
-                'sla_clock' => $clock,
+                // Null when the type carries no SLA at all (inquiry, billing, document): a clock for
+                // a promise that does not exist is a claim about nothing, and module 26 leaves it
+                // null on a preventive order for the same reason.
+                'sla_clock' => $target === null ? null : $clock,
             ]);
 
             $this->notifyOperators($request);

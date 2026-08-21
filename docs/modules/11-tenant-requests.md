@@ -177,8 +177,18 @@ Two things are frozen rather than re-derived, and both matter:
   promised — the same rule module 26 applies to a work order.
 - **`TenantRequest::hoursOverSla()` measures the overrun on that same stored clock.** It is the one
   definition; the breach bell quotes it. A request promised on the working clock, breached Thursday
-  evening and read Sunday morning is *three* hours late, not sixty-seven — the mall was shut for two
-  of those days, and the calendar figure told the operator the failure was twenty times worse.
+  evening and read Sunday morning is *three* hours late, not sixty-seven. Two details matter:
+  lateness stops at `resolved_at`/`closed_at`, not at "now", or a finished request's overrun grows
+  for ever in the archive; and a breached figure **floors at 1**, because an overrun lying entirely
+  across a weekend contains no working time and the bell would otherwise say "0 h past its target
+  resolution" about a request that is late. (On the calendar clock 0 still means "less than an hour",
+  which is a different claim.) In practice `requests:scan-sla-breaches` runs **hourly** and freezes
+  its payload at first detection, so the large figures above need the scheduler to have been down —
+  the everyday gain is correctness, not magnitude.
+- **A type with no SLA gets no clock.** `inquiry`, `billing` and `document` have no
+  `target_resolution_at`, so `sla_clock` stays null: a clock is what a deadline is measured against,
+  and one without a deadline is a claim about nothing. `sla_clock` also freezes with
+  `target_resolution_at` once a request is closed or cancelled.
 
 **Three intake roads, one answer.** The portal and `/api/v1` both go through
 `TenantRequestService::create()`, which resolves the clock from the unit's property and writes it in

@@ -210,7 +210,10 @@ class TenantRequest extends Model implements HasMedia
                 'request_type', 'title', 'description', 'priority', 'category',
                 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id',
                 'unit_id', 'lease_id', 'tenant_id',
-                'target_resolution_at', 'scheduled_from', 'scheduled_to', 'valid_from', 'valid_to',
+                // `sla_clock` freezes with the deadline it measures. Freezing what the target IS
+                // while leaving what it is measured AGAINST mutable is half a rule.
+                'target_resolution_at', 'sla_clock',
+                'scheduled_from', 'scheduled_to', 'valid_from', 'valid_to',
                 'resolution_notes',
                 // The answer freezes with everything else. A tenant has been told, and may have
                 // shown the permit at a gate; quietly flipping an approval to a rejection after
@@ -428,7 +431,7 @@ class TenantRequest extends Model implements HasMedia
      * There is no money on this one (module 26's `daysOverSla()` drives a GL penalty; this drives a
      * sentence), which is exactly why it needs saying once here rather than at each reader.
      *
-     * Zero when the request is not breached at all, so a caller can print it without a guard.
+     * Zero only when the request is NOT breached, so a caller can print it without a guard.
      */
     public function hoursOverSla(): int
     {
@@ -436,7 +439,12 @@ class TenantRequest extends Model implements HasMedia
             return 0;
         }
 
-        $end = now();
+        // Lateness stops when the work was declared done, not at "now" — the rule
+        // `FacilityWorkOrder::hoursOverSla()` states and this did not, so a resolved request's
+        // overrun kept growing in the archive. Only the open-only scan reads it today, which is
+        // why it was latent; it is presented on the model as THE definition, so it has to hold for
+        // any reader.
+        $end = $this->resolved_at ?? $this->closed_at ?? now();
 
         if ($end->lessThanOrEqualTo($this->target_resolution_at)) {
             return 0;
@@ -447,11 +455,17 @@ class TenantRequest extends Model implements HasMedia
             // `#[PropertyOwned(via: 'unit')]`, not a column of its own. A null unit falls back to
             // the portfolio calendar, which is the same thing the service did when it set the
             // deadline, so the two measures stay commensurate.
-            return (int) floor(
+            // Floored at 1 for a request that IS breached, exactly as `daysOverSla()` is and for
+            // the same reason: an overrun that fell entirely across a weekend contains no working
+            // time, and reporting "0 h past its target resolution" in the breach bell states that
+            // nothing is wrong on a request that is late. A breach is a breach. (On the CALENDAR
+            // branch below, 0 genuinely means "less than an hour late" — a different claim, left
+            // alone.)
+            return max(1, (int) floor(
                 WorkingCalendar::workingSecondsBetween(
                     $this->target_resolution_at, $end, $this->unit?->asset_id
                 ) / 3600
-            );
+            ));
         }
 
         return (int) abs($this->target_resolution_at->diffInHours($end));

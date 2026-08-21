@@ -178,8 +178,14 @@ ignored there meant `medium` had two meanings depending on whether the fault arr
 or a tenant request. Both modules now take the canonical clock names from `SlaResolver::CLOCK_*`
 (neither owns that vocabulary) and both freeze the answer on the row —
 `facility_work_orders.sla_clock` and `tenant_requests.sla_clock`. The measure has to follow the
-clock, not just the deadline: `daysOverSla()` here prices a GL penalty, and
-`TenantRequest::hoursOverSla()` there words the breach bell. See
+clock, not just the deadline, and there are **four** of them — `daysOverSla()` here prices a GL
+penalty, `hoursOverSla()` and `hoursOverResponseSla()` are frozen onto the `sla_penalties` row,
+quoted in the breach bell and its email and printed on the list, and `TenantRequest::hoursOverSla()`
+words the tenant-request bell. The middle two were missed for a week, so one penalty row read
+"66 hours over" beside an amount priced at **one working day**. A figure that is breached floors at
+1 on the working clock: an overrun that fell entirely across a weekend contains no working time, and
+"0 hours late" on a late job is a false statement. On the calendar clock 0 still means "less than an
+hour late", which is a different claim and is left alone. See
 [modules/11](11-tenant-requests.md).
 
 **Deliberately NOT in scope: PM compliance.** A PPM order never receives an SLA clock —

@@ -42,8 +42,10 @@ class CreateTenantRequest extends CreateRecord
         }
 
         // Frozen even when the operator typed their own deadline: the clock is what the BREACH is
-        // later measured against, and a hand-set target is still measured against something.
-        $data['sla_clock'] = $clock;
+        // later measured against, and a hand-set target is still measured against something. Null
+        // when there is no deadline at all — a clock for a promise that does not exist is a claim
+        // about nothing.
+        $data['sla_clock'] = empty($data['target_resolution_at']) ? null : $clock;
 
         // Auto-route to the type's default team when staff left it unassigned.
         if (empty($data['department_id']) && ($slug = $type->defaultDepartmentSlug())) {

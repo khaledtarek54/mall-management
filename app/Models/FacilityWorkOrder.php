@@ -560,14 +560,14 @@ class FacilityWorkOrder extends Model implements HasMedia
         return $this->responseEndedAt()->greaterThan($this->target_response_at);
     }
 
-    /** Whole hours past the response target; 0 when answered in time. */
+    /** Whole hours past the response target, ON THE CLOCK IT WAS PROMISED; 0 when answered in time. */
     public function hoursOverResponseSla(): int
     {
         if (! $this->isResponseBreached()) {
             return 0;
         }
 
-        return (int) abs($this->target_response_at->diffInHours($this->responseEndedAt()));
+        return $this->overrunHours($this->target_response_at, $this->responseEndedAt());
     }
 
     /** When the response clock stopped: acceptance, else closure, else it is still running. */
@@ -625,7 +625,37 @@ class FacilityWorkOrder extends Model implements HasMedia
         // Whole hours over, truncated — the INFORMATIONAL figure (frozen onto the penalty row +
         // shown in the UI). The money must NOT gate on this: `(int)` of a sub-hour overrun is 0,
         // yet the job IS late (see isSlaBreached / daysOverSla, which the penalty uses instead).
-        return (int) abs($this->target_resolution_at->diffInHours($end));
+        return $this->overrunHours($this->target_resolution_at, $end);
+    }
+
+    /**
+     * Elapsed hours between a deadline and the moment it was met, measured on the clock this job
+     * was PROMISED on.
+     *
+     * Both deadlines are SET on the working calendar — `stampSlaClocks()` routes `target_response_at`
+     * and `target_resolution_at` through `advance()` with the frozen `sla_clock` — so subtracting
+     * bare calendar time from either was subtracting the wrong units from a working-clock instant.
+     * `daysOverSla()` got its branch when the calendar shipped and `TenantRequest::hoursOverSla()`
+     * got one a commit later; these two never did. The result was one `sla_penalties` row carrying
+     * an overrun measured two different ways: `hours_over_sla = 66` beside `amount = 1 × rate`,
+     * with the breach bell and its email to manager/operations/owners quoting the 66.
+     *
+     * `floor` of working SECONDS, deliberately, and not `ceil`: it keeps this commensurate with
+     * `TenantRequest::hoursOverSla()`, and it preserves the documented truncation above — a
+     * sub-hour breach still reports 0 here, because the money is gated on `isSlaBreached()`.
+     *
+     * `asset_id` directly: a work order owns its property, unlike a tenant request, which reaches
+     * it through the unit.
+     */
+    private function overrunHours(CarbonInterface $deadline, CarbonInterface $end): int
+    {
+        if ($this->sla_clock === self::SLA_CLOCK_WORKING) {
+            return (int) floor(
+                WorkingCalendar::workingSecondsBetween($deadline, $end, $this->asset_id) / 3600
+            );
+        }
+
+        return (int) abs($deadline->diffInHours($end));
     }
 
     /**

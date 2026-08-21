@@ -108,9 +108,21 @@ class SlaResolver
      */
     public static function clockFor(?int $assetId, string $priority): string
     {
-        $working = collect(app(SlaSettings::class)->sla_working_clock_priorities)
-            ->map(fn ($value): string => (string) $value)
-            ->all();
+        try {
+            $working = collect(app(SlaSettings::class)->sla_working_clock_priorities)
+                ->map(fn ($value): string => (string) $value)
+                ->all();
+        } catch (\Throwable) {
+            // The settings store may not be readable at all — a fresh box before `atriom:install`,
+            // a settings migration not yet run, or the `reset.sh` path that restores a dump WITHOUT
+            // migrating. `TenantRequestService::defaultTargetResolution()` has carried this guard
+            // since audit M09 F-36 so that such a box still produces a sensible deadline from
+            // `config/sla.php`; routing an UNGUARDED read in front of it turned tenant-request
+            // creation — portal, API and admin — into a 500 on exactly those boxes, with the
+            // feature switched off. The calendar clock is the right answer here: it is what
+            // predates the setting, so an unreadable store behaves as an empty one.
+            return self::CLOCK_CALENDAR;
+        }
 
         return in_array($priority, $working, true)
             ? self::CLOCK_WORKING

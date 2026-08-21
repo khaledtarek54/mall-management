@@ -59,13 +59,18 @@ beforeEach(function () {
     });
 });
 
-afterEach(function () {
+// Captured before anything changes it, so the restore below puts back what was actually there
+// rather than a hard-coded guess. 'UTC' happens to be right today only because `phpunit.xml` pins
+// `APP_TIMEZONE=UTC`; a test file should not silently depend on that.
+$processTimezone = date_default_timezone_get();
+
+afterEach(function () use ($processTimezone) {
     CarbonImmutable::setTestNow();
     // One case below pins the PROCESS timezone (not just the config) because it compares a stored
     // deadline against a live `now()`. Restoring here rather than in that test means an assertion
     // failure cannot leak Cairo into the rest of the file — or, under `--parallel`, into whatever
     // else this worker runs next.
-    date_default_timezone_set('UTC');
+    date_default_timezone_set($processTimezone);
 });
 
 /** Cairo, not UTC — see the header. */
@@ -194,6 +199,84 @@ it('freezes the clock on the job, so changing the policy never re-prices work in
 
     expect($stamped->sla_clock)->toBe(FacilityWorkOrder::SLA_CLOCK_WORKING)
         ->and($stamped->target_resolution_at->equalTo($deadline))->toBeTrue();
+
+    // …and again with the deadlines CLEARED, which is the only shape that reaches the
+    // `$this->sla_clock ?? SlaResolver::clockFor(...)` this case is named for. With both targets
+    // already set, `stampSlaClocks()` skips both branches and the assertions above hold whether or
+    // not the freeze exists — the whole case passed with the `??` deleted.
+    $stamped->forceFill(['target_response_at' => null, 'target_resolution_at' => null]);
+    $stamped->stampSlaClocks();
+
+    expect($stamped->sla_clock)->toBe(FacilityWorkOrder::SLA_CLOCK_WORKING,
+        'A re-stamp must keep the clock the job was PROMISED, not resolve the setting as it is now.')
+        // And the re-derived deadline is on that promised clock, not the current one.
+        ->and(WorkingCalendar::isWorkingDay($stamped->target_resolution_at, $this->asset->id))->toBeTrue();
+});
+
+it('never re-promises the legacy backlog when the operator switches the clock on', function () {
+    // The one path where the freeze is load-bearing, and it had no test at all. The hourly scan
+    // heals orders raised BEFORE the feature — both deadlines and `sla_clock` null. If it resolved
+    // the CURRENT setting, the day an operator ticked a priority the whole backlog would silently
+    // acquire a working-clock deadline and a different penalty BASIS, via `saveQuietly()`, so not
+    // even the activity log would show it.
+    tap(app(SlaSettings::class), fn (SlaSettings $s) => $s->sla_working_clock_priorities = ['medium']);
+    CarbonImmutable::setTestNow(cairo('2026-09-21 09:00')); // Monday
+
+    // A legacy row: raised Thursday, never stamped.
+    $legacy = correctiveOrder(['priority' => 'medium', 'created_at' => cairo('2026-09-17 15:00')]);
+    $legacy->forceFill([
+        'sla_clock' => null,
+        'target_response_at' => null,
+        'target_resolution_at' => null,
+    ])->saveQuietly();
+
+    $this->artisan('facility:scan-sla-breaches')->assertExitCode(0);
+
+    expect($legacy->fresh()->sla_clock)->toBe(FacilityWorkOrder::SLA_CLOCK_CALENDAR,
+        'A job raised before the feature was promised the calendar and must keep it.');
+
+    // The control: a job raised NOW, with the same setting, IS on the working clock — so the
+    // assertion above is the heal being careful, not the feature failing to apply at all.
+    $fresh = correctiveOrder(['priority' => 'medium', 'created_at' => cairo('2026-09-21 09:00')]);
+
+    expect($fresh->fresh()->sla_clock)->toBe(FacilityWorkOrder::SLA_CLOCK_WORKING);
+});
+
+it('measures a work order\'s overrun on the clock it was promised on', function () {
+    // The module-26 twin of the tenant-request fix, and it was left on bare calendar hours while
+    // `daysOverSla()` — the MONEY — was converted. One `sla_penalties` row therefore carried an
+    // overrun measured two different ways: "66 hours over" beside an amount priced at one working
+    // day, with the breach bell and its email quoting the 66.
+    //
+    // Process timezone pinned for the same reason the tenant-request case pins it: the deadline is
+    // STORED and Laravel's datetime cast reads a stored wall clock in the process timezone, which
+    // the suite holds at UTC. A pure duration diff is unaffected (both ends shift together), but
+    // the working branch resolves each end against Cairo opening hours, so a three-hour offset
+    // moves Thursday 16:00 past closing. Production runs Cairo end to end; `afterEach` restores.
+    date_default_timezone_set('Africa/Cairo');
+
+    tap(app(SlaSettings::class), fn (SlaSettings $s) => $s->sla_working_clock_priorities = ['medium']);
+
+    $order = correctiveOrder([
+        'priority' => 'medium',
+        'status' => 'completed',
+        'target_resolution_at' => cairo('2026-09-17 16:00'), // Thursday, an hour before close
+        'completed_at' => cairo('2026-09-20 10:00'),         // Sunday morning
+    ]);
+    $order->sla_clock = FacilityWorkOrder::SLA_CLOCK_WORKING;
+    $order->save();
+
+    // Thursday 16:00→17:00 is one working hour; Friday and Saturday are the weekend; Sunday
+    // 09:00→10:00 is one. Two, not the 66 a calendar subtraction reports.
+    expect($order->hoursOverSla())->toBe(2)
+        // …and it now agrees with the money, which prices the same breach at one working day.
+        ->and($order->daysOverSla())->toBe(1);
+
+    // The control: the same order on the calendar clock still reports the full elapsed time, so
+    // nothing changes for an operator who never switched the feature on.
+    $order->sla_clock = FacilityWorkOrder::SLA_CLOCK_CALENDAR;
+
+    expect($order->hoursOverSla())->toBe(66);
 });
 
 it('never charges nothing for a breach that fell entirely inside the weekend', function () {
@@ -410,4 +493,133 @@ it('clamps a working week somebody emptied back to Egypt rather than stopping th
 
     expect(WorkingCalendar::workingDays())->toBe([7, 1, 2, 3, 4])
         ->and(WorkingCalendar::isWorkingDay(cairo('2026-09-20')))->toBeTrue();
+});
+
+it('still raises a request on a box whose settings store cannot be read', function () {
+    // `TenantRequestService::defaultTargetResolution()` has wrapped its settings read in a
+    // try/catch since audit M09 F-36, so a deploy without settings rows still produces a sensible
+    // deadline from `config/sla.php`. EG-38 routed `SlaResolver::clockFor()` — an UNGUARDED
+    // `app(SlaSettings::class)` — in front of it, and re-stated that guarantee in a comment while
+    // breaking it. Tenant-request creation then 500'd on exactly the boxes the guard exists for:
+    // a fresh install before `atriom:install`, and the `reset.sh` restore-without-migrating path
+    // this work's own deployment note describes. It fired with the feature switched OFF.
+    app()->bind(SlaSettings::class, function () {
+        throw new RuntimeException('settings unavailable');
+    });
+
+    $clock = SlaResolver::clockFor($this->asset->id, 'medium');
+
+    // The calendar: it is what predates the setting, so an unreadable store behaves as an empty one.
+    expect($clock)->toBe(SlaResolver::CLOCK_CALENDAR);
+
+    $unit = makeUnit($this->asset);
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    makeLease($unit, $tenant, ['status' => 'active']);
+
+    $request = app(TenantRequestService::class)->create([
+        'unit_id' => $unit->id,
+        'request_type' => TenantRequestType::Maintenance->value,
+        'priority' => 'medium',
+        'title' => 'Air conditioning is dead',
+        'description' => 'No cooling in the unit.',
+    ], $tenant);
+
+    // It exists, and it carries the config fallback deadline rather than nothing.
+    expect($request->exists)->toBeTrue()
+        ->and($request->target_resolution_at)->not->toBeNull();
+});
+
+it('never tells an operator a breached request is 0 hours late', function () {
+    // A request promised on the working clock, breached Thursday evening and read on Saturday, has
+    // no working time in the overrun at all — so the honest subtraction is 0 and the bell read
+    // "is 0 h past its target resolution" on a request that IS late. `daysOverSla()` floors at 1
+    // for exactly this input, with a comment saying why; module 11 took the opposite decision
+    // silently. A breach is a breach.
+    date_default_timezone_set('Africa/Cairo');
+
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    $unit = makeUnit($this->asset);
+
+    $request = TenantRequest::factory()->create([
+        'tenant_id' => $tenant->id,
+        'unit_id' => $unit->id,
+        'status' => 'in_progress',
+        'target_resolution_at' => cairo('2026-09-17 17:00'), // Thursday, at close
+        'sla_clock' => TenantRequest::SLA_CLOCK_WORKING,
+    ]);
+
+    CarbonImmutable::setTestNow(cairo('2026-09-19 12:00')); // Saturday — still the weekend
+
+    expect($request->isOverdue())->toBeTrue('The premise: this request really is late.')
+        ->and($request->hoursOverSla())->toBe(1);
+
+    // The control: a request INSIDE its window still reports nothing, so the floor did not turn
+    // every request into a breach.
+    CarbonImmutable::setTestNow(cairo('2026-09-17 10:00'));
+    expect($request->isOverdue())->toBeFalse()
+        ->and($request->hoursOverSla())->toBe(0);
+});
+
+it('stamps no clock on a request type that carries no SLA', function () {
+    // A clock is what a deadline is measured against. `inquiry` and `billing` have no deadline at
+    // all — `targetResolutionFor()` returns null — so a clock on those rows is a claim about
+    // nothing. Module 26 leaves it null on a preventive order for the same reason.
+    tap(app(SlaSettings::class), fn (SlaSettings $s) => $s->sla_working_clock_priorities = ['medium']);
+
+    $unit = makeUnit($this->asset);
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    makeLease($unit, $tenant, ['status' => 'active']);
+
+    $inquiry = app(TenantRequestService::class)->create([
+        'unit_id' => $unit->id,
+        'request_type' => TenantRequestType::Inquiry->value,
+        'priority' => 'medium',
+        'title' => 'When does the mall open on Eid?',
+        'description' => 'Asking about holiday hours.',
+    ], $tenant)->fresh();
+
+    expect($inquiry->target_resolution_at)->toBeNull()
+        ->and($inquiry->sla_clock)->toBeNull();
+
+    // The control: a type that DOES carry an SLA gets both, under the same settings.
+    $maintenance = app(TenantRequestService::class)->create([
+        'unit_id' => $unit->id,
+        'request_type' => TenantRequestType::Maintenance->value,
+        'priority' => 'medium',
+        'title' => 'Air conditioning is dead',
+        'description' => 'No cooling in the unit.',
+    ], $tenant)->fresh();
+
+    expect($maintenance->target_resolution_at)->not->toBeNull()
+        ->and($maintenance->sla_clock)->toBe(TenantRequest::SLA_CLOCK_WORKING);
+});
+
+it('freezes the clock on a closed request, alongside the deadline it measures', function () {
+    // `target_resolution_at` was already frozen on a terminal request; `sla_clock` was not — so
+    // what the deadline IS could not be changed while what it is measured AGAINST could. Half a
+    // rule.
+    $tenant = makeTenant(['asset_id' => $this->asset->id]);
+    $unit = makeUnit($this->asset);
+
+    $request = TenantRequest::factory()->create([
+        'tenant_id' => $tenant->id,
+        'unit_id' => $unit->id,
+        'status' => 'closed',
+        'target_resolution_at' => cairo('2026-09-17 17:00'),
+        'sla_clock' => TenantRequest::SLA_CLOCK_CALENDAR,
+    ]);
+
+    $request->sla_clock = TenantRequest::SLA_CLOCK_WORKING;
+
+    // Refused outright rather than silently reverted — the same treatment the frozen deadline gets.
+    expect(fn () => $request->save())->toThrow(DomainException::class);
+    expect($request->fresh()->sla_clock)->toBe(TenantRequest::SLA_CLOCK_CALENDAR);
+
+    // The control: a field that is NOT frozen still saves on a closed request, so the refusal above
+    // is about this column and not about the record being closed to everything.
+    $request->refresh();
+    $request->csat_comment = 'Handled well in the end.';
+    $request->save();
+
+    expect($request->fresh()->csat_comment)->toBe('Handled well in the end.');
 });
