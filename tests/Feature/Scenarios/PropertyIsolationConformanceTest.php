@@ -270,13 +270,25 @@ it('wires the asset-scope write guard on every must-guard resource', function (s
 
     // 'AssetInScope' matches assertAssetInScope AND the FK-derived helpers
     // (assertLeaseAssetInScope / assertUnitAssetInScope / assertInvoiceAssetInScope).
+    //
+    // 'AcrossPortfolio' matches the STRONGER guard used by the registers that allow a null
+    // `asset_id` meaning "every mall" — holidays, departments. It calls assertAssetInScope() for a
+    // named property and adds the portfolio-wide rule on top, so a page using it is more guarded,
+    // not less. Without this the gate went red the moment a page was upgraded, which teaches
+    // exactly the wrong lesson: that hardening a screen breaks the build.
+    $needles = ['AssetInScope', 'AcrossPortfolio'];
+
     $guardedPages = array_filter(
         $pages,
-        fn ($file) => str_contains((string) file_get_contents($file), 'AssetInScope'),
+        fn ($file) => (bool) array_filter(
+            $needles,
+            fn (string $needle) => str_contains((string) file_get_contents($file), $needle),
+        ),
     );
 
     expect($guardedPages)->not->toBeEmpty(
-        "{$resource} has create/edit pages but none call an *AssetInScope guard (property-isolation write guard)",
+        "{$resource} has create/edit pages but none call a property-isolation write guard "
+        .'(an *AssetInScope guard, or assertMayWriteAcrossPortfolio for a register that allows portfolio-wide rows)',
     );
 })->with(propertyIsolationMustGuardResources());
 

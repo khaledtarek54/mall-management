@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Tenants\Pages;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Services\TenantStatementPdfService;
 use App\Support\Filament\RefreshesRecordState;
+use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -88,7 +89,15 @@ class EditTenant extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('tenants.view') ?? false)
                 ->action(function () {
                     $svc = app(TenantStatementPdfService::class);
-                    $pdf = $svc->build($this->record);
+                    // Scoped, exactly as the two sibling call sites are (`TenantsTable`,
+                    // `ArCollections`), each with a comment saying why. Omitting it here meant a
+                    // property-restricted operator could download a shared tenant's WHOLE-PORTFOLIO
+                    // statement — every filter in `data()` is `->when($visibleAssetIds !== null, …)`,
+                    // so null is unrestricted, rollups included. A tenant leasing in two malls is
+                    // legitimately on either mall's register, so this needed no special access.
+                    // Secondary, and true even for super_admin: two identically-labelled buttons
+                    // produced DIFFERENT documents for the same tenant.
+                    $pdf = $svc->build($this->record, TenantScope::visibleAssetIds());
 
                     return response()->streamDownload(
                         fn () => print ($pdf),

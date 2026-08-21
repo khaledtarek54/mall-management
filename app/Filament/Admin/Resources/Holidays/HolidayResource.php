@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources\Holidays;
 
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
+use App\Filament\Admin\Resources\Concerns\GuardsPortfolioWideRows;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Holidays\Pages\CreateHoliday;
 use App\Filament\Admin\Resources\Holidays\Pages\EditHoliday;
@@ -33,6 +35,8 @@ use Illuminate\Database\Eloquent\Builder;
 class HolidayResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
+    use GuardsAssetInScope;
+    use GuardsPortfolioWideRows;
     use RoleGatedActions;
 
     protected static ?string $model = Holiday::class;
@@ -40,6 +44,22 @@ class HolidayResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;
 
     protected static ?int $navigationSort = 11;
+
+    /**
+     * May the current operator write this holiday row — and, on an edit, may they MOVE it?
+     *
+     * Named once here because both pages need it and a copy in each is a copy that drifts; the two
+     * copies this replaced had already drifted from the rule their own docblock cited.
+     * {@see GuardsPortfolioWideRows} carries the reasoning.
+     */
+    public static function assertMayWrite(?int $submittedAssetId, ?int $originalAssetId = null): void
+    {
+        self::assertMayWriteAcrossPortfolio(
+            $submittedAssetId,
+            func_num_args() > 1 ? $originalAssetId : $submittedAssetId,
+            'admin.errors.holiday_needs_every_property',
+        );
+    }
 
     protected static function permissionModule(): string
     {

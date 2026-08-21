@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Departments;
 
 use App\Filament\Admin\RelationManagers\DepartmentMembersRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
+use App\Filament\Admin\Resources\Concerns\GuardsPortfolioWideRows;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\ListDepartments;
@@ -23,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class DepartmentResource extends Resource
 {
     use GuardsAssetInScope;
+    use GuardsPortfolioWideRows;
     use RoleGatedActions;
     use SearchesNormalizedText;
 

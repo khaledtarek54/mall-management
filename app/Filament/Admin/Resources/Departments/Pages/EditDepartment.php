@@ -11,13 +11,22 @@ class EditDepartment extends EditRecord
 
     // No Delete header action — departments cannot be deleted (fixed set).
 
+    /**
+     * Both ends of the move, not just the submitted value.
+     *
+     * A null `asset_id` is an operator-wide department that every mall routes requests to. Guarding
+     * only what was submitted let a restricted admin re-home a global department onto their own
+     * property — which takes it away from every other mall, and misroutes their tenant requests —
+     * while passing the check cleanly. Same defect and same fix as the holiday register; the
+     * reasoning is in {@see GuardsPortfolioWideRows}.
+     */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // asset_id null = operator-wide (global) department; when a property IS set,
-        // re-validate it against the user's visible set (property isolation).
-        if (($data['asset_id'] ?? null) !== null) {
-            DepartmentResource::assertAssetInScope($data['asset_id']);
-        }
+        DepartmentResource::assertMayWriteAcrossPortfolio(
+            isset($data['asset_id']) ? (int) $data['asset_id'] : null,
+            $this->record->getOriginal('asset_id') === null ? null : (int) $this->record->getOriginal('asset_id'),
+            'admin.errors.department_needs_every_property',
+        );
 
         return $data;
     }
