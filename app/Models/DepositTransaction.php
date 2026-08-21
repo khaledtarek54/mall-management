@@ -58,10 +58,17 @@ class DepositTransaction extends Model
      */
     public static function methodOptions(): array
     {
-        $labels = (array) __('admin.enums.expense_paid_from');
+        // Labels from the CATALOGUE, not from `admin.enums.expense_paid_from` — that group has two
+        // keys (`cash`, `bank`) and this set now has eight, so six options rendered as their raw
+        // snake_case code and an InstaPay deposit printed `admin.enums.expense_paid_from.instapay`
+        // in the list. The lang group survives as the fallback for the two legacy values.
+        //
+        // Keyed off `forTable()`, the set the SAVING LISTENER accepts, so this cannot offer a value
+        // the column refuses — which is the whole reason this method exists (2026-08-18).
+        $enforced = ValueSets::forTable('deposit_transactions')['method'] ?? [];
 
-        return collect(ValueSets::allowed('deposit_transactions', 'method') ?? [])
-            ->mapWithKeys(fn (string $v): array => [$v => $labels[$v] ?? $v])
+        return collect($enforced)
+            ->mapWithKeys(fn (string $v) => [$v => PaymentMethod::labelFor($v, 'admin.enums.expense_paid_from')])
             ->all();
     }
 

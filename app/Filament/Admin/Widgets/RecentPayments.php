@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Support\TenantScope;
 use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
@@ -53,7 +54,7 @@ class RecentPayments extends TableWidget
                     ->label(__('admin.widgets.recent_payments.method'))
                     ->badge()
                     ->color('gray')
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.method.{$state}")),
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state)),
                 TextColumn::make('amount')
                     ->label(__('admin.widgets.recent_payments.amount'))
                     ->money('EGP')

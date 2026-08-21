@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -33,7 +34,7 @@ class PaymentReceivedNotification extends Notification
                 // read). The old key `admin.fields.payment_methods.*` never existed, and the
                 // `?:` fallback could not catch it: a missing __() returns the key itself,
                 // which is truthy — so the raw key was emailed to the tenant.
-                'method' => __("admin.enums.method.{$this->payment->method}"),
+                'method' => PaymentMethod::labelFor($this->payment->method),
                 'date' => $this->payment->payment_date->format('d/m/Y'),
             ]))
             ->when($invoiceLines !== '', fn (MailMessage $m) => $m->line(__('admin.notifications.payment_received_allocations', ['invoices' => $invoiceLines])))

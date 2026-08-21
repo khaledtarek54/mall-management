@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\RelationManagers;
 
+use App\Models\PaymentMethod;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\VoidVendorBillPaymentService;
@@ -66,7 +67,7 @@ class VendorBillPaymentsRelationManager extends RelationManager
                 TextColumn::make('method')
                     ->label(__('admin.fields.method'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.vendor_bill_payment_method.{$state}") : '—')
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state, 'admin.enums.vendor_bill_payment_method'))
                     ->color('gray'),
                 TextColumn::make('payment_date')
                     ->label(__('admin.fields.payment_date'))

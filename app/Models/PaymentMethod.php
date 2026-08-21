@@ -120,6 +120,14 @@ class PaymentMethod extends Model
      */
     protected static function booted(): void
     {
+        // Blanking a numeric field in Filament submits NULL, and both of these columns are NOT
+        // NULL with a default — a default only applies when the column is OMITTED, never when null
+        // is written to it. Coerced at the model, which is where CLAUDE.md puts this class of fix.
+        static::saving(function (self $rail): void {
+            $rail->settlement_days ??= 0;
+            $rail->sort_order ??= 0;
+        });
+
         $flush = function (): void {
             foreach ([self::ROLE_MEMO, self::ROLE_MEMO.'.inbound', self::ROLE_MEMO.'.outbound', self::ROLE_MEMO.'.labels'] as $key) {
                 app()->forgetInstance($key);
@@ -351,8 +359,12 @@ class PaymentMethod extends Model
             $direction === 'outbound' ? 'method' : 'method',
         ) ?? [];
 
+        // Through `labelFor()`, not `__()` directly: a code with no row AND no lang key must render
+        // as the code, never as `admin.enums.expense_paid_from.bank_transfer`. The floor lists are
+        // wider than their lang groups — `expenses.paid_from` accepts six values and its group names
+        // two — so the unguarded version put a raw key on the expense list.
         return collect($floor)
-            ->mapWithKeys(fn (string $code) => [$code => __("{$fallbackGroup}.{$code}")])
+            ->mapWithKeys(fn (string $code) => [$code => static::labelFor($code, $fallbackGroup)])
             ->all();
     }
 

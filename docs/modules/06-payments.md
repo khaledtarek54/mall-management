@@ -432,12 +432,21 @@ Three conditions now, all required, asked in **one** place because the predicate
 
 ## 8. Extension points — how to change/extend SAFELY
 
-### Adding a new payment method or gateway
-1. Add enum option to payments.method or create a new column (e.g. gateway_name for multi-gateway support).
-2. Update PaymentForm enum select to include the new method.
-3. If integrating a new gateway (e.g., Stripe), create a new PaymobClient-like wrapper (StripClient) and a new *Initiator service.
-4. Register the S2S callback route in routes/web.php and create a new CallbackController or extend the existing one.
-5. Add tests mirroring PaymobPaymentScenarioTest for the new gateway's state transitions.
+### Adding a new payment RAIL — no deploy (EG-11, 2026-08-21)
+
+A rail is a **row**. Add it at `/admin/payment-methods`: a code (stored on every document, immutable
+once saved), a bilingual name, the direction(s) it may be used in, and optionally the ledger account
+its money lands in. Nothing else. The steps below described the world before that and were wrong the
+day the catalogue shipped — every picker, filter, table cell, export and PDF now reads
+`PaymentMethod::options()` / `::labelFor()`, gated by
+`PaymentRailSurfacesReadTheCatalogueConformanceTest`.
+
+Fawry, Meeza, Vodafone Cash and Aman already exist, switched off. Activating one is a tick.
+
+### Adding a new GATEWAY (still code)
+1. Create a `PaymobClient`-like wrapper (e.g. `StripeClient`) and a matching `*Initiator` service.
+2. Register the S2S callback route in routes/web.php and create a new CallbackController or extend the existing one.
+3. Add tests mirroring PaymobPaymentScenarioTest for the new gateway's state transitions.
 6. **DO NOT break:** Invoice::recomputeTotals only counts `captured` payments—respect this so AR math stays correct.
 
 ### Changing late-fee logic

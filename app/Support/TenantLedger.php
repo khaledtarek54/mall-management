@@ -6,6 +6,7 @@ use App\Models\CreditNote;
 use App\Models\DepositApplication;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\Tenant;
 use App\Models\TenantCreditApplication;
 use Carbon\CarbonInterface;
@@ -84,7 +85,7 @@ class TenantLedger
                     'date' => $payment->payment_date,
                     'type' => 'payment',
                     'reference' => $payment->reference ?? '',
-                    'description' => __('admin.enums.method.'.$payment->method, [], app()->getLocale()),
+                    'description' => PaymentMethod::labelFor($payment->method),
                     'charge' => 0.0,
                     'credit' => $allocated,
                     'model' => $payment,

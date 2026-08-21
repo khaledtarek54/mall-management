@@ -13,6 +13,7 @@ use App\Filament\Admin\Resources\Payments\Schemas\PaymentForm;
 use App\Filament\Admin\Resources\Payments\Tables\PaymentsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -104,7 +105,7 @@ class PaymentResource extends Resource
             __('admin.tables.payment.tenant') => $record->tenant?->name,
             __('admin.tables.payment.amount') => 'EGP '.number_format((float) $record->amount, 2),
             __('admin.tables.payment.date') => $record->payment_date?->format('d/m/Y'),
-            __('admin.tables.payment.method') => __("admin.enums.method.{$record->method}"),
+            __('admin.tables.payment.method') => PaymentMethod::labelFor($record->method),
         ];
     }
 

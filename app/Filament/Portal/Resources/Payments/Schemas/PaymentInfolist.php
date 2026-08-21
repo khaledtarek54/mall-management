@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Payments\Schemas;
 
+use App\Models\PaymentMethod;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -38,7 +39,7 @@ class PaymentInfolist
                     TextEntry::make('method')
                         ->label(__('admin.fields.method'))
                         ->badge()
-                        ->formatStateUsing(fn (string $state) => __("admin.enums.method.{$state}")),
+                        ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state)),
                     TextEntry::make('gateway')->label(__('admin.fields.gateway'))->placeholder('—'),
                     TextEntry::make('gateway_transaction_id')->label(__('admin.fields.gateway_transaction_id'))->placeholder('—'),
                     TextEntry::make('cheque_number')->label(__('admin.fields.cheque_number'))->placeholder('—'),

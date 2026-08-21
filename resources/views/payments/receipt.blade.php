@@ -83,7 +83,7 @@
             </td>
             <td>
                 <div class="label">{{ __('admin.pdf.receipt.payment_details') }}</div>
-                <div class="party-line">{{ __('admin.fields.method') }}: {{ __("admin.enums.method.{$payment->method}") }}</div>
+                <div class="party-line">{{ __('admin.fields.method') }}: {{ \App\Models\PaymentMethod::labelFor($payment->method) }}</div>
                 @if($payment->cheque_number)
                     <div class="party-line">{{ __('admin.fields.cheque_number') }}: {{ $payment->cheque_number }}</div>
                     @if($payment->cheque_clearance_date)<div class="party-line">{{ __('admin.fields.cheque_clearance_date') }}: {{ $payment->cheque_clearance_date->format('d/m/Y') }}</div>@endif

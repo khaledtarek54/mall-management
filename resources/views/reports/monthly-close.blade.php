@@ -189,7 +189,7 @@
         <tbody>
             @foreach($report['payments']['by_method'] as $method => $total)
                 <tr>
-                    <td>{{ __("admin.enums.method.{$method}") }}</td>
+                    <td>{{ \App\Models\PaymentMethod::labelFor($method) }}</td>
                     <td class="num">{{ number_format($total, 2) }}</td>
                 </tr>
             @endforeach

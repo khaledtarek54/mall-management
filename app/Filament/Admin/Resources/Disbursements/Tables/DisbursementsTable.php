@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Disbursements\Tables;
 
 use App\Filament\Admin\Resources\Disbursements\DisbursementResource;
 use App\Models\Disbursement;
+use App\Models\PaymentMethod;
 use App\Services\OwnerAccounting\DisbursementService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -33,7 +34,7 @@ class DisbursementsTable
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('method')
                     ->label(__('admin.disbursements.fields.method'))
-                    ->formatStateUsing(fn (string $state) => __("admin.disbursements.methods.{$state}"))
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state, 'admin.disbursements.methods'))
                     ->toggleable(),
                 TextColumn::make('status')
                     ->label(__('admin.disbursements.fields.status'))

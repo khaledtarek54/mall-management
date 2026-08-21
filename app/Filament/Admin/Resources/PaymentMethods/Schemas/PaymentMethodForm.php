@@ -40,6 +40,14 @@ class PaymentMethodForm
                 // column and folds neither side (CLAUDE.md). The chart is browsed, not typed, so it
                 // preloads.
                 ->preload()
+                // Postable, active ASSET leaves only — the same filter `BankAccountForm` applies,
+                // and this was the one of three siblings without it. A summary account cannot carry
+                // a balance, an inactive one should not take new money, and money received has to
+                // land in an asset: offering any of those produces a rail that can never tie out.
+                ->modifyOptionsQuery(fn ($query) => $query
+                    ->where('is_postable', true)
+                    ->where('is_active', true)
+                    ->where('type', 'asset'))
                 // Null is the normal state and the safe one; the helper says what leaving it blank
                 // DOES, because that is what changes what the operator types.
                 ->helperText(__('admin.payment_methods.help.ledger_account'))

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Payments\Schemas;
 
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\Tenant;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
@@ -94,7 +95,7 @@ class PaymentForm
                             }),
                         Select::make('method')
                             ->label(__('admin.fields.method'))
-                            ->options(fn () => __('admin.enums.method'))
+                            ->options(fn () => PaymentMethod::options('inbound'))
                             ->required()
                             ->disabled($locked)
                             ->native(false),

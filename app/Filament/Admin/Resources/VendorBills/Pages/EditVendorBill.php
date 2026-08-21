@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VendorBills\Pages;
 
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Models\PaymentMethod;
 use App\Services\VendorBillService;
 use App\Support\Filament\RefreshesRecordState;
 use App\Support\PostingDate;
@@ -144,7 +145,7 @@ class EditVendorBill extends EditRecord
                         }),
                     Select::make('method')
                         ->label(__('admin.fields.method'))
-                        ->options(fn () => __('admin.enums.vendor_bill_payment_method'))
+                        ->options(fn () => PaymentMethod::options('outbound', 'admin.enums.vendor_bill_payment_method'))
                         ->default('bank_transfer')
                         ->native(false)
                         ->required(),

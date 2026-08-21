@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\IssueInvoiceService;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Support\ActivityLogChangeRenderer;
+use App\Support\ValueSets;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -681,4 +682,28 @@ function overpay(Invoice $invoice, float $paid): Payment
     $invoice->recomputeTotals();
 
     return $payment;
+}
+
+/**
+ * Put `ValueSets`' per-process map back into the state a long-lived queue worker is in: built, and
+ * built before the catalogue changed.
+ *
+ * `flushCatalogueCache()` clears it; asking for any table rebuilds it. Doing that while the
+ * catalogue memo is ALSO warm reproduces the daemon exactly — the map is fresh in this process's
+ * opinion and stale in fact.
+ */
+function staleTheValueSetCache(): void
+{
+    ValueSets::flushCatalogueCache();
+
+    // Rebuild from a snapshot that predates the new row by forgetting only the table map, not the
+    // catalogue memo the model's `saved` hook already dropped.
+    app()->instance('payment_method.roles.inbound', []);
+    app()->instance('payment_method.roles.outbound', []);
+
+    ValueSets::forTable('payments');
+
+    // Now let the catalogue answer truthfully again; only the table map stays stale.
+    app()->forgetInstance('payment_method.roles.inbound');
+    app()->forgetInstance('payment_method.roles.outbound');
 }

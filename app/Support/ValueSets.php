@@ -410,6 +410,26 @@ class ValueSets
                 continue;
             }
 
+            // ── Last chance before refusing: is our catalogue map stale? ───────────────────────
+            // `forTable()` memoizes in a PHP STATIC, and for a catalogue-widened column that map
+            // now depends on database state. Both the static and the model's `saved` flush are
+            // PROCESS-LOCAL, so a `queue:work` daemon that started before an operator activated
+            // Fawry keeps answering from a map built without it — and refuses a job that the very
+            // same save through the web accepts. A wrong REFUSAL is the worse direction: the row is
+            // lost and the failure looks like a bug in the job.
+            //
+            // Re-deriving on the FAILURE path only costs nothing on the millions of saves that pass
+            // and one query on the handful that would otherwise throw. It is also self-correcting
+            // across a rolled-back transaction, which is the other way this static goes stale.
+            if (isset(self::CATALOGUE_WIDENED[$model->getTable().'.'.$column])) {
+                self::flushCatalogueCache();
+                $fresh = self::forTable($model->getTable())[$column] ?? [];
+
+                if (in_array((string) $value, $fresh, true)) {
+                    continue;
+                }
+            }
+
             throw new DomainException(__('admin.errors.value_not_allowed', [
                 'value' => (string) $value,
                 'field' => $column,

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Expenses\Schemas;
 
 use App\Models\Expense;
 use App\Models\FacilityWorkOrder;
+use App\Models\PaymentMethod;
 use App\Models\TaxCode;
 use App\Support\CatalogueTaxRate;
 use App\Support\Filament\EntitySelect;
@@ -70,7 +71,7 @@ class ExpenseForm
 
                     Select::make('paid_from')
                         ->label(__('admin.fields.paid_from'))
-                        ->options(fn () => __('admin.enums.expense_paid_from'))
+                        ->options(fn () => PaymentMethod::options('outbound', 'admin.enums.expense_paid_from'))
                         ->default('cash')
                         ->native(false)
                         ->required()

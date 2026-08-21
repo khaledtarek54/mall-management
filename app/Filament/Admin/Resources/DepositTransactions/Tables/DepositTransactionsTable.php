@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources\DepositTransactions\Tables;
 
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
+use App\Models\DepositTransaction;
+use App\Models\PaymentMethod;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -57,7 +59,7 @@ class DepositTransactionsTable
                 TextColumn::make('method')
                     ->label(__('admin.fields.method'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.expense_paid_from.{$state}")),
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state, 'admin.enums.expense_paid_from')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
@@ -77,7 +79,7 @@ class DepositTransactionsTable
                     ->options(fn () => __('admin.statuses.deposit_transaction')),
                 SelectFilter::make('method')
                     ->label(__('admin.fields.method'))
-                    ->options(fn () => __('admin.enums.expense_paid_from')),
+                    ->options(fn () => DepositTransaction::methodOptions()),
                 TrashedFilter::make(),
             ])
             ->recordActions([

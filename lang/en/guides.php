@@ -1755,8 +1755,8 @@ return [
             'To retire a rail, switch it off. It disappears from the pickers and every document that used it is untouched.',
         ],
         'affects' => [
-            'Every payment, vendor bill payment, deposit and expense screen offers exactly the rails ticked for that direction here.',
-            'The posting account decides which ledger account a receipt debits. Change it and FUTURE documents post there; documents already posted are not moved.',
+            'Every payment, vendor-bill payment, deposit, expense and payout screen offers exactly the rails ticked for that direction here. Payroll, custody and marketing spend are deliberately NOT on this list — those still take cash or bank only.',
+            'The posting account decides which ledger account a receipt debits. Changing it RE-POSTS documents whose period is still open — the ledger here is derived, so the nightly sync voids the old entry and writes a corrected one. Anything inside a CLOSED period is left exactly as it was. Set the account before the money starts arriving, not after.',
             'Turning a rail off never invalidates history — old documents keep naming it and still show its name.',
         ],
         'rules' => [

@@ -309,7 +309,7 @@
                     <tr>
                         <td style="font-family:monospace;font-size:8pt;">{{ $p->reference }}</td>
                         <td>{{ $p->payment_date->format('d/m/Y') }}</td>
-                        <td>{{ __("admin.enums.method.{$p->method}") }}</td>
+                        <td>{{ \App\Models\PaymentMethod::labelFor($p->method) }}</td>
                         <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $p->amount, 2) }}</td>
                     </tr>
                 @endforeach

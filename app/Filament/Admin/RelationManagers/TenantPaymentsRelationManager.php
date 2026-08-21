@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Models\PaymentMethod;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -47,7 +48,7 @@ class TenantPaymentsRelationManager extends RelationManager
                 TextColumn::make('method')
                     ->label(__('admin.tables.payment.method'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.method.{$state}"))
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state))
                     ->color('info'),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
@@ -63,7 +64,7 @@ class TenantPaymentsRelationManager extends RelationManager
             ->filters([
                 SelectFilter::make('method')
                     ->label(__('admin.tables.payment.method'))
-                    ->options(fn () => __('admin.enums.method')),
+                    ->options(fn () => PaymentMethod::options('inbound')),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.payment')),

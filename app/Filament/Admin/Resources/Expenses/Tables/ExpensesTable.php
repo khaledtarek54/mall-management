@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Expenses\Tables;
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
+use App\Models\PaymentMethod;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -50,7 +51,7 @@ class ExpensesTable
                 TextColumn::make('paid_from')
                     ->label(__('admin.fields.paid_from'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.expense_paid_from.{$state}")),
+                    ->formatStateUsing(fn (?string $state) => PaymentMethod::labelFor($state, 'admin.enums.expense_paid_from')),
                 TextColumn::make('expense_date')
                     ->label(__('admin.fields.expense_date'))
                     ->date('d/m/Y')
@@ -97,7 +98,7 @@ class ExpensesTable
                         : $query),
                 SelectFilter::make('paid_from')
                     ->label(__('admin.fields.paid_from'))
-                    ->options(fn () => __('admin.enums.expense_paid_from')),
+                    ->options(fn () => PaymentMethod::options('outbound', 'admin.enums.expense_paid_from')),
                 TrashedFilter::make(),
             ])
             // Category is the axis the owner's cost report is built on.
