@@ -25,11 +25,12 @@ Artisan::command('inspire', function () {
 | allocation manually unless --auto-bill is passed).
 */
 
+// DAILY, not `->monthlyOn($day)`. There is one scheduler for the whole portfolio and
+// `monthly_billing_day` is a per-property override (M-5) — so the job asks each property whether
+// today is its day. Firing monthly on one global day would make the override a setting the operator
+// can save and nothing can honour.
 Schedule::job(new RunMonthlyBilling)
-    ->monthlyOn(
-        (int) ScheduleSetting::billing('monthly_billing_day', 'billing.monthly_billing_day', 1),
-        (string) ScheduleSetting::billing('monthly_billing_time', 'billing.monthly_billing_time', '02:00'),
-    )
+    ->dailyAt((string) ScheduleSetting::billing('monthly_billing_time', 'billing.monthly_billing_time', '02:00'))
     ->name('atriom-monthly-billing')
     ->withoutOverlapping();
 
@@ -45,13 +46,11 @@ Schedule::job(new RunMonthlyBilling)
 // August 2026 and was never wired to anything — its own docblock spoke of "the scheduled one" while
 // no schedule ever called it, so every handed-over owner went un-billed in production.
 Schedule::command('billing:run-assessments')
-    ->monthlyOn(
-        (int) ScheduleSetting::billing('monthly_billing_day', 'billing.monthly_billing_day', 1),
-        // The DAY is the operator's billing-day setting — both runs bill the same night. The TIME is
-        // config-only and deliberately not a settings property: it is a stagger, not a policy, and a
-        // settings field with no screen behind it reads as configurable when it is not.
-        (string) config('billing.assessment_billing_time', '02:30'),
-    )
+    // Daily for the same reason as the lease run above: the command asks each property whether today
+    // is its billing day. The TIME is config-only and deliberately not a settings property — it is a
+    // stagger, not a policy, and a settings field with no screen behind it reads as configurable
+    // when it is not.
+    ->dailyAt((string) config('billing.assessment_billing_time', '02:30'))
     ->name('atriom-owner-assessments')
     ->withoutOverlapping();
 

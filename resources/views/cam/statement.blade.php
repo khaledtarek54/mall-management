@@ -65,6 +65,7 @@
     <table>
         <tr>
             <td style="width:55%">
+                @include('partials.issuer-logo')
                 <div class="brand-name">{{ $issuerName }}</div>
                 <div class="brand-sub">{{ $asset?->code }}</div>
             </td>

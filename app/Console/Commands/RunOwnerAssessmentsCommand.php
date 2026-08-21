@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Asset;
 use App\Services\BillUnitOwnershipsService;
+use App\Support\PropertySettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
@@ -40,6 +42,30 @@ class RunOwnerAssessmentsCommand extends Command
 
         $assetId = $this->option('asset') !== null ? (int) $this->option('asset') : null;
 
+        // The scheduled run fires DAILY and asks whose day it is, because `monthly_billing_day` is a
+        // per-property override (M-5) and there is one scheduler for the whole portfolio. An
+        // explicit `--period` or `--asset` is a manual run and bills regardless — that is somebody
+        // asking for it now.
+        if ($periodOption === null && $assetId === null) {
+            $due = $this->propertiesDueToday();
+
+            if ($due === []) {
+                $this->info('No property bills assessments today.');
+
+                return self::SUCCESS;
+            }
+
+            $failed = 0;
+
+            foreach ($due as $id => $code) {
+                $this->info("Running owner assessments for {$period->format('F Y')} — {$code}...");
+                $stats = $service->runForPeriod($period, $id);
+                $failed += (int) $stats['failed'];
+            }
+
+            return $failed > 0 ? self::FAILURE : self::SUCCESS;
+        }
+
         $this->info("Running owner assessments for {$period->format('F Y')}...");
         $stats = $service->runForPeriod($period, $assetId);
 
@@ -49,5 +75,30 @@ class RunOwnerAssessmentsCommand extends Command
         );
 
         return $stats['failed'] > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * `assetId => code` for the properties whose billing day is today.
+     *
+     * A property set to the 31st must still bill in February, so the day is clamped to the month's
+     * last — unclamped, a 31 would skip seven months of the year and a 30 would skip four.
+     *
+     * @return array<int, string>
+     */
+    private function propertiesDueToday(): array
+    {
+        $today = CarbonImmutable::now();
+        $lastDay = (int) $today->endOfMonth()->day;
+        $due = [];
+
+        foreach (Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get() as $asset) {
+            $day = (int) PropertySettings::get('billing.monthly_billing_day', $asset->id);
+
+            if (min(max($day, 1), $lastDay) === (int) $today->day) {
+                $due[$asset->id] = $asset->code;
+            }
+        }
+
+        return $due;
     }
 }

@@ -143,6 +143,7 @@
         <table>
             <tr>
                 <td style="width:60%;">
+                    @include('partials.issuer-logo')
                     <div class="brand-name">{{ $issuerName }}</div>
                     <div class="brand-sub">
                         @if($asset?->address){{ $asset->address }}@endif

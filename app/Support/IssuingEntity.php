@@ -111,6 +111,28 @@ final class IssuingEntity
      *
      * @return array{issuerName: string, sellerLegalName: string, sellerTrn: string, billingEmail: string}
      */
+    /**
+     * The mall's logo as a LOCAL FILE PATH, or null.
+     *
+     * A path, not `Asset::logoUrl()`: mpdf renders these documents server-side, and handing it a URL
+     * makes every PDF depend on the box being able to fetch its own public URL — which fails behind
+     * a private network, a self-signed certificate, or simply a slow request, and fails as a missing
+     * image with no error anyone sees. The file is on the `public` disk and readable directly.
+     *
+     * Null when the property has no logo or the file has gone missing under the record; the templates
+     * render the text header alone, which is exactly what they did before.
+     */
+    private static function logoPath(?Asset $asset): ?string
+    {
+        if ($asset === null) {
+            return null;
+        }
+
+        $path = $asset->getFirstMedia('logo')?->getPath();
+
+        return $path !== null && is_file($path) ? $path : null;
+    }
+
     public static function forView(?Asset $asset = null): array
     {
         return [
@@ -118,6 +140,7 @@ final class IssuingEntity
             'sellerLegalName' => self::legalName(),
             'sellerTrn' => self::taxRegistrationNumber(),
             'billingEmail' => self::billingEmail(),
+            'issuerLogo' => self::logoPath($asset),
         ];
     }
 }

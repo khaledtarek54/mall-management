@@ -38,6 +38,7 @@
         <table>
             <tr>
                 <td>
+                    @include('partials.issuer-logo')
                     <div class="brand-name">{{ $issuerName }}</div>
                     <div style="color:#8C8478;font-size:9pt;">{{ $scopeLabel }}</div>
                 </td>

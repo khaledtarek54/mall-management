@@ -11,11 +11,11 @@ use App\Models\Concerns\Invoice\HasPaymentLink;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
-use App\Settings\BillingSettings;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\OpsLog;
+use App\Support\PropertySettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -346,7 +346,11 @@ class Invoice extends Model
             if ($invoice->status !== 'issued' || round((float) $invoice->balance, 2) <= 0) {
                 return;
             }
-            if (! app(BillingSettings::class)->auto_apply_tenant_credit) {
+            // Per PROPERTY (M-5). Reading the portfolio setting directly would have made the
+            // override a value the operator saves and nothing consults — which
+            // `PropertySettings`' own docblock calls worse than no override at all. The invoice
+            // carries its property, so there is no ambiguity about which mall's policy applies.
+            if (! PropertySettings::get('billing.auto_apply_tenant_credit', $invoice->asset_id)) {
                 return;
             }
 

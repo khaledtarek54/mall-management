@@ -105,6 +105,7 @@
     <table>
         <tr>
             <td style="width: 50%;">
+                @include('partials.issuer-logo')
                 <div class="brand-name">{{ $issuerName }}</div>
                 <div class="brand-sub">{{ __('admin.reports.brand_sub') }}</div>
             </td>

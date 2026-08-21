@@ -33,6 +33,7 @@
 </head>
 <body>
     <div class="header">
+        @include('partials.issuer-logo')
         <div class="brand">{{ $issuerName }}</div>
         <div class="title">@yield('report_title')</div>
         <table class="meta">

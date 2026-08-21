@@ -41,6 +41,7 @@
                     {{-- The EMPLOYER. A payslip is issued by the company that pays the salary, so
                          the registered entity leads and the property the employee is posted to
                          stays underneath it. --}}
+                    @include('partials.issuer-logo')
                     <div class="brand-name">{{ $issuerName }}</div>
                     <div class="brand-sub">{{ $asset?->name ?? __('admin.fields.property_consolidated') }}</div>
                 </td>

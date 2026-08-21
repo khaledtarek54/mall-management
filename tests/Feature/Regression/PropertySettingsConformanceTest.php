@@ -27,7 +27,6 @@ use App\Support\PropertyIsolation;
 use App\Support\PropertySettings;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
@@ -57,26 +56,63 @@ it('names a real property on every overridable key', function () {
     }
 });
 
-it('has something actually reading every overridable key', function () {
-    // The heart of it. An override nothing consults is worse than no override — the operator
-    // changes it, sees it saved, and nothing happens. Each key must be reachable from a consumer,
-    // proved BEHAVIOURALLY below; this is the cheap structural half that catches a key added to the
-    // registry and then forgotten.
-    $source = collect(['app/Models/Lease.php', 'app/Services', 'app/Filament'])
-        ->flatMap(fn (string $path) => is_dir(base_path($path))
-            ? collect(File::allFiles(base_path($path)))->map->getPathname()->all()
-            : [base_path($path)])
-        ->map(fn (string $file) => (string) file_get_contents($file))
+/**
+ * Keys read through a named accessor rather than a literal `PropertySettings::get('key')`.
+ *
+ * Each must name the accessor, so a reviewer can check the claim in one jump. This is the ONLY way
+ * a key escapes the literal check below.
+ */
+const READ_THROUGH_ACCESSOR = [
+    'billing.default_payment_terms_days' => 'Lease::paymentTermsDays() / UnitOwnership::paymentTermsDays(), the BillableAgreement contract both implement.',
+];
+
+it('has something actually reading every overridable key, THROUGH the resolver', function () {
+    // The heart of it, and it used to be satisfied by the wrong thing.
+    //
+    // The previous version searched three paths (`app/Models/Lease.php`, `app/Services`,
+    // `app/Filament`) for the bare key OR its camelCase name anywhere in the text. Both halves were
+    // too loose: `app/Models`, `app/Jobs` and `app/Console` were not scanned at all, and
+    // `app(BillingSettings::class)->auto_apply_tenant_credit` — the PORTFOLIO read, which ignores
+    // every override — contains the name and satisfied it. Measured: reverting a per-property read
+    // to the portfolio one left this gate green, so it certified wiring it was not checking.
+    //
+    // The override only reaches the operator if something calls `PropertySettings::get()` with the
+    // key. That is what is asserted now, across ALL of `app/`.
+    $source = collect(File::allFiles(base_path('app')))
+        ->filter(fn ($f) => $f->getExtension() === 'php')
+        ->map(fn ($f) => (string) file_get_contents($f->getPathname()))
         ->implode("\n");
 
+    $unwired = [];
+
     foreach (array_keys(PropertySettings::OVERRIDABLE) as $key) {
-        [, $name] = explode('.', $key, 2);
+        if (array_key_exists($key, READ_THROUGH_ACCESSOR)) {
+            continue;
+        }
 
-        // Either the full key, or the helper named after the setting (paymentTermsDays).
-        $referenced = str_contains($source, $key)
-            || str_contains($source, Str::camel($name));
+        if (! str_contains($source, "PropertySettings::get('{$key}'")
+            && ! str_contains($source, "PropertySettings::get(\"{$key}\"")) {
+            $unwired[] = $key;
+        }
+    }
 
-        expect($referenced)->toBeTrue("nothing reads {$key} — an override that does nothing is worse than none");
+    expect($unwired)->toBe([], implode("\n", [
+        'Nothing reads these through `PropertySettings::get()`, so the override is a value the',
+        'operator saves and no code consults — worse than no override at all:',
+        '  '.implode("\n  ", $unwired),
+        '',
+        'Read it with PropertySettings::get($key, $assetId), or — if it goes through a named',
+        'accessor — add it to READ_THROUGH_ACCESSOR naming that accessor.',
+    ]));
+});
+
+it('has no stale accessor exemption', function () {
+    $stale = array_values(array_diff(array_keys(READ_THROUGH_ACCESSOR), array_keys(PropertySettings::OVERRIDABLE)));
+
+    expect($stale)->toBe([], 'Not overridable any more: '.implode(', ', $stale));
+
+    foreach (READ_THROUGH_ACCESSOR as $key => $accessor) {
+        expect(strlen($accessor))->toBeGreaterThan(20, "The exemption for {$key} does not name an accessor.");
     }
 });
 

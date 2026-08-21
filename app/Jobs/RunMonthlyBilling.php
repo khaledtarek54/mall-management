@@ -2,7 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Models\Asset;
 use App\Services\MonthlyBillingService;
+use App\Support\PropertySettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,10 +41,63 @@ class RunMonthlyBilling implements ShouldQueue
             ? CarbonImmutable::createFromFormat('!Y-m', $this->period)->startOfMonth()
             : CarbonImmutable::now()->startOfMonth();
 
-        $stats = $service->runForPeriod($period);
+        // An EXPLICIT period is a manual dispatch — "bill March now" — and bills every property, as
+        // it always did. Only the scheduled run asks whose day it is.
+        if ($this->period !== null) {
+            $stats = $service->runForPeriod($period);
+            Log::info('Monthly billing run complete', $stats);
 
-        Log::info('Monthly billing run complete', $stats);
+            return $stats;
+        }
 
-        return $stats;
+        return $this->runPropertiesDueToday($service, $period);
+    }
+
+    /**
+     * Bill the properties whose billing day is TODAY.
+     *
+     * The schedule fires daily and this decides, rather than the scheduler firing `->monthlyOn($day)`
+     * — because there is one scheduler for the whole portfolio and `monthly_billing_day` became a
+     * per-property override (M-5). Without this, an operator setting Mall B to the 25th would see it
+     * saved and the run would still fire on the 1st: an override nothing consults, which
+     * `PropertySettings`' own docblock calls worse than no override at all.
+     *
+     * @return array<string, mixed>
+     */
+    private function runPropertiesDueToday(MonthlyBillingService $service, CarbonImmutable $period): array
+    {
+        $today = CarbonImmutable::now();
+        $lastDayOfMonth = (int) $today->endOfMonth()->day;
+
+        $totals = [];
+        $billed = [];
+
+        foreach (Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get() as $asset) {
+            $day = (int) PropertySettings::get('billing.monthly_billing_day', $asset->id);
+
+            // A property set to the 31st must still bill in February. Clamping to the month's last
+            // day is the only reading that bills every property every month; leaving it unclamped
+            // skips seven months of the year for a 31, and four for a 30.
+            $due = min(max($day, 1), $lastDayOfMonth);
+
+            if ($due !== (int) $today->day) {
+                continue;
+            }
+
+            $stats = $service->runForPeriod($period, $asset->id);
+            $billed[] = $asset->code;
+
+            foreach ($stats as $key => $value) {
+                if (is_numeric($value)) {
+                    $totals[$key] = ($totals[$key] ?? 0) + $value;
+                }
+            }
+        }
+
+        $totals['properties_billed'] = $billed;
+
+        Log::info('Monthly billing run complete', $totals);
+
+        return $totals;
     }
 }

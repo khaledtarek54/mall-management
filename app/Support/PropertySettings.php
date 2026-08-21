@@ -46,6 +46,14 @@ class PropertySettings
      * @var array<string, array{class: class-string, reason: string}>
      */
     public const OVERRIDABLE = [
+        'billing.monthly_billing_day' => [
+            'class' => BillingSettings::class,
+            'reason' => 'One mall bills on the 1st and another on the 25th, because the day is negotiated with the anchor tenants and follows their own payment cycles. The scheduled run fires DAILY and asks each property whose day it is — a global `->monthlyOn()` would have made this a setting an operator can save and nothing can honour.',
+        ],
+        'billing.auto_apply_tenant_credit' => [
+            'class' => BillingSettings::class,
+            'reason' => 'Whether an over-payment settles the next invoice by itself is an operator policy per building: a mall whose tenants pay a year of cheques up front wants it on, and one that reconciles every receipt by hand wants the credit left visible until somebody decides where it goes.',
+        ],
         'billing.late_fee_percent' => [
             'class' => BillingSettings::class,
             'reason' => 'Late-fee terms are negotiated per building — a prime mall and a secondary one do not charge the same penalty, and the lease tier above this already assumes the number varies.',
