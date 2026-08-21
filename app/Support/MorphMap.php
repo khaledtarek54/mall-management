@@ -81,6 +81,7 @@ use App\Models\PurchaseRequestLine;
 use App\Models\RentableItem;
 use App\Models\RentIndex;
 use App\Models\ReportPreference;
+use App\Models\RetailCategory;
 use App\Models\SavedReport;
 use App\Models\ServicePlan;
 use App\Models\ServicePlanStop;
@@ -260,6 +261,7 @@ class MorphMap
         'holiday' => Holiday::class,
         'expense_category' => ExpenseCategory::class,
         'payment_method' => PaymentMethod::class,
+        'retail_category' => RetailCategory::class,
         'tenant_request_subcategory' => TenantRequestSubcategory::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,

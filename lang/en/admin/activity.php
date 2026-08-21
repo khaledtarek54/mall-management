@@ -17,6 +17,7 @@ return [
             'failure_code' => 'Failure code',
             'holiday' => 'Holiday',
             'payment_method' => 'Payment method',
+            'retail_category' => 'Retail category',
             'expense_category' => 'Expense category',
             'tenant_request_subcategory' => 'Request subcategory',
             'work_order_labour' => 'Work order labour',

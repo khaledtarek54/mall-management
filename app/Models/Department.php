@@ -43,6 +43,19 @@ class Department extends Model
      *
      * @return array<int, string|int|float|null>
      */
+    /**
+     * The reader's language, falling back to the other rather than to a blank cell.
+     *
+     * `name` stays the English column rather than becoming `name_en`: the seeder, the routing slugs
+     * and every existing call site read it, and renaming would be churn for no gain.
+     */
+    public function label(): string
+    {
+        return app()->getLocale() === 'ar'
+            ? ($this->name_ar ?: $this->name)
+            : $this->name;
+    }
+
     public function searchTextSources(): array
     {
         return [
@@ -62,6 +75,7 @@ class Department extends Model
 
     protected $fillable = [
         'name',
+        'name_ar',
         'slug',
         'code',
         'description',

@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'retail_categories.view' => 'View the merchandising mix',
+            'retail_categories.create' => 'Add a retail category',
+            'retail_categories.edit' => 'Edit a retail category',
+            'retail_categories.delete' => 'Remove a retail category',
             'tenant_request_subcategories.view' => 'View what a tenant may report',
             'tenant_request_subcategories.create' => 'Add a reportable problem',
             'tenant_request_subcategories.edit' => 'Edit a reportable problem, including the trade it routes to',
@@ -663,6 +667,7 @@ class RolesPermissionsSeeder extends Seeder
 
         // leasing: Properties, Units, Tenants, Leases, Tenant Sales, rentable items.
         $grants['leasing'] = [
+            'retail_categories.view', 'retail_categories.create', 'retail_categories.edit',
             'assets.view',
             'units.view', 'units.create', 'units.edit',
             // Parking, storage and signage are LET, so the leasing team maintains the register and

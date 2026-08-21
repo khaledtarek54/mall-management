@@ -2,8 +2,8 @@
 
 /*
 |--------------------------------------------------------------------------
-| Department scenarios — end-to-end behaviour of the operator's fixed
-| department set: membership↔role coupling, the fixed-set lock, inter-
+| Department scenarios — end-to-end behaviour of the operator's
+| department register: membership↔role coupling, the deletion lock, inter-
 | department messaging fan-out, and the navigation-group → department
 | alignment of every department-owned resource.
 |
@@ -123,24 +123,36 @@ it('unregistering revokes the permission set the role carried', function () {
 |--------------------------------------------------------------------------
 */
 
-it('locks the fixed department set for every role including super_admin', function () {
-    foreach (['super_admin', 'manager', 'viewer'] as $role) {
+it('lets a permitted role add a department, and refuses deletion to everyone', function () {
+    // CREATE was a hard `return false` on the theory that HR / Marketing / Accounting / Leasing /
+    // Operations is a fixed reference set. It is not: a mall with its own Security or Tenant
+    // Relations team had nowhere to put it, and tenant requests ROUTE to a department — so the
+    // freeze reached the routing, not only the org chart (D-6).
+    //
+    // DELETE is still refused for everyone including super_admin, and that has not changed: a
+    // department that routed a request or held a member is referenced by rows an auditor reads.
+    foreach (['manager', 'mall_admin'] as $role) {
         $this->actingAs(makeUser($role));
         $dept = Department::create(['name' => "X-{$role}"]);
 
-        expect(DepartmentResource::canCreate())->toBeFalse()
+        expect(DepartmentResource::canCreate())->toBeTrue("{$role} holds departments.create and should be able to add one")
             ->and(DepartmentResource::canDelete($dept))->toBeFalse()
             ->and(DepartmentResource::canDeleteAny())->toBeFalse();
     }
+
+    // The control: a role WITHOUT the permission still cannot create, so the unfreeze did not open
+    // the screen to everybody.
+    $this->actingAs(makeUser('viewer'));
+
+    expect(DepartmentResource::canCreate())->toBeFalse();
 });
 
-it('still permits editing a department for a permitted role despite the create/delete lock', function () {
+it('still permits editing a department for a permitted role', function () {
     $this->actingAs(makeUser('manager'));
     $dept = Department::create(['name' => 'Operations']);
 
     expect(DepartmentResource::canViewAny())->toBeTrue()
-        ->and(DepartmentResource::canEdit($dept))->toBeTrue()   // membership is managed via edit
-        ->and(DepartmentResource::canCreate())->toBeFalse();
+        ->and(DepartmentResource::canEdit($dept))->toBeTrue();   // membership is managed via edit
 });
 
 /*

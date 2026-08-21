@@ -111,8 +111,10 @@ it('super_admin can view + create every resource', function () {
     // Create is allowed everywhere except the locked Department set and the
     // auto-provisioned MarketingBudget (one per property/year — never hand-created).
     foreach (matrixResources() as $key => $resource) {
-        if (in_array($key, ['Department', 'MarketingBudget'], true)) {
-            expect($resource::canCreate())->toBeFalse("{$key} is auto-managed/fixed — no create");
+        // MarketingBudget only. `Department` used to be here on the theory that the set is fixed;
+        // it is operator-managed now (D-6), and super_admin creating one is the expected behaviour.
+        if (in_array($key, ['MarketingBudget'], true)) {
+            expect($resource::canCreate())->toBeFalse("{$key} is auto-provisioned — no create");
 
             continue;
         }
@@ -528,15 +530,22 @@ it('a guest (no authenticated user) is denied everything', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Sanity — the locked HR-managed sets behave as designed
+| Sanity — the HR-managed sets behave as designed
 |--------------------------------------------------------------------------
 */
 
-it('the Department set is fixed: even super_admin cannot create or delete a department', function () {
+it('a department can be added but never deleted, not even by super_admin', function () {
+    // The create half changed deliberately (D-6): the five seeded names were treated as a fixed
+    // reference set, and a mall with its own Security or Tenant Relations team had nowhere to put
+    // one — while tenant requests ROUTE to a department, so the freeze reached the routing.
+    //
+    // The DELETE half did not change and is the point of this case: a department that routed a
+    // request or held a member is referenced by rows an auditor reads, so it is retired by being
+    // switched off, exactly like every other catalogue here.
     $this->actingAs(makeUser('super_admin'));
 
     expect(DepartmentResource::canViewAny())->toBeTrue()
-        ->and(DepartmentResource::canCreate())->toBeFalse()
+        ->and(DepartmentResource::canCreate())->toBeTrue()
         ->and(DepartmentResource::canDeleteAny())->toBeFalse()
         ->and(DepartmentResource::canDelete(new Department(['name' => 'x'])))->toBeFalse();
 });

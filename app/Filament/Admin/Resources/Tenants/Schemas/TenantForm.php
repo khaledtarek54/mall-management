@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Tenants\Schemas;
 
+use App\Models\RetailCategory;
 use App\Models\Tenant;
 use App\Support\EgyptGovernorates;
 use App\Support\FormTab;
@@ -166,8 +167,9 @@ class TenantForm
                             ->maxLength(255),
                         Select::make('retail_category')
                             ->label(__('admin.fields.retail_category'))
-                            ->options(fn () => collect(Tenant::RETAIL_CATEGORIES)
-                                ->mapWithKeys(fn ($c) => [$c => __("admin.retail_categories.{$c}")]))
+                            // The catalogue, not the const: an operator-added category has no lang
+                            // key and would render as its raw code on the very screen that offers it.
+                            ->options(fn () => RetailCategory::options())
                             ->native(false)
                             ->searchable(),
                         // Boolean → NOT NULL column. A Toggle always dehydrates a bool, and the model

@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             PaymentMethodSeeder::class,
             ExpenseCategorySeeder::class,
             TenantRequestSubcategorySeeder::class,
+            RetailCategorySeeder::class,
             HolidaySeeder::class,
             DemoSeeder::class,
         ]);

@@ -39,14 +39,15 @@ class DepartmentResource extends Resource
     // Departments are operator-wide org units, not per-property records.
     protected static bool $isScopedToTenant = false;
 
-    // Fixed reference set (HR / Marketing / Accounting / Leasing / Operations),
-    // seeded — operators manage membership, never the department list itself:
-    // NO create, NO delete.
-    public static function canCreate(): bool
-    {
-        return false;
-    }
-
+    // CREATE is the trait's, i.e. gated on `departments.create` like every other resource.
+    //
+    // It used to be a hard `return false` on the theory that the five seeded names — HR, Marketing,
+    // Accounting, Leasing, Operations — are a fixed reference set. They are not: a mall with its own
+    // Security or Tenant Relations team had nowhere to put it, and tenant requests ROUTE to a
+    // department, so the gap reached the routing and not only the org chart.
+    //
+    // DELETE stays refused. A department that has routed a request or held a member is referenced by
+    // rows an auditor reads; deactivating is the retirement path here as everywhere else.
     public static function canDelete($record): bool
     {
         return false;

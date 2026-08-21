@@ -11,6 +11,7 @@ use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
+use App\Models\RetailCategory;
 use App\Models\TenantRequestSubcategory;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
@@ -207,6 +208,13 @@ class ValueSets
             'submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled',
         ],
         'tenant_sales_declarations.status' => ['submitted', 'locked', 'disputed'],
+        // `tenants.retail_category` had NO set, so a typo'd or imported value saved cleanly and then
+        // matched no filter in the shopper app — invisible in the directory while looking correct on
+        // the tenant record. The twelve are the floor the const held.
+        'tenants.retail_category' => [
+            'fashion', 'food_beverage', 'electronics', 'health_beauty', 'home_lifestyle', 'kids_toys',
+            'sports', 'jewellery_accessories', 'entertainment', 'services', 'hypermarket', 'other',
+        ],
         'tenants.party_type' => ['retailer', 'unit_owner'],
         'tenants.status' => ['active', 'inactive', 'blacklisted'],
         'tenants.type' => ['individual', 'company'],
@@ -302,6 +310,7 @@ class ValueSets
         'expenses.category' => [ExpenseCategory::class, 'codes'],
         'vendor_bills.category' => [ExpenseCategory::class, 'codes'],
         'tenant_requests.category' => [TenantRequestSubcategory::class, 'codes'],
+        'tenants.retail_category' => [RetailCategory::class, 'codes'],
     ];
 
     public static function allowed(string $table, string $column): ?array

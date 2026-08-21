@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\PublicFeed;
 
 use App\Http\Resources\Api\V1\PublicFeed\PublicStoreResource;
+use App\Models\RetailCategory;
 use App\Models\Tenant;
 use App\Support\MarketingFeedCache;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +29,10 @@ class ListPublicStoresController extends PublicFeedController
         $mall = $this->resolveMall($code);
 
         $category = $request->query('category');
-        $category = in_array($category, Tenant::RETAIL_CATEGORIES, true) ? $category : null;
+        // Validated against the CATALOGUE. Against the const, a shopper app filtering by a
+        // category the operator added would silently get every store instead of none — the filter
+        // is nulled, not refused.
+        $category = in_array($category, RetailCategory::codes(), true) ? $category : null;
 
         // Versioned like the feed — a directory entry changes when a store is listed/unlisted or
         // its logo is replaced, and the operator who just did that will check immediately.

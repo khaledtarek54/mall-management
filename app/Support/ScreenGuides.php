@@ -73,6 +73,7 @@ use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Filament\Admin\Resources\RentIndices\RentIndexResource;
+use App\Filament\Admin\Resources\RetailCategories\RetailCategoryResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
@@ -220,6 +221,7 @@ class ScreenGuides
         FailureCodeResource::class => 'failure_codes',
         HolidayResource::class => 'holidays',
         ExpenseCategoryResource::class => 'expense_categories',
+        RetailCategoryResource::class => 'retail_categories',
         TenantRequestSubcategoryResource::class => 'tenant_request_subcategories',
         PaymentMethodResource::class => 'payment_methods',
         TaxCodeResource::class => 'tax_codes',

@@ -184,9 +184,9 @@ class TenantRequestSubcategory extends Model
             return '—';
         }
 
-        $labels = app()->has(self::MEMO.'.labels')
-            ? app(self::MEMO.'.labels')
-            : tap(static::safeLabels(), fn (array $m) => app()->instance(self::MEMO.'.labels', $m));
+        $labels = app()->has(self::MEMO.'.labels.'.app()->getLocale())
+            ? app(self::MEMO.'.labels.'.app()->getLocale())
+            : tap(static::safeLabels(), fn (array $m) => app()->instance(self::MEMO.'.labels.'.app()->getLocale(), $m));
 
         $key = $type !== null ? "{$type->value}.{$code}" : null;
 

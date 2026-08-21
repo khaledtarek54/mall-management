@@ -474,6 +474,12 @@
         "note": null
     },
     {
+        "model": "RetailCategory",
+        "label": "Retail Category",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "SavedReport",
         "label": "Saved Report",
         "classification": "shared",

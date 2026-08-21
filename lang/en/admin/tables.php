@@ -22,6 +22,8 @@ return [
             'actions' => 'Actions',
         ],
         'department' => [
+            'name_helper' => 'Used to derive the access role, so it cannot be changed later.',
+            'name_ar_helper' => 'Shown to Arabic readers. Falls back to the English name if blank.',
             'name' => 'Name',
             'code' => 'Code',
             'head' => 'Department Head',

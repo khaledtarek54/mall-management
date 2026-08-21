@@ -38,6 +38,7 @@ use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\RentIndices\RentIndexResource;
+use App\Filament\Admin\Resources\RetailCategories\RetailCategoryResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
@@ -227,6 +228,7 @@ class SearchPolicy
      * @var array<class-string, string>
      */
     public const GLOBAL_SEARCH_EXEMPT = [
+        RetailCategoryResource::class => 'A dozen merchandising categories the leasing team configures and everyone else picks from a dropdown. A shopper-facing directory search looks for the STORE, not the category, and that already works through the tenant blob.',
         TenantRequestSubcategoryResource::class => 'A closed vocabulary of about thirty problems an operator configures once and a tenant picks from a dropdown. Nobody hunts for "Lift / escalator" from the top bar; they open a request and choose it.',
         ExpenseCategoryResource::class => 'A closed catalogue of a dozen cost types that an accountant configures once and everyone else picks from a dropdown. Nobody hunts for "Utilities" from the top bar — they open a bill and choose it. Indexing it would put eleven rows in front of every search for a vendor or an invoice.',
         PaymentMethodResource::class => 'A closed catalogue of a dozen rails that an accountant configures once and an operator picks from a dropdown. Nobody hunts for "InstaPay" from the top bar — they open a payment and choose it. Indexing it would put eleven rows in front of every search for a tenant or an invoice.',

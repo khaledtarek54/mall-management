@@ -91,7 +91,9 @@ class ExpenseCategory extends Model
 
         $flush = function (): void {
             app()->forgetInstance(self::MEMO);
-            app()->forgetInstance(self::MEMO.'.labels');
+            foreach (config('app.supported_locales', ['en', 'ar']) as $loc) {
+                app()->forgetInstance(self::MEMO.'.labels.'.$loc);
+            }
             app()->forgetInstance(self::MEMO.'.codes');
             app()->forgetInstance(self::MEMO.'.natures');
 
@@ -225,9 +227,9 @@ class ExpenseCategory extends Model
             return '—';
         }
 
-        $labels = app()->has(self::MEMO.'.labels')
-            ? app(self::MEMO.'.labels')
-            : tap(static::safeLabels(), fn (array $m) => app()->instance(self::MEMO.'.labels', $m));
+        $labels = app()->has(self::MEMO.'.labels.'.app()->getLocale())
+            ? app(self::MEMO.'.labels.'.app()->getLocale())
+            : tap(static::safeLabels(), fn (array $m) => app()->instance(self::MEMO.'.labels.'.app()->getLocale(), $m));
 
         if (isset($labels[$code])) {
             return $labels[$code];

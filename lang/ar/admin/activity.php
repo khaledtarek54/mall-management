@@ -17,6 +17,7 @@ return [
             'failure_code' => 'كود عطل',
             'holiday' => 'إجازة',
             'payment_method' => 'قناة سداد',
+            'retail_category' => 'تصنيف تجاري',
             'expense_category' => 'بند مصروف',
             'tenant_request_subcategory' => 'تصنيف فرعي للطلب',
             'work_order_labour' => 'عمالة أمر عمل',

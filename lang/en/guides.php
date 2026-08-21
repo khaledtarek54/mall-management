@@ -1808,4 +1808,24 @@ return [
             'Only maintenance problems should carry a trade. A noise complaint is a problem, not a craft.',
         ],
     ],
+    'retail_categories' => [
+        'purpose' => 'The list of trade categories you classify retailers under — the merchandising mix. It drives the store directory, the category filter in the shopper app, and every tenant-mix report an owner sees. It used to be a fixed list of twelve; it is yours now, and it is meant to be revised as the mall changes.',
+        'steps' => [
+            'Add a category when you sign a kind of tenant the list does not describe — a cinema, a clinic, a co-working floor.',
+            'Give it a code. This is stored on every tenant and used by the shopper app, so choose it once and keep it; it cannot be changed later.',
+            'Name it in both languages. Shoppers read this in the directory, so use their words.',
+            'Use the order number to control where it appears in the directory — lower numbers first.',
+            'To retire one, switch it off. It disappears for new tenants and every retailer already in it keeps its label.',
+        ],
+        'affects' => [
+            'The tenant form offers exactly what is switched on here, and the store directory groups by it.',
+            'The shopper app filters by these codes — a category you switch off stops being offered as a filter, but stores already in it still appear.',
+            'Tenant-mix analysis is counted by category, so splitting one in two changes what the next report shows (older reports keep the label they were run with).',
+        ],
+        'rules' => [
+            'A code cannot be changed once saved, because every tenant record stores the code itself rather than a link to this row.',
+            'A category that has classified a retailer cannot be deleted. Switch it off instead.',
+            'The count beside each row is how many retailers are in it — that is what makes it undeletable, shown so the refusal is not a surprise.',
+        ],
+    ],
 ];

@@ -50,8 +50,10 @@ it('unregistering a user removes the department role and membership', function (
         ->and($dept->members()->whereKey($user->id)->exists())->toBeFalse();
 });
 
-it('locks the fixed department set — no create, no delete', function () {
-    expect(DepartmentResource::canCreate())->toBeFalse()
-        ->and(DepartmentResource::canDeleteAny())->toBeFalse()
+it('refuses to DELETE a department, for everyone — create is now permission-gated', function () {
+    // Deletion stays refused project-wide; only the create freeze was lifted (D-6). Without an
+    // authenticated user `canCreate()` is false anyway, so this case says nothing about it — the
+    // create half is asserted per role in DepartmentScenarioTest.
+    expect(DepartmentResource::canDeleteAny())->toBeFalse()
         ->and(DepartmentResource::canDelete(new Department(['name' => 'x'])))->toBeFalse();
 });

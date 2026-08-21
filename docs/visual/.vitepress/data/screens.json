@@ -432,6 +432,12 @@
         "guide": "reports"
     },
     {
+        "screen": "RetailCategoryResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "retail_categories"
+    },
+    {
         "screen": "RevenueForecast",
         "panel": "admin",
         "kind": "page",

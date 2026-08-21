@@ -27,7 +27,10 @@ class DepartmentsTable
             ->columns([
                 TextColumn::make('name')
                     ->label(__('admin.tables.department.name'))
-                    ->searchable()
+                    // The reader's language. Searchable on BOTH columns, because an Arabic-reading
+                    // operator types the Arabic name and would otherwise find nothing.
+                    ->state(fn (Department $record): string => $record->label())
+                    ->searchable(['name', 'name_ar'])
                     ->weight('bold'),
                 TextColumn::make('code')
                     ->label(__('admin.tables.department.code'))

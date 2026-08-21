@@ -129,7 +129,7 @@ class PaymentMethod extends Model
         });
 
         $flush = function (): void {
-            foreach ([self::ROLE_MEMO, self::ROLE_MEMO.'.inbound', self::ROLE_MEMO.'.outbound', self::ROLE_MEMO.'.labels'] as $key) {
+            foreach ([self::ROLE_MEMO, self::ROLE_MEMO.'.inbound', self::ROLE_MEMO.'.outbound', self::ROLE_MEMO.'.labels.'.app()->getLocale()] as $key) {
                 app()->forgetInstance($key);
             }
 
@@ -299,9 +299,9 @@ class PaymentMethod extends Model
 
         // Inactive rows included deliberately: retiring a rail stops it being OFFERED, it must not
         // blank the label on every document that already names it.
-        $labels = app()->has(self::ROLE_MEMO.'.labels')
-            ? app(self::ROLE_MEMO.'.labels')
-            : tap(static::allLabels(), fn (array $m) => app()->instance(self::ROLE_MEMO.'.labels', $m));
+        $labels = app()->has(self::ROLE_MEMO.'.labels.'.app()->getLocale())
+            ? app(self::ROLE_MEMO.'.labels.'.app()->getLocale())
+            : tap(static::allLabels(), fn (array $m) => app()->instance(self::ROLE_MEMO.'.labels.'.app()->getLocale(), $m));
 
         if (isset($labels[$code])) {
             return $labels[$code];

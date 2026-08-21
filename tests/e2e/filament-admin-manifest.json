@@ -281,6 +281,13 @@
             "hasView": false
         },
         {
+            "class": "RetailCategoryResource",
+            "slug": "retail-categories",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "RoleResource",
             "slug": "roles",
             "hasCreate": true,
