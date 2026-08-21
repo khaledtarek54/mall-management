@@ -3,6 +3,7 @@
 use App\Jobs\ApplyLateFees;
 use App\Jobs\RunMonthlyBilling;
 use App\Support\Health;
+use App\Support\ScheduledModules;
 use App\Support\ScheduleSetting;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -413,3 +414,17 @@ Schedule::call(fn () => Health::stampHeartbeat())
     ->everyMinute()
     ->name('atriom-scheduler-heartbeat')
     ->withoutOverlapping();
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// Turning a module off stops its scheduled work.
+//
+// Applied ONCE, here, after every command above is defined — not as a `->skip()` on each, because
+// thirty-three edits are thirty-three chances to forget and the next command added inherits nothing.
+// Before this, exactly ONE of the scheduled commands checked its own flag: disable `facility` and
+// the nightly generator kept raising preventive work orders and the hourly scan kept alerting staff
+// about screens they could no longer open.
+//
+// `App\Support\ScheduledModules` owns the classification, and its conformance gate fails the build
+// when a scheduled command is neither owned by a module nor stated to be core.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+ScheduledModules::guard(app(Illuminate\Console\Scheduling\Schedule::class));

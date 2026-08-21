@@ -70,7 +70,11 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
     {
         // Viewing the preview is a read of what WOULD bill, so it rides on the invoice read
         // permission; POSTING it is separately gated on invoices.create in the action below.
-        return Modules::enabled('billing') && (Auth::user()?->can('invoices.view') ?? false);
+        // No `Modules::enabled('billing')` here. There is no `billing` key and there must not be
+        // one: `Modules::enabled()` returns TRUE for anything outside `Modules::KEYS`, so that call
+        // was a guard that could never refuse — it read as a toggle and gated nothing. Billing is
+        // what this system IS; a mall that cannot invoice is not running Atriom.
+        return Auth::user()?->can('invoices.view') ?? false;
     }
 
     public function mount(): void
