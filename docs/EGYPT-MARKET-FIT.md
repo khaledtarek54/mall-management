@@ -762,6 +762,42 @@ dropping the not-yet-breached guard — and spreading the client payload kills t
 
 ---
 
+### 2026-08-21 — milestone 6: the whole-stream review
+
+Not a feature. A 67-agent adversarial review of all eight commits — one reader per commit, five
+cross-cutting sweeps (interactions, docs drift, test quality, deploy hazards, security), then up to
+three independent skeptics per finding. 78 raw findings, 17 survived. Five commits acted on them.
+
+**The verdict was not about any one change.** It was that the *sweep discipline* failed, the same way,
+five times: fix one instance, leave the siblings. Two of the findings were broken in production.
+
+| Severity | Finding |
+|---|---|
+| 🔴 | **No unit owner's on-account credit had ever been applied.** `ApplyTenantCreditService` walked the retired `lease → unit → asset` chain, which is null by construction for an assessment, and threw. `Invoice::saved()` catches that exact exception as "the ordinary case" and deliberately does not log. `auto_apply_tenant_credit` ships TRUE, so every month re-billed owners in full, silently. The manual path showed "Credit available: EGP 2,000" and then refused |
+| 🔴 | **`ad4aea89` was broken on a fresh box.** EG-38 routed an unguarded settings read in front of the try/catch that exists so a box without settings rows still produces a deadline — and re-stated that guarantee in a comment while breaking it. Request creation 500'd, with the feature off |
+| 🟠 | **Two of four overrun measures were never converted.** CLAUDE.md's new invariant enumerated the two I had just changed. One `sla_penalties` row carried "66 hours over" beside an amount priced at one working day |
+| 🟠 | **A restricted admin could delete a national holiday from every other mall** by re-homing it — the guard read only the submitted value. Same shape on `EditDepartment`. And the portfolio-wide test was inverted: it refused everyone WITH an assignment, which is the state the user form produces by default |
+| 🟠 | **A cross-property leak**: the tenant Edit page's Statement omitted the scope both sibling call sites pass |
+| 🟠 | **The CAM statement could not state its own derivation for an owner** — party, unit and reference blank, and a *stated* denominator of "0.00 m²" beside a real share |
+| 🟠 | **The payroll health row prescribed a remedy the model refuses**, a clamp that overflows on the 31st, and a green sentence that is false in any mixed portfolio |
+| 🟠 | Three fixes and two tests that could not fail — including `it('freezes the clock…')`, which passed with the freeze deleted |
+
+**What changed structurally, so the next one is caught by a machine:**
+
+- `NullLeaseChainConformanceTest` bans reaching an asset through a subject's `lease` relation. It
+  states its own blind spot rather than implying it has none.
+- `GuardsPortfolioWideRows` replaces two drifted copies of the same guard, checks BOTH ends of a
+  move, and measures "can see every mall" by comparing the sets.
+- `HealthChecksAreWiredConformanceTest` pins the health registry as a SET — `php_extensions` had
+  five tests and none that noticed if it stopped being reported at all.
+- `PropertyIsolationConformanceTest` no longer goes red when a page is upgraded to a stronger guard.
+
+**The lesson worth keeping, in the reviewers' words:** *the documentation of the rule was written
+from the diff rather than from the code, and now certifies coverage that does not exist.* When you
+write an invariant, derive its member list by grep.
+
+---
+
 **Deployment notes, cumulative across all five milestones:**
 
 - **`docs/qa/scripts/baseline.sql` must be regenerated before `composer qa` or `composer test:mysql`.**
