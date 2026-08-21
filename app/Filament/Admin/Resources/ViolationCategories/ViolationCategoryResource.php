@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\ViolationCategories;
 
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\ViolationCategories\Pages\CreateViolationCategory;
 use App\Filament\Admin\Resources\ViolationCategories\Pages\EditViolationCategory;
@@ -29,6 +30,10 @@ use Filament\Tables\Table;
  */
 class ViolationCategoryResource extends Resource
 {
+    // PORTFOLIO-SHARED, so it must opt OUT of the panel's tenancy. Filament scopes a resource by
+    // asking the model for an `asset` relationship, and a shared catalogue has none — the list page
+    // 500'd with a LogicException the moment a property was selected, which is every page load.
+    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
 
     protected static ?string $model = ViolationCategory::class;

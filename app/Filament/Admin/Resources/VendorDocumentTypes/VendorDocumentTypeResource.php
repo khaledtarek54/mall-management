@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\VendorDocumentTypes;
 
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\VendorDocumentTypes\Pages\CreateVendorDocumentType;
 use App\Filament\Admin\Resources\VendorDocumentTypes\Pages\EditVendorDocumentType;
@@ -30,6 +31,10 @@ use Filament\Tables\Table;
  */
 class VendorDocumentTypeResource extends Resource
 {
+    // PORTFOLIO-SHARED, so it must opt OUT of the panel's tenancy. Filament scopes a resource by
+    // asking the model for an `asset` relationship, and a shared catalogue has none — the list page
+    // 500'd with a LogicException the moment a property was selected, which is every page load.
+    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
 
     protected static ?string $model = VendorDocumentType::class;
