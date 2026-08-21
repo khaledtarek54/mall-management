@@ -70,7 +70,7 @@ value, or a row with a code-side twin that must move with it · **HARDCODED** = 
 | 10 | **Statutory payroll** | 🔴 HARDCODED | Three flat undated rates; no brackets, no exemption, no insurable-wage cap |
 | 11 | **Time / working calendar** | ✅ DONE | `holidays` register + `CalendarSettings` + `WorkingCalendar` (Fri–Sat weekend, Ramadan short days, per-property dates). Both SLA modules freeze the clock they promised on. Ships **off** — EG-08 + EG-38 |
 | 12 | **Currency / FX** | 🔴 ABSENT | 15 tables carry `currency`; nothing reads it; no rate table; no GL currency |
-| 13 | **Payment rails** | 🔴 HARDCODED | A PHP const in 4 parallel registries; adding one is a 9–14 file change |
+| 13 | **Payment rails** | ✅ DONE | One `payment_methods` catalogue: a row per rail with a bilingual name, a direction, and the ledger account its money lands in. Fawry / Meeza / Vodafone Cash / Aman ship present and switched off. EG-11 |
 | 14 | **Document & message wording** | 🔴 ABSENT | No template table, no rich editor, no mail tab — every invoice footer and dunning letter is a deploy |
 | 15 | **Legal entity / multi-owner** | 🔴 ABSENT | One issuer, one TRN, one chart, one fiscal calendar for the whole install |
 | 16 | **Custom fields (UDFs)** | 🔴 ABSENT | The single biggest structural gap vs Yardi/MRI/Odoo |
@@ -343,10 +343,10 @@ operator will want to change in week one.
 | X-2 | **…and `currency` looks like it works.** 15 tables carry `currency string(3) default 'EGP'`, 8 models hard-set `'EGP'` on create, **260 `->money('EGP')` display calls read none of them**, and zero currency comparisons exist anywhere (`currency !==` → 0 hits) | `app/Models/Invoice.php:472` et al. | 🔴 |
 | X-3 ✅ | **FIXED 2026-08-20 (EG-07).** ~~The sharpest edge in the audit:~~ the vendor-contract form offers a currency Select of **EGP/USD/EUR/GBP/SAR/AED** one line below an amount field hardcoded `->prefix('EGP')`. Pick USD today and a USD number posts to an EGP ledger at 1:1, silently. **Either remove the non-EGP options or build the rate** | `app/Filament/Admin/Resources/Vendors/RelationManagers/ContractsRelationManager.php:117-126` (verified) | 🔴 |
 | X-4 | **The cheaper path is probably the right one.** Egyptian malls overwhelmingly write **USD-indexed, EGP-denominated** leases — the rent *amount* moves with a published rate while the books stay single-currency. That is an addition to `RentEscalationService` (which already steps rent on a schedule and already reads a dated `rent_indices` register), needs **no GL change**, and is **M** effort against **XL** for true multi-currency. Worth putting to the client as the actual question behind open question A7.4 / Q-F | `app/Services/RentEscalationService.php`; `app/Models/RentIndex` | — |
-| X-5 | **A payment rail cannot be added without a deploy** — 9–14 files including two lang catalogues, a hardcoded 7-value expectation in `TranslationCoverageTest.php:54`, and two `->only()` filter lists. `ValueSets`' own docblock names the failure mode — *"Egypt's payment rails keep moving: Fawry, Meeza, Aman, Vodafone Cash"* — and then keeps them in a `const`. **InstaPay is present; Fawry, Meeza and BNPL are not** | `app/Support/ValueSets.php:141,59-63` | 🟠 |
-| X-6 | **Every non-cash rail debits one `bank` account on capture day** — `$cashRole = $method === 'cash' ? 'cash' : 'bank';`. No clearing account, no undeposited funds, no PSP receivable (`PostingRoles` has only `cash` and `bank`). **The bank reconciliation just built will show a gross unmatched population every month**, because the book line is dated capture and the bank line is dated settlement (T+1/T+2 for Paymob, longer for Fawry). This surfaces on the *first real reconciliation* | `app/Services/Accounting/Journalizers/PaymentJournalizer.php:75` + 9 siblings | 🔴 |
+| ~~X-5~~ ✅ | **FIXED 2026-08-21 (EG-11).** A rail is a row, added from `/admin/payment-methods` by anyone holding `payment_methods.create`. The two `->only()` filter lists, the table cell renderer and `Disbursement::METHODS` all derive from the catalogue now, so there is no hand-kept list left to forget. ~~A payment rail cannot be added without a deploy~~ — 9–14 files including two lang catalogues, a hardcoded 7-value expectation in `TranslationCoverageTest.php:54`, and two `->only()` filter lists. `ValueSets`' own docblock named the failure mode — *"Egypt's payment rails keep moving: Fawry, Meeza, Aman, Vodafone Cash"* — and then kept them in a `const` | `app/Models/PaymentMethod.php`; `app/Support/ValueSets.php` | 🟠 |
+| ~~X-6~~ ✅ | **MECHANISM FIXED 2026-08-21 (EG-11); the accounts remain the accountant's.** A rail now names its own `ledger_account_id` and all **six** journalizers resolve through `PaymentMethod::accountIdOrFloor()`. Null takes the floor — `cash` for cash, `bank` for the rest — so it ships behaviour-identical and the operator opts in one rail at a time. **What is still open is not code**: the real Egyptian chart has not been supplied, so no clearing account exists to point Fawry at yet (§6). ~~Every non-cash rail debits one `bank` account on capture day~~ — no clearing account, no undeposited funds, no PSP receivable. **The bank reconciliation just built will show a gross unmatched population every month**, because the book line is dated capture and the bank line is dated settlement (T+1/T+2 for Paymob, longer for Fawry) | `app/Models/PaymentMethod.php`; the six journalizers | 🔴 |
 | X-7 | **Nothing records which bank account a receipt landed in.** The register exists and `BankAccount::ledger_account_id` exists — **no journalizer reads it**; the only `bank_account_id` FK in the schema is on `bank_statements`. With two banks in one mall the matcher will offer the *other* bank's postings as candidates | `app/Models/BankAccount.php:18-23`; `docs/accounting/BANK-RECONCILIATION-PLAN.md:92-98` | 🟠 |
-| X-8 | **Four parallel payment-method registries that have already drifted** — `payments.method` (7) · `vendor_bill_payments.method` (5) · `deposit_transactions.method`/`expenses.paid_from` (2) · `Disbursement::METHODS` (3, outside `ValueSets` entirely). Concretely: **a security deposit received by InstaPay cannot be recorded as InstaPay** | `ValueSets.php:91,96,141,180`; `app/Models/Disbursement.php:42-48` | 🟠 |
+| ~~X-8~~ ✅ | **FIXED 2026-08-21 (EG-11).** One catalogue serves all four columns, split only by DIRECTION (`for_inbound` / `for_outbound`) so a collection network is never offered as a way to pay a vendor. `Disbursement::METHODS` — the registry that sat outside `ValueSets` entirely, so its column was unenforced — now derives from it. A security deposit received by InstaPay records as InstaPay. ~~Four parallel payment-method registries that have already drifted~~ | `ValueSets.php`; `app/Models/Disbursement.php` | 🟠 |
 | X-9 | **No gateway abstraction.** `PaymobPaymentInitiator` is concrete at four call sites, `'gateway' => 'paymob'` is a literal, and the callback re-finds rows by `where('gateway','paymob')`. Adding Fawry/Kashier/Geidea is a project. Paymob config is also **global, not per-property** | `app/Providers/AppServiceProvider.php:48`; `config/integrations.php:38-77` | 🟠 |
 | X-10 | **No SMS, no WhatsApp.** Every major provider searched (`twilio\|vonage\|unifonic\|smsmisr\|victorylink\|360dialog\|gupshup`) → zero. The WhatsApp stub was honestly deleted rather than left as a fake. With push shipping off, **tenant-facing reach today is bell + email only** — and Egyptian retailers answer WhatsApp, not email | `database/settings/2026_08_11_200000_delete_whatsapp_toggle.php` | 🟠 |
 | X-11 | **Notification routing is ~15 PHP literals.** No screen, no table, no settings group; `super_admin` is hard-unioned into every operator fan-out; there is no opt-out and no per-tenant channel choice | `app/Services/TenantRequestService.php:200`; `app/Support/AssetStaffRecipients.php:34` | 🟠 |
@@ -404,7 +404,7 @@ credential from the operator/accountant · ⚙️ ops.
 | # | Work | Refs | Owner | Size |
 |---|---|---|---|---|
 | ~~**EG-38**~~ ✅ | **DONE 2026-08-21.** Module 11 now resolves its SLA on the same clock module 26 does. `SlaResolver` gained the canonical `CLOCK_CALENDAR`/`CLOCK_WORKING` constants both modules reference (module 11 does not reach into module 26 for them); `tenant_requests.sla_clock` freezes the promise at intake; all **three** intake roads write it — portal and `/api/v1` through `TenantRequestService::create()`, plus the admin `CreateTenantRequest` page. Two things the row as written did not ask for and the work needed anyway: `TenantRequest::hoursOverSla()`, because the breach bell was quoting a **calendar** overrun for a request promised on the working clock (67 hours for a 3-hour failure), and a test pinning that a crafted payload cannot choose its own clock | C-1 | 🧑‍💻 | M |
-| **EG-11** | **A per-rail clearing account.** Make the payment method a **row with a `posting_role`**, as `charge_codes` did for revenue — this fixes X-5, X-6 and X-8 at once, and prevents the first real bank reconciliation from producing a gross unmatched population | X-5, X-6, X-8 | 🧑‍💻 | M |
+| ~~**EG-11**~~ ✅ | **DONE 2026-08-21.** Closed X-5, X-6 and X-8 together. **A rail names its ledger account DIRECTLY, not a `PostingRoles` key** — a role exists so a code path can ask for "the bank account" without knowing the chart, and a rail is operator data pointing at operator data. Decisive against roles: `Health::accountingReadiness()` requires every role to be mapped, so a clearing role per rail would have turned a BLOCKING health row red on every existing install, and two rails could never have had two different clearing accounts. **Six journalizers, not the four the row named** — `Expense` and `Disbursement` read columns this widens and carried the mirror ternary, which sends `bank_transfer` to CASH once the set grows | X-5, X-6, X-8 | 🧑‍💻 | M |
 | **EG-12** | **`bank_account_id` on the money documents**, and teach the journalizers to read `BankAccount::ledger_account_id` | X-7 | 🧑‍💻 | M |
 | **EG-13** | **Expense categories become rows with a `posting_role`** — the only thing deciding which P&L account a supplier bill hits | D-1 | 🧑‍💻 | M |
 | **EG-14** | **Tenant request types + subcategories + SLA hours become rows**, and re-seat `tradeForRequest()` on the trades register so lifts, generators, fire safety, pest and security are reportable | D-3 | 🧑‍💻 | M |
@@ -798,17 +798,57 @@ write an invariant, derive its member list by grep.
 
 ---
 
-**Deployment notes, cumulative across all five milestones:**
+### 2026-08-21 — milestone 7: EG-11, a payment rail is a row
+
+One catalogue replaces four drifted lists, and a rail now says where its money lands. Ships
+behaviour-identical: `ledger_account_id` is null on every seeded row and null takes the floor —
+`cash` for cash, `bank` for the rest, verbatim the ternary the journalizers carried.
+
+| Decision | Why |
+|---|---|
+| A rail names its **ledger account directly**, not a `PostingRoles` key | A role exists so a CODE PATH can ask for "the bank account" without knowing the chart. A rail is operator data pointing at operator data, the same shape as `bank_accounts.ledger_account_id`. Decisive: `Health::accountingReadiness()` requires EVERY role to be mapped, so a clearing role per rail would turn a **blocking** health row red on every existing install until the accountant mapped them — and two rails could never have two different clearing accounts without two more roles |
+| One catalogue, split by **direction** | `for_inbound` serves `payments.method` and `deposit_transactions.method`; `for_outbound` serves `vendor_bill_payments.method`, `expenses.paid_from` and `disbursements.method`. Without it, unifying would offer a collection network as a way to pay a vendor |
+| Fawry, Meeza, Vodafone Cash, Aman ship **switched off** | A tick, not a deploy — and activating one cannot change anything already posted |
+| **Six** journalizers, not four | `Expense` and `Disbursement` read columns this widens and carried the mirror ternary (`=== 'bank' ? 'bank' : 'cash'`), correct for two values and wrong the moment the set grows: `bank_transfer` fell to CASH |
+
+**The review of my own first cut found four reds, and the structural one was a REPEAT.**
+
+| | |
+|---|---|
+| 🔴 | **What a screen OFFERS and what the column ACCEPTS became two sets.** I widened `ValueSets::allowed()` (the picker) and not `forTable()` (the saving listener). The deposit modal offered eight rails and the guard took two: Filament's `Rule::in` passed, the save threw, the operator saw a button do nothing. That is verbatim the 2026-08-18 bug `DepositTransaction::methodOptions()` exists to prevent — and its docblock states the rule I broke: *"deriving it means a surface CANNOT offer a value the column refuses."* Both derive from one `widen()` now, and a gate fails the moment they drift |
+| 🔴 | **The regression test guarding that bug had gone vacuous** — it compared `methodOptions()` to `allowed()`, two things that now moved together. It measures the GUARD's set now |
+| 🔴 | **The seeder was called from nowhere.** Not `DatabaseSeeder`, not `atriom:install`, not Demo or Learning — every deployed database would have had an empty catalogue and X-5 would not have shipped at all. The local DB had rows only because I ran it by hand |
+| 🔴 | **The memo was never invalidated.** Copied from `ChargeCode` without its flush, so a rail activated at 10:00 stays invisible to `queue:work` until it restarts: offered by the picker, accepted by the web request, unknown to the worker posting the entry |
+
+**And my first cut of the new gate could not fail either.** With `payment_methods` empty in tests the
+catalogue widens nothing, so both derivations returned the same literal and the gate passed under the
+exact mutation it exists to catch. It now creates a rail that is in no floor list and asserts that
+premise before measuring. Five such passes across seven milestones — the pattern is always the same:
+an assertion true for a reason unrelated to the change.
+
+**One misread worth recording.** `DemoSeeder` timed at 137s against a documented 15.8s and I nearly
+logged it as my regression. It was machine contention — CLAUDE.md warns that a shared machine
+inflates everything ~3.7× and reads exactly like a real one. Proved it instead: **2
+`payment_methods` queries across 200 model saves**, so the guard's new DB read is memoised and costs
+nothing per save.
+
+**Still open on X-6, and it is not code:** no clearing account exists to point Fawry at, because the
+real Egyptian chart has not been supplied. See §6.
+
+---
+
+**Deployment notes, cumulative across all seven milestones:**
 
 - **`docs/qa/scripts/baseline.sql` must be regenerated before `composer qa` or `composer test:mysql`.**
   It now predates four things: the `leases.billing_day` drop (milestone 1), the
   `tax.seller_billing_email` settings row (milestone 3), the `holidays` table plus the
   `calendar.*` / `sla.sla_working_clock_priorities` settings rows (milestone 4), and
-  `tenant_requests.sla_clock` (milestone 5). The settings rows are the sharp ones — an
+  `tenant_requests.sla_clock` (milestone 5), and the `payment_methods` table (milestone 7). The settings rows are the sharp ones — an
   **exception**, not drift: `reset.sh` restores the dump without migrating, so the first
   `app(TaxSettings::class)` / `app(CalendarSettings::class)` throws `MissingSettings`. Run
   `composer qa:baseline` (needs MySQL).
-- **`RolesPermissionsSeeder` must be re-run** for the `holidays.*` permissions (milestone 4).
+- **`RolesPermissionsSeeder` must be re-run** for the `holidays.*` permissions (milestone 4) and the
+  `payment_methods.*` permissions (milestone 7).
   A permission that exists only in the seeder file leaves the screen absent from the navigation for
   everyone, super_admin included, with no error to say why.
 - ~~`docs/PROJECT-MAP.md`'s generated census is stale.~~ **Regenerated 2026-08-20** — the other

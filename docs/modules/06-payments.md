@@ -50,7 +50,7 @@ The module ensures money math is exact, AR ageing is accurate, and every payment
 
 | Table           | Model    | Key columns (type / constraint / default) | Meaning |
 |-----------------|----------|-------------------------------------------|---------|
-| `payments`      | `Payment` | `id`, `reference` (string, unique), `tenant_id` (FK), `amount` (decimal 12,2), `currency` (string 3, default EGP), `method` (enum: card, bank_transfer, instapay, wallet, cash, cheque, other), `status` (enum: initiated, authorized, captured, reconciled, settled, failed, refunded, bounced, default captured), `payment_date` (date), `gateway` (string, nullable; e.g. "Paymob", "demo"), `gateway_transaction_id` (string, nullable), `gateway_response` (json, nullable), `cheque_number` (string, nullable), `cheque_clearance_date` (date, nullable), `notes` (text, nullable), `received_by` (FK → users, nullable), `receipt_notified_at` (timestamp, nullable), timestamps, softDeletes | Core payment record. Scoped to a single tenant. |
+| `payments`      | `Payment` | `id`, `reference` (string, unique), `tenant_id` (FK), `amount` (decimal 12,2), `currency` (string 3, default EGP), `method` (string 32 — the `payment_methods` catalogue; the seven shipped codes are a FLOOR that an operator's own rails widen), `status` (enum: initiated, authorized, captured, reconciled, settled, failed, refunded, bounced, default captured), `payment_date` (date), `gateway` (string, nullable; e.g. "Paymob", "demo"), `gateway_transaction_id` (string, nullable), `gateway_response` (json, nullable), `cheque_number` (string, nullable), `cheque_clearance_date` (date, nullable), `notes` (text, nullable), `received_by` (FK → users, nullable), `receipt_notified_at` (timestamp, nullable), timestamps, softDeletes | Core payment record. Scoped to a single tenant. |
 | `invoices`      | `Invoice` | `id`, `number` (string, unique; format INV-{ASSET_CODE}-{YYYYMM}-{SEQ}), `lease_id` (FK), `tenant_id` (FK), `status` (enum: draft, issued, partially_paid, paid, overdue, disputed, cancelled, credited), `issue_date`, `due_date` (dates), `period_start`, `period_end` (dates), `subtotal`, `vat_amount`, `total` (decimals 12,2), `paid_amount` (decimal 12,2, default 0), `credit_applied_amount` (decimal 12,2, default 0; see § 3), `balance` (decimal 12,2, default 0), `currency`, `eta_*` (tax authority submission fields), `owner_overdue_notified_at` (timestamp, nullable), timestamps, softDeletes | One invoice per lease billing period. AR balance computed from received payments + credit. |
 | `invoice_items` | `InvoiceItem` | `id`, `invoice_id` (FK), `charge_id` (FK, nullable), `description`, `type` (enum: base_rent, service_charge, utility, parking, percentage_rent, late_fee, other), `amount`, `vat_rate`, `vat_amount`, `total`, timestamps | Line items (rent, CAM, utilities, late fees). Late fees added at charge time. |
 | `invoice_payment` | Pivot   | `id`, `invoice_id` (FK), `payment_id` (FK, unique pair), `allocated_amount` (decimal 12,2), timestamps | Many-to-many: allocates a payment across multiple invoices. Only *received* rows (captured/reconciled/settled) count toward AR. |
@@ -580,6 +580,44 @@ Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pa
 **Key decision points:** Audit M06 F-25, F-26 (allocation guards); M11 F-42 (Paymob session reuse).
 
 ---
+
+## The payment-rail catalogue (EG-11, 2026-08-21)
+
+A payment method is a **row** in `payment_methods`, not a PHP constant. It carries a code (the value
+every document stores), a bilingual name, a direction, and the ledger account its money lands in.
+
+**Why a row.** `ValueSets`' own docblock said it — *"Egypt's payment rails keep moving: Fawry, Meeza,
+Aman, Vodafone Cash"* — while keeping them in a `const`, so adding one was a 9–14 file deploy. There
+were also four parallel lists that had drifted (7 / 5 / 2 / 3 values), one of them outside
+`ValueSets` entirely, which is why a security deposit received by InstaPay could not be recorded as
+InstaPay. Fawry, Meeza, Vodafone Cash and Aman now ship **present and switched off** — a tick.
+
+**Where the money lands.** `payment_methods.ledger_account_id` points at a chart row **directly**,
+the way `bank_accounts.ledger_account_id` does — not at a `PostingRoles` key. A role exists so a code
+path can ask for "the bank account" without knowing the chart; a rail is operator data pointing at
+operator data. The decisive argument is mechanical: `Health::accountingReadiness()` requires every
+`PostingRoles` key to be mapped, so a clearing role per rail would turn a **blocking** health row red
+on every existing install until the accountant mapped them.
+
+`PaymentMethod::accountIdOrFloor()` is the ONE place the fallback lives, and **six** journalizers
+call it — `Payment`, `VendorBillPayment`, `DepositTransaction`, `Payroll`, `Expense` and
+`Disbursement`. Null means the floor: `cash` for cash, `bank` for everything else, verbatim the
+ternary each of them carried. So the catalogue ships behaviour-identical and an operator opts in one
+rail at a time.
+
+**What is still wrong, and why it is not a code problem.** A card capture debits the bank on the day
+it is captured while the money lands T+1/T+2 (longer for Fawry), so the book line and the bank line
+carry different dates and the reconciliation sees them unmatched. The fix is a clearing account per
+rail — the mechanism is here, the account codes are the accountant's, and the real Egyptian chart has
+not been supplied.
+
+**One invariant this created.** `ValueSets` answers "what may this column hold" twice: `allowed()`
+for what a picker OFFERS, `forTable()` for what the saving listener ACCEPTS. While every set was a
+literal they could not disagree; a catalogue makes one dynamic. Both now derive from one `widen()`,
+and `OfferedValuesAreAcceptedValuesConformanceTest` fails if they ever drift — because when they did,
+the deposit modal offered eight rails and the guard took two, and the operator saw a button do
+nothing.
+
 
 ## Deletion policy
 
