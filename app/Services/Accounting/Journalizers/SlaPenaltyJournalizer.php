@@ -62,7 +62,9 @@ class SlaPenaltyJournalizer implements Journalizer
         // The bill's property, not the work order's: this entry adjusts THAT payable, and
         // the two must land in the same books to net off.
         $assetId = $bill->asset_id;
-        $expenseRole = $this->expenseRoleFor($bill->category, "SLA penalty on bill {$bill->number}");
+        // Credited back to whichever account the bill DEBITED, so a penalty cannot reduce a
+        // different line from the one the service cost. See MapsExpenseCategory.
+        $expenseAccountId = $this->expenseAccountIdFor($bill->category, $assetId, $this->accounts, "SLA penalty on bill {$bill->number}");
         $reference = $penalty->workOrder?->reference ?? "penalty #{$penalty->id}";
 
         return [
@@ -78,7 +80,7 @@ class SlaPenaltyJournalizer implements Journalizer
                     'asset_id' => $assetId,
                 ],
                 [
-                    'ledger_account_id' => $this->accounts->id($expenseRole, $assetId),
+                    'ledger_account_id' => $expenseAccountId,
                     'debit' => 0,
                     'credit' => $amount,
                     'asset_id' => $assetId,

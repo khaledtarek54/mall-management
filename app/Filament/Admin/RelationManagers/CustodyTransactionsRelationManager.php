@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
+use App\Models\ExpenseCategory;
 use App\Services\SettleCustodyService;
 use App\Support\Modules;
 use Filament\Actions\Action;
@@ -65,7 +66,7 @@ class CustodyTransactionsRelationManager extends RelationManager
                     ->color(fn (string $state) => $state === 'return' ? 'info' : 'warning'),
                 TextColumn::make('category')
                     ->label(__('admin.custodies.txn_fields.category'))
-                    ->formatStateUsing(fn (?string $state) => $state ? (__('admin.enums.vendor_bill_category')[$state] ?? $state) : '—')
+                    ->formatStateUsing(fn (?string $state) => ExpenseCategory::labelFor($state))
                     ->placeholder('—'),
                 TextColumn::make('amount')
                     ->label(__('admin.custodies.txn_fields.amount'))
@@ -90,7 +91,7 @@ class CustodyTransactionsRelationManager extends RelationManager
                             ->required()->prefix('EGP'),
                         Select::make('category')
                             ->label(__('admin.custodies.txn_fields.category'))
-                            ->options(fn () => __('admin.enums.vendor_bill_category'))
+                            ->options(fn () => ExpenseCategory::options())
                             ->default('other')->required()->native(false),
                         DatePicker::make('transaction_date')
                             ->label(__('admin.custodies.txn_fields.date'))

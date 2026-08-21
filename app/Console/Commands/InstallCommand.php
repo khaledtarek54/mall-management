@@ -14,6 +14,7 @@ use App\Support\Health;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\DepartmentSeeder;
+use Database\Seeders\ExpenseCategorySeeder;
 use Database\Seeders\HolidaySeeder;
 use Database\Seeders\PaymentMethodSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -103,6 +104,7 @@ class InstallCommand extends Command
         // straight across Eid, with nothing on any screen to say why. The moon-sighted dates are
         // deliberately not seeded; the operator adds those, which the screen guide says.
         $this->callSilent('db:seed', ['--class' => PaymentMethodSeeder::class, '--force' => true]);
+        $this->callSilent('db:seed', ['--class' => ExpenseCategorySeeder::class, '--force' => true]);
         $this->callSilent('db:seed', ['--class' => HolidaySeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Holidays', Holiday::count().' fixed-date holidays (the moon-sighted ones are yours to add)');
 

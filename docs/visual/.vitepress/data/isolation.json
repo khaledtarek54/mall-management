@@ -204,6 +204,12 @@
         "note": null
     },
     {
+        "model": "ExpenseCategory",
+        "label": "Expense Category",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "FacilityWorkOrder",
         "label": "Facility Work Order",
         "classification": "owned",

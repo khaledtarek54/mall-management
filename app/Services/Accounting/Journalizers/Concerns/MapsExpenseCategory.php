@@ -2,6 +2,8 @@
 
 namespace App\Services\Accounting\Journalizers\Concerns;
 
+use App\Models\ExpenseCategory;
+use App\Services\Accounting\AccountResolver;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -35,5 +37,27 @@ trait MapsExpenseCategory
         }
 
         return 'admin_expense';
+    }
+
+    /**
+     * The P&L ACCOUNT a cost books to: the category's own row first, this map as the floor.
+     *
+     * Every journalizer that classifies a cost goes through here, so the catalogue and the const
+     * cannot disagree. A category with no row, or a row with no account, resolves exactly as it did
+     * before — including the warning above, which is still the right noise for a category nobody
+     * has classified.
+     */
+    protected function expenseAccountIdFor(
+        ?string $category,
+        ?int $assetId,
+        AccountResolver $accounts,
+        string $documentRef,
+    ): int {
+        return ExpenseCategory::accountIdOrFloor(
+            $category,
+            $assetId,
+            $accounts,
+            $this->expenseRoleFor((string) ($category ?? 'other'), $documentRef),
+        );
     }
 }

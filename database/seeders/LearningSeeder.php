@@ -93,7 +93,7 @@ class LearningSeeder extends Seeder
     public function run(): void
     {
         // ── 1. Reference data ──────────────────────────────────────────────────────────────────
-        // The same SEVEN, in the same order, that `atriom:install` runs on a real first deploy.
+        // The same EIGHT, in the same order, that `atriom:install` runs on a real first deploy.
         // AccountingSeeder is last because a charge code names the tax code it bills under. Both
         // UtilityTariffSeeder and HolidaySeeder are portfolio-wide (`asset_id` null), so neither
         // needs the property this seeder creates below — and without them the empty-mall variant
@@ -105,6 +105,7 @@ class LearningSeeder extends Seeder
             DepartmentSeeder::class,
             UtilityTariffSeeder::class,
             PaymentMethodSeeder::class,
+            ExpenseCategorySeeder::class,
             HolidaySeeder::class,
             AccountingSeeder::class,
         ]);

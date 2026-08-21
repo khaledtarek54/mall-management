@@ -36,6 +36,7 @@ use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Equipment;
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\FacilityWorkOrderItem;
 use App\Models\FacilityWorkOrderLabour;
@@ -256,6 +257,7 @@ class MorphMap
         'work_order_labour' => FacilityWorkOrderLabour::class,
         'failure_code' => FailureCode::class,
         'holiday' => Holiday::class,
+        'expense_category' => ExpenseCategory::class,
         'payment_method' => PaymentMethod::class,
         'trade' => Trade::class,
         'tenant' => Tenant::class,

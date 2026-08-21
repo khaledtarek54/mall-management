@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Models\ExpenseCategory;
+
 /**
  * The fixed vs variable axis of an operating cost, keyed by category (FR-FIN-02).
  *
@@ -35,10 +37,18 @@ class CostNature
         'other' => self::VARIABLE,
     ];
 
-    /** The nature of a category — `variable` for an unmapped one. */
+    /**
+     * The nature of a category — the ROW first, this map as the floor, `variable` beyond both.
+     *
+     * The map below was the only answer, so a cost the operator added (insurance, government fees,
+     * bank charges) was silently `variable` and apportioned through the CAM pool as though it moved
+     * with occupancy. Insurance does not. A row can now say so.
+     */
     public static function forCategory(?string $category): string
     {
-        return self::MAP[$category] ?? self::VARIABLE;
+        return ExpenseCategory::natureFor($category)
+            ?? self::MAP[$category]
+            ?? self::VARIABLE;
     }
 
     /**
@@ -49,6 +59,28 @@ class CostNature
      */
     public static function categoriesOf(string $nature): array
     {
-        return array_keys(array_filter(self::MAP, fn (string $n) => $n === $nature));
+        // The catalogue FIRST, then the floor — the same resolution `forCategory()` performs, read
+        // backwards. Reading only the const here would have re-broken the very property this
+        // method's docblock claims: a category the operator marked `fixed` answers `fixed` going
+        // one way and is absent going the other, so a CAM pool filtered by nature would silently
+        // omit it while the cost itself was classified correctly.
+        $floor = array_filter(self::MAP, fn (string $n) => $n === $nature);
+
+        try {
+            $rows = ExpenseCategory::query()->pluck('cost_nature', 'code')->all();
+        } catch (\Throwable) {
+            $rows = [];
+        }
+
+        // A row overrides the floor for its own code, in both directions.
+        $resolved = array_merge($floor, array_filter($rows, fn (?string $n) => $n === $nature));
+
+        foreach ($rows as $code => $rowNature) {
+            if ($rowNature !== $nature) {
+                unset($resolved[$code]);
+            }
+        }
+
+        return array_keys($resolved);
     }
 }

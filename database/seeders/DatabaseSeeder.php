@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             // test suite and in the QA baseline — so the one screen that decides SLA deadlines
             // is never exercised on realistic data and renders a blank table.
             PaymentMethodSeeder::class,
+            ExpenseCategorySeeder::class,
             HolidaySeeder::class,
             DemoSeeder::class,
         ]);

@@ -40,7 +40,7 @@ beforeEach(function () {
         'vendor_id' => $vendor->id,
         'asset_id' => $this->from->id,
         'status' => 'approved',
-        'category' => 'hvac',
+        'category' => 'maintenance',
         'bill_date' => now()->toDateString(),
         'due_date' => now()->addDays(30)->toDateString(),
         'subtotal' => 50000, 'vat_amount' => 0, 'total' => 50000,

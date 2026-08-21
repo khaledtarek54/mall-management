@@ -40,7 +40,8 @@ class ExpenseJournalizer implements Journalizer
             return null;
         }
 
-        $expenseRole = $this->expenseRoleFor($expense->category, "expense {$expense->number}");
+        // The category's own account, falling back to the role map. See MapsExpenseCategory.
+        $expenseAccountId = $this->expenseAccountIdFor($expense->category, $assetId, $this->accounts, "expense {$expense->number}");
 
         // Through the rail, like the others. This mirror ternary was CORRECT while the column
         // held only cash|bank — but the catalogue widens `expenses.paid_from`, and `bank_transfer`
@@ -52,7 +53,7 @@ class ExpenseJournalizer implements Journalizer
         // debit-0/credit-0 line that the posting engine rejects.
         if ($net > 0) {
             $lines[] = [
-                'ledger_account_id' => $this->accounts->id($expenseRole, $assetId),
+                'ledger_account_id' => $expenseAccountId,
                 'debit' => $net,
                 'credit' => 0,
                 'asset_id' => $assetId,

@@ -45,7 +45,7 @@ function whtVatBill(float $net = 100000, float $vatRate = 14): VendorBill
     $bill = VendorBill::create([
         'vendor_id' => test()->vendor->id,
         'asset_id' => makeAsset()->id,
-        'category' => 'hvac',
+        'category' => 'maintenance',
         'status' => 'approved',
         'bill_date' => now()->toDateString(),
         'due_date' => now()->addDays(30)->toDateString(),

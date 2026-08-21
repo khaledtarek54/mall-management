@@ -150,6 +150,12 @@
         "guide": "equipment"
     },
     {
+        "screen": "ExpenseCategoryResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "expense_categories"
+    },
+    {
         "screen": "ExpenseResource",
         "panel": "admin",
         "kind": "resource",

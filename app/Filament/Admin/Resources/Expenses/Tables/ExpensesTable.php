@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Expenses\Tables;
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -37,7 +38,7 @@ class ExpensesTable
                 TextColumn::make('category')
                     ->label(__('admin.fields.category'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.vendor_bill_category.{$state}"))
+                    ->formatStateUsing(fn (?string $state) => ExpenseCategory::labelFor($state))
                     ->color('gray'),
                 // Fixed vs variable (FR-FIN-02) — derived from the category via App\Support\CostNature,
                 // so the register agrees with the weekly-spend report. Toggleable (off by default).
@@ -89,7 +90,7 @@ class ExpensesTable
                     ->options(fn () => __('admin.statuses.expense')),
                 SelectFilter::make('category')
                     ->label(__('admin.fields.category'))
-                    ->options(fn () => __('admin.enums.vendor_bill_category')),
+                    ->options(fn () => ExpenseCategory::options()),
                 SelectFilter::make('cost_nature')
                     ->label(__('admin.fields.cost_nature'))
                     ->options(fn () => __('admin.enums.cost_nature'))

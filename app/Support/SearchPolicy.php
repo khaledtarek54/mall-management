@@ -18,6 +18,7 @@ use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Resources\Disbursements\DisbursementResource;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Admin\Resources\Equipment\EquipmentResource;
+use App\Filament\Admin\Resources\ExpenseCategories\ExpenseCategoryResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
@@ -225,6 +226,7 @@ class SearchPolicy
      * @var array<class-string, string>
      */
     public const GLOBAL_SEARCH_EXEMPT = [
+        ExpenseCategoryResource::class => 'A closed catalogue of a dozen cost types that an accountant configures once and everyone else picks from a dropdown. Nobody hunts for "Utilities" from the top bar — they open a bill and choose it. Indexing it would put eleven rows in front of every search for a vendor or an invoice.',
         PaymentMethodResource::class => 'A closed catalogue of a dozen rails that an accountant configures once and an operator picks from a dropdown. Nobody hunts for "InstaPay" from the top bar — they open a payment and choose it. Indexing it would put eleven rows in front of every search for a tenant or an invoice.',
         HolidayResource::class => 'A short, date-ordered register the operator opens once a year. Nobody searches the top bar for "Eid" — they open the calendar and read the list. Indexing it would put public holidays in the same result set as tenants and invoices, which is noise.',
         CamExpensePoolResource::class => 'A pool is identified by property + year, not by anything typed — it has no reference and no name. Reached from the property CAM page.',

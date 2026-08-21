@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\Schemas;
 
+use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\PurchaseRequest;
 use App\Models\TaxCode;
@@ -191,7 +192,7 @@ class VendorBillForm
 
                     Select::make('category')
                         ->label(__('admin.fields.category'))
-                        ->options(fn () => __('admin.enums.vendor_bill_category'))
+                        ->options(fn () => ExpenseCategory::options())
                         ->required()
                         ->native(false)
                         ->disabled($locked),

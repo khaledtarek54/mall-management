@@ -193,6 +193,10 @@ class RolesPermissionsSeeder extends Seeder
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
             'rent_indices.delete' => 'Remove an index figure keyed by mistake',
+            'expense_categories.view' => 'View the expense-category catalogue',
+            'expense_categories.create' => 'Add an expense category',
+            'expense_categories.edit' => 'Edit an expense category, including the account its costs book to',
+            'expense_categories.delete' => 'Remove an expense category',
             'payment_methods.view' => 'View the payment-rail catalogue',
             'payment_methods.create' => 'Add a payment rail',
             'payment_methods.edit' => 'Edit a payment rail, including the account its money lands in',
@@ -810,6 +814,7 @@ class RolesPermissionsSeeder extends Seeder
             // does: what a rail IS, is operations' business, but which account its money lands in
             // is an accounting ruling — and the two live on one row.
             'payment_methods.view', 'payment_methods.create', 'payment_methods.edit',
+            'expense_categories.view', 'expense_categories.create', 'expense_categories.edit',
             'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',
             'journal_entries.post', 'journal_entries.void',
             'accounting_periods.view', 'accounting_periods.manage',

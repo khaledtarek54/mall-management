@@ -40,11 +40,16 @@ class CustodyTransactionJournalizer implements Journalizer
 
         // The debit side depends on the settlement kind.
         if ($txn->type === 'return') {
-            $debitRole = $txn->method === 'bank' ? 'bank' : 'cash';
+            // `custody_transactions.method` is NOT catalogue-widened — it holds cash|bank — so this
+            // branch stays on the role map.
+            $debitAccountId = $this->accounts->id($txn->method === 'bank' ? 'bank' : 'cash', $assetId);
             $descEn = 'Custody return';
             $descAr = 'رد عهدة';
         } else { // expense
-            $debitRole = $this->expenseRoleFor($txn->category ?? 'other', 'CustodyTransaction #'.$txn->id);
+            // The category's own account, falling back to the role map. See MapsExpenseCategory.
+            $debitAccountId = $this->expenseAccountIdFor(
+                $txn->category ?? 'other', $assetId, $this->accounts, 'CustodyTransaction #'.$txn->id
+            );
             $descEn = 'Custody expense — '.($txn->category ?? 'other');
             $descAr = 'مصروف عهدة';
         }
@@ -55,7 +60,7 @@ class CustodyTransactionJournalizer implements Journalizer
             'description_ar' => $descAr,
             'asset_id' => $assetId,
             'lines' => [
-                ['ledger_account_id' => $this->accounts->id($debitRole, $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
+                ['ledger_account_id' => $debitAccountId, 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
                 ['ledger_account_id' => $this->accounts->id('custody', $assetId), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
             ],
         ];

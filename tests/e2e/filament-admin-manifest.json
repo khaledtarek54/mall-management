@@ -120,6 +120,13 @@
             "hasView": false
         },
         {
+            "class": "ExpenseCategoryResource",
+            "slug": "expense-categories",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "ExpenseResource",
             "slug": "expenses",
             "hasCreate": true,

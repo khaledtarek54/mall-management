@@ -1766,4 +1766,25 @@ return [
             'The default is deliberate: until your accountant gives you a clearing account per rail, a card capture debits the bank on the day it is captured, even though the money arrives later.',
         ],
     ],
+    'expense_categories' => [
+        'purpose' => 'What kinds of cost you have, and which account on your profit-and-loss each one goes to. Until you set this up, everything that is not maintenance, utilities, cleaning, marketing or admin lands in one general bucket — insurance, government fees, bank charges, lawyers, generator fuel, all together.',
+        'steps' => [
+            'Add a row per kind of cost. The code is stored on every bill and expense, so pick it once and keep it — it cannot be changed later.',
+            'Choose the account it should book to. Leave it blank and the category keeps going where it goes today, so nothing changes until you decide.',
+            'Say whether the cost is fixed or variable. Fixed means it does not move with how full the mall is — insurance, security contract. This is what the service-charge apportionment reads.',
+            'Five common Egyptian overheads are already here, switched off: insurance, government fees and licences, bank charges, legal and professional, and fuel. Turn one on once you know its account.',
+            'To retire a category, switch it off. It disappears from the pickers and every document that used it is untouched.',
+        ],
+        'affects' => [
+            'Supplier bills, expenses and custody spends all pick from this list, and the category decides which expense account the entry debits.',
+            'Fixed versus variable feeds the CAM pool, so it reaches what tenants are charged for service — not just your own reporting.',
+            'Changing the account RE-POSTS documents whose period is still open: the ledger here is derived, so the nightly sync voids the old entry and writes a corrected one. Anything in a closed period is left as it was.',
+        ],
+        'rules' => [
+            'A code cannot be changed once saved, because every document stores the code itself rather than a link to this row.',
+            'A category that has classified a posted cost cannot be deleted. Switch it off instead.',
+            'Only expense accounts can be chosen — a cost has to land on the profit and loss.',
+            'A category with no account set books exactly where it did before: maintenance to maintenance, utilities to utilities, and anything unrecognised to administrative expenses.',
+        ],
+    ],
 ];

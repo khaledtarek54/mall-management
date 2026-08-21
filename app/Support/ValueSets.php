@@ -9,6 +9,7 @@ use App\Enums\TenantRequestType;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
+use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
@@ -103,6 +104,12 @@ class ValueSets
         // as the other three, widened by the same catalogue.
         'disbursements.method' => ['cash', 'bank_transfer', 'cheque'],
         'employees.status' => ['active', 'terminated'],
+        // The expense CATEGORY had no set at all, on any of its three columns: it lived in a lang
+        // array and a `private const` inside a journalizer trait, so a typo'd or imported value
+        // saved cleanly and then silently booked to `admin_expense`. These six are the floor the
+        // trait held; `expense_categories` widens them.
+        'custody_transactions.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
+        'expenses.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
         'expenses.paid_from' => ['cash', 'bank'],
         'expenses.status' => ['recorded', 'cancelled'],
         'fiscal_years.status' => ['open', 'closed'],
@@ -202,6 +209,7 @@ class ValueSets
         // utility. Widening one without the other is what the listener would then refuse on save.
         'utility_tariffs.utility_type' => ['electric', 'water', 'gas'],
         'vendor_bill_payments.method' => ['cash', 'bank_transfer', 'cheque', 'card', 'other'],
+        'vendor_bills.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
         'vendor_bills.status' => ['draft', 'approved', 'partially_paid', 'paid', 'cancelled'],
         'vendor_contracts.sla_penalty_basis' => ['none', 'flat', 'per_day', 'percent_of_value'],
         'vendor_contracts.status' => ['draft', 'active', 'expired', 'terminated'],
@@ -271,6 +279,9 @@ class ValueSets
         'vendor_bill_payments.method' => [PaymentMethod::class, 'outboundCodes'],
         'expenses.paid_from' => [PaymentMethod::class, 'outboundCodes'],
         'disbursements.method' => [PaymentMethod::class, 'outboundCodes'],
+        'custody_transactions.category' => [ExpenseCategory::class, 'codes'],
+        'expenses.category' => [ExpenseCategory::class, 'codes'],
+        'vendor_bills.category' => [ExpenseCategory::class, 'codes'],
     ];
 
     public static function allowed(string $table, string $column): ?array

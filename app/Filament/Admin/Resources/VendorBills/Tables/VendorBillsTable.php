@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\VendorBills\Tables;
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Actions\PostMonthAction;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Models\ExpenseCategory;
 use App\Models\Vendor;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\BulkActionGroup;
@@ -42,7 +43,7 @@ class VendorBillsTable
                 TextColumn::make('category')
                     ->label(__('admin.fields.category'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.vendor_bill_category.{$state}"))
+                    ->formatStateUsing(fn (?string $state) => ExpenseCategory::labelFor($state))
                     ->color('gray'),
                 TextColumn::make('bill_date')
                     ->label(__('admin.fields.bill_date'))
@@ -84,7 +85,7 @@ class VendorBillsTable
                     ->options(fn () => __('admin.statuses.vendor_bill')),
                 SelectFilter::make('category')
                     ->label(__('admin.fields.category'))
-                    ->options(fn () => __('admin.enums.vendor_bill_category')),
+                    ->options(fn () => ExpenseCategory::options()),
                 EntitySelectFilter::make('vendor_id')
                     ->label(__('admin.fields.vendor'))
                     ->relationship('vendor')

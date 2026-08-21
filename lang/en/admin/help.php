@@ -167,6 +167,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'expense_category_ledger_account' => 'Point a category at its own account and every future bill of that kind lands there instead of the general admin bucket.',
         'payment_method_ledger_account' => 'A clearing account here separates the day you take the money from the day the bank receives it, so your reconciliation matches.',
         'holiday_kind' => 'Closure = nobody works. Short day = reduced hours, which is what Ramadan is.',
         'asset_currency' => 'EGP only: there is no exchange rate anywhere in the system, so any other code would post to the ledger at 1:1.',

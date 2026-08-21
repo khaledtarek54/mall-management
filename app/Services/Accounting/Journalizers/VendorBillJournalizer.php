@@ -55,7 +55,8 @@ class VendorBillJournalizer implements Journalizer
             return null;
         }
 
-        $expenseRole = $this->expenseRoleFor($bill->category, "bill {$bill->number}");
+        // The category's own account, falling back to the role map. See MapsExpenseCategory.
+        $expenseAccountId = $this->expenseAccountIdFor($bill->category, $assetId, $this->accounts, "bill {$bill->number}");
 
         $lines = [];
 
@@ -89,7 +90,7 @@ class VendorBillJournalizer implements Journalizer
         // debit-0/credit-0 line that the posting engine rejects.
         if ($expense > 0) {
             $lines[] = [
-                'ledger_account_id' => $this->accounts->id($expenseRole, $assetId),
+                'ledger_account_id' => $expenseAccountId,
                 'debit' => $expense,
                 'credit' => 0,
                 'asset_id' => $assetId,

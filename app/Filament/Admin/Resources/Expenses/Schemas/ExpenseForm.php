@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Expenses\Schemas;
 
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\PaymentMethod;
 use App\Models\TaxCode;
@@ -63,7 +64,7 @@ class ExpenseForm
 
                     Select::make('category')
                         ->label(__('admin.fields.category'))
-                        ->options(fn () => __('admin.enums.vendor_bill_category'))
+                        ->options(fn () => ExpenseCategory::options())
                         ->required()
                         ->native(false)
                         ->disabled($moneyLocked)

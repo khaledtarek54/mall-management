@@ -51,6 +51,7 @@ use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Resources\Disbursements\DisbursementResource;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Admin\Resources\Equipment\EquipmentResource;
+use App\Filament\Admin\Resources\ExpenseCategories\ExpenseCategoryResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FacilityWorkOrders\FacilityWorkOrderResource;
 use App\Filament\Admin\Resources\FailureCodes\FailureCodeResource;
@@ -217,6 +218,7 @@ class ScreenGuides
         TradeResource::class => 'trades',
         FailureCodeResource::class => 'failure_codes',
         HolidayResource::class => 'holidays',
+        ExpenseCategoryResource::class => 'expense_categories',
         PaymentMethodResource::class => 'payment_methods',
         TaxCodeResource::class => 'tax_codes',
         UtilityTariffResource::class => 'utility_tariffs',

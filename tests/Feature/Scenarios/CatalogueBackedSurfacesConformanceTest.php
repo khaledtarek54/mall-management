@@ -2,7 +2,7 @@
 
 /*
 |--------------------------------------------------------------------------
-| A rail the operator activates reaches every screen that names one
+| A row the operator activates reaches every screen that names one
 |--------------------------------------------------------------------------
 | EG-11 made the payment rails a catalogue and then converted three of nineteen surfaces. The
 | result was worse than not having done it: the payments LIST filter offered Fawry while the
@@ -21,6 +21,7 @@
 | this gate is scoped by column, not by string.
 */
 
+use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use App\Support\ValueSets;
 use Illuminate\Support\Facades\File;
@@ -32,10 +33,15 @@ use Illuminate\Support\Facades\File;
  * column it serves, which is why each entry names its files rather than the gate guessing.
  */
 const RAIL_LABEL_GROUPS = [
+    // Payment rails — `payment_methods`.
     'admin.enums.method',
     'admin.enums.expense_paid_from',
     'admin.enums.vendor_bill_payment_method',
     'admin.disbursements.methods',
+    // Expense categories — `expense_categories`. The same shape and the same failure: the category
+    // decides which P&L account a supplier bill hits, so a screen offering a stale list offers the
+    // wrong accounting.
+    'admin.enums.vendor_bill_category',
 ];
 
 /**
@@ -50,6 +56,7 @@ const NOT_CATALOGUE_WIDENED = [
     'app/Filament/Admin/Resources/Custodies/CustodyResource.php' => 'custodies.paid_from — cash|bank only, not widened.',
     'app/Support/ActivityVocabulary.php' => 'A field->lang-group registry covering BOTH widened and unwidened columns; the activity log resolves a stored value, and a rail with no lang key falls through to the raw code by design (logged as a known gap, not a screen).',
     'app/Models/PaymentMethod.php' => 'The catalogue itself — these groups are its FALLBACK for the shipped codes.',
+    'app/Models/ExpenseCategory.php' => 'The catalogue itself — the category group is its FALLBACK for the six shipped codes.',
     'app/Models/DepositTransaction.php' => 'Passes the group to PaymentMethod::labelFor() as a fallback, which is the sanctioned shape.',
 ];
 
@@ -70,7 +77,7 @@ it('lets no surface on a catalogue-widened column read a static rail list', func
         // Passing a group to `PaymentMethod::options()` / `::labelFor()` as the FALLBACK for the
         // shipped codes is the sanctioned shape — that call reads the catalogue first. What is
         // banned is resolving the group directly with `__()`, which never sees a rail at all.
-        $code = preg_replace('~PaymentMethod::(options|labelFor)\([^;]*?\)~s', '', $code) ?? $code;
+        $code = preg_replace('~(PaymentMethod|ExpenseCategory)::(options|labelFor)\([^;]*?\)~s', '', $code) ?? $code;
 
         foreach (RAIL_LABEL_GROUPS as $group) {
             if (preg_match('~__\(\s*["\']'.preg_quote($group, '~').'~', $code)) {
@@ -85,9 +92,9 @@ it('lets no surface on a catalogue-widened column read a static rail list', func
         'will not appear in them, and one they add has no lang key so it renders as its raw code:',
         '  '.implode("\n  ", $offenders),
         '',
-        'Use PaymentMethod::options($direction, $fallbackGroup) to OFFER and',
-        'PaymentMethod::labelFor($code, $fallbackGroup) to LABEL. If the column is genuinely not',
-        'catalogue-widened, add the file to NOT_CATALOGUE_WIDENED naming the column.',
+        'Use the catalogue: PaymentMethod / ExpenseCategory ::options() to OFFER and ::labelFor() to',
+        'LABEL. If the column is genuinely not catalogue-widened, add the file to',
+        'NOT_CATALOGUE_WIDENED naming the column.',
     ]));
 });
 
@@ -134,7 +141,9 @@ it('names a real column in every exemption, and proves the widened set differs',
         'for_inbound' => true,
         'for_outbound' => true,
     ]);
+    ExpenseCategory::create(['code' => 'insurance', 'name_en' => 'Insurance', 'name_ar' => 'تأمين']);
 
     expect(count(ValueSets::allowed('expenses', 'paid_from') ?? []))
-        ->toBeGreaterThan(count(ValueSets::allowed('payrolls', 'paid_from') ?? []));
+        ->toBeGreaterThan(count(ValueSets::allowed('payrolls', 'paid_from') ?? []))
+        ->and(ValueSets::allowed('expenses', 'category'))->toContain('insurance');
 });
