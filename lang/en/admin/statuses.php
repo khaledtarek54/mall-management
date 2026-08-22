@@ -272,6 +272,7 @@ return [
             'total' => 'The whole share',
             'controllable' => 'Controllable costs only',
         ],
+        'cash_flow_section_unset' => 'Not classified',
         'cash_flow_section' => [
             'cash' => 'Cash & bank',
             'operating' => 'Operating',

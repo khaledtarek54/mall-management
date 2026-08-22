@@ -272,6 +272,7 @@ return [
             'total' => 'النصيب بالكامل',
             'controllable' => 'التكاليف القابلة للتحكم فقط',
         ],
+        'cash_flow_section_unset' => 'غير مصنَّف',
         'cash_flow_section' => [
             'cash' => 'النقدية والبنوك',
             'operating' => 'التشغيل',

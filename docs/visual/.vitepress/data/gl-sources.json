@@ -159,8 +159,8 @@
             "instead": "cancel the expense"
         },
         "change_impact": {
-            "refused": 4,
-            "derived": 6,
+            "refused": 5,
+            "derived": 5,
             "descriptive": 1,
             "neutral": 5
         }

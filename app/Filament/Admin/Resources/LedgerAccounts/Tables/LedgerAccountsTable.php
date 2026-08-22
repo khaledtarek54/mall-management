@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\LedgerAccounts\Tables;
 
+use App\Support\CashFlowSection;
 use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -47,6 +48,19 @@ class LedgerAccountsTable
                         'expense' => 'danger',
                         default => 'gray',
                     }),
+                // Which section of the cash-flow statement this account's movement lands in
+                // (EG-28). On screen because an accountant onboarding a chart needs to SEE what is
+                // still unclassified — the form alone would mean opening every account to find out.
+                TextColumn::make('cash_flow_section')
+                    ->label(__('admin.fields.cash_flow_section'))
+                    ->badge()
+                    ->color('gray')
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.cash_flow_section.{$state}"))
+                    // Revenue and expense net into income by TYPE and never carry a section, so a
+                    // dash there is correct rather than a gap. `—` for everything else means the
+                    // operating floor is being used.
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('normal_balance')
                     ->label(__('admin.fields.normal_balance'))
                     ->formatStateUsing(fn (string $state) => __("admin.enums.normal_balance.{$state}"))
@@ -63,6 +77,19 @@ class LedgerAccountsTable
                 SelectFilter::make('type')
                     ->label(__('admin.fields.account_type'))
                     ->options(fn () => __('admin.enums.ledger_account_type')),
+                // The question an accountant actually asks when a new chart lands: what have I not
+                // classified yet? Balance-sheet accounts only — revenue and expense never carry one.
+                SelectFilter::make('cash_flow_section')
+                    ->label(__('admin.fields.cash_flow_section'))
+                    ->options(fn (): array => collect(CashFlowSection::SECTIONS)
+                        ->mapWithKeys(fn (string $x): array => [$x => __('admin.enums.cash_flow_section.'.$x)])
+                        ->all() + ['__none' => __('admin.enums.cash_flow_section_unset')])
+                    ->query(fn ($query, array $data) => match ($data['value'] ?? null) {
+                        null, '' => $query,
+                        '__none' => $query->whereNull('cash_flow_section')
+                            ->whereNotIn('type', ['revenue', 'expense']),
+                        default => $query->where('cash_flow_section', $data['value']),
+                    }),
                 TernaryFilter::make('is_postable')
                     ->label(__('admin.fields.is_postable')),
                 TernaryFilter::make('is_active')
