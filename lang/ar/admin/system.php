@@ -1,6 +1,10 @@
 <?php
 
 return [
+
+    'billing' => [
+        'in_arrears' => 'متأخر',
+    ],
     'assets' => [
         'statement' => [
             'action' => 'كشف حساب العقار',

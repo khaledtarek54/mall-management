@@ -10,6 +10,7 @@ use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
 use App\Models\CamExpensePool;
+use App\Models\Charge;
 use App\Models\Disbursement;
 use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
@@ -185,6 +186,10 @@ class ValueSets
         'cam_allocations.status' => ['pending', 'billed', 'disputed', 'closed'],
         'cam_expense_pools.status' => ['draft', 'reconciling', 'reconciled', 'closed'],
         'charges.frequency' => ['monthly', 'quarterly', 'annually', 'one_time'],
+        // Ahead of the period or behind it (EG-30 / M-2). Null is the normal state and means
+        // `advance`, so every charge that existed before this bills exactly as it did; the two
+        // values are registered so the column cannot quietly acquire a third reading.
+        'charges.billing_timing' => [Charge::class, 'BILLING_TIMINGS'],
         'credit_notes.status' => ['draft', 'issued', 'applied', 'void'],
         'deposit_transactions.method' => ['cash', 'bank'],
         'deposit_transactions.status' => ['recorded', 'cancelled'],

@@ -68,13 +68,23 @@ it('creation seeds VAT-exempt rent + 14% service charge and the totals reconcile
     $svc = $lease->charges()->where('type', 'service_charge')->sole();
 
     // Egypt rule: rent is VAT-exempt, service charge carries 14% VAT.
-    expect($rent->vat_applicable)->toBeFalse()
+    //
+    // `vat_applicable` is NULL on a freshly created rent row, not false — and that is the point of
+    // EG-01 rather than an accident. The column is an OVERRIDE now: null means "nobody has ruled on
+    // this row, ask the catalogue", and the catalogue is what says rent is exempt. Written as
+    // `false` it froze the answer, so a rent charge could never become taxable again however the
+    // accountant ruled — which is the exact change Law 157/2025 makes an operator want to attempt.
+    // What must hold is the OUTCOME: the resolver answers zero.
+    expect($rent->vat_applicable)->toBeNull()
+        ->and($rent->resolvedVatRate())->toBe(0.0)
         ->and($rent->calculateVat())->toBe(0.0)
         ->and((float) $rent->totalWithVat())->toBe(10000.0);
 
-    expect($svc->vat_applicable)->toBeTrue()
-        // The rate the charge BILLS. The column itself is null — a stored snapshot is what stopped
-        // a catalogue change ever reaching rent or service charge.
+    // Null here too, and for the same reason as the rent line above: the flag is an override and
+    // nobody overrode it, so the catalogue decides. The assertion that matters is the RATE it
+    // bills — a stored snapshot of either the flag or the rate is what stopped a catalogue change
+    // ever reaching rent or service charge.
+    expect($svc->vat_applicable)->toBeNull()
         ->and($svc->resolvedVatRate())->toBe(14.0)
         // 2000 * 14% = 280 VAT → 2280 gross.
         ->and($svc->calculateVat())->toBe(280.0)

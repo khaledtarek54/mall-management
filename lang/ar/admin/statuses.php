@@ -148,6 +148,10 @@ return [
     ],
 
     'enums' => [
+        'billing_timing' => [
+            'advance' => 'مقدمًا',
+            'arrears' => 'متأخرًا',
+        ],
         'work_permit_type' => [
             'hot_work' => 'أعمال ساخنة',
             'electrical_isolation' => 'عزل كهربائي',

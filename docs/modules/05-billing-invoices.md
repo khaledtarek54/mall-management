@@ -624,6 +624,27 @@ public function runForPeriod(?CarbonImmutable $period = null): array
   - **Final cycle is capped at the expiry month.** A lease whose term isn't a whole number of cycles has its last cycle truncated at `expiry_date`'s month (both `period_end` and the ×months multiplier shrink together), so nothing bills for whole months after the lease ends — the final month bills in full, matching monthly end-of-term. (Caught by the pre-merge adversarial review.)
   - **Revenue-at-issue (known):** a cycle spanning a year boundary (e.g. quarterly Nov–Jan) recognises the whole cycle's revenue at issue (Nov). This is the system's documented accrual policy — revenue-at-issue, **no** straight-line spread (see `OPEN-QUESTIONS.md A3.2`); the same limitation applies to any advance billing.
   - **Frequency is edit-locked after the first invoice** — cycles are anchored to the commencement, so switching cadence mid-term could strand an unaligned month. The form disables the field once the lease has any invoice; set it at signing.
+- **A charge can bill BEHIND the period it covers (EG-30 / M-2, 2026-08-22).** `charges.billing_timing`
+  is nullable and **null means advance**, so every charge written before this bills exactly as it did.
+  Set to `arrears`, the row covers the PREVIOUS cycle: the September invoice carries August's service
+  charge, on a line reading *"Service Charge - August 2026 (in arrears)"*.
+  - **Per CHARGE, not per lease**, because the case that matters is mixed — rent ahead, service
+    charge behind, one lease. A per-lease flag would force the operator to choose which of the two
+    is wrong.
+  - **One invoice, not two.** `MonthlyBillingService::coveredWindow()` is the single answer to
+    "what does this line cover"; the arrears lines ride the same monthly invoice. A second invoice
+    per lease per month was rejected on evidence: `alreadyBilledForMonth()` has silently suppressed
+    a lease's base rent **five** times over a second invoice dated into a billed month (percentage
+    rent, CAM, utility recharge, violation fine, NSF fee, late fee) and every one was a ONE-OFF —
+    a recurring one would fire monthly for every arrears lease.
+  - **Stated cost:** the invoice header's `period_start`/`period_end` no longer bounds every line.
+    It already did not — late fees, utility recharges and violation fines all ride on invoices
+    covering a different window — so the line's own description is what a tenant reads, and that is
+    where the covered month is written.
+  - **An arrears row prorates against the month it COVERS**, not the month the invoice is dated to:
+    a lease commencing 15 August owes half of August's service charge on the September invoice.
+  - **Nothing on a lease's first invoice**, because the month it would cover predates the lease. It
+    bills normally the following month; deferred, not lost.
 - Skips any lease that already has an invoice covering the period (idempotent)
 - Wraps each lease in its own transaction; one failure doesn't abort the whole run
 - Fires `InvoiceIssuedNotification` to tenant on success

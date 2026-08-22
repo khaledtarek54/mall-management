@@ -5,6 +5,7 @@ return [
         'bank_account_on_document' => 'Leave blank unless you need to tell two bank accounts apart when reconciling.',
         'escalation_index_code' => 'Which published series this rent follows. Enter the figures under Leasing, Rent indices.',
         'escalation_index_base_value' => 'The index figure this rent was last measured from. It rolls forward each time the rent steps.',
+        'billing_timing' => "Blank means in advance. In arrears bills last month's, on this month's invoice.",
         'escalation_interval_months' => 'Blank means every year. Enter 24 for biennial, 6 for a half-yearly review.',
         'escalation_index_lag_months' => 'How far back to read. The September index effective 1 January is 4.',
         'property_pinned' => 'Follows the property switcher at the top — this record belongs to the mall you are in.',
@@ -172,6 +173,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'billing_timing' => 'Rent is settled ahead of the month; a service charge or utility recharge is settled after it, once the cost or the meter reading is known. The line names the month it covers.',
         'cash_flow_section' => 'Only balance-sheet accounts carry one. Revenue and expense net into profit, which the statement starts from.',
         'escalation_interval_months' => 'The date rolls by this many months each time a step applies, from the last step — so an 18-month clause alternates between two dates in the year rather than drifting.',
         'subcategory_trade' => 'A work order raised from this problem goes to that trade, so it reaches the right craft rate and the right contractors.',

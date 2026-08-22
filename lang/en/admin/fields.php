@@ -77,6 +77,7 @@ return [
         'index_published_on_helper' => 'The day it became knowable. This is what explains a rent step months later.',
         'escalation_index_code' => 'Index',
         'escalation_index_base_value' => 'Base index value',
+        'billing_timing' => 'Billed',
         'escalation_interval_months' => 'Steps every (months)',
         'escalation_index_lag_months' => 'Publication lag (months)',
         'date' => 'Date',

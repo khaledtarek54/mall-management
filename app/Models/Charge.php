@@ -48,6 +48,26 @@ class Charge extends Model
 
     public const ORIGIN_LEVY = 'levy';            // derived from base rent (marketing levy)
 
+    /**
+     * Ahead of the period it covers, or behind it — EG-30 (M-2).
+     *
+     * Rent is settled in ADVANCE: the September invoice asks for September, because that is what a
+     * lease says. A service charge or a utility recharge is settled in ARREARS, because until the
+     * month has run nobody knows what the common area cost or what the meter read — so the
+     * September invoice asks for AUGUST's, on a line that says so.
+     *
+     * The two ride on the SAME invoice. See the migration for why a second invoice per month was
+     * rejected: `MonthlyBillingService::alreadyBilledForMonth()` has silently suppressed a lease's
+     * base rent five times over a second invoice dated into a billed month, and every one of those
+     * was a one-off — a recurring one would fire monthly for every arrears lease.
+     */
+    public const TIMING_ADVANCE = 'advance';
+
+    public const TIMING_ARREARS = 'arrears';
+
+    /** @var array<int, string> */
+    public const BILLING_TIMINGS = [self::TIMING_ADVANCE, self::TIMING_ARREARS];
+
     protected $fillable = [
         'lease_id',
         'unit_ownership_id',
@@ -57,6 +77,7 @@ class Charge extends Model
         'amount',
         'currency',
         'frequency',
+        'billing_timing',
         'vat_applicable',
         'vat_rate',
         'start_date',
@@ -266,6 +287,19 @@ class Charge extends Model
     public function isOpenEnded(): bool
     {
         return $this->end_date === null;
+    }
+
+    /**
+     * Does this row bill BEHIND the period it covers? — the one definition.
+     *
+     * Null means advance, and null is the state every charge written before EG-30 is in, so nothing
+     * moves on deploy. Compared with `=== self::TIMING_ARREARS` rather than truthily, for the reason
+     * `charges.vat_applicable` had to be: a loose test turns "not stated" into a decision, and this
+     * column's whole point is that not-stated means the behaviour that already existed.
+     */
+    public function billsInArrears(): bool
+    {
+        return $this->billing_timing === self::TIMING_ARREARS;
     }
 
     /**

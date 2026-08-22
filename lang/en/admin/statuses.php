@@ -148,6 +148,10 @@ return [
     ],
 
     'enums' => [
+        'billing_timing' => [
+            'advance' => 'In advance',
+            'arrears' => 'In arrears',
+        ],
         'work_permit_type' => [
             'hot_work' => 'Hot work',
             'electrical_isolation' => 'Electrical isolation',

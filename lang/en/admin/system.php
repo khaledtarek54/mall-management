@@ -1,6 +1,10 @@
 <?php
 
 return [
+
+    'billing' => [
+        'in_arrears' => 'in arrears',
+    ],
     'assets' => [
         'statement' => [
             // The owner's monthly document: 12 months trailing, billed vs collected, and who is behind.

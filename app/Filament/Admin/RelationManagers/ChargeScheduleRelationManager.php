@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
@@ -255,6 +256,19 @@ class ChargeScheduleRelationManager extends RelationManager
                                 ->all())
                             ->default('monthly')
                             ->required()
+                            ->native(false),
+                        Select::make('billing_timing')
+                            ->label(__('admin.fields.billing_timing'))
+                            // Nullable, and blank is the normal state: null means ADVANCE, which is
+                            // what every charge did before EG-30. Offering "In advance" as a value
+                            // too lets an operator state it deliberately; both bill identically.
+                            ->options([
+                                Charge::TIMING_ADVANCE => __('admin.enums.billing_timing.advance'),
+                                Charge::TIMING_ARREARS => __('admin.enums.billing_timing.arrears'),
+                            ])
+                            ->placeholder(__('admin.enums.billing_timing.advance'))
+                            ->helperText(__('admin.helpers.billing_timing'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_timing'))
                             ->native(false),
                         DatePicker::make('effective_from')
                             ->label(__('admin.charge_schedule.from'))

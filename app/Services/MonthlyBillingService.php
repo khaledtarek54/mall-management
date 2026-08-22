@@ -290,6 +290,44 @@ class MonthlyBillingService
      * @return array{billable:bool, reason:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
      */
     /**
+     * The window a charge COVERS on an invoice for `[$periodStart, $periodEnd]` — EG-30 (M-2).
+     *
+     * An advance row covers the invoice's own period, which is what every row did before this and
+     * what a null `billing_timing` still means. An arrears row covers the cycle BEFORE it: the
+     * September invoice carries August's service charge, because September's is not knowable until
+     * September has run.
+     *
+     * Shifted by whole CYCLES, not by one month, so a quarterly lease's arrears row covers the
+     * previous quarter rather than a month that sits inside the current one. `subMonthsNoOverflow`
+     * for the reason `RentEscalationService` uses its counterpart: Carbon's plain `subMonths()`
+     * overflows a month-end date into the neighbouring month, which would silently move the window
+     * a charge is billed for.
+     *
+     * Static and pure so `previewForPeriod()` and the forecast can ask the same question without
+     * re-deriving it — two answers to "what does this line cover" is how a tenant comes to be
+     * billed for a month twice.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public static function coveredWindow(
+        Charge $charge,
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+        int $cycleMonths,
+    ): array {
+        if (! $charge->billsInArrears()) {
+            return [$periodStart, $periodEnd];
+        }
+
+        $shift = max($cycleMonths, 1);
+
+        return [
+            $periodStart->subMonthsNoOverflow($shift)->startOfMonth(),
+            $periodStart->subMonthsNoOverflow($shift)->startOfMonth()->addMonthsNoOverflow($shift - 1)->endOfMonth(),
+        ];
+    }
+
+    /**
      * How many whole months a window covers, counting a partial month as its day-share.
      *
      * **The one definition of "how much of a period does this lease actually run".** The billing
@@ -393,8 +431,17 @@ class MonthlyBillingService
                 + ($periodEnd->month - $periodStart->month) + 1;
         }
 
+        // Each charge is asked about the window IT covers, which for an arrears row is the previous
+        // cycle (EG-30 / M-2). Asking every charge about the invoice's own period is what made
+        // arrears unexpressible: a service charge that started on 1 September would have billed
+        // September's service on the September invoice, when the whole point is that September's
+        // service is not knowable until October.
         $applicableCharges = $lease->charges->filter(
-            fn (Charge $c) => $this->chargeAppliesToPeriod($c, $periodStart, $periodEnd)
+            function (Charge $c) use ($periodStart, $periodEnd, $cycleMonths) {
+                [$from, $to] = self::coveredWindow($c, $periodStart, $periodEnd, $cycleMonths);
+
+                return $this->chargeAppliesToPeriod($c, $from, $to);
+            }
         );
 
         if ($applicableCharges->isEmpty()) {
@@ -493,25 +540,67 @@ class MonthlyBillingService
         // The rate is resolved for the date the invoice will carry — `effectivePeriodStart`, which
         // becomes `issue_date` below and is the GL entry_date. Reading `charges.vat_rate` directly
         // meant a rate change never reached rent or service charge; see `Charge::resolvedVatRate()`.
-        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $effectivePeriodStart) {
+        // The lease's OWN bounds, unclipped to this invoice's period. `$effectivePeriodStart/End`
+        // above are the lease clipped INTO the period, which is the right answer for an advance row
+        // and useless for an arrears one — the window it prorates against is a month the invoice's
+        // period does not contain.
+        $leaseWindowStart = $commencement ?? CarbonImmutable::create(1970, 1, 1);
+
+        $leaseWindowEnd = (filled($lease->expiry_date) && ! $lease->isBillableHoldoverFor($periodEnd))
+            ? CarbonImmutable::instance($lease->expiry_date)
+            : CarbonImmutable::create(2999, 12, 31);
+
+        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $effectivePeriodStart, $leaseWindowStart, $leaseWindowEnd) {
             // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
             // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
             //
             // A charge the rent-free period abated is clipped to the rent-commencement date instead
             // — so on a net-abatement lease the rent bills half of April while the service charge,
             // which the tenant has been paying since handover, bills all of it.
+            // The window THIS row covers — the invoice's own period, or the previous cycle for an
+            // arrears row (EG-30 / M-2).
+            [$coveredStart, $coveredEnd] = self::coveredWindow($charge, $periodStart, $periodEnd, $cycleMonths);
+
             $rowMultiplier = match (true) {
                 $charge->frequency !== 'monthly' => 1.0,
                 $graceMultiplier !== null && $lease->graceAbates($charge->type) => $graceMultiplier,
+                // An arrears row prorates against the month it COVERS, not the month the invoice
+                // is dated to. A lease that commenced on 15 August owes half of August's service
+                // charge on the September invoice — using September's multiplier would bill a full
+                // month for a half month of service, and the error is invisible because the figure
+                // is plausible.
+                $charge->billsInArrears() => self::monthsCovered(
+                    $coveredStart,
+                    $cycleMonths,
+                    $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
+                    $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
+                ),
                 default => $multiplier,
             };
 
+            // Nothing of the covered window falls inside the lease — an arrears row on the FIRST
+            // invoice, where the month it would bill is before the lease existed. It bills nothing
+            // now and bills normally next month, which is the honest answer rather than a zero line.
+            if ($rowMultiplier <= 0) {
+                return null;
+            }
+
             $amount = round((float) $charge->amount * $rowMultiplier, 2);
+            // The rate is resolved for the date the INVOICE carries, not the covered month: an
+            // arrears line is originated on the invoice's own date, and that is the date the GL
+            // entry and the tax point take.
             $vatRate = $charge->resolvedVatRate($effectivePeriodStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
             $label = $charge->name.' - '.($cycleMonths > 1
-                ? $this->cycleLabel($periodStart, $periodEnd)
-                : $periodStart->format('F Y'));
+                ? $this->cycleLabel($coveredStart, $coveredEnd)
+                : $coveredStart->format('F Y'));
+
+            // Said on the line, because the invoice header cannot say it: this document's period is
+            // September and this line is August's. A tenant reading "Service charge - August 2026"
+            // under a September invoice would otherwise reasonably think it a duplicate.
+            if ($charge->billsInArrears()) {
+                $label .= ' ('.__('admin.billing.in_arrears').')';
+            }
 
             // The line's OWN share, so a part-month rent line is marked pro-rated while a full-month
             // service charge beside it is not.
@@ -530,7 +619,14 @@ class MonthlyBillingService
                 'vat_amount' => $vatAmount,
                 'total' => round($amount + $vatAmount, 2),
             ];
-        });
+        })->filter()->values();
+
+        // Every line was an arrears row covering a month before the lease began — the first invoice
+        // of a lease whose only charges bill behind. Nothing to raise this month; next month bills
+        // normally. Saying so beats minting an empty invoice.
+        if ($items->isEmpty()) {
+            return $nothing('no_applicable_charges');
+        }
 
         $subtotal = round((float) $items->sum('amount'), 2);
         $vatAmount = round((float) $items->sum('vat_amount'), 2);
