@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\DB;
  * `LeaseRentChangeService` call, and a missed one leaked revenue (competitive gap analysis,
  * [docs/gap-analysis/README.md]). This sweep applies the increase through
  * `LeaseRentChangeService` (which keeps the base-rent Charge + marketing levy in lock-step) and
- * rolls `next_escalation_date` forward a year.
+ * rolls `next_escalation_date` forward by the clause's own interval — `escalationIntervalMonths()`,
+ * which is twelve unless the lease says otherwise.
  *
  * **What changed 2026-08-08:** applying an escalation no longer OVERWRITES the rent. It closes
  * the current schedule row the day before the anniversary and opens the next one
@@ -193,7 +194,19 @@ class RentEscalationService
                 return 'skipped';
             }
 
-            $nextDate = $lease->next_escalation_date->copy()->addYear();
+            // The clause's own interval, not a literal year (EG-30 / M-6). `escalationIntervalMonths()`
+            // floors a null at 12, so a lease that has never been ruled on steps annually exactly as
+            // it always did.
+            //
+            // `addMonthsNoOverflow()`, NOT `addMonths()`: Carbon's default OVERFLOWS a month-end
+            // date into the following month, so 31 August + 18 months lands on 2 March rather than
+            // the last day of February, and the anniversary a clause names as month-end silently
+            // becomes an arbitrary day near the start of the next one. Clamping is the same reading
+            // `BillingDay` takes of a month-end billing day, and the only one that keeps a step on
+            // the date the contract states. (Written with the overflowing call first; the test that
+            // asserts 29 Feb is what caught it.)
+            $nextDate = $lease->next_escalation_date->copy()
+                ->addMonthsNoOverflow($lease->escalationIntervalMonths());
             $current = (float) $lease->base_rent_monthly;
 
             // The two kinds differ only in how the step is SIZED. Everything after this — the
@@ -262,7 +275,8 @@ class RentEscalationService
                 'origin' => Charge::ORIGIN_ESCALATION,
             ]);
 
-            // Advance one year (the base_rent Charge + marketing levy were synced by apply()), and
+            // Advance by the clause's interval (the base_rent Charge + marketing levy were synced
+            // by apply()), and
             // for CPI roll the base index forward to the figure this step measured from — that is
             // what makes the NEXT step year-on-year rather than cumulative-since-commencement.
             // Voyager offers both readings; this codebase already resolves compounding one way

@@ -113,6 +113,19 @@ months later in the P&L."*
 Finish the loop: **Payables → Vendor Bills**, open that bill, and show it is **filed against the
 work order** and posted to the ledger. *"The job knows what it cost, and the books already had it."*
 
+**If they bank in more than one place** — and an Egyptian operator usually does — add ninety
+seconds here. **Finance → Payments**, open the **Bank account** filter and pick **CIB — operating
+account**. The list narrows; toggle the **Bank account** column on and the two banks are visible per
+receipt.
+
+> *"The demo mall banks in two places. Each account posts to its own line in the chart, so when the
+> CIB statement arrives the reconciliation only offers CIB's postings. Point both at one account and
+> it offers the other bank's — the statement still balances, and the match is wrong. A wrong match
+> marks money as verified, which is worse than not reconciling."*
+
+Leave the ones that say **"The rail decides"** alone if asked — that is a receipt where nobody named
+an account, and the payment rail answers, exactly as it did before any of this existed.
+
 ---
 
 ## 4 · Three things the system notices on its own (5 min)

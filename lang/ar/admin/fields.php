@@ -77,6 +77,7 @@ return [
         'index_published_on_helper' => 'اليوم الذي أصبح فيه الرقم معلومًا، وهو ما يفسّر الزيادة بعد شهور.',
         'escalation_index_code' => 'المؤشر',
         'escalation_index_base_value' => 'قيمة الأساس',
+        'escalation_interval_months' => 'الزيادة كل (شهور)',
         'escalation_index_lag_months' => 'فترة تأخير النشر (شهور)',
         'date' => 'التاريخ',
         'trigger_type' => 'يُستدعى بواسطة',

@@ -1452,8 +1452,20 @@ substitute for the service lock, because it validates before the write and outsi
 `RentEscalationService`, driven by the scheduled `leases:apply-escalations`, sweeps active leases
 with `next_escalation_date <= today` and applies the increase through `LeaseRentChangeService`
 (so the base-rent Charge and the marketing levy stay in lock-step), then rolls
-`next_escalation_date` forward a year.
+`next_escalation_date` forward **by the clause's own interval**.
 
+- **The interval is the clause's, not a literal year (EG-30 / M-6, 2026-08-22).**
+  `leases.escalation_interval_months` is nullable and **null means twelve**, so every lease that
+  existed before this keeps escalating annually and the sweep is behaviour-identical on deploy. A
+  biennial clause, an 18-month step or the six-monthly review that goes into a short fit-out lease
+  is now a number on the lease rather than something an operator has to remember — which is what
+  actually happened, and is how a step comes to be missed for a year.
+  `Lease::escalationIntervalMonths()` is the single definition (the sweep will not be the last
+  thing that needs to know when the next step falls) and it floors a 0 at one month, because
+  rolling the date nowhere would make the sweep reconsider the same lease every day for ever with
+  nothing on screen to say so. The roll uses `addMonthsNoOverflow()`: Carbon's default overflows a
+  month-end date into the next month, turning 31 August + 18 months into 2 March instead of the
+  last day of February — same clamping reading `BillingDay` takes of a month-end billing day.
 - **Idempotent + concurrency-safe:** each lease is row-locked and its due-ness re-checked *inside*
   the transaction; applying advances the date past today, so a re-run is a no-op.
 - **One step per run:** a multi-year backlog (from a mis-set date) catches up over successive runs

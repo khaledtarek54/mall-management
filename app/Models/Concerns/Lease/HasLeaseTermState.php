@@ -185,6 +185,34 @@ trait HasLeaseTermState
     }
 
     /**
+     * How many months apart this lease's rent steps are — the ONE definition.
+     *
+     * `RentEscalationService` rolled the next step with a literal `->addYear()` (EG-30 / M-6), so a
+     * biennial clause, an 18-month step, or the six-monthly review that goes into a short fit-out
+     * lease could not be automated. What happens instead is that escalation gets switched off and
+     * done by hand, which is how a step comes to be missed for a year.
+     *
+     * **Null means twelve**, and null is the normal state: every existing lease keeps escalating
+     * annually and the sweep is behaviour-identical on deploy. The floor lives here rather than in
+     * the service for the reason `Lease::hasExpiredTerm()` does — the sweep is not the only thing
+     * that will ever need to know when the next step falls (a rent-roll projection and the renewal
+     * screen both want it), and two readings of "how often does this rent step" is how a clause
+     * comes to mean two things.
+     *
+     * Clamped rather than refused. The column is `unsignedSmallInteger`, so the database already
+     * stops a negative; what it cannot stop is a 0 written by an importer, which would roll the
+     * date nowhere and make the sweep reconsider the same lease every day for ever — a silent
+     * infinite no-op, not an error anyone would see. One month is the floor because it is the
+     * shortest interval that is a real clause.
+     */
+    public function escalationIntervalMonths(): int
+    {
+        $months = $this->escalation_interval_months;
+
+        return $months === null ? 12 : max(1, (int) $months);
+    }
+
+    /**
      * The query form of {@see isBillableForPeriod()} — used by the scheduled run.
      *
      * @param  Builder  $query

@@ -568,6 +568,19 @@ class LeaseForm
                             ->visible(fn (Get $get) => $get('escalation_type') === 'cpi')
                             ->required(fn (Get $get) => $get('escalation_type') === 'cpi')
                             ->helperText(__('admin.helpers.escalation_index_code')),
+                        TextInput::make('escalation_interval_months')
+                            ->label(__('admin.fields.escalation_interval_months'))
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(120)
+                            ->placeholder('12')
+                            // Nullable on purpose — blank means annual, and typing 12 records the
+                            // same thing deliberately. Defaulting the field to 12 would make every
+                            // lease claim it had been ruled on.
+                            ->dehydrateStateUsing(fn ($state) => blank($state) ? null : (int) $state)
+                            ->visible(fn (Get $get) => in_array($get('escalation_type'), ['fixed_percent', 'fixed_amount', 'cpi'], true))
+                            ->helperText(__('admin.helpers.escalation_interval_months'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_interval_months')),
                         TextInput::make('escalation_index_base_value')
                             ->label(__('admin.fields.escalation_index_base_value'))
                             ->numeric()
