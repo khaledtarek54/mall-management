@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\FixedAssetDisposal;
+use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 
@@ -49,7 +50,6 @@ class FixedAssetDisposalJournalizer implements Journalizer
         $proceeds = round((float) $disposal->proceeds, 2);
         $nbv = round($cost - $accumulated, 2);
         $gainLoss = round($proceeds - $nbv, 2); // + gain, − loss
-        $cashRole = $disposal->proceeds_account === 'bank' ? 'bank' : 'cash';
 
         $lines = [];
 
@@ -63,7 +63,7 @@ class FixedAssetDisposalJournalizer implements Journalizer
         }
         // Sale proceeds in.
         if ($proceeds > 0) {
-            $lines[] = ['ledger_account_id' => $this->accounts->id($cashRole, $assetId), 'debit' => $proceeds, 'credit' => 0, 'asset_id' => $assetId];
+            $lines[] = ['ledger_account_id' => PaymentMethod::accountIdOrFloor($disposal->proceeds_account, $assetId, $this->accounts), 'debit' => $proceeds, 'credit' => 0, 'asset_id' => $assetId];
         }
         // Balancing gain or loss.
         if ($gainLoss > 0) {

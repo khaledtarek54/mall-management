@@ -2,6 +2,8 @@
 
 use App\Contracts\BillableAgreement;
 use App\Enums\TenantRequestType;
+use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
+use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Models\Asset;
 use App\Models\DepositTransaction;
 use App\Models\FacilityWorkOrder;
@@ -28,6 +30,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -721,4 +724,20 @@ function reportFaultThroughTheService(Tenant $tenant, Unit $unit, string $catego
         'title' => 'Reported fault',
         'description' => 'Something is wrong.',
     ], $tenant);
+}
+
+/**
+ * Render the portal-users relation manager as Filament would, under a given owner tenant.
+ *
+ * Shared because two files need it — the scenario suite for the password lifecycle, and
+ * `NoPortalLoginTakeoverTest` for the authorization. A second copy is a fatal redeclaration on any
+ * single-process run and invisible under `--parallel`, which is exactly what
+ * `TestHelperUniquenessConformanceTest` caught within a minute of the second one being written.
+ */
+function portalUsersRm(Tenant $tenant): Testable
+{
+    return Livewire::test(PortalUsersRelationManager::class, [
+        'ownerRecord' => $tenant,
+        'pageClass' => EditTenant::class,
+    ]);
 }

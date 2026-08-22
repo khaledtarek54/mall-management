@@ -61,7 +61,8 @@ class SettleCustodyService
                 'transaction_date' => $transactionDate->toDateString(),
                 // Category only for expenses; method (cash|bank) only for returns.
                 'category' => $type === 'expense' ? ($data['category'] ?? 'other') : null,
-                'method' => $type === 'return' ? (($data['method'] ?? 'cash') === 'bank' ? 'bank' : 'cash') : null,
+                // Not clamped — see GrantCustodyService. Null stays null: only a RETURN moves cash.
+                'method' => $type === 'return' ? ($data['method'] ?? 'cash') : null,
                 'notes' => $data['notes'] ?? null,
                 'created_by_user_id' => auth()->id(),
             ]);

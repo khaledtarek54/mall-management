@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\FixedAsset;
+use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 
@@ -48,8 +49,6 @@ class FixedAssetAcquisitionJournalizer implements Journalizer
             return null;
         }
 
-        $cashRole = $asset->funded_from === 'bank' ? 'bank' : 'cash';
-
         return [
             'entry_date' => $asset->acquisition_date,
             'description_en' => 'Fixed asset acquired — '.$asset->name,
@@ -57,7 +56,7 @@ class FixedAssetAcquisitionJournalizer implements Journalizer
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('furniture_equipment', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
-                ['ledger_account_id' => $this->accounts->id($cashRole, $assetId), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
+                ['ledger_account_id' => PaymentMethod::accountIdOrFloor($asset->funded_from, $assetId, $this->accounts), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
             ],
         ];
     }

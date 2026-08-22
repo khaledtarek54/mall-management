@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources\DepositTransactions\Tables;
 
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
-use App\Models\DepositTransaction;
 use App\Models\PaymentMethod;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -79,7 +78,9 @@ class DepositTransactionsTable
                     ->options(fn () => __('admin.statuses.deposit_transaction')),
                 SelectFilter::make('method')
                     ->label(__('admin.fields.method'))
-                    ->options(fn () => DepositTransaction::methodOptions()),
+                    // filterOptionsFor(), not the FORM set: a filter is about what is already recorded, so
+                    // a retired rail must still find the deposits taken on it.
+                    ->options(fn () => PaymentMethod::filterOptionsFor('deposit_transactions.method', 'admin.enums.expense_paid_from')),
                 TrashedFilter::make(),
             ])
             ->recordActions([

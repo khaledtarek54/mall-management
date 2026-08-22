@@ -206,32 +206,50 @@ trait IsCodeCatalogue
      */
     protected static function catalogueOptions(?\Closure $scope = null, ?array $floor = null, ?string $fallbackGroup = null): array
     {
+        $floor = $floor ?? static::catalogueFloorCodes();
+        $rows = [];
+        $known = [];
+
         try {
+            $all = static::query()->orderBy('sort_order')->get();
+            $known = $all->pluck('code')->all();
+
             $query = static::query()->where('is_active', true);
             $rows = ($scope ? $scope($query) : $query)
                 ->orderBy('sort_order')
                 ->get()
                 ->mapWithKeys(fn ($row) => [$row->code => $row->label()])
                 ->all();
-
-            if ($rows !== []) {
-                return $rows;
-            }
         } catch (\Throwable) {
-            // Before the table exists.
+            // Before the table exists — the floor is the whole answer.
         }
 
-        // Through labelFor(), never __() directly: a floor code with no lang key must render as the
-        // code. The floors are wider than their lang groups — `expenses.paid_from` accepts six
-        // values and its group names two — so the unguarded version put a raw key on the list.
+        // ── THE FLOOR APPLIES PER CODE, NOT PER TABLE ─────────────────────────────────────────
+        // A shipped code stays offered unless a ROW for it says otherwise. Choosing between "the
+        // rows" and "the floor" was wrong in the case that actually happens: `deposit_transactions
+        // .method` accepts `cash|bank`, the rail catalogue seeds `bank_transfer` and no `bank`, and
+        // both deposit forms `->default('bank')`. So on every seeded install the form's own default
+        // stopped being one of its options — Filament resolves a Select's `Rule::in` by labelling
+        // the value, cannot, and refuses the submit as INVALID on a field the operator never
+        // touched. Editing a deposit already stored as `bank` broke the same way.
         //
-        // The group is passed only when one was GIVEN, because a catalogue whose `labelFor()` takes
-        // a second argument of its own — the request type — must not be handed a lang-group string.
-        return collect($floor ?? static::catalogueFloorCodes())
-            ->mapWithKeys(fn (string $code) => [
-                $code => $fallbackGroup === null ? static::labelFor($code) : static::labelFor($code, $fallbackGroup),
-            ])
-            ->all();
+        // Per-code also keeps `is_active` meaningful, which the union of floor ∪ active did not: a
+        // code the operator switches off has a row saying so, and is dropped.
+        foreach ($floor as $code) {
+            if (isset($rows[$code]) || in_array($code, $known, true)) {
+                continue;
+            }
+
+            // Through labelFor(), never __() directly: a floor code with no lang key must render as
+            // the code. The floors are wider than their lang groups — `expenses.paid_from` accepts
+            // six values and its group names two — so the unguarded version put a raw key on a list.
+            //
+            // The group is passed only when one was GIVEN, because a catalogue whose `labelFor()`
+            // takes a second argument of its own — the request type — must not be handed a string.
+            $rows[$code] = $fallbackGroup === null ? static::labelFor($code) : static::labelFor($code, $fallbackGroup);
+        }
+
+        return $rows;
     }
 
     /**

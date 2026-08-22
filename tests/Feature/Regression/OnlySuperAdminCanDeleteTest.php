@@ -63,9 +63,15 @@ it('refuses a manager the delete button on a table row, and the row survives', f
         Livewire::test(ListHolidays::class)->assertTableActionHidden('delete', $holiday);
     });
 
-    // The hard layer, dispatched directly past the UI: a crafted payload must 403, not delete.
-    expect(fn () => DeleteAction::make('delete')->record($holiday)->call())
-        ->toThrow(HttpException::class);
+    // The hard layer, dispatched past the UI: a crafted payload must 403, not delete. Bound to the
+    // real component with `->livewire()`, because the seam asks the SCREEN which resource it is —
+    // a detached action has no screen to ask and correctly falls to the child-row floor instead.
+    asTenant($this->asset, function () use ($holiday) {
+        $page = Livewire::test(ListHolidays::class)->instance();
+
+        expect(fn () => DeleteAction::make('delete')->record($holiday)->livewire($page)->call())
+            ->toThrow(HttpException::class);
+    });
 
     expect(Holiday::find($holiday->id))->not->toBeNull('A manager deleted a holiday the policy reserves for super_admin.');
 });
@@ -81,8 +87,12 @@ it('refuses a manager the delete button on an edit page, and the user account su
         Livewire::test(EditUser::class, ['record' => $victim->getKey()])->assertActionHidden('delete');
     });
 
-    expect(fn () => DeleteAction::make('delete')->record($victim)->call())
-        ->toThrow(HttpException::class);
+    asTenant($this->asset, function () use ($victim) {
+        $page = Livewire::test(EditUser::class, ['record' => $victim->getKey()])->instance();
+
+        expect(fn () => DeleteAction::make('delete')->record($victim)->livewire($page)->call())
+            ->toThrow(HttpException::class);
+    });
 
     expect(User::find($victim->id))->not->toBeNull('A manager deleted another user account.');
 });

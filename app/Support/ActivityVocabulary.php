@@ -124,7 +124,10 @@ class ActivityVocabulary
         'credit_note.reason' => 'admin.enums.credit_note_reason',
         'custody.paid_from' => 'admin.enums.expense_paid_from',
         'custody_transaction.category' => 'admin.enums.vendor_bill_category',
-        'custody_transaction.method' => 'admin.enums.method',
+        // `expense_paid_from`, not `method`: this column holds `cash|bank` and the rail group names
+        // neither `bank` nor anything else it can hold. Surfaced the moment the column gained a
+        // `ValueSets` entry — before that, nothing knew what values to check the vocabulary against.
+        'custody_transaction.method' => 'admin.enums.expense_paid_from',
         'custody_transaction.type' => 'admin.custodies.types',
         'deposit_transaction.method' => 'admin.enums.expense_paid_from',
         'deposit_transaction.type' => 'admin.enums.deposit_type',

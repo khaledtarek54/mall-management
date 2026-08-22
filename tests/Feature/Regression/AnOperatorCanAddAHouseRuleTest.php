@@ -44,10 +44,28 @@ it('offers, accepts and labels a rule the operator adds', function () {
         'default_fine_amount' => 5000,
     ]);
 
-    // OFFERED — and the shipped seven are NOT offered beside it, because the catalogue answers with
-    // its rows once it has any. A picker keyed off `ValueSets` would show all eight and make
-    // `is_active` inert, which is the bug `ExpenseCategory` shipped.
-    expect(ViolationCategory::options())->toBe(['fire_exit' => 'Blocked fire exit']);
+    // OFFERED, beside the shipped seven — which are still values the column accepts, and were never
+    // retired. The floor applies PER CODE: a shipped code stays offered until a ROW says otherwise.
+    //
+    // This assertion used to read `toBe(['fire_exit' => …])` on the theory that the catalogue
+    // answers with its rows once it has any. That rows-first rule cost a working screen: the rail
+    // catalogue seeds `bank_transfer` and no `bank`, so on every seeded install `bank` dropped out
+    // of the deposit picker while remaining an accepted value — and both deposit forms default to
+    // it, so Filament refused the submit as INVALID on a field nobody had touched.
+    expect(ViolationCategory::options())->toHaveKey('fire_exit')
+        ->and(ViolationCategory::options()['fire_exit'])->toBe('Blocked fire exit')
+        ->and(ViolationCategory::options())->toHaveKey('signage');
+
+    // …and `is_active` still means something, which is what rows-first was protecting. A code the
+    // operator RETIRES has a row saying so, and is dropped.
+    ViolationCategory::create([
+        'code' => 'noise', 'name_en' => 'Noise', 'name_ar' => 'إزعاج', 'is_active' => false,
+    ]);
+
+    expect(ViolationCategory::options())->not->toHaveKey('noise')
+        // …while the column still accepts it and it still labels, so its history reads.
+        ->and(ValueSets::allowed('violations', 'category'))->toContain('noise')
+        ->and(ViolationCategory::labelFor('noise'))->toBe('Noise');
 
     // …and OFFERED BY THE REAL FORM. Asserting the model alone leaves the actual `Select` free to
     // carry a hard-coded literal — no `__()` for the grep gate to see, and `ResourceFormSmokeTest`

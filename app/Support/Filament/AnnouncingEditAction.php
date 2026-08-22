@@ -3,7 +3,6 @@
 namespace App\Support\Filament;
 
 use Filament\Actions\EditAction;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Filament's `EditAction`, plus the {@see RecordChanged} announcement.
@@ -30,15 +29,18 @@ class AnnouncingEditAction extends EditAction
 {
     use AnnouncesRecordChange;
 
-    protected function setUp(): void
+    /**
+     * The call site's answer AND the resource's — see {@see AnnouncingDeleteAction::isAuthorized()}
+     * for why this is an AND on `isAuthorized()` rather than an `->authorize()` in `setUp()`.
+     */
+    public function isAuthorized(): bool
     {
-        parent::setUp();
-
-        $this->authorize(fn (?Model $record): bool => ResourceAbility::may('canEdit', $this->getLivewire(), $record) ?? true);
+        return parent::isAuthorized()
+            && (ResourceAbility::may('canEdit', $this->getLivewire(), $this->getRecord()) ?? true);
     }
 
     protected function assertActionAuthorized(): void
     {
-        abort_unless(ResourceAbility::may('canEdit', $this->getLivewire(), $this->getRecord()) ?? true, 403);
+        abort_unless($this->isAuthorized(), 403);
     }
 }

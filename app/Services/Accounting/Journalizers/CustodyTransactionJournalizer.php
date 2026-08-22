@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\CustodyTransaction;
+use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
 use Illuminate\Database\Eloquent\Model;
@@ -42,7 +43,7 @@ class CustodyTransactionJournalizer implements Journalizer
         if ($txn->type === 'return') {
             // `custody_transactions.method` is NOT catalogue-widened — it holds cash|bank — so this
             // branch stays on the role map.
-            $debitAccountId = $this->accounts->id($txn->method === 'bank' ? 'bank' : 'cash', $assetId);
+            $debitAccountId = PaymentMethod::accountIdOrFloor($txn->method, $assetId, $this->accounts);
             $descEn = 'Custody return';
             $descAr = 'رد عهدة';
         } else { // expense

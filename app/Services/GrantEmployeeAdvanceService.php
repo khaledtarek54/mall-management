@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
+use App\Models\PaymentMethod;
 use App\Support\PostingDate;
 
 /**
@@ -37,7 +38,11 @@ class GrantEmployeeAdvanceService
             'type' => ($data['type'] ?? 'advance') === 'loan' ? 'loan' : 'advance',
             'amount' => $amount,
             'advance_date' => $advanceDate,
-            'paid_from' => ($data['paid_from'] ?? 'cash') === 'bank' ? 'bank' : 'cash',
+            // NOT clamped. `employee_advances.paid_from` is a catalogue-widened rail column, so
+            // `=== 'bank' ? 'bank' : 'cash'` would turn an InstaPay advance into a CASH one — a
+            // wrong account rather than a refusal, under a success toast. `ValueSets` refuses what
+            // the catalogue does not carry. Same fix as `RecordAdvanceRepaymentService`.
+            'paid_from' => $data['paid_from'] ?? PaymentMethod::FLOOR_CASH_ROLE,
             'notes' => $data['notes'] ?? null,
             'created_by_user_id' => auth()->id(),
         ]);

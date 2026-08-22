@@ -3,6 +3,7 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\MarketingSpend;
+use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 
@@ -44,8 +45,6 @@ class MarketingSpendJournalizer implements Journalizer
             return null; // a property-less spend has no place in the per-property books
         }
 
-        $cashRole = $spend->paid_from === 'bank' ? 'bank' : 'cash';
-
         return [
             'entry_date' => $spend->spent_on,
             'description_en' => 'Marketing spend — '.$spend->category,
@@ -59,7 +58,7 @@ class MarketingSpendJournalizer implements Journalizer
                     'asset_id' => $assetId,
                 ],
                 [
-                    'ledger_account_id' => $this->accounts->id($cashRole, $assetId),
+                    'ledger_account_id' => PaymentMethod::accountIdOrFloor($spend->paid_from, $assetId, $this->accounts),
                     'debit' => 0,
                     'credit' => $amount,
                     'asset_id' => $assetId,

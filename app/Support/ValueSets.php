@@ -113,6 +113,20 @@ class ValueSets
         // `cash`, which is a WRONG RAIL rather than a refusal: an InstaPay repayment posted to the
         // cash account and the operator was never told.
         'employee_advance_repayments.method' => ['cash', 'bank'],
+        // Four more `cash|bank` columns with no set at all, found while converting the journalizers
+        // that read them. Each was protected only by a PHP clamp in its service —
+        // `=== 'bank' ? 'bank' : 'cash'` — which turns a bad value into a WRONG one instead of
+        // refusing it, and posts the money to the wrong account under a success toast.
+        //
+        // Registered but deliberately NOT catalogue-widened: these hold two values, and offering
+        // collection networks as a way to fund a fixed asset is the mirror of the bug the rail
+        // catalogue exists to prevent. Their JOURNALIZERS still resolve through
+        // `PaymentMethod::accountIdOrFloor()`, so an operator who points a `bank` rail at a specific
+        // account gets that account here too rather than the generic role.
+        'custodies.paid_from' => ['cash', 'bank'],
+        'custody_transactions.method' => ['cash', 'bank'],
+        'fixed_assets.funded_from' => ['cash', 'bank'],
+        'fixed_asset_disposals.proceeds_account' => ['cash', 'bank'],
         // …and the other half of the same money movement, in the other DIRECTION: granting an
         // advance PAYS the employee, so it is an outbound rail like an expense. `paid_from` had no
         // set either, and `EmployeeAdvanceJournalizer` carried the same mirror ternary.

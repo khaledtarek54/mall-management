@@ -39,7 +39,9 @@ class GrantCustodyService
             'reference' => $data['reference'] ?? null,
             'amount' => $amount,
             'custody_date' => $custodyDate,
-            'paid_from' => ($data['paid_from'] ?? 'cash') === 'bank' ? 'bank' : 'cash',
+            // Not clamped — `custodies.paid_from` is a registered value set, so a value outside
+            // it is REFUSED rather than silently turned into cash and posted to the wrong account.
+            'paid_from' => $data['paid_from'] ?? 'cash',
             'purpose' => $data['purpose'] ?? null,
             'created_by_user_id' => auth()->id(),
         ]);

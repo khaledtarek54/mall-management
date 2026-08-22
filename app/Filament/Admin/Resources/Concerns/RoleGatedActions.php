@@ -140,7 +140,7 @@ trait RoleGatedActions
      */
     public static function canDelete(Model $record): bool
     {
-        return DeletionPolicy::actorMayDelete($record);
+        return DeletionPolicy::resourceMayDelete(static::getModel());
     }
 
     public static function canDeleteAny(): bool

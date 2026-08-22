@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Models\TenantUser;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -85,14 +86,43 @@ class PortalUsersRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->headerActions([
-                CreateAction::make(),
+                // Adding a portal login is granting somebody access to this tenant's data, so it is
+                // stated rather than inherited from "can see the tenant". The new user cannot be an
+                // admin — that toggle is super_admin-only above — so this creates a read-only login.
+                CreateAction::make()
+                    ->visible(fn (): bool => Auth::user()?->can('tenants.edit') ?? false)
+                    ->authorize(fn (): bool => Auth::user()?->can('tenants.edit') ?? false),
             ])
             ->recordActions([
-                EditAction::make(),
+                // EDITING A PORTAL ADMIN IS ACCOUNT TAKEOVER, and it was open to every role holding
+                // `tenants.edit` — `leasing` among them. The form carries a password field, so a
+                // manager could reset an existing portal ADMIN's password to a value they chose and
+                // sign in to /portal as that tenant, where an admin may pay, submit declarations and
+                // read the whole AR. The `is_admin` toggle was already super_admin-only, which
+                // stopped them GRANTING the flag and not taking over an account that had it.
+                //
+                // A read-only portal user is a different matter: impersonating one grants nothing an
+                // admin-panel operator cannot already see, and fixing a typo'd email or resetting a
+                // forgotten password is ordinary tenant-relations work.
+                EditAction::make()
+                    ->visible(fn (TenantUser $record): bool => static::mayEditPortalUser($record))
+                    ->authorize(fn (TenantUser $record): bool => static::mayEditPortalUser($record)),
                 // Delete stays super_admin-only (project-wide convention).
                 DeleteAction::make()
                     ->visible(fn () => Auth::user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('is_admin', 'desc');
+    }
+
+    /** Named once so the `visible()` and the `authorize()` above cannot drift. */
+    protected static function mayEditPortalUser(TenantUser $record): bool
+    {
+        $user = Auth::user();
+
+        if ($record->is_admin) {
+            return $user?->hasRole('super_admin') ?? false;
+        }
+
+        return $user?->can('tenants.edit') ?? false;
     }
 }

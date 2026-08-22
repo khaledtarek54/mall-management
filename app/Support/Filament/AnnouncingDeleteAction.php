@@ -4,7 +4,6 @@ namespace App\Support\Filament;
 
 use App\Support\DeletionPolicy;
 use Filament\Actions\DeleteAction;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Filament's `DeleteAction`, plus the {@see RecordChanged} announcement — **and the authorization
@@ -37,20 +36,34 @@ class AnnouncingDeleteAction extends DeleteAction
 {
     use AnnouncesRecordChange;
 
-    protected function setUp(): void
+    /**
+     * The call site's answer AND the seam's — never one instead of the other.
+     *
+     * `->authorize()` writes a SINGLE SLOT (`CanBeAuthorized::$authorization`), so setting it in
+     * `setUp()` meant any call site that declared its own authorization silently replaced the
+     * seam's. Eight relation managers do exactly that, and the result was worse than the hole it
+     * replaced: the call site won the UI, the hard `abort_unless` still asked the policy, and an
+     * accounting user was shown an ENABLED Delete button that answered with a 403 error page
+     * mid-workflow. Two layers that disagree are not defence in depth.
+     *
+     * An AND means a call site can only ever NARROW the seam. It cannot opt out of it by accident,
+     * which is the entire argument for putting the check in the container.
+     */
+    public function isAuthorized(): bool
     {
-        parent::setUp();
-
-        // The UI half: the button is not shown to somebody who may not press it.
-        $this->authorize(fn (?Model $record): bool => DeletionPolicy::actorMayDelete($record, $this->getLivewire()));
+        return parent::isAuthorized()
+            && DeletionPolicy::actorMayDelete($this->getRecord(), $this->getLivewire());
     }
 
     /**
      * The gate. 403 rather than a refusal toast: reaching here means a payload was dispatched to
      * destroy a record this user may not destroy, which is not an operator mistake to explain.
+     *
+     * Asks {@see isAuthorized()} — the same question the button asked — so the two layers cannot
+     * answer differently.
      */
     protected function assertActionAuthorized(): void
     {
-        abort_unless(DeletionPolicy::actorMayDelete($this->getRecord(), $this->getLivewire()), 403);
+        abort_unless($this->isAuthorized(), 403);
     }
 }

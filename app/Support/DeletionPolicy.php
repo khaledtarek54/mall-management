@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\User;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\NeverDeletable;
@@ -218,6 +219,38 @@ class DeletionPolicy
      * Lives here rather than on the trait because a relation manager's delete button has no
      * resource to ask, and the rule is about the MODEL and the actor, not about the screen.
      */
+    /**
+     * **The RESOURCE's rule**: a never-deletable model is refused outright, everything else is
+     * super_admin only, ignoring the `{module}.delete` permission.
+     *
+     * Kept separate from {@see actorMayDelete()} — the seam's question — because the two differ in
+     * exactly one case and it matters. A resource knows its module and can hold the strict rule; a
+     * relation manager's child row does not, and applying "super_admin only" there took away two
+     * real workflows (a payslip line on a draft run, a task on an open work order).
+     */
+    public static function resourceMayDelete(string $model): bool
+    {
+        if (self::isNeverDeletable($model)) {
+            return false;
+        }
+
+        // `instanceof User`, not `?->hasRole()`. In the PORTAL the default guard is `portal`, so
+        // `Auth::user()` is a `TenantUser` — which does not use spatie's `HasRoles` at all, and the
+        // null-safe operator does not save a call to a method that does not exist. That would be a
+        // white screen, which is worse than the hole it stands in for. Same shape as
+        // `AssignedAssets::idsForCurrentUser()`.
+        $user = Auth::user();
+
+        return $user instanceof User && $user->hasRole('super_admin');
+    }
+
+    /**
+     * The SEAM's question — see {@see resourceMayDelete()} for the RESOURCE's.
+     *
+     * These are two different questions and collapsing them was a bug: a resource always knows its
+     * module and can therefore hold the strict rule, while a relation manager's child row has no
+     * module to ask and must fall back to the model's alone.
+     */
     public static function actorMayDelete(?Model $record, mixed $livewire = null): bool
     {
         if (! $record instanceof Model) {
@@ -241,12 +274,26 @@ class DeletionPolicy
             return $fromResource;
         }
 
-        // ── The floor: the project-wide rule, for a child row with no resource to ask ──────────
-        if (self::isNeverDeletable($record::class)) {
+        // ── No resource to ask: a RELATION MANAGER's child row ─────────────────────────────────
+        // Every one of this app's 61 relation managers is a plain `RelationManager`, and none
+        // defines `getResource()` — so this branch is the majority case, not an edge one.
+        //
+        // The floor here is the MODEL's rule and nothing more. Requiring super_admin looked safer
+        // and silently removed two real workflows: HR could no longer take a line off a DRAFT
+        // payroll run, and a facility supervisor could no longer remove a mis-keyed task from an
+        // open work order — on a work order, whose `recomputeCosts()` reads those rows, that made a
+        // typo unfixable by anyone but the platform owner.
+        //
+        // What DOES protect a child row is the call site's own gate, which `isAuthorized()` ANDs
+        // with this — see {@see \App\Support\Filament\AnnouncingDeleteAction}. A relation-manager
+        // action that declares no gate at all is caught by
+        // `RelationManagerCrudIsGatedConformanceTest`, because a seam cannot invent a permission
+        // for a screen that never named one.
+        if (! $record::class || self::isNeverDeletable($record::class)) {
             return false;
         }
 
-        return Auth::user()?->hasRole('super_admin') ?? false;
+        return true;
     }
 
     /** How the operator is told to correct this record instead of deleting it. */

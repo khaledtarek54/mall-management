@@ -57,7 +57,8 @@ class DisposeFixedAssetService
             return $locked->disposal()->create([
                 'disposed_on' => $disposedOn,
                 'proceeds' => $proceeds,
-                'proceeds_account' => ($data['proceeds_account'] ?? 'cash') === 'bank' ? 'bank' : 'cash',
+                // Not clamped — see GrantCustodyService.
+                'proceeds_account' => $data['proceeds_account'] ?? 'cash',
                 'notes' => $data['notes'] ?? null,
                 'created_by_user_id' => auth()->id(),
             ]);

@@ -18,6 +18,8 @@ use App\Support\ActivityVocabulary;
 use App\Support\Filament\AnnouncingCreateAction;
 use App\Support\Filament\AnnouncingDeleteAction;
 use App\Support\Filament\AnnouncingEditAction;
+use App\Support\Filament\AnnouncingForceDeleteAction;
+use App\Support\Filament\AnnouncingRestoreAction;
 use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\LedgerRealtimeSync;
@@ -29,7 +31,9 @@ use Filament\Actions\CreateAction as FilamentCreateAction;
 use Filament\Actions\DeleteAction as FilamentDeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction as FilamentEditAction;
+use Filament\Actions\ForceDeleteAction as FilamentForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction as FilamentRestoreAction;
 use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -78,6 +82,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FilamentCreateAction::class, AnnouncingCreateAction::class);
         $this->app->bind(FilamentEditAction::class, AnnouncingEditAction::class);
         $this->app->bind(FilamentDeleteAction::class, AnnouncingDeleteAction::class);
+        // ForceDelete and Restore for the same reason, and force-delete for a sharper one: it is
+        // super_admin-only by policy, it destroys the row outright, and the referenced-row backstop
+        // deliberately stands down for it. See AnnouncingForceDeleteAction.
+        $this->app->bind(FilamentForceDeleteAction::class, AnnouncingForceDeleteAction::class);
+        $this->app->bind(FilamentRestoreAction::class, AnnouncingRestoreAction::class);
 
         // Every bell notification gets a panel-correct "Open …" link. Laravel resolves the
         // `database` channel through the container, so this one binding reaches all 36 notification
