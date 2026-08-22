@@ -478,6 +478,14 @@ class LeaseForm
                         // on a 7% clause, silently).
                         TextInput::make('security_deposit_months')
                             ->label(__('admin.fields.security_deposit_months'))
+                            // The house policy, per property (EG-35). Without this the setting
+                            // reached the WIZARD only: `LeaseCreationService` reads it, and a lease
+                            // created through this form was typed from scratch — so "three months
+                            // from Q1" changed one of the two create paths and looked done.
+                            ->default(fn (): float => (float) PropertySettings::get(
+                                'billing.default_security_deposit_months',
+                                TenantScope::currentAssetId(),
+                            ))
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(24)

@@ -1,5 +1,9 @@
 <?php
 
+use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
+use Livewire\Livewire;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\LateFeeService;
@@ -121,4 +125,31 @@ it('lets one mall set its own deposit policy', function () {
 
     expect((float) PropertySettings::get('billing.default_security_deposit_months', $outlet->id))->toBe(2.0)
         ->and((float) PropertySettings::get('billing.default_security_deposit_months', null))->toBe(3.0);
+});
+
+it('offers the deposit policy on the lease FORM, not only through the wizard', function () {
+    // Found in review, after the commit. `LeaseCreationService` reads the setting, so the WIZARD
+    // honoured it — and a lease created through the ordinary Filament form was typed from scratch.
+    // "Three months from Q1" would have changed one of the two create paths and looked done, which
+    // is exactly the shape of a policy that reaches nothing.
+    //
+    // Asserted by mounting the real create page and reading the field's state, not by inspecting
+    // the schema: a default declared in a closure that never runs is the thing being guarded
+    // against, and only mounting runs it.
+    $this->seed(RolesPermissionsSeeder::class);
+
+    $asset = makeAsset(['code' => 'MALL-FORM']);
+    app(BillingSettings::class)->default_security_deposit_months = 2;
+
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAs(makeUser('super_admin', [$asset->id]));
+    Filament::setTenant($asset);
+
+    try {
+        Livewire::test(CreateLease::class)
+            ->assertOk()
+            ->assertSchemaStateSet(['security_deposit_months' => 2.0]);
+    } finally {
+        Filament::setTenant(null, isQuiet: true);
+    }
 });

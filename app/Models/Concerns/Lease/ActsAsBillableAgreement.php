@@ -37,7 +37,7 @@ trait ActsAsBillableAgreement
     /**
      * The late-fee terms that govern this lease (story MF-08).
      *
-     * **Lease first, portfolio default second.** Real leases do not agree on the rate, the minimum
+     * **Lease first, portfolio default second.** Real leases do not agree on the rate, the cap, the minimum
      * or the grace period — an anchor negotiates 30 days, a kiosk gets 5 — and until this existed
      * the sweep applied one global number to all of them.
      *

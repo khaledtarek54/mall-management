@@ -1281,6 +1281,35 @@ gate set per item — not just the ones you expect to be relevant — is the les
 
 ---
 
+### 2026-08-22 — milestone 17a: EG-35 review pass
+
+Three findings on the committed work, which is the argument for doing this pass at all — the suite
+was green and the gates passed before any of them surfaced.
+
+**1. The deposit policy reached the WIZARD only.** `LeaseCreationService` reads the setting, so a
+lease created through the wizard honoured it — and a lease created through the ordinary Filament
+form was still typed from scratch. *"Three months from Q1"* would have changed one of two create
+paths and looked done, which is precisely the shape of a policy that reaches nothing that M-11 was
+raised about. The form field now defaults from the same per-property setting.
+
+Pinned by **mounting the real create page**, not by inspecting the schema: a default declared in a
+closure that never runs is the failure being guarded against, and only mounting runs it.
+Mutation-checked — remove the `->default()` and the assertion reads `null` against `2.0`.
+
+**2 and 3. Stale prose in the two files I had just changed.** `LateFeeService`'s docblock still said
+*"The rate, minimum and grace come from the LEASE"* and `lateFeeTerms()`'s still said *"Real leases
+do not agree on the rate, the minimum or the grace period"* — both enumerating three terms in a
+method I had just given a fourth. A comment that lists a set is a comment that goes stale when the
+set grows, and this project's own rule is that the doc changes in the same breath as the code.
+
+**Checked and NOT defects**, which is information too: the per-property overrides screen derives its
+fields from `PropertySettings::OVERRIDABLE` and labels them from `admin.settings.fields.*`, so both
+new keys appear there with no wiring of their own; and driving it on real data confirmed the cap
+resolves through the real chain (`lateFeeTerms()` returns `maximum: 0` on an existing lease) rather
+than only through `LateFeeService`'s detached fallback.
+
+---
+
 ### 2026-08-22 — milestone 17: EG-35, the cap a clause states and the deposit policy a literal held
 
 The row reads as one M covering four things. It is four separate pieces of work, and saying which

@@ -93,7 +93,7 @@ class LateFeeService
      * Apply a late fee to one invoice. Returns true if a fee was added, false if it is not due yet
      * or was already applied (idempotent guard).
      *
-     * **The rate, minimum and grace come from the LEASE** (`Lease::lateFeeTerms()`), falling back to
+     * **The rate, minimum, grace AND CAP come from the LEASE** (`Lease::lateFeeTerms()`), falling back to
      * the portfolio default — see that method for why the fallback is `BillingSettings` and not
      * `config('billing.*')`.
      */
