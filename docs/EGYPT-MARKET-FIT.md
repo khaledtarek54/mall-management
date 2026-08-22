@@ -445,6 +445,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-36**~~ ✅ | **DONE 2026-08-22.** `journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative` — the ledger's twin of `ActivityVocabulary`, and the same rule: **a row stores DATA, never PROSE**. All **24** journalizers converted (25 narratives: the custody one branches, so its key is chosen in the same branch its prose is, and the two can never describe different movements). **The prose columns STAY and are still written**, as a snapshot and a floor: every row posted before today has prose and no key, a manual entry is prose the operator typed, and a read site nobody converted degrades to today's wording rather than to a blank cell — on a general ledger an empty description is indistinguishable from an entry nobody described. Nothing re-posts, because `matches()` compares lines, date and asset and deliberately not text | S-12 | 🧑‍💻 | M |
 | ~~**EG-37**~~ ✅ | **DONE 2026-08-22.** The count was **74**, not ~25 — and separating them was the value: **48 registered** (deriving from the model's own constant wherever it states one, so the registry is not 48 copies), **24 exempted** each naming the registry that owns it (`MorphMap` for a morph alias, the CHARGE CODE catalogue for `charges.type` and `invoice_items.type`, free text for three). Enforcement immediately found four unreachable fixture values, a **demo-data** defect (a renewal option whose 8% uplift the app could never apply), and a `facility_work_orders.status` of `completed` where the model says `done` — the very status D-8 named. Five of my own first sets were wrong because I read them off sampled DATA rather than the code | D-8 | 🧑‍💻 | S |
 | ~~**EG-39**~~ ✅ | **DONE 2026-08-22 — the operator chose to RE-RATE.** A renewal is a re-negotiation, so the deal wins and the rate follows it: `LeaseRenewalService` derives the new `base_rent_rate_per_sqm_year` from the agreed rent (rent × 12 ÷ area, off the ORIGINAL's area because the renewal has no units until `syncUnits()`), and both columns stay true — which keeps the rate meaningful for the escalations that run off it. **Origination is unchanged**: on a NEW lease the rate the deal was struck at still outranks a typed figure, and a test pins that. Fixed in the SERVICE, not in `Lease::saving()`: the model's CREATE rule is general and a disabled form field still posts a value, so flipping precedence there would have changed every rate-priced creation on ambiguous evidence. The agreed figure is also kept EXACT — on an awkward area the 2dp rate cannot round back to it (97,531.11 became 97,531.19), and the operator must see the number they negotiated. Both halves mutation-proved | new | 🧑‍💻 + 🔑 | S |
+| **EG-40** | **A rate-priced lease put into HOLDOVER keeps a rate that no longer implies its rent.** `ConvertLeaseToHoldoverService` sets `base_rent_monthly` to the uplifted figure (150% by default) and never touches `base_rent_rate_per_sqm_year` — correctly, in that `Lease::saving()`'s update branch honours a stated rent, so the holdover rent stands. But the rate still implies the CONTRACTED rent, and `LeaseSpaceChangeService` re-derives from the rate: taking an extra unit during a holdover would silently drop the rent back off the uplift. Whether the rate should follow a temporary premium is the same kind of call EG-39 needed — a holdover is a penalty ON the contracted rate, not a new one, so re-rating may be exactly wrong. Found 2026-08-22 while reviewing EG-39 | new | 🧑‍💻 + 🔑 | S |
 
 ---
 
@@ -1636,6 +1637,27 @@ the fees it just raised. Both properties were already there and both were load-b
 **`ChangeImpactConformanceTest` caught the new column unclassified**, which is the gate doing exactly
 its job: a new fillable on a posting source must say whether it can move the books. It cannot —
 NEUTRAL, beside its sibling.
+
+---
+
+### 2026-08-22 — milestone 22a: EG-39 review pass
+
+No defects in the change, and one finding beside it.
+
+**Checked and clean.** There are exactly two paths that CREATE a lease — `LeaseCreationService`
+(origination, deliberately unchanged and pinned by its own test) and `LeaseRenewalService` (fixed) —
+so no third caller carries the same silent replacement. A holdover converts **in place**, so it
+takes the model hook's update branch, which already honours a stated rent.
+`deriveRateFromBaseRent()` has one caller and is reachable from it.
+
+**Found beside it, and written down rather than fixed: EG-40.** A rate-priced lease put into
+holdover keeps a rate that no longer implies its rent — the uplifted figure is stored, the rate is
+not touched, and `LeaseSpaceChangeService` re-derives from the rate, so taking an extra unit during
+a holdover would silently drop the rent back off the uplift.
+
+It is deliberately NOT fixed here. A holdover is a penalty **on** the contracted rate rather than a
+new rate, so re-rating may be exactly the wrong answer — which makes it the same kind of call EG-39
+needed, and the same reason to record it as a row instead of inventing a rule inside a review.
 
 ---
 
