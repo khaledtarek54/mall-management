@@ -106,6 +106,13 @@
             "hasView": false
         },
         {
+            "class": "DocumentTemplateResource",
+            "slug": "document-templates",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "EmployeeResource",
             "slug": "employees",
             "hasCreate": true,
@@ -234,6 +241,13 @@
         {
             "class": "PaymentResource",
             "slug": "payments",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "PayrollRateResource",
+            "slug": "payroll-rates",
             "hasCreate": true,
             "hasEdit": true,
             "hasView": false

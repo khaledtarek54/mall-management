@@ -138,6 +138,12 @@
         "guide": "disbursements"
     },
     {
+        "screen": "DocumentTemplateResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "document_templates"
+    },
+    {
         "screen": "EmployeeResource",
         "panel": "admin",
         "kind": "resource",
@@ -298,6 +304,12 @@
         "panel": "admin",
         "kind": "resource",
         "guide": "payments"
+    },
+    {
+        "screen": "PayrollRateResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "payroll_rates"
     },
     {
         "screen": "PayrollResource",

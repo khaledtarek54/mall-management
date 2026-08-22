@@ -607,9 +607,41 @@ Tests (`tests/Feature/`):
 |-------|--------|-------|
 | **0 — Foundation** ✅ this doc | الأساس | Chart of accounts, fiscal years/periods, journal entries, posting service, account mappings, manual-entry UI, trial balance + general ledger, RBAC, bilingual labels, tests |
 | **1 — Auto-posting** ✅ | الترحيل الآلي | **1a:** journalizer engine (`Journalizer` contract + `LedgerPoster` registry) + Invoice/Payment/CreditNote journalizers. **1b:** `LedgerPoster::sync()` reconciling upsert + `accounting:sync-ledger` command (one-time `--all` backfill + scheduled recent-window sweep) + GL↔AR tie-out report. Invoice journalizer covers CAM-recovery + late-fee items automatically; ties out exactly on the demo books. |
-| **2 — Financial statements** ✅ | القوائم المالية | **Income Statement (قائمة الدخل)** + **Balance Sheet (قائمة المركز المالي)** pages, per-property. *(**Consolidated is computed but not reachable from the panel** — corrected 2026-08-22; this line claimed it for months. `TenantScope::reportAssetIds()` clamps every pick back to the selected mall, so the code path exists and no screen opens it. That is [EGYPT-MARKET-FIT.md](../EGYPT-MARKET-FIT.md) **EG-27**, not a documentation fix.)* `LedgerReportService::incomeStatement()` (revenue − expense = net profit; contra-revenue nets correctly) and `balanceSheet()` (Assets ≡ Liabilities + Equity + net income, since the trial balance always balances). Gated by `general_ledger.view`. **PDF export** (`LedgerReportPdfService`, mpdf, bilingual + RTL): a Download-PDF action on the Trial Balance, Income Statement, and Balance Sheet pages renders the current (year + property) view for owners/auditors. |
+| **2 — Financial statements** ✅ | القوائم المالية | **Income Statement (قائمة الدخل)** + **Balance Sheet (قائمة المركز المالي)** pages, per-property, each declaring what it LEAVES OUT (see *Unallocated entries* below). *(**Consolidated is computed but not reachable from the panel** — corrected 2026-08-22; this line claimed it for months. `TenantScope::reportAssetIds()` clamps every pick back to the selected mall, so the code path exists and no screen opens it. That is [EGYPT-MARKET-FIT.md](../EGYPT-MARKET-FIT.md) **EG-27**, not a documentation fix.)* `LedgerReportService::incomeStatement()` (revenue − expense = net profit; contra-revenue nets correctly) and `balanceSheet()` (Assets ≡ Liabilities + Equity + net income, since the trial balance always balances). Gated by `general_ledger.view`. **PDF export** (`LedgerReportPdfService`, mpdf, bilingual + RTL): a Download-PDF action on the Trial Balance, Income Statement, and Balance Sheet pages renders the current (year + property) view for owners/auditors. |
 | **3 — Expenses & payables** 🟡 | المصروفات والموردون | **Accounts Payable done:** `VendorBill` (فاتورة مورد) + `VendorBillPayment` with a draft→approved→paid lifecycle; journalizers post Dr expense (by category) + Dr **VAT Recoverable** (input VAT) / Cr Payables, and payments Dr Payables / Cr Bank; swept + backfilled by `accounting:sync-ledger` with a GL↔AP tie-out; `VendorBillResource` under Accounting, gated by `vendor_bills.*`. **Direct expenses done:** `Expense` (مصروف مباشر / petty cash) posts Dr expense (by category) + Dr VAT Recoverable / Cr cash|bank immediately (no payable stage); `ExpenseResource` gated by `expenses.*`. **Payroll done:** `Payroll` (مسير رواتب, batch per-run totals — not per-employee payslips) posts Dr Salaries Expense (gross) / Cr Salary Tax Payable + Cr Social Insurance Payable (withheld) + Cr Bank\|Cash (net); draft→approved→cancelled; `PayrollResource` gated by `payrolls.*`. All swept by `accounting:sync-ledger`. Per-employee payslips + employer-side social-insurance contribution are a future HR extension. |
 | **4 — Close & compliance** 🟡 | الإقفال والامتثال | **Period close done:** `PeriodService` closes/reopens accounting periods + fiscal years (a closed period refuses postings); `YearEndCloseService` posts the year-end closing entry (قيد الإقفال) that zeros revenue/expense into retained earnings (idempotent, reopenable). Closing entries are flagged `is_closing` → excluded from the income statement (shows actual P&L) but included in the trial balance + balance sheet (P&L reads zero post-close; profit sits in equity). `AccountingPeriodResource` gated by `accounting_periods.*`. **Still to do:** optional ETA/EAS statutory report formatting. |
+
+### Unallocated entries — what a statement leaves out, and why it says so (EG-27, 2026-08-22)
+
+Every statement scopes with `whereIn('je.asset_id', $ids)`, and **`whereIn` never matches NULL** —
+so a journal entry filed against no property was invisible in the income statement, balance sheet,
+cash flow, trial balance and general ledger alike, and nothing said so. The year-end close already
+knew better: `plByAssetAndAccount()` buckets those rows under `asset_id => null` precisely *"so no
+P&L is ever stranded"*. The close and the reports disagreed, and the reports are what an operator
+signs.
+
+**They are surfaced, not folded in — an operator decision, taken deliberately.** A null `asset_id`
+on a money document is portfolio-level overhead visible from every mall
+(`#[PropertyOwned(portfolioRowsWhenNull: true)]`), so absorbing it into each property's statement
+would show one operator-wide insurance bill **in full on all three malls** and none of their figures
+would be right. Instead `LedgerReportService::unallocated()` counts them and every statement page
+renders a notice above the table naming the count, the amount and
+`atriom:audit-property-dimension`, which is what finds and corrects them.
+
+Three properties of the notice worth keeping:
+
+- **Silent on clean books and on an unscoped read.** A warning that appeared on a healthy period
+  would be trained away within a week; and an unscoped read has no `whereIn`, so the entries ARE in
+  those figures and warning there would be false.
+- **Sized by DEBITS.** An entry balances, so summing both sides doubles every figure — a notice
+  reading 169,000 against 84,500 of real exposure is a worse number than no notice at all.
+- **It lives on `ScopesLedgerReport`, not on five pages**, so a sixth statement inherits the warning
+  rather than being the one that quietly omits money. The balance sheet overrides the window to
+  "everything up to the date", because it is an *as at* statement and a month's worth would
+  understate what it is missing.
+
+**Consolidated statements remain unreachable** — that is the other half of EG-27 and it reopens the
+"All-Properties mode removed" decision, so it stays open rather than being drifted into.
 
 ---
 

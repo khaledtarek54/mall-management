@@ -368,7 +368,7 @@ operator will want to change in week one.
 |---|---|---|---|
 | S-1 | **There is no legal entity.** No model, no table, no column. Everything is one company. `docs/operations/GO-LIVE.md:159` already states the consequence for the Jawad/Eltizam revenue split | absence proven; `app/Support/IssuingEntity.php:27-30` | 🔴 |
 | S-2 | **One chart, one fiscal calendar, for the whole install.** `ledger_accounts.code` is globally unique; `fiscal_years.year` is globally unique with no `asset_id`; periods are exactly 12 calendar months; the start month is **refused once anything is posted**. Pick the wrong month before go-live and no owner on a different year-end can ever be onboarded | `2026_06_30_000001_...:18`; `2026_06_30_000002_...:18,25-36`; `app/Services/Accounting/FiscalCalendar.php:42-53` | 🔴 |
-| S-3 | **Consolidated books exist in the service layer and are unreachable in the panel.** The property switcher never offers "All Properties" and the report picker is pinned+disabled. Combined with `whereIn('je.asset_id', $ids)` never matching NULL, **any operator-level or cross-property journal entry is invisible in every financial statement an operator can open.** Module 21's doc still advertises "per-property & consolidated" | `app/Models/User.php:151-153`; `app/Support/Filament/PropertyField.php:146-147`; `LedgerReportService.php:472` | 🔴 |
+| S-3 | 🟡 **HALF FIXED 2026-08-22 (EG-27).** The invisible-money half is closed: every statement now declares what it is leaving out, with the amount and the remedy. The **consolidated view is still unreachable**, deliberately — reaching it reopens a decision already taken the other way. ~~**Consolidated books exist in the service layer and are unreachable in the panel.**~~ The property switcher never offers "All Properties" and the report picker is pinned+disabled. Combined with `whereIn('je.asset_id', $ids)` never matching NULL, **any operator-level or cross-property journal entry is invisible in every financial statement an operator can open.** Module 21's doc still advertises "per-property & consolidated" | `app/Models/User.php:151-153`; `app/Support/Filament/PropertyField.php:146-147`; `LedgerReportService.php:472` | 🔴 |
 | S-4 | **Financial-statement layout is a PHP `match()` on `ledger_accounts.type`**, and the chart's own `parent_id` rollup hierarchy is read by **no report**. The cash-flow statement classifies by **literal code prefixes** (`111`, `121`, `12`, `22`…). **If the accountant hands over a different Egyptian chart:** a chart not numbered 1–5 by nature is *refused at save*; one numbered 1–5 with different sub-ranges *saves fine and silently misclassifies the cash-flow statement* — and `reconciled` will not catch it, because it only re-asserts the double-entry identity. There is also **no chart importer** | `LedgerReportService.php:163-227,280-303`; `app/Models/LedgerAccount.php:39-45,131-148,197-209` | 🔴 |
 | S-5 | **No report builder.** 23 catalogued reports, every column a PHP literal, no user-defined columns or groupings. The *parameter* layer is genuinely good (saved views, per-user memory, scheduled delivery, CSV+XLSX) but saves **filters/sort/search/tab only, never columns**. Against Yardi's Report Builder this is the largest ongoing cost multiplier per additional owner | `app/Support/ReportCatalogue.php:85-118`; `app/Models/TableView.php:59-69` | 🔴 |
 | S-6 | 🟡 **HALF FIXED 2026-08-22 (EG-15 slice 1)** — `document_templates` + a screen now carry the invoice's footer, payment instructions and terms, property-overridable with the old lang key as the floor. **Messages are untouched**: no mail tab, no dunning wording, and still no `RichEditor` in the app. ~~**No operator-editable document or message templates anywhere.**~~ No `document_templates` table, no terms/footer settings field, **no `RichEditor` in the entire app**, no mail tab on the settings page. Every invoice footer, dunning letter and SLA email is a deploy. **This is the single largest "the operator cannot run their own business" gap** | searches named; `app/Filament/Admin/Pages/Settings.php:91-98` | 🔴 |
@@ -433,7 +433,7 @@ credential from the operator/accountant · ⚙️ ops.
 | # | Work | Refs | Owner | Size |
 |---|---|---|---|---|
 | **EG-26** | **Legal entity as a first-class object** — per-entity TRN, issuer, chart and fiscal calendar. Already named as a blocker for the Jawad/Eltizam revenue split | S-1, S-2, T-10 | 🧑‍💻 + 🔑 | XL |
-| **EG-27** | **Make consolidated statements reachable**, and stop null-property entries disappearing from every P&L an operator can open | S-3 | 🧑‍💻 | M |
+| **EG-27** | 🟡 **HALF DONE 2026-08-22 — the disappearing entries, not the consolidated view.** Every statement scoped with `whereIn('je.asset_id', …)`, which never matches NULL, so a property-less entry was invisible in all five and nothing said so — while the year-end close already bucketed those rows *"so no P&L is ever stranded"*. **Surfaced, not folded in**, on the operator's call: a null `asset_id` is portfolio overhead visible from every mall, so absorbing it would show one operator-wide cost in full on each of them and no mall's figures would be right. `LedgerReportService::unallocated()` + a notice on `ScopesLedgerReport` (so a sixth statement inherits it), silent on clean books and on an unscoped read, sized by debits because an entry balances. **Consolidated stays unreachable** — that half reopens the "All-Properties mode removed" decision and is not something to drift into | S-3 | 🧑‍💻 | M |
 | **EG-28** | **Drive statement layout from the chart's own hierarchy** instead of a `match()` on account type and literal code prefixes; add a chart importer | S-4 | 🧑‍💻 | L |
 | **EG-29** | **Configurable proration method** (30/360 · actual/actual · actual/365 · whole month), per property or per charge code | M-1 | 🧑‍💻 + 🔑 | M |
 | **EG-30** | **Billing in arrears, and non-annual escalation intervals** | M-2, M-6 | 🧑‍💻 | M |
@@ -1237,6 +1237,47 @@ on the `insurable_wage_floor` key shipped an hour earlier in EG-03 and **replace
 inserting beside it. `ActivityLogVocabularyConformanceTest` named the exact missing label in both
 locales. A registry gate catching a regression in the previous commit's work is the whole argument
 for having them.
+
+---
+
+### 2026-08-22 — milestone 16: EG-27, the statements admit what they are leaving out
+
+Half of EG-27, and the half chosen with the operator rather than guessed at.
+
+**The bug.** `aggregate()` and `accountLedger()` both scope with `whereIn('je.asset_id', $ids)`, and
+`whereIn` never matches NULL. So a journal entry filed against no property was invisible in the
+income statement, balance sheet, cash flow, trial balance and general ledger — all five — and
+nothing on the page said so. The year-end close had already solved this for itself:
+`plByAssetAndAccount()` buckets null-asset rows under `asset_id => null` precisely *"so no P&L is
+ever stranded"*. The close and the reports disagreed, and the reports are the ones somebody signs.
+
+**Why the obvious fix is wrong, and why this needed asking.** The literal reading of the row — make
+the filter match NULL — would show one operator-wide insurance bill **in full on every mall at
+once**, because a null `asset_id` is portfolio overhead visible from all of them
+(`#[PropertyOwned(portfolioRowsWhenNull: true)]`). Three malls, one cost, counted three times.
+`AuditPropertyDimensionCommand`'s own docblock supplied the rest of the picture: since
+`PropertyField` pinned the pickers **no screen can create such a row any more**, so the remaining
+sources are a CSV import and a migration — exactly the moments nobody is watching a report.
+
+So: **surface, do not absorb.** The figures are untouched (pinned by a test), and every statement
+renders a notice naming the count, the amount and `atriom:audit-property-dimension`.
+
+**Three details that are the actual content.** Silent on clean books — a warning that shows on a
+healthy period is trained away within a week and then missed on the one that matters. Silent on an
+**unscoped** read, because there is no `whereIn` there and the entries ARE in those figures. And
+**sized by debits**: an entry balances, so summing both sides doubles every figure, and a notice
+reading 169,000 against 84,500 of real exposure is worse than none.
+
+It lives on the `ScopesLedgerReport` concern rather than on five pages, so a sixth statement
+inherits the warning instead of being the one that quietly omits money; the balance sheet overrides
+the window to *everything up to the date*, since a month's worth would understate what an "as at"
+statement is missing.
+
+**Two gates caught omissions in the two PREVIOUS commits.** `ViewActionCoverageTest` and
+`AdminSmokeManifestConformanceTest` both flagged the payroll-rates screen (EG-03) and the
+document-wording screen (EG-15): neither offered a read-only view, and neither was in the E2E smoke
+manifest. Both fixed here, and the manifest regenerated rather than hand-edited. Running the full
+gate set per item — not just the ones you expect to be relevant — is the lesson.
 
 ---
 

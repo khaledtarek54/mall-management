@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\PayrollRates\PayrollRateResource;
 use App\Models\PayrollRate;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -68,6 +69,9 @@ class PayrollRatesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
+                // Read the row without opening its edit form — the project-wide rule that every
+                // table with a form of its own offers a read-only view.
+                ViewAction::make(),
                 // Gated in BOTH, per the project invariant: visible() is the UI, authorize() is the
                 // gate. Editing a rung in force is deliberately allowed — an approved payroll froze
                 // its own amounts, so a correction changes what is computed NEXT and nothing that

@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Models\DocumentTemplate;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -47,6 +48,9 @@ class DocumentTemplatesTable
                     ->boolean(),
             ])
             ->recordActions([
+                // Read the row without opening its edit form — the project-wide rule that every
+                // table with a form of its own offers a read-only view.
+                ViewAction::make(),
                 EditAction::make()
                     ->visible(fn (DocumentTemplate $record) => DocumentTemplateResource::canEdit($record))
                     ->authorize(fn (DocumentTemplate $record) => DocumentTemplateResource::canEdit($record)),

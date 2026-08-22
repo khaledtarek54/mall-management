@@ -97,6 +97,11 @@ return [
         'imported_body' => 'Review it under Journal Entries and post it when you are satisfied. Nothing has reached the ledger yet.',
     ],
     'journal_entries' => [
+        'unallocated' => [
+            'heading' => 'Not included: entries with no property',
+            'body' => 'This period holds :count journal entries filed against no property, totalling :currency :total. They are NOT in the figures above — counting them here would show the same operator-wide amount in full on every mall at once.',
+            'remedy' => 'lists them and names the document to correct.',
+        ],
         'filters' => ['without_property' => 'No property (consolidated)'],
         'errors' => [
             'posted_immutable' => 'A posted journal entry is permanent — its date, property and identity decide what the books say and which period they say it in. Void it (which posts a balanced reversing entry) and post a corrected one.',

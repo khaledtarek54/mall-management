@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages\Concerns;
 
 use App\Models\Asset;
 use App\Models\FiscalYear;
+use App\Services\Accounting\LedgerReportService;
 use App\Support\Filament\PropertyField;
 use App\Support\ReportPreferences;
 use App\Support\TenantScope;
@@ -258,6 +259,39 @@ trait ScopesLedgerReport
      *
      * @return array<int>|null
      */
+    /**
+     * What this statement is NOT showing, because it is filed against no property (EG-27).
+     *
+     * Every financial statement scopes with `whereIn('je.asset_id', …)`, which never matches NULL —
+     * so an entry with no property was invisible in all of them and nothing said so. It is
+     * surfaced rather than folded in: a null asset_id is portfolio-level overhead visible from
+     * every mall, so absorbing it would show one operator-wide cost in full on each of them.
+     *
+     * Lives on the concern rather than on five pages, so a sixth statement inherits the warning
+     * instead of being the one that quietly omits money.
+     *
+     * @return array{count: int, total: float}|null
+     */
+    protected function unallocatedNotice(): ?array
+    {
+        [$from, $to] = $this->unallocatedRange();
+
+        return app(LedgerReportService::class)->unallocated($this->scopedAssetIds(), $from, $to);
+    }
+
+    /**
+     * The window the notice counts over — the page's own period by default.
+     *
+     * Overridable because a balance sheet is an "as at" statement: it reads everything up to the
+     * date, so warning only about the selected month would understate what it is missing.
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    protected function unallocatedRange(): array
+    {
+        return [$this->periodStart(), $this->periodEnd()];
+    }
+
     protected function scopedAssetIds(): ?array
     {
         return TenantScope::reportAssetIds($this->assetId ?: null);

@@ -117,6 +117,17 @@ class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTab
         ];
     }
 
+    /**
+     * A balance sheet is "as at", so the notice counts everything up to the date rather than the
+     * selected month — otherwise it would report a fraction of what the statement is missing.
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    protected function unallocatedRange(): array
+    {
+        return [null, $this->periodEnd()];
+    }
+
     protected function report(): array
     {
         return app(LedgerReportService::class)->balanceSheet($this->scopedAssetIds(), $this->periodEnd());

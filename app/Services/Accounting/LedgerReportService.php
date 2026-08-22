@@ -461,6 +461,53 @@ class LedgerReportService
             ]);
     }
 
+    /**
+     * The money this statement is NOT showing because it is filed against no property (EG-27).
+     *
+     * `aggregate()` and {@see accountLedger()} both scope with `whereIn('je.asset_id', $ids)`, and
+     * `whereIn` never matches NULL — so a journal entry with no property is invisible in every
+     * statement an operator can open. The year-end close already knew better:
+     * {@see plByAssetAndAccount()} buckets those rows under `asset_id => null` precisely "so no P&L
+     * is ever stranded". The close and the reports disagreed, and the reports said nothing.
+     *
+     * **This does not fold them in, deliberately.** A null `asset_id` on a money document is
+     * portfolio-level overhead visible from every mall
+     * (`#[PropertyOwned(portfolioRowsWhenNull: true)]`), so absorbing it into each property's
+     * statement would show one operator-wide insurance bill in full on all three malls and none of
+     * their figures would be right. It is reported BESIDE the statement instead: the operator can
+     * see that unallocated money exists, and `atriom:audit-property-dimension` is what finds and
+     * fixes it. Since `PropertyField` pinned the pickers no screen can create one any more, so the
+     * remaining sources are a CSV import and a migration — the moments nobody is watching a report.
+     *
+     * Null when the read is unscoped (nothing is being excluded, so there is nothing to warn about)
+     * or when there are no such entries.
+     *
+     * @param  array<int, int>|null  $assetIds
+     * @return array{count: int, total: float}|null
+     */
+    public function unallocated(?array $assetIds, ?CarbonInterface $from = null, ?CarbonInterface $to = null): ?array
+    {
+        if ($assetIds === null) {
+            return null;
+        }
+
+        $row = DB::table('journal_lines as jl')
+            ->join('journal_entries as je', 'je.id', '=', 'jl.journal_entry_id')
+            ->whereIn('je.status', self::REPORTABLE)
+            ->whereNull('je.deleted_at')
+            ->whereNull('je.asset_id')
+            ->when($from, fn ($q) => $q->whereDate('je.entry_date', '>=', $from->toDateString()))
+            ->when($to, fn ($q) => $q->whereDate('je.entry_date', '<=', $to->toDateString()))
+            // Sized by DEBITS. An entry balances, so its debit total is what the entry is "worth" —
+            // summing both sides would double every figure and read as twice the exposure.
+            ->selectRaw('COUNT(DISTINCT je.id) as n, COALESCE(SUM(jl.debit),0) as t')
+            ->first();
+
+        $count = (int) ($row->n ?? 0);
+
+        return $count === 0 ? null : ['count' => $count, 'total' => round((float) $row->t, 2)];
+    }
+
     protected function aggregate(?array $assetIds, ?CarbonInterface $from, ?CarbonInterface $to, bool $excludeClosing = false): Collection
     {
         return DB::table('journal_lines as jl')
