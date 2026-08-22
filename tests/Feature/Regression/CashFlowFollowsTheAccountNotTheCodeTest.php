@@ -1,11 +1,15 @@
 <?php
 
+use App\Filament\Admin\Resources\LedgerAccounts\Pages\ListLedgerAccounts;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use App\Support\CashFlowSection;
 use Carbon\CarbonImmutable;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
+use Livewire\Livewire;
 
 /**
  * EG-28, finding S-4 — the cash-flow statement stops classifying by literal code prefixes.
@@ -124,4 +128,33 @@ it('refuses a mistyped section at the model layer', function () {
     // default — so the value set is what makes it loud.
     expect(fn () => cashFlowAccount('1500', 'asset', 'operatng'))
         ->toThrow(DomainException::class);
+});
+
+it('lets an accountant find the accounts nobody has classified', function () {
+    // Found in review. The form wrote the section and the LIST could not show it, so onboarding a
+    // new chart meant opening every account to discover what was still unclassified — the form
+    // half of a capability without the half that makes it usable.
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
+
+    $mystery = cashFlowAccount('1750', 'asset', null);
+
+    $asset = makeAsset(['code' => 'MALL-CF']);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAs(makeUser('super_admin', [$asset->id]));
+    Filament::setTenant($asset);
+
+    try {
+        Livewire::test(ListLedgerAccounts::class)
+            ->assertOk()
+            ->filterTable('cash_flow_section', '__none')
+            ->assertCanSeeTableRecords([$mystery])
+            // …and the filter must not sweep in revenue and expense, which never carry a section
+            // and would drown the real answer on any real chart.
+            ->assertCanNotSeeTableRecords(
+                LedgerAccount::whereIn('type', ['revenue', 'expense'])->limit(3)->get()
+            );
+    } finally {
+        Filament::setTenant(null, isQuiet: true);
+    }
 });

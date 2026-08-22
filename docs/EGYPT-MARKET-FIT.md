@@ -1422,6 +1422,30 @@ because a journalizer left behind would look identical to the converted ones in 
 
 ---
 
+### 2026-08-22 — milestone 19a: EG-28 review pass
+
+One finding, and it is the same class as the EG-35 one: **half a capability**.
+
+The form wrote `cash_flow_section` and the chart LIST could not show it — so an accountant handed a
+new chart had no way to see what was still unclassified except by opening every account in turn. The
+whole point of moving classification off the code is that somebody has to do it deliberately, and
+the screen gave them no way to find the work.
+
+The list now carries the column (toggleable, dashed where there is none) and a filter whose real
+entry is **"Not classified"** — the question an accountant actually asks when a chart lands. The
+filter excludes revenue and expense, which never carry a section and would otherwise drown the
+answer on any real chart.
+
+Pinned by mounting the real list page and filtering it, with the revenue/expense exclusion asserted
+rather than assumed.
+
+**Checked and NOT defects.** No other code-prefix inference survives anywhere under `app/` — the
+sweep for `str_starts_with(...->code)` and `substr(...code)` outside `CashFlowSection` returns
+nothing, so the report was the only reader that inferred from numbering. And the absence of a chart
+importer is not a new finding: it is EG-28's other half and already recorded as open.
+
+---
+
 ### 2026-08-22 — milestone 19: EG-28's dangerous half — the cash-flow statement stops reading code prefixes
 
 Of the remaining rows this was the one that produces **wrong numbers with nothing on screen to say
