@@ -290,6 +290,33 @@ class MonthlyBillingService
      * @return array{billable:bool, reason:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
      */
     /**
+     * The abatement share for a window, or null when the rent-free period does not touch it.
+     *
+     * Extracted so an ARREARS row can ask about the month it covers rather than the month the
+     * invoice is dated to (EG-30 / M-2). The inline derivation above answers for the invoice's own
+     * period, which is correct for an advance row and wrong for an arrears one — its rent-free
+     * month is the one behind it, and billing it in full a month later hands the abatement back.
+     */
+    private static function graceMultiplierFor(
+        Lease $lease,
+        CarbonImmutable $windowStart,
+        CarbonImmutable $windowEnd,
+        int $windowMonths,
+    ): ?float {
+        $rentStart = $lease->rent_commencement_date
+            ? CarbonImmutable::instance($lease->rent_commencement_date)
+            : null;
+
+        if ($rentStart === null
+            || ! $rentStart->greaterThan($windowStart)
+            || $rentStart->greaterThan($windowEnd)) {
+            return null;
+        }
+
+        return self::monthsCovered($windowStart, $windowMonths, $rentStart, $windowEnd);
+    }
+
+    /**
      * The window a charge COVERS on an invoice for `[$periodStart, $periodEnd]` — EG-30 (M-2).
      *
      * An advance row covers the invoice's own period, which is what every row did before this and
@@ -599,7 +626,20 @@ class MonthlyBillingService
 
             $rowMultiplier = match (true) {
                 $charge->frequency !== 'monthly' => 1.0,
-                $graceMultiplier !== null && $lease->graceAbates($charge->type) => $graceMultiplier,
+                // Grace is measured on the window this row COVERS. `$graceMultiplier` is derived
+                // from the invoice's own period, which is the right answer for an advance row and
+                // the wrong one for an arrears row: the rent-free month it needs to know about is
+                // the one behind it. A tenant whose rent commenced 15 August would otherwise have
+                // been billed August's service charge in full on the September invoice, having had
+                // it abated in August — the abatement given and then taken back a month later.
+                $graceMultiplier !== null && $lease->graceAbates($charge->type) && ! $charge->billsInArrears() => $graceMultiplier,
+                $lease->graceAbates($charge->type) && $charge->billsInArrears() => self::graceMultiplierFor($lease, $coveredStart, $coveredEnd, $coveredMonths)
+                        ?? self::monthsCovered(
+                            $coveredStart,
+                            $coveredMonths,
+                            $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
+                            $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
+                        ),
                 // An arrears row prorates against the month it COVERS, not the month the invoice
                 // is dated to. A lease that commenced on 15 August owes half of August's service
                 // charge on the September invoice — using September's multiplier would bill a full

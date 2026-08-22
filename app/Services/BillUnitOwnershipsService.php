@@ -142,10 +142,19 @@ class BillUnitOwnershipsService
             return null;
         }
 
+        // Which window each charge COVERS — the period itself, or the one before it for an arrears
+        // row (EG-30 / M-2). The second consumer of `charges`, and it ignored the column entirely:
+        // صيانة is the clearest arrears case in the product (an owner is billed after the quarter
+        // the common area was actually maintained), so a run that read the flag on the lease side
+        // and not here would have meant the same column meaning two different things.
         $charges = $locked->charges()
             ->where('is_active', true)
             ->get()
-            ->filter(fn (Charge $c): bool => $this->appliesToPeriod($c, $periodStart, $periodEnd));
+            ->filter(function (Charge $c) use ($periodStart, $periodEnd): bool {
+                [$from, $to] = MonthlyBillingService::coveredWindow($c, $periodStart, $periodEnd, 1);
+
+                return $this->appliesToPeriod($c, $from, $to);
+            });
 
         if ($charges->isEmpty()) {
             return null;
@@ -172,8 +181,25 @@ class BillUnitOwnershipsService
         // A co-owner pays his share of the unit's assessment, not the whole of it.
         $share = (float) ($locked->ownership_share_pct ?? 100) / 100;
 
-        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart): array {
-            $factor = $charge->frequency === 'monthly' ? $multiplier : 1.0;
+        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart, $periodEnd, $locked): array {
+            [$coveredStart, $coveredEnd] = MonthlyBillingService::coveredWindow($charge, $periodStart, $periodEnd, 1);
+
+            // An arrears row prorates against the tenure the owner held in the month it COVERS, not
+            // this one — a handover on the 20th of August owes 11/31 of August's صيانة on the
+            // September assessment, and measuring it against September would bill a full month.
+            $factor = match (true) {
+                $charge->frequency !== 'monthly' => 1.0,
+                $charge->billsInArrears() => MonthlyBillingService::monthsCovered(
+                    $coveredStart,
+                    1,
+                    $locked->started_at !== null && $locked->started_at->gt($coveredStart)
+                        ? CarbonImmutable::parse($locked->started_at) : $coveredStart,
+                    $locked->ended_at !== null && $locked->ended_at->lt($coveredEnd)
+                        ? CarbonImmutable::parse($locked->ended_at) : $coveredEnd,
+                ),
+                default => $multiplier,
+            };
+
             $amount = round((float) $charge->amount * $factor * $share, 2);
 
             // The rate for the DOCUMENT's date, resolved through the catalogue — never the rate that
@@ -181,7 +207,12 @@ class BillUnitOwnershipsService
             $vatRate = $charge->resolvedVatRate($periodStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
 
-            $label = $charge->name.' - '.$periodStart->format('F Y');
+            $label = $charge->name.' - '.$coveredStart->format('F Y');
+
+            if ($charge->billsInArrears()) {
+                // A literal, for the reason the lease run's is — see `MonthlyBillingService`.
+                $label .= ' (in arrears)';
+            }
 
             if ($factor < 1) {
                 $label .= ' ('.round($factor * 100).'% pro-rated)';

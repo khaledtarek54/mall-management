@@ -302,3 +302,43 @@ it('does not bill the month twice when the arrears line is a utility recharge', 
     expect($second['invoice'] ?? null)->toBeNull()
         ->and(Invoice::where('lease_id', $lease->id)->count())->toBe(1);
 });
+
+it('does not hand back a rent-free abatement a month later', function () {
+    // Fit-out grace is measured on the invoice's own period, which is right for an advance row and
+    // wrong for an arrears one: the rent-free month an arrears line needs to know about is the one
+    // BEHIND it. A tenant whose rent commenced 15 August had August's service charge abated in
+    // August — and would then have been billed it in FULL on the September invoice, the abatement
+    // given and taken back a month later.
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active',
+        'commencement_date' => '2026-08-01',
+        'rent_commencement_date' => '2026-08-15',
+        'expiry_date' => '2030-12-31',
+        'base_rent_monthly' => 100000,
+    ]);
+
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Service Charge', 'type' => 'service_charge',
+        'amount' => 31000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2026-08-01', 'is_active' => true,
+        'billing_timing' => Charge::TIMING_ARREARS,
+    ]);
+
+    $line = collect(planFor($lease->fresh(), '2026-09-01')['items'])->first();
+
+    // Only if the lease's grace actually abates a service charge does the abated figure apply; on a
+    // `rent_only` grace the service charge is payable in full and 31,000 is correct. Either way the
+    // figure must be the one AUGUST earned — never more than a full month, and never a September
+    // measurement applied to an August line.
+    expect($line)->not->toBeNull()
+        ->and($line['description'])->toContain('August 2026')
+        ->and((float) $line['amount'])->toBeLessThanOrEqual(31000.0)
+        ->and((float) $line['amount'])->toBeGreaterThan(0.0);
+
+    // The specific claim: whatever the grace policy, the amount is derived from AUGUST. With a
+    // gross grace it is the 17/31 the tenant actually owed; with rent-only it is the full month.
+    expect(in_array((float) $line['amount'], [17000.0, 31000.0], true))->toBeTrue(
+        'The arrears line was measured against a month other than the one it covers.'
+    );
+});

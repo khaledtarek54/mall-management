@@ -662,6 +662,17 @@ public function runForPeriod(?CarbonImmutable $period = null): array
     arrears `utility` charge puts a standalone type on the RECURRING invoice for the first time, and
     the old `whereDoesntHave` reading made the run ignore the invoice it had just raised and bill
     the month twice. `STANDALONE_ITEM_TYPES` names the list once.
+  - **Fit-out grace is measured on the covered window too.** The inline grace multiplier is derived
+    from the invoice's own period — right for an advance row, wrong for an arrears one, whose
+    rent-free month is the one behind it. A tenant whose rent commenced 15 August had August's
+    service charge abated in August and would have been billed it in full on the September invoice:
+    the abatement given and taken back a month later. `graceMultiplierFor()` answers for any window.
+  - **The unit-owner صيانة run reads the same column** (`BillUnitOwnershipsService`), through the
+    same `coveredWindow()`. It is the clearest arrears case in the product — an owner is billed
+    after the period the common area was actually maintained — and it ignored the flag entirely at
+    first, which would have made one column mean two different things in two runs. Its arrears rows
+    also prorate against the TENURE held in the covered month, so a handover on 20 February owes
+    9/28 of February on the March assessment.
   - **An arrears row prorates against the month it COVERS**, not the month the invoice is dated to:
     a lease commencing 15 August owes half of August's service charge on the September invoice.
   - **Nothing on a lease's first invoice**, because the month it would cover predates the lease. It

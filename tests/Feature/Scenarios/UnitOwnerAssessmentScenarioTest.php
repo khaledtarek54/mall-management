@@ -191,3 +191,56 @@ it('shows the owner invoice on the property it belongs to', function () {
         expect(TenantScope::applyTo(Invoice::query())->whereNotNull('unit_ownership_id')->count())->toBe(1);
     });
 });
+
+it('bills an arrears assessment for the month it covers, not the month it is raised in', function () {
+    // صيانة is the clearest arrears case in the product: an owner is billed AFTER the period the
+    // common area was actually maintained. This run is the second consumer of `charges` and it
+    // ignored `billing_timing` entirely, so the same column meant one thing on the lease side and
+    // nothing at all here.
+    assessment(['billing_timing' => Charge::TIMING_ARREARS, 'vat_applicable' => false]);
+
+    runAssessments('2026-03');
+
+    $invoice = Invoice::whereHas('items')->latest('id')->first();
+
+    expect($invoice)->not->toBeNull();
+
+    $line = $invoice->items->first();
+
+    // Raised in March, covering February — and saying so on the line, because the invoice header
+    // cannot.
+    expect($line->description)->toContain('February 2026')
+        ->and($line->description)->toContain('in arrears');
+});
+
+it('prorates an arrears assessment against the tenure held in the month it covers', function () {
+    // A handover on 20 February owes 9/28 of February's صيانة on the March assessment. Measured
+    // against March instead, the owner would be billed a full month for nine days of ownership.
+    $late = UnitOwnership::create([
+        'asset_id' => $this->asset->id,
+        'unit_id' => makeUnit($this->asset)->id,
+        'tenant_id' => makeTenant(['party_type' => PartyType::UnitOwner->value])->id,
+        'status' => UnitOwnershipStatus::HandedOver->value,
+        'started_at' => '2026-02-20',
+        'payment_terms_days' => 10,
+    ]);
+
+    Charge::create([
+        'unit_ownership_id' => $late->id,
+        'name' => 'Service charge', 'type' => 'service_charge',
+        'amount' => 2800, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'is_active' => true, 'start_date' => '2026-02-01',
+        'billing_timing' => Charge::TIMING_ARREARS,
+    ]);
+
+    runAssessments('2026-03');
+
+    $line = Invoice::where('tenant_id', $late->tenant_id)->latest('id')->first()?->items->first();
+
+    expect($line)->not->toBeNull()
+        ->and($line->description)->toContain('February 2026');
+
+    // 20–28 Feb is 9 of 28 days. 2,800 × 9/28 = 900 exactly — not the full 2,800 a March
+    // measurement would have produced.
+    expect((float) $line->amount)->toBe(900.0);
+});
