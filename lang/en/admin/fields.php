@@ -285,6 +285,7 @@ return [
         'cam_stated_share_pct' => 'Stated share (optional)',
         'late_fee_percent' => 'Late-fee rate',
         'late_fee_grace_days' => 'Late-fee grace',
+        'late_fee_maximum' => 'Late fee cap',
         'late_fee_minimum' => 'Minimum late fee',
         'percentage_rent_deductible_types' => 'Deductible against percentage rent',
         'write_off_amount' => 'Amount to write off',

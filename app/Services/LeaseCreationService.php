@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Support\LeaseTerm;
+use App\Support\PropertySettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -75,7 +76,10 @@ class LeaseCreationService
                 'base_rent_monthly' => $rent,
                 'service_charge_monthly' => $service,
                 'currency' => 'EGP',
-                'security_deposit' => (float) ($payload['lease']['security_deposit'] ?? $rent * 3),
+                // The house policy, not a literal 3 (EG-35, finding M-11). Per-property, because
+                // deposit terms are negotiated per building. An agreed figure still wins.
+                'security_deposit' => (float) ($payload['lease']['security_deposit']
+                    ?? $rent * (float) PropertySettings::get('billing.default_security_deposit_months', $unit->asset_id)),
                 'escalation_rate' => (float) ($payload['lease']['escalation_rate'] ?? 7),
                 'escalation_type' => 'fixed_percent',
                 'payment_terms_days' => (int) ($payload['lease']['payment_terms_days'] ?? 7),

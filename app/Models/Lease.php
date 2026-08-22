@@ -374,6 +374,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'late_fee_percent',
         'late_fee_grace_days',
         'late_fee_minimum',
+        'late_fee_maximum',
         'notes',
         'metadata',
     ];
@@ -404,6 +405,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'late_fee_percent' => 'decimal:2',
         'late_fee_grace_days' => 'integer',
         'late_fee_minimum' => 'decimal:2',
+        'late_fee_maximum' => 'decimal:2',
         'holdover_from' => 'date',
         'expiry_reminder_notified_at' => 'datetime',
         'next_escalation_date' => 'date',

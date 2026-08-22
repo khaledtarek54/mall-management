@@ -125,8 +125,18 @@ The Billing module automates the monthly invoicing lifecycle for Eltizam operato
 - Supports proration at BOTH ends: mid-month commencement (per-run flag) and mid-month
   termination/expiry (unconditional), plus the automatic credit note when the month was already
   billed in advance
-- Late-fee rate, minimum and grace resolve through **three** tiers — **lease → property →
+- Late-fee rate, minimum, grace **and cap** resolve through **three** tiers — **lease → property →
   portfolio** (`Lease::lateFeeTerms()` → `App\Support\PropertySettings` → `BillingSettings`).
+  The **cap** joined them on 2026-08-22 (EG-35, finding M-8): `late_fee_minimum` existed and its
+  opposite did not, so *"2% per month, minimum EGP 50, capped at EGP 5,000"* was two thirds
+  expressible. That asymmetry is the one that costs money — a percentage of an arrears has **no
+  upper bound**, so a tenant six months behind on a large invoice drew a penalty proportional to the
+  debt rather than to the breach. **0 = no cap at every tier**, which is what every install did
+  before the column existed. It is applied **after** the minimum, deliberately: a ceiling the
+  operator typed is a statement about the most they will charge, a floor only rounds small ones up,
+  and `max()` last would bill above a cap the clause names. It must be returned from
+  `lateFeeTerms()` and not only from `LateFeeService`'s no-lease fallback — `invoices.lease_id` is
+  NOT NULL, so a cap defined only there is present in the code and inert in production.
   The lease's negotiated term still wins; what CFG-03 added underneath it is the PROPERTY, because
   Eltizam runs several malls and a late fee is a per-building term. See
   [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md#per-property-configuration-cfg-03-2026-08-12)

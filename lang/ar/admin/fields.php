@@ -284,6 +284,7 @@ return [
         'cam_stated_share_pct' => 'النسبة المنصوص عليها (اختياري)',
         'late_fee_percent' => 'نسبة غرامة التأخير',
         'late_fee_grace_days' => 'مهلة السماح قبل الغرامة',
+        'late_fee_maximum' => 'حد أقصى لغرامة التأخير',
         'late_fee_minimum' => 'الحد الأدنى لغرامة التأخير',
         'percentage_rent_deductible_types' => 'قابل للخصم من الإيجار النسبي',
         'write_off_amount' => 'المبلغ المراد إعدامه',

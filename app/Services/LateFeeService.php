@@ -107,12 +107,16 @@ class LateFeeService
             'percent' => (float) PropertySettings::get('billing.late_fee_percent', null),
             'grace_days' => (int) PropertySettings::get('billing.late_fee_grace_days', null),
             'minimum' => (float) PropertySettings::get('billing.late_fee_minimum', null),
+            // 0 = no ceiling, which is what every install had before EG-35 and therefore what an
+            // unset value must keep meaning.
+            'maximum' => (float) PropertySettings::get('billing.late_fee_maximum', null),
         ];
 
         $percent = $terms['percent'];
         $min = $terms['minimum'];
+        $max = $terms['maximum'];
 
-        return DB::transaction(function () use ($invoice, $percent, $min, $terms, $today) {
+        return DB::transaction(function () use ($invoice, $percent, $min, $max, $terms, $today) {
             // Lock the invoice row and re-check the idempotency guard INSIDE the
             // transaction, so two concurrent late-fee runs can't both pass the
             // "no late_fee yet" check and double-charge the same invoice.
@@ -156,6 +160,18 @@ class LateFeeService
             }
 
             $fee = max($min, round($chargeable * $percent / 100, 2));
+
+            // The clause's ceiling (EG-35, finding M-8). A percentage of an arrears has no upper
+            // bound, so a tenant six months behind on a large invoice drew a penalty proportional
+            // to the debt rather than to the breach — and a real clause caps it.
+            //
+            // Applied AFTER the minimum, deliberately: with a cap below the floor the cap wins,
+            // because a ceiling the operator typed is a statement about the most they will charge
+            // and a floor is only a statement about rounding up small ones. `max()` last would
+            // bill above a cap the clause names.
+            if ($max > 0) {
+                $fee = min($fee, $max);
+            }
 
             // A penalty is not consideration for a supply, so it ships outside the scope of VAT —
             // but that is the catalogue's ruling to state, not this service's. Reading it here is

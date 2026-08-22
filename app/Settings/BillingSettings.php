@@ -47,6 +47,19 @@ class BillingSettings extends Settings
     public float $late_fee_minimum = 50.00;
 
     /**
+     * The most a single late fee may be, or 0 for no cap (EG-35, finding M-8).
+     *
+     * A percentage of an arrears has no upper bound, so a tenant six months behind on a large
+     * invoice draws a penalty proportional to the debt rather than to the breach. Real clauses cap
+     * it — *"2% per month, capped at EGP 5,000"* — and until now the cap was the one half of that
+     * sentence the system could not express: `late_fee_minimum` existed and its opposite did not.
+     *
+     * 0 rather than null so the column keeps one type, and 0 reads correctly as "no ceiling" beside
+     * a minimum of 50 that reads as "no floor" at 0. Per-property overridable, like the other three.
+     */
+    public float $late_fee_maximum = 0.0;
+
+    /**
      * Flat fee charged when a post-dated cheque is returned unpaid (Yardi posts an NSF charge).
      *
      * 0 = OFF, and that is how it ships: a fee appearing on invoices after an upgrade would be a
@@ -80,6 +93,19 @@ class BillingSettings extends Settings
      * renewing. Per-lease terms override it — this is only what the conversion form proposes.
      */
     public float $holdover_default_rate_pct = 150.0;
+
+    /**
+     * Months of rent the security deposit defaults to on a new lease (EG-35, finding M-11).
+     *
+     * The house policy was the literal `3` in `LeaseCreationService`'s `$rent * 3`, so *"three
+     * months from Q1"* was a deploy and *"two months at the outlet mall"* was unsayable. The lease
+     * still holds the agreed AMOUNT — this only proposes it, and a negotiated figure overrides it
+     * exactly as it did before.
+     *
+     * Per-property overridable: deposit policy is negotiated per building against what the local
+     * market will bear, which is the same reason `monthly_billing_day` is.
+     */
+    public float $default_security_deposit_months = 3.0;
 
     /**
      * Recognise rent on a STRAIGHT-LINE basis over the lease term (story RA-02, EAS 49 / IFRS 16).

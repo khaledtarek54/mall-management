@@ -76,6 +76,7 @@ return [
         'cam_cap_scope' => 'Most clauses cap only controllable costs and carve out rates, insurance and utilities.',
         'cam_cap_carry_forward' => 'A year under the ceiling banks the difference, and a later year can draw on it.',
         'cam_stated_share_pct' => 'Use only when the lease names the percentage outright. Leave blank to derive it from area.',
+        'late_fee_maximum' => 'The most one fee may be. Blank inherits the property; 0 anywhere means no cap.',
         'late_fee_override' => 'Leave blank to use the portfolio default from Settings → Billing.',
         'percentage_rent_deductible_types' => 'Charges credited against the same period\'s percentage rent. Leave empty if nothing is deductible.',
         'percentage_rent_tier_from' => 'The sales level this band starts at.',

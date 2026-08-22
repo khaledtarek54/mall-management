@@ -123,6 +123,12 @@
 > already be closed. Two clicks, no warning. The field is read-only on Edit now, and **Change
 > premises** — which CLOSES the row — is the only path.
 
+> **The DEFAULT multiple is a setting, not a literal (EG-35, 2026-08-22).**
+> `BillingSettings::default_security_deposit_months` (3.0), per-property overridable. It had been
+> the `3` in `LeaseCreationService`'s `$rent * 3`, so *"three months from Q1"* was a deploy and
+> *"two months at the outlet mall"* was unsayable. It PROPOSES the figure; `security_deposit_months`
+> on the lease still records what was negotiated, and the derivation below is unchanged.
+
 > **⚠️ A deposit agreed as "three months' rent" now STAYS three months' rent (2026-08-17).**
 > `security_deposit` is a flat figure and rent escalates. On a 7% clause a deposit agreed at 3×
 > covers **2.62 months by year three and 2.29 by year five** — the landlord's security against a

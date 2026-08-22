@@ -50,6 +50,14 @@ class PropertySettings
             'class' => BillingSettings::class,
             'reason' => 'One mall bills on the 1st and another on the 25th, because the day is negotiated with the anchor tenants and follows their own payment cycles. The scheduled run fires DAILY and asks each property whose day it is — a global `->monthlyOn()` would have made this a setting an operator can save and nothing can honour.',
         ],
+        'billing.late_fee_maximum' => [
+            'class' => BillingSettings::class,
+            'reason' => 'The cap belongs to the lease clause, and clauses differ by building: an anchor-heavy mall caps a penalty low because the arrears are large and the relationship matters more, while a kiosk mall may not cap at all. It sits beside `late_fee_percent`, `late_fee_grace_days` and `late_fee_minimum`, which have been per-property since they existed — a cap that alone could not vary would be the one term of the sentence the operator had to keep in their head.',
+        ],
+        'billing.default_security_deposit_months' => [
+            'class' => BillingSettings::class,
+            'reason' => 'Deposit policy is negotiated per building against what the local market bears — three months at the flagship, two at the outlet. It was the literal 3 in `LeaseCreationService`\'s `$rent * 3`, so a policy change reached nothing and a per-mall policy was unsayable. It PROPOSES the amount; the lease still records what was agreed.',
+        ],
         'billing.auto_apply_tenant_credit' => [
             'class' => BillingSettings::class,
             'reason' => 'Whether an over-payment settles the next invoice by itself is an operator policy per building: a mall whose tenants pay a year of cheques up front wants it on, and one that reconciles every receipt by hand wants the credit left visible until somebody decides where it goes.',

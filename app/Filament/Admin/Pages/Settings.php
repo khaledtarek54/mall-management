@@ -266,6 +266,21 @@ class Settings extends Page implements HasSchemas
                         ->prefix('EGP')
                         ->minValue(0)
                         ->required(),
+                    // The other half of the clause. 0 = no ceiling, which is what every install had
+                    // before this existed — so an unset value must keep meaning exactly that.
+                    TextInput::make('billing.late_fee_maximum')
+                        ->label(__('admin.settings.fields.late_fee_maximum'))
+                        ->helperText(__('admin.settings.fields.late_fee_maximum_helper'))
+                        ->numeric()
+                        ->prefix('EGP')
+                        ->minValue(0)
+                        ->required(),
+                    TextInput::make('billing.default_security_deposit_months')
+                        ->label(__('admin.settings.fields.default_security_deposit_months'))
+                        ->helperText(__('admin.settings.fields.default_security_deposit_months_helper'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->required(),
                     // 0 = off, and that is how it ships. The action that charges it stays hidden
                     // until a figure is set, so nothing appears on an invoice by surprise.
                     TextInput::make('billing.nsf_fee_amount')

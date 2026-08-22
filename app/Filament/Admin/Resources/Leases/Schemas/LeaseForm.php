@@ -653,7 +653,16 @@ class LeaseForm
                             ->minValue(0)
                             ->prefix('EGP')
                             ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_minimum),
-                    ])->columns(3),
+                        // The ceiling the clause states. 0 anywhere in the chain means no cap, so
+                        // blank here inherits the property's answer exactly as the other three do.
+                        TextInput::make('late_fee_maximum')
+                            ->label(__('admin.fields.late_fee_maximum'))
+                            ->helperText(__('admin.helpers.late_fee_maximum'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->prefix('EGP')
+                            ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_maximum),
+                    ])->columns(4),
 
                     FormTab::make('admin.sections.percentage_rent', [
                         Toggle::make('has_percentage_rent')

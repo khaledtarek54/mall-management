@@ -46,7 +46,7 @@ trait ActsAsBillableAgreement
      * config file (populated from `env`), so every late-fee value an operator saved on that screen
      * was silently ignored. Reading one source here is what makes the screen mean something.
      *
-     * @return array{percent: float, grace_days: int, minimum: float}
+     * @return array{percent: float, grace_days: int, minimum: float, maximum: float}
      */
     public function lateFeeTerms(): array
     {
@@ -67,6 +67,14 @@ trait ActsAsBillableAgreement
             'minimum' => $this->late_fee_minimum !== null
                 ? (float) $this->late_fee_minimum
                 : (float) PropertySettings::get('billing.late_fee_minimum', $assetId),
+            // The clause's ceiling, on the same three tiers (EG-35). 0 = no cap at every tier,
+            // which is what every install had before the column existed. It MUST be returned here
+            // and not only in `LateFeeService`'s detached-invoice fallback: `invoices.lease_id` is
+            // NOT NULL, so that branch never runs for a real invoice and a cap defined only there
+            // would be read as an undefined key on every fee the sweep charges.
+            'maximum' => $this->late_fee_maximum !== null
+                ? (float) $this->late_fee_maximum
+                : (float) PropertySettings::get('billing.late_fee_maximum', $assetId),
         ];
     }
 
