@@ -8,6 +8,7 @@ use App\Filament\Exports\CreditNoteExporter;
 use App\Models\CreditNote;
 use App\Models\Tenant;
 use App\Services\CreditNotePdfService;
+use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -131,7 +132,9 @@ class CreditNotesTable
                     ->exporter(CreditNoteExporter::class)
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray'),
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(CreditNoteResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(CreditNoteResource::class)),
             ])
             ->recordActions([
                 LedgerEntryAction::make(),
@@ -166,7 +169,9 @@ class CreditNotesTable
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->exporter(CreditNoteExporter::class)
-                        ->label(__('admin.actions.export')),
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(CreditNoteResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(CreditNoteResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => CreditNoteResource::canDeleteAny()),
                 ]),

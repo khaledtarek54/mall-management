@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages;
 
 use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
@@ -32,6 +33,7 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
     /** An audit trail is unbounded; an unscheduled export must not be. */
     private const CSV_ROW_CAP = 5000;
 
+    use ExportsReport;
     // Aliased, not overridden via parent::. `getTableRecords()` reaches this class through a
     // TRAIT, and `parent::` walks the class chain only — Filament\Pages\Page has no such method,
     // so a plain override calling parent:: fell through to Livewire's __call and every render
@@ -57,6 +59,7 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
         return [
             GuideAction::for(static::class),
             $this->saveViewAction(),
+            ...$this->exportActions(),
         ];
     }
 
@@ -291,5 +294,23 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
             ],
             'rows' => $rows,
         ];
+    }
+
+    /**
+     * The audit trail exports on its OWN permission, not on `reports.view`.
+     *
+     * {@see ExportsReport::mayExport()} defaults to `reports.view` because that is the gate on the
+     * nineteen report PAGES. This page is not one of them: it is gated on `activity_log.view`, which
+     * the seeder withholds from `mall_admin` precisely because the feed spans every property and
+     * cannot be scoped to one. Inheriting the default would have made the export a second door into
+     * exactly the cross-property data the screen's own gate exists to withhold.
+     *
+     * `canAccess()` rather than the bare permission, so the module switch is honoured too — the rule
+     * the trait states is that whoever may read it on screen may take it away, and nobody may read
+     * this screen with `activity_log` turned off.
+     */
+    public static function mayExport(): bool
+    {
+        return static::canAccess();
     }
 }

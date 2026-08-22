@@ -7,6 +7,7 @@ use App\Filament\Exports\UnitExporter;
 use App\Models\Asset;
 use App\Models\Unit;
 use App\Services\RemeasureUnitService;
+use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PropertyField;
 use Filament\Actions\Action;
@@ -149,7 +150,9 @@ class UnitsTable
                     ->exporter(UnitExporter::class)
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray'),
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(UnitResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(UnitResource::class)),
             ])
             // Floor is how a leasing manager physically walks the mall; status is the vacancy view.
             ->groups([
@@ -233,7 +236,9 @@ class UnitsTable
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->exporter(UnitExporter::class)
-                        ->label(__('admin.actions.export')),
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(UnitResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(UnitResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => UnitResource::canDeleteAny()),
                     ForceDeleteBulkAction::make()

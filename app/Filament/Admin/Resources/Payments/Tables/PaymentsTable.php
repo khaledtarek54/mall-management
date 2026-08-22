@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Tenant;
 use App\Services\ReceiptPdfService;
+use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -152,7 +153,9 @@ class PaymentsTable
                     ->exporter(PaymentExporter::class)
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray'),
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(PaymentResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(PaymentResource::class)),
             ])
             // Method is the reconciliation axis: cash, bank transfer and cheques are counted
             // against different places, and the summariser totals each group.
@@ -194,7 +197,9 @@ class PaymentsTable
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->exporter(PaymentExporter::class)
-                        ->label(__('admin.actions.export')),
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(PaymentResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(PaymentResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => PaymentResource::canDeleteAny()),
                     ForceDeleteBulkAction::make()

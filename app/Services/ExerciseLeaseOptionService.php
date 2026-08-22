@@ -34,10 +34,17 @@ class ExerciseLeaseOptionService
      *
      * `rofr`/`rofo` are deliberately absent: a right of first refusal that is taken up produces a
      * new letting or an expansion, which is recorded when that deal is struck — not here.
+     *
+     * `extension` is absent too, and that is the correction rather than the omission. It was handled
+     * here and queried for below while never being one of `LeaseOption::TYPES`, so no picker offered
+     * it and no `admin.lease_options.types.*` label existed for it — dead code a direct write was the
+     * only way to reach. The right fix is removal, not widening the type list: an OPTION is an
+     * unexercised RIGHT and `renewal` already IS the right to extend, so a second code for it would
+     * split option reporting across two values meaning one thing. `extension` remains a LEASE EVENT
+     * ({@see LeaseEvent::TYPE_EXTENSION}) — the thing that HAPPENED — which is what this map produces.
      */
     private const EVENT_FOR = [
         'renewal' => LeaseEvent::TYPE_EXTENSION,
-        'extension' => LeaseEvent::TYPE_EXTENSION,
         'expansion' => LeaseEvent::TYPE_EXPANSION,
         'contraction' => LeaseEvent::TYPE_CONTRACTION,
         'termination' => LeaseEvent::TYPE_TERMINATION,
@@ -142,7 +149,7 @@ class ExerciseLeaseOptionService
     {
         $option = $lease->options()
             ->where('status', 'exercised')
-            ->whereIn('type', ['renewal', 'extension'])
+            ->where('type', 'renewal')
             ->orderByDesc('resolved_at')
             ->first();
 

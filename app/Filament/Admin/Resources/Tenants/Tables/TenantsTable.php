@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Exports\TenantExporter;
 use App\Models\Tenant;
 use App\Services\TenantStatementPdfService;
+use App\Support\Exports;
 use App\Support\TenantScope;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -195,7 +196,9 @@ class TenantsTable
                     ->exporter(TenantExporter::class)
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray'),
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(TenantResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(TenantResource::class)),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less
@@ -230,7 +233,9 @@ class TenantsTable
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->exporter(TenantExporter::class)
-                        ->label(__('admin.actions.export')),
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(TenantResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(TenantResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => TenantResource::canDeleteAny()),
                     ForceDeleteBulkAction::make()

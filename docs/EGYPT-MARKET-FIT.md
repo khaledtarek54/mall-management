@@ -472,36 +472,36 @@ None of these are engineering questions. They are recorded here so they can be a
 
 Not part of the configurability question, but found while verifying it and worth fixing.
 
+> **Re-verified 2026-08-22, and most of this section was wrong.** It was written on 2026-08-20 and
+> never re-checked, so by the time anyone worked it two rows had already been fixed elsewhere, one
+> was a false finding, and one named a remedy that would have made the system worse. That is the
+> ordinary half-life of a findings list nobody re-runs — and the reason the rows below now carry a
+> **verdict** rather than only a claim. **Verify before fixing**: an absence finding is usually
+> false, and a finding that is real is not evidence that its proposed fix is.
+
 **Documentation that has drifted from the code:**
 
-| Doc | Says | Actually |
+| Doc | Says | Verdict |
 |---|---|---|
-| `docs/OPEN-QUESTIONS.md` A1.1 | The VAT rate is `TaxSettings::vat_standard_rate` | That setting was **removed 2026-08-12**; rates live in the `tax_codes`/`tax_rates` catalogue |
-| `docs/OPEN-QUESTIONS.md` A3.2 | "no straight-line spread" | Straight-line rent **exists** (`StraightLineRentAdjustment`, `PostStraightLineRentService`), shipped off behind `BillingSettings::straight_line_rent_enabled` |
-| `docs/accounting/EGYPTIAN-TAX-CATALOG.md:10-11` | `TaxCatalogueConformanceTest` gates the catalogue "in both directions" | Only the *dropped-row* direction is asserted (presence-only, no count or `array_diff`), and it runs under `RefreshDatabase` so it structurally cannot see an operator's production row |
-| `docs/modules/21-general-ledger.md:610` | Statements are "per-property **& consolidated**" | Consolidated is unreachable from the panel (S-3) |
-| ~~`lang/en/admin/help.php:137`~~ ✅ | ~~Escalation type "Step = pre-agreed increases per year"~~ | **Fixed 2026-08-20 (EG-09)** in both languages — the helper now names the four types that exist |
+| ~~`docs/OPEN-QUESTIONS.md` A1.1~~ | ~~The VAT rate is `TaxSettings::vat_standard_rate`~~ | ❌ **STALE FINDING.** A1.1 already reads *"the rate is now MASTER DATA … `TaxSettings::vat_standard_rate` was removed 2026-08-12"*. Corrected before this list was worked |
+| ~~`docs/OPEN-QUESTIONS.md` A3.2~~ | ~~"no straight-line spread"~~ | ❌ **STALE FINDING.** A3.2 already reads *"Straight-line rent IS built … ships off behind `BillingSettings::straight_line_rent_enabled`"* |
+| ~~`docs/accounting/EGYPTIAN-TAX-CATALOG.md:10-11`~~ ✅ | `TaxCatalogueConformanceTest` gates the catalogue "in both directions" | ✅ **REAL — and fixed by making the claim true (2026-08-22).** The test asserted every code on the operator's sheet EXISTS and never that nothing else does, so an invented row passed cleanly. A presence-only sweep reporting on a property it never checked — the same shape as the reconciliation tie-out that could not fail. The gate now diffs the seeded catalogue against the sheet both ways |
+| ~~`docs/modules/21-general-ledger.md:610`~~ ✅ | Statements are "per-property **& consolidated**" | ✅ **REAL — corrected in place.** Consolidated is unreachable from the panel; the row now says so and points at EG-27 rather than describing a capability the operator cannot open |
+| ~~`docs/modules/17-reports.md`~~ ✅ | "Fourteen of twenty reports are deliverable"; "the six that are not … a searchable log" | ✅ **REAL, found while fixing the audit-log export.** Both counts were hand-typed and both had drifted, and the "searchable log" among the undeliverable is the very page this round wired an export onto. Replaced with the registry, per the project's own rule against typing a count into a doc |
+| ~~`lang/en/admin/help.php:137`~~ ✅ | ~~Escalation type "Step = pre-agreed increases per year"~~ | **Fixed 2026-08-20 (EG-09)** in both languages |
 
 **Live defects:**
 
-- `ActivityLog` implements `DeliverableReport` and defines `reportCsv()` but never spreads
-  `exportActions()` — the audit log can be **emailed on a schedule but not exported from the screen**;
-  the only one of 19 report pages in that state. `app/Filament/Admin/Pages/ActivityLog.php:30,55-61,252`
-- No `ExportAction` anywhere carries `->authorize()`, so bulk data egress inherits only `viewAny`,
-  while every `ImportAction` is double-gated. `.../Invoices/Tables/InvoicesTable.php:309-313`
-- `LeaseOption::TYPES` omits `'extension'`, which `ExerciseLeaseOptionService` handles and queries for
-  — dead code reachable only by a direct write. `app/Models/LeaseOption.php:28` vs
-  `ExerciseLeaseOptionService.php:40,145`
-- `PushChannel` returns early for a notifiable with no `deviceTokens()`, and only `Tenant` has that
-  relation — so three notifications declaring `'push'` to admin `User`s are silent no-ops.
-  `app/Notifications/Channels/PushChannel.php:29`
-- Renumbering the chart desynchronises the seeders silently: `ChartOfAccountsSeeder` matches on
-  `code`, so a renumbered account produces a **duplicate** on the next `atriom:install`, and
-  `AccountMappingSeeder` `continue`s past a miss with no warning.
-- `ActivityVocabulary.php:136` still maps `facility_work_order.category`, a column dropped by
-  `2026_08_20_100000`.
+| # | Finding | Verdict |
+|---|---|---|
+| 1 | `ActivityLog` implements `DeliverableReport` and defines `reportCsv()` but never spreads `exportActions()` — emailable on a schedule, not exportable from the screen | ✅ **REAL, fixed.** It was the only `DeliverableReport` page in that state. Wired with `ExportsReport` — but **not** on the trait's default gate: `mayExport()` defaults to `reports.view`, and this page is gated on `activity_log.view`, which the seeder withholds from `mall_admin` *because* the feed spans every property and cannot be scoped to one. Inheriting the default would have made the export a second door into exactly the data the screen's own gate withholds. Overridden to `canAccess()` |
+| 2 | No `ExportAction` carries `->authorize()`, so bulk egress inherits only `viewAny` while every `ImportAction` is double-gated | ⚠️ **REAL BUT MIS-STATED — and it was hiding something worse.** Three corrections: one of the seven DOES gate (tenant requests, on `requests.view_all`); the six `ExportBulkAction`s were missed entirely, so it is **thirteen** actions; and it is **not a data-egress hole** — Filament exports `getTableQueryForExport()`, the resource's own scoped query with the operator's filters applied, so an export can never return a row the list would not. See ⑥ for what it really was |
+| 3 | `LeaseOption::TYPES` omits `'extension'`, which `ExerciseLeaseOptionService` handles and queries for — dead code reachable only by a direct write | ⚠️ **REAL, REMEDY INVERTED — fixed the other way.** The drift is genuine, but adding `'extension'` to `TYPES` would have been the wrong repair: an OPTION is an unexercised RIGHT and `renewal` already IS the right to extend, so a second code for one thing would split option reporting across both — and there is no `admin.lease_options.types.extension` key, so the picker would have rendered a raw translation key. Adjacent-lang-group confusion: `extension` is a **lease EVENT** (`LeaseEvent::TYPE_EXTENSION`, what HAPPENED), and `admin.leasing.lease_events.types` sits directly above `admin.leasing.lease_options.types`. The dead branches were **removed**; no test referenced the value |
+| 4 | `PushChannel` returns early for a notifiable with no `deviceTokens()`, and only `Tenant` has that relation — three notifications declaring `'push'` to admin `User`s are silent no-ops | ❌ **FALSE FINDING.** It is **two**, not three (`MarketingPostReviewed` and `SalesDeclarationLocked` are sent via `$tenant->notifyPortal()`, and `Tenant` has device tokens), and both remaining ones say so in their own docblocks — *"reaches the mobile app the moment a supervisor is a push-capable notifiable"*. A deliberate forward declaration, not a defect. No change |
+| 5 | Renumbering the chart desynchronises the seeders silently: `ChartOfAccountsSeeder` matches on `code`, and `AccountMappingSeeder` `continue`s past a miss with no warning | ⚠️ **REAL, HALF FIXED — deliberately.** The silent half is closed: the miss now logs the role and the code it could not find, so `atriom:install` on a customised chart reports what it failed to wire instead of surfacing months later as a red `atriom:health` row naming neither. The `updateOrCreate(['code' => …])` half is **not** fixed here — code is the only stable key the seeder has, and giving the chart a durable identity is EG-28's chart importer, not a patch to a seeder |
+| 6 | *(not in the original list)* | 🔴 **NEW, and the real content of ②.** Six of the seven Tables classes are **shared with the PORTAL** — one `InvoicesTable::configure()` serves `Filament\Admin\Resources\Invoices` and `Filament\Portal\Resources\Invoices` alike — so a tenant saw an Export button on their invoices, payments, leases and credit notes. Clicking it cannot work: Filament resolves the exporting user from `Filament::getAuthGuard()`, which on the portal is `portal` and yields a `TenantUser`, then writes its id into `exports.user_id` — **a foreign key to `users`**. The click either violates the constraint or, where an admin happens to hold that id, files a tenant's export under a stranger's name. `App\Support\Exports::allowed()` now floors all thirteen on `instanceof User` **and** the resource's own `canViewAny()` |
+| 7 | `ActivityVocabulary.php:136` still maps `facility_work_order.category`, a column dropped by `2026_08_20_100000` | ✅ **REAL, fixed — and worse than reported.** The entry pointed at `admin.enums.work_category` while the keys live under `admin.statuses.work_category`, so it had resolved nothing even while the column existed. Removed. The orphaned lang group is **left in place**: `TranslationCoverageTest` still asserts it, and unpicking the trade register's leftovers is its own change rather than a half-done one here |
 
----
 
 ## 7a. Progress
 
@@ -995,6 +995,61 @@ carries behaviour. Only vocabulary becomes rows. And the activity log still rend
 code as its raw code — one documented gap, six catalogues, exempted by name in
 `CatalogueBackedSurfacesConformanceTest` rather than left to be discovered.
 
+
+---
+
+### 2026-08-22 — milestone 12: §7 re-verified, and the export button nobody had pressed
+
+Not an EG row. **§7 had never been re-run since it was written**, and working it as written would
+have shipped two no-op changes, one wrong fix and one correct one — so every row now carries a
+verdict, and the section documents its own half-life rather than reading as a fresh worklist.
+
+Of the eleven rows: **two were already fixed** elsewhere (both `OPEN-QUESTIONS.md` entries), **one
+was false** (`PushChannel` — two notifications, not three, and both docblocks state the no-op is a
+deliberate forward declaration), **one named the wrong remedy** (`LeaseOption::TYPES`), and the
+rest were real. **Verify before fixing, and separately verify the fix**: a finding being real is
+not evidence that its proposed repair is.
+
+**What the export row was actually about.** It read as an authorization gap — *"no `ExportAction`
+carries `->authorize()`"* — and on the letter of it that is not a hole at all: an export runs
+`getTableQueryForExport()`, the resource's own scoped query with the operator's filters applied, so
+it can never return a row the list would not. Three things the row had wrong: one of the seven DOES
+gate, the six `ExportBulkAction`s were missed so it is **thirteen** actions, and the reason it
+mattered was somewhere else entirely.
+
+**Six of those seven Tables classes are shared with the PORTAL.** One `InvoicesTable::configure()`
+serves the admin panel and the tenant portal, so a tenant had an Export button on their invoices,
+payments, leases and credit notes — and clicking it cannot work. Filament resolves the exporting
+user from `Filament::getAuthGuard()`, `portal` on that panel, which yields a `TenantUser`; it then
+writes that id into `exports.user_id`, **a foreign key to `users`**. Either a constraint violation,
+or — where an admin happens to hold the same id — a tenant's export filed under a stranger's name.
+
+`App\Support\Exports::allowed()` is the counterpart to `Imports`, and the shape of the gate is the
+argument. Export is deliberately the **wide** door: the FRD says *"all other roles may
+export/download but not import"*, so it is not a permission of its own but the resource's own
+`canViewAny()` — whoever may read the list may take it away, the same rule `ExportsReport` states
+for the report pages. What it adds is a floor of `instanceof User`, **not** `?->can()`: `TenantUser`
+does not use spatie's `HasRoles`, so `can()` answers false today for the wrong reason and would
+answer TRUE the day the portal grows a policy. A portal export is not refused so much as **not
+offered** — if tenants should be able to take their own ledger away, that is a portal feature with
+its own exporter and its own foreign key, not an admin button leaking onto their screen.
+
+**Also fixed:** the audit log's missing export (the one `DeliverableReport` page without one — and
+gated on `activity_log.view` rather than the trait's default `reports.view`, since the seeder
+withholds the former from `mall_admin` precisely because the feed spans every property); the tax
+catalogue gate's missing direction, which had been claimed in writing since the day it was written;
+`ExerciseLeaseOptionService`'s unreachable `extension` branches; and `AccountMappingSeeder`'s silent
+skip past a chart account it cannot find.
+
+**Two gates, mutation-proved.** `PortalNeverGetsAnAdminExportButtonTest` pairs every refusal with a
+control that must succeed — a gate refusing everyone satisfies the refusals alone and reads as a
+pass — and sweeps `app/Filament` for an ungated export chain, asserting it **found** something
+before reporting on it. Deleting one `->visible()` from `UnitsTable` turns it red naming that file.
+The control needed `RolesPermissionsSeeder`, not `seedRoles()`: role rows with no grants make a
+manager fail a permission gate for a reason that has nothing to do with the gate.
+
+**Worked in parallel with the EG-37 session on one shared tree** — disjoint lanes (§7 vs the EG
+worklist), explicit pathspecs on the commit, no `git add -A`.
 
 ---
 

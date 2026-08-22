@@ -141,9 +141,13 @@ it('carries the operator\'s whole sheet, in both directions', function () {
         TaxCode::FAMILY_WITHHOLDING => ['WH_0_5', 'WH_1', 'WH_3', 'WH_5'],
     ];
 
+    $sheet = [];
+
     foreach ($expected as $family => $codes) {
         foreach ($codes as $code) {
             foreach (['' => TaxCode::SALES, '_P' => TaxCode::PURCHASES] as $suffix => $direction) {
+                $sheet[] = $code.$suffix;
+
                 $row = TaxCode::where('code', $code.$suffix)->first();
 
                 expect($row)->not->toBeNull("{$code}{$suffix} is on the operator's sheet but not in the catalogue");
@@ -152,6 +156,25 @@ it('carries the operator\'s whole sheet, in both directions', function () {
             }
         }
     }
+
+    // ── The other direction, which this test's own name claimed and did not check ──────────────
+    //
+    // Everything above is PRESENCE, and a presence-only sweep passes just as happily with an
+    // invented row sitting beside the real ones — which is the half of "do not invent rows beyond
+    // this sheet" an operator would never notice being broken, because an extra tax code is simply
+    // offered on every charge code's picker and looks like one of theirs.
+    //
+    // `docs/accounting/EGYPTIAN-TAX-CATALOG.md` asserted in writing that this gate ran in both
+    // directions from the day it was written. The gate reported on a property it had never checked
+    // — the same shape as the reconciliation tie-out that could not fail and the sweep that matched
+    // zero models.
+    //
+    // Compared against what the SEEDER lays down, deliberately: this is a gate on the shipped
+    // catalogue, not on an operator's production table, and it says so rather than implying it.
+    $invented = array_values(array_diff(TaxCode::query()->pluck('code')->all(), $sheet));
+
+    // Imploded rather than passed as a message, so a failure prints the offending codes in the diff.
+    expect(implode(', ', $invented))->toBe('');
 });
 
 it('never offers a withholding code as a tax on a supply', function () {

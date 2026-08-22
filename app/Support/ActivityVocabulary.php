@@ -147,7 +147,6 @@ class ActivityVocabulary
         'lease_option.type' => 'admin.lease_options.types',
         'service_plan.frequency_unit' => 'admin.facility.frequency_units',
         'service_plan.plan_type' => 'admin.facility.plan_types',
-        'facility_work_order.category' => 'admin.enums.work_category',
         'facility_work_order.execution_type' => 'admin.facility.execution_types',
         'facility_work_order.work_order_type' => 'admin.facility.work_order_types',
         'sla_penalty.basis' => 'admin.facility.penalty.bases',

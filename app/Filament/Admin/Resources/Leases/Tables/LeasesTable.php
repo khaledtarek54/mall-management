@@ -9,6 +9,7 @@ use App\Models\RentableItem;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
+use App\Support\Exports;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
@@ -325,7 +326,9 @@ class LeasesTable
                     ->exporter(LeaseExporter::class)
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray'),
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(LeaseResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(LeaseResource::class)),
                 Action::make('quickLease')
                     ->label(__('admin.actions.quick_new_lease'))
                     ->icon('heroicon-o-bolt')
@@ -512,7 +515,9 @@ class LeasesTable
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->exporter(LeaseExporter::class)
-                        ->label(__('admin.actions.export')),
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(LeaseResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(LeaseResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => LeaseResource::canDeleteAny()),
                     ForceDeleteBulkAction::make()

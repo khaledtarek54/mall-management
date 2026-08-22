@@ -18,6 +18,7 @@ use App\Services\BillUnitOwnershipsService;
 use App\Services\DisputeInvoiceItemService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
+use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Modules;
 use App\Support\OpsLog;
@@ -310,7 +311,9 @@ class InvoicesTable
                     ->exporter(InvoiceExporter::class)
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray'),
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(InvoiceResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(InvoiceResource::class)),
                 // Preview first. Posting a month bills every active lease in the mall, and a
                 // confirmation modal asks "are you sure" without showing what you are being sure
                 // about — so this is the route an operator should take, and the blind run below
@@ -609,7 +612,9 @@ class InvoicesTable
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->exporter(InvoiceExporter::class)
-                        ->label(__('admin.actions.export')),
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(InvoiceResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(InvoiceResource::class)),
                     BulkAction::make('downloadPdfBundle')
                         ->label(__('admin.actions.bulk_download_pdfs'))
                         ->icon('heroicon-o-archive-box-arrow-down')

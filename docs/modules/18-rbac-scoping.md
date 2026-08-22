@@ -161,6 +161,38 @@ the first three did.
 the "everything except delete" filter would otherwise hand it straight back to every manager and
 quietly undo the requirement.
 
+#### Export is the wide door — but the door has to be on an admin panel (2026-08-22)
+
+The same FRD sentence that restricts import **widens** export: *"all other roles may export/download
+but not import."* So `App\Support\Exports::allowed()` is deliberately **not** a permission of its
+own. It asks the resource's own `canViewAny()` — whoever may read the list on screen may take it
+away, which is the rule `ExportsReport` already states for the report pages, and a new
+`exports.execute` key would only have to be granted back to every role.
+
+What it adds is the floor thirteen export actions across seven tables never had. Read as an
+authorization gap it is not one: Filament exports `getTableQueryForExport()`, the resource's own
+scoped query with the operator's filters applied, so an export can never return a row the list
+would not.
+
+**The bug was the panel, not the permission.** Six of those seven `Tables` classes are shared with
+the portal — one `InvoicesTable::configure()` serves `Filament\Admin\Resources\Invoices` and
+`Filament\Portal\Resources\Invoices` — so a tenant had an Export button on their invoices,
+payments, leases and credit notes. It cannot work: Filament resolves the exporting user from
+`Filament::getAuthGuard()`, `portal` on that panel, yielding a `TenantUser`, and writes its id into
+`exports.user_id`, **a foreign key to `users`**. Either a constraint violation or, where an admin
+holds the same id, a tenant's export filed under a stranger's name.
+
+Hence `instanceof User` and **not** `?->can()`: `TenantUser` does not use spatie's `HasRoles`, so
+`can()` answers false today for the wrong reason and would answer TRUE the day the portal grows a
+policy — the same reasoning that put `instanceof User` in the Filament CRUD gates. A portal export
+is **not offered** rather than refused; if tenants should be able to take their own ledger away that
+is a portal feature with its own exporter and its own foreign key.
+
+A table whose export is **wider than its list** passes a second permission: tenant requests gate on
+`requests.view_all`, because a technician sees only what is assigned to them.
+`PortalNeverGetsAnAdminExportButtonTest` sweeps `app/Filament` for an export chain missing either
+gate, and asserts the sweep found something before reporting on it.
+
 #### Assignment scoping (FR-USR-04)
 
 See [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md#the-second-scoping-primitive-assignment-fr-usr-04)

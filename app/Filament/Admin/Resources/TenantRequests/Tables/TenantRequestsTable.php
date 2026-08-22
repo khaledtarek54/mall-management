@@ -12,6 +12,7 @@ use App\Models\TenantRequestSubcategory;
 use App\Models\User;
 use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Services\TenantRequestService;
+use App\Support\Exports;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
 use Filament\Actions\Action;
@@ -234,8 +235,8 @@ class TenantRequestsTable
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
-                    ->visible(fn () => auth()->user()?->can('requests.view_all') ?? false)
-                    ->authorize(fn () => auth()->user()?->can('requests.view_all') ?? false),
+                    ->visible(fn (): bool => Exports::allowed(TenantRequestResource::class, 'requests.view_all'))
+                    ->authorize(fn (): bool => Exports::allowed(TenantRequestResource::class, 'requests.view_all')),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

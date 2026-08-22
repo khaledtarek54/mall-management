@@ -87,15 +87,18 @@ Livewire property and Livewire takes what the payload says, not what the `Select
 > catch-up after downtime re-sends nothing. A monthly schedule on the 31st fires on the last day of
 > a short month rather than being skipped: "the 31st" from an accountant means month end.
 >
-> **Fourteen of twenty reports are deliverable** — every one that has a CSV at all. Delivery needs
-> `App\Contracts\DeliverableReport`: a CSV that renders without a browser. Each page's export
-> closure was lifted into a `reportCsv()` method that the export BUTTON now also calls, so a
-> downloaded copy and a delivered one cannot diverge.
+> **A report is deliverable when it implements `App\Contracts\DeliverableReport`** — a CSV that
+> renders without a browser. Each page's export closure was lifted into a `reportCsv()` method that
+> the export BUTTON now also calls, so a downloaded copy and a delivered one cannot diverge.
 >
-> The six that are not deliverable have no CSV export in the first place — a checklist, a floor
-> plan, a diagram, a searchable log, a dry run and a PDF pack — which is a better reason than
-> "nobody has lifted it yet". `ReportCatalogue::NOT_DELIVERABLE` names each, and a conformance test
-> fails on a report that declares neither.
+> The rest have no CSV export in the first place — a checklist, a floor plan, a diagram, a dry run
+> and a PDF pack — which is a better reason than "nobody has lifted it yet".
+> `ReportCatalogue::NOT_DELIVERABLE` names each with its reason, and a conformance test fails on a
+> report that declares neither. *(This paragraph used to hand-type "fourteen of twenty" and "the
+> six that are not"; both had drifted, and one of the six it named — "a searchable log" — is the
+> audit log, which has been deliverable for some time and as of 2026-08-22 has the export button to
+> match. Counts here now come from the registry, per the project's rule against typing one into a
+> doc.)*
 >
 > The general ledger is the one that can be deliverable and still refuse: a saved view with no
 > account chosen is an unanswered question, not an empty report, so `reportCsv()` throws a
@@ -268,6 +271,18 @@ reconciliation somebody has to run.
 ## 5. Services, jobs & scheduled commands
 
 ### CSV export — `ReportCsvExporter` + `App\Support\ReportCsv`
+
+> **The audit log was the one page that could be delivered and not downloaded** (fixed 2026-08-22).
+> It implemented `DeliverableReport` and defined `reportCsv()` — so a saved view emailed itself on a
+> schedule — and never spread `exportActions()`, so there was no button on the screen. The only one
+> of the deliverable pages in that state.
+>
+> It does **not** take the trait's default gate. `ExportsReport::mayExport()` answers `reports.view`,
+> which is right for the report pages and wrong here: this page is gated on `activity_log.view`, and
+> `RolesPermissionsSeeder` withholds that key from `mall_admin` **because** the feed spans every
+> property and has no `asset_id` to scope by. Inheriting the default would have made the export a
+> second door into exactly the cross-property data the screen's own gate exists to withhold, so
+> `ActivityLog::mayExport()` overrides to `canAccess()` — which also honours the module switch.
 
 The financial reports were **PDF-only**, and the two an accountant most needs as raw data — the
 **General Ledger** and **AR Aging** — had **no export at all**. A PDF only presents; an accountant

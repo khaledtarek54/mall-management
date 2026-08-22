@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\AccountMapping;
 use App\Models\LedgerAccount;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Log;
 
 /**
  * ربط الحسابات الافتراضي — default semantic role → chart account mappings, used
@@ -101,7 +102,18 @@ class AccountMappingSeeder extends Seeder
         foreach (self::MAP as $key => $code) {
             $accountId = $idByCode[$code] ?? null;
             if (! $accountId) {
-                // Chart account missing — skip rather than seed a dangling mapping.
+                // Chart account missing — skip rather than seed a dangling mapping, but SAY SO.
+                //
+                // A silent `continue` is what makes a renumbered chart dangerous: this seeder finds
+                // its accounts by CODE, so an operator who renumbers `52101001` leaves the posting
+                // role unmapped and the only symptom is a red row in `atriom:health` long afterwards,
+                // with nothing naming the role or the code that went missing. Warn once per miss so
+                // `atriom:install` on a customised chart reports what it could not wire.
+                Log::warning('Account mapping skipped: no chart account for this code.', [
+                    'key' => $key,
+                    'code' => $code,
+                ]);
+
                 continue;
             }
 

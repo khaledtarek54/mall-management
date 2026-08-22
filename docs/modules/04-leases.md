@@ -278,6 +278,16 @@
 >   notice would push the operator to falsify the date.
 > - **Waive/lapse write no lease event**: nothing about the lease changed, and a timeline padded with
 >   non-events is one people stop reading.
+> - **An option is a RIGHT; an event is what happened — and `extension` belongs only to the second**
+>   (2026-08-22). `EVENT_FOR` mapped an option type `extension` and `pendingRenewalTerms()` queried
+>   for it, while `LeaseOption::TYPES` has never allowed the value and no
+>   `admin.lease_options.types.extension` label exists — dead code a direct write was the only way to
+>   reach. Removed rather than legalised: `renewal` already IS the right to extend, so a second code
+>   for it would split option reporting across two values meaning one thing, and the picker would
+>   have rendered a raw translation key. The trap is that `admin.leasing.lease_events.types` sits
+>   directly above `admin.leasing.lease_options.types` and DOES contain `extension` — reading the
+>   first while looking for the second is the same mistake that once gave `expense.category` the
+>   retail list.
 > - **Encumbrance warns, it does not block** (OP-03). `Unit::encumbrances()` / `isEncumbered()` feed
 >   BOTH unit pickers — master and additional, because an expansion right is usually exercised over
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
