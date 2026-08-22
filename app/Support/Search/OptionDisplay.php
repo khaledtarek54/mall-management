@@ -112,6 +112,13 @@ class OptionDisplay
     public const PRELOAD = [
         Asset::class,
         Area::class,
+        // A mall banks in two or three places. Registered rather than `->preload()`d at the call
+        // site because the FIELD and the FILTER must not diverge: the field browses (it passes
+        // `->suggest()`) while the filter, taking its answer from here, was falling to a static
+        // empty list and rendering "start typing to search" on a mall holding exactly two accounts
+        // — indistinguishable from "there are no bank accounts", the empty-dropdown failure this
+        // whole component exists to remove.
+        BankAccount::class,
         Department::class,
         Floor::class,
         Warehouse::class,

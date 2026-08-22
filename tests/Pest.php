@@ -741,3 +741,61 @@ function portalUsersRm(Tenant $tenant): Testable
         'pageClass' => EditTenant::class,
     ]);
 }
+
+/**
+ * Every chain attached to `Action::make(...)`, read by counting parentheses.
+ *
+ * A regex cannot do this: a chained `->using(function () { ... })` contains its own parens, quotes
+ * and semicolons, so any bounded pattern either stops inside the closure or runs past the end of the
+ * array element. The first version used `\([^;]*?\)` and swept over three actions entirely — a
+ * mutation proved an ungated `CreateAction` passed green behind one. Scanning forward and tracking
+ * depth is the only honest reading.
+ *
+ * @return array<int, string>
+ */
+function rmActionChains(string $code, string $action): array
+{
+    $chains = [];
+    $needle = $action.'::make(';
+    $offset = 0;
+    $len = strlen($code);
+
+    while (($start = strpos($code, $needle, $offset)) !== false) {
+        $i = $start + strlen($needle);
+        $depth = 1;
+
+        while ($i < $len && $depth > 0) {
+            $c = $code[$i];
+
+            if ($c === '(' || $c === '[') {
+                $depth++;
+            } elseif ($c === ')' || $c === ']') {
+                $depth--;
+
+                if ($depth === 0) {
+                    // Chained call? Skip whitespace and look for `->`.
+                    $j = $i + 1;
+                    while ($j < $len && ctype_space($code[$j])) {
+                        $j++;
+                    }
+
+                    if (substr($code, $j, 2) === '->') {
+                        $depth = 1;
+                        $i = $j + 2;
+
+                        while ($i < $len && $code[$i] !== '(') {
+                            $i++;
+                        }
+                    }
+                }
+            }
+
+            $i++;
+        }
+
+        $chains[] = substr($code, $start, $i - $start);
+        $offset = $i;
+    }
+
+    return $chains;
+}

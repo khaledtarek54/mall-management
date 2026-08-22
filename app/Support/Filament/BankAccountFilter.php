@@ -25,6 +25,12 @@ final class BankAccountFilter
         return EntitySelectFilter::make($name)
             ->label(__('admin.resources.bank_account.singular'))
             ->entity(BankAccount::class)
+            // Browsing rather than typing comes from `OptionDisplay::PRELOAD`, not from a
+            // `->preload()` here — the registry is what keeps this filter and `BankAccountField`
+            // answering the same way. Left to the call site they diverged: the field browses (it
+            // passes `->suggest()`) while the filter fell to a static empty list and rendered
+            // "start typing to search" on a mall holding exactly two accounts, which reads as
+            // "there are no bank accounts".
             ->modifyOptionsQuery(fn ($query) => $query->when(
                 TenantScope::currentAssetId(),
                 fn ($q, $id) => $q->where('asset_id', $id),

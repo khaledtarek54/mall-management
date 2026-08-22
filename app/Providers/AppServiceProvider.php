@@ -15,8 +15,10 @@ use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
 use App\Settings\IntegrationsSettings;
 use App\Support\ActivityVocabulary;
+use App\Support\Filament\AnnouncingAttachAction;
 use App\Support\Filament\AnnouncingCreateAction;
 use App\Support\Filament\AnnouncingDeleteAction;
+use App\Support\Filament\AnnouncingDetachAction;
 use App\Support\Filament\AnnouncingEditAction;
 use App\Support\Filament\AnnouncingForceDeleteAction;
 use App\Support\Filament\AnnouncingRestoreAction;
@@ -27,9 +29,11 @@ use App\Support\MorphMap;
 use App\Support\TableDefaults;
 use App\Support\ValueSets;
 use Filament\Actions\Action as FilamentAction;
+use Filament\Actions\AttachAction as FilamentAttachAction;
 use Filament\Actions\CreateAction as FilamentCreateAction;
 use Filament\Actions\DeleteAction as FilamentDeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\DetachAction as FilamentDetachAction;
 use Filament\Actions\EditAction as FilamentEditAction;
 use Filament\Actions\ForceDeleteAction as FilamentForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
@@ -87,6 +91,12 @@ class AppServiceProvider extends ServiceProvider
         // deliberately stands down for it. See AnnouncingForceDeleteAction.
         $this->app->bind(FilamentForceDeleteAction::class, AnnouncingForceDeleteAction::class);
         $this->app->bind(FilamentRestoreAction::class, AnnouncingRestoreAction::class);
+        // Attach and Detach for a third reason: `RelationManager`'s read-only-on-a-View-page deny
+        // covers SIXTEEN action types and only the five above were bound, so a `->authorize()` on
+        // an attach still replaced that deny instead of narrowing it. These two are the ones this
+        // app uses, and both grant or revoke ACCESS. See AnnouncingAttachAction.
+        $this->app->bind(FilamentAttachAction::class, AnnouncingAttachAction::class);
+        $this->app->bind(FilamentDetachAction::class, AnnouncingDetachAction::class);
 
         // Every bell notification gets a panel-correct "Open …" link. Laravel resolves the
         // `database` channel through the container, so this one binding reaches all 36 notification

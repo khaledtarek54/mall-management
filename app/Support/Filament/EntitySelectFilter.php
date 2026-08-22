@@ -109,6 +109,12 @@ class EntitySelectFilter extends SelectFilter
         return EntitySelect::applyTo($field, new EntityPicker(
             model: $this->entityModel,
             modifyQuery: $this->modifyOptionsQueryUsing,
+            // `SelectFilter::preload()` sets a flag that `parent::getFormField()` puts on the inner
+            // Select — and `applyTo()` then overwrote it with the registry's answer, so a
+            // `->preload()` written on a filter did nothing at all and looked like it worked. Only
+            // an explicit true is forwarded; false stays null so the registry keeps deciding, which
+            // is what stops a filter drifting away from the field beside it.
+            preload: $this->isPreloaded() ?: null,
         ));
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\Payments\Pages\ListPayments;
+use App\Filament\Exports\PaymentExporter;
 use App\Models\BankAccount;
 use App\Models\BankStatement;
 use App\Models\Expense;
@@ -13,6 +14,7 @@ use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Banking\MatchBankStatementLineService;
 use App\Services\VendorBillService;
+use App\Support\Filament\BankAccountFilter;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -515,4 +517,32 @@ it('lets an operator SEE which bank a document went through, and filter by it', 
             ->assertCanSeeTableRecords([$intoCib])
             ->assertCanNotSeeTableRecords([$intoNbe]);
     });
+});
+
+it('offers the two accounts in the filter without making the operator type', function () {
+    // `EntitySelectFilter` exists so a filter reads exactly like the form picker beside it. The
+    // field browses (it passes `->suggest()`), and without `->preload()` the filter fell to
+    // `applyTo()`'s static empty option list — which Filament renders as "start typing to search".
+    // On a mall holding exactly two accounts that is indistinguishable from "there are no bank
+    // accounts", the empty-dropdown failure `EntitySelect` was written to eliminate.
+    Filament::setTenant($this->asset, isQuiet: true);
+
+    $select = BankAccountFilter::make()->getFormField();
+
+    expect($select->isPreloaded())->toBeTrue();
+
+    $options = $select->getOptions();
+
+    expect($options)->toHaveCount(2)
+        ->and(array_keys($options))->toEqualCanonicalizing([$this->cib->id, $this->nbe->id]);
+});
+
+it('carries the bank account into the payment EXPORT, not just onto the screen', function () {
+    // The list gained a column and a filter; the CSV is where a reconciliation is actually done.
+    // Filament's export path applies the operator's filters but renders `ExportColumn`s, so a table
+    // column reaches none of it — narrow to CIB, export, and the file could not be told from NBE's.
+    $names = collect(PaymentExporter::getColumns())
+        ->map(fn ($column) => $column->getName());
+
+    expect($names)->toContain('bankAccount.name');
 });
