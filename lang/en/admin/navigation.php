@@ -6,6 +6,7 @@ return [
         'rent_indices' => 'Rent indices',
         'property_overrides' => 'Property overrides',
         'vat_return' => 'VAT return',
+        'wht_return' => 'Withholding tax return',
         'charge_codes' => 'Charge Codes',
         'tax_codes' => 'Tax Codes',
         'utility_tariffs' => 'Utility Tariffs',

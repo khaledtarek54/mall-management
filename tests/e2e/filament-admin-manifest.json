@@ -561,6 +561,10 @@
             "slug": "weekly-spend"
         },
         {
+            "class": "WithholdingTaxReturn",
+            "slug": "withholding-tax-return"
+        },
+        {
             "class": "Workflows",
             "slug": "workflows"
         }

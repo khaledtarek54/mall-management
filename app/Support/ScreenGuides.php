@@ -33,6 +33,7 @@ use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
 use App\Filament\Admin\Pages\VendorScorecard;
 use App\Filament\Admin\Pages\WeeklySpend;
+use App\Filament\Admin\Pages\WithholdingTaxReturn;
 use App\Filament\Admin\Pages\Workflows;
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Filament\Admin\Resources\AccountMappings\AccountMappingResource;
@@ -255,6 +256,7 @@ class ScreenGuides
         BalanceSheet::class => 'balance_sheet',
         CashFlow::class => 'cash_flow',
         VatReturn::class => 'vat_return',
+        WithholdingTaxReturn::class => 'wht_return',
         MonthEndClose::class => 'month_end_close',
         WeeklySpend::class => 'weekly_spend',
         VendorScorecard::class => 'vendor_scorecard',

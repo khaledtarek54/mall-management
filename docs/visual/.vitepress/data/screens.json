@@ -612,6 +612,12 @@
         "guide": "weekly_spend"
     },
     {
+        "screen": "WithholdingTaxReturn",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "wht_return"
+    },
+    {
         "screen": "FacilityWorkOrderResource",
         "panel": "admin",
         "kind": "resource",

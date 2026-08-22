@@ -6,6 +6,7 @@ return [
         'rent_indices' => 'الأرقام القياسية',
         'property_overrides' => 'إعدادات خاصة بالعقار',
         'vat_return' => 'الإقرار الضريبي',
+        'wht_return' => 'إقرار الخصم والإضافة',
         'charge_codes' => 'أكواد الرسوم',
         'tax_codes' => 'الأكواد الضريبية',
         'utility_tariffs' => 'تعريفة المرافق',

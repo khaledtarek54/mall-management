@@ -33,6 +33,7 @@ use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
 use App\Filament\Admin\Pages\VendorScorecard;
 use App\Filament\Admin\Pages\WeeklySpend;
+use App\Filament\Admin\Pages\WithholdingTaxReturn;
 use App\Filament\Admin\Pages\Workflows;
 use Filament\Facades\Filament;
 
@@ -110,6 +111,7 @@ class ReportCatalogue
 
         // ---- Tax ----
         VatReturn::class => ['category' => self::TAX, 'key' => 'vat_return', 'keywords' => ['vat', 'return', 'output', 'input', 'eta']],
+        WithholdingTaxReturn::class => ['category' => self::TAX, 'key' => 'wht_return', 'keywords' => ['withholding', 'wht', 'form 41', 'supplier', 'certificate', 'خصم', 'إضافة']],
 
         // ---- Operations ----
         Workflows::class => ['category' => self::OPERATIONS, 'key' => 'workflows', 'keywords' => ['approvals', 'process', 'diagram']],

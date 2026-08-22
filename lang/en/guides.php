@@ -1331,6 +1331,27 @@ return [
         ],
     ],
 
+    'wht_return' => [
+        'purpose' => 'What you deducted from suppliers under Egyptian withholding tax (خصم وإضافة), per supplier, for a quarter — the figures Form 41 is filed from, and the certificate each supplier needs to claim it back.',
+        'steps' => [
+            'Choose the quarter. The picker also offers single months and the whole year, for reconciling against your accountant’s own figures.',
+            'Check the tie-out in the subheading: what was deducted from suppliers against what the ledger says is owed to the ETA. They must agree before you file.',
+            'Read down the suppliers. A row with no tax ID cannot be reconciled by the ETA — chase it before filing.',
+            'Export the CSV for your accountant, and issue each supplier their certificate.',
+        ],
+        'affects' => [
+            'Nothing. It reports a position and files nothing — no return is submitted from this screen.',
+            'The certificate is a document you give a supplier. They use it to set the amount against their own income tax, so the figures on it are ones you are standing behind.',
+            'Nothing is recalculated here. The amounts are what was actually withheld at the time of each payment, so revising a rate today never changes a past quarter.',
+        ],
+        'rules' => [
+            'The base excludes VAT. Withholding is a prepayment of the supplier’s income tax, charged on the consideration for the supply — the VAT on top is theirs to remit.',
+            'The rate shown per supplier is what was withheld over what it was withheld from. Several payments in one quarter can carry different rates, so a single agreed rate would be a guess.',
+            'It is filed for the whole registration, not per mall. There is no per-property Form 41.',
+            'Withheld money is not yours. It sits in a liability until you pay it over to the ETA; “held for the ETA” in the subheading is what is still outstanding.',
+        ],
+    ],
+
     'month_end_close' => [
         'purpose' => 'The checklist for closing a month, with each step showing whether it is done.',
         'steps' => [

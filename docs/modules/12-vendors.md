@@ -76,6 +76,30 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 > — a CSV carrying "2" is refused rather than quietly withholding a rate the operator's sheet does
 > not list. See `WithholdingByTaxCodeTest`.
 
+> **The filing artefact — Form 41 and the certificate (EG-21, 2026-08-22).** The engine had been
+> correct and dated for months and there was nothing to FILE from it, which is what kept
+> `wht_enabled` switched off: withholding money you cannot declare or evidence is worse than not
+> withholding it. `/admin/withholding-tax-return` reports the QUARTER per supplier, and
+> `WithholdingCertificatePdfService` issues the document a supplier needs to set the amount against
+> their own income tax (it is an advance payment of THEIR tax, not a cost).
+>
+> Four decisions worth keeping:
+> - **Quarterly, on the FISCAL year's start**, not the calendar — an April→March mall year is
+>   ordinary in Egypt and every other report on `ScopesLedgerReport` already honours it. Months and
+>   the whole year stay offered beside the quarters, because an accountant reconciles a month at a time.
+> - **Per registration, not per property.** One Form 41 covers the portfolio; `$assetId` stays null.
+>   Same decision, same reason, as the VAT return.
+> - **The per-supplier rate is DERIVED — withheld ÷ base.** Several payments in one quarter can carry
+>   different rates (a code corrected on the vendor, a rate revised mid-quarter), so quoting a single
+>   agreed rate would be a guess. Nothing is recomputed from today's catalogue: a rate revised now
+>   must not rewrite a past quarter, exactly as an issued invoice keeps the VAT rate it was billed at.
+> - **The tie-out is the screen's purpose.** `vendor_bill_payments.withholding_amount` against the
+>   credit movement on `withholding_tax_payable` — two independent reads that must agree before a
+>   number becomes a filing position somebody signs. `WithholdingTaxReturnTest` proves it can FAIL.
+>
+> It files nothing and reproduces none of the ETA's boxes. Those are the accountant's, and a screen
+> imitating them would be a document that looks official and is not.
+
 > **Input VAT is classified (2026-08-12).** `vendor_bills.tax_code` names which purchases-side tax
 > the supplier charged, alongside the amount. Both this and `Expense` post their VAT to
 > `vat_recoverable` — the account the VAT return reads — so before this the input side of a filed
