@@ -79,7 +79,7 @@ class ComparativeStatementService
      * @return array{
      *     basis: string, current: array<string, mixed>, prior: array<string, mixed>,
      *     prior_from: string, prior_to: string,
-     *     rows: array<int, array{label: string, code: ?string, section: string, current: float, prior: float, change: float, change_pct: ?float}>,
+     *     rows: array<int, array{label: string, name_en: string, name_ar: string, account_id: ?int, code: ?string, section: string, current: float, prior: float, change: float, change_pct: ?float}>,
      *     totals: array<string, array{current: float, prior: float, change: float, change_pct: ?float}>,
      * }
      */
@@ -106,7 +106,7 @@ class ComparativeStatementService
                 $key = $row['code'] ?? $row['label'];
                 $priorAmount = (float) ($priorBySection[$key]['amount'] ?? 0);
 
-                $rows[] = self::line($section, $row['label'] ?? '', $row['code'] ?? null, (float) $row['amount'], $priorAmount);
+                $rows[] = self::line($section, $row, (float) $row['amount'], $priorAmount);
                 $priorBySection->forget($key);
             }
 
@@ -114,7 +114,7 @@ class ComparativeStatementService
             // exactly the change most worth seeing — a cost that stopped, or a revenue stream that
             // did.
             foreach ($priorBySection as $row) {
-                $rows[] = self::line($section, $row['label'] ?? '', $row['code'] ?? null, 0.0, (float) $row['amount']);
+                $rows[] = self::line($section, $row, 0.0, (float) $row['amount']);
             }
         }
 
@@ -135,10 +135,38 @@ class ComparativeStatementService
         ];
     }
 
-    /** @return array{label: string, code: ?string, section: string, current: float, prior: float, change: float, change_pct: ?float} */
-    private static function line(string $section, string $label, ?string $code, float $current, float $prior): array
+    /**
+     * One comparative line, carrying the account it is about.
+     *
+     * It used to take a `$label` read as `$row['label']`, and **neither source emits that key** —
+     * `LedgerReportService::statementRow()` and `BudgetService::asIncomeStatement()` both return
+     * `name_en` / `name_ar`. So every row on the comparative income statement rendered with a code
+     * and a BLANK account name, on all three bases, for the life of the screen. Found while giving
+     * the statement its chart subtotals (EG-28) — the plain statement resolves the name by locale
+     * and the comparative one, which is the same statement with two more columns, never did.
+     *
+     * `account_id` rides along for the same reason: the plain statement drills through to the
+     * general ledger and the comparative one could not, because this method dropped the id rather
+     * than because a comparison has nothing to open.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{label: string, name_en: string, name_ar: string, account_id: ?int, code: ?string, section: string, current: float, prior: float, change: float, change_pct: ?float}
+     */
+    private static function line(string $section, array $row, float $current, float $prior): array
     {
-        return ['label' => $label, 'code' => $code, 'section' => $section] + self::delta($current, $prior);
+        $nameEn = (string) ($row['name_en'] ?? $row['label'] ?? '');
+        $nameAr = (string) ($row['name_ar'] ?? $row['label'] ?? '');
+
+        return [
+            // Kept, and now actually filled — one caller reads it, and a row with no name at all is
+            // worse than one named in the wrong language.
+            'label' => app()->getLocale() === 'ar' ? $nameAr : $nameEn,
+            'name_en' => $nameEn,
+            'name_ar' => $nameAr,
+            'account_id' => isset($row['account_id']) ? (int) $row['account_id'] : null,
+            'code' => $row['code'] ?? null,
+            'section' => $section,
+        ] + self::delta($current, $prior);
     }
 
     /**

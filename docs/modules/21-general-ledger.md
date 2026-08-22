@@ -665,9 +665,67 @@ about charts. The report no longer reads a code.
 - **The cash branch is tested BEFORE the zero-impact guard**: a cash account whose movement nets to
   zero over the period still contributes to the running cash figure.
 
-Statement LAYOUT is still a `match()` on `ledger_accounts.type` — defensible, since type is
-chart-agnostic — but the chart's own `parent_id` rollup is read by no report and there is no chart
-importer. Both remain open under EG-28.
+### A statement is read by the chart's own subtotals (EG-28, 2026-08-22)
+
+`App\Support\StatementGroups` — the second half of EG-28, and the one that closes it.
+
+A statement listed every moving account flat under its type, so the balance sheet was forty-odd leaf
+lines with one figure at the bottom, and the summary accounts the chart already models
+(`is_postable = false`) appeared on **no statement at all**. `parent_id` was read by no report. The
+distinctions an accountant reads a statement by — current versus non-current, operating revenue
+versus other income versus sales returns — were all in the chart and on none of the pages. On the
+demo books that meant 10,055,007 of *operating* revenue was never distinguished from 12,440 of other
+income and −6,500 of sales returns; the reader saw one total of 10,060,947.
+
+**The group is the highest ancestor BELOW the root**, read off `parent_id`.
+`LedgerAccount::saving` does derive that parent from the code prefix, so the two agree here — but
+reading the TREE means this works at any depth and any width without knowing where one level of the
+numbering ends and the next begins, which is exactly the assumption the cash-flow statement had to
+be freed of in the first half of this ticket. An account with no parent belongs to no group: it
+either IS a root, or its code matched no shorter code and the chart never placed it. Both render
+ungrouped, after the grouped rows and with no subtotal — they still print and still count toward the
+section total, as does the balance sheet's synthetic *net income for the period* line, which has no
+account at all.
+
+**Three renderers, one helper.** The screen (`RendersFinancialStatement`), the CSV
+(`ReportCsvExporter::sectioned()`) and the PDF (`accounting.pdf._statement-section`) each used to
+build a statement their own way — the PDF blades carried **three copies** of one `$lines` closure —
+and EG-36 had already shipped a screen out of step with its own export once. They now resolve
+through one helper and one partial, so a statement, its CSV and its PDF cannot lay the same figures
+out three different ways.
+
+**A subtotal is only printed where it says something.** Two gates, the same rule at two levels:
+`StatementGroups::worthShowing()` suppresses grouping for a section with a single group (its
+subtotal would equal the section total), and each group's own `show_subtotal` is false for a
+one-row group (the row already IS the subtotal — *"Share capital 500,000 / Total Capital 500,000"*
+is four lines for two facts, and the row's own name says more than the heading repeating its
+figure). A statement that prints the same number twice under two names reads as an error.
+
+**The cash-flow statement opts OUT** (`CashFlow::groupStatements()` → false, `grouped: false` on
+the CSV and the partial). Its sections are ACTIVITIES, not branches of the chart: operating
+legitimately mixes revenue, receivables, payables and depreciation from five different roots, and
+subtotalling those by root would print headings that say nothing about cash.
+
+**The comparative income statement groups too.** Its rows carry a `code` and no `account_id` —
+`ComparativeStatementService` compares two periods and never reads the chart — so `StatementGroups`
+resolves either way, and one checkbox cannot leave the screen laid out differently from the
+statement it is a comparison of. Its subtotals compare as well (`prior`, `change`, and a null
+`change_pct` against a zero prior, the rule the column already formats by), and it passes
+`amountKey: 'current'` because a comparative row carries two figures and neither is named the way a
+plain statement names its one.
+
+**Two live bugs found reviewing this, both on the comparative statement.** `line()` read
+`$row['label']`, and **neither source emits that key** — `LedgerReportService::statementRow()` and
+`BudgetService::asIncomeStatement()` both return `name_en` / `name_ar`. Every row rendered as a code
+beside a **blank account name**, on all three bases, for the life of the screen; no test asserted the
+label. The same method dropped `account_id`, so the comparative statement was the one reading of the
+P&L whose figures could not be opened in the ledger — recorded in a comment as *"the comparative
+service works in labels and codes, not account ids"*, which described the symptom as if it were the
+design. Both fixed; both pinned in `ComparativeStatementTest`.
+
+Tests: `StatementsGroupByChartHierarchyTest` (12 cases — the helper, all three renderers, and the
+tie-out that subtotals foot back to the section total, because a grouping that silently dropped a row
+would still render as a tidy statement) and two cases in `ComparativeStatementTest`.
 
 ### A narrative is a KEY, resolved when the entry is read (EG-36, 2026-08-22)
 

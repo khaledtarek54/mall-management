@@ -23,7 +23,7 @@ use Carbon\CarbonImmutable;
  */
 afterEach(fn () => CarbonImmutable::setTestNow());
 
-function ratePricedLease(float $areaSqm, float $ratePerSqmYear): Lease
+function expiringRatePricedLease(float $areaSqm, float $ratePerSqmYear): Lease
 {
     $unit = makeUnit(makeAsset(), ['area_sqm' => $areaSqm]);
 
@@ -39,7 +39,7 @@ it('saves the rent that was actually negotiated', function () {
     CarbonImmutable::setTestNow('2026-12-01');
 
     // 250 m² at 4,800/m²/yr = 100,000/month. The deal was struck at 110,000.
-    $lease = ratePricedLease(250, 4800);
+    $lease = expiringRatePricedLease(250, 4800);
 
     expect((float) $lease->base_rent_monthly)->toBe(100000.0);
 
@@ -54,7 +54,7 @@ it('saves the rent that was actually negotiated', function () {
 it('re-rates so both columns stay true', function () {
     CarbonImmutable::setTestNow('2026-12-01');
 
-    $lease = ratePricedLease(250, 4800);
+    $lease = expiringRatePricedLease(250, 4800);
 
     $renewal = app(LeaseRenewalService::class)->renew($lease, [
         'new_term_months' => 12,
@@ -72,7 +72,7 @@ it('keeps the agreed figure exact when the rate cannot round back to it', functi
 
     // An awkward area: the implied rate rounds to 2dp and rate × area ÷ 12 no longer lands on the
     // typed rent. The operator must see the number they negotiated, not one a rounding produced.
-    $lease = ratePricedLease(233.7, 4800);
+    $lease = expiringRatePricedLease(233.7, 4800);
 
     $renewal = app(LeaseRenewalService::class)->renew($lease, [
         'new_term_months' => 12,

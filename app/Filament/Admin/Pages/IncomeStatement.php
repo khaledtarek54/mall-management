@@ -14,6 +14,7 @@ use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ComparativeStatementService;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\ReportPreferences;
+use App\Support\StatementGroups;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -251,24 +252,67 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
             'expense' => [__('admin.reports.expenses'), __('admin.reports.total_expenses'), 'expense'],
         ];
 
+        $locale = app()->getLocale();
         $records = [];
         $i = 0;
 
         foreach ($sections as $key => [$label, $totalLabel, $totalsKey]) {
-            foreach (array_filter($comparative['rows'], fn (array $row) => $row['section'] === $key) as $row) {
+            $sectionRows = array_values(array_filter($comparative['rows'], fn (array $row) => $row['section'] === $key));
+
+            // The same chart grouping the plain statement gets (EG-28). This path carries codes
+            // rather than account ids — the comparative service compares two periods and never
+            // reads the chart — which `StatementGroups` resolves either way, so one checkbox
+            // cannot leave the screen disagreeing with itself about how it is laid out.
+            // `current`, not `amount`: a comparative row carries two figures and neither is named
+            // the way a plain statement names its one. Defaulting silently summed nothing and the
+            // subtotals all read 0.00.
+            $groups = StatementGroups::for($sectionRows, amountKey: 'current');
+            $grouped = StatementGroups::worthShowing($groups);
+
+            foreach ($groups as $group) {
+                foreach ($group['rows'] as $row) {
+                    $records[] = [
+                        'id' => 'c'.$i++,
+                        'section' => $label,
+                        'code' => $row['code'],
+                        'account' => $row['label'],
+                        'amount' => $row['current'],
+                        'prior' => $row['prior'],
+                        'change' => $row['change'],
+                        'change_pct' => $row['change_pct'],
+                        'is_total' => false,
+                        'is_subtotal' => false,
+                        // Drills into the general ledger exactly as the plain statement does. The
+                        // service used to drop the account id on the floor, so a comparison was the
+                        // one reading of this statement whose figures could not be opened.
+                        'account_id' => $row['account_id'] ?? null,
+                    ];
+                }
+
+                if (! $grouped || ! $group['show_subtotal']) {
+                    continue;
+                }
+
+                // A subtotal compares too, or the group would be the one line on a comparative
+                // statement with nothing to compare it against.
+                $priorTotal = round(array_sum(array_map(fn (array $r): float => (float) ($r['prior'] ?? 0), $group['rows'])), 2);
+                $change = round($group['total'] - $priorTotal, 2);
+
                 $records[] = [
                     'id' => 'c'.$i++,
                     'section' => $label,
-                    'code' => $row['code'],
-                    'account' => $row['label'],
-                    'amount' => $row['current'],
-                    'prior' => $row['prior'],
-                    'change' => $row['change'],
-                    'change_pct' => $row['change_pct'],
+                    'code' => null,
+                    'account' => __('admin.reports.group_subtotal', [
+                        'group' => $locale === 'ar' ? $group['name_ar'] : $group['name_en'],
+                    ]),
+                    'amount' => round($group['total'], 2),
+                    'prior' => $priorTotal,
+                    'change' => $change,
+                    // Null, not 0%, against a zero prior — the same rule the column formats by. A
+                    // rise from nothing has no percentage.
+                    'change_pct' => $priorTotal == 0.0 ? null : round($change / abs($priorTotal) * 100, 1),
                     'is_total' => false,
-                    // The comparative service works in labels and codes, not account ids, so there
-                    // is nothing to drill into. Null renders as plain text — a dead link would read
-                    // as a broken screen.
+                    'is_subtotal' => true,
                     'account_id' => null,
                 ];
             }
@@ -285,6 +329,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                 'change' => $total['change'],
                 'change_pct' => $total['change_pct'],
                 'is_total' => true,
+                'is_subtotal' => false,
                 'account_id' => null,
             ];
         }
@@ -301,6 +346,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
             'change' => $net['change'],
             'change_pct' => $net['change_pct'],
             'is_total' => true,
+            'is_subtotal' => false,
             'account_id' => null,
         ];
 

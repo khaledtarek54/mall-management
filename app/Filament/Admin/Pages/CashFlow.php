@@ -113,6 +113,19 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
         ];
     }
 
+    /**
+     * No chart grouping here (EG-28).
+     *
+     * The other two statements' sections ARE branches of the chart, so grouping them by the chart's
+     * own hierarchy is how they are read. A cash-flow section is an ACTIVITY: operating legitimately
+     * mixes revenue, receivables, payables and depreciation from five different roots, and
+     * subtotalling those by root would print headings that say nothing about cash.
+     */
+    protected function groupStatements(): bool
+    {
+        return false;
+    }
+
     protected function report(): array
     {
         return app(LedgerReportService::class)->cashFlow(

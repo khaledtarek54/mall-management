@@ -149,6 +149,7 @@ return [
         'total_assets' => 'Total assets',
         'total_liabilities' => 'Total liabilities',
         'total_equity' => 'Total equity',
+        'group_subtotal' => 'Total :group',
         'net_income_period' => 'Net income (not yet closed)',
         'total_equity_and_liabilities' => 'Total liabilities & equity',
         'as_of_year_end' => 'As of year end',

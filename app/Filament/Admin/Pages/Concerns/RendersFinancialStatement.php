@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages\Concerns;
 
 use App\Filament\Admin\Pages\GeneralLedger;
+use App\Support\StatementGroups;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -45,18 +46,46 @@ trait RendersFinancialStatement
         $i = 0;
 
         foreach ($sections as $sectionLabel => $section) {
-            foreach ($section['rows'] as $row) {
+            // The subtotals the chart already models (EG-28). A section listed every moving account
+            // flat, so a balance sheet was forty leaf lines and one total; current versus
+            // non-current, operating revenue versus other income, are what it is actually read by.
+            $groups = StatementGroups::for($section['rows']);
+            $grouped = $this->groupStatements() && StatementGroups::worthShowing($groups);
+
+            foreach ($groups as $group) {
+                foreach ($group['rows'] as $row) {
+                    $records[] = [
+                        'id' => 'r'.$i++,
+                        'section' => $sectionLabel,
+                        'code' => $row['code'] ?? null,
+                        'account' => $locale === 'ar' ? ($row['name_ar'] ?? '') : ($row['name_en'] ?? ''),
+                        'amount' => round((float) ($row['amount'] ?? 0), 2),
+                        'is_total' => false,
+                        'is_subtotal' => false,
+                        // What this line is made of. A statement whose figures cannot be opened is
+                        // correct and terminal — the numbers are right, and there is no way to ask
+                        // where they came from without leaving the report and rebuilding its filters.
+                        'account_id' => $row['account_id'] ?? null,
+                    ];
+                }
+
+                // `show_subtotal` is the helper's own call: false for the ungrouped bucket (a
+                // heading that names nothing) and for a one-row group (the row IS the subtotal).
+                if (! $grouped || ! $group['show_subtotal']) {
+                    continue;
+                }
+
                 $records[] = [
                     'id' => 'r'.$i++,
                     'section' => $sectionLabel,
-                    'code' => $row['code'] ?? null,
-                    'account' => $locale === 'ar' ? ($row['name_ar'] ?? '') : ($row['name_en'] ?? ''),
-                    'amount' => round((float) ($row['amount'] ?? 0), 2),
+                    'code' => null,
+                    'account' => __('admin.reports.group_subtotal', [
+                        'group' => $locale === 'ar' ? $group['name_ar'] : $group['name_en'],
+                    ]),
+                    'amount' => round($group['total'], 2),
                     'is_total' => false,
-                    // What this line is made of. A statement whose figures cannot be opened is
-                    // correct and terminal — the numbers are right, and there is no way to ask
-                    // where they came from without leaving the report and rebuilding its filters.
-                    'account_id' => $row['account_id'] ?? null,
+                    'is_subtotal' => true,
+                    'account_id' => null,
                 ];
             }
 
@@ -67,6 +96,7 @@ trait RendersFinancialStatement
                 'account' => $section['total_label'],
                 'amount' => round((float) $section['total'], 2),
                 'is_total' => true,
+                'is_subtotal' => false,
                 // A total is not an account, so there is nothing to open. Deliberately null rather
                 // than absent, so the column's URL closure has one shape for every row.
                 'account_id' => null,
@@ -74,6 +104,32 @@ trait RendersFinancialStatement
         }
 
         return $records;
+    }
+
+    /**
+     * Does this statement's sections group by the chart's hierarchy?
+     *
+     * True for the balance sheet and the income statement, whose sections ARE parts of the chart.
+     * The cash-flow statement overrides it to false: its sections are activities, not chart
+     * branches, so an operating section legitimately mixes revenue, receivables and payables from
+     * five different roots and subtotalling them by root would say nothing.
+     */
+    protected function groupStatements(): bool
+    {
+        return true;
+    }
+
+    /**
+     * How heavily a row prints. Three weights for three kinds of line, so the eye can tell a leaf
+     * from a group subtotal from the figure the section foots to.
+     */
+    protected function statementWeight(array $record): string
+    {
+        return match (true) {
+            (bool) ($record['is_total'] ?? false) => 'bold',
+            (bool) ($record['is_subtotal'] ?? false) => 'medium',
+            default => 'normal',
+        };
     }
 
     /** The common column/group configuration for a statement table. */
@@ -86,7 +142,7 @@ trait RendersFinancialStatement
      */
     protected function ledgerUrlFor(array $record): ?string
     {
-        if ($record['is_total'] || blank($record['account_id'] ?? null)) {
+        if ($record['is_total'] || ($record['is_subtotal'] ?? false) || blank($record['account_id'] ?? null)) {
             return null;
         }
 
@@ -113,7 +169,7 @@ trait RendersFinancialStatement
                 TextColumn::make('account')
                     ->label(__('admin.tables.ledger_account.account'))
                     // The total line is the one an eye should land on.
-                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal')
+                    ->weight(fn (array $record): string => $this->statementWeight($record))
                     // Into the general ledger for THIS account, over the same period and property
                     // the statement was run for. Landing on "this year, all properties" would
                     // answer a different question from the one that was clicked.
@@ -123,7 +179,7 @@ trait RendersFinancialStatement
                     ->label(__('admin.fields.amount'))
                     ->money('EGP')
                     ->alignEnd()
-                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal'),
+                    ->weight(fn (array $record): string => $this->statementWeight($record)),
                 // ── The comparison, when one was asked for (RP-06) ──────────────────────────────
                 // A single period's P&L says what happened; it cannot say whether that is normal.
                 // 180,000 of maintenance is unremarkable next to 175,000 last month and alarming
@@ -132,7 +188,7 @@ trait RendersFinancialStatement
                     ->label(__('admin.reports.prior'))
                     ->money('EGP')
                     ->alignEnd()
-                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal') : null,
+                    ->weight(fn (array $record): string => $this->statementWeight($record)) : null,
                 $comparative ? TextColumn::make('change')
                     ->label(__('admin.reports.change'))
                     ->money('EGP')
@@ -146,7 +202,7 @@ trait RendersFinancialStatement
                         ($record['change'] ?? 0) < 0 => 'danger',
                         default => null,
                     })
-                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal') : null,
+                    ->weight(fn (array $record): string => $this->statementWeight($record)) : null,
                 $comparative ? TextColumn::make('change_pct')
                     ->label(__('admin.reports.change_pct'))
                     ->alignEnd()
@@ -154,7 +210,7 @@ trait RendersFinancialStatement
                     // percentage, and printing one ("+100%", "∞") invents a number the books do not
                     // support. The em dash says "not applicable" and is the honest answer.
                     ->formatStateUsing(fn ($state): string => $state === null ? '—' : number_format((float) $state, 1).'%')
-                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal') : null,
+                    ->weight(fn (array $record): string => $this->statementWeight($record)) : null,
             ]))
             ->groups([
                 Group::make('section')

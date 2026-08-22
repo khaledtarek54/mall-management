@@ -26,6 +26,9 @@
         .num { text-align: {{ $isRtl ? 'left' : 'right' }}; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .code { font-family: monospace; font-size: 8pt; color: #6B7280; }
         .section-title { font-weight: bold; font-size: 11pt; margin: 14px 0 4px; color: #0F1419; }
+        /* A chart-group subtotal (EG-28) — lighter than the figure the section foots to,
+           heavier than a leaf, so the three kinds of line stay distinguishable in print. */
+        .subtotal-row td { border-top: 1px solid #D1D5DB; font-weight: 600; color: #374151; }
         .total-row td { border-top: 2px solid #9CA3AF; font-weight: bold; }
         .grand td { border-top: 2px solid #0F766E; font-weight: bold; font-size: 11pt; }
         .ok { color: #15803D; } .bad { color: #B91C1C; }

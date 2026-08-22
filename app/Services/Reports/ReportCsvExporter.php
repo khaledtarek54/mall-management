@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Models\Invoice;
 use App\Support\JournalNarrative;
+use App\Support\StatementGroups;
 use Illuminate\Support\Collection;
 
 /**
@@ -79,7 +80,8 @@ class ReportCsvExporter
             [__('admin.reports.csv.operating'), $operating, (float) $report['operating_total']],
             [__('admin.reports.csv.investing'), $report['investing'], (float) $report['investing_total']],
             [__('admin.reports.csv.financing'), $report['financing'], (float) $report['financing_total']],
-        ], netLabel: __('admin.reports.csv.net_change'), netAmount: (float) $report['net_change']);
+            // Activities, not chart branches — see `CashFlow::groupStatements()`.
+        ], netLabel: __('admin.reports.csv.net_change'), netAmount: (float) $report['net_change'], grouped: false);
     }
 
     /**
@@ -90,14 +92,32 @@ class ReportCsvExporter
      * @param  array<int, array{0:string,1:Collection|iterable,2:float}>  $sections
      * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
      */
-    private function sectioned(array $sections, string $netLabel, float $netAmount): array
+    private function sectioned(array $sections, string $netLabel, float $netAmount, bool $grouped = true): array
     {
+        $locale = app()->getLocale();
         $rows = [];
+
         foreach ($sections as [$label, $lines, $subtotal]) {
-            foreach ($lines as $line) {
-                $line = (array) $line;
-                $rows[] = [$label, $line['code'] ?? '', $this->name($line), round((float) ($line['amount'] ?? 0), 2)];
+            // The chart's own subtotals (EG-28) — the same ones the screen and the PDF print, from
+            // the same helper. A statement whose export is laid out differently from the screen is
+            // the failure this ticket's sibling (EG-36) shipped once already.
+            $groups = StatementGroups::for(collect($lines)->map(fn ($line): array => (array) $line)->all());
+            $showGroups = $grouped && StatementGroups::worthShowing($groups);
+
+            foreach ($groups as $group) {
+                foreach ($group['rows'] as $line) {
+                    $rows[] = [$label, $line['code'] ?? '', $this->name($line), round((float) ($line['amount'] ?? 0), 2)];
+                }
+
+                if (! $showGroups || ! $group['show_subtotal']) {
+                    continue;
+                }
+
+                $rows[] = [$label, '', __('admin.reports.group_subtotal', [
+                    'group' => $locale === 'ar' ? $group['name_ar'] : $group['name_en'],
+                ]), round($group['total'], 2)];
             }
+
             $rows[] = [$label, '', __('admin.reports.csv.subtotal'), round($subtotal, 2)];
         }
         $rows[] = ['', '', $netLabel, round($netAmount, 2)];

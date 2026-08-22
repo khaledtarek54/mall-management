@@ -186,6 +186,7 @@ return [
         'total_assets' => 'إجمالي الأصول',
         'total_liabilities' => 'إجمالي الخصوم',
         'total_equity' => 'إجمالي حقوق الملكية',
+        'group_subtotal' => 'إجمالي :group',
         'net_income_period' => 'صافي الدخل غير المُقفل',
         'total_equity_and_liabilities' => 'إجمالي الخصوم وحقوق الملكية',
         'as_of_year_end' => 'كما في نهاية العام',

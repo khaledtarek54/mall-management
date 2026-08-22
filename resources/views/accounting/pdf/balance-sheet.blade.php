@@ -4,28 +4,14 @@
 @section('content')
     @php $locale = $meta['locale'] ?? app()->getLocale(); @endphp
 
-    @php
-        $lines = function ($rows, $total, $totalLabel) use ($locale) {
-            $out = '<table class="report">';
-            foreach ($rows as $row) {
-                $out .= '<tr><td class="code" style="width:5rem">'.e($row['code']).'</td>'
-                    .'<td>'.e($locale === 'ar' ? $row['name_ar'] : $row['name_en']).'</td>'
-                    .'<td class="num">'.number_format($row['amount'], 2).'</td></tr>';
-            }
-            $out .= '<tr class="total-row"><td colspan="2">'.e($totalLabel).'</td>'
-                .'<td class="num">EGP '.number_format($total, 2).'</td></tr>';
-
-            return $out.'</table>';
-        };
-    @endphp
 
     <div class="section-title">{{ __('admin.reports.assets') }}</div>
-    {!! $lines($report['assets'], $report['total_assets'], __('admin.reports.total_assets')) !!}
+    @include('accounting.pdf._statement-section', ['rows' => $report['assets'], 'total' => $report['total_assets'], 'totalLabel' => __('admin.reports.total_assets'), 'locale' => $locale])
 
     <div class="section-title">{{ __('admin.reports.liabilities_equity') }}</div>
-    {!! $lines($report['liabilities'], $report['total_liabilities'], __('admin.reports.total_liabilities')) !!}
+    @include('accounting.pdf._statement-section', ['rows' => $report['liabilities'], 'total' => $report['total_liabilities'], 'totalLabel' => __('admin.reports.total_liabilities'), 'locale' => $locale])
     <div style="height:6px;"></div>
-    {!! $lines($report['equity'], $report['total_equity'], __('admin.reports.total_equity')) !!}
+    @include('accounting.pdf._statement-section', ['rows' => $report['equity'], 'total' => $report['total_equity'], 'totalLabel' => __('admin.reports.total_equity'), 'locale' => $locale])
 
     <table class="report" style="margin-top:6px;">
         <tr>

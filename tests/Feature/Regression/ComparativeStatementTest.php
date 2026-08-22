@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Admin\Pages\IncomeStatement;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\JournalPostingService;
@@ -120,4 +121,73 @@ it('reads both periods through the SAME income-statement definition', function (
 
     expect($report['current']['total_revenue'])->toBe(1000.0)
         ->and($report['totals']['revenue']['current'])->toBe(1000.0);
+});
+
+it('names the account on every comparative row, instead of a code beside a blank', function () {
+    // Found reviewing EG-28. `line()` read `$row['label']`, and NEITHER source emits that key —
+    // `LedgerReportService::statementRow()` and `BudgetService::asIncomeStatement()` both return
+    // `name_en` / `name_ar`. So every row of this statement rendered as a code and an empty name,
+    // on all three bases, for the life of the screen. The plain income statement resolves the name
+    // by locale; the comparative one is the same statement with two more columns and never did.
+    plPosting(10000, '2026-03-10');
+
+    $row = collect(app(ComparativeStatementService::class)->incomeStatement(
+        CarbonImmutable::parse('2026-03-01'),
+        CarbonImmutable::parse('2026-03-31'),
+    )['rows'])->firstWhere('code', '41101001');
+
+    $account = LedgerAccount::where('code', '41101001')->sole();
+
+    expect($row['label'])->toBe('Base Rent Revenue')
+        ->and($row['label'])->not->toBe('')
+        // Both languages ride along, so the page picks the way every other screen does rather than
+        // the service deciding for it.
+        ->and($row['name_ar'])->toBe($account->name_ar)
+        // And the id, so a comparison can be opened in the ledger like its plain twin. It was
+        // dropped by `line()`, not absent because a comparison has nothing to open.
+        ->and($row['account_id'])->toBe($account->id);
+});
+
+it('gives the comparative statement the same chart subtotals as the plain one', function () {
+    // EG-28. The comparative rows carry a code and no id, which `StatementGroups` resolves either
+    // way — so one checkbox cannot leave this screen laid out differently from the statement it is
+    // a comparison of.
+    plPosting(10000, '2026-03-10');
+
+    $bank = LedgerAccount::where('code', '11102001')->firstOrFail();
+
+    // Two accounts under `41 Operating Revenue` and one under `42 Other Income`. Both halves of the
+    // rule are on screen at once: 41 has something to add up and gets a subtotal, 42 is a one-row
+    // group and does not.
+    foreach ([['41102001', 4000], ['42101001', 1500]] as [$code, $amount]) {
+        app(JournalPostingService::class)->post([
+            'entry_date' => '2026-03-11',
+            'description_en' => 'Revenue '.$code,
+            'lines' => [
+                ['ledger_account_id' => $bank->id, 'debit' => $amount, 'credit' => 0],
+                ['ledger_account_id' => LedgerAccount::where('code', $code)->firstOrFail()->id, 'debit' => 0, 'credit' => $amount],
+            ],
+        ]);
+    }
+
+    $page = new IncomeStatement;
+    $records = $page->comparativeRecords(app(ComparativeStatementService::class)->incomeStatement(
+        CarbonImmutable::parse('2026-03-01'),
+        CarbonImmutable::parse('2026-03-31'),
+    ));
+
+    $subtotals = collect($records)->filter(fn ($r) => $r['is_subtotal'])->values();
+    $subtotal = $subtotals->first();
+
+    // Exactly one — `42 Other Income` has a single row, which already is its own subtotal.
+    expect($subtotals)->toHaveCount(1)
+        ->and($subtotal)->not->toBeNull()
+        ->and($subtotal['account'])->toBe('Total Operating Revenue')
+        ->and($subtotal['amount'])->toBe(14000.0)
+        // A subtotal compares too, or it would be the one line on a comparative statement with
+        // nothing to compare against. Nothing was posted in the prior span.
+        ->and($subtotal['prior'])->toBe(0.0)
+        ->and($subtotal['change'])->toBe(14000.0)
+        // Null, not 0% or infinity, against a zero prior — the rule the column already formats by.
+        ->and($subtotal['change_pct'])->toBeNull();
 });
