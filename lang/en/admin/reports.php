@@ -345,6 +345,8 @@ return [
         'term' => 'Term',
         'notes' => 'Notes',
         'footer' => 'Payment due within :days days of issue · Bank transfer / Card / InstaPay',
+        'payment_instructions' => 'How to pay',
+        'terms' => 'Terms',
         'footer_queries' => 'Queries',
         'eta_reference' => 'ETA e-Invoice Reference',
         'eta_submission_id' => 'Submission ID',

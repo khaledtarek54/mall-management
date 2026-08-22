@@ -34,6 +34,7 @@ use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Filament\Admin\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Admin\Resources\PayrollRates\PayrollRateResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
@@ -232,6 +233,7 @@ class SearchPolicy
      */
     public const GLOBAL_SEARCH_EXEMPT = [
         RetailCategoryResource::class => 'A dozen merchandising categories the leasing team configures and everyone else picks from a dropdown. A shopper-facing directory search looks for the STORE, not the category, and that already works through the tenant blob.',
+        DocumentTemplateResource::class => 'A handful of rows the operator writes once and revises rarely, found by opening the screen rather than by searching. Searching for a phrase should find the DOCUMENT that carries it — the invoice, the statement — not the template it was written in.',
         PayrollRateResource::class => 'One row a year, and nobody searches for a year — the accountant opens the ladder to add next January\'s decree or to check what was in force. There is no name, code or reference to fold: every column is a number or a date.',
         ViolationCategoryResource::class => 'Seven-odd house rules a compliance manager configures and a field officer picks from a dropdown. Searching for "signage" should find the BREACH, not the rule it was filed under, and that already works through the violation blob.',
         VendorDocumentTypeResource::class => 'A handful of compliance-paper kinds an operator configures once. Searching for "insurance" should find the VENDOR whose certificate is lapsing, not the word for the certificate, and that already works through the vendor blob.',

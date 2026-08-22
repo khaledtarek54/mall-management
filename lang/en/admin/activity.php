@@ -20,6 +20,7 @@ return [
             'retail_category' => 'Retail category',
             'expense_category' => 'Expense category',
             'tenant_request_subcategory' => 'Request subcategory',
+            'document_template' => 'Document wording',
             'payroll_rate' => 'Payroll rate',
             'violation_category' => 'Violation category',
             'vendor_document_type' => 'Vendor document type',

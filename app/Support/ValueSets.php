@@ -100,6 +100,11 @@ class ValueSets
      * @var array<string, list<string>>
      */
     public const SETS = [
+        // The blocks a document actually renders (EG-15). Derived from `DocumentText::KEYS` rather
+        // than re-listed: a template written for a slot nothing reads is the inert-settings-screen
+        // failure — the operator writes it, saves it, and nothing happens.
+        'document_templates.key' => [DocumentText::class, 'KEY_NAMES'],
+
         // ── Registered 2026-08-22 (EG-37) ──────────────────────────────────────────────────────
         // `ValueSets` covered the 62 columns that were DB enums on 2026-08-12 and nothing since, so
         // every classification column added in the ten weeks after was UNENFORCED — including

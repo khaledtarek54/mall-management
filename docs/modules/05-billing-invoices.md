@@ -273,6 +273,27 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
      One trap worth naming: `TransferUnitOwnershipService` copied the flag with a `(bool)` cast,
      which turns null into **false** — a resale would have re-frozen "ask the catalogue" into
      "permanently exempt", reintroducing the bug one unit at a time.
+   - **The standing wording on the invoice is the OPERATOR's** (EG-15 slice 1, 2026-08-22).
+     `App\Support\DocumentText::for($key, $assetId, $tokens)` resolves *this property's row → the
+     house row → the translation key the document always used*. Three blocks today, registered in
+     `DocumentText::KEYS`: `invoice.footer`, `invoice.payment_instructions` and `invoice.terms`.
+
+     Every word on an invoice was a lang key, so changing the footer was a deploy — and two things
+     made that worse than the usual complaint. The footer **names payment rails**: *"Payment due
+     within :days days of issue · Bank transfer / Card / InstaPay"*, three of them hardcoded on the
+     one document every tenant reads monthly, while EG-11 made rails a catalogue the operator adds
+     to and retires. And **no invoice showed bank details at all**, so a tenant holding one could
+     not know where to pay; there was nowhere to put it.
+
+     **The floor is what makes it safe to deploy** — an install with no rows renders exactly what it
+     rendered yesterday, and the two new blocks render nothing at all until written, rather than a
+     heading over a gap. **Null `asset_id` is the house default** and every mall sees it
+     (`#[PropertyOwned(portfolioRowsWhenNull: true)]`); a row naming a mall overrides it there only,
+     which is what bank details need. **Plain text, not a rich editor** — a deviation from EG-15 as
+     written, argued in the migration: these blocks are set in the document's own typography, and
+     the rich editor belongs with the dunning/message slice where wording is the whole artefact.
+     `{days}` is the only token, an unknown one is **printed rather than blanked**, and the body is
+     escaped with line breaks preserved. Pinned by `DocumentWordingIsTheOperatorsTest`.
    - **Exempt ≠ zero-rated** — both bill 0 and they are different lines on a VAT return, so the
      treatment is stored on the tax code rather than inferred from a zero on a line, where it could
      never be recovered.

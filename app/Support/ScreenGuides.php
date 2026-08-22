@@ -69,6 +69,7 @@ use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Filament\Admin\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Admin\Resources\PayrollRates\PayrollRateResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
@@ -226,6 +227,7 @@ class ScreenGuides
         HolidayResource::class => 'holidays',
         ExpenseCategoryResource::class => 'expense_categories',
         RetailCategoryResource::class => 'retail_categories',
+        DocumentTemplateResource::class => 'document_templates',
         PayrollRateResource::class => 'payroll_rates',
         ViolationCategoryResource::class => 'violation_categories',
         VendorDocumentTypeResource::class => 'vendor_document_types',

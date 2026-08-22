@@ -371,7 +371,7 @@ operator will want to change in week one.
 | S-3 | **Consolidated books exist in the service layer and are unreachable in the panel.** The property switcher never offers "All Properties" and the report picker is pinned+disabled. Combined with `whereIn('je.asset_id', $ids)` never matching NULL, **any operator-level or cross-property journal entry is invisible in every financial statement an operator can open.** Module 21's doc still advertises "per-property & consolidated" | `app/Models/User.php:151-153`; `app/Support/Filament/PropertyField.php:146-147`; `LedgerReportService.php:472` | 🔴 |
 | S-4 | **Financial-statement layout is a PHP `match()` on `ledger_accounts.type`**, and the chart's own `parent_id` rollup hierarchy is read by **no report**. The cash-flow statement classifies by **literal code prefixes** (`111`, `121`, `12`, `22`…). **If the accountant hands over a different Egyptian chart:** a chart not numbered 1–5 by nature is *refused at save*; one numbered 1–5 with different sub-ranges *saves fine and silently misclassifies the cash-flow statement* — and `reconciled` will not catch it, because it only re-asserts the double-entry identity. There is also **no chart importer** | `LedgerReportService.php:163-227,280-303`; `app/Models/LedgerAccount.php:39-45,131-148,197-209` | 🔴 |
 | S-5 | **No report builder.** 23 catalogued reports, every column a PHP literal, no user-defined columns or groupings. The *parameter* layer is genuinely good (saved views, per-user memory, scheduled delivery, CSV+XLSX) but saves **filters/sort/search/tab only, never columns**. Against Yardi's Report Builder this is the largest ongoing cost multiplier per additional owner | `app/Support/ReportCatalogue.php:85-118`; `app/Models/TableView.php:59-69` | 🔴 |
-| S-6 | **No operator-editable document or message templates anywhere.** No `document_templates` table, no terms/footer settings field, **no `RichEditor` in the entire app**, no mail tab on the settings page. Every invoice footer, dunning letter and SLA email is a deploy. **This is the single largest "the operator cannot run their own business" gap** | searches named; `app/Filament/Admin/Pages/Settings.php:91-98` | 🔴 |
+| S-6 | 🟡 **HALF FIXED 2026-08-22 (EG-15 slice 1)** — `document_templates` + a screen now carry the invoice's footer, payment instructions and terms, property-overridable with the old lang key as the floor. **Messages are untouched**: no mail tab, no dunning wording, and still no `RichEditor` in the app. ~~**No operator-editable document or message templates anywhere.**~~ No `document_templates` table, no terms/footer settings field, **no `RichEditor` in the entire app**, no mail tab on the settings page. Every invoice footer, dunning letter and SLA email is a deploy. **This is the single largest "the operator cannot run their own business" gap** | searches named; `app/Filament/Admin/Pages/Settings.php:91-98` | 🔴 |
 | S-7 ✅ | **FIXED 2026-08-21 (EG-05).** ~~A fake `.test` address prints on every issued invoice PDF.~~ `__('admin.pdf.footer')` interpolates `billing@:slug.test` — rendering e.g. `billing@atriom-walk.test` on a legal tax document, and on tenant/asset statements. Verified in all four lang files. **One settings field plus four string edits; cheapest item in this report and the most embarrassing** | `resources/views/invoices/pdf.blade.php:332`; `lang/en/admin/reports.php:324`, `lang/ar/admin/reports.php:323`, `lang/en/admin/accounting.php:439`, `lang/ar/admin/accounting.php:432` | 🔴 |
 | ~~S-8~~ ✅ | **FIXED 2026-08-21 (EG-16), completed after review.** The first cut reached all twelve TEMPLATES and only seven SERVICES: five called `forView()` with no asset, so the owner statement — the document Jawad actually receives — rendered `$asset` in its own party block while the logo beside the issuer name was unconditionally absent. The gate only checked the `@include` was present. Both halves are gated now, and a report filtered to one mall carries that mall's letterhead via `forViewScopedTo()`. ~~No mall logo on any PDF~~ | `app/Support/IssuingEntity.php` | 🟠 |
 | S-9 ✅ | **FIXED 2026-08-21 (EG-06).** ~~`ext-intl` is undeclared while 260 money columns depend on it.~~ `composer.json` `require` has no `ext-*` at all; `Number::currency()` throws without intl. The codebase already documents the hazard for a different call site. **A deploy box without intl 500s every list and dashboard showing money** | `composer.json:11-28`; `app/Support/Search/SearchText.php:111-113` | 🔴 |
@@ -416,7 +416,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-12**~~ ✅ | **DONE 2026-08-22.** Six documents, not thirteen, and the boundary is stated rather than implied: these are the ones a bank statement line can explain (AR receipt · supplier payment · expense · deposit movement · owner disbursement · payroll). The other seven money sources are petty-cash and internal flows that keep resolving through the RAIL — correct and unchanged — and because all thirteen now call one resolver, giving one of them a bank account later is a column and a form field rather than a change to how posting works. **Null is the normal state**: until an operator says which account, the rail answers exactly as before and no balance moves | X-7 | 🧑‍💻 | M |
 | ~~**EG-13**~~ ✅ | **DONE 2026-08-21.** Built on EG-11's pattern with its review's lessons applied up front rather than after: all four journalizers and all eight surfaces converted in one pass, the seeder wired into all three entry points, and the surface gate GENERALISED to both catalogues rather than duplicated. Two things the row did not name and the work needed: `CostNature::categoriesOf()` — the REVERSE direction — still read only the const, so a category an operator marked `fixed` would answer `fixed` one way and be absent the other, and a CAM pool filtered by nature would omit a cost that was itself classified correctly. And the three category columns had no value set at all | D-1 | 🧑‍💻 | M |
 | ~~**EG-14**~~ ✅ | **DONE 2026-08-21.** Deliberately narrower than the row as written: subcategories and per-type SLA became rows, the TYPE did not. Four things the ticket did not name — a nullable column inside a UNIQUE silently stops enforcing it (SQL treats NULLs as distinct, so two conflicting `urgent` policies both saved and the existing uniqueness test went green because its expected exception stopped being thrown); MySQL refused the migration three ways sqlite would have accepted; `request_type` is cast to the enum so `(string)` on it is a TypeError; and **the helper-uniqueness gate had been blind since it was written** — `T_CURLY_OPEN` vs a plain `}` drove its depth counter negative on any file with string interpolation, so `tests/Pest.php`, the one file CLAUDE.md says to put shared helpers in, was the one it could not see | D-3 | 🧑‍💻 | M |
-| **EG-15** | **Operator-editable document/message templates** — invoice terms, footer, bank details, dunning wording. A `document_templates` table + a rich editor + a mail tab | S-6 | 🧑‍💻 | L |
+| **EG-15** | 🟡 **SLICE 1 DONE 2026-08-22 — documents yes, messages not yet.** `document_templates` + `App\Support\DocumentText::for()` + a screen, wired into the invoice PDF: footer, **payment instructions** (a block that did not exist, so a tenant could not see where to pay) and terms. Resolution is *property row → house row → the translation key the document always used*, so an install with no rows renders exactly what it rendered before and the operator adopts one block at a time. Null `asset_id` is the house default every mall inherits; a row naming a mall overrides it there only, which is what two malls banking in two places need. **Deviation, argued: plain text rather than a `RichEditor`.** These blocks are set in the document's own typography, so what a rich editor mainly buys here is operator-authored HTML flowing into mpdf and later into mail. The editor belongs with the **remaining half — dunning wording, the mail tab and the message templates**, where wording is the whole artefact | S-6 | 🧑‍💻 | L |
 | ~~**EG-16**~~ ✅ | **DONE 2026-08-21.** One seam, one partial, one gate — twelve templates, none of which can be missed next time | S-8 | 🧑‍💻 | S |
 | ~~**EG-17**~~ ✅ | **DONE 2026-08-21.** Driven through Laravel's own renderer in both locales rather than asserted against the blade source — a `dir` attribute a later layer overrides is not a fixed email. The theme half had to be a SOURCE assertion, and the reason is the finding: the CSS inliner normalises `text-align: left` away entirely, so with the bug restored the rendered `<p>` carries no alignment at all and the rendered HTML cannot tell the two apart | S-10 | 🧑‍💻 | S |
 | ~~**EG-18**~~ ✅ | **DONE 2026-08-21.** Two keys, and only one of them was the one-liner the finding promised. Also strengthened the wiring gate that was supposed to prevent exactly this: it searched three paths for the bare key name, so the PORTFOLIO read satisfied it and it certified wiring it never checked | M-5, S-14 | 🧑‍💻 | S |
@@ -1185,6 +1185,58 @@ silently discarded every argument, because PHP's `+` keeps the LEFT operand's ke
 asserted a 14,500 ceiling against a rung that had none. And the migration's own seeded 2026 rung
 **supersedes** a test rung dated 2000, so three existing tests had to state their whole ladder
 rather than add to it.
+
+---
+
+### 2026-08-22 — milestone 15: EG-15 slice 1, the invoice starts saying what the operator says
+
+S-6 called this *"the single largest 'the operator cannot run their own business' gap"*, and the
+part of it that reaches a tenant every month is the invoice.
+
+**Two specifics, not a general complaint about lang files.** The footer reads *"Payment due within
+:days days of issue · **Bank transfer / Card / InstaPay**"* — three payment rails hardcoded on the
+one document every tenant reads monthly, while EG-11 turned rails into a catalogue the operator
+adds to and retires, so the sentence can be wrong the moment they use the feature. And **no invoice
+showed bank details at all**: a tenant holding one had no way to know where to pay, and there was
+nowhere to put it.
+
+`document_templates` + `App\Support\DocumentText::for()` + a screen, wired into the invoice PDF as
+three blocks — footer, payment instructions, terms.
+
+**The floor is the safety case.** Resolution is *property row → house row → the translation key the
+document always used*, so an install with no rows renders exactly what it rendered yesterday and the
+operator adopts one block at a time. The two NEW blocks have no floor and render **nothing** until
+written — a heading over a gap on a document about money reads as a missing instruction rather than
+an absent one.
+
+**Null `asset_id` is the house default, and that decision cost three gate failures to get right.**
+The wording is portfolio text first and a mall's override second, which makes the model a HYBRID —
+`#[PropertyOwned(portfolioRowsWhenNull: true)]`, the same third case the five money models have. The
+gates caught all three consequences: the resource needed a hybrid `getEloquentQuery()` or the house
+row is invisible from every screen; it needed `BypassesFilamentTenantAutoScope`, or the panel
+stamps the operator's blank with the selected mall and the default becomes unwritable through its
+own form (the "Announcements tenancy trap"); and the hybrid list is **pinned by a test that calls it
+a money decision**, so joining it is an argued edit rather than a silent one.
+
+**A stated deviation: plain text, not a `RichEditor`.** The ticket asks for one and S-6 notes the app
+has none. These blocks are set in the document's own typography, so what a rich editor mainly buys
+here is operator-authored HTML flowing into mpdf and, later, into email — a real escaping problem
+taken on for a bolded line. It belongs with the **remaining half**: dunning wording, the mail tab
+and message templates, where wording is the whole artefact. EG-15 is 🟡, not closed.
+
+**Small things that are the actual content.** An unknown token is **printed, not blanked** —
+`{amont}` visible on an invoice gets reported, a silently deleted sentence does not. `e()` goes
+INSIDE `nl2br`, or nl2br's own `<br>` is escaped. Both languages live on one row and a missing one
+falls back to the other, because a blank where the payment terms belong is worse than the wrong
+language. And the test renders the **real blade**, asserting the operator's footer replaced the
+built-in sentence rather than being appended under it — a resolver agreeing is a different claim
+from the document being right.
+
+**One bug of my own, caught by a gate and worth recording.** The lang insert for this slice anchored
+on the `insurable_wage_floor` key shipped an hour earlier in EG-03 and **replaced it** instead of
+inserting beside it. `ActivityLogVocabularyConformanceTest` named the exact missing label in both
+locales. A registry gate catching a regression in the previous commit's work is the whole argument
+for having them.
 
 ---
 

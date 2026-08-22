@@ -74,6 +74,7 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use App\Models\DocumentTemplate;
 use App\Models\PayrollRate;
 use App\Models\PostDatedCheque;
 use App\Models\PropertySetting;
@@ -265,6 +266,7 @@ class MorphMap
         'expense_category' => ExpenseCategory::class,
         'payment_method' => PaymentMethod::class,
         'retail_category' => RetailCategory::class,
+        'document_template' => DocumentTemplate::class,
         'payroll_rate' => PayrollRate::class,
         'violation_category' => ViolationCategory::class,
         'vendor_document_type' => VendorDocumentType::class,

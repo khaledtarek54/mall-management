@@ -42,6 +42,7 @@ use App\Models\Area;
 use App\Models\Asset;
 use App\Models\Department;
 use App\Models\DepositTransaction;
+use App\Models\DocumentTemplate;
 use App\Models\Expense;
 use App\Models\Holiday;
 use App\Models\JournalEntry;
@@ -476,6 +477,11 @@ it('F: pins which models treat a null asset_id as portfolio-level', function () 
         // resource, so converting that resource on it would have hidden every operator-wide row.
         Department::class,
         DepositTransaction::class,
+        // Added 2026-08-22 (EG-15), deliberately. A null asset_id is the HOUSE wording every mall
+        // inherits and a row naming a mall overrides it there only — so the null row is the
+        // ordinary case, not an unclassified one. Scoping it strictly would hide the default from
+        // every screen, which is the row the operator writes first.
+        DocumentTemplate::class,
         Expense::class,
         // A national holiday is ONE row for the whole portfolio and a property's own row
         // overrides it for that date — which is how a mall trading through Eid is expressed.

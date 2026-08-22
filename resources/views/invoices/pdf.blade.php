@@ -333,8 +333,33 @@
         </div>
     @endif
 
+    {{-- Where to pay, and on whose terms — the operator's own words (EG-15). Both blocks render
+         only when written: a heading with nothing under it on a document about money reads as a
+         missing instruction rather than an absent one. --}}
+    @php($paymentInstructions = \App\Support\DocumentText::for('invoice.payment_instructions', $invoice->asset_id))
+    @if($paymentInstructions)
+        <div class="notes">
+            <div class="label" style="margin-bottom:4px;">{{ __('admin.pdf.payment_instructions') }}</div>
+            {!! nl2br(e($paymentInstructions)) !!}
+        </div>
+    @endif
+
+    @php($terms = \App\Support\DocumentText::for('invoice.terms', $invoice->asset_id))
+    @if($terms)
+        <div class="notes">
+            <div class="label" style="margin-bottom:4px;">{{ __('admin.pdf.terms') }}</div>
+            {!! nl2br(e($terms)) !!}
+        </div>
+    @endif
+
     <div class="footer">
-        {{ __('admin.pdf.footer', ['days' => $invoice->issue_date->diffInDays($invoice->due_date)]) }}
+        {{-- `e()` INSIDE `nl2br`, never after: nl2br would otherwise have its own <br> escaped.
+             The body is operator-typed, so it is escaped and only the line breaks survive. --}}
+        {!! nl2br(e(\App\Support\DocumentText::for(
+            'invoice.footer',
+            $invoice->asset_id,
+            ['days' => $invoice->issue_date->diffInDays($invoice->due_date)],
+        ) ?? '')) !!}
         {{-- Printed only when configured, exactly as the seller TRN above is. A fabricated
              address is worse than none: it is trusted, written to, and fails silently. --}}
         @if($billingEmail) · {{ __('admin.pdf.footer_queries') }}: {{ $billingEmail }}@endif

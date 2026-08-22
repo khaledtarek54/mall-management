@@ -197,6 +197,11 @@ class RolesPermissionsSeeder extends Seeder
             'retail_categories.create' => 'Add a retail category',
             'retail_categories.edit' => 'Edit a retail category',
             'retail_categories.delete' => 'Remove a retail category',
+            // What the tenant reads on their invoice. Not `settings.manage`: this is wording the
+            // operator revises, not a switch that changes how the system behaves.
+            'document_templates.view' => 'View the standing wording on tenant-facing documents',
+            'document_templates.create' => 'Add a document wording block',
+            'document_templates.edit' => 'Edit a document wording block',
             // The state's numbers, not the operator's — gated apart from `payrolls.*` on purpose:
             // running a payroll and deciding what the statutory rates ARE is not one authority.
             'payroll_rates.view' => 'View the dated ladder of statutory payroll rates',
@@ -861,6 +866,8 @@ class RolesPermissionsSeeder extends Seeder
             // The statutory ladder itself (EG-03) — the accountant owns what the state's rates ARE,
             // which is a different authority from running a payroll against them.
             'payroll_rates.view', 'payroll_rates.create', 'payroll_rates.edit',
+            // Accounting owns what an invoice SAYS about payment — the terms and where to pay.
+            'document_templates.view', 'document_templates.create', 'document_templates.edit',
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
             'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
             'employees.view', 'employees.grant_advance', 'employees.record_repayment',

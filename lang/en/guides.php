@@ -1849,6 +1849,28 @@ return [
             'The count beside each row is how many retailers are in it — that is what makes it undeletable, shown so the refusal is not a surprise.',
         ],
     ],
+    'document_templates' => [
+        'purpose' => 'The standing wording on the documents your tenants read. The invoice footer, how to pay you, your terms. All of it was fixed text in the software until now — changing a word meant a release, and the footer still names three payment methods that may no longer be the ones you take.',
+        'steps' => [
+            'Pick the block you want to write — the invoice footer, the payment instructions, or the terms.',
+            'Leave the property blank to write it once for every mall. Pick a mall only when that one differs — different bank details, usually.',
+            'Write both languages. A tenant reading in Arabic gets the Arabic; if you write only one, that one is used everywhere rather than leaving a gap.',
+            'In the footer you may write {days} and it becomes the payment terms in days for each invoice.',
+            'To stop using your wording, switch the row off. The document falls back to the house default, or to the built-in text.',
+        ],
+        'affects' => [
+            'Every invoice PDF raised from now on — the one document each tenant receives every month. Invoices already downloaded are unchanged; the PDF is rendered fresh each time, so re-downloading an old invoice shows the current wording.',
+            'The payment instructions block does not appear at all until you write it. Until then a tenant holding your invoice has no way to see where to pay.',
+            'A row for one mall overrides the blank-property row for that mall only. Everything else keeps the house wording.',
+        ],
+        'rules' => [
+            'One row per block per property. To write a different mall\'s version, add a row and pick that mall.',
+            'The block cannot be changed after saving — a written block belongs to its slot. Add the other one and switch this off.',
+            'Plain text. Line breaks are kept; there is no bold or italic, because the document sets its own type.',
+            'Only {days} is understood, and only in the invoice footer. Anything else in braces is printed as you typed it, so you can see the mistake rather than lose the sentence.',
+        ],
+    ],
+
     'payroll_rates' => [
         'purpose' => 'Egypt\'s statutory payroll numbers, as a dated ladder. One row is one decree: the insurable-wage band and the contribution rates that came into force together on a date. These were three settings you had to edit by hand every January, with no way to enter a rise in advance and no record of what a past run was computed with.',
         'steps' => [

@@ -169,6 +169,7 @@ return [
     */
     'hints' => [
         'subcategory_trade' => 'A work order raised from this problem goes to that trade, so it reaches the right craft rate and the right contractors.',
+        'document_template_locale' => 'Write both. A tenant reading the invoice in Arabic gets the Arabic text; if only one language is written, that one is used rather than leaving a gap where the payment terms belong.',
         'payroll_rate_note' => 'Cite the decree or circular this row comes from. When someone asks why a past payroll used these numbers, the answer is here rather than in a memory.',
         'vendor_document_blocks_dispatch' => 'Blocking is for risk the mall carries — an uninsured contractor on the floor. Paperwork should be chased loudly, not block an emergency repair.',
         'expense_category_ledger_account' => 'Point a category at its own account and every future bill of that kind lands there instead of the general admin bucket.',
