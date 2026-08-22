@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\PayrollService;
 use App\Support\Attributes\NeverDeletable;
@@ -34,8 +35,10 @@ class Payroll extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use RecordsBankAccount;
 
     protected $fillable = [
+        'bank_account_id',
         'number',
         'asset_id',
         'period_month',

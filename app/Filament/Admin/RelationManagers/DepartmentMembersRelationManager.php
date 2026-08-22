@@ -83,6 +83,7 @@ class DepartmentMembersRelationManager extends RelationManager
                     // managing membership requires role-management authority
                     // (roles.edit = super_admin), not merely departments.edit.
                     ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->preloadRecordSelect()
                     ->recordSelect(
                         fn (Select $select) => $select
@@ -113,10 +114,13 @@ class DepartmentMembersRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false),
-                DetachAction::make()
-                    // Detaching REVOKES the department role — same role-management gate.
                     ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false),
+                DetachAction::make()
+                    // Detaching REVOKES the department role — same role-management gate. `authorize()`
+                    // beside `visible()`: a relation manager has no resource for the seam to ask.
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->after(fn (Model $record, $livewire) => $livewire->getOwnerRecord()->unregisterMember($record)),
             ])
             ->defaultSort('pivot_assigned_at', 'desc');

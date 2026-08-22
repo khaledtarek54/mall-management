@@ -147,7 +147,8 @@ class MarketingSpendsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()->after(fn () => $this->warnIfOverBudget())
-                    ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('marketing.edit') ?? false),
                 // Where the marketing fund went, as a spreadsheet — the record the owner reviews.
                 Action::make('export_csv')
                     ->label(__('admin.reports.csv.export'))
@@ -164,9 +165,11 @@ class MarketingSpendsRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()->after(fn () => $this->warnIfOverBudget())
-                    ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('marketing.edit') ?? false),
                 DeleteAction::make()
-                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false)
+                    ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('spent_on', 'desc');
     }

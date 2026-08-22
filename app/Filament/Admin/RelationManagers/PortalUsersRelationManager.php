@@ -109,7 +109,8 @@ class PortalUsersRelationManager extends RelationManager
                     ->authorize(fn (TenantUser $record): bool => static::mayEditPortalUser($record)),
                 // Delete stays super_admin-only (project-wide convention).
                 DeleteAction::make()
-                    ->visible(fn () => Auth::user()?->hasRole('super_admin') ?? false),
+                    ->visible(fn () => Auth::user()?->hasRole('super_admin') ?? false)
+                    ->authorize(fn () => Auth::user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('is_admin', 'desc');
     }

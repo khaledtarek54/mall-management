@@ -138,6 +138,7 @@ class ServiceChecklistRelationManager extends RelationManager
                     }),
                 DeleteAction::make()
                     ->visible(fn () => $this->orderEditable() && (auth()->user()?->can('facility.edit') ?? false))
+                    ->authorize(fn () => $this->orderEditable() && (auth()->user()?->can('facility.edit') ?? false))
                     ->using(function (FacilityWorkOrderItem $record): void {
                         abort_unless(auth()->user()?->can('facility.edit') ?? false, 403);
                         app(FacilityWorkOrderService::class)->removeItem($record);

@@ -70,6 +70,37 @@ it('offers the deposit form its own default', function () {
         ->and(PaymentMethod::labelFor('bank', 'admin.enums.expense_paid_from'))->not->toBe('bank');
 });
 
+it('keeps every accepted value reachable from the FILTER, retired or not', function () {
+    // The other half, and the one the first cut got wrong on both sides. A form asks what may be
+    // filed NOW; a filter asks what is already filed, and the column accepts floor ∪ active — so
+    // anything in that set can be sitting in a row and must be findable. Pointing the filter at the
+    // form's answer hid `bank` from the deposit filter on every seeded install, which is the only
+    // value that column actually holds.
+    $this->seed(PaymentMethodSeeder::class);
+
+    PaymentMethod::create([
+        'code' => 'wallet_retired', 'name_en' => 'Retired wallet', 'name_ar' => 'محفظة متوقفة',
+        'for_inbound' => true, 'for_outbound' => true, 'is_active' => false,
+    ]);
+
+    $filter = PaymentMethod::filterOptionsFor('deposit_transactions.method', 'admin.enums.expense_paid_from');
+    $form = PaymentMethod::optionsFor('deposit_transactions.method', 'admin.enums.expense_paid_from');
+
+    expect($filter)->toHaveKey('bank')
+        ->and($filter)->toHaveKey('wallet_retired')
+        // …and the FORM still narrows, or the two would be the same list and `is_active` inert.
+        ->and($form)->not->toHaveKey('wallet_retired');
+
+    // `toHaveKey($key, $value)` takes an expected VALUE second, not a message — same family as the
+    // variadic `toContain` trap this project has been bitten by twice. Collect and compare instead.
+    $unreachable = array_values(array_diff(
+        ValueSets::forTable('deposit_transactions')['method'],
+        array_keys($filter),
+    ));
+
+    expect($unreachable)->toBe([], 'The filter cannot reach deposits recorded as: '.implode(', ', $unreachable));
+});
+
 it('drops a code the operator actually retired', function () {
     // The control for the rule above. "Still offered unless a row retires it" is only meaningful if
     // a row CAN retire it — otherwise this gate would just re-create the floor ∪ active union that

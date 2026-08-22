@@ -25,8 +25,12 @@ class DisbursementService
         float $amount,
         string $method,
         User $actor,
+        // Which bank account the money leaves — null means the rail decides, exactly as before.
+        // Threaded through rather than read off the request, because the console and any future API
+        // path build a disbursement here too.
+        ?int $bankAccountId = null,
     ): Disbursement {
-        return DB::transaction(function () use ($statement, $amount, $method) {
+        return DB::transaction(function () use ($statement, $amount, $method, $bankAccountId) {
             $statement = OwnerStatement::whereKey($statement->id)->lockForUpdate()->firstOrFail();
 
             if (! in_array($statement->status, [OwnerStatement::STATUS_FINALISED, OwnerStatement::STATUS_SENT], true)) {
@@ -50,6 +54,7 @@ class DisbursementService
                 'user_id' => $statement->user_id,
                 'amount' => $amount,
                 'method' => $method,
+                'bank_account_id' => $bankAccountId,
                 // Freeze the required tier NOW (null when no ladder is configured for disbursements).
                 'required_permission' => ApprovalPolicy::permissionFor(ApprovalRule::MODULE_DISBURSEMENT, $amount),
                 'status' => Disbursement::STATUS_SCHEDULED,

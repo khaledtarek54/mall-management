@@ -268,21 +268,15 @@ class PaymentMethod extends Model
      */
     public static function filterOptionsFor(string $column, ?string $fallbackGroup = null): array
     {
+        [$table, $name] = explode('.', $column, 2);
         $reader = ValueSets::catalogueWidenedColumns()[$column][1] ?? 'outboundCodes';
         $direction = $reader === 'outboundCodes' ? 'for_outbound' : 'for_inbound';
 
-        try {
-            $rows = static::query()->where($direction, true)->orderBy('sort_order')->get()
-                ->mapWithKeys(fn (self $m) => [$m->code => $m->label()])->all();
-
-            if ($rows !== []) {
-                return $rows;
-            }
-        } catch (\Throwable) {
-            // Before the table exists.
-        }
-
-        return static::optionsFor($column, $fallbackGroup);
+        return static::catalogueFilterOptions(
+            scope: fn (Builder $q) => $q->where($direction, true),
+            floor: ValueSets::allowed($table, $name) ?? [],
+            fallbackGroup: $fallbackGroup,
+        );
     }
 
     public function ledgerAccount(): BelongsTo

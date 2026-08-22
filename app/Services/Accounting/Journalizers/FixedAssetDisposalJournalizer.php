@@ -3,8 +3,8 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\FixedAssetDisposal;
-use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -63,7 +63,7 @@ class FixedAssetDisposalJournalizer implements Journalizer
         }
         // Sale proceeds in.
         if ($proceeds > 0) {
-            $lines[] = ['ledger_account_id' => PaymentMethod::accountIdOrFloor($disposal->proceeds_account, $assetId, $this->accounts), 'debit' => $proceeds, 'credit' => 0, 'asset_id' => $assetId];
+            $lines[] = ['ledger_account_id' => MoneyAccount::for(null, $disposal->proceeds_account, $assetId, $this->accounts), 'debit' => $proceeds, 'credit' => 0, 'asset_id' => $assetId];
         }
         // Balancing gain or loss.
         if ($gainLoss > 0) {

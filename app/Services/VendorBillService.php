@@ -47,7 +47,7 @@ class VendorBillService
      * amount at the remaining balance, so concurrent payments can't over-pay.
      * Returns the actual amount paid (0 if nothing applied).
      */
-    public function recordPayment(VendorBill $bill, float $amount, string $method = 'bank_transfer', ?\DateTimeInterface $date = null, ?string $notes = null): float
+    public function recordPayment(VendorBill $bill, float $amount, string $method = 'bank_transfer', ?\DateTimeInterface $date = null, ?string $notes = null, ?int $bankAccountId = null): float
     {
         // `payment_date` becomes the GL entry_date (VendorBillPaymentJournalizer), so it must land in
         // an OPEN period — otherwise the Dr AP / Cr Bank / Cr WHT-Payable posting silently fails (the
@@ -56,7 +56,7 @@ class VendorBillService
         // A missing period is allowed; only a CLOSED one is refused. Returns the normalised date.
         $postingDate = PostingDate::assertOpen($date ?? now(), __('admin.fields.payment_date'));
 
-        return DB::transaction(function () use ($bill, $amount, $method, $postingDate, $notes) {
+        return DB::transaction(function () use ($bill, $amount, $method, $postingDate, $notes, $bankAccountId) {
             $bill = VendorBill::query()->with('vendor')->lockForUpdate()->find($bill->id);
 
             if (! $bill || ! $bill->isPostable()) {
@@ -84,6 +84,8 @@ class VendorBillService
                 'amount' => $pay,
                 'withholding_amount' => $withheld,
                 'method' => $method,
+                // Which bank account the money left — null means the rail decides, as before.
+                'bank_account_id' => $bankAccountId,
                 'payment_date' => $postingDate->toDateString(),
                 'notes' => $notes,
                 'created_by_user_id' => Auth::id(),

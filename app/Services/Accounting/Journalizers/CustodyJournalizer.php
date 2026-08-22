@@ -3,8 +3,8 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\Custody;
-use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -44,7 +44,7 @@ class CustodyJournalizer implements Journalizer
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('custody', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
-                ['ledger_account_id' => PaymentMethod::accountIdOrFloor($custody->paid_from, $assetId, $this->accounts), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
+                ['ledger_account_id' => MoneyAccount::for(null, $custody->paid_from, $assetId, $this->accounts), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
             ],
         ];
     }

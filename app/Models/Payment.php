@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Notifications\PaymentReceivedNotification;
 use App\Support\Attributes\NeverDeletable;
@@ -29,6 +30,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class Payment extends Model
 {
     use AllocatesDocumentNumber, GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
+    use RecordsBankAccount;
 
     /**
      * Receipt reference, the cheque it came on, and the gateway's own transaction id —
@@ -94,6 +96,7 @@ class Payment extends Model
     }
 
     protected $fillable = [
+        'bank_account_id',
         'reference',
         'tenant_id',
         'amount',

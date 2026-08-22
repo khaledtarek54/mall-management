@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'bank_account_on_document' => 'Leave blank unless you need to tell two bank accounts apart when reconciling.',
         'escalation_index_code' => 'Which published series this rent follows. Enter the figures under Leasing, Rent indices.',
         'escalation_index_base_value' => 'The index figure this rent was last measured from. It rolls forward each time the rent steps.',
         'escalation_index_lag_months' => 'How far back to read. The September index effective 1 January is 4.',

@@ -77,7 +77,7 @@
             "instead": "reverse the deposit transaction"
         },
         "change_impact": {
-            "derived": 8,
+            "derived": 9,
             "descriptive": 1,
             "neutral": 2
         }
@@ -110,7 +110,7 @@
             "instead": "cancel the disbursement — it is a GL source and an owner payout"
         },
         "change_impact": {
-            "derived": 5,
+            "derived": 6,
             "descriptive": 1,
             "neutral": 6
         }
@@ -160,7 +160,7 @@
         },
         "change_impact": {
             "refused": 4,
-            "derived": 5,
+            "derived": 6,
             "descriptive": 1,
             "neutral": 5
         }
@@ -279,7 +279,7 @@
         },
         "change_impact": {
             "refused": 2,
-            "derived": 3,
+            "derived": 4,
             "descriptive": 1,
             "neutral": 10
         }
@@ -296,7 +296,7 @@
             "instead": "cancel the run — payslips and their GL entries follow it"
         },
         "change_impact": {
-            "derived": 11,
+            "derived": 12,
             "descriptive": 1,
             "neutral": 5
         }
@@ -396,7 +396,7 @@
         },
         "change_impact": {
             "refused": 4,
-            "derived": 1,
+            "derived": 2,
             "descriptive": 1,
             "neutral": 2
         }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
@@ -37,6 +38,7 @@ class Expense extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use RecordsBankAccount;
 
     /**
      * Expense number, the external reference on the receipt, and what it was for.
@@ -75,6 +77,7 @@ class Expense extends Model
     }
 
     protected $fillable = [
+        'bank_account_id',
         // Which JOB this cost belongs to — the other road into the service bucket.
         'facility_work_order_id',
         'number',

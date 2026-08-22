@@ -76,6 +76,7 @@ class TenantRequestCommentsRelationManager extends RelationManager
                     // canEdit() is false for terminal requests, so no comments are
                     // added to a closed/cancelled ticket from here.
                     ->visible(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
+                    ->authorize(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->schema([
                         Textarea::make('body')
                             ->label(__('admin.tenant_requests.body'))

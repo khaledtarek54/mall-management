@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Payrolls\Schemas;
 
 use App\Models\Payroll;
+use App\Support\Filament\BankAccountField;
 use App\Support\Filament\PropertyField;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -52,6 +53,12 @@ class PayrollForm
                         ->default('bank')
                         ->native(false)
                         ->required()
+                        ->disabled($locked),
+
+                    // Which bank account this money moved through — optional, and null means the rail
+                    // decides. Set it and the posting lands in THAT account's chart account, which is
+                    // what lets a mall banking in two places reconcile either one.
+                    BankAccountField::make()
                         ->disabled($locked),
 
                     Textarea::make('description')

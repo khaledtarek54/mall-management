@@ -84,6 +84,7 @@ class AssetStaffRelationManager extends RelationManager
                     // requires role-management authority (roles.edit = super_admin),
                     // not merely assets.edit — mirrors DepartmentMembersRelationManager.
                     ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->preloadRecordSelect()
                     ->recordSelect(
                         fn (Select $select) => $select
@@ -111,11 +112,14 @@ class AssetStaffRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false),
                 DetachAction::make()
                     // Detaching REVOKES the user's access to this property — same
-                    // role-management gate as attaching.
-                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false),
+                    // role-management gate as attaching. `authorize()` beside `visible()` because a
+                    // relation manager has no resource for the seam to ask, so the call site IS the gate.
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('roles.edit') ?? false),
             ])
             ->defaultSort('pivot_assigned_at', 'desc');
     }

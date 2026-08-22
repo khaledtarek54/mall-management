@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\OwnerAccounting\DisbursementService;
 use App\Support\Attributes\NeverDeletable;
@@ -29,6 +30,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class Disbursement extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
+    use RecordsBankAccount;
 
     public const STATUS_SCHEDULED = 'scheduled';
 
@@ -62,6 +64,7 @@ class Disbursement extends Model
     }
 
     protected $fillable = [
+        'bank_account_id',
         'reference',
         'owner_statement_id',
         'asset_id',

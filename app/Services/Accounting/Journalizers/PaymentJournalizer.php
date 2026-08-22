@@ -3,8 +3,8 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\Payment;
-use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -78,7 +78,7 @@ class PaymentJournalizer implements Journalizer
         // card capture debits the bank on CAPTURE day while the money lands T+1/T+2, so the book
         // line and the bank line carry different dates and every reconciliation shows them
         // unmatched. Pointing the rail at a clearing account fixes that without a deploy.
-        $cashAccountId = PaymentMethod::accountIdOrFloor($payment->method, $entryAsset, $this->accounts);
+        $cashAccountId = MoneyAccount::for($payment->bank_account_id, $payment->method, $entryAsset, $this->accounts);
 
         $lines = [[
             'ledger_account_id' => $cashAccountId,

@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\VendorBills\Pages;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Models\PaymentMethod;
 use App\Services\VendorBillService;
+use App\Support\Filament\BankAccountField;
 use App\Support\Filament\RefreshesRecordState;
 use App\Support\PostingDate;
 use App\Support\WithholdingTax;
@@ -149,6 +150,11 @@ class EditVendorBill extends EditRecord
                         ->default('bank_transfer')
                         ->native(false)
                         ->required(),
+
+                    // Which bank account this money moved through — optional, and null means the rail
+                    // decides. Set it and the posting lands in THAT account's chart account, which is
+                    // what lets a mall banking in two places reconcile either one.
+                    BankAccountField::make(),
                     DatePicker::make('payment_date')
                         ->label(__('admin.fields.payment_date'))
                         ->default(now())
@@ -166,6 +172,7 @@ class EditVendorBill extends EditRecord
                             $data['method'],
                             Carbon::parse($data['payment_date']),
                             $data['notes'] ?? null,
+                            $data['bank_account_id'] ?? null,
                         );
                     } catch (\DomainException $e) {
                         // A back-dated payment into a closed period is refused (would strand the GL) —

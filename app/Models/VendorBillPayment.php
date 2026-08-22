@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\VendorBillService;
 use App\Services\VoidVendorBillPaymentService;
@@ -26,8 +27,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class VendorBillPayment extends Model
 {
     use HasFactory, RefusesDeletionOfCommittedRecords, SoftDeletes;
+    use RecordsBankAccount;
 
     protected $fillable = [
+        'bank_account_id',
         'vendor_bill_id',
         'reference',
         'amount',

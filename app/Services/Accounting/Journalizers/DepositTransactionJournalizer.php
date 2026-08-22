@@ -3,8 +3,8 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\DepositTransaction;
-use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -36,7 +36,7 @@ class DepositTransactionJournalizer implements Journalizer
 
         $assetId = $deposit->asset_id;
         // The rail decides the account; null takes the floor. See PaymentJournalizer.
-        $cash = PaymentMethod::accountIdOrFloor($deposit->method, $assetId, $this->accounts);
+        $cash = MoneyAccount::for($deposit->bank_account_id, $deposit->method, $assetId, $this->accounts);
         $held = $this->accounts->id('deposits_held', $assetId);
 
         // [debit account, credit account] per transaction type. An unknown type

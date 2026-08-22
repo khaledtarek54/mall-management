@@ -34,7 +34,6 @@ use Filament\Actions\EditAction as FilamentEditAction;
 use Filament\Actions\ForceDeleteAction as FilamentForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction as FilamentRestoreAction;
-use Filament\Actions\RestoreBulkAction;
 use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -210,12 +209,17 @@ class AppServiceProvider extends ServiceProvider
         // managers). A table re-shows it with `->visible(...)`.
         DeleteBulkAction::configureUsing(fn (DeleteBulkAction $action) => $action->hidden());
         ForceDeleteBulkAction::configureUsing(fn (ForceDeleteBulkAction $action) => $action->hidden());
-        // Restore is the third of the three and the only one whose safety rested entirely on call-
-        // site discipline: its seven sites gate on `canRestoreAny()` with `visible()` alone. Un-
-        // deleting rows in bulk is not destructive, but it is a multi-row write and the backstop
-        // that covers the other two should not have a gap somebody has to remember. A table
-        // re-shows it with `->visible(...)`, exactly as with the other two.
-        RestoreBulkAction::configureUsing(fn (RestoreBulkAction $action) => $action->hidden());
+        // RESTORE IS DELIBERATELY NOT HERE, and the reverted attempt is worth recording. `hidden()`
+        // is not a default a call site can override — `->visible()` cannot re-show it — so adding
+        // `RestoreBulkAction` to this list did not "close a gap", it permanently removed bulk
+        // restore from all seven tables that offer it. That is fine for the two above, where OFF is
+        // the intent (bulk delete is off project-wide; a resource opts back in with
+        // `$bulkDeletable`), and wrong for restore, which is not destructive and whose sites gate
+        // on `canRestoreAny()`.
+        //
+        // The comment above says a table re-shows these with `->visible(...)`. It cannot; that is a
+        // claim about Filament that does not hold, left standing only because the two actions it
+        // describes are meant to stay hidden.
 
         // Panel-wide table UX floor — filter/search/sort persistence, the
         // filter layout, striping, pagination sizes. Applied before each

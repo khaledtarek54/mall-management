@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\DepositTransactions\Schemas;
 
 use App\Models\DepositTransaction;
 use App\Models\Lease;
+use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
@@ -41,6 +42,12 @@ class DepositTransactionForm
                             TenantScope::currentAssetId(),
                             fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
                         ))
+                        ->disabled($locked),
+
+                    // Which bank account this money moved through — optional, and null means the rail
+                    // decides, exactly as before. Set it and the posting lands in THAT account's chart
+                    // account, which is what lets a mall banking in two places reconcile either one.
+                    BankAccountField::make()
                         ->disabled($locked),
 
                     Select::make('type')

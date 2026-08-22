@@ -225,3 +225,15 @@ it('gives a chain the operator letterhead on their statement, not one arbitrary 
 
     expect($statements->data($single->fresh())['asset']?->id)->toBe($this->mall->id);
 });
+
+it('keeps the letterhead for a single-mall tenant who has not been billed yet', function () {
+    // The exactly-one rule reads the INVOICES, and a tenant who has just signed has none. Falling
+    // silent for them would be a regression dressed up as the new rule: the rule is about
+    // AMBIGUITY, not about having fewer documents. Their lease still says which mall this is.
+    $fresh = makeTenant(['name' => 'Just Signed Ltd']);
+    makeLease(makeUnit($this->mall), $fresh, ['status' => 'active']);
+
+    $view = app(TenantStatementPdfService::class)->data($fresh->fresh());
+
+    expect($view['asset']?->id)->toBe($this->mall->id);
+});

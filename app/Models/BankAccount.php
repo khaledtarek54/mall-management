@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -45,6 +46,16 @@ class BankAccount extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * The posting map is memoised per request, so a mapping the operator changes has to drop it —
+     * otherwise a queue worker keeps posting to the account this row used to name.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn () => MoneyAccount::flush());
+        static::deleted(fn () => MoneyAccount::flush());
+    }
 
     /**
      * Found by what an operator would type: the account's own name, its bank, and the number a

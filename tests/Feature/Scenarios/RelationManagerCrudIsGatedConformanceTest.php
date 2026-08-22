@@ -22,6 +22,64 @@
 use Illuminate\Support\Facades\File;
 
 /**
+ * Every chain attached to `Action::make(...)`, read by counting parentheses.
+ *
+ * A regex cannot do this: a chained `->using(function () { ... })` contains its own parens, quotes
+ * and semicolons, so any bounded pattern either stops inside the closure or runs past the end of the
+ * array element. The first version used `\([^;]*?\)` and swept over three actions entirely — a
+ * mutation proved an ungated `CreateAction` passed green behind one. Scanning forward and tracking
+ * depth is the only honest reading.
+ *
+ * @return array<int, string>
+ */
+function rmActionChains(string $code, string $action): array
+{
+    $chains = [];
+    $needle = $action.'::make(';
+    $offset = 0;
+    $len = strlen($code);
+
+    while (($start = strpos($code, $needle, $offset)) !== false) {
+        $i = $start + strlen($needle);
+        $depth = 1;
+
+        while ($i < $len && $depth > 0) {
+            $c = $code[$i];
+
+            if ($c === '(' || $c === '[') {
+                $depth++;
+            } elseif ($c === ')' || $c === ']') {
+                $depth--;
+
+                if ($depth === 0) {
+                    // Chained call? Skip whitespace and look for `->`.
+                    $j = $i + 1;
+                    while ($j < $len && ctype_space($code[$j])) {
+                        $j++;
+                    }
+
+                    if (substr($code, $j, 2) === '->') {
+                        $depth = 1;
+                        $i = $j + 2;
+
+                        while ($i < $len && $code[$i] !== '(') {
+                            $i++;
+                        }
+                    }
+                }
+            }
+
+            $i++;
+        }
+
+        $chains[] = substr($code, $start, $i - $start);
+        $offset = $i;
+    }
+
+    return $chains;
+}
+
+/**
  * Relation managers that legitimately need no gate of their own, each with the reason.
  *
  * READ-ONLY managers are not listed — they carry no CRUD action, so the sweep never sees them.
@@ -52,16 +110,19 @@ it('gives every relation-manager CRUD action a gate of its own', function () {
         $code = preg_replace('~/\*.*?\*/|//[^\n]*~s', '', $body) ?? $body;
 
         foreach (['CreateAction', 'EditAction', 'DeleteAction', 'AttachAction', 'DetachAction', 'AssociateAction', 'DissociateAction'] as $action) {
-            // Every occurrence of the action, with whatever is chained onto it up to the next
-            // element of the array literal. A bare `Action::make(),` has nothing between the
-            // closing paren and the comma.
-            preg_match_all('~'.$action.'::make\((?:[^()]*)\)((?:\s*->\s*\w+\([^;]*?\))*)\s*,~s', $code, $matches);
-
-            foreach ($matches[1] as $chain) {
+            // Everything chained onto the action, read by BALANCING PARENTHESES rather than by a
+            // regex. The first version used `\([^;]*?\)` per call, which cannot see past a closure
+            // body — three actions with a `->using(function () { … })` were swept over entirely, and
+            // a mutation proved an ungated `CreateAction` passed green behind one.
+            foreach (rmActionChains($code, $action) as $chain) {
                 $checked++;
 
-                if (str_contains($chain, '->visible(') || str_contains($chain, '->authorize(')
-                    || str_contains($chain, '->hidden(') || str_contains($chain, 'abort_unless')) {
+                // `->authorize()`, not merely `->visible()`. Both feed `isAuthorized()`, but only
+                // authorization does — `visible()` alone leaves the hard `abort_unless` on the call
+                // path answering TRUE, so the button is hidden and a crafted dispatch still runs.
+                // CLAUDE.md forbids hidden-implies-disabled as a SOLE layer for exactly that reason:
+                // it is an upstream implementation detail that a Filament release can change.
+                if (str_contains($chain, '->authorize(')) {
                     continue;
                 }
 
@@ -82,9 +143,9 @@ it('gives every relation-manager CRUD action a gate of its own', function () {
     expect($checked)->toBeGreaterThan(30, 'The sweep matched almost nothing — the pattern has stopped seeing relation-manager actions.');
 
     expect(array_values(array_unique($offenders)))->toBe([], implode("\n", [
-        'These relation-manager CRUD actions are open to anyone who can open the parent record.',
-        'A relation manager has no resource for the authorization seam to ask, so its buttons must',
-        'state their own rule:',
+        'These relation-manager CRUD actions have no `->authorize()`. A relation manager has no',
+        'resource for the authorization seam to ask, so the call site IS the gate — and `visible()`',
+        'alone is not one: it hides the button while the hard check on the call path still says yes.',
         '  '.implode("\n  ", array_unique($offenders)),
     ]));
 });

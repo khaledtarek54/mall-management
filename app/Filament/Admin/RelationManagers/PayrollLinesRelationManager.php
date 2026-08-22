@@ -234,12 +234,17 @@ class PayrollLinesRelationManager extends RelationManager
             ->recordActions([
                 EditAction::make()
                     ->visible(fn () => $this->runIsEditable())
+                    ->authorize(fn () => $this->runIsEditable())
                     ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
                     ->schema($this->moneyFields())
                     ->before(fn () => abort_unless($this->runIsEditable(), 403))
                     ->after(fn () => $this->refreshOwnerHeader()),
                 DeleteAction::make()
+                    // `authorize()` beside `visible()`: a relation manager has no resource for the
+                    // authorization seam to ask, so this IS the gate. The `before()` below stays —
+                    // it is the TOCTOU check for a run approved between render and click.
                     ->visible(fn () => $this->runIsEditable())
+                    ->authorize(fn () => $this->runIsEditable())
                     ->before(fn () => abort_unless($this->runIsEditable(), 403))
                     ->after(fn () => $this->refreshOwnerHeader()),
                 // Repay an advance/loan installment out of this payslip (Phase 4b). Shows only on a

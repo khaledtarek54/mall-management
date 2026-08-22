@@ -101,6 +101,7 @@ class TenantNotesRelationManager extends RelationManager
                 CreateAction::make()
                     ->label(__('admin.actions.log_communication'))
                     ->visible(fn () => auth()->user()?->can('notes.create') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('notes.create') ?? false)
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['author_id'] ??= auth()->id();
 
@@ -109,9 +110,11 @@ class TenantNotesRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('notes.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('notes.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('notes.edit') ?? false),
                 DeleteAction::make()
-                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false)
+                    ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ]);
     }
 }

@@ -158,6 +158,16 @@ class TenantStatementPdfService
         // lists their assessments, so that chain rendered a statement with no property at all.
         $assetIds = $invoicesAll->pluck('asset_id')->filter()->unique();
 
+        // No invoices at all — a tenant who has just signed and not been billed yet. Their lease
+        // still says which mall this is, and dropping the letterhead for them would be a regression
+        // dressed up as the new rule: the rule is about AMBIGUITY, not about having fewer documents.
+        if ($assetIds->isEmpty()) {
+            $assetIds = $tenant->leases
+                ->pluck('unit.asset_id')
+                ->filter()
+                ->unique();
+        }
+
         $asset = $assetIds->count() === 1
             ? Asset::find($assetIds->first())
             : null;

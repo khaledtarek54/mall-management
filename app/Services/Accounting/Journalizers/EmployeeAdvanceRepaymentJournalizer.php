@@ -3,8 +3,8 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\EmployeeAdvanceRepayment;
-use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -43,7 +43,7 @@ class EmployeeAdvanceRepaymentJournalizer implements Journalizer
             'lines' => [
                 // The RAIL names its account. This was the seventh journalizer carrying the mirror
                 // ternary EG-11 removed from the other six, so an InstaPay repayment debited CASH.
-                ['ledger_account_id' => PaymentMethod::accountIdOrFloor($repayment->method, $assetId, $this->accounts), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
+                ['ledger_account_id' => MoneyAccount::for(null, $repayment->method, $assetId, $this->accounts), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
                 ['ledger_account_id' => $this->accounts->id('employee_advances', $assetId), 'debit' => 0, 'credit' => $amount, 'asset_id' => $assetId],
             ],
         ];

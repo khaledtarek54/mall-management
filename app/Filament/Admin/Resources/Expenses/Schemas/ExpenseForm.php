@@ -8,6 +8,7 @@ use App\Models\FacilityWorkOrder;
 use App\Models\PaymentMethod;
 use App\Models\TaxCode;
 use App\Support\CatalogueTaxRate;
+use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\Modules;
@@ -69,6 +70,12 @@ class ExpenseForm
                         ->native(false)
                         ->disabled($moneyLocked)
                         ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
+
+                    // Which bank account this money moved through — optional, and null means the rail
+                    // decides, exactly as before. Set it and the posting lands in THAT account's chart
+                    // account, which is what lets a mall banking in two places reconcile either one.
+                    BankAccountField::make()
+                        ->disabled($moneyLocked),
 
                     Select::make('paid_from')
                         ->label(__('admin.fields.paid_from'))

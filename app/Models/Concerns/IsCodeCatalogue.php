@@ -33,9 +33,11 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * ## The four rules this encodes, each learned the hard way
  *
- * **Active rows first, the floor only when the catalogue is EMPTY.** `ValueSets` keeps the shipped
- * codes as a permanent floor, so keying a picker off the union leaves a retired code in every
- * dropdown and makes `is_active` inert. `ExpenseCategory` shipped exactly that.
+ * **The floor applies PER CODE.** A shipped code stays offered until a ROW retires it. Both simpler
+ * rules are wrong in a way that has cost a screen: the union of floor ∪ active leaves a retired code
+ * in every dropdown and makes `is_active` inert (`ExpenseCategory` shipped that), while rows-first
+ * drops a shipped code the catalogue happens not to mention — which took `bank` out of the deposit
+ * picker on every seeded install while both deposit forms defaulted to it.
  *
  * **Labels include INACTIVE rows.** Retiring a code stops it being offered; it must not blank the
  * label on a document that already carries it, or on a historical report.
@@ -188,7 +190,7 @@ trait IsCodeCatalogue
     }
 
     /**
-     * `code => label` for a picker — ACTIVE rows first, the floor only when the catalogue is empty.
+     * `code => label` for a picker — active rows, plus any shipped code no row has retired.
      *
      * @return array<string, string>
      */
@@ -265,21 +267,44 @@ trait IsCodeCatalogue
      */
     public static function filterOptions(): array
     {
+        return static::catalogueFilterOptions();
+    }
+
+    /**
+     * The shared body of every filter-options variant: EVERY row, plus EVERY floor code.
+     *
+     * A UNION, unlike {@see catalogueOptions()}, and the difference is the whole point. A form asks
+     * what may be filed NOW, so a retired code is dropped. A filter asks what is already filed, and
+     * the column accepts floor ∪ active — so anything in that set can be sitting in a row and must
+     * be reachable. Choosing rows-first here hid `bank` from the deposit filter on every seeded
+     * install, which is the only value that column actually holds.
+     *
+     * @param  \Closure(Builder): Builder|null  $scope
+     * @param  array<int, string>|null  $floor
+     * @return array<string, string>
+     */
+    protected static function catalogueFilterOptions(?\Closure $scope = null, ?array $floor = null, ?string $fallbackGroup = null): array
+    {
+        $options = [];
+
         try {
-            $rows = static::query()
+            $query = static::query();
+            $options = ($scope ? $scope($query) : $query)
                 ->orderBy('sort_order')
                 ->get()
                 ->mapWithKeys(fn ($row) => [$row->code => $row->label()])
                 ->all();
-
-            if ($rows !== []) {
-                return $rows;
-            }
         } catch (\Throwable) {
             // Before the table exists.
         }
 
-        return static::options();
+        foreach ($floor ?? static::catalogueFloorCodes() as $code) {
+            if (! isset($options[$code])) {
+                $options[$code] = $fallbackGroup === null ? static::labelFor($code) : static::labelFor($code, $fallbackGroup);
+            }
+        }
+
+        return $options;
     }
 
     /**

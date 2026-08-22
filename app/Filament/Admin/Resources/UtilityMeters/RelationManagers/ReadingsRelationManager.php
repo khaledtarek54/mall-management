@@ -240,7 +240,8 @@ class ReadingsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.actions.add_reading'))
-                    ->visible(fn () => auth()->user()?->can('utility_meters.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('utility_meters.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('utility_meters.edit') ?? false),
             ])
             ->recordActions([
                 // Recharge this reading to the unit's tenant — the path that did not exist (readings
@@ -286,12 +287,15 @@ class ReadingsRelationManager extends RelationManager
                             ->send();
                     }),
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('utility_meters.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('utility_meters.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('utility_meters.edit') ?? false),
                 // No soft-deletes on readings, so this HARD-deletes. Hide it for a billed reading —
                 // erasing it would orphan the live recharge invoice. The model's deleting-guard is the
                 // real backstop (this visible() is UX only); cancel the invoice to free the reading.
                 DeleteAction::make()
                     ->visible(fn (MeterReading $record) => (auth()->user()?->hasRole('super_admin') ?? false)
+                        && ! $record->isBilled())
+                    ->authorize(fn (MeterReading $record) => (auth()->user()?->hasRole('super_admin') ?? false)
                         && ! $record->isBilled()),
             ])
             ->defaultSort('reading_date', 'desc')

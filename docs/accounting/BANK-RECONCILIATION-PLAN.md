@@ -83,6 +83,14 @@ A reconciliation is always *of one account*. So the first slice is not the match
 ambiguous, and a reconciliation that silently mixes two accounts is worse than none — it will
 balance, and it will be wrong.
 
+> **✅ Closed 2026-08-22 (EG-12).** For eleven days this was true of the shipped system: slice 1 said
+> "nothing posts through it and that is asserted by a test", which was honest about the slice and
+> left the matcher reading a chart account that both banks' money landed in. `bank_account_id` is now
+> on the six documents a statement line can explain, and `App\Support\MoneyAccount` is the ONE seam
+> all thirteen journalizers resolve through — the document's bank account, then the rail's account,
+> then the posting role. Null still means "the rail decides", so an install that has not filled the
+> register in posts exactly as it did.
+
 ---
 
 ## 4. Slices, in the order they should ship

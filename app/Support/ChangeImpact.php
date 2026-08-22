@@ -139,6 +139,7 @@ class ChangeImpact
                 'payment_date' => 'it IS the entry date — the period the cash landed in',
             ],
             self::DERIVED => [
+                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'status' => 'only a received payment posts; refunded/bounced reverses the entry',
                 'method' => 'chooses the cash vs bank account the credit lands in',
                 // Not refused today, and a candidate for promotion: re-pointing a captured receipt
@@ -221,6 +222,7 @@ class ChangeImpact
         DepositTransaction::class => [
             'committed' => 'on creation — a deposit receipt/refund/forfeit is cash moving',
             self::DERIVED => [
+                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'type' => 'decides the whole recipe — receipt, refund or forfeit post different pairs',
                 'amount' => 'both legs',
                 'asset_id' => 'the books dimension',
@@ -297,6 +299,7 @@ class ChangeImpact
                 'vendor_bill_id' => 'the payable being settled, and the source of the books dimension — re-pointing settles a different vendor\'s claim',
             ],
             self::DERIVED => [
+                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'method' => 'chooses cash vs bank',
             ],
             self::NEUTRAL => ['notes', 'created_by_user_id'],
@@ -316,6 +319,7 @@ class ChangeImpact
                 'paid_from' => 'chooses whether the credit left cash or the bank',
             ],
             self::DERIVED => [
+                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'status' => 'only `recorded` posts; cancelling reverses',
                 'total' => 'the credit to cash/bank, and the expense debit is derived as total − vat. Not independently settable — the `saving` hook recomputes it from amount + vat, both of which are refused',
                 'expense_date' => 'it IS the entry date. Editable on purpose, with its own posting-date guard: re-dating a correctly-keyed expense does not restate what was spent',
@@ -351,6 +355,7 @@ class ChangeImpact
         Payroll::class => [
             'committed' => 'anything past draft',
             self::DERIVED => [
+                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'status' => 'a draft or cancelled run posts nothing',
                 'period_month' => 'it IS the entry date — the month the salary expense belongs to',
                 'asset_id' => 'the books dimension',
@@ -526,6 +531,7 @@ class ChangeImpact
         Disbursement::class => [
             'committed' => 'paid — scheduled and approved disbursements post nothing',
             self::DERIVED => [
+                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'status' => 'only a paid disbursement posts',
                 'paid_on' => 'it IS the entry date — the day the owner was actually paid',
                 'amount' => 'both legs',

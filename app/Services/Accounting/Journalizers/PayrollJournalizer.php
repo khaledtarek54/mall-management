@@ -2,9 +2,9 @@
 
 namespace App\Services\Accounting\Journalizers;
 
-use App\Models\PaymentMethod;
 use App\Models\Payroll;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -62,7 +62,7 @@ class PayrollJournalizer implements Journalizer
         }
 
         // The rail decides the account; null takes the floor. See PaymentJournalizer.
-        $cashAccountId = PaymentMethod::accountIdOrFloor($payroll->paid_from, $assetId, $this->accounts);
+        $cashAccountId = MoneyAccount::for($payroll->bank_account_id, $payroll->paid_from, $assetId, $this->accounts);
 
         $lines = [[
             'ledger_account_id' => $this->accounts->id('salaries_expense', $assetId),

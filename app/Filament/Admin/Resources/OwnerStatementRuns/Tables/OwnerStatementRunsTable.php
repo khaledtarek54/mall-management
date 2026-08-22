@@ -13,6 +13,7 @@ use App\Services\OwnerAccounting\DisbursementService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\OwnerStatementPdfService;
 use App\Services\OwnerAccounting\ReviseOwnerStatementRunService;
+use App\Support\Filament\BankAccountField;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -160,6 +161,11 @@ class OwnerStatementRunsTable
                             ->options(fn () => PaymentMethod::optionsFor('disbursements.method', 'admin.disbursements.methods'))
                             ->default(Disbursement::METHOD_BANK_TRANSFER)
                             ->required()->native(false),
+
+                        // Which bank account this money moved through — optional, and null means the rail
+                        // decides. Set it and the posting lands in THAT account's chart account, which is
+                        // what lets a mall banking in two places reconcile either one.
+                        BankAccountField::make(),
                     ])
                     ->action(function (OwnerStatementRun $record, array $data): void {
                         abort_unless(OwnerStatementRunResource::canSchedule(), 403);
@@ -170,7 +176,7 @@ class OwnerStatementRunsTable
                             return;
                         }
                         try {
-                            app(DisbursementService::class)->schedule($statement, (float) $data['amount'], $data['method'], auth()->user());
+                            app(DisbursementService::class)->schedule($statement, (float) $data['amount'], $data['method'], auth()->user(), $data['bank_account_id'] ?? null);
                         } catch (\DomainException $e) {
                             self::notifyFailure($e);
 

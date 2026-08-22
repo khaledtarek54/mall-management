@@ -449,6 +449,7 @@ return [
         'percentage_rent_tier_rate_out_of_range' => 'A percentage-rent rate of :rate% is outside 0–100%. A negative rate would raise a charge that is really a credit; above 100% bills more than the tenant sold.',
         'vendor_payment_immutable' => 'A recorded vendor payment cannot be edited — the cash has already left the bank. Void it (Payments → Void payment) and record the correct one; the void stays on the register with your reason.',
         'expense_immutable' => 'A recorded expense cannot have its amount, VAT, category or funding source edited — it was posted to the ledger when you recorded it. Cancel it and enter the correct one; the cancellation reverses the posting and stays on the register.',
+        'bank_account_other_property' => 'That bank account belongs to another property. A document can only name an account held by the mall it stands in — otherwise its money would post into the other mall’s bank account.',
         'record_not_deletable' => 'A :record that is on the books cannot be deleted — :correction. The record stays, and the correction explains itself to an auditor.',
         'record_still_referenced' => 'This :record cannot be deleted — :blockers still reference it. :instead.',
         'lease_event_immutable' => 'A lease event is a record of something that happened, so it cannot be edited or deleted. Record the correcting event instead — that leaves a history an auditor can follow.',

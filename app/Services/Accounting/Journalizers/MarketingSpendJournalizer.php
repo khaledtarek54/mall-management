@@ -3,8 +3,8 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\MarketingSpend;
-use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MoneyAccount;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -58,7 +58,7 @@ class MarketingSpendJournalizer implements Journalizer
                     'asset_id' => $assetId,
                 ],
                 [
-                    'ledger_account_id' => PaymentMethod::accountIdOrFloor($spend->paid_from, $assetId, $this->accounts),
+                    'ledger_account_id' => MoneyAccount::for(null, $spend->paid_from, $assetId, $this->accounts),
                     'debit' => 0,
                     'credit' => $amount,
                     'asset_id' => $assetId,

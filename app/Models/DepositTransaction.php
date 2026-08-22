@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
+use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
@@ -35,6 +36,7 @@ class DepositTransaction extends Model
 {
     use AllocatesDocumentNumber, RefusesDeletionOfCommittedRecords;
     use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+    use RecordsBankAccount;
 
     /**
      * The transaction number.
@@ -87,6 +89,7 @@ class DepositTransaction extends Model
     public const TYPES = ['receipt', 'refund', 'forfeit'];
 
     protected $fillable = [
+        'bank_account_id',
         'number',
         'lease_id',
         'tenant_id',

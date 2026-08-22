@@ -184,14 +184,15 @@ class ExpenseCategory extends Model
     }
 
     /**
-     * `code => label` for a picker — ACTIVE ROWS FIRST, the floor only when the catalogue is empty.
+     * `code => label` for a picker — active rows, plus any shipped code no row has retired.
      *
      * Keying this off `ValueSets` looked right — it guarantees a picker cannot offer a value the
      * guard refuses — but the enforced set is floor ∪ active, and the floor holds all six shipped
      * codes permanently. So switching one off left it in every picker and `is_active` was inert for
-     * exactly the categories anyone would want to retire. Offering FEWER values than the guard
-     * accepts is safe; offering more is the bug. A retired category still labels its historical
-     * documents, because `labelFor()` includes inactive rows.
+     * exactly the categories anyone would want to retire. The per-code floor keeps both halves: a
+     * code you switched off has a ROW saying so and is dropped; one the catalogue never mentioned
+     * was never retired and stays. A retired category still LABELS its historical documents, because
+     * `labelFor()` includes inactive rows.
      *
      * @return array<string, string>
      */
@@ -208,18 +209,7 @@ class ExpenseCategory extends Model
      */
     public static function filterOptions(?string $fallbackGroup = null): array
     {
-        try {
-            $rows = static::query()->orderBy('sort_order')->get()
-                ->mapWithKeys(fn (self $c) => [$c->code => $c->label()])->all();
-
-            if ($rows !== []) {
-                return $rows;
-            }
-        } catch (\Throwable) {
-            // Before the table exists.
-        }
-
-        return static::options($fallbackGroup);
+        return static::catalogueFilterOptions(fallbackGroup: $fallbackGroup);
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Tenant;
+use App\Support\Filament\BankAccountField;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
 use App\Support\TenantScope;
@@ -82,6 +83,12 @@ class PaymentForm
                             ->disabled($locked)
                             ->default(now())
                             ->native(false),
+
+                        // Which bank account this money moved through — optional, and null means the rail
+                        // decides, exactly as before. Set it and the posting lands in THAT account's chart
+                        // account, which is what lets a mall banking in two places reconcile either one.
+                        BankAccountField::make()
+                            ->disabled($locked),
                         TextInput::make('amount')
                             ->label(__('admin.fields.amount'))
                             ->prefix('EGP')
