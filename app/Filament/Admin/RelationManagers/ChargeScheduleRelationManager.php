@@ -319,6 +319,12 @@ class ChargeScheduleRelationManager extends RelationManager
                                 'name' => self::typeLabel($data['type']),
                                 'frequency' => $data['frequency'],
                                 'vat_rate' => $rate,
+                                // The field rendered and the value was thrown away: this action
+                                // builds an explicit attribute list and `billing_timing` was not on
+                                // it, so an operator could pick "In arrears", save, and get a
+                                // charge that bills in advance with nothing to say otherwise. The
+                                // whole of M-2 was unreachable through the only screen offering it.
+                                'billing_timing' => $data['billing_timing'] ?? null,
                                 // A charge added in September is not owed from the lease's
                                 // commencement — without this the first row would back-date to it
                                 // and the next run would bill every month since.

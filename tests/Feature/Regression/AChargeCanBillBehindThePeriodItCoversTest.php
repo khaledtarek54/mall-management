@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Services\ChargeScheduleService;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 
@@ -203,4 +204,58 @@ it('bills the FINAL month of an arrears charge on the last invoice', function ()
     // The money is the point: two months of service charge, not one. Without this the operator
     // silently lost the final month on every arrears lease.
     expect((float) $plan['subtotal'])->toBe(24000.0);
+});
+
+it('saves the timing the operator picked, and keeps it across a rent change and a renewal', function () {
+    // Three siblings the first cut left behind, each of which made M-2 unusable or wrong in a way
+    // that looked entirely ordinary on screen.
+    //
+    // 1. The ONLY screen offering `billing_timing` threw the value away — the add-charge action
+    //    builds an explicit attribute list for `setAmount()` and the column was not on it. Pick
+    //    "In arrears", save, get a charge that bills in advance. The whole feature was unreachable.
+    // 2. A successor rung inherited `frequency`, `vat_applicable` and `vat_rate` and NOT this, so
+    //    any rent change, escalation step, CAM estimate or relief silently reverted the charge to
+    //    advance — billing the crossover month twice.
+    // 3. A renewal copies every other charge term and dropped this one, at exactly the point where
+    //    nobody re-reads each charge.
+    $lease = arrearsLease();
+    $schedule = app(ChargeScheduleService::class);
+
+    // The service path the screen now uses, with the timing supplied.
+    $opened = $schedule->setAmount(
+        $lease,
+        'utility',
+        500,
+        CarbonImmutable::parse('2026-02-01'),
+        ['name' => 'Water', 'frequency' => 'monthly', 'billing_timing' => Charge::TIMING_ARREARS],
+        Charge::ORIGIN_MANUAL,
+    );
+
+    expect($opened->billing_timing)->toBe(Charge::TIMING_ARREARS);
+
+    // …and the successor rung a later change opens keeps it.
+    $successor = $schedule->setAmount(
+        $lease,
+        'utility',
+        650,
+        CarbonImmutable::parse('2026-06-01'),
+        ['name' => 'Water', 'frequency' => 'monthly'],
+        Charge::ORIGIN_MANUAL,
+    );
+
+    expect($successor->id)->not->toBe($opened->id)
+        ->and($successor->billing_timing)->toBe(Charge::TIMING_ARREARS);
+
+    // The control: a charge nobody ruled on stays null, so the default is untouched.
+    $advance = $schedule->setAmount(
+        $lease,
+        'parking',
+        300,
+        CarbonImmutable::parse('2026-02-01'),
+        ['name' => 'Parking', 'frequency' => 'monthly'],
+        Charge::ORIGIN_MANUAL,
+    );
+
+    expect($advance->billing_timing)->toBeNull()
+        ->and($advance->billsInArrears())->toBeFalse();
 });

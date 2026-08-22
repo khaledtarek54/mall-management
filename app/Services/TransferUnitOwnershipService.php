@@ -145,6 +145,9 @@ class TransferUnitOwnershipService
                     // The OVERRIDE is carried, not the resolved rate — null stays null so the
                     // catalogue keeps answering for each invoice's own date.
                     'vat_rate' => $row->vat_rate,
+                    // Same reasoning as the renewal path: a resale copies the seller's schedule, so
+                    // dropping the timing would re-bill the buyer a month the seller already paid.
+                    'billing_timing' => $row->billing_timing,
                     'start_date' => $on->toDateString(),
                     'is_active' => true,
                 ]);

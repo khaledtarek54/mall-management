@@ -220,6 +220,11 @@ class LeaseRenewalService
                     'frequency' => $charge->frequency,
                     'vat_applicable' => $charge->vat_applicable,
                     'vat_rate' => $charge->vat_rate,
+                    // Carried with the rest of the row's terms. A renewal that dropped it would
+                    // silently move an arrears service charge back to advance, billing the tenant
+                    // the crossover month twice — and a renewal is exactly where nobody re-reads
+                    // every charge.
+                    'billing_timing' => $charge->billing_timing,
                     'start_date' => $commencement,
                     'end_date' => null,
                     'is_active' => true,

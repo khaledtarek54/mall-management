@@ -115,6 +115,13 @@ class ChargeScheduleService
             'frequency' => $attributes['frequency'] ?? $current->frequency,
             'vat_applicable' => $attributes['vat_applicable'] ?? $current->vat_applicable,
             'vat_rate' => $attributes['vat_rate'] ?? $current->vat_rate,
+            // INHERITED, like every other override on this row — and it was the one EG-30 forgot.
+            // Every successor comes through here: a rent change, an escalation step, a CAM
+            // estimate, a relief, a renewal. Dropping it silently reverted an arrears service
+            // charge to ADVANCE on the next rung, so the tenant would be billed September's
+            // service in September having been billed August's in September the month before —
+            // one month charged twice, with the schedule looking entirely ordinary.
+            'billing_timing' => $attributes['billing_timing'] ?? $current->billing_timing,
             'start_date' => $effectiveFrom->toDateString(),
             // Inherit the boundary, so closing a bounded schedule doesn't quietly make it open.
             'end_date' => $inheritedEnd,
@@ -557,6 +564,9 @@ class ChargeScheduleService
             // Only what the caller explicitly chose. Defaulting to the catalogue here is what
             // froze the rate for the life of the lease — a rise entered later never reached it.
             'vat_rate' => $attributes['vat_rate'] ?? null,
+            // Null = advance, which is what every charge did before EG-30 — so a caller that says
+            // nothing gets today's behaviour and only a deliberate `arrears` changes anything.
+            'billing_timing' => $attributes['billing_timing'] ?? null,
             // The FIRST row is dated to the lease commencement, not the effective date: a charge
             // that never existed should bill the lease's term, not only from today. This matches
             // what LeaseCreationService/LeaseRentChangeService did before schedules existed.

@@ -641,6 +641,18 @@ public function runForPeriod(?CarbonImmutable $period = null): array
     It already did not — late fees, utility recharges and violation fines all ride on invoices
     covering a different window — so the line's own description is what a tenant reads, and that is
     where the covered month is written.
+  - **The timing travels with the charge row.** `ChargeScheduleService::setAmount()` inherits it
+    onto a successor rung alongside `frequency`/`vat_applicable`/`vat_rate`, and
+    `LeaseRenewalService` / `TransferUnitOwnershipService` carry it when they copy a schedule.
+    Dropping it on any of those silently reverts an arrears charge to advance and bills the
+    crossover month twice — the schedule looking entirely ordinary throughout.
+  - **The description says "(in arrears)" as a LITERAL, not a translation.**
+    `invoice_items.description` is stored prose and everything already in it is English (the
+    `% pro-rated` suffix, the `format('F Y')` month), so translating one clause would freeze the
+    billing run's locale into the row — an Arabic-locale queue worker storing an Arabic word beside
+    an English month. Localising stored invoice descriptions is real work with a known shape here
+    (store the data, resolve the words at render time, as `ActivityVocabulary` does) and is not part
+    of this.
   - **An arrears row prorates against the month it COVERS**, not the month the invoice is dated to:
     a lease commencing 15 August owes half of August's service charge on the September invoice.
   - **Nothing on a lease's first invoice**, because the month it would cover predates the lease. It
@@ -1192,11 +1204,14 @@ To customize the PDF:
 >   the rate it was billed at, so re-deriving would silently restate every historical document the
 >   day the standard rate changes. Pinned by `TaxInvoiceSellerParticularsTest`.
 >
-> **Known duplication, deliberately left:** `EtaSettings::issuer_tax_registration_number` holds the
-> same number for e-invoicing submissions. One number in two homes is a defect — an operator can set
-> them to disagree — but collapsing them means editing the frozen ETA module. When that freeze
-> lifts, the `TaxSettings` field is the survivor: a registration number is company identity, not a
-> property of an integration that may be switched off.
+> **Duplication CLOSED 2026-08-22.** `EtaSettings::issuer_tax_registration_number` used to hold the
+> same number for e-invoicing submissions — one number in two homes an operator could set to
+> disagree, so the PDF and the submission would state different registrations. `EtaSettings` was
+> DELETED with the ETA freeze (`App\Support\Modules::FROZEN`); all four of its properties were
+> inert, the submission pipeline reads `config('eta.*')` from env, and the settings tab's only
+> effect was two `->required()` fields nothing consulted. `TaxSettings` is now the sole home, and
+> when module 16 resumes `EtaJsonBuilder` must build its issuer block from here — a registration
+> number is company identity, not a property of an integration that may be switched off.
 
 ---
 

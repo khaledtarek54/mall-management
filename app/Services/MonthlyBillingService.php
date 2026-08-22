@@ -636,8 +636,17 @@ class MonthlyBillingService
             // Said on the line, because the invoice header cannot say it: this document's period is
             // September and this line is August's. A tenant reading "Service charge - August 2026"
             // under a September invoice would otherwise reasonably think it a duplicate.
+            //
+            // A LITERAL, not `__()`, and deliberately so. `invoice_items.description` is stored
+            // prose and everything already in it is English: the `% pro-rated` suffix below is a
+            // hardcoded literal and the month comes from `format('F Y')`. Translating this one
+            // clause would freeze the BILLING RUN's locale into the row — a queue worker running in
+            // Arabic would store an Arabic word beside an English month on the same line, and the
+            // register would then hold both. Localising a stored invoice description is real work
+            // and it has a known shape here (store the DATA, resolve the words at render time, as
+            // `ActivityVocabulary` does). It is not this change.
             if ($charge->billsInArrears()) {
-                $label .= ' ('.__('admin.billing.in_arrears').')';
+                $label .= ' (in arrears)';
             }
 
             // The line's OWN share, so a part-month rent line is marked pro-rated while a full-month
