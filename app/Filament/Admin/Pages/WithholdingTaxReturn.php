@@ -288,6 +288,27 @@ class WithholdingTaxReturn extends Page implements DeliverableReport, HasSchemas
     }
 
     /**
+     * No notice here: a return filed per REGISTRATION omits nothing.
+     *
+     * The inherited warning says in bold *"They are NOT in the figures above"*, and on the five
+     * property-scoped statements that is true — `aggregate()` narrows with
+     * `whereIn('je.asset_id', …)` and `whereIn` never matches NULL. This page deliberately passes a
+     * null asset (see `report()` below), and the service applies the filter as
+     * `->when($assetId, …)`, so with null there is no asset predicate at all and those entries ARE
+     * counted here.
+     *
+     * Left inherited it told an accountant that a statutory filing position understates what they
+     * owe when it does not, and pointed them at a remedy — re-file the document against a mall —
+     * that would make the return WRONG. Opted out here rather than removed from the concern,
+     * because a sixth property-scoped statement should still inherit the warning instead of being
+     * the one that quietly omits money.
+     */
+    protected function unallocatedNotice(): ?array
+    {
+        return null;
+    }
+
+    /**
      * The return, or an empty one and a stated reason when the chart cannot answer.
      *
      * Same handling as the VAT return, and for the same reason: `AccountResolver` refuses an
