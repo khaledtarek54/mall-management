@@ -369,7 +369,7 @@ operator will want to change in week one.
 | S-1 | **There is no legal entity.** No model, no table, no column. Everything is one company. `docs/operations/GO-LIVE.md:159` already states the consequence for the Jawad/Eltizam revenue split | absence proven; `app/Support/IssuingEntity.php:27-30` | 🔴 |
 | S-2 | **One chart, one fiscal calendar, for the whole install.** `ledger_accounts.code` is globally unique; `fiscal_years.year` is globally unique with no `asset_id`; periods are exactly 12 calendar months; the start month is **refused once anything is posted**. Pick the wrong month before go-live and no owner on a different year-end can ever be onboarded | `2026_06_30_000001_...:18`; `2026_06_30_000002_...:18,25-36`; `app/Services/Accounting/FiscalCalendar.php:42-53` | 🔴 |
 | S-3 | 🟡 **HALF FIXED 2026-08-22 (EG-27).** The invisible-money half is closed: every statement now declares what it is leaving out, with the amount and the remedy. The **consolidated view is still unreachable**, deliberately — reaching it reopens a decision already taken the other way. ~~**Consolidated books exist in the service layer and are unreachable in the panel.**~~ The property switcher never offers "All Properties" and the report picker is pinned+disabled. Combined with `whereIn('je.asset_id', $ids)` never matching NULL, **any operator-level or cross-property journal entry is invisible in every financial statement an operator can open.** Module 21's doc still advertises "per-property & consolidated" | `app/Models/User.php:151-153`; `app/Support/Filament/PropertyField.php:146-147`; `LedgerReportService.php:472` | 🔴 |
-| S-4 | 🟡 **THE SILENT HALF FIXED 2026-08-22 (EG-28).** Cash flow is driven by `ledger_accounts.cash_flow_section`, not by code prefixes. The `parent_id` rollup is still read by no report and there is still no chart importer. ~~**Financial-statement layout is a PHP `match()` on `ledger_accounts.type`**~~, and the chart's own `parent_id` rollup hierarchy is read by **no report**. The cash-flow statement classifies by **literal code prefixes** (`111`, `121`, `12`, `22`…). **If the accountant hands over a different Egyptian chart:** a chart not numbered 1–5 by nature is *refused at save*; one numbered 1–5 with different sub-ranges *saves fine and silently misclassifies the cash-flow statement* — and `reconciled` will not catch it, because it only re-asserts the double-entry identity. There is also **no chart importer** | `LedgerReportService.php:163-227,280-303`; `app/Models/LedgerAccount.php:39-45,131-148,197-209` | 🔴 |
+| S-4 | 🟡 **THE SILENT HALF FIXED 2026-08-22 (EG-28).** Cash flow is driven by `ledger_accounts.cash_flow_section`, not by code prefixes. The `parent_id` rollup is still read by no report; the chart IMPORTER shipped 2026-08-22. ~~**Financial-statement layout is a PHP `match()` on `ledger_accounts.type`**~~, and the chart's own `parent_id` rollup hierarchy is read by **no report**. The cash-flow statement classifies by **literal code prefixes** (`111`, `121`, `12`, `22`…). **If the accountant hands over a different Egyptian chart:** a chart not numbered 1–5 by nature is *refused at save*; one numbered 1–5 with different sub-ranges *saves fine and silently misclassifies the cash-flow statement* — and `reconciled` will not catch it, because it only re-asserts the double-entry identity. There is also **no chart importer** | `LedgerReportService.php:163-227,280-303`; `app/Models/LedgerAccount.php:39-45,131-148,197-209` | 🔴 |
 | S-5 | **No report builder.** 23 catalogued reports, every column a PHP literal, no user-defined columns or groupings. The *parameter* layer is genuinely good (saved views, per-user memory, scheduled delivery, CSV+XLSX) but saves **filters/sort/search/tab only, never columns**. Against Yardi's Report Builder this is the largest ongoing cost multiplier per additional owner | `app/Support/ReportCatalogue.php:85-118`; `app/Models/TableView.php:59-69` | 🔴 |
 | S-6 | 🟡 **HALF FIXED 2026-08-22 (EG-15 slice 1)** — `document_templates` + a screen now carry the invoice's footer, payment instructions and terms, property-overridable with the old lang key as the floor. **Messages are untouched**: no mail tab, no dunning wording, and still no `RichEditor` in the app. ~~**No operator-editable document or message templates anywhere.**~~ No `document_templates` table, no terms/footer settings field, **no `RichEditor` in the entire app**, no mail tab on the settings page. Every invoice footer, dunning letter and SLA email is a deploy. **This is the single largest "the operator cannot run their own business" gap** | searches named; `app/Filament/Admin/Pages/Settings.php:91-98` | 🔴 |
 | S-7 ✅ | **FIXED 2026-08-21 (EG-05).** ~~A fake `.test` address prints on every issued invoice PDF.~~ `__('admin.pdf.footer')` interpolates `billing@:slug.test` — rendering e.g. `billing@atriom-walk.test` on a legal tax document, and on tenant/asset statements. Verified in all four lang files. **One settings field plus four string edits; cheapest item in this report and the most embarrassing** | `resources/views/invoices/pdf.blade.php:332`; `lang/en/admin/reports.php:324`, `lang/ar/admin/reports.php:323`, `lang/en/admin/accounting.php:439`, `lang/ar/admin/accounting.php:432` | 🔴 |
@@ -434,7 +434,7 @@ credential from the operator/accountant · ⚙️ ops.
 |---|---|---|---|---|
 | **EG-26** | **Legal entity as a first-class object** — per-entity TRN, issuer, chart and fiscal calendar. Already named as a blocker for the Jawad/Eltizam revenue split | S-1, S-2, T-10 | 🧑‍💻 + 🔑 | XL |
 | **EG-27** | 🟡 **HALF DONE 2026-08-22 — the disappearing entries, not the consolidated view.** Every statement scoped with `whereIn('je.asset_id', …)`, which never matches NULL, so a property-less entry was invisible in all five and nothing said so — while the year-end close already bucketed those rows *"so no P&L is ever stranded"*. **Surfaced, not folded in**, on the operator's call: a null `asset_id` is portfolio overhead visible from every mall, so absorbing it would show one operator-wide cost in full on each of them and no mall's figures would be right. `LedgerReportService::unallocated()` + a notice on `ScopesLedgerReport` (so a sixth statement inherits it), silent on clean books and on an unscoped read, sized by debits because an entry balances. **Consolidated stays unreachable** — that half reopens the "All-Properties mode removed" decision and is not something to drift into | S-3 | 🧑‍💻 | M |
-| **EG-28** | 🟡 **THE DANGEROUS HALF DONE 2026-08-22.** The cash-flow statement no longer classifies by **literal code prefixes** — `ledger_accounts.cash_flow_section` is the account's own answer, resolved through `App\Support\CashFlowSection`, with the shipped chart backfilled from exactly the rules the report used so no existing figure moves. That was the silent one: a chart numbered 1–5 with different sub-ranges SAVES (the guard only checks the leading digit) and then misclassifies every flow with nothing on screen to say so — and the operator's real chart is still pending. **Still open:** statement LAYOUT is still a `match()` on `ledger_accounts.type` (defensible — type is chart-agnostic — but it ignores the chart's own `parent_id` rollup), and there is **no chart importer** | S-4 | 🧑‍💻 | L |
+| **EG-28** | 🟡 **THE DANGEROUS HALF DONE 2026-08-22.** The cash-flow statement no longer classifies by **literal code prefixes** — `ledger_accounts.cash_flow_section` is the account's own answer, resolved through `App\Support\CashFlowSection`, with the shipped chart backfilled from exactly the rules the report used so no existing figure moves. That was the silent one: a chart numbered 1–5 with different sub-ranges SAVES (the guard only checks the leading digit) and then misclassifies every flow with nothing on screen to say so — and the operator's real chart is still pending. **The chart IMPORTER shipped the same day** — `LedgerAccountImporter`, keyed on `code` like the seeder, with `cash_flow_section` as a column because a chart arriving from another system is exactly when the classification must be stated. It also closed a latent ordering bug: parent links are derived by looking BACKWARD for an existing parent, which is complete only when parents precede children — true of the seeder, false of a CSV — so `LedgerAccount::adoptOrphanedDescendants()` now closes the reverse direction on `saved`. **Still open:** statement LAYOUT is a `match()` on `ledger_accounts.type` (defensible — type is chart-agnostic — but it ignores the chart's own `parent_id` rollup) | S-4 | 🧑‍💻 | L |
 | **EG-29** | **Configurable proration method** (30/360 · actual/actual · actual/365 · whole month), per property or per charge code | M-1 | 🧑‍💻 + 🔑 | M |
 | **EG-30** | **Billing in arrears, and non-annual escalation intervals** | M-2, M-6 | 🧑‍💻 | M |
 | **EG-31** | **USD-indexed / EGP-denominated rent** — the index on the escalation path, no GL change. **Do this instead of full multi-currency unless the client insists otherwise** | X-4, §3.5 | 🧑‍💻 + 🔑 | M |
@@ -1492,6 +1492,50 @@ back.
 on `type`. That is defensible — type is chart-agnostic — but the chart's own `parent_id` rollup is
 still read by no report, and there is still no chart importer. Neither is silent, so neither was the
 half to do first.
+
+---
+
+### 2026-08-22 — milestone 20: the accountant's own chart can be loaded
+
+EG-28's other half, and the one importer a first deploy actually needs that did not exist. Atriom
+ships a chart so a box can post on day one, but the operator's accountant has theirs — and adopting
+it meant typing a few hundred accounts into a form, which is how a chart acquires the typo that
+misfiles revenue for a year. `docs/accounting/` still records the supplied chart as a dummy Saudi
+template, so this is the road the real one arrives on.
+
+**It found a latent ordering bug, which is the substance.** `LedgerAccount::resolveParentIdFromCode()`
+looks BACKWARD for a parent that already exists — complete only when parents precede children. That
+is true of `ChartOfAccountsSeeder`, which sorts by code, and false of a CSV in whatever order another
+system exported it. Filament streams rows in file order and offers **no after-import hook**, so a
+file listing `11101` before `111` left the child parented to null: the rollup silently loses a
+branch and nothing on screen says so.
+
+`adoptOrphanedDescendants()` closes the reverse direction on `saved`, so the tree is correct whatever
+order rows arrive in — the seeder included. Two rules make it safe: it claims a descendant only when
+it is a **closer** ancestor than the current parent, so inserting `111` cannot steal `1110123` from
+`11101`; and it re-parents by QUERY rather than by saving each child, because a model save would
+re-enter the hook and on a real chart that recursion is the whole import. Mutation-proved — remove
+the hook and the child stays `null`.
+
+**What is deliberately not a column.** `parent_id` and `normal_balance` are both derived in
+`LedgerAccount::saving`, and the model's own docblock says the second "is never set by hand". A
+column for either would be a second, conflicting truth — a file could assert that an asset is
+credit-normal and the system would quietly disagree.
+
+**`cash_flow_section` IS a column**, which is the pairing with the same day's other change: a chart
+arriving from another system is exactly the moment the cash-flow classification has to be stated
+rather than inferred from how somebody numbered it. Blank leaves the account on the operating floor,
+and the chart screen's "Not classified" filter finds it.
+
+**Identity is the CODE**, the same key the seeder uses, so a second pass corrects rather than
+duplicates and an import over the shipped chart merges instead of twinning. That is also the known
+hazard the seeder carries — renumbering creates a second account rather than moving one — which is
+why the code is treated as identity and not as data.
+
+**The code/type guard is checked in `resolveRecord()`, not as a column rule**, because it is a rule
+about the code AND the type together and `getColumns()` is static. The model throws for the same
+reason, but its `InvalidArgumentException` reaches the operator as a failed row with a developer's
+sentence on it; this reaches them as the message the form shows.
 
 ---
 

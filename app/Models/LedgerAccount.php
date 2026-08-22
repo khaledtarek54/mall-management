@@ -212,5 +212,48 @@ class LedgerAccount extends Model
             // Derive the parent from the code so the tree can't drift from it.
             $account->parent_id = static::resolveParentIdFromCode($account);
         });
+
+        // …and the REVERSE direction, which `saving` cannot do (EG-28, the chart importer).
+        //
+        // `resolveParentIdFromCode()` looks BACKWARD for a parent that already exists, so it is
+        // complete only when parents are created before their children — true of the seeder, which
+        // sorts by code, and false of an import. Filament streams a CSV in file order and offers no
+        // after-import hook, so a chart whose file lists `11101` before `111` left the child
+        // parented to null: the rollup silently loses a branch, and nothing on screen says so.
+        //
+        // Adoption closes it, so the tree is correct whatever order the rows arrive in.
+        static::saved(fn (self $account) => static::adoptOrphanedDescendants($account));
+    }
+
+    /**
+     * Re-parent any account this one should now own — the accounts created before it existed.
+     *
+     * Claims a descendant only when this account is a CLOSER ancestor than its current parent:
+     * either it has none, or its parent's code is a strict prefix of ours. A grandchild already
+     * parented to a longer code is left alone, so inserting `111` cannot steal `1110123` from
+     * `11101`.
+     *
+     * Written as a query rather than by saving each child: a model save would re-enter this hook,
+     * and on a chart of any size that recursion is the whole import.
+     */
+    protected static function adoptOrphanedDescendants(self $account): void
+    {
+        $code = (string) $account->code;
+
+        if ($code === '') {
+            return;
+        }
+
+        static::query()
+            ->where('code', 'like', $code.'%')
+            ->where('code', '!=', $code)
+            ->where(fn (Builder $q) => $q
+                ->whereNull('parent_id')
+                // A parent whose code is SHORTER than ours is further away, so we are the better
+                // fit. `whereHas` rather than a join: the parent may be soft-deleted, and this
+                // relation already excludes those.
+                ->orWhereHas('parent', fn (Builder $p) => $p->whereRaw('LENGTH(code) < ?', [strlen($code)]))
+            )
+            ->update(['parent_id' => $account->id]);
     }
 }

@@ -611,6 +611,30 @@ Tests (`tests/Feature/`):
 | **3 — Expenses & payables** 🟡 | المصروفات والموردون | **Accounts Payable done:** `VendorBill` (فاتورة مورد) + `VendorBillPayment` with a draft→approved→paid lifecycle; journalizers post Dr expense (by category) + Dr **VAT Recoverable** (input VAT) / Cr Payables, and payments Dr Payables / Cr Bank; swept + backfilled by `accounting:sync-ledger` with a GL↔AP tie-out; `VendorBillResource` under Accounting, gated by `vendor_bills.*`. **Direct expenses done:** `Expense` (مصروف مباشر / petty cash) posts Dr expense (by category) + Dr VAT Recoverable / Cr cash|bank immediately (no payable stage); `ExpenseResource` gated by `expenses.*`. **Payroll done:** `Payroll` (مسير رواتب, batch per-run totals — not per-employee payslips) posts Dr Salaries Expense (gross) / Cr Salary Tax Payable + Cr Social Insurance Payable (withheld) + Cr Bank\|Cash (net); draft→approved→cancelled; `PayrollResource` gated by `payrolls.*`. All swept by `accounting:sync-ledger`. Per-employee payslips + employer-side social-insurance contribution are a future HR extension. |
 | **4 — Close & compliance** 🟡 | الإقفال والامتثال | **Period close done:** `PeriodService` closes/reopens accounting periods + fiscal years (a closed period refuses postings); `YearEndCloseService` posts the year-end closing entry (قيد الإقفال) that zeros revenue/expense into retained earnings (idempotent, reopenable). Closing entries are flagged `is_closing` → excluded from the income statement (shows actual P&L) but included in the trial balance + balance sheet (P&L reads zero post-close; profit sits in equity). `AccountingPeriodResource` gated by `accounting_periods.*`. **Still to do:** optional ETA/EAS statutory report formatting. |
 
+### Loading the accountant's own chart (EG-28, 2026-08-22)
+
+`LedgerAccountImporter` + an admin-gated `ImportAction` on the chart list. Columns: `code`,
+`name_en`, `name_ar`, `type`, `cash_flow_section`, `is_postable`, `is_active`.
+
+**Not columns, deliberately:** `parent_id` and `normal_balance`, both derived in
+`LedgerAccount::saving`. A column for either would be a second, conflicting truth.
+
+**Identity is the CODE** — the same key `ChartOfAccountsSeeder` uses, so a second pass corrects
+rather than duplicates and an import over the shipped chart merges rather than twinning.
+
+**Row order does not matter, and making that true fixed a latent bug.**
+`resolveParentIdFromCode()` looks BACKWARD for an existing parent, which is complete only when
+parents precede children — true of the seeder (sorted by code), false of a CSV. Filament streams
+rows in file order with no after-import hook, so `11101` before `111` left the child parented to
+null and the rollup silently lost a branch. `LedgerAccount::adoptOrphanedDescendants()` closes the
+reverse direction on `saved`: it claims a descendant only when it is a **closer** ancestor than the
+current parent (so `111` cannot steal `1110123` from `11101`), and re-parents by QUERY, because a
+model save would re-enter the hook and on a real chart that recursion is the whole import.
+
+The code/type convention is enforced in `resolveRecord()` rather than as a column rule — it is a
+rule about two cells and `getColumns()` is static. The model throws for the same reason, but its
+exception reaches the operator as a developer's sentence; this reaches them as the form's message.
+
 ### The cash-flow statement follows the ACCOUNT, not the code (EG-28, 2026-08-22)
 
 `ledger_accounts.cash_flow_section` — `cash` · `operating` · `investing` · `financing` — resolved
