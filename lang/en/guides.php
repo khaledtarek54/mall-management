@@ -917,13 +917,16 @@ return [
     'ledger_accounts' => [
         'purpose' => 'Your chart of accounts — the list of accounts every entry posts into.',
         'steps' => [
-            'Add the account with the code and name your accountant uses.',
+            'Adopting your accountant\'s whole chart? Import it rather than typing it. The file needs code, both names and the type; everything else is optional.',
+            'Add an account with the code and name your accountant uses.',
             'Say what type it is, and whether entries may post directly to it.',
+            'Set its cash-flow section — where its movement belongs on the cash-flow statement. Leave it blank and it counts as working capital.',
             'Point the posting map at it so transactions land there.',
         ],
         'affects' => [
             'The account type decides which statement it appears on and which side of it increases.',
             'Summary accounts total their children on the reports but never carry entries themselves.',
+            'The cash-flow section decides whether the movement shows as operating, investing or financing. Filter the list by "Not classified" to find the accounts nobody has said.',
         ],
         'rules' => [
             'An account that has been posted to is never deleted. Deactivate it.',

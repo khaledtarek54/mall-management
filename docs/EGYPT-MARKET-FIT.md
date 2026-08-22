@@ -1495,6 +1495,34 @@ half to do first.
 
 ---
 
+### 2026-08-22 — milestone 20a: chart-importer review pass
+
+Three findings, one of which a gate caught and two of which nothing would have.
+
+**1. A tooltip that rendered its own key.** `LedgerAccountForm` asked for
+`admin.hints.cash_flow_section` and the string had been added under `helpers`, so the hint icon
+would have shown `admin.hints.cash_flow_section` on screen. `TranslationCoverageTest` named it
+exactly — the value of a gate that reads the code for referenced keys rather than the lang files for
+unused ones.
+
+**2. The screen guide had gone stale in the same change.** `ledger_accounts`' guide still described
+adding accounts one at a time and said nothing about importing a chart, the cash-flow section, or
+the "Not classified" filter — after two changes that reshaped the screen. `ScreenGuides` exists to
+tell an operator *what moves elsewhere when you touch this screen*, and both of the day's additions
+do exactly that. Rewritten in both languages.
+
+**3. Adoption ran on every save.** `adoptOrphanedDescendants()` fired on any account write —
+renaming an account or toggling `is_active` cannot orphan anything, so that was an extra write-scan
+behind every routine edit for no possible effect. Now guarded on `wasRecentlyCreated ||
+wasChanged('code')`, which is precisely when the tree can have moved.
+
+**Checked and NOT a defect.** Soft deletes: `adoptOrphanedDescendants()` queries through the default
+scope, so a trashed account is neither adopted nor an adopter — and a child whose parent was trashed
+keeps its stored `parent_id` rather than being silently re-homed, which is the existing behaviour of
+the account's own save and not something this change should decide.
+
+---
+
 ### 2026-08-22 — milestone 20: the accountant's own chart can be loaded
 
 EG-28's other half, and the one importer a first deploy actually needs that did not exist. Atriom

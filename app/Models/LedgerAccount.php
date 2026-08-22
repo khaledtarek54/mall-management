@@ -222,7 +222,14 @@ class LedgerAccount extends Model
         // parented to null: the rollup silently loses a branch, and nothing on screen says so.
         //
         // Adoption closes it, so the tree is correct whatever order the rows arrive in.
-        static::saved(fn (self $account) => static::adoptOrphanedDescendants($account));
+        static::saved(function (self $account) {
+            // Only when the tree can actually have changed. Renaming an account or toggling
+            // `is_active` cannot orphan anything, and running the adoption query on every save
+            // would put an extra write-scan behind every routine edit for no possible effect.
+            if ($account->wasRecentlyCreated || $account->wasChanged('code')) {
+                static::adoptOrphanedDescendants($account);
+            }
+        });
     }
 
     /**
