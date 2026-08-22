@@ -129,6 +129,18 @@
 > *"two months at the outlet mall"* was unsayable. It PROPOSES the figure; `security_deposit_months`
 > on the lease still records what was negotiated, and the derivation below is unchanged.
 
+> **⚠️ A lease in HOLDOVER is priced at its uplift, and every derivation must honour that
+> (EG-40, 2026-08-22).** `base_rent_rate_per_sqm_year` stays CONTRACTUAL — that is what a rate means
+> — and `holdover_rate_pct` is the premium recorded on top of it. Re-rating on conversion would bake
+> a temporary penalty into the contracted rate and lose what the parties agreed.
+>
+> But `deriveBaseRentFromRate()` ignored the premium, and `LeaseSpaceChangeService` re-derives from
+> the rate when a rate-priced lease takes more space — so taking an extra unit mid-holdover silently
+> dropped the rent to 100% of contracted (120,000 where 180,000 was owed). The derivation now
+> applies the premium from `holdover_from` onward, **the same way the conversion applies it**
+> (premium on the contracted figure, each step rounded), so the two cannot disagree about the same
+> lease. A date before the conversion is still contracted.
+
 > **⚠️ A RENEWAL is a re-negotiation: the deal wins and the rate follows it (EG-39, 2026-08-22).**
 > `Lease::saving()` re-derives `base_rent_monthly` from rate × area on CREATE — and a renewal is a
 > create — so renewing a 250 m² unit let at 4,800/m²/yr for a negotiated 110,000 used to save

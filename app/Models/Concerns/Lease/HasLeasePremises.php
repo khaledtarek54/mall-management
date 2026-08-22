@@ -201,7 +201,35 @@ trait HasLeasePremises
             return null;
         }
 
-        return round((float) $this->base_rent_rate_per_sqm_year * $area / 12, 2);
+        $contracted = round((float) $this->base_rent_rate_per_sqm_year * $area / 12, 2);
+
+        // ── A lease in HOLDOVER is priced at its uplift, not at its contracted rate (EG-40) ────
+        //
+        // `base_rent_rate_per_sqm_year` stays CONTRACTUAL — that is what a rate means, and
+        // `holdover_rate_pct` is the premium recorded on top of it, exactly as
+        // `ConvertLeaseToHoldoverService` records it. Re-rating on conversion would bake a
+        // temporary penalty into the contractual rate and lose what the parties actually agreed.
+        //
+        // But every derivation from that rate has to honour the premium, or it under-prices the
+        // holdover. `LeaseSpaceChangeService` re-derives from the rate when a rate-priced lease
+        // takes more space, so taking an extra unit mid-holdover silently dropped the rent back to
+        // 100% of the contracted figure — an uplift the operator had negotiated, gone, with nothing
+        // on screen to say so.
+        //
+        // Applied the same way the conversion applies it (premium on the contracted figure, each
+        // step rounded) so the two cannot produce different numbers for the same lease, and only
+        // from `holdover_from` — a date before the conversion is still contracted.
+        $premium = (float) $this->holdover_rate_pct;
+
+        if ($this->holdover_from === null || $premium <= 0) {
+            return $contracted;
+        }
+
+        $asOf = $on ?? CarbonImmutable::now();
+
+        return $asOf->startOfDay()->lt($this->holdover_from->startOfDay())
+            ? $contracted
+            : round($contracted * $premium / 100, 2);
     }
 
     /**

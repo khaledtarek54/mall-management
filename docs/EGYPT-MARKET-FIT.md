@@ -445,7 +445,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-36**~~ ✅ | **DONE 2026-08-22.** `journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative` — the ledger's twin of `ActivityVocabulary`, and the same rule: **a row stores DATA, never PROSE**. All **24** journalizers converted (25 narratives: the custody one branches, so its key is chosen in the same branch its prose is, and the two can never describe different movements). **The prose columns STAY and are still written**, as a snapshot and a floor: every row posted before today has prose and no key, a manual entry is prose the operator typed, and a read site nobody converted degrades to today's wording rather than to a blank cell — on a general ledger an empty description is indistinguishable from an entry nobody described. Nothing re-posts, because `matches()` compares lines, date and asset and deliberately not text | S-12 | 🧑‍💻 | M |
 | ~~**EG-37**~~ ✅ | **DONE 2026-08-22.** The count was **74**, not ~25 — and separating them was the value: **48 registered** (deriving from the model's own constant wherever it states one, so the registry is not 48 copies), **24 exempted** each naming the registry that owns it (`MorphMap` for a morph alias, the CHARGE CODE catalogue for `charges.type` and `invoice_items.type`, free text for three). Enforcement immediately found four unreachable fixture values, a **demo-data** defect (a renewal option whose 8% uplift the app could never apply), and a `facility_work_orders.status` of `completed` where the model says `done` — the very status D-8 named. Five of my own first sets were wrong because I read them off sampled DATA rather than the code | D-8 | 🧑‍💻 | S |
 | ~~**EG-39**~~ ✅ | **DONE 2026-08-22 — the operator chose to RE-RATE.** A renewal is a re-negotiation, so the deal wins and the rate follows it: `LeaseRenewalService` derives the new `base_rent_rate_per_sqm_year` from the agreed rent (rent × 12 ÷ area, off the ORIGINAL's area because the renewal has no units until `syncUnits()`), and both columns stay true — which keeps the rate meaningful for the escalations that run off it. **Origination is unchanged**: on a NEW lease the rate the deal was struck at still outranks a typed figure, and a test pins that. Fixed in the SERVICE, not in `Lease::saving()`: the model's CREATE rule is general and a disabled form field still posts a value, so flipping precedence there would have changed every rate-priced creation on ambiguous evidence. The agreed figure is also kept EXACT — on an awkward area the 2dp rate cannot round back to it (97,531.11 became 97,531.19), and the operator must see the number they negotiated. Both halves mutation-proved | new | 🧑‍💻 + 🔑 | S |
-| **EG-40** | **A rate-priced lease put into HOLDOVER keeps a rate that no longer implies its rent.** `ConvertLeaseToHoldoverService` sets `base_rent_monthly` to the uplifted figure (150% by default) and never touches `base_rent_rate_per_sqm_year` — correctly, in that `Lease::saving()`'s update branch honours a stated rent, so the holdover rent stands. But the rate still implies the CONTRACTED rent, and `LeaseSpaceChangeService` re-derives from the rate: taking an extra unit during a holdover would silently drop the rent back off the uplift. Whether the rate should follow a temporary premium is the same kind of call EG-39 needed — a holdover is a penalty ON the contracted rate, not a new one, so re-rating may be exactly wrong. Found 2026-08-22 while reviewing EG-39 | new | 🧑‍💻 + 🔑 | S |
+| ~~**EG-40**~~ ✅ | **DONE 2026-08-22 — and it needed no decision, which is the correction.** Recorded an hour earlier as 🔑 on the question *"should the rate follow a temporary premium"*. Re-read, that is the wrong question and its answer is plainly no: `base_rent_rate_per_sqm_year` is the CONTRACTUAL rate and `holdover_rate_pct` is the premium recorded on top of it, which is exactly the right split — re-rating on conversion would bake a penalty into the contracted rate and lose what the parties agreed. The real question is whether the DERIVATION honours the premium, and it must. `deriveBaseRentFromRate()` now applies it from `holdover_from` onward, the same way `ConvertLeaseToHoldoverService` applies it (premium on the contracted figure, each step rounded), so the two cannot produce different numbers. Before it, a rate-priced lease taking an extra unit mid-holdover silently re-derived to 100% of contracted — 120,000 where 180,000 was owed — and nothing on screen said the negotiated uplift had gone | new | 🧑‍💻 | S |
 
 ---
 
@@ -1637,6 +1637,35 @@ the fees it just raised. Both properties were already there and both were load-b
 **`ChangeImpactConformanceTest` caught the new column unclassified**, which is the gate doing exactly
 its job: a new fillable on a posting source must say whether it can move the books. It cannot —
 NEUTRAL, beside its sibling.
+
+---
+
+### 2026-08-22 — milestone 23: EG-40, and a row that did not need the decision I gave it
+
+Recorded an hour earlier, in the EG-39 review, as needing an operator's call. It did not, and
+noticing that is the substance.
+
+**The question I wrote down was the wrong one.** *"Should the rate follow a temporary premium?"* —
+and framed that way it does look like policy. Re-read: `base_rent_rate_per_sqm_year` is the
+CONTRACTUAL rate and `holdover_rate_pct` is the premium recorded on top of it. That split is already
+right, and re-rating on conversion would bake a penalty into the contracted rate and lose what the
+parties actually agreed. The real question is whether the DERIVATION honours the premium — and there
+is only one answer to that.
+
+**What it cost to get wrong.** A rate-priced lease taking an extra unit mid-holdover re-derived from
+the contractual rate alone: 300 m² × 4,800 ÷ 12 = **120,000**, where the negotiated 150% holdover
+made it **180,000**. The uplift the operator had negotiated, gone, with nothing on screen to say so.
+Mutation-proved both ways.
+
+**Applied the way the conversion applies it** — premium on the contracted figure, each step rounded
+— so the derivation and `ConvertLeaseToHoldoverService` cannot produce different numbers for the
+same lease. And only from `holdover_from`: a date before the conversion is still contracted, the
+same way the area is read as it stood on that day.
+
+**The lesson is about the RECORD, not the code.** A row that says "this needs a decision" is a
+standing instruction to everyone who reads it afterwards, and a wrongly-framed one parks real work
+indefinitely behind a question nobody needs to answer. Worth re-reading a 🔑 before acting on it —
+including one I wrote myself an hour before.
 
 ---
 
