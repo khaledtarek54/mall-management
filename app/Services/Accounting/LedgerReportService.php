@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Support\CashFlowSection;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -279,8 +280,25 @@ class LedgerReportService
             $movement = round((float) $row->debit_total - (float) $row->credit_total, 2); // net debit
             $cashImpact = round(-$movement, 2); // this account's contribution to the change in cash
 
-            // Cash & bank branch (111…) — the balance being explained, not a section.
-            if (str_starts_with((string) $row->code, '111')) {
+            // Revenue and expense net into income by TYPE — already chart-agnostic, and
+            // deliberately not something an account may reclassify (EG-28).
+            if (in_array($row->type, ['revenue', 'expense'], true)) {
+                if ($cashImpact !== 0.0) {
+                    $netIncome = round($netIncome + $cashImpact, 2); // Σ(credit−debit) = revenue − expense
+                }
+
+                continue;
+            }
+
+            // The ACCOUNT says where it belongs. This used to be six `str_starts_with` checks on
+            // the code — correct about the shipped chart and silently wrong about any other, which
+            // is the whole of finding S-4.
+            $section = CashFlowSection::for($row->cash_flow_section ?? null, (string) $row->type);
+
+            // Cash & bank — the balance being explained, not a section. Checked before the
+            // zero-impact guard because a cash account whose movement nets to zero over the period
+            // still has to contribute to the running cash figure.
+            if ($section === CashFlowSection::CASH) {
                 $cashMovement = round($cashMovement + $movement, 2); // asset: net debit = cash in
 
                 continue;
@@ -290,26 +308,13 @@ class LedgerReportService
                 continue;
             }
 
-            if (in_array($row->type, ['revenue', 'expense'], true)) {
-                $netIncome = round($netIncome + $cashImpact, 2); // Σ(credit−debit) = revenue − expense
-            } elseif (str_starts_with((string) $row->code, '222')) {
-                // Provisions (222…) are non-cash accruals (end-of-service, staff leave) —
-                // an OPERATING add-back, not a financing flow. Financing under 22… is only
-                // real funding movement (221 long-term loans). Must precede the 22 branch.
-                $adjustments->push($this->statementRow($row, $cashImpact));
-            } elseif ($row->type === 'equity' || str_starts_with((string) $row->code, '22')) {
-                $financing->push($this->statementRow($row, $cashImpact));
-            } elseif (str_starts_with((string) $row->code, '122')) {
-                // Accumulated depreciation (122…) is the non-cash counterpart of depreciation
-                // expense — an OPERATING add-back, not an investing flow. Investing is only the
-                // gross non-current assets (121…) that move on actual cash purchases/disposals.
-                $adjustments->push($this->statementRow($row, $cashImpact));
-            } elseif (str_starts_with((string) $row->code, '12')) {
-                $investing->push($this->statementRow($row, $cashImpact));
-            } else {
-                // current assets (non-cash) + current liabilities + any custom account.
-                $adjustments->push($this->statementRow($row, $cashImpact));
-            }
+            match ($section) {
+                CashFlowSection::INVESTING => $investing->push($this->statementRow($row, $cashImpact)),
+                CashFlowSection::FINANCING => $financing->push($this->statementRow($row, $cashImpact)),
+                // Working capital, provisions and accumulated depreciation alike — every non-cash
+                // add-back and every current asset or liability.
+                default => $adjustments->push($this->statementRow($row, $cashImpact)),
+            };
         }
 
         $operatingTotal = round($netIncome + $adjustments->sum('amount'), 2);
@@ -322,7 +327,7 @@ class LedgerReportService
         if ($from) {
             $cashOpening = round(
                 $this->aggregate($assetIds, null, $from->copy()->subDay())
-                    ->filter(fn ($r) => str_starts_with((string) $r->code, '111'))
+                    ->filter(fn ($r) => CashFlowSection::for($r->cash_flow_section ?? null, (string) $r->type) === CashFlowSection::CASH)
                     ->sum(fn ($r) => (float) $r->debit_total - (float) $r->credit_total),
                 2
             );
@@ -523,11 +528,14 @@ class LedgerReportService
             ->when($assetIds !== null, fn ($q) => $q->whereIn('je.asset_id', $assetIds))
             ->when($from, fn ($q) => $q->whereDate('je.entry_date', '>=', $from->toDateString()))
             ->when($to, fn ($q) => $q->whereDate('je.entry_date', '<=', $to->toDateString()))
-            ->groupBy('la.id', 'la.code', 'la.name_en', 'la.name_ar', 'la.type', 'la.normal_balance')
+            ->groupBy('la.id', 'la.code', 'la.name_en', 'la.name_ar', 'la.type', 'la.normal_balance', 'la.cash_flow_section')
             ->orderBy('la.code')
             ->get([
                 'la.id',
                 'la.code',
+                // The account's own answer for the cash-flow statement (EG-28) — carried through
+                // the aggregate so `cashFlow()` never has to look at a code prefix again.
+                'la.cash_flow_section',
                 'la.name_en',
                 'la.name_ar',
                 'la.type',

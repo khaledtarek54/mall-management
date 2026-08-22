@@ -272,6 +272,12 @@ return [
             'total' => 'النصيب بالكامل',
             'controllable' => 'التكاليف القابلة للتحكم فقط',
         ],
+        'cash_flow_section' => [
+            'cash' => 'النقدية والبنوك',
+            'operating' => 'التشغيل',
+            'investing' => 'الاستثمار',
+            'financing' => 'التمويل',
+        ],
         'ledger_account_type' => [
             'asset' => 'أصول',
             'liability' => 'خصوم',

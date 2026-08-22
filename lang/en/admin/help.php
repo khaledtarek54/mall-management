@@ -88,6 +88,7 @@ return [
         'fit_out_scope' => 'What is waived during fit-out. The market standard is base rent only.',
         'bill_purchase_request' => 'Link the purchase this bill pays for. Leave empty for a general expense.',
         'inventory_unit_cost' => 'The standard cost used to value every consumption and write-off of this item.',
+        'cash_flow_section' => 'Where this account\'s movement lands on the cash-flow statement. Blank means working capital.',
         'account_type' => 'Asset / Liability / Equity / Revenue / Expense — sets the debit/credit side.',
         'account_code' => 'Digits only. The parent is set automatically from the code (e.g. 41102 sits under 411).',
         'parent_account' => 'Optional — groups this account under a summary account.',

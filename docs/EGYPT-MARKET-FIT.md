@@ -369,7 +369,7 @@ operator will want to change in week one.
 | S-1 | **There is no legal entity.** No model, no table, no column. Everything is one company. `docs/operations/GO-LIVE.md:159` already states the consequence for the Jawad/Eltizam revenue split | absence proven; `app/Support/IssuingEntity.php:27-30` | 🔴 |
 | S-2 | **One chart, one fiscal calendar, for the whole install.** `ledger_accounts.code` is globally unique; `fiscal_years.year` is globally unique with no `asset_id`; periods are exactly 12 calendar months; the start month is **refused once anything is posted**. Pick the wrong month before go-live and no owner on a different year-end can ever be onboarded | `2026_06_30_000001_...:18`; `2026_06_30_000002_...:18,25-36`; `app/Services/Accounting/FiscalCalendar.php:42-53` | 🔴 |
 | S-3 | 🟡 **HALF FIXED 2026-08-22 (EG-27).** The invisible-money half is closed: every statement now declares what it is leaving out, with the amount and the remedy. The **consolidated view is still unreachable**, deliberately — reaching it reopens a decision already taken the other way. ~~**Consolidated books exist in the service layer and are unreachable in the panel.**~~ The property switcher never offers "All Properties" and the report picker is pinned+disabled. Combined with `whereIn('je.asset_id', $ids)` never matching NULL, **any operator-level or cross-property journal entry is invisible in every financial statement an operator can open.** Module 21's doc still advertises "per-property & consolidated" | `app/Models/User.php:151-153`; `app/Support/Filament/PropertyField.php:146-147`; `LedgerReportService.php:472` | 🔴 |
-| S-4 | **Financial-statement layout is a PHP `match()` on `ledger_accounts.type`**, and the chart's own `parent_id` rollup hierarchy is read by **no report**. The cash-flow statement classifies by **literal code prefixes** (`111`, `121`, `12`, `22`…). **If the accountant hands over a different Egyptian chart:** a chart not numbered 1–5 by nature is *refused at save*; one numbered 1–5 with different sub-ranges *saves fine and silently misclassifies the cash-flow statement* — and `reconciled` will not catch it, because it only re-asserts the double-entry identity. There is also **no chart importer** | `LedgerReportService.php:163-227,280-303`; `app/Models/LedgerAccount.php:39-45,131-148,197-209` | 🔴 |
+| S-4 | 🟡 **THE SILENT HALF FIXED 2026-08-22 (EG-28).** Cash flow is driven by `ledger_accounts.cash_flow_section`, not by code prefixes. The `parent_id` rollup is still read by no report and there is still no chart importer. ~~**Financial-statement layout is a PHP `match()` on `ledger_accounts.type`**~~, and the chart's own `parent_id` rollup hierarchy is read by **no report**. The cash-flow statement classifies by **literal code prefixes** (`111`, `121`, `12`, `22`…). **If the accountant hands over a different Egyptian chart:** a chart not numbered 1–5 by nature is *refused at save*; one numbered 1–5 with different sub-ranges *saves fine and silently misclassifies the cash-flow statement* — and `reconciled` will not catch it, because it only re-asserts the double-entry identity. There is also **no chart importer** | `LedgerReportService.php:163-227,280-303`; `app/Models/LedgerAccount.php:39-45,131-148,197-209` | 🔴 |
 | S-5 | **No report builder.** 23 catalogued reports, every column a PHP literal, no user-defined columns or groupings. The *parameter* layer is genuinely good (saved views, per-user memory, scheduled delivery, CSV+XLSX) but saves **filters/sort/search/tab only, never columns**. Against Yardi's Report Builder this is the largest ongoing cost multiplier per additional owner | `app/Support/ReportCatalogue.php:85-118`; `app/Models/TableView.php:59-69` | 🔴 |
 | S-6 | 🟡 **HALF FIXED 2026-08-22 (EG-15 slice 1)** — `document_templates` + a screen now carry the invoice's footer, payment instructions and terms, property-overridable with the old lang key as the floor. **Messages are untouched**: no mail tab, no dunning wording, and still no `RichEditor` in the app. ~~**No operator-editable document or message templates anywhere.**~~ No `document_templates` table, no terms/footer settings field, **no `RichEditor` in the entire app**, no mail tab on the settings page. Every invoice footer, dunning letter and SLA email is a deploy. **This is the single largest "the operator cannot run their own business" gap** | searches named; `app/Filament/Admin/Pages/Settings.php:91-98` | 🔴 |
 | S-7 ✅ | **FIXED 2026-08-21 (EG-05).** ~~A fake `.test` address prints on every issued invoice PDF.~~ `__('admin.pdf.footer')` interpolates `billing@:slug.test` — rendering e.g. `billing@atriom-walk.test` on a legal tax document, and on tenant/asset statements. Verified in all four lang files. **One settings field plus four string edits; cheapest item in this report and the most embarrassing** | `resources/views/invoices/pdf.blade.php:332`; `lang/en/admin/reports.php:324`, `lang/ar/admin/reports.php:323`, `lang/en/admin/accounting.php:439`, `lang/ar/admin/accounting.php:432` | 🔴 |
@@ -434,7 +434,7 @@ credential from the operator/accountant · ⚙️ ops.
 |---|---|---|---|---|
 | **EG-26** | **Legal entity as a first-class object** — per-entity TRN, issuer, chart and fiscal calendar. Already named as a blocker for the Jawad/Eltizam revenue split | S-1, S-2, T-10 | 🧑‍💻 + 🔑 | XL |
 | **EG-27** | 🟡 **HALF DONE 2026-08-22 — the disappearing entries, not the consolidated view.** Every statement scoped with `whereIn('je.asset_id', …)`, which never matches NULL, so a property-less entry was invisible in all five and nothing said so — while the year-end close already bucketed those rows *"so no P&L is ever stranded"*. **Surfaced, not folded in**, on the operator's call: a null `asset_id` is portfolio overhead visible from every mall, so absorbing it would show one operator-wide cost in full on each of them and no mall's figures would be right. `LedgerReportService::unallocated()` + a notice on `ScopesLedgerReport` (so a sixth statement inherits it), silent on clean books and on an unscoped read, sized by debits because an entry balances. **Consolidated stays unreachable** — that half reopens the "All-Properties mode removed" decision and is not something to drift into | S-3 | 🧑‍💻 | M |
-| **EG-28** | **Drive statement layout from the chart's own hierarchy** instead of a `match()` on account type and literal code prefixes; add a chart importer | S-4 | 🧑‍💻 | L |
+| **EG-28** | 🟡 **THE DANGEROUS HALF DONE 2026-08-22.** The cash-flow statement no longer classifies by **literal code prefixes** — `ledger_accounts.cash_flow_section` is the account's own answer, resolved through `App\Support\CashFlowSection`, with the shipped chart backfilled from exactly the rules the report used so no existing figure moves. That was the silent one: a chart numbered 1–5 with different sub-ranges SAVES (the guard only checks the leading digit) and then misclassifies every flow with nothing on screen to say so — and the operator's real chart is still pending. **Still open:** statement LAYOUT is still a `match()` on `ledger_accounts.type` (defensible — type is chart-agnostic — but it ignores the chart's own `parent_id` rollup), and there is **no chart importer** | S-4 | 🧑‍💻 | L |
 | **EG-29** | **Configurable proration method** (30/360 · actual/actual · actual/365 · whole month), per property or per charge code | M-1 | 🧑‍💻 + 🔑 | M |
 | **EG-30** | **Billing in arrears, and non-annual escalation intervals** | M-2, M-6 | 🧑‍💻 | M |
 | **EG-31** | **USD-indexed / EGP-denominated rent** — the index on the escalation path, no GL change. **Do this instead of full multi-currency unless the client insists otherwise** | X-4, §3.5 | 🧑‍💻 + 🔑 | M |
@@ -1419,6 +1419,55 @@ and read past it.
 placeholder AND that it found at least 24 keys — a registry that quietly emptied would pass the
 loops. The second reads the journalizers from disk and fails on one that writes prose with no key,
 because a journalizer left behind would look identical to the converted ones in review.
+
+---
+
+### 2026-08-22 — milestone 19: EG-28's dangerous half — the cash-flow statement stops reading code prefixes
+
+Of the remaining rows this was the one that produces **wrong numbers with nothing on screen to say
+so**, and it is about to be triggered by a known pending event.
+
+`cashFlow()` classified by six literal `str_starts_with` checks on the account code — `111`, `222`,
+`22`, `122`, `12` — so it was correct about the chart this project happens to ship and about no
+other. The failure mode is the quiet one: a different Egyptian chart numbered 1–5 by nature but with
+different sub-ranges **saves fine**, because the save-time guard only checks the leading digit. Then
+a capital purchase lands in operating, a loan drawdown lands in operating, the statement still
+balances, and the figures are wrong. The operator's real chart is still pending and the one supplied
+so far is recorded in `docs/accounting/` as a dummy template, so this was waiting to happen rather
+than hypothetical.
+
+**The account now says where it belongs.** `ledger_accounts.cash_flow_section` — `cash` ·
+`operating` · `investing` · `financing` — read through `CashFlowSection::for()`.
+
+**Backfilled from the prefixes, so nothing moves.** The migration classifies every existing account
+using exactly the rules the report used, in exactly the order it used them (`222` before `22`, `122`
+before `12`), and the seeder does the same for a fresh install. Prefixes survive in ONE place —
+`CashFlowSection::forShippedChart()` — which is a statement about *our* chart used to backfill it,
+not a rule about charts in general. The report no longer reads a code at all.
+
+**Revenue and expense are deliberately not classifiable.** They net into `net_income` by TYPE, which
+is already chart-agnostic; giving them a section would let an operator move revenue into investing
+and break the statement's own arithmetic. The form hides the field for them, and a test asserts no
+seeded revenue or expense account carries one.
+
+**The floor is OPERATING, not investing.** An account somebody adds without saying where it belongs
+is far more often working capital than a capital asset — and being wrong toward operating leaves the
+net change in cash correct, while being wrong toward investing misstates two subtotals. Equity
+floors to financing.
+
+**Registered in `ValueSets`**, because a mistyped section does not error: it would silently fall
+through to the operating default, which is precisely the class of bug this row is about.
+
+**Two details worth keeping.** The cash branch is tested BEFORE the zero-impact guard, because a
+cash account whose movement nets to zero over the period still has to contribute to the running cash
+figure. And the type Select needed `->live()`, or the section field's `visible()` would never
+re-evaluate — it would stay on screen after switching to revenue and stay hidden after switching
+back.
+
+**What is still open in EG-28**, and said rather than implied: statement LAYOUT is still a `match()`
+on `type`. That is defensible — type is chart-agnostic — but the chart's own `parent_id` rollup is
+still read by no report, and there is still no chart importer. Neither is silent, so neither was the
+half to do first.
 
 ---
 

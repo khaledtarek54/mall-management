@@ -611,6 +611,40 @@ Tests (`tests/Feature/`):
 | **3 — Expenses & payables** 🟡 | المصروفات والموردون | **Accounts Payable done:** `VendorBill` (فاتورة مورد) + `VendorBillPayment` with a draft→approved→paid lifecycle; journalizers post Dr expense (by category) + Dr **VAT Recoverable** (input VAT) / Cr Payables, and payments Dr Payables / Cr Bank; swept + backfilled by `accounting:sync-ledger` with a GL↔AP tie-out; `VendorBillResource` under Accounting, gated by `vendor_bills.*`. **Direct expenses done:** `Expense` (مصروف مباشر / petty cash) posts Dr expense (by category) + Dr VAT Recoverable / Cr cash|bank immediately (no payable stage); `ExpenseResource` gated by `expenses.*`. **Payroll done:** `Payroll` (مسير رواتب, batch per-run totals — not per-employee payslips) posts Dr Salaries Expense (gross) / Cr Salary Tax Payable + Cr Social Insurance Payable (withheld) + Cr Bank\|Cash (net); draft→approved→cancelled; `PayrollResource` gated by `payrolls.*`. All swept by `accounting:sync-ledger`. Per-employee payslips + employer-side social-insurance contribution are a future HR extension. |
 | **4 — Close & compliance** 🟡 | الإقفال والامتثال | **Period close done:** `PeriodService` closes/reopens accounting periods + fiscal years (a closed period refuses postings); `YearEndCloseService` posts the year-end closing entry (قيد الإقفال) that zeros revenue/expense into retained earnings (idempotent, reopenable). Closing entries are flagged `is_closing` → excluded from the income statement (shows actual P&L) but included in the trial balance + balance sheet (P&L reads zero post-close; profit sits in equity). `AccountingPeriodResource` gated by `accounting_periods.*`. **Still to do:** optional ETA/EAS statutory report formatting. |
 
+### The cash-flow statement follows the ACCOUNT, not the code (EG-28, 2026-08-22)
+
+`ledger_accounts.cash_flow_section` — `cash` · `operating` · `investing` · `financing` — resolved
+through `App\Support\CashFlowSection`. It replaced **six literal `str_starts_with` checks on the
+account code** (`111`, `222`, `22`, `122`, `12`), which were correct about the chart this project
+ships and about no other.
+
+**The failure mode was silent.** A different Egyptian chart numbered 1–5 by nature but with
+different sub-ranges SAVES — the save-time guard only checks the leading digit — and then a capital
+purchase lands in operating, a loan drawdown lands in operating, the statement still balances and
+the figures are wrong. The operator's real chart is still pending, so this was waiting to happen.
+
+**Nothing moves on existing installs.** The migration backfills every account using exactly the
+rules the report used, in exactly the order it used them (`222` before `22`, `122` before `12`), and
+`ChartOfAccountsSeeder` does the same for a fresh install. Prefixes survive in ONE place —
+`CashFlowSection::forShippedChart()` — a statement about *our* chart used to backfill it, not a rule
+about charts. The report no longer reads a code.
+
+- **Revenue and expense cannot carry a section.** They net into `net_income` by TYPE, which is
+  already chart-agnostic; a section on them would let an operator move revenue into investing and
+  break the statement's own arithmetic. The form hides the field for them and a test asserts none
+  is seeded with one.
+- **The floor is OPERATING, not investing** (equity floors to financing). An unclassified account is
+  far more often working capital than a capital asset, and being wrong toward operating leaves the
+  net change in cash correct while being wrong toward investing misstates two subtotals.
+- **Registered in `ValueSets`**, because a mistyped section does not error — it silently falls
+  through to the operating default, which is the very class of bug this fixed.
+- **The cash branch is tested BEFORE the zero-impact guard**: a cash account whose movement nets to
+  zero over the period still contributes to the running cash figure.
+
+Statement LAYOUT is still a `match()` on `ledger_accounts.type` — defensible, since type is
+chart-agnostic — but the chart's own `parent_id` rollup is read by no report and there is no chart
+importer. Both remain open under EG-28.
+
 ### A narrative is a KEY, resolved when the entry is read (EG-36, 2026-08-22)
 
 `journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative`

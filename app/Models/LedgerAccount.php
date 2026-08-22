@@ -50,6 +50,7 @@ class LedgerAccount extends Model
         'name_en',
         'name_ar',
         'type',
+        'cash_flow_section',
         'normal_balance',
         'is_postable',
         'is_active',

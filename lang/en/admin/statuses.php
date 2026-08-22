@@ -272,6 +272,12 @@ return [
             'total' => 'The whole share',
             'controllable' => 'Controllable costs only',
         ],
+        'cash_flow_section' => [
+            'cash' => 'Cash & bank',
+            'operating' => 'Operating',
+            'investing' => 'Investing',
+            'financing' => 'Financing',
+        ],
         'ledger_account_type' => [
             'asset' => 'Asset',
             'liability' => 'Liability',

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\LedgerAccount;
+use App\Support\CashFlowSection;
 use Illuminate\Database\Seeder;
 
 /**
@@ -261,6 +262,10 @@ class ChartOfAccountsSeeder extends Seeder
                     'name_en' => $nameEn,
                     'name_ar' => $nameAr,
                     'type' => $type,
+                    // A fresh install classifies exactly as a migrated one does (EG-28). Derived
+                    // from OUR chart's own codes, which is the one place that inference is
+                    // legitimate — the cash-flow statement itself no longer reads a code.
+                    'cash_flow_section' => CashFlowSection::forShippedChart($code, $type),
                     'is_postable' => $isPostable,
                     'is_active' => true,
                 ],

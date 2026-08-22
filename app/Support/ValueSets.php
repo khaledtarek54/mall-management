@@ -103,6 +103,10 @@ class ValueSets
         // The blocks a document actually renders (EG-15). Derived from `DocumentText::KEYS` rather
         // than re-listed: a template written for a slot nothing reads is the inert-settings-screen
         // failure — the operator writes it, saves it, and nothing happens.
+        // Where an account's movement lands on the cash-flow statement (EG-28). Registered because
+        // a typo here does not error — it silently sends the movement to the operating default.
+        'ledger_accounts.cash_flow_section' => [CashFlowSection::class, 'SECTIONS'],
+
         'document_templates.key' => [DocumentText::class, 'KEY_NAMES'],
 
         // ── Registered 2026-08-22 (EG-37) ──────────────────────────────────────────────────────

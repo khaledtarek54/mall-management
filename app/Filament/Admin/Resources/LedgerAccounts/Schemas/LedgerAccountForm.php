@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\LedgerAccounts\Schemas;
 
 use App\Rules\AccountCodeMatchesType;
+use App\Support\CashFlowSection;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -34,8 +35,29 @@ class LedgerAccountForm
                         ->label(__('admin.fields.account_type'))
                         ->options(fn () => __('admin.enums.ledger_account_type'))
                         ->required()
+                        // The cash-flow field below is hidden for revenue and expense, and a
+                        // `visible()` that reads a non-live field never re-evaluates — the section
+                        // would stay on screen after switching type, and stay off after switching
+                        // back.
+                        ->live()
                         ->native(false)
                         ->helperText(__('admin.helpers.account_type')),
+
+                    // Where this account's movement lands on the cash-flow statement (EG-28). Blank
+                    // is honest rather than lazy: equity funds, everything else is working capital,
+                    // and being wrong toward operating leaves the net change in cash correct.
+                    Select::make('cash_flow_section')
+                        ->label(__('admin.fields.cash_flow_section'))
+                        ->options(fn (): array => collect(CashFlowSection::SECTIONS)
+                            ->mapWithKeys(fn (string $s): array => [$s => __('admin.enums.cash_flow_section.'.$s)])
+                            ->all())
+                        ->native(false)
+                        // Revenue and expense net into income by TYPE, so offering them a section
+                        // would let an operator move revenue into investing and break the
+                        // statement's own arithmetic.
+                        ->visible(fn (Get $get): bool => ! in_array($get('type'), ['revenue', 'expense'], true))
+                        ->helperText(__('admin.helpers.cash_flow_section'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cash_flow_section')),
 
                     TextInput::make('name_ar')
                         ->label(__('admin.fields.account_name_ar'))

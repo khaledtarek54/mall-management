@@ -297,6 +297,7 @@ return [
         'purchase_request' => 'أمر الشراء (يُقفل بضاعة لم تُفوتر)',
         'purchase_request_none' => 'لا يوجد — مصروف عام',
         'account_code' => 'رقم الحساب',
+        'cash_flow_section' => 'بند قائمة التدفقات',
         'account_type' => 'طبيعة الحساب',
         'account_name_ar' => 'الاسم (عربي)',
         'account_name_en' => 'الاسم (إنجليزي)',
