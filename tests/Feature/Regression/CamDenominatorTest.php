@@ -146,7 +146,10 @@ it('uses the share a lease STATES over any share derived from area', function ()
 
     $a->camTerms()->create([
         'effective_year' => 2028,
-        'cap_type' => 'none',
+        // NULL is "no cap". `LeaseCamTerm::CAP_TYPES` is absolute|yoy|both and the form offers
+        // exactly those three — `'none'` was a string only a stray `!== 'none'` visibility check
+        // ever mentioned, so this term carried a cap type the reconciliation could not read.
+        'cap_type' => null,
         'stated_share_pct' => 5,
     ]);
 

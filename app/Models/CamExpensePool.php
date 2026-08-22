@@ -34,6 +34,20 @@ class CamExpensePool extends Model
     public const BASIS_BILLED = 'billed';
 
     /**
+     * The two bases an EXPENSE figure can come from, and the two an ESTIMATE can.
+     *
+     * Named as sets rather than left as three loose constants because `ValueSets` enforces the
+     * columns and the forms offer them, and those two lists must be the same list. `billed` is an
+     * estimate basis only — you cannot state an actual from what was billed, that is circular.
+     *
+     * @var list<string>
+     */
+    public const EXPENSE_BASES = [self::BASIS_STATED, self::BASIS_LEDGER];
+
+    /** @var list<string> */
+    public const ESTIMATE_BASES = [self::BASIS_STATED, self::BASIS_BILLED];
+
+    /**
      * Invoice line types that ARE the monthly CAM estimate.
      *
      * `service_charge` is what Atriom bills monthly and reconciles annually; `cam_recovery` and
@@ -51,6 +65,9 @@ class CamExpensePool extends Model
 
     /** Shares divide by a contractually pinned m² figure. */
     public const DENOMINATOR_FIXED = 'fixed';
+
+    /** @var list<string> */
+    public const DENOMINATOR_BASES = [self::DENOMINATOR_OCCUPIED, self::DENOMINATOR_GLA, self::DENOMINATOR_FIXED];
 
     /** The property's CAM pool — what every pool written before RC-02 is, and the default code. */
     public const CODE_CAM = 'cam';

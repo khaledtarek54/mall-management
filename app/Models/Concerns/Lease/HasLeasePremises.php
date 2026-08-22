@@ -176,6 +176,14 @@ trait HasLeasePremises
     public const RENT_RATE = 'rate';
 
     /**
+     * The two ways a base rent is priced. Named as a set because `ValueSets` enforces the column and
+     * the form offers it, and those two lists must be the same list.
+     *
+     * @var list<string>
+     */
+    public const RENT_PRICING_BASES = [self::RENT_FLAT, self::RENT_RATE];
+
+    /**
      * The monthly base rent implied by a per-m² rate (story LS-04).
      *
      * `rate × area ÷ 12`. Null unless the lease is actually priced that way, so a caller cannot

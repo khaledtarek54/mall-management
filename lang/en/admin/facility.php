@@ -82,6 +82,12 @@ return [
             'cause' => 'Cause',
             'remedy' => 'Remedy',
         ],
+        'proposal_statuses' => [
+            'submitted' => 'Submitted',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            'withdrawn' => 'Withdrawn',
+        ],
         'failure_any_trade' => 'Every trade',
         'repeat_visit_badge' => 'Visit :count',
         'pm_compliance' => [

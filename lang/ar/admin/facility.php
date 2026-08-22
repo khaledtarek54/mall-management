@@ -82,6 +82,12 @@ return [
             'cause' => 'السبب',
             'remedy' => 'الإجراء',
         ],
+        'proposal_statuses' => [
+            'submitted' => 'مُقدَّم',
+            'approved' => 'معتمد',
+            'rejected' => 'مرفوض',
+            'withdrawn' => 'مسحوب',
+        ],
         'failure_any_trade' => 'كل التخصصات',
         'repeat_visit_badge' => 'الزيارة :count',
         'pm_compliance' => [

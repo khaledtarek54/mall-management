@@ -647,7 +647,10 @@ class DemoSeeder extends Seeder
                 'earliest_notice_date' => Carbon::today()->subMonth()->toDateString(),
                 'latest_notice_date' => Carbon::today()->addWeeks(3)->toDateString(),
                 'term_months' => 36,
-                'rent_basis' => 'uplift',
+                // , the value  actually lists — 'uplift'
+                // was a value no picker offers and no code path matches, so the demo mall's renewal
+                // option carried an 8% uplift that could never have been applied.
+                'rent_basis' => 'uplift_percent',
                 'uplift_percent' => 8.00,
                 'notes' => 'Five-year lease with one three-year renewal at 8% over the then-current rent.',
             ],

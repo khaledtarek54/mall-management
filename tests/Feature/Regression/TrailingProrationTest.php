@@ -130,7 +130,9 @@ it('claws back rent but never a one-off line earned for something that already h
 
     $invoice->items()->create([
         'description' => 'Electricity recharge - August',
-        'type' => 'utilities',
+        // `utility`, singular — `InvoiceItemType` has no `utilities`, so this line matched no
+        // posting role and the journalizer fell through to its floor.
+        'type' => 'utility',
         'amount' => 50000,
         'vat_rate' => 0,
         'vat_amount' => 0,

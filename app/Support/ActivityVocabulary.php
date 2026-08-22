@@ -194,6 +194,9 @@ class ActivityVocabulary
         'vendor.type' => 'admin.enums.vendor_type',
         'vendor_bill.category' => 'admin.enums.vendor_bill_category',
         'vendor_document.type' => 'admin.vendors.documents.types',
+        'failure_code.type' => 'admin.facility.failure_types',
+        'tenant_request_subcategory.request_type' => 'admin.enums.tenant_request_type',
+        'work_order_proposal.status' => 'admin.facility.proposal_statuses',
         'violation.category' => 'admin.violations.categories',
         'warehouse.category' => 'admin.enums.category_suggestions.warehouse',
     ];

@@ -259,7 +259,7 @@ it('measures a work order\'s overrun on the clock it was promised on', function 
 
     $order = correctiveOrder([
         'priority' => 'medium',
-        'status' => 'completed',
+        'status' => 'done',
         'target_resolution_at' => cairo('2026-09-17 16:00'), // Thursday, an hour before close
         'completed_at' => cairo('2026-09-20 10:00'),         // Sunday morning
     ]);
@@ -289,7 +289,7 @@ it('never charges nothing for a breach that fell entirely inside the weekend', f
 
     $order = correctiveOrder([
         'priority' => 'medium',
-        'status' => 'completed',
+        'status' => 'done',
         'target_resolution_at' => cairo('2026-09-18 10:00'), // Friday
         'completed_at' => cairo('2026-09-19 10:00'),         // Saturday
     ]);

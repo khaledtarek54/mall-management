@@ -9,12 +9,29 @@ use App\Enums\TenantRequestType;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
+use App\Models\CamExpensePool;
+use App\Models\Disbursement;
 use App\Models\ExpenseCategory;
+use App\Models\FacilityWorkOrder;
+use App\Models\FailureCode;
+use App\Models\Lease;
+use App\Models\LeaseCamTerm;
+use App\Models\LeaseEvent;
+use App\Models\LeaseOption;
+use App\Models\MarketingPost;
+use App\Models\OwnerStatement;
+use App\Models\OwnerStatementRun;
 use App\Models\PaymentMethod;
+use App\Models\PostDatedCheque;
+use App\Models\RentableItem;
 use App\Models\RetailCategory;
+use App\Models\ServicePlan;
 use App\Models\TenantRequestSubcategory;
+use App\Models\User;
 use App\Models\VendorDocumentType;
+use App\Models\Violation;
 use App\Models\ViolationCategory;
+use App\Models\WorkOrderProposal;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 
@@ -83,6 +100,67 @@ class ValueSets
      * @var array<string, list<string>>
      */
     public const SETS = [
+        // ── Registered 2026-08-22 (EG-37) ──────────────────────────────────────────────────────
+        // `ValueSets` covered the 62 columns that were DB enums on 2026-08-12 and nothing since, so
+        // every classification column added in the ten weeks after was UNENFORCED — including
+        // `facility_work_orders.status`, which the transition matrix branches on. These are declared
+        // as `[Model::class, 'CONST']` wherever the model already states the set, because two copies
+        // of a value list is the drift CLAUDE.md's "don't re-list a set" exists to prevent.
+        'facility_work_orders.status' => [FacilityWorkOrder::class, 'STATUSES'],
+        'lease_events.type' => [LeaseEvent::class, 'TYPES'],
+        'lease_options.type' => [LeaseOption::class, 'TYPES'],
+        'lease_options.status' => [LeaseOption::class, 'STATUSES'],
+        'marketing_posts.type' => [MarketingPost::class, 'TYPES'],
+        'marketing_posts.status' => [MarketingPost::class, 'STATUSES'],
+        'post_dated_cheques.status' => [PostDatedCheque::class, 'STATUSES'],
+        'rentable_items.type' => [RentableItem::class, 'TYPES'],
+        'rentable_items.status' => [RentableItem::class, 'STATUSES'],
+        'work_order_proposals.status' => [WorkOrderProposal::class, 'STATUSES'],
+        'owner_statements.status' => [OwnerStatement::class, 'STATUSES'],
+        'owner_statement_runs.status' => [OwnerStatementRun::class, 'STATUSES'],
+        'violations.status' => [Violation::class, 'STATUSES'],
+        'users.status' => [User::class, 'STATUSES'],
+        'disbursements.status' => [Disbursement::class, 'STATUSES'],
+        'failure_codes.type' => [FailureCode::class, 'TYPES'],
+        'lease_cam_terms.cap_type' => [LeaseCamTerm::class, 'CAP_TYPES'],
+        'service_plans.frequency_unit' => [ServicePlan::class, 'FREQUENCY_UNITS'],
+        'tenant_requests.request_type' => TenantRequestType::class,
+        'tenant_request_subcategories.request_type' => TenantRequestType::class,
+        // Sets with no home on a model — declared here because here IS their only home.
+        'tax_codes.direction' => ['sales', 'purchases'],
+        'tax_codes.treatment' => ['standard', 'zero_rated', 'exempt'],
+        'employees.payment_method' => ['cash', 'bank'],
+        'custody_transactions.type' => ['expense', 'return'],
+        'employee_advances.type' => ['advance', 'loan'],
+        'tenant_documents.type' => ['insurance_coi', 'tax_card', 'commercial_register', 'other'],
+        'tenant_documents.alert_stage' => ['expiring', 'expired'],
+        'vendor_documents.alert_stage' => ['expiring', 'expired'],
+        'fixed_assets.method' => ['straight_line', 'declining_balance'],
+        // Derived, not copied — and the first cut of these five WAS copied, from whatever happened
+        // to be seeded. Four were wrong (`billed`, `gla`, `uplift_percent`, `rate_per_sqm`) and the
+        // suite said so within a minute. Reading a set off the data tells you what has been stored,
+        // never what the code accepts.
+        'leases.rent_pricing_basis' => [Lease::class, 'RENT_PRICING_BASES'],
+        'lease_options.rent_basis' => [LeaseOption::class, 'RENT_BASES'],
+        'cam_expense_pools.expense_basis' => [CamExpensePool::class, 'EXPENSE_BASES'],
+        'cam_expense_pools.estimate_basis' => [CamExpensePool::class, 'ESTIMATE_BASES'],
+        'cam_expense_pools.denominator_basis' => [CamExpensePool::class, 'DENOMINATOR_BASES'],
+        'owner_statement_runs.basis' => ['accrual', 'cash'],
+        // EG-07's rule, applied to the six currency columns it did not reach: EGP only, because
+        // there is no exchange rate anywhere in this system and any other code would post at 1:1.
+        'payments.channel' => ['admin', 'portal', 'mobile_api', 'payment_link'],
+        'saved_reports.frequency' => ['weekly', 'monthly'],
+        'cam_pool_accounts.cost_nature' => ['fixed', 'variable'],
+        'leases.currency' => ['EGP'],
+        'bank_accounts.currency' => ['EGP'],
+        'charges.currency' => ['EGP'],
+        'credit_notes.currency' => ['EGP'],
+        'invoices.currency' => ['EGP'],
+        'payments.currency' => ['EGP'],
+        'post_dated_cheques.currency' => ['EGP'],
+        'sla_penalties.currency' => ['EGP'],
+        'unit_ownerships.currency' => ['EGP'],
+        'vendor_bills.currency' => ['EGP'],
         'accounting_periods.status' => ['open', 'closed'],
         // Mall news (module 27). `status` is the lifecycle a notice moves through; only
         // SendAnnouncementAction ever writes `sent`, because that word means "tenants have been
@@ -285,6 +363,60 @@ class ValueSets
     ];
 
     /**
+     * Columns that LOOK like a classification and are governed somewhere else — each with the
+     * registry that actually owns them.
+     *
+     * `ValueSetCoverageConformanceTest` sweeps every text column whose name ends in a
+     * classification suffix and requires it to be either in {@see SETS} or named here. Without the
+     * second half the gate would be unshippable: a third of the matches are polymorphic columns
+     * holding a morph alias, framework tables Laravel and spatie own, or genuinely free text.
+     *
+     * An entry here is a CLAIM, and the gate checks two things about it: the column still exists,
+     * and the reason is long enough to be reviewable. "Not needed" is what a stale exemption always
+     * says.
+     *
+     * @var array<string, string>
+     */
+    public const UNCLASSIFIED = [
+        // ── Polymorphic: the value is a MORPH ALIAS, and `App\Support\MorphMap` is its registry ──
+        // Listing them here as well would be two registries for one fact, and the morph map already
+        // throws on an unmapped class — a stronger refusal than this one, because it fires on read
+        // as well as on write.
+        'activity_log.subject_type' => 'A morph alias. Governed by App\Support\MorphMap, which throws on an unmapped class — on READ as well as write, which this listener cannot do.',
+        'activity_log.causer_type' => 'A morph alias naming WHO acted. MorphMap owns it — see activity_log.subject_type.',
+        'journal_entries.source_type' => 'A morph alias naming the GL source document. MorphMap owns it, and LedgerPoster::sync() voids an entry whose source_type no longer resolves.',
+        'media.model_type' => 'A morph alias (medialibrary). MorphMap owns it.',
+        'notes.noteable_type' => 'A morph alias. MorphMap owns it.',
+        'notifications.notifiable_type' => 'A morph alias. MorphMap owns it.',
+        'posting_month_overrides.source_type' => 'A morph alias. MorphMap owns it.',
+        'rentable_item_holdings.holder_type' => 'A morph alias. MorphMap owns it.',
+        'stock_movements.source_type' => 'A morph alias. MorphMap owns it.',
+        'tenant_request_comments.author_type' => 'A morph alias. MorphMap owns it.',
+        'tenant_sales_declarations.declared_by_type' => 'A morph alias. MorphMap owns it.',
+        'model_has_permissions.model_type' => 'A morph alias on spatie\'s own pivot. Not ours to constrain.',
+        'model_has_roles.model_type' => 'A morph alias on spatie\'s own pivot. Not ours to constrain.',
+        'personal_access_tokens.tokenable_type' => 'A morph alias on Sanctum\'s own table. Not ours to constrain.',
+
+        // ── Governed by a CATALOGUE, which is a stronger and more current answer than a list ──
+        'charges.type' => 'Validated against the CHARGE CODE catalogue by Charge::assertTypeIsAKnownChargeCode(), so the operator adds a charge type as a row. A fixed list here would refuse one they just created.',
+        'invoice_items.type' => 'The CHARGE CODE the line was raised under, and the accountant adds one with no deploy (AccountantAddedChargeCodeBillsTest bills `key_money`). `InvoiceItemType` names the codes that SHIP and the ones the journalizer has posting roles for — it is not the set the column may hold, and registering it refused every code the operator created.',
+        'charge_codes.posting_role' => 'A key into App\Support\PostingRoles, which is the registry of what may be posted to. Duplicating its keys here would drift the moment a role is added.',
+        'tax_codes.posting_role' => 'A key into App\Support\PostingRoles — see charge_codes.posting_role.',
+
+        // ── Framework-owned ────────────────────────────────────────────────────────────────────
+        'notifications.type' => 'Laravel writes the notification CLASS NAME here. It is a FQCN, not a classification, and every new notification class would otherwise need a registry line.',
+        'media.mime_type' => 'A MIME type from the uploaded file. Free text by definition — the set is IANA\'s, not ours.',
+
+        // ── Genuinely free text, and a decision rather than an omission ────────────────────────
+        'vendor_contacts.role' => 'A job title the operator types — "Operations Lead", "Account Manager". Constraining it would force every supplier\'s org chart into our vocabulary, which is the opposite of what a contact list is for.',
+        'department_user.role' => 'The member\'s role WITHIN a department, typed per membership. Same reasoning as vendor_contacts.role.',
+        'fixed_assets.category' => 'Free text today, and flagged for a decision rather than a set: it names the KIND of asset (HVAC, generator, lift) and the operator\'s list is theirs. If it is ever made a catalogue it becomes the seventh IsCodeCatalogue, not a literal here.',
+        'inventory_items.category' => 'Free text today — see fixed_assets.category. Same decision, same shape if it changes.',
+        'inventory_items.unit' => 'Deliberately OPEN: InventoryItemForm offers six suggestions, merges every unit already in use, and carries a createOptionForm so a storekeeper can add one. A fixed set here would refuse the affordance the form advertises.',
+        'warehouses.category' => 'Free text: what a store room holds ("spare parts", "consumables"), typed with spaces. Two warehouses in one mall may describe themselves differently and neither is wrong.',
+    ];
+
+    /**
      * `table` => (`column` => values), built once.
      *
      * @var array<string, array<string, list<string>>>|null
@@ -451,14 +583,37 @@ class ValueSets
     }
 
     /**
-     * @param  list<string>|class-string<\BackedEnum>  $set
+     * A set may be declared THREE ways, and two of them avoid re-listing anything.
+     *
+     * - a literal list — for a set that lives nowhere else;
+     * - the class-string of a backed ENUM the model also casts to;
+     * - `[Model::class, 'STATUSES']` — a CONSTANT the model already declares.
+     *
+     * The last is the one that keeps this registry honest as it grows past the 62 columns that were
+     * DB enums in August 2026. Most classification columns added since already have a `STATUSES` or
+     * `TYPES` const on their model that the forms and services read; copying those values here would
+     * make two lists to keep in step, which CLAUDE.md's "don't re-list a set" exists to prevent —
+     * and a drifted copy is worse than no entry, because it refuses a value the model considers
+     * valid.
+     *
+     * @param  list<string>|class-string<\BackedEnum>|array{0: class-string, 1: string}  $set
      * @return list<string>
      */
     private static function expand(array|string $set): array
     {
-        return is_string($set)
-            ? array_column($set::cases(), 'value')
-            : $set;
+        if (is_string($set)) {
+            return array_column($set::cases(), 'value');
+        }
+
+        // `[Model::class, 'CONST']` — two elements, the first an existing class. A literal list of
+        // two strings cannot be mistaken for one: a class name that is also a value set's first
+        // member would have to be a real loadable class, which no status ever is.
+        if (count($set) === 2 && is_string($set[0]) && is_string($set[1])
+            && class_exists($set[0]) && defined($set[0].'::'.$set[1])) {
+            return array_values((array) constant($set[0].'::'.$set[1]));
+        }
+
+        return $set;
     }
 
     /**
