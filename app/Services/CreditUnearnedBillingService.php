@@ -230,6 +230,20 @@ class CreditUnearnedBillingService
      * Read from the CHARGE where there is one, because the charge knows its own frequency. Lines
      * with no charge behind them are the one-offs the billing engine attaches directly (a CAM
      * recovery, a percentage-rent overage), and those are never time-apportioned.
+     *
+     * **An ARREARS line is not apportionable either, and that is the same reason one notch along.**
+     * It covers the period BEFORE the invoice's own (EG-30 / M-2), which has already run in full by
+     * the time anyone terminates inside the current one. Prorating it by this invoice's unearned
+     * ratio refunds the tenant for a month they had: a lease ending 15 September, on a September
+     * invoice carrying September's rent and AUGUST's service charge, would have had half of August
+     * credited back. Real money, on a document an auditor reads as a correction.
+     *
+     * The one edge, stated rather than hidden: on a lease's FINAL invoice an arrears line covers
+     * both the arrears window and the current period, so excluding it could under-credit if a
+     * termination landed inside that period too. That invoice is only raised once expiry is known,
+     * so a separate mid-period termination against it is not a flow this system produces — and
+     * under-crediting is the safer error of the two, because the alternative is refunding money
+     * that was earned.
      */
     private function isTimeApportioned(InvoiceItem $item): bool
     {
@@ -239,6 +253,10 @@ class CreditUnearnedBillingService
 
         /** @var Charge|null $charge */
         $charge = $item->charge;
+
+        if ($charge?->billsInArrears()) {
+            return false;
+        }
 
         return $charge?->frequency === 'monthly';
     }

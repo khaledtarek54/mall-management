@@ -853,6 +853,21 @@ class MonthlyBillingService
     }
 
     /**
+     * Line types that raise their OWN invoice, dated into a month the recurring run also bills.
+     *
+     * Named because two places now reason about them, and because the list itself is the record of
+     * a defect fixed five times one at a time — percentage rent, CAM recovery, the CAM admin fee, a
+     * utility recharge, a violation fine, an NSF fee and a late fee each silently suppressed a
+     * lease's base rent for a month before being added here.
+     *
+     * @var array<int, string>
+     */
+    private const STANDALONE_ITEM_TYPES = [
+        'percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine',
+        'nsf_fee', 'late_fee',
+    ];
+
+    /**
      * Has this lease already been billed a REGULAR recurring invoice covering the given month?
      * Period-OVERLAP so it also catches a multi-month (quarterly/annual) cycle invoice that spans
      * the month, and a prorated first-month invoice whose period_start is the mid-month commencement.
@@ -896,7 +911,20 @@ class MonthlyBillingService
             // invoice (FS-27) rather than after someone lost a month's rent to it. The class is now
             // explicit: **anything that raises its own invoice dated into a billed month belongs
             // here, and belongs here in the same commit that starts raising it.**
-            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine', 'nsf_fee', 'late_fee']))
+            //
+            // **The test is whether EVERY line is a one-off, not whether ANY line is.** It used to
+            // be `whereDoesntHave(… whereIn …)`, which was the same thing while those types only
+            // ever appeared alone. EG-30 broke that premise: an arrears UTILITY charge puts one of
+            // these types on the RECURRING invoice, so the run looked at the invoice it had just
+            // raised, saw a `utility` line, concluded the lease was unbilled and raised a second
+            // one — double-billing the tenant on this feature's own headline example. Asking for at
+            // least one NON-one-off line keeps the original intent exactly (a standalone recharge
+            // has no such line and still cannot suppress the rent) and survives the mixture.
+            ->where(fn ($q) => $q
+                ->whereHas('items', fn ($i) => $i->whereNotIn('type', self::STANDALONE_ITEM_TYPES))
+                // An invoice with no lines at all kept its old reading rather than acquiring a new
+                // one here; that degenerate case is not what this change is about.
+                ->orWhereDoesntHave('items'))
             ->exists();
     }
 

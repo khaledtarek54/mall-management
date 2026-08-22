@@ -259,3 +259,45 @@ it('saves the timing the operator picked, and keeps it across a rent change and 
     expect($advance->billing_timing)->toBeNull()
         ->and($advance->billsInArrears())->toBeFalse();
 });
+
+it('does not bill the month twice when the arrears line is a utility recharge', function () {
+    // `alreadyBilledForMonth()` ignores any invoice carrying a one-off line type — utility,
+    // CAM recovery, percentage rent, a fine, an NSF or late fee — because each of those raises its
+    // OWN invoice dated into a month the recurring run also bills, and without the exclusion that
+    // standalone document would suppress the lease's rent.
+    //
+    // An arrears UTILITY charge puts one of those types on the RECURRING invoice for the first
+    // time. If the exclusion still fires, the run looks at its own invoice, decides the lease has
+    // not been billed, and raises a second one — double-billing the tenant on the feature's own
+    // headline example.
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active', 'commencement_date' => '2026-01-01',
+        'expiry_date' => '2030-12-31', 'base_rent_monthly' => 100000,
+    ]);
+
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
+        'amount' => 100000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2026-01-01', 'is_active' => true,
+    ]);
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Water', 'type' => 'utility',
+        'amount' => 900, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2026-01-01', 'is_active' => true,
+        'billing_timing' => Charge::TIMING_ARREARS,
+    ]);
+
+    $billing = app(MonthlyBillingService::class);
+    $september = CarbonImmutable::parse('2026-09-01');
+
+    $first = $billing->generateForLease($lease->fresh(), $september);
+    expect($first['invoice'] ?? null)->not->toBeNull();
+
+    // The same run again must find the lease already billed, not raise a second invoice.
+    $second = $billing->generateForLease($lease->fresh(), $september);
+
+    expect($second['invoice'] ?? null)->toBeNull()
+        ->and(\App\Models\Invoice::where('lease_id', $lease->id)->count())->toBe(1);
+});

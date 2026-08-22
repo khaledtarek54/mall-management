@@ -653,6 +653,15 @@ public function runForPeriod(?CarbonImmutable $period = null): array
     an English month. Localising stored invoice descriptions is real work with a known shape here
     (store the data, resolve the words at render time, as `ActivityVocabulary` does) and is not part
     of this.
+  - **An arrears line is never clawed back on termination.** `CreditUnearnedBillingService` prorates
+    every time-apportioned line by the invoice's unearned ratio; an arrears line covers a period
+    that has already run in full, so a lease ending 15 September would have had half of AUGUST's
+    service charge refunded. It is excluded for the same reason a one-off is — earned in full for
+    something that already happened.
+  - **`alreadyBilledForMonth()` asks whether EVERY line is a one-off, not whether any is.** An
+    arrears `utility` charge puts a standalone type on the RECURRING invoice for the first time, and
+    the old `whereDoesntHave` reading made the run ignore the invoice it had just raised and bill
+    the month twice. `STANDALONE_ITEM_TYPES` names the list once.
   - **An arrears row prorates against the month it COVERS**, not the month the invoice is dated to:
     a lease commencing 15 August owes half of August's service charge on the September invoice.
   - **Nothing on a lease's first invoice**, because the month it would cover predates the lease. It
