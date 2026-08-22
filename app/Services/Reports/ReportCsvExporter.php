@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Invoice;
+use App\Support\JournalNarrative;
 use Illuminate\Support\Collection;
 
 /**
@@ -127,7 +128,18 @@ class ReportCsvExporter
             $rows[] = [
                 $line['entry_date'],
                 $line['entry_number'],
-                $isAr ? ($line['description_ar'] ?? $line['description_en'] ?? '') : ($line['description_en'] ?? $line['description_ar'] ?? ''),
+                // Through the same seam the screen uses (EG-36). Reading the prose columns here
+                // would let the exported CSV and the general ledger it was exported FROM disagree
+                // about the same line the moment a narrative's wording changed.
+                JournalNarrative::resolve(
+                    $line['description_key'] ?? null,
+                    is_string($line['description_data'] ?? null)
+                        ? json_decode((string) $line['description_data'], true)
+                        : ($line['description_data'] ?? null),
+                    $line['description_en'] ?? null,
+                    $line['description_ar'] ?? null,
+                    $isAr ? 'ar' : 'en',
+                ),
                 round((float) $line['debit'], 2),
                 round((float) $line['credit'], 2),
                 round((float) $line['running_balance'], 2),

@@ -1351,6 +1351,28 @@ year, so the pool's period has to change before the schedule means anything.
 
 ---
 
+### 2026-08-22 — milestone 18a: EG-36 review pass
+
+One finding, and it is the class this pass exists for: **a read site nobody converted.**
+
+`ReportCsvExporter::generalLedger()` read `description_en` / `description_ar` straight out of the
+statement array, so the general-ledger **CSV** kept showing the prose frozen at post time while the
+**screen** it was exported from showed the resolved narrative. The moment anyone edited a wording
+those two would disagree about the same line — two truths about one entry, in the feature whose
+whole purpose is to have one. The data was already in the row (`LedgerReportService` selects the key
+and its data for the page), so this was a seam left unused rather than a missing capability.
+
+Fixed through the same resolver, and pinned both ways: a line WITH a key exports the resolved
+narrative, and a line posted before keys existed still exports its prose.
+
+**Checked and NOT defects.** `ChangeImpactConformanceTest` passes — `JournalEntry` is the entry
+rather than a classified GL SOURCE, so its two new fillables need no impact classification. The
+`ValueSets` coverage gate does not want `description_key` registered: it has its own registry, and
+`JournalNarrative` ignores a key it does not know rather than rendering it, which the test proves
+directly.
+
+---
+
 ### 2026-08-22 — milestone 18: EG-36, the ledger stops baking its own prose
 
 The last of the 🧑‍💻-only rows that needed no decision from anybody.

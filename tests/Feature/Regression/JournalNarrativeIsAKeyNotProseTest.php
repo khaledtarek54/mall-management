@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\JournalEntry;
+use App\Services\Reports\ReportCsvExporter;
 use App\Support\JournalNarrative;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Lang;
@@ -132,4 +133,50 @@ it('leaves no journalizer writing prose without a key', function () {
     }
 
     expect(implode(', ', $offenders))->toBe('');
+});
+
+it('resolves the narrative in the general-ledger CSV, not only on the screen', function () {
+    // Found in review, after the commit. The exporter read the prose columns straight out of the
+    // statement array, so the moment a narrative's wording changed the CSV and the general ledger
+    // it was exported FROM would disagree about the same line — two truths about one entry, in the
+    // feature whose entire purpose is to have one.
+    App::setLocale('en');
+
+    $csv = app(ReportCsvExporter::class)->generalLedger([
+        'opening' => 0.0,
+        'closing' => 0.0,
+        'lines' => [[
+            'entry_date' => '2026-03-01',
+            'entry_number' => 'JE-1',
+            'description_en' => 'stale prose',
+            'description_ar' => 'نص قديم',
+            'description_key' => 'invoice.posted',
+            'description_data' => ['number' => 'INV-0001'],
+            'debit' => 100.0,
+            'credit' => 0.0,
+            'running_balance' => 100.0,
+        ]],
+    ]);
+
+    expect($csv['rows'][1][2])->toBe('Invoice INV-0001');
+});
+
+it('still exports the prose for a line posted before keys existed', function () {
+    App::setLocale('en');
+
+    $csv = app(ReportCsvExporter::class)->generalLedger([
+        'opening' => 0.0,
+        'closing' => 0.0,
+        'lines' => [[
+            'entry_date' => '2026-03-01',
+            'entry_number' => 'JE-2',
+            'description_en' => 'Opening balance',
+            'description_ar' => null,
+            'debit' => 0.0,
+            'credit' => 50.0,
+            'running_balance' => -50.0,
+        ]],
+    ]);
+
+    expect($csv['rows'][1][2])->toBe('Opening balance');
 });
