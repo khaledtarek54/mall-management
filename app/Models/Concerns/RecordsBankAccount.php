@@ -30,7 +30,15 @@ trait RecordsBankAccount
     public static function bootRecordsBankAccount(): void
     {
         static::saving(function ($document): void {
-            if (! $document->isDirty('bank_account_id') || $document->bank_account_id === null) {
+            if ($document->bank_account_id === null) {
+                return;
+            }
+
+            // BOTH ends of the move. Checking only `bank_account_id` let the other side through:
+            // re-homing a document to another mall while leaving its bank account alone ends with a
+            // Mall B expense pointing at Mall A's account, which is the same wrong posting arrived
+            // at from the opposite direction. Same reasoning as `GuardsPortfolioWideRows`.
+            if (! $document->isDirty('bank_account_id') && ! $document->isDirty('asset_id')) {
                 return;
             }
 
@@ -69,6 +77,11 @@ trait RecordsBankAccount
      */
     public function bankAccount(): BelongsTo
     {
-        return $this->belongsTo(BankAccount::class);
+        // `withTrashed()`, so the register and the ledger tell one story. `MoneyAccount` reads the
+        // account with trashed rows included on purpose — money that moved through an account moved
+        // through it, and a deleted register row must not rewrite posting history — and without the
+        // same treatment here the LIST said "the rail decides" about a document the GL was still
+        // posting to that very bank. One truth about which account this money moved through.
+        return $this->belongsTo(BankAccount::class)->withTrashed();
     }
 }

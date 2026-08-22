@@ -222,7 +222,32 @@ class Expense extends Model
                 return; // an already-cancelled expense is terminal and guarded elsewhere
             }
 
-            foreach (['amount', 'vat_amount', 'category', 'paid_from'] as $field) {
+            // `bank_account_id` belongs here with `paid_from`: it chooses the very same account the
+            // credit leg lands in, only more precisely. Leaving it editable while `paid_from` is
+            // refused would be one decision guarded and its stricter twin waved through.
+            //
+            // …EXCEPT when the expense is being RE-HOMED. `asset_id` is deliberately editable —
+            // re-homing a correctly-keyed expense is a legitimate correction that does not restate
+            // what was spent — and a bank account is `#[PropertyOwned]`, so moving the expense to
+            // Mall B leaves it naming Mall A's account, which `RecordsBankAccount` then refuses.
+            // Refusing the fix as well would make a recorded expense that names a bank account
+            // IMPOSSIBLE to re-home: the move throws, and so does the only edit that would let the
+            // move through. Two guards that are each right and together lock the door.
+            //
+            // So when the property moves the account may move with it, and only then — which is
+            // not a loophole but the requirement: the credit leg has to land in an account of the
+            // mall the expense now stands in. `RecordsBankAccount` still validates the NEW pairing
+            // on the same save (it runs on `saving`, ahead of this), so a wrong pick is refused;
+            // and clearing it to null is allowed too, which simply hands the choice back to the
+            // rail. What stays refused is what was always meant to be: moving the credit between
+            // banks on a document that is standing still.
+            $reHoming = $expense->isDirty('asset_id');
+
+            foreach (['amount', 'vat_amount', 'category', 'paid_from', 'bank_account_id'] as $field) {
+                if ($field === 'bank_account_id' && $reHoming) {
+                    continue;
+                }
+
                 if ($expense->isDirty($field)) {
                     throw new \DomainException(__('admin.errors.expense_immutable'));
                 }

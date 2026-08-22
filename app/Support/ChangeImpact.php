@@ -317,9 +317,9 @@ class ChangeImpact
                 'vat_amount' => 'the recoverable input VAT',
                 'category' => 'chooses the expense account the net books to',
                 'paid_from' => 'chooses whether the credit left cash or the bank',
+                'bank_account_id' => 'chooses WHICH bank the credit left — the same decision as paid_from, one step finer, so it is refused on the same terms. The one exception is a RE-HOME: `asset_id` is editable and a bank account is property-owned, so when the property moves the account may move with it, or the expense could never be re-homed at all',
             ],
             self::DERIVED => [
-                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'status' => 'only `recorded` posts; cancelling reverses',
                 'total' => 'the credit to cash/bank, and the expense debit is derived as total − vat. Not independently settable — the `saving` hook recomputes it from amount + vat, both of which are refused',
                 'expense_date' => 'it IS the entry date. Editable on purpose, with its own posting-date guard: re-dating a correctly-keyed expense does not restate what was spent',

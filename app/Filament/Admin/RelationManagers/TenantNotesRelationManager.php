@@ -21,6 +21,30 @@ class TenantNotesRelationManager extends RelationManager
 {
     protected static string $relationship = 'notes';
 
+    /**
+     * NOT read-only on a View page — the one relation manager in the panel that says so.
+     *
+     * Filament makes every relation manager read-only when it hangs off a `ViewRecord`, and denies
+     * its Create/Edit/Delete actions before their own gates are ever consulted. For most of the 61
+     * here that is a sensible default. For this one it makes a designed role's ONLY function
+     * unreachable: `customer_service` is the front desk — `tenants.view`, `notes.view`,
+     * `notes.create`, and deliberately no `tenants.edit` — so `ViewTenant` is the only tenant screen
+     * they can open, and logging the call they just took was refused there. A right that reads as
+     * granted and reaches no screen is the `App\Support\PermissionReach` failure exactly, and it is
+     * the confusing direction: the role appears to hold it, the screen refuses, and nobody can tell
+     * policy from bug.
+     *
+     * "The page is a View page" is a UI inference, not an authorization fact — this panel has no
+     * policies and gates on permissions at the call site. So the answer is to let the call site
+     * answer: all three actions below carry `->authorize()` on `notes.create` / `notes.edit` /
+     * super_admin, and `RelationManagerCrudIsGatedConformanceTest` is what keeps that true. Waiving
+     * the default here without those gates would have opened the screen to anyone who can read it.
+     */
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.relation_managers.notes');

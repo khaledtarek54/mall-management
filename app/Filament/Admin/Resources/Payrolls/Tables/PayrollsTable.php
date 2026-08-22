@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources\Payrolls\Tables;
 
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Models\Payroll;
+use App\Support\Filament\BankAccountColumn;
+use App\Support\Filament\BankAccountFilter;
 use App\Support\ReportCsv;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -73,6 +75,7 @@ class PayrollsTable
                         'cancelled' => 'gray',
                         default => 'warning',
                     }),
+                BankAccountColumn::make(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -82,6 +85,7 @@ class PayrollsTable
                     ->label(__('admin.fields.paid_from'))
                     ->options(fn () => __('admin.enums.expense_paid_from')),
                 TrashedFilter::make(),
+                BankAccountFilter::make(),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

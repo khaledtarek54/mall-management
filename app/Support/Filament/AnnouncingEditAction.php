@@ -35,7 +35,8 @@ class AnnouncingEditAction extends EditAction
      */
     public function isAuthorized(): bool
     {
-        return parent::isAuthorized()
+        return $this->defaultAuthorizationAllows()
+            && parent::isAuthorized()
             && (ResourceAbility::may('canEdit', $this->getLivewire(), $this->getRecord()) ?? true);
     }
 

@@ -6,6 +6,7 @@ use App\Models\PaymentMethod;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\VoidVendorBillPaymentService;
+use App\Support\Filament\BankAccountColumn;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -83,6 +84,7 @@ class VendorBillPaymentsRelationManager extends RelationManager
                     ->label(__('admin.fields.notes'))
                     ->placeholder('—')
                     ->limit(60),
+                BankAccountColumn::make(),
             ])
             ->headerActions([])
             ->recordActions([

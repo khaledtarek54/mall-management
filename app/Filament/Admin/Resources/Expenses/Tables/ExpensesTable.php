@@ -7,6 +7,8 @@ use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
+use App\Support\Filament\BankAccountColumn;
+use App\Support\Filament\BankAccountFilter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -83,6 +85,7 @@ class ExpensesTable
                         'cancelled' => 'gray',
                         default => 'gray',
                     }),
+                BankAccountColumn::make(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -101,6 +104,7 @@ class ExpensesTable
                     ->label(__('admin.fields.paid_from'))
                     ->options(fn () => PaymentMethod::filterOptionsFor('expenses.paid_from', 'admin.enums.expense_paid_from')),
                 TrashedFilter::make(),
+                BankAccountFilter::make(),
             ])
             // Category is the axis the owner's cost report is built on.
             ->groups([

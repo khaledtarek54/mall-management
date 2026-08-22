@@ -12,6 +12,7 @@ use App\Models\AccountingPeriod;
 use App\Models\Announcement;
 use App\Models\Area;
 use App\Models\Asset;
+use App\Models\BankAccount;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
@@ -34,6 +35,7 @@ use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
 use App\Models\LeaseOption;
+use App\Models\LedgerAccount;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
@@ -41,6 +43,7 @@ use App\Models\MeterReading;
 use App\Models\Note;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Models\PostDatedCheque;
@@ -124,6 +127,10 @@ class DemoSeeder extends Seeder
      */
     public const DEMO_RNG_SEED = 4242;
 
+    private ?BankAccount $cibAccount = null;
+
+    private ?BankAccount $nbeAccount = null;
+
     public function run(): void
     {
         mt_srand(self::DEMO_RNG_SEED);
@@ -175,6 +182,12 @@ class DemoSeeder extends Seeder
                 ],
             ],
         );
+
+        // The banking register, before ANY money exists — every receipt and expense below names
+        // one of these as it is created. Seeded late, it was invisible: the invoice-history
+        // generator and the current-month payment run both fire earlier, so 193 of 194 demo
+        // receipts recorded no bank account at all.
+        $this->seedBankAccounts($atriomWalk);
 
         // Attach the owner user to Atriom Walk at 100% ownership
         $ownerUser = User::where('email', 'owner@atriom.test')->first();
@@ -838,6 +851,7 @@ class DemoSeeder extends Seeder
             'amount' => (float) $rent->total,
             'payment_date' => Carbon::today()->subDays(9)->toDateString(),
             'method' => 'bank_transfer',
+            'bank_account_id' => $this->demoBankAccountFor('bank_transfer', 0),
             'status' => 'captured',
             'reference' => 'TRF-'.Carbon::today()->format('Ymd').'-DEMO',
             'notes' => 'Remittance advice: "March rent only — service charge under query."',
@@ -1771,7 +1785,8 @@ class DemoSeeder extends Seeder
                 'tenant_id' => $invoice->tenant_id,
                 'amount' => round($amount, 2),
                 'currency' => 'EGP',
-                'method' => collect(['bank_transfer', 'instapay', 'card', 'cheque'])->random(),
+                'method' => $method = collect(['bank_transfer', 'instapay', 'card', 'cheque'])->random(),
+                'bank_account_id' => $this->demoBankAccountFor($method, $invoice->id),
                 'status' => 'captured',
                 'payment_date' => $payDate,
             ]);
@@ -1969,7 +1984,8 @@ class DemoSeeder extends Seeder
                     'tenant_id' => $tenant->id,
                     'amount' => $paidAmount,
                     'currency' => 'EGP',
-                    'method' => collect(['card', 'bank_transfer', 'instapay', 'cash'])->random(),
+                    'method' => $method = collect(['card', 'bank_transfer', 'instapay', 'cash'])->random(),
+                    'bank_account_id' => $this->demoBankAccountFor($method, $invoice->id),
                     'status' => 'captured',
                     'payment_date' => $dueDate->copy()->subDays(rand(0, 5)),
                 ]);
@@ -2930,6 +2946,7 @@ class DemoSeeder extends Seeder
                 'period_month' => $month,
                 'description' => 'Monthly payroll — '.$month->format('F Y'),
                 'paid_from' => 'bank',
+                'bank_account_id' => $this->demoBankAccountFor('bank', $monthsBack),
                 'status' => 'draft',
                 'gross_salaries' => 0,
                 'salary_tax' => 0,
@@ -3927,12 +3944,125 @@ class DemoSeeder extends Seeder
                 'vat_amount' => $vat,
                 'total' => $s['amount'] + $vat,
                 'paid_from' => $s['paid'],
+                'bank_account_id' => $this->demoBankAccountFor($s['paid'], $s['days']),
                 'expense_date' => Carbon::now()->subDays($s['days'])->toDateString(),
                 'status' => 'recorded',
             ]);
         }
 
         $this->command->info('   Seeded '.count($samples).' direct expenses');
+    }
+
+    /**
+     * Two bank accounts in ONE mall — the situation EG-12 exists for — and money that went through
+     * each.
+     *
+     * Nothing seeded a `BankAccount` at all, so on a fresh demo every bank-account picker on the six
+     * money forms was EMPTY and the whole feature read as unbuilt. Demo data is part of the feature:
+     * a screen with no rows to choose from is indistinguishable from one that was never wired.
+     *
+     * **Each gets its OWN chart leaf, and neither may be a POSTING ROLE account.** The first cut
+     * took "the first two postable asset accounts by code", which on the seeded chart are
+     * `11101001 Main Cashier` and `11102001 Bank Account` — the `cash` and `bank` role accounts
+     * themselves. That demo shows nothing: CIB's receipts would land in the till, and NBE would
+     * resolve to exactly the account `App\Support\MoneyAccount`'s floor already picks, so the
+     * separation the whole feature is about would be invisible on the trial balance and the
+     * reconciliation matcher would still offer one bank's postings against the other's statement.
+     * (The regression test's fixture was already careful about this; the seeder was not.)
+     *
+     * So the demo does what a mall's accountant does: two new leaves under `11102 Banks`, beside
+     * the generic one rather than instead of it. `11102001` stays the `bank` role — the right
+     * answer for any document that names no account at all.
+     *
+     * Runs BEFORE the money is seeded, so the receipts below can name an account as they are
+     * created. Stamping them afterwards would mean an UPDATE, and `bank_account_id` is classified
+     * REFUSED on a committed expense — quite rightly, since it decides where the cash leg posts.
+     */
+    private function seedBankAccounts(Asset $asset): void
+    {
+        $banks = LedgerAccount::query()->where('code', '11102')->first();
+
+        if ($banks === null) {
+            return; // A chart we do not recognise — leave it alone rather than guess a parent.
+        }
+
+        $leaf = fn (string $code, string $en, string $ar): LedgerAccount => LedgerAccount::updateOrCreate(
+            ['code' => $code],
+            [
+                'parent_id' => $banks->id,
+                'name_en' => $en,
+                'name_ar' => $ar,
+                'type' => 'asset',
+                'is_postable' => true,
+                'is_active' => true,
+            ],
+        );
+
+        $this->cibAccount = BankAccount::updateOrCreate(
+            ['asset_id' => $asset->id, 'account_number' => '100-2003-004455'],
+            [
+                'name' => 'CIB — operating account',
+                'bank_name' => 'Commercial International Bank',
+                'iban' => 'EG380019000500000000263180002',
+                'currency' => 'EGP',
+                'ledger_account_id' => $leaf('11102002', 'CIB — Operating Account', 'حساب البنك التجاري الدولي — التشغيل')->id,
+                'is_active' => true,
+                'notes' => 'Rent collections and supplier payments.',
+            ],
+        );
+
+        $this->nbeAccount = BankAccount::updateOrCreate(
+            ['asset_id' => $asset->id, 'account_number' => '900-8007-001122'],
+            [
+                'name' => 'NBE — service-charge account',
+                'bank_name' => 'National Bank of Egypt',
+                'iban' => 'EG210003000600000000123456789',
+                'currency' => 'EGP',
+                'ledger_account_id' => $leaf('11102003', 'NBE — Service Charge Account', 'حساب البنك الأهلي المصري — الخدمات')->id,
+                'is_active' => true,
+                'notes' => 'Service-charge collections, kept separate for the owner reconciliation.',
+            ],
+        );
+
+        $this->command->info('   Seeded 2 bank accounts (CIB, NBE) on their own chart leaves');
+    }
+
+    /**
+     * Rails whose money is actually IN the bank on the document's own date.
+     *
+     * Deliberately not "everything that is not cash". A card capture debits the bank the day it is
+     * captured while the money lands T+1/T+2 (longer for Fawry), and a cheque lands when it clears —
+     * that timing gap is the known-wrong thing {@see PaymentMethod} documents and the
+     * reason a clearing account per rail is the eventual fix. Naming a bank account on those
+     * documents would make the demo actively misleading: `MatchBankStatementLineService` finds
+     * candidates BY the chart account, so every card capture would be offered against a CIB
+     * statement line dated days before the money arrived, and the operator's first lesson from the
+     * reconciliation screen would be a wrong match.
+     *
+     * @var array<int, string>
+     */
+    private const DEMO_SETTLED_RAILS = ['bank_transfer', 'instapay', 'bank'];
+
+    /**
+     * Which bank a demo document went through — alternating, and null wherever the money is not
+     * yet in the bank.
+     *
+     * Alternating rather than all-one, because one account demonstrates nothing: the register, the
+     * column, the filter and the reconciliation matcher only become legible once two banks hold
+     * different money. Cash and the deferred rails stay null, which is the honest state and also
+     * the one the floor covers.
+     */
+    private function demoBankAccountFor(string $method, int $seq): ?int
+    {
+        if ($this->cibAccount === null || $this->nbeAccount === null) {
+            return null;
+        }
+
+        if (! in_array($method, self::DEMO_SETTLED_RAILS, true)) {
+            return null;
+        }
+
+        return $seq % 2 === 0 ? $this->cibAccount->id : $this->nbeAccount->id;
     }
 
     /**
@@ -3957,6 +4087,7 @@ class DemoSeeder extends Seeder
                 'amount' => (float) $lease->security_deposit,
                 'transaction_date' => $lease->commencement_date,
                 'method' => 'bank',
+                'bank_account_id' => $this->demoBankAccountFor('bank', $lease->id),
                 'status' => 'recorded',
                 'notes' => 'Security deposit received on lease commencement.',
             ]);
@@ -3971,6 +4102,7 @@ class DemoSeeder extends Seeder
                 'amount' => round((float) $leases[0]->security_deposit * 0.25, 2),
                 'transaction_date' => Carbon::now()->subDays(10),
                 'method' => 'bank',
+                'bank_account_id' => $this->demoBankAccountFor('bank', 0),
                 'status' => 'recorded',
                 'notes' => 'Partial deposit refund after fit-out damage settlement.',
             ]);
@@ -3980,6 +4112,7 @@ class DemoSeeder extends Seeder
                 'amount' => round((float) $leases[1]->security_deposit * 0.10, 2),
                 'transaction_date' => Carbon::now()->subDays(6),
                 'method' => 'bank',
+                'bank_account_id' => $this->demoBankAccountFor('bank', 1),
                 'status' => 'recorded',
                 'notes' => 'Portion forfeited against unpaid utilities on exit.',
             ]);

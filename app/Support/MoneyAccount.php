@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\BankAccount;
-use App\Models\LedgerAccount;
 use App\Models\PaymentMethod;
 use App\Services\Accounting\AccountResolver;
 
@@ -39,9 +38,6 @@ use App\Services\Accounting\AccountResolver;
  */
 final class MoneyAccount
 {
-    /** Memo: a payment run asks once per document, and this is a table of a handful of rows. */
-    private const MEMO = 'money_account.bank_ledger';
-
     public static function for(
         ?int $bankAccountId,
         ?string $rail,
@@ -60,9 +56,41 @@ final class MoneyAccount
     /**
      * The chart account a bank account IS, if it names one that still exists and can be posted to.
      *
-     * Re-checked at POSTING time rather than trusted from the form: an account can be retired or
-     * turned into a summary parent long after a bank account was pointed at it, and
-     * `AccountResolver` performs the same check for every role-based lookup.
+     * ## Read every time, deliberately — there is no memo
+     *
+     * The first cut memoised the whole map in `app()->instance()`, which is PROCESS-LOCAL, and the
+     * near-real-time posting path is `SyncDocumentToLedger` — a queued job in a long-lived
+     * `queue:work` daemon. Laravel resets only SCOPED instances between jobs, so the map outlived
+     * every write that should have invalidated it: a bank account registered after the worker
+     * booted posted to the generic `bank` role (re-creating the exact bug this class exists to fix),
+     * and one whose chart account was re-pointed kept posting to the old one. Both proven.
+     *
+     * The register holds a handful of rows and this is asked once per posted document, so the memo
+     * was buying almost nothing and paying for it in staleness. A correct answer every time beats a
+     * cached wrong one.
+     *
+     * ## Trashed accounts still answer
+     *
+     * `withTrashed()`, and that is not a detail. `bank_account_id` is classified DERIVED, so
+     * `LedgerPoster::sync()` void-and-reposts an entry whose account no longer matches — meaning a
+     * soft-deleted bank account would silently rewrite its own posting history to the generic
+     * account on the next sweep, undoing the separation the bank reconciliation is built on. Money
+     * that moved through an account it moved through, whatever the register says today.
+     *
+     * ## Re-checked at POSTING time, in the SAME query
+     *
+     * A chart account can be retired or made a summary parent long after a bank account was pointed
+     * at it, so postability is re-asked on every posting — `AccountResolver` does the same for every
+     * role-based lookup. It is a JOIN rather than a second `find()` because this runs once per
+     * document in `accounting:sync-ledger --all`, and that path is already the one CLAUDE.md flags
+     * for per-query overhead (18k queries for 274ms of actual SQL). One query answers both halves.
+     *
+     * **`deleted_at` is spelled out because a raw join has no global scopes.** `LedgerAccount` uses
+     * `SoftDeletes`, so the `find()` this replaced returned null for a deleted chart account and
+     * fell through to the rail; the join would happily have posted into it. Two soft-delete
+     * decisions in one query, and they point OPPOSITE ways on purpose: a trashed BANK account still
+     * answers (money that moved through it moved through it), a trashed CHART account does not
+     * (nothing may post into a deleted account, whatever points at it).
      */
     private static function ledgerAccountOf(?int $bankAccountId): ?int
     {
@@ -70,35 +98,19 @@ final class MoneyAccount
             return null;
         }
 
-        $map = app()->has(self::MEMO)
-            ? app(self::MEMO)
-            : tap(self::safeMap(), fn (array $m) => app()->instance(self::MEMO, $m));
-
-        $ledgerId = $map[$bankAccountId] ?? null;
-
-        if ($ledgerId === null) {
+        try {
+            $id = BankAccount::withTrashed()
+                ->whereKey($bankAccountId)
+                ->join('ledger_accounts', 'ledger_accounts.id', '=', 'bank_accounts.ledger_account_id')
+                ->whereNull('ledger_accounts.deleted_at')
+                ->where('ledger_accounts.is_postable', true)
+                ->where('ledger_accounts.is_active', true)
+                ->value('ledger_accounts.id');
+        } catch (\Throwable) {
+            // Before either table exists.
             return null;
         }
 
-        $account = LedgerAccount::find($ledgerId);
-
-        return ($account !== null && $account->is_postable && $account->is_active) ? $account->id : null;
-    }
-
-    /** @return array<int, int|null> */
-    private static function safeMap(): array
-    {
-        try {
-            return BankAccount::query()->pluck('ledger_account_id', 'id')->all();
-        } catch (\Throwable) {
-            // Before the table exists.
-            return [];
-        }
-    }
-
-    /** Drop the memo — the register's model calls this on write. */
-    public static function flush(): void
-    {
-        app()->forgetInstance(self::MEMO);
+        return $id === null ? null : (int) $id;
     }
 }

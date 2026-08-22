@@ -29,6 +29,37 @@ use Illuminate\Database\Eloquent\Model;
 final class ResourceAbility
 {
     /**
+     * The record-free twin: may the actor create one of these AT ALL?
+     *
+     * Separate because `canCreate()` takes no record, and {@see may()} keys everything on one — it
+     * has to, since a relation manager's `getResource()` describes the OWNER and answering from it
+     * about a child row answers the wrong question. Here that same absence is the safety: a
+     * relation manager has no `getResource()`, so this returns null and the call site's own gate
+     * decides, exactly as before.
+     *
+     * On a resource page it closes the last of the five. `canCreate()` was reachable only because
+     * `CreateRecord::mount()` re-checks it and aborts 403 — so a `viewer` was offered a Create
+     * button on every resource whose `canCreate()` refuses them, clicked it, and landed on an error
+     * page. Not a hole (the record could never be written) but the wrong answer in the wrong place:
+     * an offered button that always fails reads as a broken screen, and the four sibling actions
+     * had already been taught to ask.
+     */
+    public static function mayCreate(mixed $livewire): ?bool
+    {
+        if (! is_object($livewire) || ! method_exists($livewire, 'getResource')) {
+            return null;
+        }
+
+        $resource = $livewire::getResource();
+
+        if (! is_string($resource) || ! class_exists($resource) || ! method_exists($resource, 'canCreate')) {
+            return null;
+        }
+
+        return (bool) $resource::canCreate();
+    }
+
+    /**
      * @param  'canEdit'|'canDelete'|'canForceDelete'|'canRestore'|'canView'  $ability
      */
     public static function may(string $ability, mixed $livewire, ?Model $record): ?bool

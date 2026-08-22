@@ -310,11 +310,23 @@ Engineering should not guess these:
 
 1. ~~**Should a recorded expense lock?**~~ — **decided 2026-08-11 on the Yardi standard: YES, and it
    is now built.** Voyager does not let a posted payable be edited; you reverse and re-enter. `recorded`
-   IS posted here (there is no draft), so `amount` / `vat_amount` / `category` / `paid_from` are REFUSED
-   and the correction is cancel + re-enter — the same sentence the vendor-bill guard already used.
+   IS posted here (there is no draft), so `amount` / `vat_amount` / `category` / `paid_from` /
+   `bank_account_id` are REFUSED and the correction is cancel + re-enter — the same sentence the
+   vendor-bill guard already used.
    `expense_date` and `asset_id` stay editable on purpose, exactly as on VendorBill: each carries its own
    guard, and re-dating or re-homing a correctly-keyed expense does not restate what was spent. Locked at
    both layers, off one predicate.
+
+   `bank_account_id` joined the refused list on 2026-08-22 (EG-12): it chooses the very same account the
+   credit leg lands in, only more precisely, so leaving it open while `paid_from` is shut would guard one
+   decision and wave its stricter twin through. It carries **one exception, and it is a requirement
+   rather than a loophole**: a bank account is `#[PropertyOwned]`, so re-homing an expense to another
+   mall leaves it naming an account that mall does not hold, which `RecordsBankAccount` refuses. Without
+   the exception the two guards lock the door between them — the move throws, and so does the only edit
+   that would let the move through — and a recorded expense naming a bank account could never be
+   re-homed at all. So when `asset_id` moves, `bank_account_id` may move with it (or be cleared, handing
+   the choice back to the rail); the cross-property guard still validates the new pairing on the same
+   save. What stays refused is moving the credit between banks on a document that is standing still.
 2. ~~**Auto-apply open credit** to the next charge, as Voyager does?~~ — **decided AND already built,
    2026-08-11 (`4792adb`).** Voyager's application order runs existing open credits first; waiting for
    an operator was the deviation, not the reverse.

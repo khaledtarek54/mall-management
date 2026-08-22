@@ -32,7 +32,7 @@ class AnnouncingForceDeleteAction extends ForceDeleteAction
 
     public function isAuthorized(): bool
     {
-        if (! parent::isAuthorized()) {
+        if (! $this->defaultAuthorizationAllows() || ! parent::isAuthorized()) {
             return false;
         }
 

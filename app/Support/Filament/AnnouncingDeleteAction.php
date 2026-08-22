@@ -51,7 +51,8 @@ class AnnouncingDeleteAction extends DeleteAction
      */
     public function isAuthorized(): bool
     {
-        return parent::isAuthorized()
+        return $this->defaultAuthorizationAllows()
+            && parent::isAuthorized()
             && DeletionPolicy::actorMayDelete($this->getRecord(), $this->getLivewire());
     }
 

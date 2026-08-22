@@ -441,6 +441,7 @@ return [
     // Prose shown inside empty inputs. Format EXAMPLES ('A-01', '02:00', 'kWh / m³')
     // deliberately stay literal — they are the shape of the data, not language.
     'placeholders' => [
+        'bank_account_by_rail' => 'حسب قناة السداد',
         'bank_account_name' => 'التجاري الدولي — جاري',
         'checklist_item' => 'أضف بند فحص…',
         'stock_adjust_sign' => '+ زيادة / − عجز',

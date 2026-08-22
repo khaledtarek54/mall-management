@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources\DepositTransactions\Tables;
 
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\PaymentMethod;
+use App\Support\Filament\BankAccountColumn;
+use App\Support\Filament\BankAccountFilter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -68,6 +70,7 @@ class DepositTransactionsTable
                         'cancelled' => 'gray',
                         default => 'gray',
                     }),
+                BankAccountColumn::make(),
             ])
             ->filters([
                 SelectFilter::make('type')
@@ -82,6 +85,7 @@ class DepositTransactionsTable
                     // a retired rail must still find the deposits taken on it.
                     ->options(fn () => PaymentMethod::filterOptionsFor('deposit_transactions.method', 'admin.enums.expense_paid_from')),
                 TrashedFilter::make(),
+                BankAccountFilter::make(),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

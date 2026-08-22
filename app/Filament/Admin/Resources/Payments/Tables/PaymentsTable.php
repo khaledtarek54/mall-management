@@ -10,6 +10,8 @@ use App\Models\PaymentMethod;
 use App\Models\Tenant;
 use App\Services\ReceiptPdfService;
 use App\Support\Exports;
+use App\Support\Filament\BankAccountColumn;
+use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -78,6 +80,7 @@ class PaymentsTable
                         'failed', 'bounced', 'refunded' => 'danger',
                         default => 'gray',
                     }),
+                BankAccountColumn::make(),
             ])
             ->filters([
                 SelectFilter::make('method')
@@ -146,6 +149,7 @@ class PaymentsTable
                         return $indicators;
                     }),
                 TrashedFilter::make(),
+                BankAccountFilter::make(),
             ])
             ->filtersFormColumns(2)
             ->headerActions([

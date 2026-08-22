@@ -19,7 +19,8 @@ class AnnouncingRestoreAction extends RestoreAction
 
     public function isAuthorized(): bool
     {
-        return parent::isAuthorized()
+        return $this->defaultAuthorizationAllows()
+            && parent::isAuthorized()
             && (ResourceAbility::may('canRestore', $this->getLivewire(), $this->getRecord()) ?? true);
     }
 

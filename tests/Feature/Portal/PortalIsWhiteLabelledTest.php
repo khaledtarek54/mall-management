@@ -237,3 +237,66 @@ it('keeps the letterhead for a single-mall tenant who has not been billed yet', 
 
     expect($view['asset']?->id)->toBe($this->mall->id);
 });
+
+it('keeps the letterhead for a unit OWNER who holds no lease at all', function () {
+    // Module 37: a unit owner IS a `tenants` row, pays صيانة, and may never sign a lease. The
+    // fallback looked only at leases — so the party the comment above cites BY NAME was the one it
+    // could not answer for, right up until their first assessment was raised.
+    $owner = makeTenant(['name' => 'Bought Two Floors Ltd']);
+
+    UnitOwnership::create([
+        'tenant_id' => $owner->id,
+        'unit_id' => makeUnit($this->mall)->id,
+        'asset_id' => $this->mall->id,
+        'status' => UnitOwnershipStatus::HandedOver->value,
+        'purchase_date' => now()->subYear()->toDateString(),
+    ]);
+
+    $view = app(TenantStatementPdfService::class)->data($owner->fresh());
+
+    expect($view['asset']?->id)->toBe($this->mall->id);
+});
+
+it('keeps the letterhead for a tenant who LEFT one mall for another, rather than counting the old one', function () {
+    // Counting terminal leases made an ex-tenant of mall A now trading in mall B resolve to TWO
+    // assets — so the fallback went quiet for a tenant who is unambiguously in one place. Only live
+    // agreements count, which is the same reading of "where does this tenant stand" the rest of the
+    // statement uses.
+    $moved = makeTenant(['name' => 'Moved Across Town Ltd']);
+    makeLease(makeUnit($this->other), $moved, ['status' => 'terminated']);
+    makeLease(makeUnit($this->mall), $moved, ['status' => 'active']);
+
+    $view = app(TenantStatementPdfService::class)->data($moved->fresh());
+
+    expect($view['asset']?->id)->toBe($this->mall->id);
+});
+
+it('keeps the letterhead for an owner who SOLD in one mall and bought in another', function () {
+    // The terminal-lease filter had a twin one relation over that the first cut missed: the
+    // ownership union was unfiltered, so a `transferred` (sold-on) unit in mall A plus a live one in
+    // mall B resolved to two assets and dropped the letterhead for someone unambiguously in one
+    // place. `handed_over` is the predicate — the SAME one `PortalBranding` uses, because a
+    // tenant's portal chrome and their statement letterhead disagreeing is the exact failure the
+    // exactly-one-mall rule exists to prevent.
+    $owner = makeTenant(['name' => 'Sold Up And Moved Ltd']);
+
+    UnitOwnership::create([
+        'tenant_id' => $owner->id,
+        'unit_id' => makeUnit($this->other)->id,
+        'asset_id' => $this->other->id,
+        'status' => UnitOwnershipStatus::Transferred->value,
+        'purchase_date' => now()->subYears(3)->toDateString(),
+    ]);
+
+    UnitOwnership::create([
+        'tenant_id' => $owner->id,
+        'unit_id' => makeUnit($this->mall)->id,
+        'asset_id' => $this->mall->id,
+        'status' => UnitOwnershipStatus::HandedOver->value,
+        'purchase_date' => now()->subMonth()->toDateString(),
+    ]);
+
+    $view = app(TenantStatementPdfService::class)->data($owner->fresh());
+
+    expect($view['asset']?->id)->toBe($this->mall->id);
+});

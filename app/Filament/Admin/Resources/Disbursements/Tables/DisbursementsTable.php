@@ -6,6 +6,8 @@ use App\Filament\Admin\Resources\Disbursements\DisbursementResource;
 use App\Models\Disbursement;
 use App\Models\PaymentMethod;
 use App\Services\OwnerAccounting\DisbursementService;
+use App\Support\Filament\BankAccountColumn;
+use App\Support\Filament\BankAccountFilter;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
@@ -48,6 +50,7 @@ class DisbursementsTable
                     }),
                 TextColumn::make('paid_on')->label(__('admin.disbursements.fields.paid_on'))->date()->sortable()->toggleable(),
                 TextColumn::make('external_reference')->label(__('admin.disbursements.fields.external_reference'))->toggleable(isToggledHiddenByDefault: true),
+                BankAccountColumn::make(),
             ])
             ->defaultSort('id', 'desc')
             ->filters([
@@ -55,6 +58,7 @@ class DisbursementsTable
                     ->label(__('admin.disbursements.fields.status'))
                     ->options(fn () => collect(Disbursement::STATUSES)
                         ->mapWithKeys(fn (string $s) => [$s => __("admin.disbursements.statuses.{$s}")])->all()),
+                BankAccountFilter::make(),
             ])
             ->recordActions([
                 Action::make('approve')

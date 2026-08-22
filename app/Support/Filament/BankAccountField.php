@@ -31,14 +31,30 @@ final class BankAccountField
         return EntitySelect::make($name)
             ->label(__('admin.resources.bank_account.singular'))
             ->entity(BankAccount::class)
+            // The PROPERTY clause is a hard filter, and is meant to be: `EntitySelect` resolves a
+            // submitted value's LABEL through this query, so a value it cannot label is refused at
+            // validation. That is the write guard.
             ->modifyOptionsQuery(fn ($query) => $query
-                // ACTIVE only: a closed account is history, and offering it invites a posting into
-                // an account nobody is reconciling any more.
-                ->where('is_active', true)
+                // `withTrashed()` for the same reason `is_active` is a suggestion and not a filter,
+                // and it was the half the first fix missed: `OptionDisplay::pickable()` builds from
+                // `$model::query()`, so the SoftDeletes global scope applies — and because the LABEL
+                // lookup runs through this same query, a soft-deleted bank account made every
+                // document naming it fail validation. Identical lockout, one column over. It also
+                // keeps the picker agreeing with `MoneyAccount`, which reads `withTrashed()` on
+                // purpose: money that moved through an account moved through it.
+                ->withTrashed()
                 ->when(
                     TenantScope::currentAssetId(),
                     fn ($q, $id) => $q->where('asset_id', $id),
                 ))
+            // `is_active` AND `deleted_at` narrow what you SEE, never what you can FIND — CLAUDE.md's
+            // `->suggest()` rule, which the first cut broke by putting `is_active` in the hard
+            // filter. Because the label lookup runs through that same query, retiring a bank
+            // account made EVERY document naming it fail validation: an expense could no longer be
+            // cancelled, re-dated or re-homed, on a field the operator cannot even edit. A closed
+            // account should drop off the list for new documents and stay readable on the old ones.
+            // Both conditions belong here together — deleting is just a louder way of retiring.
+            ->suggest(fn ($query) => $query->whereNull('deleted_at')->where('is_active', true))
             ->helperText(__('admin.helpers.bank_account_on_document'));
     }
 }

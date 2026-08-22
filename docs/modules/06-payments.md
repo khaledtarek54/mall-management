@@ -608,11 +608,31 @@ operator data. The decisive argument is mechanical: `Health::accountingReadiness
 `PostingRoles` key to be mapped, so a clearing role per rail would turn a **blocking** health row red
 on every existing install until the accountant mapped them.
 
-`PaymentMethod::accountIdOrFloor()` is the ONE place the fallback lives, and **six** journalizers
-call it — `Payment`, `VendorBillPayment`, `DepositTransaction`, `Payroll`, `Expense` and
-`Disbursement`. Null means the floor: `cash` for cash, `bank` for everything else, verbatim the
+`App\Support\MoneyAccount::for()` is the ONE seam, and **all thirteen** journalizers resolve through
+it (EG-12): the document's own `bank_account_id` first, then the rail's account via
+`PaymentMethod::accountIdOrFloor()`, then the posting role. Null on both means the floor: `cash` for cash, `bank` for everything else, verbatim the
 ternary each of them carried. So the catalogue ships behaviour-identical and an operator opts in one
 rail at a time.
+
+**Reading it back.** `App\Support\Filament\BankAccountColumn` and `…\BankAccountFilter` are the
+read half of `BankAccountField`. The field shipped write-only — no column, no infolist entry, no
+filter anywhere — so an operator could set the account and never see it again, and *"which documents
+went through CIB?"* was unanswerable from any list. The column is on all six registers; the filter
+is on the five standalone ones, since the vendor-bill payments relation manager has no filter bar of
+its own. Both are toggled/optional, and the column needs no `with()` at any call site: Filament
+eager-loads the relationship columns that are actually VISIBLE, so one toggled off costs nothing.
+
+`DemoSeeder` registers two accounts on Atriom Walk — CIB operating and NBE service-charge — each on
+its **own chart leaf under `11102 Banks`** (`11102002`, `11102003`), added beside the generic
+`11102001` rather than instead of it, which stays the `bank` role for any document naming no
+account. Neither may BE a posting-role account, and that is the whole point: pointed at
+`11101001 Main Cashier` and `11102001 Bank Account` — the first two postable asset accounts by code
+— CIB's receipts would land in the till and NBE would resolve to exactly what the floor already
+picks, so the separation would be invisible on the trial balance and the matcher would still offer
+one bank's postings against the other's statement. The register is also seeded the moment the
+property exists rather than beside the other financial modules, because the invoice-history
+generator and the current-month payment run both fire earlier — seeded late, almost every demo
+receipt recorded no account at all. `DemoDataDemonstratesTwoBanksTest` pins both.
 
 **What is still wrong, and why it is not a code problem.** A card capture debits the bank on the day
 it is captured while the money lands T+1/T+2 (longer for Fawry), so the book line and the bank line

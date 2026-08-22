@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\UnitOwnershipStatus;
 use App\Models\Asset;
+use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Support\IssuingEntity;
@@ -158,14 +160,47 @@ class TenantStatementPdfService
         // lists their assessments, so that chain rendered a statement with no property at all.
         $assetIds = $invoicesAll->pluck('asset_id')->filter()->unique();
 
-        // No invoices at all — a tenant who has just signed and not been billed yet. Their lease
-        // still says which mall this is, and dropping the letterhead for them would be a regression
-        // dressed up as the new rule: the rule is about AMBIGUITY, not about having fewer documents.
+        // No invoices at all — a tenant who has just signed and not been billed yet, or a unit
+        // OWNER who has not reached their first صيانة assessment. Their agreement still says which
+        // mall this is, and dropping the letterhead for them would be a regression dressed up as
+        // the new rule: the rule is about AMBIGUITY, not about having fewer documents.
+        //
+        // Two corrections over the first cut, each of which lost the letterhead for the very
+        // case the comment above claims to cover:
+        //
+        //   * It counted TERMINAL leases, so a chain that left mall A for mall B resolved to two
+        //     assets and fell back to nothing. A statement is about where this tenant stands NOW.
+        //   * A module-37 unit owner holds no lease at all — the case the comment three lines above
+        //     cites by name — and had no fallback of their own. `unit_ownerships` carries its own
+        //     `asset_id`, for the same reason `invoices` does.
+        //
+        // Eager-loaded rather than lazy: this is a PDF path, and `$tenant->leases` followed by a
+        // `unit` per lease is an N+1 that nothing on screen would ever show.
         if ($assetIds->isEmpty()) {
-            $assetIds = $tenant->leases
+            // The MASTER unit answers for the whole lease: `leases.unit_id` is NOT NULL on both
+            // drivers, so reading the `lease_unit` pivot as well would be a second eager load
+            // proving something already known. (Checked, rather than assumed — that was the other
+            // half of this review finding, and it was wrong.)
+            $assetIds = $tenant->leases()
+                ->whereNotIn('status', Lease::TERMINAL_STATUSES)
+                ->with('unit:id,asset_id')
+                ->get()
                 ->pluck('unit.asset_id')
+                ->merge(
+                    // `handed_over`, the same predicate `PortalBranding` uses — and it has to be
+                    // the same one, or a tenant's portal chrome and their statement letterhead can
+                    // disagree, which is the exact failure the exactly-one-mall rule exists to
+                    // prevent. It also stops a SOLD unit counting: a `transferred` ownership in
+                    // Mall A plus a live one in Mall B would resolve to two assets and drop the
+                    // letterhead for someone who is unambiguously in one place — the same mistake
+                    // the terminal-lease filter above fixes, one relation over.
+                    $tenant->unitOwnerships()
+                        ->where('status', UnitOwnershipStatus::HandedOver->value)
+                        ->pluck('asset_id')
+                )
                 ->filter()
-                ->unique();
+                ->unique()
+                ->values();
         }
 
         $asset = $assetIds->count() === 1

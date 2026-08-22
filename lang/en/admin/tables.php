@@ -441,6 +441,7 @@ return [
     // Prose shown inside empty inputs. Format EXAMPLES ('A-01', '02:00', 'kWh / m³')
     // deliberately stay literal — they are the shape of the data, not language.
     'placeholders' => [
+        'bank_account_by_rail' => 'The rail decides',
         'bank_account_name' => 'CIB — current',
         'checklist_item' => 'Add a check item…',
         'stock_adjust_sign' => '+ found / − shrinkage',

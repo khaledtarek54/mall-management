@@ -117,11 +117,23 @@ it('gives every relation-manager CRUD action a gate of its own', function () {
             foreach (rmActionChains($code, $action) as $chain) {
                 $checked++;
 
-                // `->authorize()`, not merely `->visible()`. Both feed `isAuthorized()`, but only
-                // authorization does — `visible()` alone leaves the hard `abort_unless` on the call
-                // path answering TRUE, so the button is hidden and a crafted dispatch still runs.
-                // CLAUDE.md forbids hidden-implies-disabled as a SOLE layer for exactly that reason:
-                // it is an upstream implementation detail that a Filament release can change.
+                // `->authorize()`, not merely `->visible()`.
+                //
+                // NOT because a hidden action is dispatchable — on the Filament we ship it is not
+                // (`CanBeDisabled::isDisabled()` returns true when `isHidden()` does, and both
+                // `mountAction()` and `callMountedAction()` refuse a disabled action). CLAUDE.md
+                // records that correction, and `FilamentActionDispatchContractTest` pins it.
+                //
+                // The reason is that hidden-implies-disabled is an UPSTREAM implementation detail.
+                // A `visible()`-only action states a UI preference and inherits its refusal from a
+                // line in a vendor trait; a Filament release that separates the two would reopen
+                // every one of them at once, silently. `->authorize()` states the intent here.
+                //
+                // The cost of stating it is finding 3 of this feature's review, and it is why the
+                // seam exists: `->authorize()` writes a SINGLE slot and REPLACES whatever was
+                // there, including Filament's own default response — which is what denies a write
+                // action on a read-only View page. `AnnouncesRecordChange::defaultAuthorizationAllows()`
+                // re-supplies it, so declaring authorization here adds a layer instead of swapping one.
                 if (str_contains($chain, '->authorize(')) {
                     continue;
                 }

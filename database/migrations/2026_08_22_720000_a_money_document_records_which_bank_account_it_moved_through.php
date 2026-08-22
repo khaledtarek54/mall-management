@@ -57,6 +57,10 @@ return new class extends Migration
                     ->nullOnDelete();
 
                 // The matcher reads by account; the register reads by document. Both want this.
+                // Not a duplicate of the FK's own index: InnoDB auto-creates one only while the
+                // column has none, and drops it again when an explicit index takes over the job.
+                // Verified on the MySQL we run — one index per column, named below. SQLite creates
+                // no FK index at all, so it needs this outright.
                 $blueprint->index('bank_account_id', substr($table, 0, 20).'_bank_account_index');
             });
         }
