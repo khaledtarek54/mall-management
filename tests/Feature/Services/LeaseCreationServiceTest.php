@@ -44,12 +44,17 @@ it('creates a lease + base rent + service charge and marks the unit occupied', f
 
     $rent = $charges->firstWhere('type', 'base_rent');
     expect((float) $rent->amount)->toBe(10000.0);
-    expect((bool) $rent->vat_applicable)->toBeFalse();
+    // Both tax columns are null on a freshly seeded row since EG-01 — the charge states nothing
+    // and `resolvedVatRate()` asks the catalogue for the date being billed. Exempt rent and taxed
+    // service charge now differ ONLY in what the catalogue says, which is the point.
+    expect($rent->vat_applicable)->toBeNull();
+    expect($rent->vat_rate)->toBeNull();
     expect($rent->resolvedVatRate())->toBe(0.0);
 
     $svc = $charges->firstWhere('type', 'service_charge');
     expect((float) $svc->amount)->toBe(1500.0);
-    expect((bool) $svc->vat_applicable)->toBeTrue();
+    expect($svc->vat_applicable)->toBeNull();
+    expect($svc->vat_rate)->toBeNull();
     expect($svc->resolvedVatRate())->toBe(14.0);
 
     // Marketing levy = 5% of base rent, charged to the tenant, VAT-exempt.

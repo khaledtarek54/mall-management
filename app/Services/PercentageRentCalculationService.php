@@ -722,7 +722,6 @@ class PercentageRentCalculationService
             'amount' => $amount,
             'currency' => 'EGP',
             'frequency' => 'one_time',
-            'vat_applicable' => $vatRate > 0,
             'vat_rate' => $vatRate,
             'start_date' => $declaration->period_start,
             'end_date' => $periodEnd,

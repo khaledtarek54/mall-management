@@ -244,8 +244,11 @@ it('bills parking VAT only when the accountant has ruled it taxable', function (
     $service->assign($exempt, itemFor($asset, 'P-101', 1000), ['effective_from' => '2026-03-01']);
     $row = $exempt->fresh()->charges()->where('type', 'parking')->sole();
 
-    expect((bool) $row->vat_applicable)->toBeFalse()
-        ->and((float) $row->vat_rate)->toBe(0.0);
+    // Both columns stay null and the CATALOGUE answers (EG-01). Asserting the columns as well as
+    // the rate is what tells "the ruling says exempt" apart from "an exemption was frozen on".
+    expect($row->vat_applicable)->toBeNull()
+        ->and($row->vat_rate)->toBeNull()
+        ->and($row->resolvedVatRate())->toBe(0.0);
 
     // The accountant rules that parking is a taxable supply — one row, no deploy.
     ChargeCode::updateOrCreate(
@@ -257,11 +260,16 @@ it('bills parking VAT only when the accountant has ruled it taxable', function (
     $service->assign($taxed, itemFor($asset, 'P-102', 1000), ['effective_from' => '2026-03-01']);
     $taxedRow = $taxed->fresh()->charges()->where('type', 'parking')->sole();
 
-    expect((bool) $taxedRow->vat_applicable)->toBeTrue()
-        // The settings-driven standard rate, never a literal.
-        ->and((float) $taxedRow->vat_rate)->toBe(Vat::standardRate())
-        // …and the earlier lease is untouched: origination only, so a rate change never rewrites
-        // what was already billed.
-        ->and((bool) $exempt->fresh()->charges()->where('type', 'parking')->sole()->vat_applicable)
-        ->toBeFalse();
+    // The settings-driven standard rate, never a literal.
+    expect($taxedRow->resolvedVatRate())->toBe(Vat::standardRate());
+
+    // **This assertion was inverted until 2026-08-22, and the inversion was the bug.** It read
+    // *"the earlier lease is untouched: origination only, so a rate change never rewrites what was
+    // already billed"* — conflating two different claims. An already-ISSUED INVOICE keeps the rate
+    // it was billed at, and always did. A recurring SCHEDULE ROW must not: for a monthly charge,
+    // origination is each BILLING, so "parking is taxable from now on" has to reach the bays
+    // already let. Freezing it meant the ruling reached new assignments only, which is nobody's
+    // idea of what that sentence means.
+    expect($exempt->fresh()->charges()->where('type', 'parking')->sole()->resolvedVatRate())
+        ->toBe(Vat::standardRate());
 });

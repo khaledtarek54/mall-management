@@ -17,10 +17,12 @@
 > against the Egyptian statute book and Egyptian mall practice, is
 > **[EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md)** (2026-08-20). Its worklist is numbered **EG-01…EG-38**
 > and is not restated here; where a row below overlaps one, it cites it. The items that documented
-> rates 🔴 and that nothing in this file covers: taxability frozen per lease at creation (EG-01/02)
-> and statutory payroll as undated scalars with no insurable-wage cap (EG-03). **Both are still open
-> and both wait on somebody else** — the accountant's ruling on which units carry the schedule tax,
-> and the payroll bracket table. EG-04/05/06/07/08/09/19/20/38 shipped 2026-08-20/21, the working
+> rates 🔴 and that nothing in this file covers: taxability with no lease/unit dimension (EG-02) and
+> statutory payroll as undated scalars with no insurable-wage cap (EG-03). **Both wait on somebody
+> else** — the accountant's ruling on which units carry the schedule tax, and the payroll bracket
+> table. **EG-01 — taxability frozen onto the charge row — shipped 2026-08-22**: `vat_applicable`
+> was still NOT NULL and derived at row creation, and because `resolvedVatRate()` tests it before
+> reading the catalogue, a rent row stayed permanently exempt whatever the accountant later ruled. EG-04/05/06/07/08/09/19/20/38 shipped 2026-08-20/21, the working
 > calendar among them; **EG-11/13/14/16/17/18/23/24 shipped 2026-08-21/22** — six operator-editable
 > catalogues (payment rails · expense categories · request subcategories · the merchandising mix ·
 > house rules · supplier document types) now share one seam, `IsCodeCatalogue`.

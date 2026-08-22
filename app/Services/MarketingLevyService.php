@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Settings\MarketingSettings;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
 
 /**
@@ -77,9 +76,10 @@ class MarketingLevyService
                 'frequency' => 'monthly',
                 // The levy follows rent today (exempt) — but whether it is consideration for a
                 // marketing SERVICE is the accountant's call, so it is read from the charge code
-                // rather than fixed here. Origination only: an issued invoice keeps its rate.
-                'vat_applicable' => Vat::rateForType('marketing') > 0,
-                'vat_rate' => Vat::rateForType('marketing'),
+                // rather than fixed here. Which means NOT writing it onto the row: this is a monthly
+                // recurring charge, so its origination is each BILLING, not the day the levy was set
+                // up (EG-01). An issued invoice still keeps the rate it was billed at.
+                'vat_rate' => null,
             ],
             Charge::ORIGIN_LEVY,
         );

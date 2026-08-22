@@ -6,7 +6,6 @@ use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\LeaseEvent;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -87,7 +86,6 @@ class ApplyCamEstimateService
 
             $this->schedule->setAmount($lease, 'service_charge', (float) $proposed, $effectiveFrom, [
                 'name' => 'Service Charge',
-                'vat_applicable' => Vat::rateForType('service_charge') > 0,
                 // null = the catalogue answers at billing time (Charge::resolvedVatRate); a value is an override.
                 'vat_rate' => null,
                 // A lease that never had a service charge does not acquire one from a recovery

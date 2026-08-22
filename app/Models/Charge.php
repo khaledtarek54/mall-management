@@ -281,12 +281,22 @@ class Charge extends Model
      * money. Proven, not assumed: with a rise to 20% effective 1 September, the resolver answered
      * 20 for a September document while the September invoice billed 14.
      *
-     * `vat_applicable = false` still wins. That is a per-charge statement that this particular
-     * supply is not taxed, which is a different question from what the rate is.
+     * **`vat_applicable` is an override on the same terms, and null is its normal state too**
+     * (EG-01, 2026-08-22). It used to be NOT NULL and written at row-creation from
+     * `Vat::rateForType($type) > 0` — the same freeze, one question higher up, and a worse one
+     * because this test runs FIRST and returns before the catalogue is consulted. A `base_rent` row
+     * was born false (rent is in `Vat::EXEMPT_TYPES`) and could never become taxable again: with the
+     * charge code pointed at `VAT_14` the resolver answered 14.0 and the charge still billed 0.0,
+     * and a rate the operator had deliberately typed was discarded along with it.
+     *
+     * So the test is now `=== false`, not falsy. Null means *"nobody has said anything about this
+     * charge — ask the catalogue"*, which is what every existing row actually meant; an explicit
+     * `false` means *"this particular supply is not taxed"*, which is a different question from what
+     * the rate is and still wins over both.
      */
     public function resolvedVatRate(?CarbonInterface $on = null): float
     {
-        if (! $this->vat_applicable) {
+        if ($this->vat_applicable === false) {
             return 0.0;
         }
 
@@ -295,10 +305,16 @@ class Charge extends Model
             : Vat::rateForType((string) $this->type, $on);
     }
 
-    /** Does this charge depart from the catalogue — i.e. did somebody choose its rate? */
+    /**
+     * Does this charge depart from the catalogue — i.e. did somebody choose its rate?
+     *
+     * Keyed on the rate alone. It used to require `vat_applicable` as well, which with a nullable
+     * column would report every genuine override as "no override" — the schedule's ⚠ marker would
+     * quietly stop appearing on exactly the rows it exists to flag.
+     */
     public function hasVatRateOverride(): bool
     {
-        return $this->vat_applicable && $this->vat_rate !== null;
+        return $this->vat_rate !== null;
     }
 
     public function calculateVat(?CarbonInterface $on = null): float

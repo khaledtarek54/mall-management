@@ -64,19 +64,27 @@ it('bills a levy at the rate its charge code says, not the one the service used 
     app(MarketingLevyService::class)->createLevyCharge($lease);
     $exempt = Charge::where('lease_id', $lease->id)->where('type', 'marketing')->latest('id')->first();
 
+    // Null, not false: since EG-01 the row states nothing and the catalogue answers. The
+    // resolver above is the assertion that matters — the column is only checked to prove the 0.0
+    // came from the ruling rather than from a `false` frozen onto the row at creation.
     expect($exempt->resolvedVatRate())->toBe(0.0)
-        ->and($exempt->vat_applicable)->toBeFalse();
+        ->and($exempt->vat_applicable)->toBeNull();
 
     // The accountant rules that the levy IS consideration for a marketing service. A ruling alone
-    // opens no row (the schedule no-ops when the amount is unchanged, which is what stops an issued
-    // month being re-rated) — it reaches the NEXT row the levy opens, here a rent change.
+    // opens no ROW — the schedule no-ops when the amount is unchanged — so what is exercised here
+    // is the next row the levy opens, off a rent change.
+    //
+    // Since EG-01 the ruling also reaches the row that already exists, because taxability is
+    // resolved at billing rather than stored; what a new row proves is the SCHEDULE's behaviour,
+    // not the ruling's reach. Issued invoices keep their rate either way — pinned by
+    // `TaxabilityIsNotFrozenOntoAChargeRowTest`.
     ruleOn('marketing', 'VAT_14');
     $lease->update(['base_rent_monthly' => 20000]);
     app(MarketingLevyService::class)->createLevyCharge($lease, CarbonImmutable::parse('2026-07-01'));
     $taxable = Charge::where('lease_id', $lease->id)->where('type', 'marketing')->latest('id')->first();
 
     expect($taxable->resolvedVatRate())->toBe(Vat::standardRate())
-        ->and($taxable->vat_applicable)->toBeTrue()
+        ->and($taxable->vat_applicable)->toBeNull()
         ->and($taxable->id)->not->toBe($exempt->id, 'the levy must be a NEW schedule row, not a rewrite of the old one');
 });
 
@@ -97,8 +105,9 @@ it('exempts a supply the accountant exempts, on the lease-creation path', functi
 
     $service = $lease->charges()->where('type', 'service_charge')->first();
 
+    // Null since EG-01 — the 0.0 is the ruling being read at billing, not a stored exemption.
     expect($service->resolvedVatRate())->toBe(0.0)
-        ->and($service->vat_applicable)->toBeFalse();
+        ->and($service->vat_applicable)->toBeNull();
 
     // The control: with the ruling reversed, the same path taxes it — so the assertion above is
     // the treatment taking effect and not the service failing to write a rate at all.

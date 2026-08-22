@@ -304,7 +304,6 @@ class ChargeScheduleRelationManager extends RelationManager
                             [
                                 'name' => self::typeLabel($data['type']),
                                 'frequency' => $data['frequency'],
-                                'vat_applicable' => $rate === null || $rate > 0,
                                 'vat_rate' => $rate,
                                 // A charge added in September is not owed from the lease's
                                 // commencement — without this the first row would back-date to it

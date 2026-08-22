@@ -154,5 +154,8 @@ it('creates a base_rent Charge if none exists yet (form-driven lease with no obs
     $base = Charge::where('lease_id', $this->lease->id)->where('type', 'base_rent')->first();
     expect($base)->not->toBeNull();
     expect($base->amount)->toEqual(42000);
-    expect($base->vat_applicable)->toBeFalse();
+    // Null since EG-01, and the behavioural assertion beside it is the one with teeth: a rent
+    // change must not date taxability to the day the new rent was agreed.
+    expect($base->vat_applicable)->toBeNull()
+        ->and($base->resolvedVatRate())->toBe(0.0);
 });

@@ -7,7 +7,6 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Models\UnitOwnership;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -211,15 +210,13 @@ class AssignRentableItemService
         // 2026-08-11, then `vat_treatment` until the tax catalogue replaced both on 2026-08-12 —
         // one question with three homes over three days, which is how they come to disagree.)
         //
-        // Read at ORIGINATION only, so a ruling changes what is billed from then on and never
-        // rewrites an issued invoice — the same rule the standard rate itself follows.
-        $vatRate = Vat::rateForType('parking');
-
+        // Resolved at ORIGINATION — and for a MONTHLY row that means each billing, not the day
+        // the bay was assigned (EG-01). So neither the answer nor the rate is written here; the
+        // catalogue is asked for the date being billed, and an issued invoice keeps what it billed.
         $this->schedule->setAmount($holder, 'parking', $total, $on, [
             'name' => 'Parking & rentable items',
             'frequency' => 'monthly',
-            'vat_applicable' => $vatRate > 0,
-            'vat_rate' => $vatRate,
+            'vat_rate' => null,
             // A bay taken on 1 March was not held in January. Without this the schedule's default
             // would date the first row to the lease commencement and back-charge the difference.
             'first_row_from_effective' => true,

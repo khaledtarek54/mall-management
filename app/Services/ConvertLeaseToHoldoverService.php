@@ -6,7 +6,6 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Settings\BillingSettings;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -133,8 +132,9 @@ class ConvertLeaseToHoldoverService
                 'frequency' => 'monthly',
                 // Base rent is VAT-exempt, and holding over does not change what the supply is —
                 // so it resolves through the charge code, exactly like the row it continues.
-                'vat_applicable' => Vat::rateForType('base_rent') > 0,
-                'vat_rate' => Vat::rateForType('base_rent'),
+                // Catalogue at billing time, not frozen here (EG-01) — a holdover can run for
+                // months, which is precisely when a ruling changes underneath it.
+                'vat_rate' => null,
                 'start_date' => $effectiveFrom->toDateString(),
                 // Open-ended: holdover runs month to month until a renewal or termination ends it,
                 // and neither has a knowable date today.

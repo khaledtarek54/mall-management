@@ -138,7 +138,10 @@ class TransferUnitOwnershipService
                     'amount' => $row->amount,
                     'currency' => $row->currency ?? $bought->currency ?? 'EGP',
                     'frequency' => $row->frequency,
-                    'vat_applicable' => (bool) $row->vat_applicable,
+                    // NOT `(bool)`: that cast turned null into FALSE, so transferring a unit
+                    // would have re-frozen "ask the catalogue" into "permanently exempt" on the new
+                    // owner's rows — reintroducing EG-01's bug one resale at a time.
+                    'vat_applicable' => $row->vat_applicable,
                     // The OVERRIDE is carried, not the resolved rate — null stays null so the
                     // catalogue keeps answering for each invoice's own date.
                     'vat_rate' => $row->vat_rate,

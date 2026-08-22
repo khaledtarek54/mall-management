@@ -27,7 +27,10 @@ it('creates an idempotent VAT-exempt marketing levy charge on the lease', functi
 
     expect($charges)->toHaveCount(1)
         ->and((float) $charges->first()->amount)->toBe(400.0)
-        ->and($charges->first()->vat_applicable)->toBeFalse()
+        // The levy is exempt because the CATALOGUE says so, resolved at billing — not because a
+        // `false` was frozen onto the row when the levy was set up (EG-01).
+        ->and($charges->first()->vat_applicable)->toBeNull()
+        ->and($charges->first()->resolvedVatRate())->toBe(0.0)
         ->and($charges->first()->is_active)->toBeTrue();
 });
 

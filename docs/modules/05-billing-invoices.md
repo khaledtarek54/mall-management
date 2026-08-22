@@ -144,7 +144,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 |-------|-------|------------|---------|
 | `invoices` | `Invoice` | `number` (unique, e.g. `INV-AW-202603-0001`), `lease_id`, `tenant_id`, `status` (enum: draft, issued, partially_paid, paid, overdue, disputed, cancelled, credited), `issue_date`, `due_date`, `period_start`, `period_end`, `subtotal`, `vat_amount`, `total`, `paid_amount`, `credit_applied_amount`, `balance`, `currency` (EGP), `eta_submission_id`, `eta_status`, `owner_overdue_notified_at` | One per lease per billing period; issue_date = period_start for full months or commencement for prorated first month. |
 | `invoice_items` | `InvoiceItem` | `invoice_id`, `charge_id` (nullable), `description`, `type` (enum: base_rent, service_charge, utility, parking, percentage_rent, late_fee, other), `amount`, `vat_rate`, `vat_amount`, `total` | Line items derived from Lease charges; one per applicable charge per invoice. |
-| `charges` | `Charge` | `lease_id`, `name`, `type` (**string** — a `charge_codes` code, validated at the model, not a DB enum), `amount`, `currency` (EGP), `frequency` (enum: monthly, quarterly, annually, one_time), `vat_applicable` (boolean), `vat_rate` (from the code's VAT treatment, §8), `start_date`, `end_date`, `is_active` | Recurring billing items attached to a lease; defines what is billed and how often. A date-ranged SCHEDULE per type — `ChargeScheduleService` closes one row and opens the next, never edits in place. |
+| `charges` | `Charge` | `lease_id`, `name`, `type` (**string** — a `charge_codes` code, validated at the model, not a DB enum), `amount`, `currency` (EGP), `frequency` (enum: monthly, quarterly, annually, one_time), `vat_applicable` (**nullable** boolean — null means "ask the catalogue", §8), `vat_rate` (**nullable** — an override; null means the dated catalogue answers at billing, §8), `start_date`, `end_date`, `is_active` | Recurring billing items attached to a lease; defines what is billed and how often. A date-ranged SCHEDULE per type — `ChargeScheduleService` closes one row and opens the next, never edits in place. |
 | `payments` → `invoice_payment` (pivot) | Payment / Invoice | `invoices.invoice_payment.allocated_amount`, `payment.status` (captured, pending, failed, refunded) | Many-to-many junction; each payment can be allocated across multiple invoices. Only **captured** payments count toward AR settlement. |
 
 ### Relationships
@@ -180,9 +180,10 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 ### Money & VAT
 
 1. **VAT is 14% and applies to service charges, CAM and utilities — NOT base rent, percentage rent, penalties, the marketing levy or parking.** Which supplies are taxable is set per charge code (below); what an individual document bills is then frozen on the row:
-   - `Charge.vat_applicable` = true/false
-   - `Charge.vat_rate` = 14.00 (for taxed charges)
-   - `InvoiceItem.vat_rate` inherits from Charge; if Charge.vat_applicable = false, vat_rate = 0
+   - `Charge.vat_applicable` = null (the normal state — ask the catalogue) or an explicit `false`
+   - `Charge.vat_rate` = null (the normal state) or a rate somebody deliberately chose
+   - `InvoiceItem.vat_rate` comes from `Charge::resolvedVatRate($issueDate)`, which answers the
+     override if there is one and the dated catalogue otherwise
    - VAT per item = `amount * (vat_rate / 100)`, rounded to 2 decimals
    - Invoice totals: `subtotal = sum(item.amount)`, `vat_amount = sum(item.vat_amount)`, `total = subtotal + vat_amount`
    - **Test:** `BillingScenarioTest::test_computes_subtotal_vat_and_total_exactly__service_charge_taxed_base_rent_exempt` confirms base rent = 0 VAT, service charge = 14% VAT
@@ -243,8 +244,35 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
      Yardi is the standard being followed: the charge record holds the amount, the rate comes from a
      tax table resolved at billing. A value in the column now means somebody deliberately departed
      from the catalogue — a deal that fixed a rate — and the schedule table marks that row ⚠.
-     `vat_applicable = false` still wins over both, and since the backfill nulled every rate it is
-     the only thing holding an untaxed row. Pinned by `VatRiseReachesRecurringRentTest`.
+     Pinned by `VatRiseReachesRecurringRentTest`.
+   - **`vat_applicable` is an override on the same terms — and it was the half nobody fixed**
+     (EG-01, 2026-08-22). The 2026-08-12 change was applied to `seedStandardCharges()`'s
+     SERVICE-CHARGE block and not to the BASE-RENT block two lines above it, and it never touched
+     this column at all: `boolean default(true)`, NOT NULL, written by thirteen services from
+     `Vat::rateForType($type) > 0`.
+
+     That is the worse half, because `resolvedVatRate()` tests it FIRST and returns before the
+     catalogue is consulted. A `base_rent` row is born `false` — rent is in `Vat::EXEMPT_TYPES` —
+     and can never become taxable again whatever the accountant rules. Measured: with the charge
+     code pointed at `VAT_14`, `Vat::rateForType('base_rent')` answered **14.0**, the charge
+     resolved **0.0**, and the billing run raised a rent line with **0.00 VAT** where 14,000 was
+     due. It also discarded the operator's own override — a row with a deliberately typed 8% still
+     resolved 0.0, because the short-circuit runs before the rate is read.
+
+     It matters now, not hypothetically: Law 157/2025 pulled property rental into the tax net, so
+     *"point base rent at VAT_14"* is the change this operator expects to make — and it would have
+     appeared to work while every existing lease went on billing rent untaxed.
+
+     So the column is **nullable, null is the normal state**, every row backfilled to null, and the
+     test is `=== false` rather than falsy. **No screen ever offered it as a tick** — all three
+     UI/import sites derived it — so there was no operator statement to preserve; the operator's real
+     channel is the RATE they type, and `vat_rate = 0` still holds a supply untaxed. An explicit
+     `false` keeps its meaning and still wins; it simply stopped being written by services that were
+     quoting the catalogue back to itself. Pinned by `TaxabilityIsNotFrozenOntoAChargeRowTest`.
+
+     One trap worth naming: `TransferUnitOwnershipService` copied the flag with a `(bool)` cast,
+     which turns null into **false** — a resale would have re-frozen "ask the catalogue" into
+     "permanently exempt", reintroducing the bug one unit at a time.
    - **Exempt ≠ zero-rated** — both bill 0 and they are different lines on a VAT return, so the
      treatment is stored on the tax code rather than inferred from a zero on a line, where it could
      never be recovered.

@@ -132,7 +132,6 @@ class ChargeImporter extends Importer
                 // Blank stays NULL so the catalogue answers per invoice. An explicit 0 is the
                 // operator saying this charge is not taxed, which is a different statement.
                 'vat_rate' => ($rawRate === null || $rawRate === '') ? null : (float) $rawRate,
-                'vat_applicable' => ($rawRate === null || $rawRate === '') ? true : ((float) $rawRate) > 0,
                 // A charge imported as effective from September is not owed from the lease's
                 // commencement; without this the first row back-dates and the next billing run
                 // invoices every month since.

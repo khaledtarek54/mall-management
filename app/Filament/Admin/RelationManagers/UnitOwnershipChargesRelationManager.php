@@ -229,7 +229,6 @@ class UnitOwnershipChargesRelationManager extends RelationManager
                                 'amount' => (float) $data['amount'],
                                 'currency' => $ownership->currency ?? 'EGP',
                                 'frequency' => $data['frequency'],
-                                'vat_applicable' => ($rate ?? Vat::rateForType($data['type'])) > 0,
                                 'vat_rate' => $rate,
                                 'start_date' => $data['start_date'],
                                 'is_active' => true,

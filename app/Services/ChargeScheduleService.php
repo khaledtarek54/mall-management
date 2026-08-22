@@ -535,10 +535,12 @@ class ChargeScheduleService
             'amount' => $amount,
             'currency' => $lease->currency ?? 'EGP',
             'frequency' => $attributes['frequency'] ?? 'monthly',
-            // A caller that says nothing about VAT gets the charge code's ruling, NOT zero. Silent
-            // zero is how a taxable supply comes to be billed untaxed by whichever writer forgot to
-            // pass a rate — the drift `Vat::rateForType()` exists to end.
-            'vat_applicable' => $attributes['vat_applicable'] ?? (Vat::rateForType($type) > 0),
+            // A caller that says nothing about VAT gets the charge code's ruling, NOT zero — but it
+            // gets it at BILLING time, by leaving both columns null for `Charge::resolvedVatRate()`
+            // to answer. Writing the catalogue's answer here instead is the freeze EG-01 removed
+            // (2026-08-22): it made the ruling permanent on the day the row was opened. Silent zero
+            // remains the thing to avoid, and null is not zero — an unset row asks the catalogue.
+            'vat_applicable' => $attributes['vat_applicable'] ?? null,
             // Only what the caller explicitly chose. Defaulting to the catalogue here is what
             // froze the rate for the life of the lease — a rise entered later never reached it.
             'vat_rate' => $attributes['vat_rate'] ?? null,

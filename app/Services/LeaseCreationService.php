@@ -7,7 +7,6 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Support\LeaseTerm;
-use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -122,10 +121,11 @@ class LeaseCreationService
                 'amount' => $rent,
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
-                // Taxability comes from the charge code, not from here — the catalogue ships rent
-                // exempt and the accountant owns any change to that.
-                'vat_applicable' => Vat::rateForType('base_rent') > 0,
-                'vat_rate' => Vat::rateForType('base_rent'),
+                // Taxability comes from the charge code, not from here — and until 2026-08-22 these
+                // two lines said the opposite of that comment, freezing BOTH the answer and the rate
+                // onto the row. Omitted entirely now: null on both means `Charge::resolvedVatRate()`
+                // asks the catalogue for the date being billed. The service-charge block below has
+                // been right about the rate since 2026-08-12; this one was two lines above it.
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);
@@ -139,8 +139,8 @@ class LeaseCreationService
                 'amount' => $service,
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
-                'vat_applicable' => Vat::rateForType('service_charge') > 0,
-                // null = the catalogue answers at billing time (Charge::resolvedVatRate); a value is an override.
+                // null on both = the catalogue answers at billing time (Charge::resolvedVatRate);
+                // a value on either is an override somebody chose.
                 'vat_rate' => null,
                 'start_date' => $commencement,
                 'is_active' => true,
