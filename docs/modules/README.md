@@ -71,7 +71,7 @@ Read these in order — each one assumes the one before it.
 | # | Module | What it owns |
 |---|---|---|
 | 14 | [Departments](14-departments.md) | The org model requests and spend are routed through |
-| 16 | [ETA E-Invoicing](16-eta-einvoicing.md) | The Egyptian Tax Authority pipeline. **Ships in mock** — see [operations/GO-LIVE.md](../operations/GO-LIVE.md) |
+| 16 | [ETA E-Invoicing](16-eta-einvoicing.md) | The Egyptian Tax Authority pipeline. **🧊 FROZEN 2026-08-22** — off in code (`Modules::FROZEN`) and shown nowhere; services + tests kept |
 | 17 | [Reports](17-reports.md) | Rent roll, expirations, aging, occupancy cost, sales analytics, the financial statements, CSV |
 | 18 | [RBAC & Multi-Property Scoping](18-rbac-scoping.md) | Roles, permissions, and how a property-restricted user is confined |
 | 19 | [Notifications & Scheduled Scans](19-notifications-scans.md) | Every scheduled sweep, and who gets told what, on which channel |

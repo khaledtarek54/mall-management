@@ -16,7 +16,7 @@
 Atriom is an **Egyptian retail-mall operations platform** (ERP). It runs the day-to-day of
 shopping-centre management: leasing, monthly billing, collections, CAM reconciliation,
 percentage-rent on tenant sales, maintenance, vendor management, marketing budgets, and
-**ETA e-invoicing** (Egyptian Tax Authority compliance).
+~~**ETA e-invoicing**~~ (Egyptian Tax Authority compliance) — **🧊 FROZEN 2026-08-22**: module 16 is off in code (`Modules::FROZEN`) and appears nowhere in the running system; the services and their tests are kept dormant.
 
 **Actors / brand map** (easy to confuse — anchor on this):
 
@@ -42,7 +42,7 @@ Three authenticated surfaces over one MySQL source-of-truth:
 | **Tenant portal** | `/portal` | `portal` (session) | `TenantUser` (multi-user per tenant) |
 | **Mobile API** | `/api/v1/*` | `tenant-api` (Sanctum) | `Tenant` (company login) |
 
-- **Stack:** Laravel 13 · PHP 8.4 · Filament 4 · MySQL (prod/local) / SQLite `:memory:` (tests) · Pest 4 + ParaTest. Packages: spatie **permission / settings / activitylog / medialibrary**, Laravel **Sanctum**, **Paymob** (card payments), **ETA** (e-invoicing).
+- **Stack:** Laravel 13 · PHP 8.4 · Filament 4 · MySQL (prod/local) / SQLite `:memory:` (tests) · Pest 4 + ParaTest. Packages: spatie **permission / settings / activitylog / medialibrary**, Laravel **Sanctum**, **Paymob** (card payments). *(**ETA** e-invoicing is built but FROZEN — see [modules/16](modules/16-eta-einvoicing.md).)*
 - **Multi-property tenancy (property-first):** the admin panel's Filament "tenant" is an **`Asset` (property)**; resource *tables* auto-scope to the selected property via `App\Support\TenantScope`. The operator always works **inside one real mall** — the switcher no longer offers the "All Properties" pseudo-asset, and `/admin/ALL` 404s (see [PROPERTY-ISOLATION.md](PROPERTY-ISOLATION.md)). The `Asset::ALL_PROPERTIES_CODE` pseudo-asset + its consolidation plumbing are **kept** for a future read-only portfolio surface. See [`18-rbac-scoping`](modules/18-rbac-scoping.md).
 - **Single-action services** hold business logic; controllers/Filament pages stay thin.
 - **A screen is SEVERAL Livewire components, and they refresh independently.** A record page, each of its relation managers and each header widget are separate components; Livewire re-renders only the one that handled the click, and Filament's `refreshFormData()` refills from the page's **in-memory** record without re-reading it. Both halves are fixed at one seam each: `App\Support\Filament\RefreshesRecordState` makes the refill re-read first (it was a no-op at 19 call sites across 8 money pages, because every money service re-reads its subject as a locking read into a new instance), and `App\Support\Filament\RecordChanged` is the single event a component announces so the rest of the screen re-reads — dispatched automatically by `AuthorizedAction` and the three `Announcing*Action` bindings, so no call site has to remember it. `RecordStateRefreshConformanceTest` fails the build if a page refills without the trait, or declares a derived path that names no column.

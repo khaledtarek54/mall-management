@@ -2,7 +2,7 @@
 
 **Egyptian mall operations, end to end.**
 
-Atriom is a specialized operations platform for the Egyptian retail vertical — leases, monthly billing, tenant sales declarations, CAM reconciliation, and ETA e-invoicing — across three role-aware portals on one source of truth.
+Atriom is a specialized operations platform for the Egyptian retail vertical — leases, monthly billing, tenant sales declarations, CAM reconciliation, and a full Egyptian double-entry general ledger — across three role-aware portals on one source of truth.
 
 | Panel | Path | Audience |
 |---|---|---|
@@ -58,10 +58,10 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 - **Monthly billing engine** — One-click run, EG VAT rules (rent exempt, service 14%), idempotent per period
 - **Tenant Sales Declarations** — Mall-specific moat: tenants declare sales, admin locks, percentage rent auto-bills
 - **CAM Reconciliation** — Annual common-area-expense pools with pro-rata allocations and per-allocation billing
-- **ETA e-invoicing** — Document JSON builder, signing, status persistence. Module-toggleable from `/admin/settings → Modules`; mock mode by default; flip `ETA_MOCK=false` when preprod credentials land
+- ~~**ETA e-invoicing**~~ — **🧊 FROZEN 2026-08-22.** Document JSON builder, signer seam and status persistence are built and tested, and the module is switched off *in code* (`App\Support\Modules::FROZEN`): it has no toggle, no screen and no trace anywhere in the running system. See [docs/modules/16](docs/modules/16-eta-einvoicing.md) for what was removed, what was kept and how to unfreeze
 - **Per-property tenancy (Filament panel)** — URL-scoped to `/admin/{property-code}/...`, property switcher in top nav, "All Properties" portfolio view for users with multi-mall access, per-tenant tables / widgets / forms throughout
 - **RBAC** — 6 roles (super_admin / manager / leasing / operations / viewer / owner) × 81 permissions × per-user property assignment via the `asset_user` pivot. New users default to every property selected
-- **Module feature flags** — credit_notes, maintenance, tenant_sales, cam, utility_meters, vendors, notes, reports, activity_log, eta — each toggleable from Settings; disabled modules hide from sidebar + dashboard + block route access
+- **Module feature flags** — credit_notes, requests, tenant_sales, cam, utility_meters, vendors, notes, reports, activity_log, inventory, fixed_assets, employees, custodies, facility, procurement, marketing_posts — each toggleable from Settings; disabled modules hide from sidebar + dashboard + block route access. `eta` is a key but **not** toggleable: it is frozen in code
 - **Maintenance** — Tenant submissions, admin triage with SLA tracking, polymorphic comments, photo attachments
 - **Energy & Utilities** — Meter management with monthly readings + 12-month consumption chart
 - **Tenant Communications log** — Polymorphic notes (calls, WhatsApp, meetings, site visits, emails) for collections workflows
@@ -100,7 +100,7 @@ The **visual handbook** is in the panel at `/admin/handbook` (bilingual, built b
 - MySQL · Spatie Permission + ActivityLog + MediaLibrary + Settings
 - mPDF (for Arabic-shaped PDF rendering)
 - **Pest 4 + ParaTest** for the test suite — 184 cases across tenancy, models, services, widgets, RBAC, activity log, auth, and the deep-link query-string format. ~3.5 s parallel runtime.
-- Playwright (chromium) for E2E — 18 spec files covering auth, every panel, CRUD, locale, PDFs, multi-property, tenant sales, CAM, ETA, owner portal, energy
+- Playwright (chromium) for E2E — spec files covering auth, every panel, CRUD, locale, PDFs, multi-property, tenant sales, CAM, owner portal, energy
 
 ```bash
 vendor/bin/pest --parallel             # full Pest suite (~3.5s)

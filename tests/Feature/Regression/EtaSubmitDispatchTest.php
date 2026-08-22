@@ -1,5 +1,16 @@
 <?php
 
+/*
+| PARKED with the ETA freeze (2026-08-22). `Modules::enabled('eta')` now answers false
+| unconditionally from `App\Support\Modules::FROZEN`, so these surfaces cannot be reached from any
+| test either — the module flag is no longer a settings row a test can flip.
+|
+| Skipped rather than deleted, because the code they cover is intact and this is the coverage that
+| proves it still works the day module 16 resumes: delete the `eta` entry from `Modules::FROZEN` and
+| these go green again unchanged. The invisibility they used to assert the other way round is now
+| `tests/Feature/Regression/EtaIsFrozenAndInvisibleTest.php`.
+*/
+
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Jobs\SubmitInvoiceToEta;
 use App\Settings\ModulesSettings;
@@ -40,7 +51,7 @@ it('queues the ETA submission instead of submitting synchronously (single action
     });
 
     Queue::assertPushed(SubmitInvoiceToEta::class, fn ($job) => $job->invoice->is($invoice));
-});
+})->skip('ETA is frozen (App\Support\Modules::FROZEN) — this surface cannot render. Unfreeze the module to run it.');
 
 it('queues each invoice on the bulk ETA action (skipping already-valid ones)', function () {
     Queue::fake();
@@ -61,4 +72,4 @@ it('queues each invoice on the bulk ETA action (skipping already-valid ones)', f
     // Only the non-valid invoice is queued.
     Queue::assertPushed(SubmitInvoiceToEta::class, 1);
     Queue::assertPushed(SubmitInvoiceToEta::class, fn ($job) => $job->invoice->is($toSubmit));
-});
+})->skip('ETA is frozen (App\Support\Modules::FROZEN) — this surface cannot render. Unfreeze the module to run it.');

@@ -56,20 +56,17 @@ class SettingsReach
      * Deliberately a separate list from {@see EXEMPT_NO_READER}. An exemption saying "this is fine"
      * and one saying "this is broken and here is why we have not fixed it" are different claims,
      * and collapsing them is how a real gap becomes invisible again — which is the exact failure
-     * this whole class exists to stop.
+     * this whole class exists to stop. Empty is the goal, not the norm: an entry here is a debt.
      *
      * @var array<string, string>
      */
     public const KNOWN_INERT = [
-        // Both are `->required()` on the settings page, so an operator MUST fill them in, and no
-        // code reads either. The e-invoicing submission builds its issuer block elsewhere.
-        //
-        // Not fixed here because module 16 (ETA) is frozen. `TaxSettings::seller_tax_registration_number`
-        // already carries the note that one registration number living in two homes is a defect and
-        // that the ETA copy is the one to retire when the freeze lifts — this is the same defect
-        // seen from the other end, and it now fails the build if anybody deletes the note.
-        'eta.issuer_name' => 'written by the settings page, read by nothing; ETA module frozen — retire in favour of TaxSettings::seller_legal_name when the freeze lifts',
-        'eta.issuer_tax_registration_number' => 'written by the settings page, read by nothing; ETA module frozen — TaxSettings::seller_tax_registration_number is the survivor (see its docblock)',
+        // Empty since 2026-08-22. The only two entries were `eta.issuer_name` and
+        // `eta.issuer_tax_registration_number` — required fields on a settings tab that nothing
+        // read — and they were not fixed by wiring a reader: the whole `eta.*` group was DELETED
+        // with the ETA freeze (App\Support\Modules::FROZEN), because the surviving home for a
+        // seller's registration number is `TaxSettings`, not a second copy owned by an integration
+        // that may be switched off. Retiring the setting is the fix that a reader would have hidden.
     ];
 
     /**

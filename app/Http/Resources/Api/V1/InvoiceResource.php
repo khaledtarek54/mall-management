@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\Invoice;
+use App\Support\Modules;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,7 +17,7 @@ class InvoiceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
+        $payload = [
             'id' => $this->id,
             'number' => $this->number,
             'status' => $this->status,
@@ -48,13 +49,6 @@ class InvoiceResource extends JsonResource
             // Lets the app surface a "share payment link" alongside in-app pay.
             'payment_link_url' => $this->isPayable() ? $this->paymentLinkUrl() : null,
 
-            // ETA (Egyptian Tax Authority) e-invoice references — present once
-            // the invoice has been accepted by the ETA portal. Useful for the
-            // app to show a "tax-registered" badge.
-            'eta_status' => $this->eta_status,
-            'eta_submission_id' => $this->eta_submission_id,
-            'eta_long_id' => $this->eta_long_id,
-
             // Relations — only present on the detail endpoint (eager-loaded).
             'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
             'lease' => $this->whenLoaded('lease', fn () => [
@@ -67,5 +61,25 @@ class InvoiceResource extends JsonResource
                 ] : null,
             ]),
         ];
+
+        // ETA (Egyptian Tax Authority) e-invoice references — `eta_status`, `eta_submission_id`
+        // and `eta_long_id`, which let the app show a "tax-registered" badge once the portal has
+        // accepted the invoice — were REMOVED here on 2026-08-22 with the module-16 freeze
+        // ({@see Modules::FROZEN}). Nothing files an invoice any more, so the three keys could
+        // only ever be null: a value the app would reasonably read as "not filed yet" rather than
+        // "this system does not file". Omitted rather than nulled for exactly that reason.
+        //
+        // **Not a runtime gate, deliberately, and this is the one place the pattern differs.**
+        // `docs/api/openapi.json` is generated from this method by Scramble, and both gated forms
+        // corrupt it: a conditional spread becomes a property with an EMPTY NAME inside an
+        // `anyOf`, and a post-return `if` becomes three REQUIRED properties the endpoint does not
+        // send. Either way the mobile team's codegen is handed a contract that is not true. A
+        // generated spec has to describe what the endpoint returns, so the keys are simply gone.
+        //
+        // Restoring them is part of the unfreeze checklist in docs/modules/16-eta-einvoicing.md,
+        // and `EtaIsFrozenAndInvisibleTest` asserts their absence — so it turns red when the
+        // freeze lifts, which is the reminder.
+
+        return $payload;
     }
 }

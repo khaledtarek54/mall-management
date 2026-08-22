@@ -15,11 +15,12 @@
 |                     a Valid invoice is idempotent on re-submit; a rejected
 |                     submission persists eta_status=rejected + carries the
 |                     error in eta_response.
-|   3. GATE         — invoices.submit_to_eta is held by accounting + super_admin
-|                     only; manager / viewer / leasing / operations / marketing
-|                     / hr / owner do NOT hold it.
-|   4. SCOPING      — submitting one invoice does not bleed ETA state onto
+|   3. SCOPING      — submitting one invoice does not bleed ETA state onto
 |                     another property's invoice.
+|
+| The RBAC section was retired when the module was frozen — see section 4 below. Everything left
+| here drives app/Services/Eta/* DIRECTLY, so it keeps the dormant code honest without depending on
+| any surface: none of it asks `Modules::enabled('eta')`, which now answers false always.
 |
 | No real HTTP: the mock client returns a deterministic Valid response; the
 | rejected/exception paths bind a fake EtaApiClient into the container.
@@ -30,7 +31,6 @@ use App\Models\InvoiceItem;
 use App\Services\Eta\EtaApiClient;
 use App\Services\Eta\EtaJsonBuilder;
 use App\Services\Eta\EtaSubmissionService;
-use Database\Seeders\RolesPermissionsSeeder;
 
 /**
  * Persist an invoice line. InvoiceItem::saving recomputes vat_amount + total
@@ -304,35 +304,19 @@ it('lets a previously rejected invoice be re-submitted and reach valid', functio
 
 /*
 |--------------------------------------------------------------------------
-| 4. RBAC — invoices.submit_to_eta gate
+| 4. RBAC — RETIRED with the freeze
 |--------------------------------------------------------------------------
+| Three scenarios asserted who holds `invoices.submit_to_eta`. The permission itself was retired
+| on 2026-08-22 when module 16 was frozen (App\Support\Modules::FROZEN) — the roles matrix renders
+| a checkbox per catalogue entry, so keeping it would have gone on offering "Submit invoices to the
+| Egyptian Tax Authority" as a right an operator can grant for a module that refuses to run.
+|
+| They are deleted rather than skipped because there is nothing left to assert: a permission that
+| does not exist is denied to every role by definition, and a skipped test would read as coverage
+| of a decision instead of the absence of one. What replaces them is the other direction —
+| `EtaIsFrozenAndInvisibleTest` requires the key to be ABSENT from the catalogue. Re-seed the
+| permission and these three come back with it.
 */
-
-it('grants invoices.submit_to_eta to accounting (its owning department) and the cross-department super-roles', function () {
-    $this->seed(RolesPermissionsSeeder::class);
-
-    // accounting owns invoicing; manager + super_admin are cross-department
-    // roles that hold every workflow action.
-    expect(makeUser('accounting')->can('invoices.submit_to_eta'))->toBeTrue()
-        ->and(makeUser('manager')->can('invoices.submit_to_eta'))->toBeTrue()
-        ->and(makeUser('super_admin')->can('invoices.submit_to_eta'))->toBeTrue();
-})->group('rbac');
-
-it('denies invoices.submit_to_eta to read-only roles and every non-accounting department', function (string $role) {
-    $this->seed(RolesPermissionsSeeder::class);
-
-    expect(makeUser($role)->can('invoices.submit_to_eta'))->toBeFalse();
-})->with(['viewer', 'owner', 'leasing', 'operations', 'marketing', 'hr'])->group('rbac');
-
-it('does not let the accounting submit grant leak into delete or settings powers', function () {
-    $this->seed(RolesPermissionsSeeder::class);
-    $accounting = makeUser('accounting');
-
-    // It can submit, but the same role is NOT a super-power: no invoice delete.
-    expect($accounting->can('invoices.submit_to_eta'))->toBeTrue()
-        ->and($accounting->can('invoices.delete'))->toBeFalse()
-        ->and($accounting->can('settings.manage'))->toBeFalse();
-})->group('rbac');
 
 /*
 |--------------------------------------------------------------------------

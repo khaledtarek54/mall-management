@@ -107,7 +107,7 @@ client in the image** (§1.1) and hold the secrets it deploys with.
 
 ### 1.4 ETA e-invoicing cannot legally submit 🔑
 
-**Verified: `EtaSettings::$mock = true`**, and `eta.signing.enabled` defaults false.
+**🧊 The whole module is FROZEN as of 2026-08-22** — registered in `App\Support\Modules::FROZEN`, so `Modules::enabled('eta')` answers false before any setting is read and ETA appears nowhere in the running system. This section is therefore **not a go-live gate any more**; it is the checklist for the day the freeze lifts. `EtaSettings` was deleted with it (it was inert); the mock flag now lives only in `config/eta.php` (`ETA_MOCK`, default true), and `eta.signing.enabled` defaults false.
 
 - [ ] Real `client_id` / `client_secret` from the operator's ETA taxpayer profile.
 - [ ] A **CAdES signing certificate** — ETA production rejects unsigned B2B documents.

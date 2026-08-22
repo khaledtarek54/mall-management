@@ -94,7 +94,6 @@ class Settings extends Page implements HasSchemas
                     Tab::make(__('admin.settings.tabs.accounting'))->icon('heroicon-o-calculator')->schema($this->accountingFields()),
                     Tab::make(__('admin.settings.tabs.billing'))->icon('heroicon-o-banknotes')->schema($this->billingFields()),
                     Tab::make(__('admin.settings.tabs.sla'))->icon('heroicon-o-wrench-screwdriver')->schema($this->slaFields()),
-                    Tab::make(__('admin.settings.tabs.eta'))->icon('heroicon-o-document-text')->schema($this->etaFields()),
                     Tab::make(__('admin.settings.tabs.tax'))->icon('heroicon-o-receipt-percent')->schema($this->taxFields()),
                     Tab::make(__('admin.settings.tabs.payroll'))->icon('heroicon-o-users')->schema($this->payrollFields()),
                     Tab::make(__('admin.settings.tabs.integrations'))->icon('heroicon-o-bolt')->schema($this->integrationsFields()),
@@ -417,22 +416,6 @@ class Settings extends Page implements HasSchemas
     }
 
     /** @return array<int, mixed> */
-    private function etaFields(): array
-    {
-        return [
-            Section::make(__('admin.settings.sections.eta_toggles'))
-                ->description(__('admin.settings.sections.eta_description'))
-                ->columns(2)
-                ->components([
-                    Toggle::make('eta.enabled')->label(__('admin.settings.fields.eta_enabled')),
-                    Toggle::make('eta.mock')->label(__('admin.settings.fields.eta_mock')),
-                    TextInput::make('eta.issuer_name')->label(__('admin.settings.fields.eta_issuer_name'))->columnSpan(2)->required(),
-                    TextInput::make('eta.issuer_tax_registration_number')->label(__('admin.settings.fields.eta_issuer_trn'))->columnSpan(2)->required(),
-                ]),
-        ];
-    }
-
-    /** @return array<int, mixed> */
     private function taxFields(): array
     {
         return [
@@ -564,10 +547,14 @@ class Settings extends Page implements HasSchemas
             Section::make(__('admin.settings.sections.modules'))
                 ->description(__('admin.settings.sections.modules_description'))
                 ->columns(2)
+                // `toggleable()`, never `KEYS`: a FROZEN module (App\Support\Modules::FROZEN)
+                // answers false whatever the row says, so rendering its switch would offer the
+                // operator a control that cannot do anything — and, worse, would advertise an
+                // unfinished module as a feature they are choosing to leave off.
                 ->components(array_map(
                     fn (string $key) => Toggle::make("modules.{$key}")
                         ->label(__("admin.permission_modules.{$key}")),
-                    Modules::KEYS,
+                    Modules::toggleable(),
                 )),
         ];
     }

@@ -40,8 +40,10 @@ class ModulesSettings extends Settings
 
     public bool $activity_log = true;
 
-    // ETA e-invoicing is postponed — disabled by default (not certified/live).
-    // Re-enable from /admin/settings → Modules, or flip this default, when ready.
+    // ETA e-invoicing is FROZEN, not merely off. The property stays so `modules.eta` remains a
+    // real key (a module outside Modules::KEYS is a guard that can never refuse), but nothing
+    // reads it any more: `Modules::enabled('eta')` answers false from `Modules::FROZEN` before it
+    // ever reaches this row, and the Settings screen renders no toggle for it. Unfreeze there.
     public bool $eta = false;
 
     public bool $inventory = true;

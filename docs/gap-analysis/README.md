@@ -97,7 +97,7 @@ money events, in EGP, with Egyptian tax treatment and bilingual books.
 | **Tie-out discipline** | Every money source is in one registry with a build-failing gate; four dispatch paths derive from it; the reconciliation checks are themselves mutation-tested so a check that *cannot fail* fails the build |
 | **Money-record immutability** | Deletion refused at the model, per-model with a stated correction path, gated in CI. Yardi uses soft controls |
 | **Property isolation** | One `asset_id` dimension, conformance-gated on reads, writes and pickers. One operator runs many malls off one chart |
-| **Egyptian fit** | Dated tax-rate ladders (VAT · stamp · schedule · withholding, both directions), base rent VAT-exempt, 5% marketing levy, ETA e-invoicing pipeline. **No Western benchmark ships any of it** |
+| **Egyptian fit** | Dated tax-rate ladders (VAT · stamp · schedule · withholding, both directions), base rent VAT-exempt, 5% marketing levy. An ETA e-invoicing pipeline exists but is **FROZEN** (B5). **No Western benchmark ships any of it** |
 | **Post-dated cheques** | Full register, lodging, maturity, clear/bounce with an invoice lock. Not a parity item — nothing in the benchmark set models it |
 | **CAM settlement hygiene** | Positive true-up bills immediately on its own invoice (so it cannot strand on a rolled-off lease); negative becomes an auto-applied FIFO credit; participant set and shares frozen on re-run |
 
@@ -133,7 +133,7 @@ evidence behind it.
 |---|---|---|---|---|
 | B1 | **Management fee is recorded and charged by nothing** | 32 · 37 | The accountant: which GL account takes management-fee income (it is Eltizam's revenue, not the property's — a guess puts the operator's income in the owner's P&L), and the sinking-fund liability account. [OPEN-QUESTIONS §B2.1/B2.2](../OPEN-QUESTIONS.md) | M |
 | B4 | **Live tenant payment rail** | 06 | Paymob certification — external, not code. Ships `PAYMOB_ENABLED=false` | — |
-| B5 | **ETA e-invoicing is live-blocked** | 16 | A signing certificate and production credentials. Ships `ETA_MOCK=true` | — |
+| B5 | **ETA e-invoicing is FROZEN, not merely live-blocked** | 16 | A signing certificate and production credentials — and, first, lifting the code freeze (`Modules::FROZEN`, 2026-08-22). Off in code and shown nowhere; ships `ETA_MOCK=true` | — |
 
 **On B1:** the interim is honest rather than silent — the field states that the fee is recorded and
 not billed, pinned by `UnitOwnerManagementFeeIsNotChargedYetTest`, which fails the day someone

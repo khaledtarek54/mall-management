@@ -3,7 +3,7 @@
 > Tenant-facing REST API for the Atriom mall-management mobile app.
 > Base URL: `https://<host>/api/v1`
 > Auth: Bearer tokens (Laravel Sanctum), `tenants` provider.
-> Last updated: 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.
+> Last updated: 2026-08-22 — ⚠️ **breaking:** `etaStatus`, `etaSubmissionId` and `etaLongId` are **GONE from the invoice payload**. Module 16 (ETA e-invoicing) is frozen in code, so nothing ever files an invoice and the three keys were permanently null — which the app would have had to read as a real "not filed" answer. They are removed from `InvoiceResource` rather than gated at runtime, because `openapi.json` is generated from that method and every gated form corrupts it — a conditional spread becomes a property with an empty name, a post-return `if` becomes three REQUIRED keys the endpoint never sends. A generated spec has to describe what the endpoint actually returns. They come back with the same names and shapes when e-invoicing ships. *Previously, 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.*
 
 This document is the single reference a mobile developer needs to build the
 app: the business domain, the auth model, every endpoint with request/response
@@ -337,14 +337,19 @@ Query: `status`, `period_from`, `period_until` (YYYY-MM-DD, against `issue_date`
   "paidAt": null,
   "isOverdue": true, "daysOverdue": 22,
   "paymentLinkUrl": "https://app.../pay/abc123",
-  "etaStatus": "valid", "etaSubmissionId": "...", "etaLongId": "...",
   "lease": { "id": 9, "reference": "LSE-HW-2026-0007", "unit": { "id": 4, "code": "A-01", "floor": "G" } } } ],
   "meta": { "currentPage": 1, "lastPage": 4, "perPage": 25, "total": 92 }, "links": { ... } }
 ```
 Invoice `status` ∈ `draft`, `issued`, `partially_paid`, `overdue`, `paid`,
 `cancelled`, `credited`, `disputed`.
-`eta_*` are the Egyptian Tax Authority e-invoice references — present once the
-invoice is accepted; use them to show a "tax-registered" badge.
+> **`etaStatus` / `etaSubmissionId` / `etaLongId` are ABSENT** (2026-08-22). They carried the
+> Egyptian Tax Authority e-invoice references for a "tax-registered" badge. Module 16 is frozen
+> (`App\Support\Modules::FROZEN`), so no invoice is ever submitted and the keys could only ever be
+> null — a value the app would reasonably read as "filed and rejected" or "not filed yet" rather
+> than "this system does not file". Omitted rather than nulled for exactly that reason, and removed
+> from the resource rather than gated at runtime so that `openapi.json`, which is generated from it,
+> stays a true description of the endpoint. Do not build the badge; the keys reappear with the same
+> names and shapes when e-invoicing ships.
 
 #### 🔒 `GET /me/invoices/{id}` — detail with line items
 Adds `items: [{ id, description, type, amount, vat_rate, vat_amount, total }]`.
@@ -873,6 +878,8 @@ badge — "20% OFF"), `startsAt`/`endsAt` (show as "valid until"), `isFeatured`,
 - **Push delivery** — token registration exists; the server-side fan-out lands post-pilot.
 - **Media uploads** on maintenance requests (native camera capture) — text-only for now.
 - **Profile photo / KYC document upload.**
+- **ETA e-invoice references on invoices** (`etaStatus`, `etaSubmissionId`, `etaLongId`) — module 16
+  is frozen; see the invoice-list note in §4.
 
 ---
 

@@ -49,20 +49,17 @@ test.describe('ADMIN: invoice actions', () => {
     await expectNoLaravelError(page);
   });
 
-  test('Submit to ETA action is wired when the ETA module is enabled', async ({ page }) => {
+  test('No ETA action or column survives the module freeze', async ({ page }) => {
     await page.goto('/admin/AW/invoices', { waitUntil: 'networkidle' });
     await expectNoLaravelError(page);
-    // The ETA row + bulk actions are gated on Modules::enabled('eta'), which is
-    // OFF by default (feature not yet certified for production). When it's off,
-    // the actions are *correctly* absent — assert the page rendered cleanly and
-    // skip the action assertion. When someone enables ETA, this coverage kicks in.
+    // Module 16 is FROZEN in code (App\Support\Modules::FROZEN), not merely toggled off, so the
+    // row action, the bulk action and the ETA Status column are all absent — and no settings row
+    // can bring them back. This used to skip itself when it found nothing, on the premise that
+    // "when someone enables ETA, this coverage kicks in"; nobody can, so the absence is the
+    // invariant worth asserting. Unfreezing the module is what makes this test the wrong one.
     const html = await page.content();
-    const etaOn = /Submit to ETA|إرسال إلى مصلحة الضرائب/.test(html);
-    if (!etaOn) {
-      test.skip(true, 'ETA module disabled (Modules::enabled("eta") === false) — action correctly absent');
-      return;
-    }
-    expect(html).toMatch(/Submit to ETA|إرسال إلى مصلحة الضرائب/);
+    expect(html).not.toMatch(/Submit to ETA|إرسال إلى مصلحة الضرائب/);
+    expect(html).not.toMatch(/ETA Status|حالة مصلحة الضرائب/);
   });
 });
 

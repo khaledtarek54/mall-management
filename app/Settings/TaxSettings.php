@@ -2,6 +2,7 @@
 
 namespace App\Settings;
 
+use App\Support\Modules;
 use Spatie\LaravelSettings\Settings;
 
 /**
@@ -55,12 +56,13 @@ class TaxSettings extends Settings
      * line only when this is set, so an unconfigured install is silently incomplete rather than
      * confidently wrong. It is a go-live gate item (docs/operations/GO-LIVE.md).
      *
-     * NOTE — the same number also lives on `EtaSettings::issuer_tax_registration_number`, which
-     * predates this and is the e-invoicing submission's copy. **One number, two homes is a defect**
-     * (an operator can set them to disagree, and then the PDF and the submission would too), but
-     * collapsing them means editing the ETA module, which is frozen. When that freeze lifts, this
-     * field is the survivor: a seller's registration number is company identity, not a property of
-     * an integration that may be switched off.
+     * NOTE — this number used to live in two homes: `EtaSettings::issuer_tax_registration_number`
+     * predated it and was the e-invoicing submission's own copy, which an operator could set to
+     * disagree with this one so that the PDF and the submission stated different registrations.
+     * `EtaSettings` was DELETED with the ETA freeze (2026-08-22, {@see Modules::FROZEN}),
+     * so this is now the only home and the defect is closed rather than parked. When module 16
+     * resumes, `EtaJsonBuilder` must build its issuer block from HERE — a seller's registration
+     * number is company identity, not a property of an integration that may be switched off.
      */
     public string $seller_tax_registration_number = '';
 

@@ -92,8 +92,15 @@ it('does not let a known-inert setting be quietly declared fine', function () {
     // Two lists, because "this is correct" and "this is broken and here is why we have not fixed
     // it" are different claims. Collapsing them is how a real gap becomes invisible again — which
     // is the exact failure this whole gate exists to stop.
+    //
+    // Both lists are empty today (the last two entries went with the ETA settings group on
+    // 2026-08-22). A `foreach` over nothing asserts nothing and reports as a pass, which is the
+    // gate-that-cannot-fail shape CLAUDE.md names — so state the empty case rather than loop into
+    // silence, and the loop below starts meaning something again the moment an entry returns.
+    expect(array_intersect_key(SettingsReach::KNOWN_INERT, SettingsReach::EXEMPT_NO_READER))
+        ->toBe([], 'a setting cannot be both a defect and by design');
+
     foreach (SettingsReach::KNOWN_INERT as $key => $reason) {
-        expect(SettingsReach::EXEMPT_NO_READER)->not->toHaveKey($key, "{$key} cannot be both a defect and by design");
         expect(strlen($reason))->toBeGreaterThan(30, "{$key} needs a real reason, not a label");
     }
 });
@@ -102,11 +109,12 @@ it('names a setting that actually exists in every exemption', function () {
     // A stale exemption is worse than none: it silently covers a setting that has since been
     // renamed, so the real one goes ungated while the list still looks complete.
     $keys = SettingsReach::keys();
+    $exemptions = array_merge(SettingsReach::EXEMPT_NO_READER, SettingsReach::KNOWN_INERT);
 
-    foreach (array_merge(SettingsReach::EXEMPT_NO_READER, SettingsReach::KNOWN_INERT) as $key => $reason) {
-        expect(in_array($key, $keys, true))
-            ->toBeTrue("{$key} is exempted but is not a registered setting any more");
-    }
+    // Asserted as a set rather than in the loop, so this stays a real check while both lists are
+    // empty — otherwise the test performs no assertion at all and passes for that reason.
+    expect(array_values(array_diff(array_keys($exemptions), $keys)))
+        ->toBe([], 'these settings are exempted but are not registered settings any more');
 });
 
 /*

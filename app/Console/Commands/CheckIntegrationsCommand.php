@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Eta\EtaApiClient;
 use App\Services\Paymob\PaymobClient;
+use App\Support\Modules;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -20,7 +21,7 @@ class CheckIntegrationsCommand extends Command
 {
     protected $signature = 'integrations:check {--eta : check ETA only} {--paymob : check Paymob only} {--mail : check outbound email only}';
 
-    protected $description = 'Verify ETA + Paymob + mail credentials and connectivity (no document submitted, no card charged, no email sent)';
+    protected $description = 'Verify Paymob + mail credentials and connectivity (no card charged, no email sent). ETA is frozen — pass --eta to check its dormant credentials anyway';
 
     public function handle(EtaApiClient $eta): int
     {
@@ -30,8 +31,17 @@ class CheckIntegrationsCommand extends Command
         $ok = true;
         $this->newLine();
 
-        if ($run('eta')) {
+        // A FROZEN module is silent here too. `integrations:check` with no flags is what an operator
+        // runs after pasting new credentials, and reporting on an integration that cannot run —
+        // green or red — is the same false signal the settings tab was: it says ETA is part of this
+        // deployment's surface. An EXPLICIT `--eta` still reports, because someone who typed the
+        // flag is asking about the dormant code on purpose, and answering nothing at all would read
+        // as the command being broken.
+        if ($run('eta') && (Modules::enabled('eta') || $this->option('eta'))) {
             $this->line('<options=bold>ETA e-invoicing</>');
+            if (Modules::frozen('eta')) {
+                $this->line('  <fg=yellow>! Module 16 is FROZEN (App\Support\Modules::FROZEN) — nothing submits. Checking the dormant credentials because you asked with --eta.</>');
+            }
             $r = $eta->verifyCredentials();
             $this->status($r['ok'], "[{$r['mode']}] {$r['message']}");
             if ($r['mode'] === 'real' && ! config('eta.signing.enabled')) {

@@ -121,7 +121,11 @@ class DumpSystemCensus extends Command
                     'shared' => count(PropertyIsolation::sharedModels()),
                     'self' => count(PropertyIsolation::selfModels()),
                 ],
-                'module_flags' => count(Modules::KEYS),
+                // Split, because they are different claims: a toggleable module is one the
+                // operator controls, a FROZEN one is off in code and shown nowhere. Reporting the
+                // KEYS total as "toggleable" counted a module nobody can switch on.
+                'module_flags' => count(Modules::toggleable()),
+                'frozen_modules' => array_keys(Modules::FROZEN),
                 'scheduled_commands' => self::scheduled(),
             ],
             'tests' => [
@@ -218,7 +222,10 @@ class DumpSystemCensus extends Command
         $lines[] = "| **General ledger** | {$cov['gl_sources']} posting sources, {$cov['gl_journalizer_files']} journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |";
         $lines[] = "| **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; {$t['e2e_specs']} specs. Gated by `AdminSmokeManifestConformanceTest`. |";
         $lines[] = "| **Tests** | {$t['files']} files — {$t['scenarios']} scenario, {$t['regressions']} regression. |";
-        $lines[] = "| **Module flags** | {$cov['module_flags']} toggleable modules (`App\\Support\\Modules`). |";
+        $frozen = $cov['frozen_modules']
+            ? ' '.count($cov['frozen_modules']).' frozen in code and shown nowhere: `'.implode('`, `', $cov['frozen_modules']).'`.'
+            : '';
+        $lines[] = "| **Module flags** | {$cov['module_flags']} toggleable modules (`App\\Support\\Modules`).{$frozen} |";
         $lines[] = '';
         $lines[] = '**Scheduled automation** — commands: `'.implode('` · `', $cov['scheduled_commands']['commands']).'`';
         if ($cov['scheduled_commands']['jobs']) {

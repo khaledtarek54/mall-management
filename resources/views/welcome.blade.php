@@ -222,13 +222,13 @@
         <h1>Where every mall transaction<br><span class="accent">comes together.</span></h1>
         <p class="lede">
             Atriom is the operations platform built for Egyptian retail — leases, monthly billing,
-            tenant sales declarations, CAM reconciliation, ETA e-invoicing. Three role-aware portals,
+            tenant sales declarations, CAM reconciliation, a full Egyptian general ledger. Three role-aware portals,
             one source of truth, native to how malls actually work here.
         </p>
 
         <div class="features">
             <span class="feature">Arabic-native</span>
-            <span class="feature">ETA e-invoicing</span>
+            <span class="feature">Double-entry GL</span>
             <span class="feature">EGP &middot; EG VAT</span>
             <span class="feature">Tenant sales &amp; percentage rent</span>
             <span class="feature">CAM reconciliation</span>
@@ -239,7 +239,7 @@
             <a class="panel" href="{{ url('/admin') }}">
                 <div class="panel-label">For Operators</div>
                 <div class="panel-title">Admin Console</div>
-                <div class="panel-desc">Run the mall day to day — leases, billing, maintenance, ETA submissions.</div>
+                <div class="panel-desc">Run the mall day to day — leases, billing, maintenance, the books.</div>
             </a>
             <a class="panel" href="{{ url('/portal') }}">
                 <div class="panel-label">For Tenants</div>

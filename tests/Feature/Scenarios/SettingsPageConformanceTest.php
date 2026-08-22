@@ -2,6 +2,8 @@
 
 use App\Filament\Admin\Pages\Settings as SettingsPage;
 use App\Settings\BillingSettings;
+use App\Settings\ModulesSettings;
+use App\Support\Modules;
 use App\Support\SettingsRegistry;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -61,6 +63,16 @@ it('renders a field for every setting the code can read', function () {
             $covered = in_array($key, $rendered, true)
                 || collect($rendered)->contains(fn (string $path) => str_starts_with($path, $key.'.'));
 
+            // A FROZEN module's flag is deliberately unreachable from the screen
+            // (App\Support\Modules::FROZEN). `Modules::enabled()` answers false before the row is
+            // consulted, so the toggle could not change anything — and a switch that does nothing
+            // is worse than an absent one, because it advertises unfinished work as a feature the
+            // operator is choosing to leave off. This is the ONE shape of unreachable setting that
+            // is correct, and it is derived from the registry rather than listed here.
+            if (! $covered && $class === ModulesSettings::class && Modules::frozen($name)) {
+                continue;
+            }
+
             if (! $covered) {
                 $missing[] = $key;
             }
@@ -111,6 +123,11 @@ it('writes every setting back through the real page', function () {
             };
 
             if ($new === null) {
+                continue;
+            }
+
+            // Same exemption as above: no field, so nothing to fill and nothing to persist.
+            if ($class === ModulesSettings::class && Modules::frozen($name)) {
                 continue;
             }
 

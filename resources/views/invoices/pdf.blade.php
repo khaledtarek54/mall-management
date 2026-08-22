@@ -311,7 +311,12 @@
         </div>
     @endif
 
-    @if($invoice->eta_submission_id)
+    {{-- The e-invoicing reference block, gated on the module rather than on the column alone
+         (App\Support\Modules::FROZEN). Module 16 is frozen and uncertified, so a stored
+         submission id is a MOCK one — printing it on the document a tenant files with their own
+         accountant would state a tax-authority registration that does not exist. The columns are
+         kept; only the claim is withheld. --}}
+    @if(\App\Support\Modules::enabled('eta') && $invoice->eta_submission_id)
         <div class="eta-block">
             <div class="label" style="margin-bottom:4px;">{{ __('admin.pdf.eta_reference') }}</div>
             <div class="eta-line">

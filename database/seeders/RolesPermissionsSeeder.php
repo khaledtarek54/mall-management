@@ -132,7 +132,12 @@ class RolesPermissionsSeeder extends Seeder
             // assessment run. Raising one invoice (`invoices.create`) and raising every invoice in
             // the property in one click are different acts, which is why this is its own right.
             'invoices.run_monthly_billing' => 'Run the monthly billing and owner-assessment runs',
-            'invoices.submit_to_eta' => 'Submit invoices to the Egyptian Tax Authority',
+            // `invoices.submit_to_eta` was RETIRED 2026-08-22 with the ETA freeze
+            // (App\Support\Modules::FROZEN). The roles matrix renders one checkbox per catalogue
+            // entry, so leaving it here would keep offering "Submit invoices to the Egyptian Tax
+            // Authority" as a right an operator can grant — for a module that refuses to run.
+            // The InvoicesTable actions still check the key behind `Modules::enabled('eta')`, so
+            // restoring this one line is all that unfreezing the permission takes.
         ],
         'payments' => [
             'payments.view' => 'View payments',
@@ -825,7 +830,7 @@ class RolesPermissionsSeeder extends Seeder
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
         $grants['accounting'] = [
             'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.void',
-            'invoices.run_monthly_billing', 'invoices.submit_to_eta',
+            'invoices.run_monthly_billing',
             'payments.view', 'payments.create', 'payments.edit', 'payments.void',
             'credit_notes.view', 'credit_notes.create', 'credit_notes.edit',
             'credit_notes.issue', 'credit_notes.apply', 'credit_notes.void',

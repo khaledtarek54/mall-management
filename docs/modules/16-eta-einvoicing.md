@@ -1,11 +1,49 @@
 # ETA E-Invoicing
 
-> **⏸️ POSTPONED (2026-07-03): the `eta` module is DISABLED by default.** ETA is not
-> certified/live, so the module flag now defaults **off** (`ModulesSettings::$eta = false`
-> + a settings migration turns it off for existing installs). This hides the
-> Submit-to-ETA single/bulk actions, the ETA invoice filters/column, and the
-> `EtaCompliance` dashboard widget. The code below is complete and tested — re-enable
-> from **/admin/settings → Modules**, or flip the default, when ETA go-live is scheduled.
+> **🧊 FROZEN (2026-08-22): the `eta` module is switched off IN CODE and is not shown anywhere.**
+> Registered in `App\Support\Modules::FROZEN`, so `Modules::enabled('eta')` answers **false before
+> the settings row is consulted** — a stale row, a restored backup or a hand-edited `settings` table
+> cannot bring it back, and there is no operator toggle for it any more.
+>
+> **Why this replaced the 2026-07-03 "postponed" state.** `modules.eta` had defaulted to false since
+> then, and ETA was still *present* everywhere an operator looks: an "ETA e-Invoicing" tab on
+> `/admin/settings` with two `->required()` fields that nothing read; a Modules toggle inviting them
+> to switch it on; an **"ETA Status" column on every invoice list** (the one surface that was never
+> module-gated); *"Submit invoices to the Egyptian Tax Authority"* as a grantable right on the roles
+> matrix; an ETA reference block on the invoice PDF printing a **mock** submission id onto a document
+> a tenant files with their own accountant; three `eta_*` keys in the mobile API payload; and ~55
+> seeded "Valid" badges in the demo data. Off and unfinished looked identical, and the difference was
+> presented as the operator's to decide.
+>
+> **What was removed, not just gated:**
+> - `App\Settings\EtaSettings` — all four properties were inert (the pipeline reads `config('eta.*')`
+>   from env, never these rows). The surviving home for the issuer identity is `TaxSettings`;
+>   `EtaJsonBuilder` should build its issuer block from there when the work resumes.
+> - The `invoices.submit_to_eta` permission (migration `2026_08_22_810000`), because the roles matrix
+>   renders a checkbox per catalogue row.
+> - The three `eta_*` keys from `Api\V1\InvoiceResource` — removed rather than runtime-gated,
+>   because `docs/api/openapi.json` is GENERATED from that method and both gated forms corrupt it
+>   (a conditional spread becomes a property with an empty name inside an `anyOf`; a post-return
+>   `if` becomes three *required* keys the endpoint never sends). A generated spec must describe
+>   what the endpoint returns. Recorded as breaking in [MOBILE-API.md](../api/MOBILE-API.md).
+> - `DemoSeeder::seedEtaSubmissions()`, the ETA claims on the marketing landing page, the orphaned
+>   `admin.settings.*.eta_*` / `admin.notifications.eta_submitted*` / `bulk_eta_complete*` lang keys
+>   in both locales, and `tests/e2e/13-eta.spec.js`.
+>
+> **What was kept, dormant and covered:** `app/Services/Eta/*`, `App\Jobs\SubmitInvoiceToEta`,
+> `config/eta.php`, the `invoices.eta_*` columns, the `EtaCompliance` widget's registration on the
+> accounting dashboard, and every service-level test (`EtaScenarioTest`, `EtaJsonBuilderTest`,
+> `EtaIntegrationTest`, `EtaReceiverAddressTest`, `EtaRetryPolicyTest`, `EtaJsonBuilderTaxIdTest`) —
+> none of which asks `Modules::enabled()`, so the dormant code stays honest. The two suites that
+> drove the UI are `->skip()`ed with the reason.
+>
+> **To unfreeze**, in order: delete the `eta` entry from `Modules::FROZEN`; restore the
+> `invoices.submit_to_eta` line in `RolesPermissionsSeeder` **and re-run the seeder** (a permission
+> that exists only in the seeder file is invisible to a green suite); re-add the three `eta_*` keys
+> to `Api\V1\InvoiceResource` and run `composer api-spec`; point `EtaJsonBuilder`'s issuer block at
+> `TaxSettings` instead of the deleted `EtaSettings`; and drop the `->skip()`s on the two UI suites. The invariant is pinned
+> the other way round by `tests/Feature/Regression/EtaIsFrozenAndInvisibleTest.php`, which will start
+> failing — that is the signal the freeze is actually lifted, not a regression.
 
 > Submits B2B invoices to the Egyptian Tax Authority (ETA) preproduction e-invoicing API, capturing acceptance/rejection status and integrating with the Filament admin dashboard for compliance visibility.
 
@@ -376,7 +414,7 @@ backoff is minutes rather than seconds.
 - **tests/Feature/Services/EtaIntegrationTest.php** (166 lines): Mock/real HTTP modes, job queue, submission service end-to-end.
 - **tests/Feature/Settings/ModulesEtaToggleTest.php** (39 lines): Module enable/disable, widget visibility.
 - **tests/Feature/Resources/InvoiceEtaFiltersTest.php**: Table filters and actions (if exists).
-- **tests/e2e/13-eta.spec.js** (Playwright): ETA badges render in table, seeded valid invoices are visible.
+- ~~tests/e2e/13-eta.spec.js~~ — **deleted with the freeze.** It asserted seeded "Valid" badges in the invoices table, and nothing seeds them any more. `tests/e2e/17-functional-actions.spec.js` now asserts the opposite: no Submit-to-ETA action and no ETA Status column on the page.
 
 ### Related modules (see docs/modules/)
 - **02-invoicing.md**: Invoice model, status lifecycle, tenant scoping, line items, monthly billing.

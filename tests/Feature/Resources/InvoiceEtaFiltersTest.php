@@ -1,5 +1,16 @@
 <?php
 
+/*
+| PARKED with the ETA freeze (2026-08-22). `Modules::enabled('eta')` now answers false
+| unconditionally from `App\Support\Modules::FROZEN`, so these surfaces cannot be reached from any
+| test either — the module flag is no longer a settings row a test can flip.
+|
+| Skipped rather than deleted, because the code they cover is intact and this is the coverage that
+| proves it still works the day module 16 resumes: delete the `eta` entry from `Modules::FROZEN` and
+| these go green again unchanged. The invisibility they used to assert the other way round is now
+| `tests/Feature/Regression/EtaIsFrozenAndInvisibleTest.php`.
+*/
+
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -36,7 +47,7 @@ it('eta_status filter narrows to one specific status', function () {
             ->assertCanSeeTableRecords([$this->valid])
             ->assertCanNotSeeTableRecords([$this->submitted, $this->invalid, $this->rejected, $this->pendingNull]);
     });
-});
+})->skip('ETA is frozen (App\Support\Modules::FROZEN) — this surface cannot render. Unfreeze the module to run it.');
 
 it('needs_eta_attention covers BOTH invalid and rejected', function () {
     asTenant($this->asset, function () {
@@ -45,7 +56,7 @@ it('needs_eta_attention covers BOTH invalid and rejected', function () {
             ->assertCanSeeTableRecords([$this->invalid, $this->rejected])
             ->assertCanNotSeeTableRecords([$this->valid, $this->submitted, $this->pendingNull, $this->pendingString]);
     });
-});
+})->skip('ETA is frozen (App\Support\Modules::FROZEN) — this surface cannot render. Unfreeze the module to run it.');
 
 it('eta_pending covers BOTH null and explicit pending status', function () {
     asTenant($this->asset, function () {
@@ -54,4 +65,4 @@ it('eta_pending covers BOTH null and explicit pending status', function () {
             ->assertCanSeeTableRecords([$this->pendingNull, $this->pendingString])
             ->assertCanNotSeeTableRecords([$this->valid, $this->submitted, $this->invalid, $this->rejected]);
     });
-});
+})->skip('ETA is frozen (App\Support\Modules::FROZEN) — this surface cannot render. Unfreeze the module to run it.');

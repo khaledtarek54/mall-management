@@ -203,10 +203,15 @@ class InvoicesTable
                         'disputed' => 'warning',
                         default => 'gray',
                     }),
+                // Module-gated like the ETA filters and actions below. It was the one ETA surface
+                // that was NOT, so with the module off every invoice list still carried an "ETA
+                // Status" column reading "—" on every row — a compliance posture the operator has
+                // no way to act on, for a module (Modules::FROZEN) that has never been certified.
                 TextColumn::make('eta_status')
                     ->label(__('admin.tables.invoice.eta'))
                     ->badge()
                     ->placeholder('—')
+                    ->visible(fn () => Modules::enabled('eta'))
                     ->formatStateUsing(fn (?string $state) => $state ? __("admin.statuses.eta.{$state}") : null)
                     ->color(fn (?string $state): string => match ($state) {
                         'valid' => 'success',

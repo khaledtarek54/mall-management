@@ -3510,6 +3510,13 @@
                             "structural",
                             "cleaning",
                             "safety",
+                            "elevator",
+                            "generator",
+                            "fire_safety",
+                            "pest_control",
+                            "security",
+                            "landscaping",
+                            "waste",
                             "other"
                         ]
                     },
@@ -3778,25 +3785,6 @@
                         ],
                         "description": "Shareable public pay link (no login) \u2014 null once nothing is owed.\nLets the app surface a \"share payment link\" alongside in-app pay."
                     },
-                    "etaStatus": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "description": "ETA (Egyptian Tax Authority) e-invoice references \u2014 present once\nthe invoice has been accepted by the ETA portal. Useful for the\napp to show a \"tax-registered\" badge."
-                    },
-                    "etaSubmissionId": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "etaLongId": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
                     "items": {
                         "type": "array",
                         "description": "Relations \u2014 only present on the detail endpoint (eager-loaded).",
@@ -3861,10 +3849,7 @@
                     "currency",
                     "isOverdue",
                     "daysOverdue",
-                    "paymentLinkUrl",
-                    "etaStatus",
-                    "etaSubmissionId",
-                    "etaLongId"
+                    "paymentLinkUrl"
                 ],
                 "title": "InvoiceResource"
             },
