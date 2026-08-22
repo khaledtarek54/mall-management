@@ -141,6 +141,7 @@ return [
             'The monthly billing run raises invoices from this lease’s charge schedule. Nothing bills that is not on the schedule.',
             'Changing the rent does not overwrite it: the current row is closed and a new one opens, so last year’s rent stays true for last year.',
             'The escalation date drives an automatic annual increase — by percentage or by a fixed amount, within the collar if one was agreed.',
+            'The late-fee clause on this lease is what the nightly sweep charges: the rate, the grace period, the minimum, the cap, and whether it may be charged again while the balance stands. Leave any of them blank and the property\u2019s setting applies.',
             'The unit’s status becomes occupied, and it stops appearing as available to let.',
         ],
         'rules' => [

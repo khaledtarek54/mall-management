@@ -1567,6 +1567,27 @@ sentence on it; this reaches them as the message the form shows.
 
 ---
 
+### 2026-08-22 — milestone 21a: recurrence review pass
+
+Two findings, both about what the change LEFT rather than what it added.
+
+**1. `Invoice::hasLiveLateFee()` became dead the moment `mayChargeAgain()` replaced its only call
+site.** A public predicate on a money model, referenced by nothing — the "remove the old design in
+the SAME change" rule, missed by one file. Deleted; `latestLiveLateFee()` supersedes it and is what
+the decision reads.
+
+**2. The lease guide never mentioned the late-fee clause at all**, and that lease tab now carries
+five negotiable terms — two of them added today. `ScreenGuides` exists to say *what moves elsewhere
+when you touch this screen*, and a clause term here is precisely that: it changes what the nightly
+sweep charges. One `affects` line in both languages, naming all five and saying that a blank
+inherits the property.
+
+**Checked and NOT defects.** Nothing outside `LateFeeService` reads `late_fee_invoice_id`, so
+cancelling a fee cannot strand a link — the guard reads status, not presence. And no other caller
+assumed `hasLiveLateFee()` meant "ever", because there was no other caller.
+
+---
+
 ### 2026-08-22 — milestone 21: EG-35's other half — a late fee that recurs while the debt stands
 
 Deferred from milestone 17 with a reason, and this is that reason discharged: it needed a schema

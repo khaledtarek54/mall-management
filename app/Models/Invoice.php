@@ -272,11 +272,6 @@ class Invoice extends Model
         return $this->hasMany(self::class, 'late_fee_for_invoice_id')->latest('issue_date');
     }
 
-    public function hasLiveLateFee(): bool
-    {
-        return $this->latestLiveLateFee() !== null;
-    }
-
     /**
      * The most recent late fee on this invoice that has not been cancelled.
      *
