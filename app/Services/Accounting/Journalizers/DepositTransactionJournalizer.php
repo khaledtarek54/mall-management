@@ -65,6 +65,10 @@ class DepositTransactionJournalizer implements Journalizer
             'entry_date' => $deposit->transaction_date,
             'description_en' => 'Deposit '.$deposit->type.' '.$deposit->number,
             'description_ar' => 'تأمين ('.$deposit->type.') '.$deposit->number,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'deposit.movement',
+            'description_data' => ['type' => $deposit->type, 'number' => $deposit->number],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $debit, 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId, 'tenant_id' => $deposit->tenant_id, 'lease_id' => $deposit->lease_id],

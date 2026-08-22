@@ -377,7 +377,7 @@ operator will want to change in week one.
 | S-9 ✅ | **FIXED 2026-08-21 (EG-06).** ~~`ext-intl` is undeclared while 260 money columns depend on it.~~ `composer.json` `require` has no `ext-*` at all; `Number::currency()` throws without intl. The codebase already documents the hazard for a different call site. **A deploy box without intl 500s every list and dashboard showing money** | `composer.json:11-28`; `app/Support/Search/SearchText.php:111-113` | 🔴 |
 | ~~S-10~~ ✅ | **FIXED 2026-08-21 (EG-17).** `resources/views/vendor/mail` is published and the layout carries `dir`, so all eleven `MailMessage` notifications render RTL in Arabic. The theme was closer than the finding suggested — it already used the logical `text-align: start` nearly everywhere; the gap was two `left` rules and one `border-left` on the panel accent. The published copy is deliberately a MINIMAL fork (one attribute, three properties) so a framework upgrade stays readable. ~~21 of 23 email templates are LTR~~ | `resources/views/vendor/mail/html/layout.blade.php`; `.../themes/default.css` | 🟠 |
 | ~~S-11~~ ✅ | **FIXED 2026-08-22 (EG-22).** The portal skins itself per property the way the admin panel has since it gained tenancy. The rule is **exactly one mall, or the platform**: a tenant trading in three sees Atriom, because branding their portal as one of the three is a claim about the other two. Reviewing it found the same question answered differently one document along — `TenantStatementPdfService` took `leases->first()?->unit?->asset`, so a chain's Statement of Account carried one ARBITRARY mall's letterhead. Both read the invoices' own `asset_id` now and fall back to the operator, so a tenant is not told two different things by two of our own documents. The palette derivation moved to `PanelBranding` and both panels read it, rather than a second copy that can drift. ~~untranslated English literal, static logo/favicon, no colour hook~~ | `app/Support/Filament/PortalBranding.php` | 🟠 |
-| S-12 | **29 journalizers write Arabic prose literals into `journal_entries.description_ar`** at post time. This directly contradicts the project's own *"stores DATA, never PROSE"* rule: a wording fix needs a deploy **and** never reaches rows already posted. The fix pattern (`name_en`/`name_ar`, or `ActivityVocabulary`'s read-time resolution) is already in the codebase | `app/Services/Accounting/Journalizers/*.php` | 🟠 |
+| ~~S-12~~ ✅ | **FIXED 2026-08-22 (EG-36).** 24 journalizers, not 29 — counted by grep rather than taken from the row. ~~**29 journalizers write Arabic prose literals into `journal_entries.description_ar`**~~ at post time. This directly contradicts the project's own *"stores DATA, never PROSE"* rule: a wording fix needs a deploy **and** never reaches rows already posted. The fix pattern (`name_en`/`name_ar`, or `ActivityVocabulary`'s read-time resolution) is already in the codebase | `app/Services/Accounting/Journalizers/*.php` | 🟠 |
 | S-13 | **English month names inside Arabic sentences** on the public payment page, the invoice email and the owner-statement PDF — raw `format('F Y')` instead of the `->locale()->isoFormat()` pattern used 36 times elsewhere | `resources/views/pay/show.blade.php:55,58`; `emails/invoice-issued.blade.php:29,35,36`; `owner-statements/statement.blade.php:58-59` | 🟡 |
 | S-14 | **Per-property policy is a good mechanism with a five-key allow-list** — **5 of 59** settings fields are per-property. Billing day/time, CAM reconciliation dates, holdover rate, straight-line toggle, marketing levy %, ageing buckets, lease default term and auto-apply-credit are all portfolio-global, and each is negotiated per building in practice. The gap is the allow-list, not the plumbing — **the cheapest structural item here** | `app/Support/PropertySettings.php:48-69` | 🟠 |
 | S-15 | **No lease document generation and no clause library.** The signed lease is an uploaded file; `lease_clauses` rows are a per-lease abstract, not a reusable library; there is no `lease_type` column; every new lease gets the same three hardcoded charges | `app/Services/LeaseCreationService.php:118-154`; `app/Models/LeaseClause.php` | 🟠 |
@@ -442,7 +442,7 @@ credential from the operator/accountant · ⚙️ ops.
 | **EG-33** | **Real-estate tax and municipal levies as a recurring statutory cost** — there is no recurring-expense concept at all today | T-8, §3.6 | 🧑‍💻 + 🔑 | M |
 | **EG-34** | **Configurable retention policy** (activity log is pruned at 365 days from a hardcoded config value), per PDPL's documented-retention obligation | S-16, §3.6 | 🧑‍💻 + 🔑 | S |
 | **EG-35** | 🟡 **TWO OF FOUR DONE 2026-08-22 — and the row is really four separate pieces of work, not one M.** **Shipped:** the late-fee CAP, on the same three tiers its siblings already had (lease clause → property → portfolio, `leases.late_fee_maximum` + `BillingSettings::late_fee_maximum`, 0 = no cap), and the DEPOSIT default, which was the literal `3` in `LeaseCreationService`'s `$rent * 3` and is now a per-property setting. Both ship at today's behaviour, so no figure moves. **Not shipped, each for a stated reason:** late-fee RECURRENCE turns `invoices.late_fee_invoice_id` from a `belongsTo` into a one-to-many **on a money link** — a schema change deserving its own change and tests; the ROUNDING mode (M-10) is 540 money sites, changes every stored figure, and nobody has asked for banker's rounding; and a QUARTERLY CAM true-up (M-12) is **not a schedule change at all** — `cam_expense_pools` is `unique(asset_id, period_year)`, one pool per property per YEAR, so the pool's own period must change first and that is an L across the CAM module | M-8, M-11, M-12, M-10 | 🧑‍💻 | M |
-| **EG-36** | **Journal descriptions become keys resolved at read time**, as the activity log already does | S-12 | 🧑‍💻 | M |
+| ~~**EG-36**~~ ✅ | **DONE 2026-08-22.** `journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative` — the ledger's twin of `ActivityVocabulary`, and the same rule: **a row stores DATA, never PROSE**. All **24** journalizers converted (25 narratives: the custody one branches, so its key is chosen in the same branch its prose is, and the two can never describe different movements). **The prose columns STAY and are still written**, as a snapshot and a floor: every row posted before today has prose and no key, a manual entry is prose the operator typed, and a read site nobody converted degrades to today's wording rather than to a blank cell — on a general ledger an empty description is indistinguishable from an entry nobody described. Nothing re-posts, because `matches()` compares lines, date and asset and deliberately not text | S-12 | 🧑‍💻 | M |
 | ~~**EG-37**~~ ✅ | **DONE 2026-08-22.** The count was **74**, not ~25 — and separating them was the value: **48 registered** (deriving from the model's own constant wherever it states one, so the registry is not 48 copies), **24 exempted** each naming the registry that owns it (`MorphMap` for a morph alias, the CHARGE CODE catalogue for `charges.type` and `invoice_items.type`, free text for three). Enforcement immediately found four unreachable fixture values, a **demo-data** defect (a renewal option whose 8% uplift the app could never apply), and a `facility_work_orders.status` of `completed` where the model says `done` — the very status D-8 named. Five of my own first sets were wrong because I read them off sampled DATA rather than the code | D-8 | 🧑‍💻 | S |
 | **EG-39** | **A rate-priced lease renewed at a negotiated rent silently keeps the OLD rate's figure.** `Lease::saving()` re-derives `base_rent_monthly` from rate × area on CREATE — and a renewal is a create — on the stated rule that "a typed monthly figure cannot outrank the rate the deal was struck at". So `LeaseRenewalService::renew($lease, ['new_rent' => 110000])` on a 250 m² unit at 4,800/m²/yr saves **100,000**, with nothing on screen to say the negotiated figure was replaced. Either refuse the mismatch, or re-rate from the new rent — an operator's call, which is why it is a row rather than a fix. Found 2026-08-22 by EG-37: the only rate-priced renewal fixture in the suite used `rent_pricing_basis => 'rate_per_sqm'`, a value no form offers and the code never matches, so that lease was treated as FLAT and the case passed | new | 🧑‍💻 + 🔑 | S |
 
@@ -1348,6 +1348,55 @@ for banker's rounding cannot have it"* — none has asked, and doing it speculat
 system acquires a change nobody can evaluate. A QUARTERLY CAM true-up (M-12) is not a schedule
 change at all: `cam_expense_pools` is `unique(asset_id, period_year)`, one pool per property per
 year, so the pool's period has to change before the schedule means anything.
+
+---
+
+### 2026-08-22 — milestone 18: EG-36, the ledger stops baking its own prose
+
+The last of the 🧑‍💻-only rows that needed no decision from anybody.
+
+Twenty-four journalizers wrote Arabic and English literals into `description_ar` / `description_en`
+at post time — *"فاتورة INV-0001"* — which contradicts the rule CLAUDE.md states for the activity
+log in as many words: **it stores DATA, never PROSE.** The consequences are exactly the ones that
+rule exists to prevent: a wording fix needs a deploy, it never reaches a row already posted, and a
+third language means re-posting history. The pattern was already in the codebase twice, so this is
+the ledger finally using it.
+
+**The prose columns STAY, and are still written.** They become a snapshot and a floor rather than
+the truth, for three reasons and the third decided it: every row posted before today has prose and
+no key and must keep reading correctly for ever, because a ledger is evidence; `search_text` folds
+the narrative and a stored copy keeps a raw reader honest; and **a read site nobody converted
+degrades to today's wording rather than to a blank cell** — on a general ledger an empty description
+is indistinguishable from an entry nobody described. `JournalNarrative::resolve()` prefers the key,
+so a wording change still reaches every read that goes through it.
+
+**Nothing re-posts.** `LedgerPoster::sync()`'s `matches()` compares lines, date and asset and
+deliberately not text (`ChangeImpact` classifies these columns DESCRIPTIVE), so adding a key cannot
+void and re-post an entry.
+
+**Three details that are the content.** `__()` reads dots as NESTING, so `invoice.posted` is nested
+rather than keyed by the literal string — the first attempt printed
+`admin.journal.narratives.invoice.posted` raw, which is the trap already recorded for
+`admin.activity.descriptions`. A missing placeholder renders an **em dash**, not `:number`, because
+a leftover token on a financial statement reads as a broken template. And `Lang::has()` **falls back
+to English**, so the parity check passes `fallback: false` or it only ever catches a key missing
+from BOTH languages.
+
+**The custody journalizer chooses between two narratives in a branch**, so its key is chosen in the
+same branch its prose is — the key and the sentence beside it can never describe different
+movements.
+
+**One bug of my own, and the test caught it.** The `use App\Support\JournalNarrative;` insert into
+`GeneralLedger.php` matched no anchor and silently did not land, so PHP resolved the name in the
+page's own namespace — `App\Filament\Admin\Pages\JournalNarrative` not found, on the general
+ledger, at render time. The exact shape `UnresolvedClassReferenceConformanceTest` exists for, in a
+closure that only runs when the table renders. I had even grepped for the import and seen no output,
+and read past it.
+
+**Two gates, not one.** The narratives sweep asserts both languages resolve with no leftover
+placeholder AND that it found at least 24 keys — a registry that quietly emptied would pass the
+loops. The second reads the journalizers from disk and fails on one that writes prose with no key,
+because a journalizer left behind would look identical to the converted ones in review.
 
 ---
 

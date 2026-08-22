@@ -12,6 +12,7 @@ use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\Filament\PropertyField;
+use App\Support\JournalNarrative;
 use App\Support\ReportPreferences;
 use App\Support\SourceDocumentUrl;
 use BackedEnum;
@@ -251,9 +252,15 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
                         'id' => 'l'.$i,
                         'entry_date' => $line->entry_date,
                         'entry_number' => $line->entry_number,
-                        'description' => $locale === 'ar'
-                            ? ($line->description_ar ?: $line->description_en)
-                            : ($line->description_en ?: $line->description_ar),
+                        // A query row, not a model — so it resolves through the same seam the
+                        // accessor uses rather than re-deriving the locale rule here (EG-36).
+                        'description' => JournalNarrative::resolve(
+                            $line->description_key ?? null,
+                            isset($line->description_data) ? json_decode((string) $line->description_data, true) : null,
+                            $line->description_en,
+                            $line->description_ar,
+                            $locale,
+                        ),
                         'debit' => (float) $line->debit > 0 ? (float) $line->debit : null,
                         'credit' => (float) $line->credit > 0 ? (float) $line->credit : null,
                         'running_balance' => $line->running_balance,

@@ -208,6 +208,10 @@ class InvoiceJournalizer implements Journalizer
             'entry_date' => $invoice->issue_date,
             'description_en' => 'Invoice '.$invoice->number,
             'description_ar' => 'فاتورة '.$invoice->number,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'invoice.posted',
+            'description_data' => ['number' => $invoice->number],
             'asset_id' => $assetId,
             'lines' => $lines,
         ];

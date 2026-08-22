@@ -67,6 +67,10 @@ class InventoryMovementJournalizer implements Journalizer
             'entry_date' => $movement->moved_on,
             'description_en' => 'Stock '.$movement->type.' — '.($movement->item?->name ?? ''),
             'description_ar' => 'حركة مخزون — '.($movement->item?->name ?? ''),
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'stock_movement.posted',
+            'description_data' => ['type' => $movement->type, 'item' => $movement->item?->name],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id($debitRole, $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],

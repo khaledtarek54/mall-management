@@ -85,6 +85,10 @@ class CreditNoteJournalizer implements Journalizer
             'entry_date' => $note->issue_date,
             'description_en' => 'Credit note '.$note->number,
             'description_ar' => 'إشعار خصم '.$note->number,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'credit_note.posted',
+            'description_data' => ['number' => $note->number],
             'asset_id' => $assetId,
             'lines' => $lines,
         ];

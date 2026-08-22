@@ -39,6 +39,10 @@ class InvoiceWriteOffJournalizer implements Journalizer
             'entry_date' => $writeOff->entry_date,
             'description_en' => 'Bad debt write-off — invoice '.($writeOff->invoice?->number ?? "#{$writeOff->invoice_id}"),
             'description_ar' => 'إعدام دين — فاتورة '.($writeOff->invoice?->number ?? "#{$writeOff->invoice_id}"),
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'invoice.written_off',
+            'description_data' => ['number' => $writeOff->invoice?->number ?? "#{$writeOff->invoice_id}"],
             'asset_id' => $assetId,
             'lines' => [
                 [

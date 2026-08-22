@@ -42,6 +42,10 @@ class DisbursementJournalizer implements Journalizer
             'entry_date' => $disbursement->paid_on,
             'description_en' => 'Owner disbursement '.$disbursement->reference,
             'description_ar' => 'صرف مستحقات المالك '.$disbursement->reference,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'disbursement.posted',
+            'description_data' => ['reference' => $disbursement->reference],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $dueToOwner, 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId, 'tenant_id' => null],

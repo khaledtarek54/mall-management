@@ -112,7 +112,8 @@ class JournalEntryResource extends Resource
     {
         return [
             __('admin.fields.entry_date') => $record->entry_date->format('d/m/Y'),
-            __('admin.fields.description') => app()->getLocale() === 'ar' ? $record->description_ar : $record->description_en,
+            // Through the accessor, so a wording fix reaches an exported entry too (EG-36).
+            __('admin.fields.description') => $record->displayDescription(),
         ];
     }
 }

@@ -43,6 +43,10 @@ class EmployeeAdvanceJournalizer implements Journalizer
             'entry_date' => $advance->advance_date,
             'description_en' => 'Employee advance — '.$name,
             'description_ar' => 'سلفة موظف — '.$name,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'employee_advance.granted',
+            'description_data' => ['name' => $name],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('employee_advances', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],

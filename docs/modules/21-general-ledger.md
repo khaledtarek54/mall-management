@@ -611,6 +611,37 @@ Tests (`tests/Feature/`):
 | **3 — Expenses & payables** 🟡 | المصروفات والموردون | **Accounts Payable done:** `VendorBill` (فاتورة مورد) + `VendorBillPayment` with a draft→approved→paid lifecycle; journalizers post Dr expense (by category) + Dr **VAT Recoverable** (input VAT) / Cr Payables, and payments Dr Payables / Cr Bank; swept + backfilled by `accounting:sync-ledger` with a GL↔AP tie-out; `VendorBillResource` under Accounting, gated by `vendor_bills.*`. **Direct expenses done:** `Expense` (مصروف مباشر / petty cash) posts Dr expense (by category) + Dr VAT Recoverable / Cr cash|bank immediately (no payable stage); `ExpenseResource` gated by `expenses.*`. **Payroll done:** `Payroll` (مسير رواتب, batch per-run totals — not per-employee payslips) posts Dr Salaries Expense (gross) / Cr Salary Tax Payable + Cr Social Insurance Payable (withheld) + Cr Bank\|Cash (net); draft→approved→cancelled; `PayrollResource` gated by `payrolls.*`. All swept by `accounting:sync-ledger`. Per-employee payslips + employer-side social-insurance contribution are a future HR extension. |
 | **4 — Close & compliance** 🟡 | الإقفال والامتثال | **Period close done:** `PeriodService` closes/reopens accounting periods + fiscal years (a closed period refuses postings); `YearEndCloseService` posts the year-end closing entry (قيد الإقفال) that zeros revenue/expense into retained earnings (idempotent, reopenable). Closing entries are flagged `is_closing` → excluded from the income statement (shows actual P&L) but included in the trial balance + balance sheet (P&L reads zero post-close; profit sits in equity). `AccountingPeriodResource` gated by `accounting_periods.*`. **Still to do:** optional ETA/EAS statutory report formatting. |
 
+### A narrative is a KEY, resolved when the entry is read (EG-36, 2026-08-22)
+
+`journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative`
+— the ledger's twin of `ActivityVocabulary`, under the same rule: **a row stores DATA, never
+PROSE**. All 24 journalizers post a key (25 narratives — the custody one branches).
+
+Before this, each wrote Arabic and English literals at post time, so a wording fix needed a deploy,
+never reached a row already posted, and a third language would have meant re-posting history.
+
+**The prose columns stay and are still written**, as a snapshot and a floor:
+
+- every row posted before today has prose and no key, and a ledger is evidence — history is never
+  rewritten here;
+- `search_text` folds the narrative, and a stored copy keeps a raw reader honest;
+- **a read site nobody converted degrades to today's wording, not to a blank cell.** On a general
+  ledger an empty description is indistinguishable from an entry nobody described.
+
+`JournalNarrative::resolve()` prefers the key, so one edit to `admin.journal.narratives.*` reaches
+every entry ever posted under it. Read sites: `JournalEntry::displayDescription()` (the model path),
+the journal-entry CSV, and the GL page — which reads raw query rows, so `LedgerReportService`
+selects the key and data alongside the prose and the page resolves per row.
+
+**Nothing re-posts.** `matches()` compares lines, date and asset and deliberately not text
+(`ChangeImpact` classifies these columns DESCRIPTIVE), so a key cannot void and re-post an entry.
+
+Three traps, all previously recorded elsewhere in this codebase and all hit again here: `__()` reads
+dots as **nesting**, so the narratives are nested rather than keyed by the literal `invoice.posted`;
+a missing placeholder renders an **em dash** rather than a leftover `:number`, which on a financial
+statement reads as a broken template; and `Lang::has()` **falls back to English**, so the parity
+check passes `fallback: false` or it only catches a key missing from both languages.
+
 ### Unallocated entries — what a statement leaves out, and why it says so (EG-27, 2026-08-22)
 
 Every statement scopes with `whereIn('je.asset_id', $ids)`, and **`whereIn` never matches NULL** —

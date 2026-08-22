@@ -71,6 +71,10 @@ class SlaPenaltyJournalizer implements Journalizer
             'entry_date' => ($penalty->applied_at ?? $penalty->created_at)->toDateString(),
             'description_en' => "SLA penalty {$reference} — {$bill->number}",
             'description_ar' => "غرامة مستوى الخدمة {$reference} — {$bill->number}",
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'sla_penalty.applied',
+            'description_data' => ['reference' => $reference, 'bill' => $bill->number],
             'asset_id' => $assetId,
             'lines' => [
                 [

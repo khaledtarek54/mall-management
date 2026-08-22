@@ -8,6 +8,7 @@ use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\JournalNarrative;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -91,6 +92,8 @@ class JournalEntry extends Model
         'accounting_period_id',
         'description_en',
         'description_ar',
+        'description_key',
+        'description_data',
         'source_type',
         'source_id',
         'is_manual',
@@ -104,6 +107,7 @@ class JournalEntry extends Model
     ];
 
     protected $casts = [
+        'description_data' => 'array',
         'entry_date' => 'date',
         'is_manual' => 'boolean',
         'is_closing' => 'boolean',
@@ -120,8 +124,12 @@ class JournalEntry extends Model
     {
         return [
             $this->number,
-            $this->description_en,
-            $this->description_ar,
+            // Both languages of the RESOLVED narrative, so an operator finds an entry by the words
+            // they can actually see. Still a pure function of the row's own attributes — the key
+            // and its data are columns — and `atriom:rebuild-search` re-folds the blob when a
+            // wording changes, which is the same deploy step a `searchTextSources()` change needs.
+            JournalNarrative::resolve($this->description_key, $this->description_data, $this->description_en, $this->description_ar, 'en'),
+            JournalNarrative::resolve($this->description_key, $this->description_data, $this->description_en, $this->description_ar, 'ar'),
         ];
     }
 
@@ -179,14 +187,22 @@ class JournalEntry extends Model
         return abs($this->totalDebit() - $this->totalCredit()) < 0.005;
     }
 
+    /**
+     * What this entry SAYS, resolved when it is read (EG-36).
+     *
+     * The key wins where there is one and the stored prose is the floor — see
+     * {@see JournalNarrative} for why the prose columns stay. Every screen, export and PDF that
+     * shows a narrative goes through here or through `JournalNarrative::resolve()` directly, so a
+     * wording fix reaches entries posted years ago.
+     */
     public function displayDescription(): string
     {
-        $ar = (string) $this->description_ar;
-        $en = (string) $this->description_en;
-
-        return app()->getLocale() === 'ar'
-            ? ($ar !== '' ? $ar : $en)
-            : ($en !== '' ? $en : $ar);
+        return JournalNarrative::resolve(
+            $this->description_key,
+            $this->description_data,
+            $this->description_en,
+            $this->description_ar,
+        );
     }
 
     /**

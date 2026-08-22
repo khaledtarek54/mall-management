@@ -80,6 +80,10 @@ class FixedAssetDisposalJournalizer implements Journalizer
             'entry_date' => $disposal->disposed_on,
             'description_en' => 'Fixed asset disposed — '.$asset->name,
             'description_ar' => 'استبعاد أصل ثابت — '.$asset->name,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'fixed_asset.disposed',
+            'description_data' => ['asset' => $asset->name],
             'asset_id' => $assetId,
             'lines' => $lines,
         ];

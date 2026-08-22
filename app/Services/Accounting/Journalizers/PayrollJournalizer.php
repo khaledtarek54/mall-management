@@ -105,6 +105,10 @@ class PayrollJournalizer implements Journalizer
             'entry_date' => $payroll->period_month,
             'description_en' => 'Payroll '.$payroll->number,
             'description_ar' => 'رواتب '.$payroll->number,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'payroll.posted',
+            'description_data' => ['number' => $payroll->number],
             'asset_id' => $assetId,
             'lines' => $lines,
         ];

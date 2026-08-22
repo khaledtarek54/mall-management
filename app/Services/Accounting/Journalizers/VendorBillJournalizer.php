@@ -127,6 +127,10 @@ class VendorBillJournalizer implements Journalizer
             'entry_date' => $bill->bill_date,
             'description_en' => 'Vendor bill '.$bill->number,
             'description_ar' => 'فاتورة مورد '.$bill->number,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'vendor_bill.posted',
+            'description_data' => ['number' => $bill->number],
             'asset_id' => $assetId,
             'lines' => $lines,
         ];

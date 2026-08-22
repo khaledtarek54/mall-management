@@ -96,6 +96,74 @@ return [
         'imported' => 'تم إنشاء قيد المسودة :number',
         'imported_body' => 'راجعه من شاشة القيود واعتمده عندما تطمئن إليه. لم يصل شيء إلى دفتر الأستاذ بعد.',
     ],
+    'journal' => [
+        // `__()` reads dots as NESTING, so these are nested rather than keyed by the
+        // literal 'invoice.posted' — the same shape `admin.activity.descriptions` uses.
+        'narratives' => [
+            'credit_note' => [
+                'posted' => 'إشعار خصم :number',
+            ],
+            'custody' => [
+                'posted' => 'عهدة — :name',
+                'returned' => 'رد عهدة',
+                'spent' => 'مصروف عهدة — :category',
+            ],
+            'deposit' => [
+                'applied' => 'خصم من التأمين مقابل :reference',
+                'movement' => 'تأمين :type :number',
+            ],
+            'depreciation' => [
+                'posted' => 'إهلاك — :asset',
+            ],
+            'disbursement' => [
+                'posted' => 'صرف للمالك :reference',
+            ],
+            'employee_advance' => [
+                'granted' => 'سلفة موظف — :name',
+                'repaid' => 'سداد سلفة موظف',
+            ],
+            'expense' => [
+                'posted' => 'مصروف :number',
+            ],
+            'fixed_asset' => [
+                'acquired' => 'اقتناء أصل ثابت — :asset',
+                'disposed' => 'استبعاد أصل ثابت — :asset',
+            ],
+            'invoice' => [
+                'posted' => 'فاتورة :number',
+                'written_off' => 'إعدام دين — فاتورة :number',
+            ],
+            'marketing_spend' => [
+                'posted' => 'إنفاق تسويقي — :category',
+            ],
+            'owner_statement' => [
+                'posted' => 'كشف حساب مالك :reference',
+            ],
+            'payment' => [
+                'posted' => 'دفعة :reference',
+            ],
+            'payroll' => [
+                'posted' => 'مسير رواتب :number',
+            ],
+            'sla_penalty' => [
+                'applied' => 'غرامة مستوى خدمة :reference — :bill',
+            ],
+            'stock_movement' => [
+                'posted' => 'حركة مخزون :type — :item',
+            ],
+            'straight_line_rent' => [
+                'posted' => 'تسوية إيجار بالقسط الثابت — :period',
+            ],
+            'tenant_credit' => [
+                'applied' => 'استخدام رصيد مستأجر مقابل :reference',
+            ],
+            'vendor_bill' => [
+                'posted' => 'فاتورة مورد :number',
+                'paid' => 'سداد لمورد :reference — فاتورة :bill',
+            ],
+        ],
+    ],
+
     'journal_entries' => [
         'unallocated' => [
             'heading' => 'غير مُدرج: قيود بلا عقار',

@@ -124,6 +124,10 @@ class PaymentJournalizer implements Journalizer
             'entry_date' => $payment->payment_date,
             'description_en' => 'Payment '.$payment->reference,
             'description_ar' => 'دفعة '.$payment->reference,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'payment.posted',
+            'description_data' => ['reference' => $payment->reference],
             'asset_id' => $entryAsset,
             'lines' => $lines,
         ];

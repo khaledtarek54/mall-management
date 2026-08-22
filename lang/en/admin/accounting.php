@@ -96,6 +96,74 @@ return [
         'imported' => 'Draft journal entry :number created',
         'imported_body' => 'Review it under Journal Entries and post it when you are satisfied. Nothing has reached the ledger yet.',
     ],
+    'journal' => [
+        // `__()` reads dots as NESTING, so these are nested rather than keyed by the
+        // literal 'invoice.posted' — the same shape `admin.activity.descriptions` uses.
+        'narratives' => [
+            'credit_note' => [
+                'posted' => 'Credit note :number',
+            ],
+            'custody' => [
+                'posted' => 'Custody — :name',
+                'returned' => 'Custody return',
+                'spent' => 'Custody expense — :category',
+            ],
+            'deposit' => [
+                'applied' => 'Security deposit applied to :reference',
+                'movement' => 'Deposit :type :number',
+            ],
+            'depreciation' => [
+                'posted' => 'Depreciation — :asset',
+            ],
+            'disbursement' => [
+                'posted' => 'Owner disbursement :reference',
+            ],
+            'employee_advance' => [
+                'granted' => 'Employee advance — :name',
+                'repaid' => 'Employee advance repayment',
+            ],
+            'expense' => [
+                'posted' => 'Expense :number',
+            ],
+            'fixed_asset' => [
+                'acquired' => 'Fixed asset acquired — :asset',
+                'disposed' => 'Fixed asset disposed — :asset',
+            ],
+            'invoice' => [
+                'posted' => 'Invoice :number',
+                'written_off' => 'Bad debt write-off — invoice :number',
+            ],
+            'marketing_spend' => [
+                'posted' => 'Marketing spend — :category',
+            ],
+            'owner_statement' => [
+                'posted' => 'Owner statement :reference',
+            ],
+            'payment' => [
+                'posted' => 'Payment :reference',
+            ],
+            'payroll' => [
+                'posted' => 'Payroll :number',
+            ],
+            'sla_penalty' => [
+                'applied' => 'SLA penalty :reference — :bill',
+            ],
+            'stock_movement' => [
+                'posted' => 'Stock :type — :item',
+            ],
+            'straight_line_rent' => [
+                'posted' => 'Straight-line rent adjustment — :period',
+            ],
+            'tenant_credit' => [
+                'applied' => 'Tenant credit applied to :reference',
+            ],
+            'vendor_bill' => [
+                'posted' => 'Vendor bill :number',
+                'paid' => 'Vendor payment :reference — bill :bill',
+            ],
+        ],
+    ],
+
     'journal_entries' => [
         'unallocated' => [
             'heading' => 'Not included: entries with no property',

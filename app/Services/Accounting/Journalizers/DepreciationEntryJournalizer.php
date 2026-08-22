@@ -46,6 +46,10 @@ class DepreciationEntryJournalizer implements Journalizer
             'entry_date' => $entry->period_month,
             'description_en' => 'Depreciation — '.($entry->fixedAsset?->name ?? ''),
             'description_ar' => 'إهلاك — '.($entry->fixedAsset?->name ?? ''),
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'depreciation.posted',
+            'description_data' => ['asset' => $entry->fixedAsset?->name],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('depreciation_expense', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],

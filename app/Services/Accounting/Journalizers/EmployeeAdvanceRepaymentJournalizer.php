@@ -39,6 +39,10 @@ class EmployeeAdvanceRepaymentJournalizer implements Journalizer
             'entry_date' => $repayment->repaid_on,
             'description_en' => 'Employee advance repayment',
             'description_ar' => 'سداد سلفة موظف',
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'employee_advance.repaid',
+            'description_data' => [],
             'asset_id' => $assetId,
             'lines' => [
                 // The RAIL names its account. This was the seventh journalizer carrying the mirror

@@ -41,6 +41,10 @@ class CustodyJournalizer implements Journalizer
             'entry_date' => $custody->custody_date,
             'description_en' => 'Custody — '.$name,
             'description_ar' => 'عهدة — '.$name,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'custody.posted',
+            'description_data' => ['name' => $name],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('custody', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],

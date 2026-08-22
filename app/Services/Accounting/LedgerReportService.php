@@ -121,6 +121,10 @@ class LedgerReportService
                 'je.entry_date',
                 'je.description_en',
                 'je.description_ar',
+                // The narrative's key and data travel with the row, so the page can resolve it at
+                // read time instead of showing the prose snapshot frozen at post time (EG-36).
+                'je.description_key',
+                'je.description_data',
                 'jl.debit',
                 'jl.credit',
                 'jl.description as line_description',

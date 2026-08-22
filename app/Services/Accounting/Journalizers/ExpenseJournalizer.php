@@ -88,6 +88,10 @@ class ExpenseJournalizer implements Journalizer
             'entry_date' => $expense->expense_date,
             'description_en' => 'Expense '.$expense->number,
             'description_ar' => 'مصروف '.$expense->number,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'expense.posted',
+            'description_data' => ['number' => $expense->number],
             'asset_id' => $assetId,
             'lines' => $lines,
         ];

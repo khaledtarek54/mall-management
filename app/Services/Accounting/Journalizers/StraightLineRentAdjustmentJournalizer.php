@@ -53,6 +53,10 @@ class StraightLineRentAdjustmentJournalizer implements Journalizer
             'entry_date' => $adjustment->entry_date,
             'description_en' => 'Straight-line rent adjustment — '.$period,
             'description_ar' => 'تسوية الإيجار بالقسط الثابت — '.$period,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'straight_line_rent.posted',
+            'description_data' => ['period' => $period],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $debit, 'debit' => abs($amount), 'credit' => 0, 'lease_id' => $adjustment->lease_id],

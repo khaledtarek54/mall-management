@@ -48,6 +48,10 @@ class DepositApplicationJournalizer implements Journalizer
             'entry_date' => $app->entry_date,
             'description_en' => 'Security deposit applied to '.$ref,
             'description_ar' => 'خصم من التأمين على '.$ref,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'deposit.applied',
+            'description_data' => ['reference' => $ref],
             'asset_id' => $assetId,
             'lines' => [
                 [

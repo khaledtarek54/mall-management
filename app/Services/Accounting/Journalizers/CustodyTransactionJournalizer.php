@@ -46,6 +46,8 @@ class CustodyTransactionJournalizer implements Journalizer
             $debitAccountId = MoneyAccount::for(null, $txn->method, $assetId, $this->accounts);
             $descEn = 'Custody return';
             $descAr = 'رد عهدة';
+            $descKey = 'custody.returned';
+            $descData = [];
         } else { // expense
             // The category's own account, falling back to the role map. See MapsExpenseCategory.
             $debitAccountId = $this->expenseAccountIdFor(
@@ -53,12 +55,18 @@ class CustodyTransactionJournalizer implements Journalizer
             );
             $descEn = 'Custody expense — '.($txn->category ?? 'other');
             $descAr = 'مصروف عهدة';
+            $descKey = 'custody.spent';
+            $descData = ['category' => $txn->category ?? 'other'];
         }
 
         return [
             'entry_date' => $txn->transaction_date,
             'description_en' => $descEn,
             'description_ar' => $descAr,
+            // Two narratives chosen in the same branch the prose is, so the key can never describe
+            // a different movement from the sentence beside it (EG-36).
+            'description_key' => $descKey,
+            'description_data' => $descData,
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $debitAccountId, 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],

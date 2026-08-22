@@ -49,6 +49,10 @@ class MarketingSpendJournalizer implements Journalizer
             'entry_date' => $spend->spent_on,
             'description_en' => 'Marketing spend — '.$spend->category,
             'description_ar' => 'مصروف تسويق — '.$spend->category,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'marketing_spend.posted',
+            'description_data' => ['category' => $spend->category],
             'asset_id' => $assetId,
             'lines' => [
                 [

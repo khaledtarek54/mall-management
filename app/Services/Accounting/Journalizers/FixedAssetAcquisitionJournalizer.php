@@ -53,6 +53,10 @@ class FixedAssetAcquisitionJournalizer implements Journalizer
             'entry_date' => $asset->acquisition_date,
             'description_en' => 'Fixed asset acquired — '.$asset->name,
             'description_ar' => 'شراء أصل ثابت — '.$asset->name,
+            // The narrative is a KEY resolved at READ time (EG-36); the prose above stays as
+            // the snapshot and the floor for anything that does not go through the resolver.
+            'description_key' => 'fixed_asset.acquired',
+            'description_data' => ['asset' => $asset->name],
             'asset_id' => $assetId,
             'lines' => [
                 ['ledger_account_id' => $this->accounts->id('furniture_equipment', $assetId), 'debit' => $amount, 'credit' => 0, 'asset_id' => $assetId],
