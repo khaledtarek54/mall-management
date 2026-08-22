@@ -645,6 +645,16 @@ public function runForPeriod(?CarbonImmutable $period = null): array
     a lease commencing 15 August owes half of August's service charge on the September invoice.
   - **Nothing on a lease's first invoice**, because the month it would cover predates the lease. It
     bills normally the following month; deferred, not lost.
+  - **The LAST invoice settles the arrears window AND its own month.** Without this the final month
+    of every arrears charge was never billed at all: the row is billed one invoice late by design,
+    so the last month would need an invoice dated after the lease ended, and
+    `Lease::scopeBillableForPeriod()` requires `expiry_date >= period_start` — a lease expiring
+    31 August is not selected for the September run, and `leases:expire` has moved its status off
+    `active` by then anyway. Silent revenue loss on every arrears lease, with nothing in the run
+    summary to say so. The final line covers both months and is labelled as the span
+    (*"Service Charge - Jul–Aug 2026 (in arrears)"*), which is what an operator does by hand when a
+    tenant leaves. Fixed inside the planner rather than by widening the lease-selection scope, which
+    four other callers share.
 - Skips any lease that already has an invoice covering the period (idempotent)
 - Wraps each lease in its own transaction; one failure doesn't abort the whole run
 - Fires `InvoiceIssuedNotification` to tenant on success

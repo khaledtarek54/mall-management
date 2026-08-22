@@ -303,6 +303,10 @@ class MonthlyBillingService
      * overflows a month-end date into the neighbouring month, which would silently move the window
      * a charge is billed for.
      *
+     * `$isFinalCycle` makes the last invoice settle the arrears window AND its own period — see the
+     * body for why, because without it the final month of every arrears charge was never billed at
+     * all.
+     *
      * Static and pure so `previewForPeriod()` and the forecast can ask the same question without
      * re-deriving it — two answers to "what does this line cover" is how a tenant comes to be
      * billed for a month twice.
@@ -314,17 +318,35 @@ class MonthlyBillingService
         CarbonImmutable $periodStart,
         CarbonImmutable $periodEnd,
         int $cycleMonths,
+        bool $isFinalCycle = false,
     ): array {
         if (! $charge->billsInArrears()) {
             return [$periodStart, $periodEnd];
         }
 
         $shift = max($cycleMonths, 1);
+        $from = $periodStart->subMonthsNoOverflow($shift)->startOfMonth();
 
-        return [
-            $periodStart->subMonthsNoOverflow($shift)->startOfMonth(),
-            $periodStart->subMonthsNoOverflow($shift)->startOfMonth()->addMonthsNoOverflow($shift - 1)->endOfMonth(),
-        ];
+        // THE LAST INVOICE SETTLES EVERYTHING OUTSTANDING, and without this the final month of
+        // every arrears charge was silently never billed.
+        //
+        // An arrears row is billed one invoice late by design, so the final month would need an
+        // invoice dated after the lease ended — and there is none. `Lease::scopeBillableForPeriod()`
+        // requires `expiry_date >= period_start`, so a lease expiring 31 August is not selected for
+        // the September run at all, and `leases:expire` has moved its status off `active` by then
+        // anyway. The service charge for August would simply never appear, on every arrears lease,
+        // with nothing in the run summary to say so — the absence-failure class this codebase has
+        // been bitten by repeatedly.
+        //
+        // So on the last billable cycle the window runs from the usual arrears start THROUGH the
+        // end of this period, settling both. That is what an operator does by hand when a tenant
+        // leaves, and it keeps the fix inside the planner rather than widening the lease-selection
+        // scope, which four other callers share.
+        if ($isFinalCycle) {
+            return [$from, $periodEnd];
+        }
+
+        return [$from, $from->addMonthsNoOverflow($shift - 1)->endOfMonth()];
     }
 
     /**
@@ -431,14 +453,22 @@ class MonthlyBillingService
                 + ($periodEnd->month - $periodStart->month) + 1;
         }
 
+        // Is this the LAST cycle this lease will ever be billed for? An arrears row on the final
+        // invoice has to settle its own month too, because no later invoice will exist — see
+        // `coveredWindow()`. A holdover is never final: its expiry is deliberately in the past and
+        // `holdover_from` is what keeps it billing.
+        $isFinalCycle = filled($lease->expiry_date)
+            && ! $lease->isBillableHoldoverFor($periodEnd)
+            && CarbonImmutable::instance($lease->expiry_date)->lessThanOrEqualTo($periodEnd);
+
         // Each charge is asked about the window IT covers, which for an arrears row is the previous
         // cycle (EG-30 / M-2). Asking every charge about the invoice's own period is what made
         // arrears unexpressible: a service charge that started on 1 September would have billed
         // September's service on the September invoice, when the whole point is that September's
         // service is not knowable until October.
         $applicableCharges = $lease->charges->filter(
-            function (Charge $c) use ($periodStart, $periodEnd, $cycleMonths) {
-                [$from, $to] = self::coveredWindow($c, $periodStart, $periodEnd, $cycleMonths);
+            function (Charge $c) use ($periodStart, $periodEnd, $cycleMonths, $isFinalCycle) {
+                [$from, $to] = self::coveredWindow($c, $periodStart, $periodEnd, $cycleMonths, $isFinalCycle);
 
                 return $this->chargeAppliesToPeriod($c, $from, $to);
             }
@@ -550,7 +580,7 @@ class MonthlyBillingService
             ? CarbonImmutable::instance($lease->expiry_date)
             : CarbonImmutable::create(2999, 12, 31);
 
-        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $effectivePeriodStart, $leaseWindowStart, $leaseWindowEnd) {
+        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $effectivePeriodStart, $leaseWindowStart, $leaseWindowEnd, $isFinalCycle) {
             // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
             // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
             //
@@ -559,7 +589,13 @@ class MonthlyBillingService
             // which the tenant has been paying since handover, bills all of it.
             // The window THIS row covers — the invoice's own period, or the previous cycle for an
             // arrears row (EG-30 / M-2).
-            [$coveredStart, $coveredEnd] = self::coveredWindow($charge, $periodStart, $periodEnd, $cycleMonths);
+            [$coveredStart, $coveredEnd] = self::coveredWindow($charge, $periodStart, $periodEnd, $cycleMonths, $isFinalCycle);
+
+            // Driven by the COVERED window, not by `$cycleMonths` — on a final invoice an arrears
+            // row spans two months while the cycle is still one, and branching on the cycle printed
+            // "July 2026" over a line that was billing July AND August.
+            $coveredMonths = (($coveredEnd->year - $coveredStart->year) * 12)
+                + ($coveredEnd->month - $coveredStart->month) + 1;
 
             $rowMultiplier = match (true) {
                 $charge->frequency !== 'monthly' => 1.0,
@@ -571,7 +607,9 @@ class MonthlyBillingService
                 // is plausible.
                 $charge->billsInArrears() => self::monthsCovered(
                     $coveredStart,
-                    $cycleMonths,
+                    // The final window spans the arrears cycle AND this one, so count both — a
+                    // fixed `$cycleMonths` here would silently bill only the first of them.
+                    $coveredMonths,
                     $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
                     $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
                 ),
@@ -591,7 +629,7 @@ class MonthlyBillingService
             // entry and the tax point take.
             $vatRate = $charge->resolvedVatRate($effectivePeriodStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
-            $label = $charge->name.' - '.($cycleMonths > 1
+            $label = $charge->name.' - '.($coveredMonths > 1
                 ? $this->cycleLabel($coveredStart, $coveredEnd)
                 : $coveredStart->format('F Y'));
 

@@ -161,3 +161,46 @@ it('refuses a timing the column does not accept', function () {
         'billing_timing' => 'quarterly_in_hand',
     ]))->toThrow(DomainException::class);
 });
+
+it('bills the FINAL month of an arrears charge on the last invoice', function () {
+    // The one that would have been silent revenue loss on every arrears lease.
+    //
+    // An arrears row is billed one invoice LATE by design, so the last month of a lease would need
+    // an invoice dated after the lease ended — and there is none: `scopeBillableForPeriod` requires
+    // `expiry_date >= period_start`, so a lease expiring 31 August is not selected for the
+    // September run at all (and `leases:expire` has moved its status off `active` by then anyway).
+    // August's service charge would simply never be billed, on every arrears lease, for ever, with
+    // nothing in the run summary to say so.
+    //
+    // So the FINAL invoice settles the arrears window AND its own month — which is what an operator
+    // does by hand when a tenant leaves.
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active',
+        'commencement_date' => '2026-01-01',
+        'expiry_date' => '2026-08-31',
+        'base_rent_monthly' => 100000,
+    ]);
+
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Service Charge', 'type' => 'service_charge',
+        'amount' => 12000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2026-01-01', 'is_active' => true,
+        'billing_timing' => Charge::TIMING_ARREARS,
+    ]);
+
+    $plan = planFor($lease->fresh(), '2026-08-01');
+    $descriptions = collect($plan['items'])->pluck('description');
+
+    $line = $descriptions->first(fn ($d) => str_contains($d, 'Service Charge'));
+
+    // One line covering BOTH months, labelled as the span it is — the cycle label the multi-month
+    // path already uses, rather than two lines the tenant has to reconcile.
+    expect($line)->toContain('Jul')
+        ->and($line)->toContain('Aug')
+        ->and($line)->toContain('in arrears');
+
+    // The money is the point: two months of service charge, not one. Without this the operator
+    // silently lost the final month on every arrears lease.
+    expect((float) $plan['subtotal'])->toBe(24000.0);
+});
