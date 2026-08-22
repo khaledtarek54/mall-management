@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Employee;
 use App\Models\Payroll;
-use App\Settings\PayrollSettings;
+use App\Support\PayrollRates;
 use App\Support\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +15,13 @@ use Illuminate\Support\Facades\DB;
  * of typing lump-sum totals. One line per active employee in the run's property, with:
  *
  *   gross            = the employee's base salary (master data — always correct)
- *   salary_tax       = gross × PayrollSettings::salary_tax_rate      (0 by default)
- *   social_insurance = gross × PayrollSettings::social_insurance_rate (0 by default)
+ *   salary_tax       = gross          × the salary-tax rate           (0 by default)
+ *   social_insurance = INSURABLE WAGE × the employee SI rate          (0 by default)
+ *
+ * Two different bases, deliberately (EG-03). Salary tax is charged on the whole gross; social
+ * insurance is charged on the gross clamped into Egypt's statutory floor/ceiling band, and that cap
+ * binds the employer share too. Every figure comes from {@see PayrollRates::for()} resolved for the
+ * run's OWN `period_month` — a January run generated in March must compute on January's numbers.
  *
  * The lines ARE the review surface (the relation-manager table); the run header then
  * DERIVES from Σ lines (Payroll::recomputeFromLines), so the GL and its tie-out are
@@ -41,12 +46,16 @@ class GeneratePayrollService
             throw new \DomainException(__('admin.payroll_lines.errors.generate_not_draft'));
         }
 
-        $settings = app(PayrollSettings::class);
-        $taxRate = max(0.0, (float) $settings->salary_tax_rate) / 100;
-        $siRate = max(0.0, (float) $settings->social_insurance_rate) / 100;
-        $employerSiRate = max(0.0, (float) $settings->employer_social_insurance_rate) / 100;
+        // Resolved for the month the money is FOR, never for today (EG-03, finding P-3). Reading
+        // three undated settings meant a January run generated in March computed on March's
+        // numbers, a rise could not be entered in advance, and nothing recorded what a past run
+        // had used — while Egypt raises the insurable-wage band every January.
+        $rates = PayrollRates::for($run->period_month);
+        $taxRate = max(0.0, $rates->salaryTaxRate) / 100;
+        $siRate = max(0.0, $rates->employeeSocialInsuranceRate) / 100;
+        $employerSiRate = max(0.0, $rates->employerSocialInsuranceRate) / 100;
 
-        return DB::transaction(function () use ($run, $taxRate, $siRate, $employerSiRate) {
+        return DB::transaction(function () use ($run, $rates, $taxRate, $siRate, $employerSiRate) {
             // Lock the run row so two concurrent generates can't both pass the
             // already-lined check and race a duplicate past the unique index.
             $run = Payroll::whereKey($run->getKey())->lockForUpdate()->firstOrFail();
@@ -67,9 +76,18 @@ class GeneratePayrollService
                     $zeroSalary++;
                 }
 
-                [$tax, $insurance] = $this->deductions($lineGross, $taxRate, $siRate);
-                // Employer SI is a company cost — it does NOT reduce net, so no cap needed.
-                $employerInsurance = round($lineGross * $employerSiRate, 2);
+                // Social insurance is charged on the INSURABLE WAGE — gross clamped into the
+                // statutory band — while salary tax is charged on the whole gross. Applying the SI
+                // rate to `base_salary` outright over-deducted every employee above the ceiling
+                // (finding P-1).
+                $insurableWage = $rates->insurableWage($lineGross);
+
+                [$tax, $insurance] = $this->deductions($lineGross, $insurableWage, $taxRate, $siRate);
+
+                // The cap binds the EMPLOYER share too. This line used to read "Employer SI is a
+                // company cost — it does NOT reduce net, so no cap needed", which misreads the
+                // rule: the cap is on the wage, not on who bears the contribution.
+                $employerInsurance = round($insurableWage * $employerSiRate, 2);
 
                 $run->lines()->create([
                     'employee_id' => $employee->id,
@@ -137,10 +155,10 @@ class GeneratePayrollService
      *
      * @return array{0: float, 1: float}
      */
-    private function deductions(float $gross, float $taxRate, float $siRate): array
+    private function deductions(float $gross, float $insurableWage, float $taxRate, float $siRate): array
     {
         $tax = round($gross * $taxRate, 2);
-        $insurance = round($gross * $siRate, 2);
+        $insurance = round($insurableWage * $siRate, 2);
 
         if ($tax + $insurance > $gross) {
             $tax = min($tax, $gross);

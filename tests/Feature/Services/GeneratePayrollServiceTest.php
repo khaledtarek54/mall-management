@@ -3,8 +3,9 @@
 use App\Models\Employee;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use App\Models\PayrollRate;
 use App\Services\GeneratePayrollService;
-use App\Settings\PayrollSettings;
+use App\Support\PayrollRates;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
@@ -50,11 +51,18 @@ it('generates one line per active employee, gross = base salary', function () {
 });
 
 it('pre-fills deductions from the configured rates', function () {
-    $settings = app(PayrollSettings::class);
-    $settings->social_insurance_rate = 10.0;          // 10% of gross (employee)
-    $settings->salary_tax_rate = 5.0;                 // 5% of gross
-    $settings->employer_social_insurance_rate = 18.75; // employer share — company cost
-    $settings->save();
+    // The rates are a dated rung now, not three flat settings (EG-03). No band on this rung, so the
+    // insurable wage is the whole gross and the arithmetic below is unchanged.
+    // Clear the ladder first: the migration seeds a rung dated 1 Jan 2026 (the statutory band),
+    // which SUPERSEDES an earlier one — a test rung dated 2000 would never be the one in force.
+    PayrollRate::query()->delete();
+    PayrollRate::create([
+        'effective_from' => '2000-01-01',
+        'employee_social_insurance_rate' => 10.0,          // 10% of the insurable wage
+        'salary_tax_rate' => 5.0,                          // 5% of gross
+        'employer_social_insurance_rate' => 18.75,         // employer share — company cost
+    ]);
+    PayrollRates::flush();
 
     makeRosterEmployee($this->asset->id, ['base_salary' => 10000]);
 
@@ -111,10 +119,15 @@ it('never pulls an employee from another property', function () {
 });
 
 it('caps deductions so a generated line never goes net-negative', function () {
-    $settings = app(PayrollSettings::class);
-    $settings->social_insurance_rate = 80.0;
-    $settings->salary_tax_rate = 80.0; // 160% combined — would drive net negative uncapped
-    $settings->save();
+    // Clear the ladder first: the migration seeds a rung dated 1 Jan 2026 (the statutory band),
+    // which SUPERSEDES an earlier one — a test rung dated 2000 would never be the one in force.
+    PayrollRate::query()->delete();
+    PayrollRate::create([
+        'effective_from' => '2000-01-01',
+        'employee_social_insurance_rate' => 80.0,
+        'salary_tax_rate' => 80.0, // 160% combined — would drive net negative uncapped
+    ]);
+    PayrollRates::flush();
 
     makeRosterEmployee($this->asset->id, ['base_salary' => 1000]);
 

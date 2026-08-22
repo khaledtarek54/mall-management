@@ -20,6 +20,7 @@ return [
             'retail_category' => 'تصنيف تجاري',
             'expense_category' => 'بند مصروف',
             'tenant_request_subcategory' => 'تصنيف فرعي للطلب',
+            'payroll_rate' => 'نسبة رواتب',
             'violation_category' => 'بند مخالفة',
             'vendor_document_type' => 'نوع مستند مورّد',
             'work_order_labour' => 'عمالة أمر عمل',

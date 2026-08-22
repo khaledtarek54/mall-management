@@ -1849,6 +1849,29 @@ return [
             'The count beside each row is how many retailers are in it — that is what makes it undeletable, shown so the refusal is not a surprise.',
         ],
     ],
+    'payroll_rates' => [
+        'purpose' => 'Egypt\'s statutory payroll numbers, as a dated ladder. One row is one decree: the insurable-wage band and the contribution rates that came into force together on a date. These were three settings you had to edit by hand every January, with no way to enter a rise in advance and no record of what a past run was computed with.',
+        'steps' => [
+            'Add a row when the state publishes new figures, and date it from the day they take effect — you can enter it months ahead.',
+            'Set the insurable-wage floor and ceiling. Social insurance is charged on the wage inside that band, not on the whole salary.',
+            'Set the contribution rates. Leave any at 0 and that deduction is simply not pre-filled; the payslip stays editable.',
+            'Note where the figures came from — the decree or circular. That is the answer to "why did last January compute this way".',
+            'To correct a mistake, edit the row. Payroll runs already approved keep the amounts they were generated with.',
+        ],
+        'affects' => [
+            'Generating a payroll run pre-fills every payslip from the row in force for the month the run is FOR — not the month you press Generate. A January run generated in March uses January\'s numbers.',
+            'The insurable-wage ceiling caps the employer\'s contribution as well as the employee\'s, so it changes the payroll expense that posts to the ledger, not just what staff are paid.',
+            'The configuration health check reads the row in force today, so a portfolio with no rates set shows a payroll warning until one is.',
+        ],
+        'rules' => [
+            'A row stays in force until the next row starts. There is no end date, so there can be no gap and no overlap.',
+            'Only one row per date.',
+            'Leaving the floor or the ceiling empty means no limit — it is not the same as zero, which would insure nobody on anything.',
+            'Salary tax here is a flat rate on the whole gross. Egyptian income tax is genuinely progressive, so leave it at 0 and enter tax per employee unless your accountant wants a flat approximation.',
+            'Changing a row never re-rates a payroll that has been generated. The amounts live on the run\'s own lines.',
+        ],
+    ],
+
     'violation_categories' => [
         'purpose' => 'The mall\'s house rules, as the field officer sees them. Each row is one kind of breach — blocked fire exit, unauthorised signage, after-hours noise — and the standard fine for it. It used to be a fixed list of seven; it is yours now, and it is meant to grow as the handbook does.',
         'steps' => [

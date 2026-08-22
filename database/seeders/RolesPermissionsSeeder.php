@@ -197,6 +197,11 @@ class RolesPermissionsSeeder extends Seeder
             'retail_categories.create' => 'Add a retail category',
             'retail_categories.edit' => 'Edit a retail category',
             'retail_categories.delete' => 'Remove a retail category',
+            // The state's numbers, not the operator's — gated apart from `payrolls.*` on purpose:
+            // running a payroll and deciding what the statutory rates ARE is not one authority.
+            'payroll_rates.view' => 'View the dated ladder of statutory payroll rates',
+            'payroll_rates.create' => 'Add a payroll-rate rung (a new year\'s decree)',
+            'payroll_rates.edit' => 'Correct a payroll-rate rung',
             'violation_categories.view' => 'View the house rules and their standard fines',
             'violation_categories.create' => 'Add a house rule',
             'violation_categories.edit' => 'Edit a house rule or its standard fine',
@@ -853,6 +858,9 @@ class RolesPermissionsSeeder extends Seeder
             'vendor_bills.approve', 'vendor_bills.pay', 'vendor_bills.void_payment',
             'expenses.view', 'expenses.create', 'expenses.edit',
             'payrolls.view', 'payrolls.create', 'payrolls.edit', 'payrolls.approve',
+            // The statutory ladder itself (EG-03) — the accountant owns what the state's rates ARE,
+            // which is a different authority from running a payroll against them.
+            'payroll_rates.view', 'payroll_rates.create', 'payroll_rates.edit',
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
             'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
             'employees.view', 'employees.grant_advance', 'employees.record_repayment',
@@ -885,6 +893,10 @@ class RolesPermissionsSeeder extends Seeder
             'departments.view',
             'employees.view', 'employees.create', 'employees.edit',
             'employees.grant_advance', 'employees.record_repayment',
+            // READ on the statutory ladder: HR generates the run and must be able to see what it
+            // will compute on. Writing it is the accountant's — an HR clerk moving the insurable
+            // wage ceiling underneath a run is the escalation this split exists to prevent.
+            'payroll_rates.view',
         ];
 
         $this->applyGrants($grants);

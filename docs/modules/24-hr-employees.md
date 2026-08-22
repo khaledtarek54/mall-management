@@ -201,14 +201,17 @@ AR tie-out that gates monthly close is unaffected.
 | **2 — Advances / loans (سلف)** | `EmployeeAdvance` + `EmployeeAdvanceRepayment` posting to the GL (Dr Employee Advances `11203001` / Cr Cash\|Bank on grant; reverse on repayment), grant + repayment services (lock-safe over-repayment guard), the advances relation manager, chart account + mapping + 2 journalizers + sweep, tests | ✅ shipped |
 | **3 — Per-employee payslips** | `PayrollLine` (per-employee gross / tax / insurance / net; run header derives from Σ lines, GL unchanged) + `PayslipPdfService` (bilingual payslip PDF, mpdf) + the payroll-lines relation manager (draft-only add/edit/remove, property-scoped employee, payslip download) | ✅ shipped |
 
-| **3c — Generate payslips from roster** | `GeneratePayrollService` (one line per active employee, gross = base salary, deductions from `PayrollSettings`) + the *Generate payslips* action + settings tab + create→edit redirect + guiding empty state | ✅ shipped |
+| **3c — Generate payslips from roster** | `GeneratePayrollService` (one line per active employee, gross = base salary, deductions from the dated `payroll_rates` ladder) + the *Generate payslips* action + settings tab + create→edit redirect + guiding empty state | ✅ shipped |
 | **4a — Salary structure** | Allowances (بدلات — itemised portion of gross) + **employer social insurance** (a company cost that posts Dr Social Insurance Expense `51110001` / Cr Social Insurance Payable, without touching net pay); settings-driven employer rate; payslip/register/journalizer expanded; GL tie-out preserved | ✅ shipped |
 | **4b — Advance repayment via payroll** | A payslip line repays one of the employee's outstanding advances: the installment reduces net pay and the payroll entry credits Employee Advances `11203001` (closing the سلف loop). `EmployeeAdvance::outstanding()` derives to include approved-run installments; lock-safe over-repay re-check at approval; cancel restores the balance | ✅ shipped |
 | **4c — Ad-hoc / penalty deductions (خصومات)** | A payslip line carries an `other_deductions` amount (+ note) for penalties / absence / damages; reduces net pay and credits a holding liability **Employee Deductions Payable `21602001`** (accountant reclassifies via mapping) | ✅ shipped |
 
-**Future (Phase 4d+, not built):** the **progressive Egyptian income-tax bracket engine**
-(personal exemption + brackets, replacing the flat `salary_tax_rate` — gated on the accountant's
-confirmed brackets); structured basic-first entry (build gross up from basic + allowances); and
+**Future (Phase 4d+, not built):** the **progressive Egyptian income-tax bracket engine** — seven
+bands and a personal exemption, replacing the flat `salary_tax_rate` (finding P-2). Still gated on
+the accountant, and on a prior question: *whether the operator wants this system to compute
+statutory payroll at all, or to keep keying it per run* (EGYPT-MARKET-FIT §6.4). The dated ladder
+shipped in EG-03 is what a bracket table will hang off when that is answered — brackets are rungs
+with more columns, not a different mechanism; structured basic-first entry (build gross up from basic + allowances); and
 multi-advance installments per employee per run (today a line repays ONE advance).
 
 ### Phase 4c — ad-hoc / penalty deductions (خصومات, 2026-07-26)
@@ -261,7 +264,7 @@ run and each line:
   *source*, so the registry/tie-out gates are untouched; `GlPostingSourcesScenarioTest` drives the
   **real approve + sweep** and asserts the expanded entry balances.
 
-Rates are settings-driven (`PayrollSettings::employer_social_insurance_rate`, default 0 — the
+Rates come from the dated ladder (`PayrollRates::for($month)->employerSocialInsuranceRate`, default 0 — the
 same no-guessing rule: the employer share is a policy the accountant confirms before it posts).
 `GeneratePayrollService` fills `employer_social_insurance = gross × rate`. The register CSV and
 bilingual payslip PDF break out basic / allowances / gross / net and note the employer
@@ -285,8 +288,31 @@ employee in the run's property, pre-filled:
 | Field | Source |
 |-------|--------|
 | `gross` | the employee's `base_salary` (master data) |
-| `salary_tax` | `gross × PayrollSettings::salary_tax_rate` (0 by default) |
-| `social_insurance` | `gross × PayrollSettings::social_insurance_rate` (0 by default) |
+| `salary_tax` | `gross × the salary-tax rate` (0 by default) — the WHOLE gross |
+| `social_insurance` | `insurable wage × the employee SI rate` (0 by default) — the gross **clamped into the statutory band** |
+| `employer_social_insurance` | `insurable wage × the employer SI rate` — the cap binds this share too |
+
+> **Every figure comes from a DATED RUNG, resolved for the run's own `period_month`** (EG-03,
+> 2026-08-22). `App\Support\PayrollRates::for($month)` is the payroll twin of `Vat::rateForType()`,
+> and `payroll_rates` is its ladder: one row per decree, carrying the insurable-wage band and the
+> contribution rates that came into force together. Maintained at `/admin/payroll-rates`.
+>
+> They were three flat `PayrollSettings` scalars until then, and both halves of that were wrong.
+> **Undated** (finding P-3): a January run generated in March computed on March's numbers, a rise
+> could not be entered in advance, and nothing recorded what a past run had used — against a state
+> that raises the band every January. **Uncapped** (finding P-1): the SI rate was applied to
+> `base_salary` outright, so every employee above the ceiling was over-deducted and the employer
+> over-accrued, under a comment reading *"Employer SI is a company cost — it does NOT reduce net,
+> so no cap needed"*, which misreads the rule. The cap is on the WAGE and it binds both shares.
+>
+> **Two different bases, and that is the substance.** Salary tax is charged on the whole gross;
+> social insurance on the gross clamped into the band. A null floor or ceiling means no bound — not
+> zero, which on the ceiling would insure everybody on nothing.
+>
+> **Origination only.** An approved run's amounts are frozen on its own lines, so correcting a rung
+> changes what the NEXT generation computes and nothing already computed — the same rule that keeps
+> an issued invoice on the VAT rate it was billed at. Pinned by
+> `PayrollRatesAreDatedAndCappedTest`.
 
 > **The zero defaults are watched, not just documented (EG-04, 2026-08-20).**
 > `/admin/configuration-health` carries a `payroll_rates_configured` row. It does **not** call a zero

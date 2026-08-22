@@ -38,8 +38,10 @@ Three things make this urgent rather than academic, and all three are Egyptian:
    ([§4.1](#41-tax)). *(It was **also** frozen onto each lease's charge rows the day the lease was
    created — fixed 2026-08-22, EG-01. A ruling now reaches every existing lease; what remains missing
    is the lease/unit DIMENSION, EG-02.)*
-2. **Statutory payroll numbers change every January and the system holds them as three flat, undated
-   settings** — with no brackets, no personal exemption, and no insurable-wage cap ([§4.2](#42-payroll)).
+2. **Statutory payroll numbers change every January.** They were three flat, undated settings with no
+   insurable-wage cap; since 2026-08-22 they are a dated ladder with the band (EG-03). What remains is
+   the progressive bracket table and the personal exemption — and whether the operator wants
+   statutory payroll computed at all is a question for them first ([§4.2](#42-payroll), §6.4).
    Egypt raised the insurable wage ceiling on 1 January 2026; Atriom has no place to put it.
 3. ~~**There is no working calendar.**~~ **FIXED 2026-08-21 (EG-08 + EG-38).** Egypt's weekend is
    Friday–Saturday, and every SLA clock was `now()->addHours()`
@@ -267,13 +269,13 @@ that half is fixed and the missing dimension (T-1, EG-02) is not.
 
 ### 4.2 Payroll
 
-The one area where the books may be quietly wrong on data the system already holds.
+The one area where the books may be quietly wrong on data the system already holds. *(Two of the three 🔴 rows — the missing insurable-wage band and the undated rates — were fixed on 2026-08-22 by EG-03. The bracket engine is the one that remains, and it is a question for the operator before it is work.)*
 
 | # | Finding | Where | Rating |
 |---|---|---|---|
-| P-1 | **No insurable-wage floor or ceiling.** The SI rate is applied to the employee's whole `base_salary`. Every employee above the ceiling is over-deducted and the employer over-accrues — and Egypt raised the ceiling to EGP 16,700 on 1 Jan 2026. The employer-share line even carries the comment *"Employer SI is a company cost — it does NOT reduce net, so no cap needed"*, which is not how the Egyptian cap works (it caps the **wage**, both shares) | `app/Services/GeneratePayrollService.php:65,72,143`; `app/Settings/PayrollSettings.php:16` describes "a capped subscription salary" and implements no cap | 🔴 |
-| P-2 | **Income tax is a single flat rate against full gross.** No brackets, no personal exemption — neither exists anywhere in the codebase. A flat rate cannot approximate a 7-band progressive schedule. Ships at `0.0`, so out of the box **no salary tax is withheld at all** | `PayrollSettings.php:25`; `GeneratePayrollService.php:45,142` | 🔴 |
-| P-3 | **No dated payroll rates.** `generate()` reads the settings with **no date argument**, so a January run generated in March uses March's numbers, a rise cannot be entered in advance, and nothing records what rate a past run used. Contrast `TaxCode::rateOn($code, $on)`, which is the correct shape sitting in the same codebase | `GeneratePayrollService.php:44-47` vs `app/Models/TaxCode.php:243,314-331` | 🔴 |
+| ~~P-1~~ ✅ | **FIXED 2026-08-22 (EG-03).** `payroll_rates.insurable_wage_floor` / `_ceiling`, clamped by `PayrollRates::insurableWage()` and applied to BOTH shares. A null bound means no bound — not zero, which on the ceiling would insure everybody on nothing. ~~No insurable-wage floor or ceiling.~~ The SI rate is applied to the employee's whole `base_salary`. Every employee above the ceiling is over-deducted and the employer over-accrues — and Egypt raised the ceiling to EGP 16,700 on 1 Jan 2026. The employer-share line even carries the comment *"Employer SI is a company cost — it does NOT reduce net, so no cap needed"*, which is not how the Egyptian cap works (it caps the **wage**, both shares) | `app/Services/GeneratePayrollService.php:65,72,143`; `app/Settings/PayrollSettings.php:16` describes "a capped subscription salary" and implements no cap | 🔴 |
+| P-2 | 🔴 **STILL OPEN — and it waits on the operator, not on code (§6.4).** The dated ladder EG-03 shipped is what a bracket table hangs off. ~~**Income tax is a single flat rate against full gross.**~~ **Income tax is a single flat rate against full gross.** No brackets, no personal exemption — neither exists anywhere in the codebase. A flat rate cannot approximate a 7-band progressive schedule. Ships at `0.0`, so out of the box **no salary tax is withheld at all** | `PayrollSettings.php:25`; `GeneratePayrollService.php:45,142` | 🔴 |
+| ~~P-3~~ ✅ | **FIXED 2026-08-22 (EG-03).** A dated ladder resolved for the run's `period_month`, so a January run generated in September computes on January's numbers — proven by driving the real generator, not just the resolver. ~~No dated payroll rates.~~ `generate()` reads the settings with **no date argument**, so a January run generated in March uses March's numbers, a rise cannot be entered in advance, and nothing records what rate a past run used. Contrast `TaxCode::rateOn($code, $on)`, which is the correct shape sitting in the same codebase | `GeneratePayrollService.php:44-47` vs `app/Models/TaxCode.php:243,314-331` | 🔴 |
 | P-4 ✅ | **FIXED 2026-08-20 (EG-04).** ~~No payroll row in `ConfigurationHealth`.~~ Six checks exist; none mentions payroll. The install ships `salary_tax_rate = 0` and `social_insurance_rate = 0` and nothing says so | `app/Support/ConfigurationHealth.php` | 🟠 |
 | P-5 | **Gratuity day-counts are undated**, so editing one **retro-restates every past year of every employee's accrual**. Ships off and posts nothing, which is the only reason this is not 🔴 | `PayrollSettings.php:48-54`; `app/Services/GratuityService.php:64-70` | 🟠 |
 | P-6 | **Overtime, leave and the statutory annual raise are wholly absent** — no hours, no multiplier, no leave model, no salary history, no scheduled raise. Searched `overtime\|annual_leave\|leave_days\|sick_leave\|salary_increase\|علاوة\|إجازة` across `app/ database/ config/ lang/ routes/`: the only hit is a Maximo benchmark doc | absence proven by the searches named | 🟠 |
@@ -396,7 +398,7 @@ credential from the operator/accountant · ⚙️ ops.
 |---|---|---|---|---|
 | ~~**EG-01**~~ ✅ | **DONE 2026-08-22.** The row was right about the shape and understated the damage. `vat_rate` had been half-fixed on 2026-08-12 — the service-charge block, not the base-rent block two lines above it — but `vat_applicable` was untouched, `boolean default(true)` NOT NULL, written by thirteen services from `Vat::rateForType($type) > 0`. **That is the worse half**: `resolvedVatRate()` tests it FIRST and returns before the catalogue is consulted, so a `base_rent` row born `false` can never become taxable again, and a rate the operator deliberately TYPED was discarded with it. Measured before changing anything — charge code pointed at `VAT_14`, resolver answered 14.0, charge resolved 0.0, billing run raised a rent line with **0.00 VAT where 14,000 was due**. Both columns are now nullable with null the normal state, every row backfilled, and the test is `=== false` rather than falsy. **No screen ever offered `vat_applicable` as a tick** — all three UI/import sites derived it — so nothing an operator had stated was lost: their channel is the rate they type, and `vat_rate = 0` still holds a supply untaxed. One trap the ticket could not have named: `TransferUnitOwnershipService` copied the flag through a `(bool)` cast, which turns null into false, so a resale would have re-frozen the row one unit at a time | T-2, T-3 | 🧑‍💻 | M |
 | **EG-02** | **Give tax treatment a lease/unit dimension.** An effective-dated tax treatment on the lease (or on the unit's type), resolved through `Vat::rateForType()` as a third input, so *"admin units taxed, retail exempt, from date D"* is expressible. This is what Law 157/2025 and the pending executive regulations actually require | T-1, §3.1 | 🧑‍💻 + 🔑 | L |
-| **EG-03** | **Payroll: insurable-wage floor/ceiling, tax brackets, personal exemption — as dated rungs.** Build `PayrollRates::for($periodMonth)` mirroring `Vat::rateForType($code, $on)`; fix EG-04 on top of it, not beside it. Seed with the 1 Jan 2026 figures (2,700 / 16,700) | P-1, P-2, P-3, §3.2 | 🧑‍💻 + 🔑 | L |
+| **EG-03** | 🟡 **PART DONE 2026-08-22 — P-1 and P-3 shipped, P-2 still open.** `App\Support\PayrollRates::for($periodMonth)` is built as asked, mirroring `Vat::rateForType($code, $on)`, over a `payroll_rates` ladder: **a row is a SET of figures, not a key/value pair**, because Egypt publishes the band and the rates together in one decree. The 1 Jan 2026 rung ships with the band (2,700 / 16,700) and **not** the rates — seed the vocabulary, not the numbers, the same call `TaxCodeSeeder` makes; a migration that started withholding 11% from every salary would be this software deciding to deduct money from people. The band only bites through a non-zero rate, so nothing moves on deploy. `GeneratePayrollService` now resolves for the run's own `period_month`, charges SI on the **insurable wage** and tax on the whole gross, and the cap binds the employer share too. The three settings are **gone** (settings hold policy, master data holds rates) and EG-04's health row reads the ladder, as this row asked. **P-2 — the seven-band progressive engine with a personal exemption — is deliberately NOT built**, because §6.4 asks the operator a prior question: whether they want statutory payroll computed at all or keyed per run. Brackets are rungs with more columns, so the ladder is what they will hang off | P-1, P-2, P-3, §3.2 | 🧑‍💻 + 🔑 | L |
 | ~~**EG-04**~~ ✅ | **DONE 2026-08-20.** `payroll_rates_configured`, in a new `payroll` category. **Not** the blocking-on-zero-rates row this line originally asked for: the settings screen's own help offers *"leave at 0 and enter it per employee"* as a supported posture, so a red row saying otherwise would contradict the field help beside it. It fires on **evidence** — BLOCKING when the latest payroll month's approved runs withheld nothing at all (net = gross, no liability in the books), ADVISORY when there is a roster, every rate is still nil and nothing has been approved yet. Scoped to the **latest** month so the row can clear, because an approved run's amounts are frozen and an all-time count would pin a red dot with no remedy but cancelling a real payroll | P-4 | 🧑‍💻 | S |
 | ~~**EG-05**~~ ✅ | **DONE 2026-08-21.** `TaxSettings::seller_billing_email`, resolved through `IssuingEntity` like the seller's other particulars and **omitted when unset** — the same contract the TRN has. **THREE documents, not two**: the owner-facing asset statement carried the same fabrication. Pinned by a sweep that fails on any `@…​.test/.example/.invalid` in a lang file or a Blade. It also surfaced a **live 500**: `invoices.lease_id` became nullable when module 37 started billing owners, and the template dereferenced it — so every صيانة assessment invoice's PDF crashed on the list, the edit page, the portal and the API. Fixed by resolving the invoice's context from its AGREEMENT (lease **or** ownership) | S-7 | 🧑‍💻 | S |
 | ~~**EG-06**~~ ✅ | **DONE 2026-08-21.** Declared (`intl`, `mbstring`, `zip` — what the app itself calls; the rest arrive through the tree). **The report overstated the risk and understated the real one:** `filament/support` already hard-requires intl, so `composer install --no-dev` refuses on a box without it. What composer structurally *cannot* see is the SAPI split — it runs under `php-cli`, the money columns render under `php-fpm`, and a box with intl in one and not the other installs, schedules and passes console health while throwing on every list. So the substance is a **runtime** check: `App\Support\PhpExtensions` (nine extensions, each with what it costs) read by `/health` over HTTP | S-9 | 🧑‍💻 + ⚙️ | S |
@@ -1119,6 +1121,70 @@ reintroducing the whole bug one unit at a time.
 **EG-02 is still open and is not blocked by this.** Taxability now resolves from the charge code at
 billing time for every lease alike; giving it a per-lease or per-unit dimension — *"admin units
 taxed, retail exempt, from date D"* — is the separate question, and it waits on the accountant.
+
+---
+
+### 2026-08-22 — milestone 14: EG-03 part 1, payroll numbers get a date and a ceiling
+
+Two of §4.2's three 🔴 rows, and the third is deliberately left because it is a question for the
+operator before it is work.
+
+**P-3, undated.** `GeneratePayrollService` read three flat settings with **no date argument**, so a
+January run generated in March computed on March's numbers, a rise could not be entered in advance,
+and nothing recorded what a past run had used — against a state that raises the insurable-wage band
+every January. The correct shape was already in the codebase (`TaxCode::rateOn($code, $on)`), and
+`App\Support\PayrollRates::for($periodMonth)` is that shape for payroll. **Pass the month the money
+is FOR**, not the day someone pressed Generate.
+
+**P-1, uncapped.** Social insurance is charged on the **insurable wage** — the gross clamped into a
+floor/ceiling band — and the service applied the rate to `base_salary` outright. Every employee
+above the ceiling was over-deducted and the employer over-accrued, under a comment reading
+*"Employer SI is a company cost — it does NOT reduce net, so no cap needed"*. That misreads the
+rule: the cap is on the WAGE, so it binds both shares. Measured on the fix — a 50,000 salary against
+the 16,700 ceiling deducts 1,837 rather than 5,500, and the employer accrues 3,131.25 rather than
+9,375. Salary tax stays on the whole gross; getting those two bases the right way round is the
+substance.
+
+**A row is a SET, not a key/value pair.** Egypt publishes these together — one decree sets the band
+and the rates, effective 1 January — so the accountant enters one row a year, which is also how they
+receive it. It avoids inventing a classification column that would need a `ValueSets` entry to stop
+`insurable_wage_ceiling` being saved as `insurable_wage_celing`; a set of columns cannot be mistyped.
+
+**Seed the vocabulary, not the numbers.** The 1 Jan 2026 rung carries the **band** (2,700 / 16,700,
+NOSI) because that is a statutory fact with a published date. It does **not** seed the 11% employee
+contribution, equally published: the install ships rates at 0, the settings help offers *"leave at 0
+and enter it per employee"* as a supported posture, and a migration that started withholding 11%
+from every salary would be this software deciding to deduct money from people. Which also means the
+band changes nothing on deploy — it only bites through a non-zero rate.
+
+**Null is no bound, not zero.** On the ceiling, zero would insure everybody on nothing. Periods
+before 1 Jan 2026 get no band at all, because we know the band was raised **to** 2,700/16,700 on
+that date and this does not claim to know what preceded it — which is also exactly today's
+behaviour, so no historical run changes.
+
+**The settings are GONE**, not left beside the ladder: settings hold policy, master data holds rates
+— the same split that removed `TaxSettings::vat_standard_rate`. `gratuity_*` stays, because whether
+this workforce is entitled to a gratuity is a question about their contracts, not a figure the state
+publishes each January. EG-04's health row now reads the rung in force today, which is what the
+ticket meant by *"fix EG-04 on top of it, not beside it"*.
+
+**Gated apart from `payrolls.*`.** Running a payroll and deciding what the state's rates ARE are not
+one authority: `payroll_rates.*` goes to accounting (write) and HR (read), so an HR clerk who may
+generate a run cannot move the ceiling underneath it.
+
+**What is NOT built: P-2, the bracket engine.** Seven bands and a personal exemption, and §6.4 asks
+the operator a prior question — whether they want this system to compute statutory payroll at all,
+or to keep keying it per run. Brackets are rungs with more columns, so the ladder is the thing they
+hang off when that is answered.
+
+**Three bugs found in my own work, worth recording because two are traps this codebase has
+documented before.** A wrong FQCN for spatie's `LogsActivity` made the whole suite exit **1 with
+zero bytes on both streams** — the signature CLAUDE.md attributes to a helper redeclaration, and the
+diagnosis (`php -r` booting the app) is the same either way. `$defaults + $attrs` in a test helper
+silently discarded every argument, because PHP's `+` keeps the LEFT operand's key — so the first cut
+asserted a 14,500 ceiling against a rung that had none. And the migration's own seeded 2026 rung
+**supersedes** a test rung dated 2000, so three existing tests had to state their whole ladder
+rather than add to it.
 
 ---
 

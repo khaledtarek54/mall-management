@@ -482,34 +482,19 @@ class Settings extends Page implements HasSchemas
     private function payrollFields(): array
     {
         return [
+            // The three statutory rates left this tab on 2026-08-22 (EG-03). They were undated, so a
+            // January run generated in March computed on March's numbers and a rise could not be
+            // entered in advance — and Egypt moves them every January. They are dated rungs now, at
+            // /admin/payroll-rates, which also carries the insurable-wage band a flat rate could
+            // never express. Settings hold policy; master data holds rates.
             Section::make(__('admin.settings.sections.payroll_deductions'))
                 ->description(__('admin.settings.sections.payroll_deductions_description'))
-                ->columns(2)
                 ->components([
-                    TextInput::make('payroll.social_insurance_rate')
-                        ->label(__('admin.settings.fields.payroll_social_insurance_rate'))
-                        ->helperText(__('admin.settings.fields.payroll_social_insurance_rate_helper'))
-                        ->suffix('%')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->required(),
-                    TextInput::make('payroll.salary_tax_rate')
-                        ->label(__('admin.settings.fields.payroll_salary_tax_rate'))
-                        ->helperText(__('admin.settings.fields.payroll_salary_tax_rate_helper'))
-                        ->suffix('%')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->required(),
-                    TextInput::make('payroll.employer_social_insurance_rate')
-                        ->label(__('admin.settings.fields.payroll_employer_social_insurance_rate'))
-                        ->helperText(__('admin.settings.fields.payroll_employer_social_insurance_rate_helper'))
-                        ->suffix('%')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->required(),
+                    // Same shape, and the same reason, as `tax.rates_moved` above.
+                    Placeholder::make('payroll.rates_moved')
+                        ->label(__('admin.settings.fields.payroll_rates_moved'))
+                        ->content(__('admin.settings.fields.payroll_rates_moved_helper'))
+                        ->columnSpanFull(),
                 ]),
 
             // End-of-service gratuity. OFF by default and deliberately so: Labour Law 12/2003

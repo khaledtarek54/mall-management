@@ -10,7 +10,6 @@ use App\Models\LedgerAccount;
 use App\Models\Payroll;
 use App\Models\TaxCode;
 use App\Models\Vendor;
-use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -190,10 +189,10 @@ class ConfigurationHealth
             );
         }
 
-        $settings = app(PayrollSettings::class);
-        $allNil = $settings->salary_tax_rate <= 0.0
-            && $settings->social_insurance_rate <= 0.0
-            && $settings->employer_social_insurance_rate <= 0.0;
+        // Judged on the rung in force for the CURRENT month, not on a flat setting (EG-03). The
+        // question this row asks — "is payroll configured?" — is a question about now, and the
+        // ladder can legitimately be nil for an old period and set for this one.
+        $allNil = PayrollRates::for()->isNil();
 
         // A property with a live roster and no approved month yet — judged per property for the same
         // reason the blocking branch is, or one mall that has been running payroll for a year

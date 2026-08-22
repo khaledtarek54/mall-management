@@ -2,35 +2,26 @@
 
 namespace App\Settings;
 
+use App\Support\PayrollRates;
 use Spatie\LaravelSettings\Settings;
 
 /**
- * Egyptian payroll policy the operator's accountant owns — the statutory withholdings
- * used to PRE-FILL a payroll run's per-employee lines when it is generated from the
- * roster (GeneratePayrollService). Configured rather than compiled in for the same
- * reason as TaxSettings: a guessed constant would look authoritative and be wrong.
+ * Egyptian payroll POLICY the operator's accountant owns.
  *
- * Both rates ship at 0 (a generated line then carries gross = base salary with the
- * deductions left for the operator to enter). Egyptian income tax (ضريبة كسب العمل)
- * is genuinely progressive-bracketed, and social insurance (التأمينات) is a share of a
- * capped subscription salary — so these flat rates are a *starting point* the accountant
- * sets, and every generated amount stays editable per line before the run is approved.
+ * **The statutory RATES are no longer here** (EG-03, 2026-08-22). `social_insurance_rate`,
+ * `employer_social_insurance_rate` and `salary_tax_rate` were undated scalars, so a January run
+ * generated in March computed on March's numbers, a rise could not be entered in advance, and
+ * nothing recorded what a past run had used — while Egypt raises the insurable-wage band every
+ * January. They now live on `payroll_rates` as dated rungs, resolved through
+ * {@see PayrollRates::for()} for the run's own `period_month`, which also carries the
+ * insurable-wage floor and ceiling the flat rates had nowhere to put.
+ *
+ * The split is the same one that removed `TaxSettings::vat_standard_rate`: **settings hold policy,
+ * master data holds rates.** What is left below is policy — whether this workforce is entitled to a
+ * gratuity at all is a question about their contracts, not a figure the state publishes each year.
  */
 class PayrollSettings extends Settings
 {
-    /** Employee social-insurance share, % of gross, applied when generating lines. */
-    public float $social_insurance_rate = 0.0;
-
-    /** Salary (income) tax, % of gross — a flat convenience default for generation. */
-    public float $salary_tax_rate = 0.0;
-
-    /**
-     * EMPLOYER social-insurance contribution, % of gross. Unlike the employee share above,
-     * this is a company cost that does NOT reduce net pay — it books a Social Insurance
-     * Expense + adds to the liability owed to the authority. 0 by default (accountant sets it).
-     */
-    public float $employer_social_insurance_rate = 0.0;
-
     /**
      * Whether to compute the accruing END-OF-SERVICE GRATUITY liability (مكافأة نهاية الخدمة).
      *

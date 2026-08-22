@@ -21,11 +21,12 @@ use App\Models\AccountingPeriod;
 use App\Models\ChargeCode;
 use App\Models\Employee;
 use App\Models\Payroll;
+use App\Models\PayrollRate;
 use App\Models\TaxCode;
 use App\Models\Vendor;
-use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use App\Support\ConfigurationHealth;
+use App\Support\PayrollRates;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -240,9 +241,15 @@ it('advises once there is a roster and every statutory rate is still nil', funct
         // per employee" as a supported way to work, so a blocking row here would contradict it.
         ->and(healthCheck('payroll_rates_configured')['severity'])->toBe(ConfigurationHealth::ADVISORY);
 
-    $settings = app(PayrollSettings::class);
-    $settings->social_insurance_rate = 11.0;
-    $settings->save();
+    // A rung, not a setting (EG-03) — the check reads the ladder in force today.
+    // Clear the ladder first: the migration seeds a rung dated 1 Jan 2026 (the statutory band),
+    // which SUPERSEDES an earlier one — a test rung dated 2000 would never be the one in force.
+    PayrollRate::query()->delete();
+    // Clear the ladder first: the migration seeds a rung dated 1 Jan 2026 (the statutory band),
+    // which SUPERSEDES an earlier one — a test rung dated 2000 would never be the one in force.
+    PayrollRate::query()->delete();
+    PayrollRate::create(['effective_from' => '2000-01-01', 'employee_social_insurance_rate' => 11.0]);
+    PayrollRates::flush();
 
     expect(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
 });
@@ -253,7 +260,7 @@ it('goes quiet when the deductions are keyed per run rather than set as rates', 
     $employee = payrollRoster();
     approvedPayrollFor($employee, ['salary_tax' => 700, 'social_insurance' => 990, 'net_paid' => 7310]);
 
-    expect(app(PayrollSettings::class)->salary_tax_rate)->toBe(0.0)
+    expect(PayrollRates::for()->salaryTaxRate)->toBe(0.0)
         ->and(healthCheck('payroll_rates_configured')['ok'])->toBeTrue();
 });
 
@@ -357,12 +364,17 @@ it('never claims a payroll month it does not have', function () {
     // asked should not produce a sentence about evidence that does not exist.
     payrollRoster();
 
-    tap(app(PayrollSettings::class), function (PayrollSettings $p) {
-        $p->salary_tax_rate = 10;
-        $p->social_insurance_rate = 11;
-        $p->employer_social_insurance_rate = 18.75;
-    });
-
+    // The statutory figures are a dated rung now (EG-03), not three flat settings.
+    // Clear the ladder first: the migration seeds a rung dated 1 Jan 2026 (the statutory band),
+    // which SUPERSEDES an earlier one — a test rung dated 2000 would never be the one in force.
+    PayrollRate::query()->delete();
+    PayrollRate::create([
+        'effective_from' => '2000-01-01',
+        'salary_tax_rate' => 10,
+        'employee_social_insurance_rate' => 11,
+        'employer_social_insurance_rate' => 18.75,
+    ]);
+    PayrollRates::flush();
     $check = healthCheck('payroll_rates_configured');
 
     expect($check['ok'])->toBeTrue()
@@ -516,12 +528,17 @@ it('sees a head-office payroll run that belongs to no single property', function
     // Rates SET, so the advisory branch (all-nil + awaiting a first run) cannot fire and turn this
     // red for an unrelated reason — the first cut of this test passed with the fix deleted for
     // exactly that reason. Only the blocking branch can produce a red below.
-    tap(app(PayrollSettings::class), function (PayrollSettings $p) {
-        $p->salary_tax_rate = 10;
-        $p->social_insurance_rate = 11;
-        $p->employer_social_insurance_rate = 18.75;
-    });
-
+    // The statutory figures are a dated rung now (EG-03), not three flat settings.
+    // Clear the ladder first: the migration seeds a rung dated 1 Jan 2026 (the statutory band),
+    // which SUPERSEDES an earlier one — a test rung dated 2000 would never be the one in force.
+    PayrollRate::query()->delete();
+    PayrollRate::create([
+        'effective_from' => '2000-01-01',
+        'salary_tax_rate' => 10,
+        'employee_social_insurance_rate' => 11,
+        'employer_social_insurance_rate' => 18.75,
+    ]);
+    PayrollRates::flush();
     // The control first: with no head-office run at all, the row is green. So the red below is
     // caused by the null-asset run and nothing else.
     $this->actingAs(makeUser('mall_admin', [$mine->id]));

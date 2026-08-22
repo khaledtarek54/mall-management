@@ -8,8 +8,8 @@ use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Services\GeneratePayrollService;
 use App\Services\PayslipPdfService;
-use App\Settings\PayrollSettings;
 use App\Support\Filament\RecordChanged;
+use App\Support\PayrollRates;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -146,9 +146,12 @@ class PayrollLinesRelationManager extends RelationManager
                         // (2026-08-20). Stated rather than refused: a run with no deductions is a
                         // real case (a contractor roster, a mall whose accountant withholds
                         // centrally), so this is the operator's call to make knowingly.
-                        $settings = app(PayrollSettings::class);
-                        $tax = (float) $settings->salary_tax_rate;
-                        $si = (float) $settings->social_insurance_rate;
+                        // The rung for THIS run's month, not today's — the modal must quote the
+                        // numbers the generate is about to use, and for a back-dated run those are
+                        // not the current ones (EG-03).
+                        $rates = PayrollRates::for($this->getOwnerRecord()->period_month);
+                        $tax = $rates->salaryTaxRate;
+                        $si = $rates->employeeSocialInsuranceRate;
 
                         return $tax > 0 || $si > 0
                             ? $line.' '.__('admin.payroll_lines.generate.rates', ['tax' => $tax, 'si' => $si])
@@ -234,8 +237,10 @@ class PayrollLinesRelationManager extends RelationManager
             ->recordActions([
                 EditAction::make()
                     ->visible(fn () => $this->runIsEditable())
-                    ->authorize(fn () => $this->runIsEditable())
-                    ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
+                    // ONE `authorize()`, both conditions. `authorize()` ASSIGNS a single slot, so
+                    // adding a second silently discarded the first — the run-is-editable half — and
+                    // left a line on an APPROVED run editable by anyone holding `payrolls.edit`.
+                    ->authorize(fn () => $this->runIsEditable() && (auth()->user()?->can('payrolls.edit') ?? false))
                     ->schema($this->moneyFields())
                     ->before(fn () => abort_unless($this->runIsEditable(), 403))
                     ->after(fn () => $this->refreshOwnerHeader()),
