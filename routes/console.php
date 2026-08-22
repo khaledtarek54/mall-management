@@ -239,9 +239,10 @@ Schedule::command('leases:expire')
     ->name('atriom-expire-leases')
     ->withoutOverlapping();
 
-// Apply due contractual rent escalations (fixed_percent) to active leases and roll
-// next_escalation_date forward a year. Idempotent + lock-safe; a missed anniversary would
-// otherwise leak revenue. Daily so a due lease escalates the day it comes due.
+// Apply due contractual rent escalations (fixed_percent / fixed_amount / cpi) to active leases and
+// roll `next_escalation_date` forward BY THE CLAUSE'S OWN INTERVAL — twelve months unless the lease
+// says otherwise (EG-30 / M-6, `Lease::escalationDateAfter()`). Idempotent + lock-safe; a missed
+// anniversary would otherwise leak revenue. Daily so a due lease escalates the day it comes due.
 Schedule::command('leases:apply-escalations')
     ->dailyAt('05:30')
     ->name('atriom-apply-rent-escalations')

@@ -1485,12 +1485,21 @@ with `next_escalation_date <= today` and applies the increase through `LeaseRent
   biennial clause, an 18-month step or the six-monthly review that goes into a short fit-out lease
   is now a number on the lease rather than something an operator has to remember — which is what
   actually happened, and is how a step comes to be missed for a year.
-  `Lease::escalationIntervalMonths()` is the single definition (the sweep will not be the last
-  thing that needs to know when the next step falls) and it floors a 0 at one month, because
+  `Lease::escalationIntervalMonths()` is the single definition and floors a 0 at one month, because
   rolling the date nowhere would make the sweep reconsider the same lease every day for ever with
-  nothing on screen to say so. The roll uses `addMonthsNoOverflow()`: Carbon's default overflows a
-  month-end date into the next month, turning 31 August + 18 months into 2 March instead of the
-  last day of February — same clamping reading `BillingDay` takes of a month-end billing day.
+  nothing on screen to say so.
+  - **`Lease::escalationDateAfter()` is the ONE roll, and THREE callers need it** — the sweep, the
+    `Lease::creating` hook that ARMS the first date, and `ChargeScheduleService::projectTermEscalations()`,
+    which writes the contracted ladder an operator reads. The first cut changed only the sweep, so a
+    biennial lease was armed twelve months out and stepped a year early once, and the projected
+    ladder promised increases in years the sweep would never apply one. Found by the adversarial
+    review of the commit that introduced it.
+  - It uses `addMonthsNoOverflow()` **and restores the anchor day**. Carbon's default overflows a
+    month-end date into the next month (31 Aug + 18 months → 2 March, not the last day of
+    February); `NoOverflow` alone then rolls off the CLAMPED date, so 31 Aug → 28 Feb → 28 Aug and
+    the anniversary creeps backwards a few days at every step. The anchor is the commencement day,
+    clamped to a day the target month has — the same reading `BillingDay` takes of a month-end
+    billing day.
 - **Idempotent + concurrency-safe:** each lease is row-locked and its due-ness re-checked *inside*
   the transaction; applying advances the date past today, so a re-run is a no-op.
 - **One step per run:** a multi-year backlog (from a mis-set date) catches up over successive runs

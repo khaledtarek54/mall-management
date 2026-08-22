@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Services\ChargeScheduleService;
 use App\Services\RentEscalationService;
 use Carbon\CarbonImmutable;
 
@@ -132,4 +133,88 @@ it('treats a zero interval as one month rather than rolling nowhere', function (
     app(RentEscalationService::class)->runForToday();
 
     expect($lease->fresh()->next_escalation_date->toDateString())->toBe('2026-02-01');
+});
+
+it('does not let a month-end anniversary creep backwards over successive steps', function () {
+    // The month-end case above asserts ONE roll, and one roll cannot see this. A bare
+    // `addMonthsNoOverflow()` rolls off the PREVIOUS date: 31 Aug + 6 clamps to 28 Feb (right), and
+    // the NEXT roll then starts from the 28th and gives 28 Aug — the contract says the 31st. Every
+    // later step inherits the earlier day, so the anniversary creeps and the tenant is escalated a
+    // few days early for the rest of the term. `escalationDateAfter()` restores the anchor day.
+    $lease = intervalLease([
+        'commencement_date' => '2025-08-31',
+        'next_escalation_date' => '2026-02-28',
+        'escalation_interval_months' => 6,
+        'escalation_rate' => 1,
+    ]);
+
+    // From 28 Feb, a naive roll gives 28 August. The anchor says 31 August.
+    expect($lease->escalationDateAfter(CarbonImmutable::parse('2026-02-28'))->toDateString())
+        ->toBe('2026-08-31');
+
+    // …and the step after that clamps to February again rather than drifting to the 28th for ever.
+    expect($lease->escalationDateAfter(CarbonImmutable::parse('2026-08-31'))->toDateString())
+        ->toBe('2027-02-28');
+});
+
+it('arms the FIRST escalation at the clause interval, not a year', function () {
+    // The sibling the interval change left behind. `Lease::creating` armed
+    // `next_escalation_date = commencement + 1 year` whatever the clause said, so a biennial lease
+    // stepped on its FIRST anniversary — a year early, once — before the sweep's own rolling took
+    // over. A rent increase the tenant never agreed to, with nothing on screen to say so.
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active',
+        'commencement_date' => '2026-03-31',
+        'expiry_date' => '2032-12-31',
+        'base_rent_monthly' => 100000,
+        'escalation_type' => 'fixed_percent',
+        'escalation_rate' => 10,
+        'escalation_interval_months' => 24,
+    ]);
+
+    expect($lease->next_escalation_date->toDateString())->toBe('2028-03-31');
+});
+
+it('projects the contracted ladder on the clause interval, not annually', function () {
+    // The second sibling. `ChargeScheduleService::projectTermEscalations()` writes the rent ladder
+    // an operator READS on the lease, and at annual steps it promised a biennial tenant an increase
+    // in a year the sweep would never apply one — the projection and the billing disagreeing about
+    // the same contract.
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active',
+        'commencement_date' => '2026-01-01',
+        'expiry_date' => '2031-12-31',
+        'base_rent_monthly' => 100000,
+        'escalation_type' => 'fixed_percent',
+        'escalation_rate' => 10,
+        'escalation_interval_months' => 24,
+        // Stated rather than left to the arming hook, so this case tests the WALK and not the
+        // fixture: the ladder must step from here by the interval.
+        'next_escalation_date' => '2028-01-01',
+    ]);
+
+    // The rent row the lease bills under. Without it the FIRST projected step opens the schedule at
+    // COMMENCEMENT rather than at the anniversary — documented behaviour of `setAmount()`, and it
+    // would make this case assert the fixture instead of the walk. (The fixed-amount escalation
+    // test works around the same thing, and says so.)
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
+        'amount' => 100000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2026-01-01', 'is_active' => true,
+    ]);
+
+    app(ChargeScheduleService::class)->projectTermEscalations($lease->fresh());
+
+    $steps = $lease->fresh()->charges()
+        ->where('type', 'base_rent')
+        ->where('origin', Charge::ORIGIN_ESCALATION)
+        ->orderBy('start_date')
+        ->pluck('start_date')
+        ->map(fn ($d) => $d->toDateString())
+        ->all();
+
+    // 2028, 2030 — every two years. Never 2027, 2029, 2031.
+    // 2028 then 2030 — every two years, never the odd years an annual walk would have written.
+    expect($steps)->toBe(['2028-01-01', '2030-01-01']);
 });

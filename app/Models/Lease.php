@@ -128,7 +128,14 @@ class Lease extends Model implements BillableAgreement, HasMedia
             if ($lease->escalatesContractually()
                 && $lease->next_escalation_date === null
                 && $lease->commencement_date !== null) {
-                $lease->next_escalation_date = Carbon::parse($lease->commencement_date)->addYear()->format('Y-m-d');
+                // The clause's own interval, not a literal year (EG-30 / M-6). This hook ARMS the
+                // first step, and it was the sibling the interval change left behind: a biennial
+                // clause got its first escalation armed twelve months out and stepped a year early,
+                // once, before the sweep's own rolling took over — a rent increase the tenant never
+                // agreed to, on the first anniversary, with nothing on screen to say so.
+                $lease->next_escalation_date = $lease
+                    ->escalationDateAfter(CarbonImmutable::parse($lease->commencement_date))
+                    ->format('Y-m-d');
             }
         });
 

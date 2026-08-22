@@ -190,7 +190,7 @@ class ChargeScheduleService
         // that have already been applied and date every step wrongly.
         $firstStep = $lease->next_escalation_date
             ? CarbonImmutable::instance($lease->next_escalation_date)
-            : CarbonImmutable::instance($lease->commencement_date)->addYear();
+            : $lease->escalationDateAfter(CarbonImmutable::instance($lease->commencement_date));
 
         if ($rent <= 0) {
             return 0;
@@ -201,11 +201,22 @@ class ChargeScheduleService
 
         $created = 0;
 
-        // Anniversaries inside the term. The first step is one year after commencement; the last
-        // is whichever anniversary still starts before expiry — a lease ending mid-year gets no
-        // step it will never reach.
-        for ($year = 0; ; $year++) {
-            $effective = self::billingBoundary($firstStep->addYears($year));
+        // Anniversaries inside the term. The first step is one INTERVAL after commencement; the
+        // last is whichever anniversary still starts before expiry — a lease ending mid-cycle gets
+        // no step it will never reach.
+        //
+        // Walked one step at a time through `escalationDateAfter()` rather than
+        // `$firstStep->addYears($year)`, and that was the second sibling EG-30 left behind: this
+        // projects the CONTRACTED rent ladder an operator reads on the lease, and at annual steps
+        // it disagreed with what `RentEscalationService` would actually bill a biennial clause —
+        // the projection promising an increase in a year the sweep would not apply one. The same
+        // walk also carries the anchor day, so a month-end ladder does not creep.
+        // `$stepDate`, not `$step` — `$step` is already the fixed-AMOUNT increment a few lines up,
+        // and shadowing it would turn every amount escalation into a date.
+        $stepDate = $firstStep;
+
+        while (true) {
+            $effective = self::billingBoundary($stepDate);
 
             if ($effective->greaterThan($expiry)) {
                 break;
@@ -227,6 +238,8 @@ class ChargeScheduleService
             ], Charge::ORIGIN_LEVY)) {
                 $created++;
             }
+
+            $stepDate = $lease->escalationDateAfter($stepDate);
         }
 
         return $created;

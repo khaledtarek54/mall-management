@@ -198,15 +198,15 @@ class RentEscalationService
             // floors a null at 12, so a lease that has never been ruled on steps annually exactly as
             // it always did.
             //
-            // `addMonthsNoOverflow()`, NOT `addMonths()`: Carbon's default OVERFLOWS a month-end
-            // date into the following month, so 31 August + 18 months lands on 2 March rather than
-            // the last day of February, and the anniversary a clause names as month-end silently
-            // becomes an arbitrary day near the start of the next one. Clamping is the same reading
-            // `BillingDay` takes of a month-end billing day, and the only one that keeps a step on
-            // the date the contract states. (Written with the overflowing call first; the test that
-            // asserts 29 Feb is what caught it.)
-            $nextDate = $lease->next_escalation_date->copy()
-                ->addMonthsNoOverflow($lease->escalationIntervalMonths());
+            // `escalationDateAfter()` rather than date arithmetic here, because THREE places now
+            // need this answer — this sweep, the hook that arms the first date, and
+            // `ChargeScheduleService`, which projects the whole ladder — and three disagreeing is
+            // how a projected rent ladder comes to differ from the rent actually billed. It also
+            // holds the anchor day, without which a month-end anniversary walks backwards a few
+            // days at every step.
+            $nextDate = $lease->escalationDateAfter(
+                CarbonImmutable::instance($lease->next_escalation_date)
+            );
             $current = (float) $lease->base_rent_monthly;
 
             // The two kinds differ only in how the step is SIZED. Everything after this — the

@@ -213,6 +213,38 @@ trait HasLeaseTermState
     }
 
     /**
+     * The step after `$current` — the ONE roll, drift-free.
+     *
+     * Rolling with a bare `addMonthsNoOverflow($interval)` walks a month-end anniversary BACKWARDS.
+     * From 31 August a six-monthly clause clamps to 28 February (right), and the next roll then
+     * starts from the 28th and gives 28 August (wrong — the contract says the 31st). Every
+     * subsequent step inherits the earlier day, so the anniversary creeps and the tenant is
+     * escalated a few days early for the rest of the term.
+     *
+     * The fix is an ANCHOR DAY: roll from the current date, then put the day back to the one the
+     * contract states, clamped to a day the target month actually has. 31 Aug → 28 Feb → 31 Aug.
+     * The anchor is the lease's commencement day, because that is what `Lease::creating` arms the
+     * first escalation from; with no commencement the current date's own day is the best available
+     * statement of intent.
+     *
+     * Same clamping reading as `BillingDay` takes of a month-end billing day — and the reason it is
+     * here rather than in `RentEscalationService` is that three callers now need it: the sweep, the
+     * hook that ARMS the first date, and `ChargeScheduleService`, which projects the whole ladder.
+     * Those three disagreeing is how a projected rent ladder comes to differ from the rent actually
+     * billed.
+     */
+    public function escalationDateAfter(CarbonImmutable $current): CarbonImmutable
+    {
+        $next = $current->addMonthsNoOverflow($this->escalationIntervalMonths());
+
+        $anchorDay = $this->commencement_date
+            ? (int) CarbonImmutable::instance($this->commencement_date)->day
+            : (int) $current->day;
+
+        return $next->day(min($anchorDay, $next->daysInMonth));
+    }
+
+    /**
      * The query form of {@see isBillableForPeriod()} — used by the scheduled run.
      *
      * @param  Builder  $query
