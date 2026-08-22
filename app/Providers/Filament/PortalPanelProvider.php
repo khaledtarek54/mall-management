@@ -60,8 +60,8 @@ class PortalPanelProvider extends PanelProvider
             // here could not depend on who is signed in. Same trap that made `->colors()` and the
             // 2FA condition unusable per-user.
             ->brandName(fn (): string => PortalBranding::brandName())
-            ->brandLogo(fn (): string => PortalBranding::logo())
-            ->darkModeBrandLogo(fn (): string => PortalBranding::logo(dark: true))
+            ->brandLogo(fn (): ?string => PortalBranding::logo())
+            ->darkModeBrandLogo(fn (): ?string => PortalBranding::logo(dark: true))
             ->brandLogoHeight('2.5rem')
             ->favicon(fn (): string => PortalBranding::favicon())
             ->renderHook(

@@ -34,6 +34,7 @@ use Filament\Actions\EditAction as FilamentEditAction;
 use Filament\Actions\ForceDeleteAction as FilamentForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction as FilamentRestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -209,6 +210,12 @@ class AppServiceProvider extends ServiceProvider
         // managers). A table re-shows it with `->visible(...)`.
         DeleteBulkAction::configureUsing(fn (DeleteBulkAction $action) => $action->hidden());
         ForceDeleteBulkAction::configureUsing(fn (ForceDeleteBulkAction $action) => $action->hidden());
+        // Restore is the third of the three and the only one whose safety rested entirely on call-
+        // site discipline: its seven sites gate on `canRestoreAny()` with `visible()` alone. Un-
+        // deleting rows in bulk is not destructive, but it is a multi-row write and the backstop
+        // that covers the other two should not have a gap somebody has to remember. A table
+        // re-shows it with `->visible(...)`, exactly as with the other two.
+        RestoreBulkAction::configureUsing(fn (RestoreBulkAction $action) => $action->hidden());
 
         // Panel-wide table UX floor — filter/search/sort persistence, the
         // filter layout, striping, pagination sizes. Applied before each

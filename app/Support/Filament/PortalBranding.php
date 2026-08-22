@@ -46,15 +46,36 @@ final class PortalBranding
     /** The one mall this tenant trades in, or null for none, several, or nobody signed in. */
     public static function asset(): ?Asset
     {
-        if (app()->has(self::MEMO)) {
-            return app(self::MEMO);
+        $key = self::memoKey();
+
+        if (app()->has($key)) {
+            // A ONE-ELEMENT ARRAY, not the asset itself. `Container::bound()` is
+            // `isset($this->instances[$abstract])`, and `isset()` is FALSE for a stored null — so a
+            // memo holding the answer this class exists for (the login page, and a chain trading in
+            // several malls) never registered as memoised at all, and the panel re-ran the query
+            // five times per render: brandName, brandLogo, darkModeBrandLogo, favicon, theme.
+            return app($key)[0];
         }
 
         $asset = self::resolve();
 
-        app()->instance(self::MEMO, $asset);
+        app()->instance($key, [$asset]);
 
         return $asset;
+    }
+
+    /**
+     * Keyed on WHO is asking.
+     *
+     * The memo lives in the container's `instances`, which `forgetScopedInstances()` does not clear
+     * between queued jobs — so an un-keyed memo would be a cross-request leak the day anything
+     * outside the HTTP panel renders portal chrome. Under php-fpm the container dies with the
+     * request and Octane is not installed, so this is a guard against the next caller rather than a
+     * live bug; it costs one string concatenation.
+     */
+    private static function memoKey(): string
+    {
+        return self::MEMO.'.'.(Auth::guard('portal')->id() ?? 'guest');
     }
 
     private static function resolve(): ?Asset
@@ -97,9 +118,25 @@ final class PortalBranding
         return self::asset()?->name ?? __('portal.brand');
     }
 
-    public static function logo(bool $dark = false): string
+    /**
+     * The mall's logo, its NAME, or the platform wordmark — in that order.
+     *
+     * Null when the tenant's one mall has uploaded no logo, which is the default state of every
+     * property. Filament's `logo.blade.php` renders `{{ $brandName }}` **only in the `@else`**, so
+     * returning the platform wordmark there put ATRIOM in the topbar of a white-labelled portal and
+     * left the mall's name in the `<title>` and an `alt` attribute — which is also what made this
+     * feature's own end-to-end test a false pass.
+     *
+     * The wordmark IS right with no mall in play: the login page, and a chain whose portal spans
+     * three properties. Nothing else is honest there.
+     */
+    public static function logo(bool $dark = false): ?string
     {
-        return PanelBranding::logo(self::asset(), $dark);
+        $asset = self::asset();
+
+        return $asset instanceof Asset
+            ? $asset->logoUrl()
+            : PanelBranding::platformLogo($dark);
     }
 
     public static function favicon(): string
@@ -115,6 +152,6 @@ final class PortalBranding
     /** Drop the memo — for tests that sign in as a second tenant inside one request. */
     public static function forget(): void
     {
-        app()->forgetInstance(self::MEMO);
+        app()->forgetInstance(self::memoKey());
     }
 }

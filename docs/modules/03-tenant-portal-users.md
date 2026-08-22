@@ -226,7 +226,8 @@ two and leave a mall's portal the wrong green.
 or a `handed_over` unit ownership — a unit owner is a `tenants` row too and pays their service charge
 here) sees that mall's name, logo, favicon and colour. A tenant with shops in three sees `portal.brand`,
 because branding their portal as one of the three is a claim about the other two. That is deliberately
-the same rule `IssuingEntity::forViewScopedTo()` applies to the tenant-facing PDFs: a statement and a
+the same rule the Statement of Account now applies (it took `leases->first()` and carried one
+arbitrary mall's letterhead for a chain): a statement and a
 portal must not tell one tenant two different things.
 
 Three things to keep if you touch it:

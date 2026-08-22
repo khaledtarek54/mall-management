@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Asset;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Support\IssuingEntity;
@@ -145,12 +146,21 @@ class TenantStatementPdfService
             'open_count' => $openInvoices->count(),
         ];
 
-        // Not `leases->first()?->unit?->asset`: a unit OWNER is a `tenants` row (module 37) and may
-        // hold no lease at all, while the invoice query below happily lists their assessments — so
-        // that chain rendered their statement with no property and no issuer block. The invoices'
-        // own `asset_id` is the answer, and it is NOT NULL.
-        $asset = $tenant->leases->first()?->unit?->asset
-            ?? $invoicesAll->first()?->asset;
+        // EXACTLY ONE MALL, OR THE OPERATOR. A statement can span several properties — a chain
+        // leases in three malls and gets one document listing all of it — and `->first()` picked an
+        // arbitrary one of them for the letterhead, which is a claim about the other two. The
+        // portal chrome already answers this question the same way (see `PortalBranding`), and a
+        // tenant told two different things by two of our own documents is worse than being told
+        // nothing.
+        //
+        // Read off the INVOICES' own `asset_id`, not `leases->first()->unit->asset`: a unit OWNER is
+        // a `tenants` row (module 37) and may hold no lease at all while the query below happily
+        // lists their assessments, so that chain rendered a statement with no property at all.
+        $assetIds = $invoicesAll->pluck('asset_id')->filter()->unique();
+
+        $asset = $assetIds->count() === 1
+            ? Asset::find($assetIds->first())
+            : null;
 
         return [
             'tenant' => $tenant,

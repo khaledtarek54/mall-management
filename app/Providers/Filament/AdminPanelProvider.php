@@ -86,8 +86,8 @@ class AdminPanelProvider extends PanelProvider
             // ALL pseudo-tenant + the no-tenant case both fall back to
             // platform Atriom branding.
             ->brandName(fn (): string => self::resolveBrandName())
-            ->brandLogo(fn (): string => self::resolveBrandLogo())
-            ->darkModeBrandLogo(fn (): string => self::resolveBrandLogo(dark: true))
+            ->brandLogo(fn (): ?string => self::resolveBrandLogo())
+            ->darkModeBrandLogo(fn (): ?string => self::resolveBrandLogo(dark: true))
             ->brandLogoHeight('2.5rem')
             ->favicon(fn (): string => self::resolveFavicon())
             // Global search. The provider is ours (see the class for why) —
@@ -186,7 +186,7 @@ class AdminPanelProvider extends PanelProvider
      * Filament's mode keeps the logo readable in both. A per-property logo is
      * used for both modes (each Asset carries a single logo asset).
      */
-    protected static function resolveBrandLogo(bool $dark = false): string
+    protected static function resolveBrandLogo(bool $dark = false): ?string
     {
         $tenant = Filament::getTenant();
 

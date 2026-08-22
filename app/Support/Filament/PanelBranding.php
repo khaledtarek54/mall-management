@@ -67,16 +67,31 @@ final class PanelBranding
 HTML;
     }
 
-    /** The asset's own logo, else the platform wordmark for the panel's current mode. */
-    public static function logo(?Asset $asset, bool $dark = false): string
+    /**
+     * The asset's own logo, else the platform wordmark for the panel's current mode.
+     *
+     * **The fallback differs by panel, because the question does.** In the ADMIN panel the reader is
+     * the operator's own staff and the Atriom wordmark is the product they are using, so a mall with
+     * no logo keeps it — that is a deliberate choice with its own tests. In the PORTAL it is the
+     * one thing white-labelling exists to avoid, so {@see PortalBranding::logo()} answers null there
+     * and lets Filament fall through to the mall's NAME: `logo.blade.php` renders `{{ $brandName }}`
+     * only in the `@else`.
+     *
+     * An explicit light/dark variant rather than the auto-adapting `atriom-logo.svg`: that file
+     * keys off the OS `prefers-color-scheme`, which desyncs from Filament's own in-app toggle
+     * (light panel + dark OS rendered a cream wordmark on a white dashboard).
+     */
+    public static function logo(?Asset $asset, bool $dark = false): ?string
     {
         if ($asset instanceof Asset && ! $asset->isAllProperties() && ($logo = $asset->logoUrl())) {
             return $logo;
         }
 
-        // An explicit light/dark variant rather than the auto-adapting `atriom-logo.svg`: that file
-        // keys off the OS `prefers-color-scheme`, which desyncs from Filament's own in-app toggle
-        // (light panel + dark OS rendered a cream wordmark on a white dashboard).
+        return self::platformLogo($dark);
+    }
+
+    public static function platformLogo(bool $dark = false): string
+    {
         return asset($dark ? 'images/atriom-logo-dark.svg' : 'images/atriom-logo-light.svg');
     }
 
