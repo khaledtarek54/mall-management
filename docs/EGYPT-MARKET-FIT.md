@@ -294,7 +294,7 @@ The one area where the books may be quietly wrong on data the system already hol
 | ~~M-5~~ ✅ | **FIXED 2026-08-21 (EG-18) — and it was NOT "one line each".** `auto_apply_tenant_credit` was: one registry line plus pointing its single read at the resolver. `monthly_billing_day` was not, and the row was wrong about it: the value drives `->monthlyOn()` on the SCHEDULER, which is one process for the whole portfolio, so an override would have been a setting the operator saves and nothing can honour. Both runs now fire DAILY and ask each property whose day it is, clamped to the month's last day — unclamped, a property set to the 31st skips seven months of the year. ~~`monthly_billing_day` is portfolio-wide and capped at 28~~ | `app/Support/PropertySettings.php`; `app/Jobs/RunMonthlyBilling.php` | 🟠 |
 | M-6 ✅ | **FIXED 2026-08-22 (EG-30).** ~~Escalation is annual-only — `->addYear()`, and no `escalation_frequency` column exists. A biennial or 18-month clause cannot be automated.~~ `leases.escalation_interval_months` (nullable, null = 12) read through `Lease::escalationIntervalMonths()` | `app/Services/RentEscalationService.php:196` | 🟠 |
 | M-7 ✅ | **FIXED 2026-08-20 (EG-09).** ~~`leases.escalation_type` has no `ValueSets` entry~~ — a freed `string(32)` column whose options live in a **translation array**. The wildcard save-listener does not refuse out-of-set values here, so an import can write `annual_increase` and the sweep silently skips that lease forever. This is the exact pattern CLAUDE.md bans after the `Trade.category` episode | `lang/en/admin/statuses.php:311`; migration `2026_08_10_240000_...:44`; absent from `app/Support/ValueSets.php` | 🔴 |
-| M-8 | 🟡 **CAP SHIPPED 2026-08-22 (EG-35)** — `leases.late_fee_maximum` on the clause, falling back to property then portfolio, 0 = no cap. **Compounding is still open**: one fee per invoice is enforced by a `belongsTo` link, so recurrence is a schema change. ~~**Late fees have no cap and no compounding option.**~~ One fee per invoice; a large arrears produces an uncapped penalty and a six-months-late tenant is penalised once. Neither is settable, and both are things a real clause states | `app/Services/LateFeeService.php:130-135,158` | 🟠 |
+| ~~M-8~~ ✅ | **BOTH HALVES SHIPPED 2026-08-22 (EG-35).** The cap first (`leases.late_fee_maximum`), then RECURRENCE — `leases.late_fee_recurrence_days`, same three tiers, **0 = charge once** so nothing moves on deploy. It needed the schema change the cap did not: `invoices.late_fee_for_invoice_id` is the fee's pointer back at what it penalises, which is what makes *"which fees came from this invoice"* answerable once there can be more than one. ~~**Late fees have no cap and no compounding option.**~~ One fee per invoice; a large arrears produces an uncapped penalty and a six-months-late tenant is penalised once. Neither is settable, and both are things a real clause states | `app/Services/LateFeeService.php:130-135,158` | 🟠 |
 | M-9 | **Document numbers reset monthly, per property, by construction** — only the prefix letters are configurable; the mask is a `sprintf`. Egyptian tax-invoice series are conventionally expected to run continuously. Worth a deliberate decision **before go-live**, because it is not renumberable afterwards | `app/Models/Concerns/Invoice/AllocatesInvoiceNumber.php:33,38-44` | 🟠 |
 | M-10 | 🟡 **DEFERRED deliberately (2026-08-22).** 540 money sites, every stored figure re-derived, and the finding's own premise is conditional — *"an accountant asking for banker's rounding cannot have it"*, and none has asked. It is a real gap and a bad thing to do speculatively. ~~**Rounding is 2dp with PHP's default mode, in 540 places.**~~ No `PHP_ROUND_HALF_*` anywhere, no config. An accountant asking for banker's rounding cannot have it | 540 `round(…, 2)` under `app/` | 🟡 |
 | ~~M-11~~ ✅ | **FIXED 2026-08-22 (EG-35).** `BillingSettings::default_security_deposit_months`, per-property overridable. The policy had been the literal `3` in `LeaseCreationService`'s `$rent * 3` — sharper than this row said, since it was not merely absent but hardcoded. ~~**No deposit default at portfolio or property level**~~ — months-of-rent is per lease only, so a policy change ("3 months from Q1") reaches nothing | `PropertySettings::OVERRIDABLE` has no deposit key | 🟡 |
@@ -441,7 +441,7 @@ credential from the operator/accountant · ⚙️ ops.
 | **EG-32** | **Report builder / user-defined columns**, and **custom fields (UDFs)** — the two biggest structural gaps vs the market standard | S-5, D-7 | 🧑‍💻 | XL |
 | **EG-33** | **Real-estate tax and municipal levies as a recurring statutory cost** — there is no recurring-expense concept at all today | T-8, §3.6 | 🧑‍💻 + 🔑 | M |
 | **EG-34** | **Configurable retention policy** (activity log is pruned at 365 days from a hardcoded config value), per PDPL's documented-retention obligation | S-16, §3.6 | 🧑‍💻 + 🔑 | S |
-| **EG-35** | 🟡 **TWO OF FOUR DONE 2026-08-22 — and the row is really four separate pieces of work, not one M.** **Shipped:** the late-fee CAP, on the same three tiers its siblings already had (lease clause → property → portfolio, `leases.late_fee_maximum` + `BillingSettings::late_fee_maximum`, 0 = no cap), and the DEPOSIT default, which was the literal `3` in `LeaseCreationService`'s `$rent * 3` and is now a per-property setting. Both ship at today's behaviour, so no figure moves. **Not shipped, each for a stated reason:** late-fee RECURRENCE turns `invoices.late_fee_invoice_id` from a `belongsTo` into a one-to-many **on a money link** — a schema change deserving its own change and tests; the ROUNDING mode (M-10) is 540 money sites, changes every stored figure, and nobody has asked for banker's rounding; and a QUARTERLY CAM true-up (M-12) is **not a schedule change at all** — `cam_expense_pools` is `unique(asset_id, period_year)`, one pool per property per YEAR, so the pool's own period must change first and that is an L across the CAM module | M-8, M-11, M-12, M-10 | 🧑‍💻 | M |
+| **EG-35** | 🟡 **TWO OF FOUR DONE 2026-08-22 — and the row is really four separate pieces of work, not one M.** **Shipped:** the late-fee CAP, on the same three tiers its siblings already had (lease clause → property → portfolio, `leases.late_fee_maximum` + `BillingSettings::late_fee_maximum`, 0 = no cap), and the DEPOSIT default, which was the literal `3` in `LeaseCreationService`'s `$rent * 3` and is now a per-property setting. Both ship at today's behaviour, so no figure moves. **Recurrence shipped later the same day** (milestone 21) — it was deferred because it needed a schema change on a money link, which is what a separate change is for. **Still not shipped:** the ROUNDING mode (M-10) is 540 money sites, changes every stored figure, and nobody has asked for banker's rounding; and a QUARTERLY CAM true-up (M-12) is **not a schedule change at all** — `cam_expense_pools` is `unique(asset_id, period_year)`, one pool per property per YEAR, so the pool's own period must change first and that is an L across the CAM module | M-8, M-11, M-12, M-10 | 🧑‍💻 | M |
 | ~~**EG-36**~~ ✅ | **DONE 2026-08-22.** `journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative` — the ledger's twin of `ActivityVocabulary`, and the same rule: **a row stores DATA, never PROSE**. All **24** journalizers converted (25 narratives: the custody one branches, so its key is chosen in the same branch its prose is, and the two can never describe different movements). **The prose columns STAY and are still written**, as a snapshot and a floor: every row posted before today has prose and no key, a manual entry is prose the operator typed, and a read site nobody converted degrades to today's wording rather than to a blank cell — on a general ledger an empty description is indistinguishable from an entry nobody described. Nothing re-posts, because `matches()` compares lines, date and asset and deliberately not text | S-12 | 🧑‍💻 | M |
 | ~~**EG-37**~~ ✅ | **DONE 2026-08-22.** The count was **74**, not ~25 — and separating them was the value: **48 registered** (deriving from the model's own constant wherever it states one, so the registry is not 48 copies), **24 exempted** each naming the registry that owns it (`MorphMap` for a morph alias, the CHARGE CODE catalogue for `charges.type` and `invoice_items.type`, free text for three). Enforcement immediately found four unreachable fixture values, a **demo-data** defect (a renewal option whose 8% uplift the app could never apply), and a `facility_work_orders.status` of `completed` where the model says `done` — the very status D-8 named. Five of my own first sets were wrong because I read them off sampled DATA rather than the code | D-8 | 🧑‍💻 | S |
 | **EG-39** | **A rate-priced lease renewed at a negotiated rent silently keeps the OLD rate's figure.** `Lease::saving()` re-derives `base_rent_monthly` from rate × area on CREATE — and a renewal is a create — on the stated rule that "a typed monthly figure cannot outrank the rate the deal was struck at". So `LeaseRenewalService::renew($lease, ['new_rent' => 110000])` on a 250 m² unit at 4,800/m²/yr saves **100,000**, with nothing on screen to say the negotiated figure was replaced. Either refuse the mismatch, or re-rate from the new rent — an operator's call, which is why it is a row rather than a fix. Found 2026-08-22 by EG-37: the only rate-priced renewal fixture in the suite used `rent_pricing_basis => 'rate_per_sqm'`, a value no form offers and the code never matches, so that lease was treated as FLAT and the case passed | new | 🧑‍💻 + 🔑 | S |
@@ -1564,6 +1564,57 @@ why the code is treated as identity and not as data.
 about the code AND the type together and `getColumns()` is static. The model throws for the same
 reason, but its `InvalidArgumentException` reaches the operator as a failed row with a developer's
 sentence on it; this reaches them as the message the form shows.
+
+---
+
+### 2026-08-22 — milestone 21: EG-35's other half — a late fee that recurs while the debt stands
+
+Deferred from milestone 17 with a reason, and this is that reason discharged: it needed a schema
+change on a money link rather than a settings field, so it got its own change and its own tests.
+
+One fee per invoice, ever — a tenant six months late paid the same penalty as one six days late, and
+*"2% per month while the balance remains outstanding"* could not be expressed at all.
+
+**It ships OFF.** `late_fee_recurrence_days` is 0 on all three tiers, which is what every install has
+done since late fees existed, so no penalty changes on deploy. That default is a position, not
+caution: whether a penalty recurs is the sharpest term in a late-fee clause, and Egyptian practice
+and the rules around compounding are the accountant's ground rather than this system's. Opt in per
+lease.
+
+**The schema change is the audit trail, not the mechanism.** The recurrence DECISION only needed the
+last fee's issue date, which `late_fee_invoice_id` could already reach. What it could not do is
+answer *"which fees came from this invoice"* once there is more than one — the only record of that
+was a sentence inside each fee's line description. `invoices.late_fee_for_invoice_id` is the fee's
+pointer back at what it penalises, backfilled from the links that already existed so a fee invoice's
+history starts complete.
+
+**Two links, and they are not two truths.** `late_fee_invoice_id` on the source names the most recent
+fee and is the idempotency stamp the existing readers and `ChangeImpact` key on;
+`late_fee_for_invoice_id` on the fee names its source and is the trail. Different directions,
+different questions — and the decision itself reads the trail, so the rule has one home.
+
+**The bar that had to survive.** `items()->where('type','late_fee')->exists()` was doing two jobs by
+coincidence: barring an invoice charged under the old in-line behaviour, and — because a FEE
+invoice's only line is itself of type `late_fee` — stopping a late fee earning a late fee. With
+recurrence on and a fee invoice going past due like any other, that second job is the only thing
+standing between the operator and a penalty compounding on a penalty. It stays absolute, recurrence
+does not reach through it, and a test drives a real fee invoice past its own due date to prove it.
+
+**Measured from the last fee's ISSUE date**, not the invoice's due date: the clause says "again every
+N days", and anchoring to the due date would fire a burst of back-dated fees the first time an old
+arrear is swept.
+
+**A cancelled fee still does not count**, so one raised in error is voided and re-charged
+immediately rather than the tenant waiting out a window — behaviour that predates recurrence and had
+to survive it.
+
+**The sweep needed no change at all.** Its candidate query deliberately over-selects every past-due
+invoice and lets `applyTo()` decide, and it snapshots ids up front precisely so it cannot walk into
+the fees it just raised. Both properties were already there and both were load-bearing here.
+
+**`ChangeImpactConformanceTest` caught the new column unclassified**, which is the gate doing exactly
+its job: a new fillable on a posting source must say whether it can move the books. It cannot —
+NEUTRAL, beside its sibling.
 
 ---
 

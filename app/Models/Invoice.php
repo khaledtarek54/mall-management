@@ -84,6 +84,7 @@ class Invoice extends Model
         'status',
         'is_opening_balance',
         'late_fee_invoice_id',
+        'late_fee_for_invoice_id',
         'issue_date',
         'due_date',
         'period_start',
@@ -260,11 +261,43 @@ class Invoice extends Model
      * A CANCELLED fee invoice does not count: its GL entry is voided and the tenant owes nothing on
      * it, so the operator may charge again. Same rule as `BillViolationFineService`.
      */
+    /**
+     * Every late fee raised FOR this invoice, newest first — the audit trail (EG-35).
+     *
+     * `late_fee_invoice_id` names only the most recent, so before this relation existed the only
+     * record that an earlier fee came from this invoice was a sentence inside its line description.
+     */
+    public function lateFeesRaised(): HasMany
+    {
+        return $this->hasMany(self::class, 'late_fee_for_invoice_id')->latest('issue_date');
+    }
+
     public function hasLiveLateFee(): bool
     {
+        return $this->latestLiveLateFee() !== null;
+    }
+
+    /**
+     * The most recent late fee on this invoice that has not been cancelled.
+     *
+     * Read from `lateFeesRaised()` rather than from `late_fee_invoice_id`, so the recurrence
+     * decision and the audit trail cannot disagree about which fee is the latest. A CANCELLED fee
+     * does not count — that is what lets a fee raised in error be voided and re-charged, which was
+     * true before recurrence existed and stays true.
+     */
+    public function latestLiveLateFee(): ?self
+    {
+        $fromTrail = $this->lateFeesRaised()->where('status', '!=', 'cancelled')->first();
+
+        if ($fromTrail !== null) {
+            return $fromTrail;
+        }
+
+        // Fallback for a row whose back-pointer predates the backfill — and for an in-memory
+        // instance whose relation has not been refreshed.
         $fee = $this->lateFeeInvoice;
 
-        return $fee instanceof self && $fee->status !== 'cancelled';
+        return $fee instanceof self && $fee->status !== 'cancelled' ? $fee : null;
     }
 
     /**

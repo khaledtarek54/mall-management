@@ -54,6 +54,10 @@ class PropertySettings
             'class' => BillingSettings::class,
             'reason' => 'The cap belongs to the lease clause, and clauses differ by building: an anchor-heavy mall caps a penalty low because the arrears are large and the relationship matters more, while a kiosk mall may not cap at all. It sits beside `late_fee_percent`, `late_fee_grace_days` and `late_fee_minimum`, which have been per-property since they existed — a cap that alone could not vary would be the one term of the sentence the operator had to keep in their head.',
         ],
+        'billing.late_fee_recurrence_days' => [
+            'class' => BillingSettings::class,
+            'reason' => 'It sits beside the rate, grace, minimum and cap, which have been per-property since they existed — a recurrence that alone could not vary would be the one term of the clause the operator had to keep in their head. And whether a penalty recurs at all is the sharpest term in that sentence, so a building whose leases say so must be able to differ from one whose do not.',
+        ],
         'billing.default_security_deposit_months' => [
             'class' => BillingSettings::class,
             'reason' => 'Deposit policy is negotiated per building against what the local market bears — three months at the flagship, two at the outlet. It was the literal 3 in `LeaseCreationService`\'s `$rent * 3`, so a policy change reached nothing and a per-mall policy was unsayable. It PROPOSES the amount; the lease still records what was agreed.',

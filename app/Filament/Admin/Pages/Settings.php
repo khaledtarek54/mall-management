@@ -275,6 +275,15 @@ class Settings extends Page implements HasSchemas
                         ->prefix('EGP')
                         ->minValue(0)
                         ->required(),
+                    // 0 = charge once, and that is how it ships. Whether a penalty recurs at all is
+                    // the sharpest term in a late-fee clause, so it is opt-in per lease.
+                    TextInput::make('billing.late_fee_recurrence_days')
+                        ->label(__('admin.settings.fields.late_fee_recurrence_days'))
+                        ->helperText(__('admin.settings.fields.late_fee_recurrence_days_helper'))
+                        ->suffix(__('admin.fields.days'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->required(),
                     TextInput::make('billing.default_security_deposit_months')
                         ->label(__('admin.settings.fields.default_security_deposit_months'))
                         ->helperText(__('admin.settings.fields.default_security_deposit_months_helper'))

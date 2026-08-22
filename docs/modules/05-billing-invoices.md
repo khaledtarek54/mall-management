@@ -125,7 +125,7 @@ The Billing module automates the monthly invoicing lifecycle for Eltizam operato
 - Supports proration at BOTH ends: mid-month commencement (per-run flag) and mid-month
   termination/expiry (unconditional), plus the automatic credit note when the month was already
   billed in advance
-- Late-fee rate, minimum, grace **and cap** resolve through **three** tiers — **lease → property →
+- Late-fee rate, minimum, grace, **cap and recurrence** resolve through **three** tiers — **lease → property →
   portfolio** (`Lease::lateFeeTerms()` → `App\Support\PropertySettings` → `BillingSettings`).
   The **cap** joined them on 2026-08-22 (EG-35, finding M-8): `late_fee_minimum` existed and its
   opposite did not, so *"2% per month, minimum EGP 50, capped at EGP 5,000"* was two thirds
@@ -137,6 +137,23 @@ The Billing module automates the monthly invoicing lifecycle for Eltizam operato
   and `max()` last would bill above a cap the clause names. It must be returned from
   `lateFeeTerms()` and not only from `LateFeeService`'s no-lease fallback — `invoices.lease_id` is
   NOT NULL, so a cap defined only there is present in the code and inert in production.
+- **A late fee can RECUR while the balance stands** (EG-35, 2026-08-22). `late_fee_recurrence_days`
+  on the same three tiers, **0 = charge once**, which is what every install did before it existed.
+  Measured from the last fee's ISSUE date, not the invoice's due date — the clause says "again every
+  N days", and anchoring to the due date would fire a burst of back-dated fees the first time an old
+  arrear is swept. A CANCELLED fee still does not count, so one raised in error is voided and
+  re-charged immediately.
+
+  `invoices.late_fee_for_invoice_id` is the fee's pointer back at what it penalises — the audit
+  trail, and what makes *"which fees came from this invoice"* answerable once there is more than
+  one. It sits alongside `late_fee_invoice_id` on the source, which still names the MOST RECENT fee
+  and is the idempotency stamp; two directions, two questions, and the decision reads the trail.
+
+  **`items()->where('type','late_fee')->exists()` is an ABSOLUTE bar and recurrence does not reach
+  through it.** It does two jobs by coincidence: it bars an invoice charged under the old in-line
+  behaviour, and — because a fee invoice's only line is itself of type `late_fee` — it is what stops
+  a late fee earning a late fee. With recurrence on, that second job is the only thing between the
+  operator and a penalty compounding on a penalty.
   The lease's negotiated term still wins; what CFG-03 added underneath it is the PROPERTY, because
   Eltizam runs several malls and a late fee is a per-building term. See
   [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md#per-property-configuration-cfg-03-2026-08-12)

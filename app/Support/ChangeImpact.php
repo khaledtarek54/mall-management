@@ -120,6 +120,10 @@ class ChangeImpact
                 // WHY that document exists and makes the charge idempotent; it is read by no
                 // journalizer and changes no line, so it cannot move the books.
                 'late_fee_invoice_id',
+                // The same link read from the other end (EG-35): on a FEE invoice, which invoice it
+                // penalises. Audit trail rather than arithmetic — no journalizer reads it and it
+                // changes no line, so like its sibling it cannot move the books.
+                'late_fee_for_invoice_id',
                 // Revenue is recognised at ISSUE, so how much has since been collected does not
                 // touch this entry — a payment posts its own (Dr Bank / Cr AR). These three are
                 // the AR sub-ledger's derived state, not the invoice's GL effect.

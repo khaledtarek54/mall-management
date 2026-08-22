@@ -683,7 +683,16 @@ class LeaseForm
                             ->minValue(0)
                             ->prefix('EGP')
                             ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_maximum),
-                    ])->columns(4),
+                        // How often the clause lets the fee be charged again while the balance
+                        // stands. Blank inherits the property; 0 anywhere means charge once.
+                        TextInput::make('late_fee_recurrence_days')
+                            ->label(__('admin.fields.late_fee_recurrence_days'))
+                            ->helperText(__('admin.helpers.late_fee_recurrence_days'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->suffix(__('admin.fields.days'))
+                            ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_recurrence_days),
+                    ])->columns(5),
 
                     FormTab::make('admin.sections.percentage_rent', [
                         Toggle::make('has_percentage_rent')

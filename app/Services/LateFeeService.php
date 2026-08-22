@@ -110,6 +110,7 @@ class LateFeeService
             // 0 = no ceiling, which is what every install had before EG-35 and therefore what an
             // unset value must keep meaning.
             'maximum' => (float) PropertySettings::get('billing.late_fee_maximum', null),
+            'recurrence_days' => (int) PropertySettings::get('billing.late_fee_recurrence_days', null),
         ];
 
         $percent = $terms['percent'];
@@ -132,7 +133,11 @@ class LateFeeService
             // and re-charged. `items()->where('type','late_fee')` is deliberately still checked:
             // invoices charged under the old in-line behaviour must not be charged a second time.
             if (! $locked
-                || $locked->hasLiveLateFee()
+                || ! $this->mayChargeAgain($locked, (int) $terms['recurrence_days'], $today)
+                // ABSOLUTE bar, for two reasons that coincide: an invoice charged under the old
+                // in-line behaviour must not be charged again, and a FEE INVOICE's only line is
+                // itself of type `late_fee` — so this is also what stops a late fee earning one.
+                // Recurrence must never reach through it.
                 || $locked->items()->where('type', 'late_fee')->exists()
                 || (float) $locked->balance <= 0
                 || ! in_array($locked->status, ['issued', 'partially_paid', 'overdue'], true)) {
@@ -228,6 +233,11 @@ class LateFeeService
             // invoice exists. Written on the source, mirroring `Violation::billed_invoice_id`.
             // The overdue invoice's own totals are untouched — it stays exactly the document the
             // tenant was sent.
+            // The fee points BACK at what it penalises — the audit trail, and what makes "which
+            // fees came from this invoice" answerable once there can be more than one (EG-35).
+            $feeInvoice->late_fee_for_invoice_id = $locked->id;
+            $feeInvoice->save();
+
             $locked->late_fee_invoice_id = $feeInvoice->id;
             $locked->status = 'overdue';
             $locked->save();
@@ -243,5 +253,38 @@ class LateFeeService
 
             return true;
         });
+    }
+
+    /**
+     * May this invoice be charged a late fee now, given what it has already been charged? (EG-35)
+     *
+     * Three states, and the first two are exactly what the system did before recurrence existed:
+     *
+     *  - **no live fee** — charge. A CANCELLED fee does not count, which is what lets one raised in
+     *    error be voided and re-charged.
+     *  - **a live fee and `$recurrenceDays` of 0** — refuse. One fee per invoice: the shipped
+     *    behaviour, and what every install still gets until a clause says otherwise.
+     *  - **a live fee and a window** — charge only once that window has fully elapsed since the
+     *    last fee was ISSUED.
+     *
+     * Measured from the last fee's `issue_date`, not from the invoice's due date. The clause says
+     * "again every N days"; anchoring to the due date would fire a burst of back-dated fees the
+     * first time an old arrear is swept.
+     */
+    private function mayChargeAgain(Invoice $invoice, int $recurrenceDays, CarbonImmutable $today): bool
+    {
+        $last = $invoice->latestLiveLateFee();
+
+        if ($last === null) {
+            return true;
+        }
+
+        if ($recurrenceDays <= 0 || blank($last->issue_date)) {
+            return false;
+        }
+
+        return CarbonImmutable::instance($last->issue_date)
+            ->addDays($recurrenceDays)
+            ->lessThanOrEqualTo($today);
     }
 }

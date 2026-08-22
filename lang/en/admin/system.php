@@ -89,6 +89,8 @@ return [
             'holdover_default_rate_pct_helper' => 'What a lease is charged once it runs past its expiry, as a percentage of its last rent. 100% keeps the rent unchanged; the usual arrangement charges a premium. A lease may still carry its own agreed figure.',
             'late_fee_percent' => 'Late fee percentage',
             'late_fee_grace_days' => 'Grace period (days)',
+            'late_fee_recurrence_days' => 'Charge again after',
+            'late_fee_recurrence_days_helper' => 'Days before the same invoice may be charged another late fee. 0 charges once, which is the default.',
             'late_fee_maximum' => 'Late fee cap',
             'late_fee_maximum_helper' => 'The most one late fee may be. 0 for no cap. Applied after the minimum, so a cap below it still wins.',
             'default_security_deposit_months' => 'Default deposit (months of rent)',

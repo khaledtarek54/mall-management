@@ -46,7 +46,7 @@ trait ActsAsBillableAgreement
      * config file (populated from `env`), so every late-fee value an operator saved on that screen
      * was silently ignored. Reading one source here is what makes the screen mean something.
      *
-     * @return array{percent: float, grace_days: int, minimum: float, maximum: float}
+     * @return array{percent: float, grace_days: int, minimum: float, maximum: float, recurrence_days: int}
      */
     public function lateFeeTerms(): array
     {
@@ -75,6 +75,11 @@ trait ActsAsBillableAgreement
             'maximum' => $this->late_fee_maximum !== null
                 ? (float) $this->late_fee_maximum
                 : (float) PropertySettings::get('billing.late_fee_maximum', $assetId),
+            // How often the clause lets the fee be charged again while the balance stands. 0 =
+            // once per invoice, which is what every install did before EG-35 (2026-08-22).
+            'recurrence_days' => $this->late_fee_recurrence_days !== null
+                ? (int) $this->late_fee_recurrence_days
+                : (int) PropertySettings::get('billing.late_fee_recurrence_days', $assetId),
         ];
     }
 

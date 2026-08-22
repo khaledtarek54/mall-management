@@ -60,6 +60,19 @@ class BillingSettings extends Settings
     public float $late_fee_maximum = 0.0;
 
     /**
+     * How many days before a late fee may be charged AGAIN, or 0 to charge once (EG-35, M-8).
+     *
+     * One fee per invoice meant a tenant six months late paid the same penalty as one six days
+     * late, and *"2% per month while the balance remains outstanding"* was unsayable.
+     *
+     * **0 by default, which is what every install has done since late fees existed** — so nothing
+     * changes on deploy. Charging repeatedly is not a portfolio switch to flip casually: Egyptian
+     * practice and the rules around compounding are the accountant's ground, which is why this is
+     * off here and negotiable per lease.
+     */
+    public int $late_fee_recurrence_days = 0;
+
+    /**
      * Flat fee charged when a post-dated cheque is returned unpaid (Yardi posts an NSF charge).
      *
      * 0 = OFF, and that is how it ships: a fee appearing on invoices after an upgrade would be a

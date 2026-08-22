@@ -376,6 +376,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'late_fee_grace_days',
         'late_fee_minimum',
         'late_fee_maximum',
+        'late_fee_recurrence_days',
         'notes',
         'metadata',
     ];
