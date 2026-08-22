@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Charge;
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
 use App\Services\MonthlyBillingService;
@@ -299,5 +300,5 @@ it('does not bill the month twice when the arrears line is a utility recharge', 
     $second = $billing->generateForLease($lease->fresh(), $september);
 
     expect($second['invoice'] ?? null)->toBeNull()
-        ->and(\App\Models\Invoice::where('lease_id', $lease->id)->count())->toBe(1);
+        ->and(Invoice::where('lease_id', $lease->id)->count())->toBe(1);
 });
