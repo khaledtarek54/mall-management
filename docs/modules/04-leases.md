@@ -129,6 +129,19 @@
 > *"two months at the outlet mall"* was unsayable. It PROPOSES the figure; `security_deposit_months`
 > on the lease still records what was negotiated, and the derivation below is unchanged.
 
+> **⚠️ A RENEWAL is a re-negotiation: the deal wins and the rate follows it (EG-39, 2026-08-22).**
+> `Lease::saving()` re-derives `base_rent_monthly` from rate × area on CREATE — and a renewal is a
+> create — so renewing a 250 m² unit let at 4,800/m²/yr for a negotiated 110,000 used to save
+> **100,000**, silently. `LeaseRenewalService` now derives the new `base_rent_rate_per_sqm_year`
+> from the agreed rent (`deriveRateFromBaseRent()`, the inverse of its twin and living beside it),
+> off the ORIGINAL's area because the renewal holds no units until `syncUnits()`.
+>
+> **Origination is unchanged** — on a new lease the rate still outranks a typed figure. Fixed in the
+> service rather than the model because a disabled form field still posts a value, so "the caller
+> stated a rent" cannot be told apart from "the form echoed one" on create. And the agreed figure is
+> kept exact: a 2dp rate does not always round back to it (97,531.11 → 97,531.19), and the operator
+> must see the number they negotiated.
+
 > **⚠️ A deposit agreed as "three months' rent" now STAYS three months' rent (2026-08-17).**
 > `security_deposit` is a flat figure and rent escalates. On a 7% clause a deposit agreed at 3×
 > covers **2.62 months by year three and 2.29 by year five** — the landlord's security against a

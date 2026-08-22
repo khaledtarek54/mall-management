@@ -91,8 +91,12 @@ it('carries the rate-pricing basis, so a later expansion still moves the rent', 
     // extra 300 m² changes no rent at all.
     $renewal = renewTheLease();
 
+    // 5,280, not the original's 4,800: the renewal was struck at a negotiated 110,000 and since
+    // EG-39 the deal wins and the RATE follows it (110,000 × 12 ÷ 250). What this case is about is
+    // unchanged — the BASIS is carried, so a later expansion still moves the rent — and the rate
+    // now describes the deal actually done rather than last year's.
     expect($renewal->rent_pricing_basis)->toBe(Lease::RENT_RATE)
-        ->and((float) $renewal->base_rent_rate_per_sqm_year)->toBe(4800.0);
+        ->and((float) $renewal->base_rent_rate_per_sqm_year)->toBe(5280.0);
 });
 
 it('carries the per-lease late-fee terms and the deduction clause', function () {
@@ -189,17 +193,17 @@ it('still resets what belongs to the ORIGINAL tenancy — the paired control', f
         ->and($renewal->possession_date)->toBeNull()
         ->and($renewal->reference)->not->toBe($this->lease->reference)
         ->and($renewal->previous_lease_id)->toBe($this->lease->id)
-        // 100,000, NOT the 110,000 the renewal was given. This lease is priced per m² (250 m² at
-        // 4,800/yr), and `Lease::saving()` re-derives the monthly figure on CREATE — a renewal is a
-        // create — on the stated rule that "a typed monthly figure cannot outrank the rate the deal
-        // was struck at". So the negotiated rent is REPLACED, silently.
+        // 110,000 — the rent the renewal was actually given (EG-39, resolved 2026-08-22).
         //
-        // Pinned as it behaves rather than as it should behave: whether a rate-priced renewal should
-        // refuse the mismatch, or re-rate from the new rent, is the operator's call and not one to
-        // invent inside a regression test. Recorded as a finding — see docs/EGYPT-MARKET-FIT.md.
-        // It was invisible until now because the only rate-priced fixture in the suite used
-        // `rate_per_sqm`, a value the code never matches, so this lease was treated as flat.
-        ->and((float) $renewal->base_rent_monthly)->toBe(100000.0);
+        // This lease is priced per m² (250 m² at 4,800/yr) and `Lease::saving()` re-derives the
+        // monthly figure on CREATE — a renewal is a create — so the negotiated rent used to be
+        // REPLACED by 100,000, silently. This case pinned that as it behaved rather than as it
+        // should, because whether to refuse the mismatch or re-rate from the new rent was the
+        // operator's call and not one to invent inside a regression test.
+        //
+        // They chose to RE-RATE: a renewal is a re-negotiation, so the deal wins and the rate
+        // follows it. Origination is unchanged — there the rate still outranks a typed figure.
+        ->and((float) $renewal->base_rent_monthly)->toBe(110000.0);
 });
 
 it('accounts for EVERY fillable column — the gate that stops this recurring', function () {

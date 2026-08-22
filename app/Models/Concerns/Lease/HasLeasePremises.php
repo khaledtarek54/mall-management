@@ -205,6 +205,34 @@ trait HasLeasePremises
     }
 
     /**
+     * The rate a negotiated monthly rent implies — the inverse of {@see deriveBaseRentFromRate()}.
+     *
+     * Lives beside its twin so the two cannot drift: one is `rate × area ÷ 12` and this is
+     * `rent × 12 ÷ area`, and a second copy of either in a service is how they come to disagree.
+     *
+     * Used when a renewal is struck at a NEGOTIATED figure (EG-39). A renewal is a re-negotiation,
+     * so the deal wins and the rate follows it — the opposite of origination, where the rate the
+     * deal was struck at outranks a typed number.
+     *
+     * Null when this lease is not rate-priced or has no area to divide by, which is the same pair
+     * of refusals its twin makes.
+     */
+    public function deriveRateFromBaseRent(float $monthlyRent, ?CarbonImmutable $on = null): ?float
+    {
+        if ($this->rent_pricing_basis !== self::RENT_RATE || $monthlyRent <= 0) {
+            return null;
+        }
+
+        $area = $this->totalAreaSqmOn($on ?? CarbonImmutable::now());
+
+        if ($area <= 0) {
+            return null;
+        }
+
+        return round($monthlyRent * 12 / $area, 2);
+    }
+
+    /**
      * The lease's total leased area as it stood on a given day (LE-02).
      *
      * Two things vary with the date and both are honoured here: WHICH units the lease held (the

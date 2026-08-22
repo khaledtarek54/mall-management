@@ -92,7 +92,27 @@ class LeaseRenewalService
                 ->mapWithKeys(fn (string $column): array => [$column => $original->{$column}])
                 ->all();
 
-            $renewal = Lease::create(array_merge($carried, [
+            // ── A rate-priced lease renewed at a NEGOTIATED rent (EG-39) ─────────────────────
+            //
+            // `Lease::saving()` re-derives `base_rent_monthly` from rate × area on CREATE — and a
+            // renewal is a create — on the stated rule that a typed monthly figure cannot outrank
+            // the rate the deal was struck at. That rule is right at ORIGINATION and wrong here: a
+            // renewal IS a re-negotiation, so renewing a 250 m² unit at 4,800/m²/yr for 110,000
+            // silently saved 100,000, with nothing on screen to say the figure had been replaced.
+            //
+            // The deal wins and the RATE follows it. Derived from the ORIGINAL's area, because the
+            // renewal has no units until `syncUnits()` below and would divide by zero.
+            $reRated = [];
+
+            if ($original->rent_pricing_basis === Lease::RENT_RATE && $newRent > 0) {
+                $rate = $original->deriveRateFromBaseRent($newRent, CarbonImmutable::parse($commencement));
+
+                if ($rate !== null) {
+                    $reRated['base_rent_rate_per_sqm_year'] = $rate;
+                }
+            }
+
+            $renewal = Lease::create(array_merge($carried, $reRated, [
                 // The renewal's own identity and term — these are what a renewal IS.
                 // Reference deliberately NOT set here (2026-08-19). `Lease::creating` allocates it
                 // under the document-number lock, and that hook returns early when a reference is
@@ -108,6 +128,16 @@ class LeaseRenewalService
                 'base_rent_monthly' => $newRent,
                 'service_charge_monthly' => $newServiceCharge,
             ]));
+
+            // The agreed figure is EXACT; the rate is what it implies, rounded to 2dp. On an
+            // awkward area those disagree by a cent — `round(rate × area ÷ 12)` will not always
+            // land back on the typed rent — and the operator must see the number they negotiated,
+            // not one a rounding produced. Quietly, because this corrects the hook's own
+            // derivation rather than recording a new decision.
+            if ($reRated !== [] && (float) $renewal->base_rent_monthly !== $newRent) {
+                $renewal->base_rent_monthly = $newRent;
+                $renewal->saveQuietly();
+            }
 
             // Carry the original's FULL unit set into the renewal — a multi-unit
             // lease must keep all its units, not just the master (unit_id).
