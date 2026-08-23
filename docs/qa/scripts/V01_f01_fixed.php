@@ -23,7 +23,12 @@ Auth::login(User::where('email', 'admin@mall.test')->firstOrFail());
 
 qa_section('F-01 FIXED — the resource now has a schedule screen');
 $rels = UnitOwnershipResource::getRelations();
-qa_eq('one relation manager is mounted', 1, count($rels));
+// F-01 was "an ownership can never be given an assessment schedule", so what matters is that the
+// CHARGES screen is mounted — not how many relation managers there are. A rentable-items manager
+// was added later and turned this green check red for a reason nobody changed.
+$relNames = array_map(fn ($r) => is_string($r) ? $r : $r->getRelationshipName(), $rels);
+qa_ok('the charges (assessment schedule) relation manager is mounted',
+    (bool) preg_grep('/Charges/i', $relNames), implode(', ', array_map('class_basename', $relNames)));
 qa_eq('…and it is the assessment schedule',
     UnitOwnershipChargesRelationManager::class, $rels[0]);
 

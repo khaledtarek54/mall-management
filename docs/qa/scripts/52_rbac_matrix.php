@@ -53,11 +53,14 @@ foreach ($users as $role => $u) {
 }
 qa_ok('the leasing role can create and terminate leases',
     $users['leasing']->can('leases.create') && $users['leasing']->can('leases.terminate'));
-qa_ok('…but CANNOT open the rent roll (reports.view)', ! $users['leasing']->can('reports.view'),
-    'a leasing manager cannot see the rent roll, expiry schedule or occupancy cost');
+// F-06 FIXED (f0f00844, 2026-08-19). These two were REPRODUCTIONS — they asserted the defect was
+// still present, so closing the finding is what turned them red. Flipped to assert the fix, which
+// is what a suite should say once the bug is gone; left as-is they train the reader to ignore a red.
+qa_ok('…and CAN open the rent roll (reports.view)', $users['leasing']->can('reports.view'),
+    'a leasing manager can see the rent roll, expiry schedule and occupancy cost');
 qa_ok('the operations role runs work orders and procurement',
     $users['operations']->can('facility.view') && $users['operations']->can('procurement.create'));
-qa_ok('…but CANNOT open the unit register (units.view)', ! $users['operations']->can('units.view'),
-    'work orders route to units the role cannot open');
+qa_ok('…and CAN open the unit register (units.view)', $users['operations']->can('units.view'),
+    'work orders route to units, so the role must be able to open the shop it dispatches to');
 
 qa_summary();

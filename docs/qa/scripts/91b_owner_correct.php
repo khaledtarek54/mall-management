@@ -68,10 +68,13 @@ $oldPosted = JournalEntry::where('source_type', $fin->getMorphClass())->where('s
 qa_eq('the superseded run has no live posted entry', 0, $oldPosted);
 qa_assert_tb('after revise');
 
-qa_section('MINOR — finalise() is documented as idempotent but throws');
-qa_refuses('a second finalise throws instead of returning the run',
-    fn () => app(FinaliseOwnerStatementRunService::class)->finalise(
-        OwnerStatementRun::whereKey($rev->id)->firstOrFail(), $admin, '2026-08-02'));
+// F-13 is FIXED (2026-08-19): `finalise()` returns the already-finalised run instead of throwing.
+// This block still asserted the pre-fix behaviour, so the harness reported a red for the very
+// change that closed the finding — which is how a suite trains people to ignore it.
+qa_section('F-13 FIXED — finalise() is idempotent');
+$again = app(FinaliseOwnerStatementRunService::class)->finalise(
+    OwnerStatementRun::whereKey($rev->id)->firstOrFail(), $admin, '2026-08-02');
+qa_eq('a second finalise returns the SAME run rather than throwing', $rev->id, $again->id);
 qa_eq('…but nothing is double-posted', 1,
     JournalEntry::where('source_type', $rev->getMorphClass())->where('source_id', $rev->id)->where('status', 'posted')->count());
 

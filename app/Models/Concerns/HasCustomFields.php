@@ -123,7 +123,19 @@ trait HasCustomFields
         $types = $this->customFieldsForDisplay()->pluck('type', 'key');
         $terms = [];
 
-        foreach ($this->customFieldValues() as $key => $value) {
+        // Sorted by KEY, because `metadata` is a native `json` column on MySQL and MySQL does not
+        // preserve object key order — it normalises, shortest key first. So the order PHP wrote is
+        // not the order the row reads back in, and the blob came out different every time
+        // `atriom:rebuild-search` ran: the same answers in a different sequence. Harmless for
+        // substring matching and still a broken promise — the blob is documented as a pure function
+        // of the row, and a rebuild that rewrites every blob hides a real change in the churn.
+        //
+        // Invisible to the whole Pest suite: on SQLite `metadata` is TEXT and keeps insertion
+        // order. Caught by the MySQL QA harness, which is the point of having one.
+        $values = $this->customFieldValues();
+        ksort($values);
+
+        foreach ($values as $key => $value) {
             if (is_bool($value) || $value === null || ($types[$key] ?? 'text') === 'boolean') {
                 continue;
             }

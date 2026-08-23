@@ -34,7 +34,9 @@ qa_section('PAYROLL 1 — a run is generated from the eligible staff');
 $emps = collect(range(1, 3))->map(fn ($i) => Employee::create(['asset_id' => $asset->id,
     'department_id' => $dept?->id, 'code' => 'QA-E'.$i, 'name' => "QA Employee $i",
     'position' => 'Technician', 'hire_date' => '2025-01-01', 'base_salary' => 10000 * $i,
-    'payment_method' => 'bank_transfer', 'status' => 'active']));
+    // 'bank', not the rail catalogue's 'bank_transfer': `employees.payment_method` is
+    // deliberately NOT catalogue-widened (ValueSets), and the form offers cash|bank only.
+    'payment_method' => 'bank', 'status' => 'active']));
 $run = Payroll::create(['asset_id' => $asset->id, 'period_month' => '2026-08-01',
     'description' => 'QA August payroll', 'status' => 'draft', 'paid_from' => 'bank']);
 $svc = app(GeneratePayrollService::class);

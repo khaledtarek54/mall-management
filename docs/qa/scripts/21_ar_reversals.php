@@ -115,7 +115,9 @@ qa_ok('a late fee is charged past the grace period', $charged);
 $fee = Invoice::where('tenant_id', $i6->tenant_id)->whereHas('items', fn ($q) => $q->where('type', 'late_fee'))->latest('id')->first();
 qa_ok('the fee is its OWN invoice, not a line on the overdue one', $fee !== null && $fee->id !== $i6->id, $fee?->number);
 qa_eq('fee = 2% of the outstanding balance', 2000.00, (float) $fee->subtotal);
-qa_eq('the fee invoice is dated TODAY, not the original period', now()->toDateString(), $fee->issue_date->format('Y-m-d'));
+// Dated the day the fee is RAISED — which is the date passed to `applyTo()` above, not `now()`.
+// Asserting `now()` only ever passed on the day this script was written (2026-08-19).
+qa_eq('the fee invoice is dated the day it is RAISED, not the original period', '2026-08-19', $fee->issue_date->format('Y-m-d'));
 qa_eq('a penalty carries no VAT', 0.00, (float) $fee->vat_amount);
 qa_ok('re-running charges nothing more', ! app(LateFeeService::class)->applyTo($i6->fresh(), CarbonImmutable::parse('2026-08-20')));
 $i6b = $bill($mk(100000, ['late_fee_percent' => 2, 'late_fee_grace_days' => 30, 'late_fee_minimum' => 500]), '2026-08');

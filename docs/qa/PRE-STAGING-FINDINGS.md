@@ -150,7 +150,7 @@ nothing happen has no signal. **Before staging:** set `wht_default_tax_code` (or
 *"No returned-cheque fee is set"* until it is priced. Correct refusal (it never invents a fee), but
 it means the bounced-cheque flow is inert on a fresh box. Set it per property before staging.
 
-## F-06 · MEDIUM · RBAC · The leasing role cannot open any leasing report — but the read-only viewer can
+## F-06 · MEDIUM · RBAC · The leasing role cannot open any leasing report — but the read-only viewer can — ✅ FIXED 2026-08-19
 **Module:** 18 · `RolesPermissionsSeeder`, `RentRoll::canAccess()` et al.
 
 Every report page in the four modules is gated on the single permission `reports.view`. It is held by
@@ -177,6 +177,12 @@ Separately, `operations` holds `facility.*`, `areas.*`, `requests.*` and `procur
 Neither is a security hole (both fail closed); both are role-design defects an operator meets on day
 one. **Fix:** grant `reports.view` to `leasing` (and consider `marketing` for sales analytics), and
 `units.view` to `operations`.
+
+**Both were granted in `f0f00844` (2026-08-19)** — `leasing` now holds `reports.view` and `units.view`,
+`operations` holds `units.view`. The marketing/sales-analytics half was considered and NOT taken; it
+stays a live question rather than an oversight. `52_rbac_matrix.php` reproduced the defect, so the fix
+is what turned it red — the assertions were flipped to the fixed behaviour on 2026-08-23, when a full
+harness run surfaced them.
 
 ## F-07 · LOW · RBAC · Budget is super_admin-only
 `Budget::canAccess()` gates on `settings.manage`, held only by `super_admin` — not by `manager` or

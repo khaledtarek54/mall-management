@@ -1,6 +1,7 @@
 <?php
 
 require __DIR__.'/boot.php';
+use App\Models\AccountingPeriod;
 use App\Models\Asset;
 use App\Models\DepositTransaction;
 use App\Models\JournalEntry;
@@ -103,8 +104,19 @@ $owner = User::whereHas('ownedAssets')->first() ?? User::where('email', 'owner@a
 if ($owner) {
     printf("  owner: %s\n", $owner->email);
     try {
-        $run = app(GenerateOwnerStatementRunService::class)->generate(
-            $asset, CarbonImmutable::parse('2026-07-01'), CarbonImmutable::parse('2026-07-31'));
+        // `generate()` takes the PERIOD, not a start/end pair — a statement run is filed against
+        // an accounting period, so the service resolves its own window from it. This script still
+        // passed two Carbons and died on a TypeError.
+        $period = AccountingPeriod::query()
+            ->whereDate('starts_on', '<=', '2026-07-01')
+            ->whereDate('ends_on', '>=', '2026-07-01')
+            ->first();
+        if (! $period) {
+            qa_ok('a July 2026 accounting period exists to file the run against', false);
+
+            throw new RuntimeException('no accounting period covering 2026-07');
+        }
+        $run = app(GenerateOwnerStatementRunService::class)->generate($asset, $period);
         printf("  run #%d status=%s statements=%d\n", $run->id, $run->status, $run->statements()->count());
         qa_ok('a statement run generates', $run->exists);
         foreach ($run->statements as $st) {
@@ -126,9 +138,12 @@ if ($owner) {
             qa_ok('…crediting DUE TO OWNER (a liability)',
                 $oe->lines->firstWhere('ledger_account_id', $acct('due_to_owner')) !== null);
         }
-        qa_refuses('a finalised run cannot be finalised again',
-            fn () => app(FinaliseOwnerStatementRunService::class)->finalise($fin->fresh(),
-                User::where('email', 'admin@mall.test')->first(), '2026-08-01'), null, Throwable::class);
+        // F-13 FIXED (2026-08-19): finalise() is idempotent and RETURNS the finalised run rather
+        // than throwing. The same stale expectation lived in `91b_owner_correct.php` — one script
+        // was updated and this sibling was not, which is the defect this codebase repeats most.
+        $again = app(FinaliseOwnerStatementRunService::class)->finalise($fin->fresh(),
+            User::where('email', 'admin@mall.test')->first(), '2026-08-01');
+        qa_eq('a finalised run finalises again idempotently, returning the same run', $fin->id, $again->id);
     } catch (Throwable $e) {
         qa_ok('owner statement run', false, get_class($e).': '.mb_substr($e->getMessage(), 0, 200));
     }

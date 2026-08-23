@@ -54,3 +54,7 @@ ca.pem
 
 # Generated QA snapshot — rebuild with `composer qa:baseline`, never committed
 docs/qa/scripts/baseline.sql
+
+# Race-harness scratch output (docs/qa/scripts/race.sh) — per-run artefacts, never committed
+docs/qa/scripts/race_*.out
+docs/qa/scripts/race_ids.json
