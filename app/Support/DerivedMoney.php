@@ -60,6 +60,7 @@ class DerivedMoney
         ],
 
         CreditNote::class => [
+            'applied_amount' => 'how much of the note is SPENT, and the CreditNoteApplication rows are the truth about that. Fillable and unguarded until 2026-08-23: resetting it to 0 made a spent note read unspent and applicable again — the same credit given away twice. `CreditNote::updating` now holds it to Σ applications rather than to its previous value, because the rows cannot be wrong about it; all three write paths in CreditNoteService write the row BEFORE saving the note so the sum is already correct.',
             'subtotal' => 'Σ of the note\'s lines — recomputeFromItems(), fired by the CreditNoteItem hooks.',
             'vat_amount' => 'recomputed from each line\'s amount × vat_rate, never the submitted vat_amount.',
             'total' => 'subtotal + vat_amount, and what the journalizer reverses out of revenue.',

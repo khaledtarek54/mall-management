@@ -131,9 +131,11 @@ class CreditNoteService
             $note->balance = (float) $note->total - (float) $note->applied_amount;
             $note->status = $note->balance > 0 ? 'issued' : 'applied';
             $note->applied_at = $note->applied_at ?? now();
-            $note->save(); // a newly-bound lease re-syncs the note's GL entry to the invoice's asset
-
-            // Record the application so it can be un-applied precisely (invoice cancel / guided reverse).
+            // Record the application BEFORE saving the note. The application rows are the TRUTH
+            // about how much of a note is spent, and `CreditNote::updating` now holds
+            // `applied_amount` to their sum — so the row has to exist by the time the note is
+            // written or the guard would correct a legitimate application back down. Same
+            // transaction and the note is already locked, so nothing can read the in-between.
             CreditNoteApplication::create([
                 'credit_note_id' => $note->id,
                 'invoice_id' => $invoice->id,
@@ -141,6 +143,8 @@ class CreditNoteService
                 'applied_at' => now(),
                 'created_by' => Auth::id(),
             ]);
+
+            $note->save(); // a newly-bound lease re-syncs the note's GL entry to the invoice's asset
 
             // Record the applied credit durably (credit_applied_amount) so Invoice::recomputeTotals —
             // which otherwise sums only the payments pivot — folds it into paid_amount/balance/status,
@@ -175,9 +179,15 @@ class CreditNoteService
                     if ($note->applied_amount <= 0) {
                         $note->applied_at = null;
                     }
+                }
+
+                // Deleted BEFORE the note is written, for the same reason the create moved above
+                // it: the rows are what `CreditNote::updating` measures `applied_amount` against.
+                $app->delete();
+
+                if ($note) {
                     $note->save();
                 }
-                $app->delete();
             }
 
             $invoice->credit_applied_amount = 0;
@@ -259,10 +269,14 @@ class CreditNoteService
                 if ((float) $note->applied_amount <= 0) {
                     $note->applied_at = null;
                 }
-                $note->save();
             }
 
+            // Before the note is written — see the note on the create in applyToInvoice().
             $application->delete();
+
+            if ($note) {
+                $note->save();
+            }
 
             return round($amount, 2);
         }, 3);

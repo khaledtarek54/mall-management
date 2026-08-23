@@ -7,6 +7,7 @@ use App\Models\InvoiceItem;
 use App\Support\DerivedMoney;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use App\Models\CreditNoteApplication;
 
 /**
  * Self-enforcing gate — a derived money column may not be written by whoever posts the form.
@@ -154,6 +155,34 @@ describe('the derived columns resist tampering', function () {
         expect((float) $note->fresh()->total)->toBe(1000.0);
     });
 
+    it('holds a credit note\'s applied_amount to its application rows', function () {
+        // Not covered by the data-driven Invoice sweep above — CreditNote's cases are written out,
+        // so classifying the column in the registry does NOT give it a test. Written here on
+        // purpose, because the exploit is concrete: reset a spent note to zero and it reads
+        // unspent, so the same credit can be applied a second time.
+        $note = CreditNote::create([
+            'invoice_id' => $this->invoice->id,
+            'tenant_id' => $this->invoice->tenant_id,
+            'status' => 'issued',
+            'issue_date' => now()->toDateString(),
+            'reason' => 'billing_error',
+            'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000,
+            'applied_amount' => 1000, 'balance' => 0,
+        ]);
+
+        CreditNoteApplication::create([
+            'credit_note_id' => $note->id,
+            'invoice_id' => $this->invoice->id,
+            'amount' => 1000,
+            'applied_at' => now(),
+        ]);
+
+        $note->update(['applied_amount' => 0]);
+
+        expect((float) $note->fresh()->applied_amount)->toBe(1000.0)
+            ->and((float) $note->fresh()->balance)->toBe(0.0);
+    });
+
     it('leaves an operator-entered column alone — the paired control', function () {
         // The gate must refuse the CLIENT, not the mechanism. If a line's own amount stopped being
         // writable, nobody could raise an invoice at all, and every test above would still pass.
@@ -173,7 +202,9 @@ describe('the derived columns resist tampering', function () {
  * crafted payload.
  */
 const DERIVED_MONEY_UNGUARDED = [
-    'App\Models\CreditNote::applied_amount' => 'Confirmed tamperable 2026-08-23 — `update([\'applied_amount\' => 0])` sticks on a fully applied note, so a spent credit reads unspent and can be applied again. NOT fixed the way the invoice one was: `CreditNoteService` persists this with a plain `save()` (the comment there says the event is needed to re-sync the note\'s GL entry to a newly bound lease), so reverting it in a hook would break the legitimate application path. The real guard is `applied_amount === Σ CreditNoteApplication.amount`, which needs the application row written BEFORE the note is saved — a reorder inside a money transaction, and its own change.',
+    // Empty since 2026-08-23. The one entry was `CreditNote::applied_amount`, and it was fixed
+    // rather than waived — see the guard in `CreditNote::updating`. An entry here is a money
+    // column a crafted payload can still write, so the list is meant to stay empty.
 ];
 
 it('classifies every fillable money column on a model it already guards', function () {
@@ -239,6 +270,11 @@ it('classifies every fillable money column on a model it already guards', functi
 });
 
 it('keeps every unguarded-money exemption honest', function () {
+    // Asserted even when the list is empty — an empty loop makes no assertions and Pest marks the
+    // test RISKY, which reads as coverage that is not there. Bounded at one because an entry is a
+    // money column a crafted payload can still write.
+    expect(count(DERIVED_MONEY_UNGUARDED))->toBeLessThanOrEqual(1);
+
     foreach (array_keys(DERIVED_MONEY_UNGUARDED) as $key) {
         [$model, $column] = explode('::', $key, 2);
 

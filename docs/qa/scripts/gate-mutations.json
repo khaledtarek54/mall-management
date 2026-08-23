@@ -187,5 +187,12 @@
     "path": "app/Models/Invoice.php",
     "old": "$invoice->isDirty(['balance', 'paid_amount', 'credit_applied_amount'])",
     "new": "$invoice->isDirty(['balance', 'paid_amount'])"
+  },
+  {
+    "name": "DerivedMoney \u2014 the credit-note guard stops holding applied_amount to its rows",
+    "gate": "tests/Feature/Scenarios/DerivedMoneyConformanceTest.php",
+    "path": "app/Models/CreditNote.php",
+    "old": "            if ($note->isDirty('applied_amount')) {",
+    "new": "            if (false) {"
   }
 ]

@@ -292,6 +292,38 @@ class CreditNote extends Model
                     throw new \DomainException("A finalized credit note's {$bindOnce} is immutable — void it and issue a new one.");
                 }
             }
+
+            // ── `applied_amount` is what the APPLICATION ROWS say, and nothing else ────────────
+            // It was fillable and unguarded until 2026-08-23: `update(['applied_amount' => 0])`
+            // stuck on a fully applied note, so a spent credit read unspent and could be applied
+            // all over again — the same money given away twice. Found by the mutation audit of
+            // `DerivedMoneyConformanceTest`, which generates its tampering cases from a registry
+            // this column was missing from.
+            //
+            // Held to `Σ CreditNoteApplication.amount` rather than reverted to the ORIGINAL,
+            // because the rows ARE the truth: they are what `reverseApplication()` un-applies from
+            // and what the invoice side is reconciled against. Reverting to the previous value
+            // would restore a figure that might itself have been wrong; the sum cannot be.
+            //
+            // The invoice-side twin (`Invoice::credit_applied_amount`) is reverted instead of
+            // summed, because its legitimate writer persists through `saveQuietly()` and never
+            // reaches its hook. This one's writer needs its events — a newly bound lease re-syncs
+            // the note's GL entry — so it cannot be excluded that way, and all three write paths
+            // in `CreditNoteService` now write the application row BEFORE saving the note so the
+            // sum is already correct when this runs.
+            if ($note->isDirty('applied_amount')) {
+                $applied = round(
+                    (float) CreditNoteApplication::query()
+                        ->where('credit_note_id', $note->getKey())
+                        ->sum('amount'),
+                    2,
+                );
+
+                if (abs((float) $note->applied_amount - $applied) > 0.005) {
+                    $note->applied_amount = $applied;
+                    $note->balance = round((float) $note->total - $applied, 2);
+                }
+            }
         });
 
         // Deleting a note whose credit is still APPLIED would strand the invoice's

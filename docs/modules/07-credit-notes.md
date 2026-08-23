@@ -48,6 +48,34 @@ The system allows an operator to:
 
 ## 3. Business rules & invariants
 
+> **`applied_amount` is what the APPLICATION ROWS say, and nothing else** (2026-08-23). It was
+> fillable and unguarded: `update(['applied_amount' => 0])` stuck on a fully applied note, so a
+> spent credit read unspent and could be applied all over again — **the same money given away
+> twice**. The invoice-side twin `invoices.credit_applied_amount` had the identical hole and was
+> worse: a payload set it and the next `recomputeTotals()` folded it into `paid_amount`, so an
+> invoice read part-settled with no credit note, no payment and no deposit behind it, while the GL
+> still carried the full AR debit.
+>
+> Both are guarded now, and **differently, because their writers differ**. The invoice column is
+> REVERTED in `Invoice::saving` — its legitimate writer persists through `recomputeTotals()` →
+> `saveQuietly()` and never reaches the hook, so anything that does is a client payload by
+> construction. The note column cannot use that trick: `CreditNoteService` saves it with a plain
+> `save()` whose event is needed (a newly bound lease re-syncs the note's GL entry), so
+> `CreditNote::updating` holds it to **`Σ CreditNoteApplication.amount`** instead. Held to the sum
+> rather than reverted to the previous value on purpose: the rows are the truth about what a note
+> has spent, and a revert would restore a figure that might itself be wrong.
+>
+> That required all three write paths in `CreditNoteService` to write the application ROW before
+> saving the note — create-then-save on apply, delete-then-save on both reversals — so the sum is
+> already correct when the guard runs. Same transaction, note already locked, so nothing observes
+> the in-between.
+>
+> Found by mutation-testing `DerivedMoneyConformanceTest`, which generates its tampering cases from
+> a registry both columns were missing from: coverage that shrank with the thing it measured. The
+> gate now derives from the SCHEMA — every fillable money column on a guarded model is classified
+> or exempt with a reason — and the credit-note case is written out explicitly, because only the
+> invoice cases are data-driven.
+
 > **Finalized credit notes are immutable in the form (GL integrity, Phase 1).** A credit note is
 > freely editable only while `draft`; once issued, the admin form disables its items and the
 > tenant/invoice/lease/issue_date fields — a mistake is corrected by voiding it, not a silent edit
