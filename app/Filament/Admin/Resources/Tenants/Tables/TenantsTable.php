@@ -7,6 +7,7 @@ use App\Filament\Exports\TenantExporter;
 use App\Models\Tenant;
 use App\Services\TenantStatementPdfService;
 use App\Support\Exports;
+use App\Support\Filament\CustomFieldsTable;
 use App\Support\TenantScope;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -120,6 +121,10 @@ class TenantsTable
                     ->color(fn ($state): string => (float) $state > 0 ? 'success' : 'gray')
                     ->icon(fn ($state): ?string => (float) $state > 0 ? 'heroicon-m-gift' : null)
                     ->toggleable(),
+
+                // The operator's own fields (D-7). Hidden until asked for, so a list
+                // nobody customised is unchanged.
+                ...CustomFieldsTable::columns('tenant'),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -189,6 +194,8 @@ class TenantsTable
                         return $indicators;
                     }),
                 TrashedFilter::make(),
+
+                ...CustomFieldsTable::filters('tenant'),
             ])
             ->filtersFormColumns(2)
             ->headerActions([

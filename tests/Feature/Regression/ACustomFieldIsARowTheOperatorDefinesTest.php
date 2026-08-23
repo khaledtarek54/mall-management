@@ -2,11 +2,14 @@
 
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
+use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
+use App\Filament\Exports\TenantExporter;
 use App\Models\CustomField;
 use App\Models\Tenant;
 use App\Support\CustomFields;
 use App\Support\Filament\CustomFieldsSchema;
+use App\Support\Filament\CustomFieldsTable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -339,4 +342,174 @@ it('refuses a key Filament would read as nesting', function () {
 
     // The control, so this is not passing because every create is refused.
     expect(defineField(['key' => 'parent_group2'])->exists)->toBeTrue();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Slice 3 — the answers are usable, not just recorded
+|--------------------------------------------------------------------------
+|
+| An operator who records a parent buying group on two hundred tenants wants a LIST by parent group
+| and a spreadsheet of it — which is the whole reason they asked for the field. A value you can type
+| and never group by is the notes box with extra steps.
+|
+| Display reads through the model; querying reads through SQL (`metadata->{key}`), because filtering
+| and sorting have to happen in the database — a collection filter pages wrongly and a collection
+| sort only orders the rows already fetched.
+*/
+
+/** A tenant on this asset carrying these answers. */
+function tenantAnswering(array $values, array $attrs = []): Tenant
+{
+    $tenant = makeTenant($attrs + ['asset_id' => test()->cfAsset->id]);
+    $tenant->fillCustomFields($values)->save();
+
+    return $tenant->fresh();
+}
+
+it('filters a list by a custom field, in the database', function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+    $this->cfAsset = makeAsset();
+    $this->actingAs(makeUser('manager', [$this->cfAsset->id]));
+
+    defineField();
+    defineField([
+        'key' => 'segment', 'type' => 'select', 'label_en' => 'Segment',
+        'options' => [
+            ['value' => 'f_and_b', 'label_en' => 'Food & beverage', 'label_ar' => 'أغذية'],
+            ['value' => 'fashion', 'label_en' => 'Fashion', 'label_ar' => 'أزياء'],
+        ],
+    ]);
+
+    $fnb = tenantAnswering(['parent_group' => 'Americana Group', 'segment' => 'f_and_b']);
+    $fashion = tenantAnswering(['parent_group' => 'Alshaya', 'segment' => 'fashion']);
+    $unanswered = tenantAnswering([]);
+
+    asTenant($this->cfAsset, function () use ($fnb, $fashion, $unanswered) {
+        Livewire::withQueryParams([]);
+
+        // The control comes FIRST, and that ordering is load-bearing: this panel sets
+        // `persistFiltersInSession()`, so a filter applied by one component is still applied when
+        // the next one mounts. A control asserted last would fail against filters the earlier
+        // assertions had left behind, and would read as the list being broken.
+        Livewire::test(ListTenants::class)
+            ->assertCanSeeTableRecords([$fnb, $fashion, $unanswered]);
+
+        // A choice field filters on the STORED value.
+        Livewire::test(ListTenants::class)
+            ->filterTable('cf_segment', ['value' => 'f_and_b'])
+            ->assertCanSeeTableRecords([$fnb])
+            ->assertCanNotSeeTableRecords([$fashion, $unanswered])
+            ->resetTableFilters();
+
+        // Text CONTAINS — an operator looking for "Americana" should not have to remember whether
+        // they typed "Americana Group".
+        Livewire::test(ListTenants::class)
+            ->filterTable('cf_parent_group', ['value' => 'americana'])
+            ->assertCanSeeTableRecords([$fnb])
+            ->assertCanNotSeeTableRecords([$fashion])
+            ->resetTableFilters();
+    });
+});
+
+it('excludes a record that never answered, rather than treating it as empty', function () {
+    // `NULL` at the JSON path fails every comparison, which is the right default: "no parent group
+    // recorded" is not "parent group is empty".
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+    $this->cfAsset = makeAsset();
+    $this->actingAs(makeUser('manager', [$this->cfAsset->id]));
+
+    defineField();
+    $answered = tenantAnswering(['parent_group' => 'Americana Group']);
+    $never = tenantAnswering([]);
+
+    asTenant($this->cfAsset, function () use ($answered, $never) {
+        Livewire::withQueryParams([]);
+
+        Livewire::test(ListTenants::class)
+            ->filterTable('cf_parent_group', ['value' => 'a'])
+            ->assertCanSeeTableRecords([$answered])
+            ->assertCanNotSeeTableRecords([$never]);
+    });
+});
+
+it('sorts by a custom field in the database, not in the fetched page', function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+    $this->cfAsset = makeAsset();
+    $this->actingAs(makeUser('manager', [$this->cfAsset->id]));
+
+    defineField();
+    $c = tenantAnswering(['parent_group' => 'Cedar']);
+    $a = tenantAnswering(['parent_group' => 'Americana']);
+    $b = tenantAnswering(['parent_group' => 'Binghatti']);
+
+    asTenant($this->cfAsset, function () use ($a, $b, $c) {
+        Livewire::withQueryParams([]);
+
+        Livewire::test(ListTenants::class)
+            ->sortTable('custom_fields.parent_group')
+            ->assertCanSeeTableRecords([$a, $b, $c], inOrder: true)
+            ->sortTable('custom_fields.parent_group', 'desc')
+            ->assertCanSeeTableRecords([$c, $b, $a], inOrder: true);
+    });
+});
+
+it('offers a column per field, hidden until the operator asks for it', function () {
+    // An operator who defines eight fields must not find eight new columns on a list they were
+    // happy with. They turn one on — and EG-32 slice 1 lets them save that choice as a view.
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+    $this->cfAsset = makeAsset();
+    $this->actingAs(makeUser('manager', [$this->cfAsset->id]));
+
+    defineField();
+
+    asTenant($this->cfAsset, function () {
+        Livewire::withQueryParams([]);
+        $page = Livewire::test(ListTenants::class);
+
+        expect($page->instance()->isTableColumnToggledHidden('custom_fields.parent_group'))->toBeTrue()
+            // The control: a shipped column is on, so this is the DEFAULT being hidden rather than
+            // the whole column manager reporting everything as hidden.
+            ->and($page->instance()->isTableColumnToggledHidden('name'))->toBeFalse();
+    });
+});
+
+it('exports the answers, after the shipped columns', function () {
+    // A field an operator can filter but not take away is still half a capability — the reason they
+    // recorded it is usually a spreadsheet somebody else reads.
+    defineField();
+    defineField(['key' => 'segment', 'type' => 'select', 'label_en' => 'Segment', 'options' => [
+        ['value' => 'f_and_b', 'label_en' => 'Food & beverage', 'label_ar' => 'أغذية'],
+    ]]);
+
+    $names = array_map(
+        fn ($column) => $column->getName(),
+        TenantExporter::getColumns(),
+    );
+
+    expect($names)->toContain('custom_fields.parent_group')
+        ->and($names)->toContain('custom_fields.segment')
+        // LAST, so an existing import template's column positions do not move under it.
+        ->and(array_slice($names, -2))->toBe(['custom_fields.parent_group', 'custom_fields.segment'])
+        ->and($names[0])->toBe('code');
+});
+
+it('does not offer a column or filter for a field that was retired', function () {
+    // Same rule as the form: `is_active` stops a field being ASKED. A filter for a question nobody
+    // is asked any more is a control that returns rows nobody can explain.
+    $field = defineField();
+
+    expect(CustomFieldsTable::columns('tenant'))->toHaveCount(1)
+        ->and(CustomFieldsTable::filters('tenant'))->toHaveCount(1)
+        ->and(CustomFieldsTable::exportColumns('tenant'))->toHaveCount(1);
+
+    $field->update(['is_active' => false]);
+
+    expect(CustomFieldsTable::columns('tenant'))->toBe([])
+        ->and(CustomFieldsTable::filters('tenant'))->toBe([])
+        ->and(CustomFieldsTable::exportColumns('tenant'))->toBe([]);
 });

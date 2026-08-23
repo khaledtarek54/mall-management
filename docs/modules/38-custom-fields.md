@@ -94,6 +94,8 @@ actually exists, and naming one that does not is the exact silent failure that c
 | Tenant record page | `CustomFieldsSchema::infolist()` spread into `TenantInfolist` |
 | Edit form **loading** existing answers | `FillsCustomFields` on the five Edit pages |
 | Managing the definitions | `/admin/custom-fields`, gated on `custom_fields.*` |
+| List column, filter, sort on the five lists | `CustomFieldsTable::columns()` / `::filters()` |
+| CSV/XLSX export (tenants, leases, units) | `CustomFieldsTable::exportColumns()` |
 
 The section **hides itself when nothing is defined**, so a fresh install is unchanged and no form grows an
 empty "Additional information" heading. `hidden()` is evaluated per render, so it appears the moment the
@@ -116,6 +118,52 @@ quietly rewritten the mobile contract.
 
 **Caught by driving the real Create and Edit pages in a test.** Building a schema and asserting its shape
 passes whether or not this exists — the same trap that shipped two live 500s in August 2026.
+
+## 6b. Filtering, sorting and export (slice 3)
+
+A value you can type and never group by is the notes box with extra steps. An operator who records a
+parent buying group on two hundred tenants wants a **list by parent group** and a **spreadsheet of it** —
+that is usually the reason they asked for the field.
+
+**The value is read two different ways, on purpose.** Display goes through the model
+(`custom_fields.{key}` resolves against the virtual accessor, so a column shows exactly what the record page
+shows). Query goes through SQL (`metadata->{key}`), because filtering and sorting must happen in the
+database — a collection filter pages wrongly and a collection sort only orders the rows already fetched.
+
+Laravel compiles the JSON path per driver, and the two differ: SQLite gives
+`json_extract("metadata", '$."key"')`, MySQL gives `json_unquote(json_extract(\`metadata\`, '$."key"'))`.
+Both were executed against their real driver, not just compiled.
+
+| Type | Filter |
+|---|---|
+| text · textarea | CONTAINS — an operator looking for "Americana" should not have to remember whether they typed "Americana Group" |
+| select | exact match on the STORED value |
+| boolean | ternary |
+| date | from / until, compared as text (a `Y-m-d` string sorts and compares correctly, and casting per row cannot be pushed into the JSON path) |
+| number | min / max |
+
+**A record that never answered is EXCLUDED, not treated as empty.** `NULL` at the JSON path fails every
+comparison, which is the right default: *"no parent group recorded"* is not *"parent group is empty"*.
+
+**Columns ship hidden** (`toggleable(isToggledHiddenByDefault: true)`). An operator who defines eight fields
+must not find eight new columns on a list they were happy with; they turn on the ones they want, and
+EG-32 slice 1 lets them save that as a view and hand it to a colleague.
+
+**Filters are named `cf_{key}`.** A filter name is a query-string key sharing a namespace with every other
+filter on the table, so an operator field called `status` would otherwise collide with the resource's own
+status filter and silently take it over.
+
+**Export columns come LAST**, and a `select` exports its stored VALUE rather than its label. An export is
+read by another system: the value is the stable half of the pair, and appending rather than inserting means
+the shipped column positions a colleague's import template depends on never move.
+
+> **The trap this slice hit.** Filament resolves a closure's arguments by **parameter name**. A filter
+> written `fn (Builder $q, array $data)` registers, renders and **filters nothing** — the list ignores it
+> and everything looks correct. Caught only by driving the real list and counting rows; asserting that the
+> filter exists passes either way.
+
+**Vendors and properties have no exporter at all**, so their custom fields are not exportable — that is a
+pre-existing gap in those two resources, not something this slice introduced.
 
 ## 7. Registrations (what a sixth record type would need)
 
@@ -152,17 +200,19 @@ columns whose name ends in a classification suffix, so an exemption there would 
 
 Deliberately out of this slice, each stated rather than implied:
 
-- **Filtering and sorting by a custom field.** Both MySQL and SQLite can query JSON, so this is reachable —
-  it is a table/filter surface, not a storage question.
-- **Export.** A custom field does not appear in a resource's CSV export; each of the seven exporters names
-  its columns.
-- **Import.** `UnitImporter`/`LeaseImporter` and friends do not map custom fields.
+- **Import.** `UnitImporter`/`LeaseImporter` and friends do not map custom fields, so a migrating operator
+  cannot bring their own columns in with the records — the one remaining direction.
+- **Export for vendors and properties**, which have no exporter at all. A gap in those resources rather
+  than in this feature.
+- **Global search.** A custom field is not in the folded `search_text` blob, so the top bar cannot find a
+  tenant by their parent group. `HasSearchText` says the blob is a pure function of the row's own
+  attributes, which `metadata` is — so this is reachable, and it needs `atriom:rebuild-search`.
 - **A report builder** for the 23 catalogued report pages, whose columns are PHP literals — the other half of
   S-5, and the larger one.
 
 ## 10. Tests & related
 
-`tests/Feature/Regression/ACustomFieldIsARowTheOperatorDefinesTest.php` — 16 cases, including the real
+`tests/Feature/Regression/ACustomFieldIsARowTheOperatorDefinesTest.php` — 23 cases, including the real
 Create/Edit/View pages and the crafted-payload case.
 
 Related: [18 · RBAC & scoping](18-rbac-scoping.md) (activity log vocabulary) · [34 · Search](34-search.md)

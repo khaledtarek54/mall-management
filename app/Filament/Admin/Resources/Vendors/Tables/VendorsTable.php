@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Vendor;
 use App\Models\VendorDocument;
 use App\Models\VendorDocumentType;
+use App\Support\Filament\CustomFieldsTable;
 use App\Support\TenantScope;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -97,6 +98,10 @@ class VendorsTable
                         ->filter(fn (VendorDocument $d) => $d->alertStage() !== null)
                         ->map(fn (VendorDocument $d) => VendorDocumentType::labelFor($d->type))
                         ->join(', ') ?: null),
+
+                // The operator's own fields (D-7). Hidden until asked for, so a list
+                // nobody customised is unchanged.
+                ...CustomFieldsTable::columns('vendor'),
             ])
             ->filters([
                 SelectFilter::make('type')
@@ -131,6 +136,8 @@ class VendorsTable
                     ))
                     ->toggle(),
                 TrashedFilter::make(),
+
+                ...CustomFieldsTable::filters('vendor'),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

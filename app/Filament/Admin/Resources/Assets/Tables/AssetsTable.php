@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Assets\Tables;
 use App\Filament\Admin\Resources\Assets\AssetResource;
 use App\Models\Asset;
 use App\Services\AssetStatementPdfService;
+use App\Support\Filament\CustomFieldsTable;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -97,6 +98,10 @@ class AssetsTable
                 IconColumn::make('is_active')
                     ->label(__('admin.tables.common.status'))
                     ->boolean(),
+
+                // The operator's own fields (D-7). Hidden until asked for, so a list
+                // nobody customised is unchanged.
+                ...CustomFieldsTable::columns('asset'),
             ])
             ->filters([
                 SelectFilter::make('type')
@@ -116,6 +121,8 @@ class AssetsTable
                     ->trueLabel(__('admin.filters.active_only'))
                     ->falseLabel(__('admin.filters.inactive_only')),
                 TrashedFilter::make(),
+
+                ...CustomFieldsTable::filters('asset'),
             ])
             ->filtersFormColumns(2)
             ->recordActions([

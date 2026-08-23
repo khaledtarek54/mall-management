@@ -3,6 +3,7 @@
 namespace App\Filament\Exports;
 
 use App\Models\Unit;
+use App\Support\Filament\CustomFieldsTable;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
@@ -23,6 +24,10 @@ class UnitExporter extends Exporter
             ExportColumn::make('activeLease.base_rent_monthly')->label(__('admin.tables.unit.rent')),
             ExportColumn::make('activeLease.expiry_date')->label(__('admin.widgets.top_tenants.lease_ends')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
+
+            // The operator's own fields (D-7), LAST so the shipped column positions a
+            // colleague's import template depends on never move.
+            ...CustomFieldsTable::exportColumns('unit'),
         ];
     }
 

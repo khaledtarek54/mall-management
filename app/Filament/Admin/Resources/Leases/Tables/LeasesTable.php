@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
 use App\Support\Exports;
+use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\EntitySelectFilter;
 use Carbon\Carbon;
@@ -183,6 +184,10 @@ class LeasesTable
                         'terminated', 'cancelled' => 'danger',
                         default => 'gray',
                     }),
+
+                // The operator's own fields (D-7). Hidden until asked for, so a list
+                // nobody customised is unchanged.
+                ...CustomFieldsTable::columns('lease'),
             ])
             ->filters([
                 // "How much of the book is renewals" is a leasing question the rent roll could not
@@ -319,6 +324,8 @@ class LeasesTable
                         CarbonImmutable::now()->subMonthNoOverflow()->startOfMonth(),
                     )),
                 TrashedFilter::make(),
+
+                ...CustomFieldsTable::filters('lease'),
             ])
             ->filtersFormColumns(2)
             ->headerActions([

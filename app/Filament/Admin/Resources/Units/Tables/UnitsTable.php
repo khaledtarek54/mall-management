@@ -8,6 +8,7 @@ use App\Models\Asset;
 use App\Models\Unit;
 use App\Services\RemeasureUnitService;
 use App\Support\Exports;
+use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PropertyField;
 use Filament\Actions\Action;
@@ -113,6 +114,10 @@ class UnitsTable
                         'maintenance' => 'gray',
                         default => 'gray',
                     }),
+
+                // The operator's own fields (D-7). Hidden until asked for, so a list
+                // nobody customised is unchanged.
+                ...CustomFieldsTable::columns('unit'),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -143,6 +148,8 @@ class UnitsTable
                     ->label(__('admin.filters.expiring_critical'))
                     ->query(fn (Builder $query) => $query->whereHas('activeLease', fn (Builder $l) => $l->whereBetween('expiry_date', [now(), now()->addDays(30)]))),
                 TrashedFilter::make(),
+
+                ...CustomFieldsTable::filters('unit'),
             ])
             ->filtersFormColumns(2)
             ->headerActions([

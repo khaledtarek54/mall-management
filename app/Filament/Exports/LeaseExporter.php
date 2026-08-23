@@ -3,6 +3,7 @@
 namespace App\Filament\Exports;
 
 use App\Models\Lease;
+use App\Support\Filament\CustomFieldsTable;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
@@ -23,6 +24,10 @@ class LeaseExporter extends Exporter
             ExportColumn::make('expiry_date')->label(__('admin.tables.lease.ends')),
             ExportColumn::make('term_months')->label(__('admin.fields.term_months')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
+
+            // The operator's own fields (D-7), LAST so the shipped column positions a
+            // colleague's import template depends on never move.
+            ...CustomFieldsTable::exportColumns('lease'),
         ];
     }
 

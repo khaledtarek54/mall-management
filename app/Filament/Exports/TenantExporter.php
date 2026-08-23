@@ -3,6 +3,7 @@
 namespace App\Filament\Exports;
 
 use App\Models\Tenant;
+use App\Support\Filament\CustomFieldsTable;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
@@ -24,6 +25,10 @@ class TenantExporter extends Exporter
             ExportColumn::make('email')->label(__('admin.tables.tenant.email')),
             ExportColumn::make('contact_person')->label(__('admin.fields.contact_person')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
+
+            // The operator's own fields (D-7), LAST so the shipped column positions a
+            // colleague's import template depends on never move.
+            ...CustomFieldsTable::exportColumns('tenant'),
         ];
     }
 

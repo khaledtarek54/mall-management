@@ -18,6 +18,8 @@ return [
         'type' => 'Field type',
         'options' => 'Choices',
         'option_value' => 'Stored value',
+        'min' => 'At least',
+        'max' => 'At most',
         'is_required' => 'Required',
         'add_option' => 'Add a choice',
         'types' => [
