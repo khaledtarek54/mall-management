@@ -40,8 +40,6 @@ class ViolationCategoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedExclamationTriangle;
 
-    protected static ?int $navigationSort = 16;
-
     protected static function permissionModule(): string
     {
         return 'violation_categories';
@@ -60,11 +58,6 @@ class ViolationCategoryResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.violation_categories_screen.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.operations');
     }
 
     public static function form(Schema $schema): Schema

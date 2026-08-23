@@ -43,8 +43,6 @@ class HolidayResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;
 
-    protected static ?int $navigationSort = 11;
-
     /**
      * May the current operator write this holiday row — and, on an edit, may they MOVE it?
      *
@@ -79,11 +77,6 @@ class HolidayResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.facility.holiday.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.facility');
     }
 
     /**

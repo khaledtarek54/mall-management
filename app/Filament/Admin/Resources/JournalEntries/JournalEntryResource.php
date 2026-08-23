@@ -36,8 +36,6 @@ class JournalEntryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'number';
 
     public static function getNavigationLabel(): string
@@ -53,11 +51,6 @@ class JournalEntryResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.journal_entry.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.general_ledger');
     }
 
     public static function form(Schema $schema): Schema

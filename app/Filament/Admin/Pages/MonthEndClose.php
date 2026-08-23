@@ -50,8 +50,6 @@ class MonthEndClose extends Page implements HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCheckCircle;
 
-    protected static ?int $navigationSort = 3;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'month-end-close';
@@ -112,11 +110,6 @@ class MonthEndClose extends Page implements HasSchemas, HasTable
             'blocking' => $r['blocking'],
             'outstanding' => $r['outstanding'],
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.accounting');
     }
 
     public static function getNavigationLabel(): string

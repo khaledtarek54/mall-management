@@ -44,8 +44,6 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
 
-    protected static ?int $navigationSort = 5;
-
     protected string $view = 'filament.pages.ledger-report';
 
     public ?int $assetId = null;
@@ -167,11 +165,6 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
         $rate = $total > 0 ? round($occupied / $total * 100) : 0;
 
         return __('admin.widgets.occupancy_grid.occupancy_rate').": {$rate}% ({$occupied}/{$total})";
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public function table(Table $table): Table

@@ -44,8 +44,6 @@ class SlaPolicyResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
-    protected static ?int $navigationSort = 4;
-
     protected static ?string $recordTitleAttribute = 'priority';
 
     protected static function permissionModule(): string
@@ -66,11 +64,6 @@ class SlaPolicyResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.facility.sla.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.facility');
     }
 
     public static function form(Schema $schema): Schema

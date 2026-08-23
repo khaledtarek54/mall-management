@@ -35,8 +35,6 @@ class AssetResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?int $navigationSort = 1;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     // Asset IS the tenant — managing assets sits ABOVE the per-property
@@ -57,11 +55,6 @@ class AssetResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.asset.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function form(Schema $schema): Schema

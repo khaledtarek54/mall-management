@@ -44,8 +44,6 @@ class CustomFieldResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;
 
-    protected static ?int $navigationSort = 92;
-
     protected static function permissionModule(): string
     {
         return 'custom_fields';
@@ -64,11 +62,6 @@ class CustomFieldResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.custom_fields.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     public static function form(Schema $schema): Schema

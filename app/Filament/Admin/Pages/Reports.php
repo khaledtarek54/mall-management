@@ -42,8 +42,6 @@ class Reports extends Page implements HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
-    protected static ?int $navigationSort = 50;
-
     protected string $view = 'filament.pages.ledger-report';
 
     public string $period;
@@ -77,11 +75,6 @@ class Reports extends Page implements HasSchemas, HasTable
     public function getTitle(): string
     {
         return __('admin.reports.page_title');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.accounting');
     }
 
     public static function canAccess(): bool

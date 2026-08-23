@@ -13,7 +13,6 @@ use App\Filament\Admin\Resources\WorkPermits\Schemas\WorkPermitForm;
 use App\Filament\Admin\Resources\WorkPermits\Tables\WorkPermitsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\WorkPermit;
-use App\Support\Modules;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -51,8 +50,6 @@ class WorkPermitResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 
-    protected static ?int $navigationSort = 8;
-
     /**
      * A permit reference is quoted, not browsed.
      *
@@ -63,11 +60,6 @@ class WorkPermitResource extends Resource
      * accompanies, which is indexed for the same reason.
      */
     protected static ?string $recordTitleAttribute = 'reference';
-
-    public static function canAccess(): bool
-    {
-        return Modules::enabled('facility') && parent::canAccess();
-    }
 
     public static function getNavigationLabel(): string
     {
@@ -82,11 +74,6 @@ class WorkPermitResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.work_permit.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.facility');
     }
 
     public static function form(Schema $schema): Schema

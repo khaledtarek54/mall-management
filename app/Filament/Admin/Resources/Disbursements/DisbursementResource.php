@@ -28,8 +28,6 @@ class DisbursementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
-    protected static ?int $navigationSort = 5;
-
     protected static ?string $recordTitleAttribute = 'reference';
 
     /**
@@ -50,11 +48,6 @@ class DisbursementResource extends Resource
     protected static function permissionModule(): string
     {
         return 'disbursements';
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.payables');
     }
 
     public static function getNavigationLabel(): string

@@ -37,8 +37,6 @@ class AccountingPeriodResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLockClosed;
 
-    protected static ?int $navigationSort = 3;
-
     protected static ?string $recordTitleAttribute = 'period_no';
 
     public static function getNavigationLabel(): string
@@ -54,11 +52,6 @@ class AccountingPeriodResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.accounting_period.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.general_ledger');
     }
 
     public static function form(Schema $schema): Schema

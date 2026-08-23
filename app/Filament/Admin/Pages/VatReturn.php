@@ -49,8 +49,6 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedReceiptPercent;
 
-    protected static ?int $navigationSort = 27;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'vat-return';

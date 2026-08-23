@@ -63,6 +63,60 @@ class ModulesSettings extends Settings
     // visitor app exists to render it.
     public bool $marketing_posts = true;
 
+    // Module 37 — buyers who own a unit outright and pay a صيانة assessment.
+    public bool $unit_ownerships = true;
+
+    // Parking bays, kiosks and storage let on their own agreements.
+    public bool $rentable_items = true;
+
+    // Published indices a lease escalation can be pegged to.
+    public bool $rent_indices = true;
+
+    // Module 33 — the lodged-cheque register.
+    public bool $post_dated_cheques = true;
+
+    // Security deposits held, applied and refunded.
+    public bool $deposit_transactions = true;
+
+    // EG-33 — the costs that arrive on a calendar rather than on an invoice.
+    public bool $recurring_expenses = true;
+
+    // Module 20 — owner statements, and the disbursements that settle them.
+    public bool $owner_statements = true;
+
+    // Module 15 — the request board an owner raises work on.
+    public bool $owner_requests = true;
+
+    // The bank register and the statement reconciliation that reads it.
+    public bool $bank_accounts = true;
+
+    // The annual budget screen and its variance figures.
+    public bool $budget = true;
+
+    // Module 31 — house-rule breaches and the fines billed from them.
+    public bool $violations = true;
+
+    // Module 30 — the zones a work order is routed by.
+    public bool $areas = true;
+
+    // The spend-approval ladder: the bands and the queue that walks them.
+    public bool $approvals = true;
+
+    // Module 24 — payroll runs and the dated statutory ladder they compute on.
+    public bool $payrolls = true;
+
+    // Module 13 — marketing budgets and the levy billed against them.
+    public bool $marketing = true;
+
+    // Mall news sent to tenants.
+    public bool $announcements = true;
+
+    // D-7 / EG-32 — operator-defined fields on the five extensible record types.
+    public bool $custom_fields = true;
+
+    // EG-15 — the standing wording on tenant-facing documents.
+    public bool $document_templates = true;
+
     public static function group(): string
     {
         return 'modules';

@@ -75,8 +75,6 @@ class WithholdingTaxReturn extends Page implements DeliverableReport, HasSchemas
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedScissors;
 
-    protected static ?int $navigationSort = 28;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'withholding-tax-return';

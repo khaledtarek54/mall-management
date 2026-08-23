@@ -29,8 +29,6 @@ class OwnerRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInbox;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'reference';
 
     protected static bool $isScopedToTenant = false;
@@ -63,11 +61,6 @@ class OwnerRequestResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.owner_request.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.operations');
     }
 
     public static function form(Schema $schema): Schema

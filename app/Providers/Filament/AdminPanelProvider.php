@@ -9,13 +9,14 @@ use App\Http\Middleware\ForceTwoFactorForRoles;
 use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
 use App\Support\Filament\PanelBranding;
+use App\Support\Navigation;
 use App\Support\Search\AtriomGlobalSearchProvider;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationBuilder;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
@@ -121,26 +122,20 @@ class AdminPanelProvider extends PanelProvider
             // dashboard renders the panel's widget list and leaves gating to each widget,
             // which is how the monthly-close receivables reached HR and marketing.
             ->widgets([])
-            ->navigationGroups([
-                // Ordered as the money actually moves, which is how an accountant reads a system:
-                // the tenancy that creates the obligation, then what is owed TO us, then what WE
-                // owe, then the ledger those two land in. Ten groups were previously declared as
-                // six, so the four undeclared ones (Facility, Inventory, Treasury, Fixed Assets)
-                // fell wherever Filament happened to encounter them — and a single 14-item
-                // "Accounting" group mixed AR, AP, the general ledger and payroll together.
-                //
-                // Access is still RBAC; a group a role cannot see never renders.
-                NavigationGroup::make('Leasing')->label(fn () => __('admin.groups.leasing')),
-                NavigationGroup::make('Receivables')->label(fn () => __('admin.groups.receivables')),
-                NavigationGroup::make('Payables')->label(fn () => __('admin.groups.payables')),
-                NavigationGroup::make('General Ledger')->label(fn () => __('admin.groups.general_ledger')),
-                NavigationGroup::make('Operations')->label(fn () => __('admin.groups.operations')),
-                NavigationGroup::make('Facility')->label(fn () => __('admin.groups.facility')),
-                NavigationGroup::make('Inventory & Assets')->label(fn () => __('admin.groups.inventory_assets')),
-                NavigationGroup::make('HR & Payroll')->label(fn () => __('admin.groups.hr_payroll')),
-                NavigationGroup::make('Marketing')->label(fn () => __('admin.groups.marketing')),
-                NavigationGroup::make('Settings')->label(fn () => __('admin.groups.settings')),
-            ])
+            // THE SIDEBAR IS ONE FILE: App\Support\Navigation. Replacing Filament's auto-assembly
+            // with an explicit builder is what makes the sidebar reviewable — array order is
+            // sidebar order, so there are no sort integers left to collide and no group that can be
+            // referenced by a screen without being declared here (thirteen accounting pages were,
+            // and the whole reporting section floated at the bottom as a result).
+            //
+            // Nothing about ACCESS moves: each entry splices in the screen's own
+            // getNavigationItems(), which is empty when its module is off or the operator lacks the
+            // permission, and Filament drops a group with nothing visible left in it.
+            //
+            // The risk this trades for is omission — a screen missing from the registry is missing
+            // from the sidebar — which is why NavigationConformanceTest discovers every resource
+            // and page on disk and then RENDERS this to check they all came out.
+            ->navigation(fn (NavigationBuilder $builder): NavigationBuilder => Navigation::build($builder))
             ->sidebarCollapsibleOnDesktop()
             ->middleware([
                 EncryptCookies::class,

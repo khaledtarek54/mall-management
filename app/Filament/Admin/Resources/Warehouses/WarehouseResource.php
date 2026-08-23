@@ -40,8 +40,6 @@ class WarehouseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
-    protected static ?int $navigationSort = 1;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static function permissionModule(): string
@@ -62,11 +60,6 @@ class WarehouseResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.inventory.warehouse.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.inventory_assets');
     }
 
     public static function form(Schema $schema): Schema

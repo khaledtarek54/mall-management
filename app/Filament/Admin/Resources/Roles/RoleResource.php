@@ -35,8 +35,6 @@ class RoleResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     // Roles are a system-level concept, not property-scoped.
@@ -55,11 +53,6 @@ class RoleResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.role.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     public static function form(Schema $schema): Schema

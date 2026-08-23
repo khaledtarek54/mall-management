@@ -60,8 +60,6 @@ class MarketingBudgetResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMegaphone;
 
-    protected static ?int $navigationSort = 1;
-
     protected static ?string $recordTitleAttribute = 'period_year';
 
     public static function getNavigationLabel(): string
@@ -77,11 +75,6 @@ class MarketingBudgetResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.marketing_budget.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.marketing');
     }
 
     public static function form(Schema $schema): Schema

@@ -53,8 +53,6 @@ class RevenueForecast extends Page implements DeliverableReport, HasSchemas, Has
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;
 
-    protected static ?int $navigationSort = 7;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'revenue-forecast';
@@ -113,11 +111,6 @@ class RevenueForecast extends Page implements DeliverableReport, HasSchemas, Has
             'from' => $data['from'],
             'to' => $data['to'],
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function getNavigationLabel(): string

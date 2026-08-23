@@ -751,7 +751,7 @@ on the bill and the work order); the register itself is portfolio-wide.
 
 ### Related modules
 - **Filament Admin Panel** (`app/Providers/Filament/AdminPanelProvider.php`) — configures `.tenant(Asset::class, slugAttribute: 'code')` for per-property routing and per-request `Filament::getTenant()` context
-- **Modules Settings** (`app/Settings/ModulesSettings.php`) — feature flags checked by `Modules::enabled($module)` in RoleGatedActions
+- **Modules Settings** (`app/Settings/ModulesSettings.php`) — feature flags checked by `Modules::enabled($module)` in RoleGatedActions. See §Module switches below.
 - **Activity Log** (`app/Models/User` LogsActivity trait) — audit trail of user create/edit/delete (passwords redacted)
 - **Department** (`app/Models/Department`) — hybrid design: department membership + Spatie role assignment
 - **Database Notifications** — scoped per-user inbox (separate from RBAC but delivered based on user context)
@@ -774,6 +774,65 @@ on the bill and the work order); the register itself is portfolio-wide.
 | Authorization Tests | `tests/Feature/Scenarios/AuthorizationMatrixTest.php` | Matrix of 9 roles × 15 resources × 4 actions |
 | Scoping Tests | `tests/Feature/Scenarios/ScopingScenarioTest.php` | Cross-property isolation, picker helpers |
 | Deletion Tests | `tests/Feature/Scenarios/DeleteAuthorizationScenarioTest.php` | Super_admin only, bulk delete disabled |
+
+---
+
+## Module switches — every optional module, and only the platform owner may move one (2026-08-23)
+
+**A module key is also a permission module, which is what makes the gate free.**
+`App\Filament\Admin\Resources\Concerns\RoleGatedActions::hasPermission()` already asks
+`Modules::enabled(permissionModule())` before it asks `$user->can(...)`, and
+`shouldRegisterNavigation()` asks it alone — so adding a key to `App\Support\Modules::KEYS` plus a
+`bool` to `ModulesSettings` is the *whole* of making a module switchable. No per-resource edit, no
+new call site, nothing to forget on the next resource.
+
+**The list grew from 16 to 34.** Sixteen keys out of sixty-six resources and thirty-three pages
+meant most of the system was "core" only in the sense that nobody had decided otherwise: owner
+statements, violations, post-dated cheques, security deposits, payroll, marketing, mall news, areas,
+the approval ladder, unit owners, rentable items, rent indices, recurring costs, bank reconciliation,
+budget, custom fields and document wording all had no switch. That is a decision for the operator,
+not a default the code makes for them by omission.
+
+**Catalogues do not get their own switch — they follow their owner.** `Modules::FEATURE_OF` maps a
+follower key to the module that decides for it (`trades`/`failure_codes`/`work_permits` →
+`facility`, `utility_tariffs` → `utility_meters`, `payroll_rates` → `payrolls`, `disbursements` →
+`owner_statements`, `bank_statements` → `bank_accounts`, and so on), resolved in `enabled()` **before**
+the `KEYS` check so a follower can never disagree with its owner. "Failure codes" is not a feature
+anyone turns off; it is part of Facility, and a switch of its own would let an operator leave
+Facility on while silently removing the vocabulary its work orders classify by. Three facility
+catalogues used to state this by hand (`Modules::enabled('facility') && parent::canAccess()`) and the
+other six did not — which is how `utility_tariffs` stayed in the sidebar with metering switched off.
+
+**Turning a module off stops its scheduled work too.** `App\Support\ScheduledModules::OWNED_BY`
+gained six commands that had been in `CORE`, each with a reason that had quietly expired — three of
+them said in writing *"there is no module key for this"*. See that class's docblock.
+
+**Who may flip a switch: `hasRole('super_admin')`, and deliberately not a permission.**
+
+| | Gate | Why |
+|---|---|---|
+| Every other value on the Settings screen | `settings.manage` | Ordinary configuration. A finance lead moving the late-fee percent is doing their job. |
+| The module switches | `hasRole('super_admin')` | "Remove Owner Statements from this system" reaches every property, every user and every scheduled job at once. |
+
+`settings.manage` is **grantable** — a super_admin can hand it to a custom role, and whoever holds
+`roles.edit` can hand it to a role they already have — so gating the switches on it would make the
+answer to *"who may turn Payroll off for the whole portfolio"* whatever the roles matrix happens to
+say this week. Same reasoning as `App\Support\DeletionPolicy`, which puts deletion behind the role
+rather than behind a `{module}.delete` permission.
+
+**Two layers, and the second is the real one.** The toggles render `->disabled()` for everyone else,
+which is a *rendering* decision — a disabled input's value still arrives in the Livewire payload, and
+`Settings::$data` is a public array a crafted `$set` writes into directly. So `Settings::save()` calls
+`withoutModuleChanges()`, which unsets the whole `modules` group unless the actor is super_admin;
+`SettingsRegistry::persist()` leaves an absent key alone, so that is exactly *"change nothing about
+the modules"*. Stripping rather than 403-ing is deliberate: a manager pressing Save on the Billing
+tab carries a full `modules` array in their form state through no act of their own, and refusing the
+whole save would make the screen unusable for them.
+
+`ModuleSwitchesAreTheOwnersAloneTest` pins all of it, including the case a permission check cannot
+answer: a role that HOLDS `settings.manage` saves an ordinary setting successfully **in the same
+call** in which its module change is discarded. Every refusal is paired with that control, because a
+save that silently did nothing for everybody would satisfy the refusals on its own.
 
 ---
 

@@ -27,6 +27,7 @@ use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Models\Department;
 use App\Notifications\DepartmentMessageNotification;
 use App\Services\DepartmentMessageService;
+use App\Support\Navigation;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Notification;
@@ -251,63 +252,45 @@ it('persists a department message as a database bell notification', function () 
 |--------------------------------------------------------------------------
 | Navigation grouping — the sidebar reads the way money moves
 |--------------------------------------------------------------------------
-| The 2026-07-31 reorg (feat(nav): reorganise the sidebar the way an accountant reads a
-| system) deliberately RETIRED the old department-aligned grouping: a resource no longer
-| groups under its owning department's name but under the money-flow stage it belongs to
-| (leasing → receivables → payables → general ledger). Grouping is presentation now;
-| department slugs still drive RBAC — see the slug-translation test below, which is why
-| that one is unchanged. What these pin is that each resource still declares its INTENDED
-| group, and that the group is one the panel actually declares — the bug the reorg fixed
-| was resources rendering wherever Filament happened to encounter them.
+| The 2026-07-31 reorg deliberately RETIRED the old department-aligned grouping: a resource no
+| longer groups under its owning department's name but under the money-flow stage it belongs to.
+| Grouping is presentation; department slugs still drive RBAC — which is why the slug-translation
+| test below is unchanged.
+|
+| **Where the group is DECLARED moved on 2026-08-23.** It was a `getNavigationGroup()` on each of
+| the 99 screen classes; it is now `App\Support\Navigation`, one ordered registry rendered through
+| Filament's own navigation builder. So the "no scatter" test that used to live here is gone: a
+| group a screen names but the panel never declares cannot exist any more — there is one list of
+| groups and screens are placed INTO it, not labelled with it. `NavigationConformanceTest` owns
+| that property now, along with the failure the new shape can have (a screen the registry omits is
+| invisible rather than mis-sorted). What is kept here is the INTENT: these particular resources
+| belong to these particular stages, and an accidental re-shuffle should be argued for.
 */
 
 it('files each resource under its intended money-flow navigation group', function () {
-    // resource class => the sidebar group it belongs to (money-flow stage, not department)
+    // resource class => the sidebar group key it belongs to (money-flow stage, not department)
     $map = [
-        InvoiceResource::class => 'Receivables',
-        PaymentResource::class => 'Receivables',
-        CreditNoteResource::class => 'Receivables',
-        CamExpensePoolResource::class => 'Receivables',
-        UtilityMeterResource::class => 'Receivables',   // recharges bill the tenant → AR
-        LeaseResource::class => 'Leasing',
-        TenantResource::class => 'Leasing',
-        UnitResource::class => 'Leasing',
-        TenantRequestResource::class => 'Operations',
-        MarketingBudgetResource::class => 'Marketing',
+        InvoiceResource::class => 'receivables',
+        PaymentResource::class => 'receivables',
+        CreditNoteResource::class => 'receivables',
+        // CAM and metering moved to their own `recoveries` group on 2026-08-23. They still bill the
+        // tenant, so Receivables was not wrong — but they are one shape of work (measure a period,
+        // apportion it, bill the difference) that Receivables had grown to ten items hiding.
+        CamExpensePoolResource::class => 'recoveries',
+        UtilityMeterResource::class => 'recoveries',
+        LeaseResource::class => 'leasing',
+        TenantResource::class => 'leasing',
+        UnitResource::class => 'leasing',
+        TenantRequestResource::class => 'operations',
+        MarketingBudgetResource::class => 'marketing',
         // The Departments admin (org-structure management) sits with HR & Payroll.
-        DepartmentResource::class => 'HR & Payroll',
+        DepartmentResource::class => 'hr_payroll',
     ];
 
     foreach ($map as $resource => $group) {
-        expect($resource::getNavigationGroup())
+        expect(Navigation::groupOf($resource))
             ->toBe($group, "{$resource} should group under {$group}");
     }
-});
-
-it('files every resource under a navigation group the panel declares (no scatter)', function () {
-    // The actual regression the reorg fixed: ten groups existed but only six were declared in
-    // the panel, so five resources rendered wherever Filament happened to encounter them. The
-    // allowed set is derived from the panel, so this holds as groups are added or renamed —
-    // a resource assigned to an undeclared group turns this red rather than silently scattering.
-    $panel = Filament::getPanel('admin');
-
-    $declared = collect($panel->getNavigationGroups())
-        ->map(fn ($group) => is_string($group) ? $group : $group->getLabel())
-        ->filter()
-        ->values()
-        ->all();
-
-    $scattered = [];
-
-    foreach ($panel->getResources() as $resource) {
-        $group = $resource::getNavigationGroup();
-
-        if ($group !== null && ! in_array($group, $declared, true)) {
-            $scattered[] = class_basename($resource)." → {$group}";
-        }
-    }
-
-    expect($scattered)->toBe([], "these resources sit in a group the panel never declares:\n  ".implode("\n  ", $scattered));
 });
 
 it('resolves the group label from the department slug translation key', function () {

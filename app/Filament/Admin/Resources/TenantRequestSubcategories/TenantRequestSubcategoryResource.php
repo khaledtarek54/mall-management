@@ -40,8 +40,6 @@ class TenantRequestSubcategoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
-    protected static ?int $navigationSort = 14;
-
     protected static function permissionModule(): string
     {
         return 'tenant_request_subcategories';
@@ -60,11 +58,6 @@ class TenantRequestSubcategoryResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.tenant_request_subcategories.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.operations');
     }
 
     public static function form(Schema $schema): Schema

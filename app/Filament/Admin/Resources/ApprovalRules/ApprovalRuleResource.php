@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\ApprovalRules\Schemas\ApprovalRuleForm;
 use App\Filament\Admin\Resources\ApprovalRules\Tables\ApprovalRulesTable;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Models\ApprovalRule;
+use App\Support\Modules;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -46,14 +47,21 @@ class ApprovalRuleResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCheckBadge;
 
-    protected static ?int $navigationSort = 8;
-
     protected static ?string $recordTitleAttribute = 'module';
 
     /** The single gate. Named once so the sidebar, the pages and every action agree. */
     public static function canManage(): bool
     {
-        return Auth::user()?->can('approvals.manage_rules') ?? false;
+        // This resource does not use RoleGatedActions (its CRUD all resolves to one predicate), so
+        // the module flag has to be stated here rather than inherited. Named once, so the five
+        // `can*` methods below and `shouldRegisterNavigation()` cannot drift apart.
+        return Modules::enabled('approvals')
+            && (Auth::user()?->can('approvals.manage_rules') ?? false);
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return self::canManage();
     }
 
     public static function canViewAny(): bool
@@ -106,11 +114,6 @@ class ApprovalRuleResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.approval_rule.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     public static function form(Schema $schema): Schema

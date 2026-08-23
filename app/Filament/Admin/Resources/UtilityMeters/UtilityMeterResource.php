@@ -39,8 +39,6 @@ class UtilityMeterResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBolt;
 
-    protected static ?int $navigationSort = 7;
-
     /**
      * By the number stamped on the meter, or by the unit it serves.
      *
@@ -70,11 +68,6 @@ class UtilityMeterResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.utility_meter.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema

@@ -48,8 +48,6 @@ class SalesAnalytics extends Page implements DeliverableReport, HasSchemas, HasT
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;
 
-    protected static ?int $navigationSort = 8;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'sales-analytics';
@@ -98,11 +96,6 @@ class SalesAnalytics extends Page implements DeliverableReport, HasSchemas, HasT
             'lfl_leases' => $r['lfl_leases'],
             'to' => CarbonImmutable::parse($this->asOf)->format('m/Y'),
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function getNavigationLabel(): string

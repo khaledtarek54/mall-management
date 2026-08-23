@@ -37,8 +37,6 @@ class PostDatedChequeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentCurrencyDollar;
 
-    protected static ?int $navigationSort = 4;
-
     protected static ?string $recordTitleAttribute = 'reference';
 
     /**
@@ -60,11 +58,6 @@ class PostDatedChequeResource extends Resource
     protected static function permissionModule(): string
     {
         return 'post_dated_cheques';
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.receivables');
     }
 
     public static function getNavigationLabel(): string

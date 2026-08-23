@@ -54,8 +54,6 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
-    protected static ?int $navigationSort = 2;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'billing-run-preview';
@@ -142,11 +140,6 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
             'total' => 'EGP '.number_format($t['total'], 2),
             'skipped' => $t['skipped'],
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.receivables');
     }
 
     public static function getNavigationLabel(): string

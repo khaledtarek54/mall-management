@@ -10,7 +10,7 @@
         "console_commands": 54,
         "jobs": 6,
         "notifications": 37,
-        "migrations": 280
+        "migrations": 281
     },
     "modules": {
         "documented": 38,
@@ -253,7 +253,7 @@
             "shared": 35,
             "self": 1
         },
-        "module_flags": 16,
+        "module_flags": 34,
         "frozen_modules": [
             "eta"
         ],
@@ -304,9 +304,9 @@
         }
     },
     "tests": {
-        "files": 908,
+        "files": 912,
         "e2e_specs": 21,
-        "scenarios": 158,
-        "regressions": 494
+        "scenarios": 161,
+        "regressions": 495
     }
 }

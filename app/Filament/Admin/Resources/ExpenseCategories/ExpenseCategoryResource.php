@@ -44,8 +44,6 @@ class ExpenseCategoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?int $navigationSort = 13;
-
     protected static function permissionModule(): string
     {
         return 'expense_categories';
@@ -64,11 +62,6 @@ class ExpenseCategoryResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.expense_categories.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.general_ledger');
     }
 
     public static function form(Schema $schema): Schema

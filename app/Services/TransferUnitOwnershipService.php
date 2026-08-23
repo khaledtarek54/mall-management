@@ -7,7 +7,6 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Models\UnitOwnership;
-use App\Services\BillUnitOwnershipsService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;

@@ -40,9 +40,6 @@ class UtilityTariffResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCurrencyDollar;
 
-    // Directly after Energy (7), which is the screen an operator arrives from.
-    protected static ?int $navigationSort = 8;
-
     protected static ?string $recordTitleAttribute = 'code';
 
     public static function getNavigationLabel(): string
@@ -58,11 +55,6 @@ class UtilityTariffResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.utility_tariff.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema

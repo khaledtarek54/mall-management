@@ -33,8 +33,6 @@ class LedgerAccountResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?int $navigationSort = 1;
-
     protected static ?string $recordTitleAttribute = 'code';
 
     public static function getNavigationLabel(): string
@@ -50,11 +48,6 @@ class LedgerAccountResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.ledger_account.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.general_ledger');
     }
 
     public static function form(Schema $schema): Schema

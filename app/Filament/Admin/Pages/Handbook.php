@@ -8,7 +8,6 @@ use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
-use UnitEnum;
 
 /**
  * The visual handbook, inside the panel.
@@ -34,8 +33,6 @@ class Handbook extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
 
-    protected static ?int $navigationSort = 3;
-
     protected static ?string $slug = 'handbook';
 
     protected string $view = 'filament.pages.handbook';
@@ -47,7 +44,6 @@ class Handbook extends Page
      * system, so filing it under Accounting or Operations would say it belongs to whoever owns that
      * group — the same reasoning the notification centre sits at the top level.
      */
-    protected static string|UnitEnum|null $navigationGroup = null;
 
     /**
      * No permission gates it, and none should.

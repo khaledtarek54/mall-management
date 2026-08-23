@@ -42,8 +42,6 @@ class BankStatementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentCheck;
 
-    protected static ?int $navigationSort = 10;
-
     protected static function permissionModule(): string
     {
         return 'bank_accounts';
@@ -62,11 +60,6 @@ class BankStatementResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.bank_statement.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.general_ledger');
     }
 
     /** Scoped through the account — a statement carries no asset_id of its own. */

@@ -37,8 +37,6 @@ class TaxDepreciation extends Page implements DeliverableReport, HasSchemas
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static ?int $navigationSort = 28;
-
     protected string $view = 'filament.pages.tax-depreciation';
 
     protected static string $routePath = 'tax-depreciation';

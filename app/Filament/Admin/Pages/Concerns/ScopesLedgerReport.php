@@ -245,11 +245,6 @@ trait ScopesLedgerReport
         return $this->period ?? (string) $this->year;
     }
 
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.accounting');
-    }
-
     /**
      * The report's asset-id filter, clamped to the user's visible properties.
      *

@@ -42,8 +42,6 @@ class AreaResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMap;
 
-    protected static ?int $navigationSort = 4;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static function permissionModule(): string
@@ -64,11 +62,6 @@ class AreaResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.areas.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.operations');
     }
 
     public static function form(Schema $schema): Schema

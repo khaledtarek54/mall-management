@@ -67,6 +67,17 @@ final class ScheduledModules
 
         'reports:deliver' => 'reports',
 
+        'announcements:send-scheduled' => 'announcements',
+
+        'expenses:generate-recurring' => 'recurring_expenses',
+
+        'marketing:ensure-budgets' => 'marketing',
+
+        'billing:run-assessments' => 'unit_ownerships',
+
+        'pdc:scan-coverage' => 'post_dated_cheques',
+        'pdc:scan-maturing' => 'post_dated_cheques',
+
         'atriom:prune-activity-log' => 'activity_log',
     ];
 
@@ -77,28 +88,39 @@ final class ScheduledModules
      * a mall that has turned off invoicing has turned off Atriom. The reasons are here so that
      * moving a command out of this list is a decision somebody argued rather than a default.
      *
+     * **Six moved out on 2026-08-23**, when `Modules::KEYS` grew from sixteen entries to
+     * thirty-four and most of the system stopped being core by omission. Each had a reason written
+     * here, and each reason turned out to be an argument for the module EXISTING rather than for
+     * its scheduled work outliving the operator's decision to switch it off:
+     *
+     *  - `announcements:send-scheduled` argued that a message somebody composed and timed must go
+     *    out. It must — while the module is on. With Mall News switched off the operator cannot see
+     *    the queue, cannot cancel a post, and cannot explain the one that arrived anyway.
+     *  - `expenses:generate-recurring` argued that a statutory cost silently ceasing to book would
+     *    be discovered by the tax authority. True, and the answer is that switching Recurring costs
+     *    off is a deliberate act with a visible switch, not a silence — `schedule:list` still shows
+     *    the event with its skip reason.
+     *  - `marketing:ensure-budgets` and `pdc:scan-{coverage,maturing}` each said in writing "there
+     *    is no module key for this". There is now, and a reason that names the absence of a key is
+     *    exactly the reason that expires when the key arrives.
+     *  - `billing:run-assessments` bills unit owners, which is module 37 and now has its own key.
+     *
      * @var array<string, string>
      */
     public const CORE = [
         'accounting:post-straight-line-rent' => 'The general ledger. A lease that has commenced accrues rent whether or not any optional module is on.',
         'accounting:sync-ledger' => 'The general ledger. Its whole job is to notice documents the real-time hooks missed; gating it on anything would make the books depend on a toggle.',
-        'announcements:send-scheduled' => 'An announcement already scheduled by an operator must go out. Withholding a message somebody composed and timed is a different act from disabling the screen that composes them.',
         'atriom:backup-verify' => 'The restore drill. Nothing about a disabled module makes an unverified backup safer.',
         'backup:clean' => 'Backups are infrastructure, not a feature — pruning old archives keeps the restore drill affordable and the disk from filling.',
         'backup:monitor' => 'Backups are infrastructure, not a feature. This is the one thing that notices an archive stopped being written at all.',
         'backup:run' => 'Backups are infrastructure, not a feature. A mall that has switched a module off still needs last night\'s data.',
-        'expenses:generate-recurring' => 'The costs that arrive on a calendar rather than on an invoice — real-estate tax, municipal levies, a licence renewal. There is no `expenses` module key because money going OUT is not optional for a property manager, and a statutory cost that stopped booking because somebody switched a feature off would be discovered by the tax authority rather than by the operator.',
-        'marketing:ensure-budgets' => 'The marketing budget is part of the money model — a levy is billed to tenants against it — and there is no `marketing` module key. Only the shopper-facing feed (module 36) is toggleable.',
         'billing:reconcile' => 'The weekly tie-out that says WHICH document the books disagree about. Gating a reconciliation on a feature flag is how a discrepancy goes unreported.',
         'billing:remind-overdue-tenants' => 'Billing is core — a mall that cannot invoice is not running Atriom. There is no `billing` key and there should not be one.',
-        'billing:run-assessments' => 'The monthly صيانة run for unit owners (module 37). Core billing; owners are billed whatever else is off.',
         'billing:scan-overdue-invoices' => 'Core billing. An invoice goes overdue on its own; refusing to notice is not a configuration option.',
         'leases:apply-escalations' => 'Leasing is core. A contracted escalation is a term of an agreement, not a feature.',
         'leases:expire' => 'Leasing is core — and this one also re-projects unit occupancy, so skipping it leaves shops un-relettable.',
         'leases:remind-expiring' => 'Leasing is core. A term ending is a date in a signed contract, and the reminder is what gives anyone time to renew it.',
         'leases:scan-option-windows' => 'Leasing is core. An option window closes on a date in a signed contract.',
-        'pdc:scan-coverage' => 'Post-dated cheques are how Egyptian tenants pay; there is no toggle for them.',
-        'pdc:scan-maturing' => 'Post-dated cheques are how Egyptian tenants pay; there is no toggle for them.',
         'tenants:scan-document-expiry' => 'A tenant\'s tax card or commercial register expiring is a compliance fact about a counterparty, not a module.',
     ];
 

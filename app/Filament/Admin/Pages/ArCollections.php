@@ -54,8 +54,6 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPhoneArrowUpRight;
 
-    protected static ?int $navigationSort = 4;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'ar-collections';
@@ -102,11 +100,6 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
             'total' => 'EGP '.number_format((float) $rows->sum('total'), 2),
             'as_of' => ArAging::parseAsOf($this->asOf)->format('d/m/Y'),
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.receivables');
     }
 
     public static function getNavigationLabel(): string

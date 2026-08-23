@@ -47,8 +47,6 @@ class ViolationResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedExclamationTriangle;
 
-    protected static ?int $navigationSort = 3;
-
     protected static ?string $recordTitleAttribute = 'reference';
 
     protected static function permissionModule(): string
@@ -94,11 +92,6 @@ class ViolationResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.violations.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.operations');
     }
 
     public static function form(Schema $schema): Schema

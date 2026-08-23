@@ -46,8 +46,6 @@ class ExpirationSchedule extends Page implements DeliverableReport, HasSchemas, 
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;
 
-    protected static ?int $navigationSort = 6;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'expiration-schedule';
@@ -95,11 +93,6 @@ class ExpirationSchedule extends Page implements DeliverableReport, HasSchemas, 
             'annual' => 'EGP '.number_format((float) $rows->sum('annual_rent'), 2),
             'holdover' => (int) ($holdover['leases'] ?? 0),
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function getNavigationLabel(): string

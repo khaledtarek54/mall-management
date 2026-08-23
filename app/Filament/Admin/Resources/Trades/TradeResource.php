@@ -10,7 +10,6 @@ use App\Filament\Admin\Resources\Trades\Pages\ListTrades;
 use App\Filament\Admin\Resources\Trades\Schemas\TradeForm;
 use App\Filament\Admin\Resources\Trades\Tables\TradesTable;
 use App\Models\Trade;
-use App\Support\Modules;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -41,16 +40,9 @@ class TradeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
 
-    protected static ?int $navigationSort = 9;
-
     protected static function permissionModule(): string
     {
         return 'trades';
-    }
-
-    public static function canAccess(): bool
-    {
-        return Modules::enabled('facility') && parent::canAccess();
     }
 
     public static function getNavigationLabel(): string
@@ -66,11 +58,6 @@ class TradeResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.facility.trade.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.facility');
     }
 
     public static function form(Schema $schema): Schema

@@ -5,6 +5,7 @@ use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\Reports;
 use App\Filament\Admin\Widgets\MonthlyCloseStats;
 use App\Settings\ModulesSettings;
+use App\Support\Navigation;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -113,7 +114,12 @@ it('Reports page denies access to users that lack reports.view', function () {
 it('Reports page exposes title + nav labels (translations resolved)', function () {
     expect((new Reports)->getTitle())->toBeString()->not->toBeEmpty();
     expect(Reports::getNavigationLabel())->toBeString()->not->toBeEmpty();
-    expect(Reports::getNavigationGroup())->toBeString()->not->toBeEmpty();
+
+    // The GROUP is no longer the page's to answer — App\Support\Navigation places every screen,
+    // and the panel renders from that registry rather than from ninety-nine `getNavigationGroup()`
+    // declarations. Asking the page returns null now, which is correct and says nothing; asking the
+    // registry is the same question with a real answer.
+    expect(Navigation::groupOf(Reports::class))->toBe('reports');
 });
 
 /* ─────────────── ArAging drilldown page ─────────────── */
@@ -155,8 +161,14 @@ it('ArAging page exposes title + access gate + nav group', function () {
     $this->actingAs(makeUser('manager', [$this->asset->id]));
 
     expect((new ArAging)->getTitle())->toBeString()->not->toBeEmpty();
+    expect(ArAging::getNavigationLabel())->toBeString()->not->toBeEmpty();
     expect(ArAging::canAccess())->toBeTrue();
-    expect(ArAging::getNavigationGroup())->toBeString();
+
+    // In the sidebar since 2026-08-23. It used to carry `$shouldRegisterNavigation = false` and be
+    // reachable only from the reports hub, which is why it had no navigation label either and
+    // Filament derived "Ar Aging" from the class name.
+    expect(Navigation::groupOf(ArAging::class))->toBe('reports');
+    expect(ArAging::shouldRegisterNavigation())->toBeTrue();
 });
 
 /* ─────────────── LogoutTenantAction ─────────────── */

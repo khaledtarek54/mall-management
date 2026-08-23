@@ -42,8 +42,6 @@ class UnitResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'code';
 
     /**
@@ -76,11 +74,6 @@ class UnitResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.unit.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     /**

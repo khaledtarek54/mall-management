@@ -53,8 +53,6 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowTrendingDown;
 
-    protected static bool $shouldRegisterNavigation = false; // reached via the Reports page
-
     public static function canAccess(): bool
     {
         // Module flag AND per-user permission (audit M18 F-68 / D-53).
@@ -131,6 +129,16 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
             ]);
     }
 
+    /**
+     * "AR aging", not the class-name default of "Ar Aging" — this screen had no navigation label
+     * because it was not in the sidebar at all (it was reachable only from the reports hub), and
+     * Filament derives one from the class name when a page does not state it.
+     */
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.reports.ar_aging_nav_label');
+    }
+
     public function getTitle(): string
     {
         return __('admin.reports.ar_aging_page_title');
@@ -155,11 +163,6 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
             // now it exports the current bucket's invoices to CSV so an operator can chase them.
             ...$this->exportActions(),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.accounting');
     }
 
     /** @return Collection<int, Invoice> */

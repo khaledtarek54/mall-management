@@ -45,8 +45,6 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
-    protected static ?int $navigationSort = 24;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'income-statement';

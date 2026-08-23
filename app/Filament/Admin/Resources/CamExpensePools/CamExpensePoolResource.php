@@ -46,8 +46,6 @@ class CamExpensePoolResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?int $navigationSort = 6;
-
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.cam');
@@ -61,11 +59,6 @@ class CamExpensePoolResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.cam_pool.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema

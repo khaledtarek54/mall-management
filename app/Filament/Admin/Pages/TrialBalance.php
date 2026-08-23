@@ -47,8 +47,6 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedScale;
 
-    protected static ?int $navigationSort = 22;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'trial-balance';

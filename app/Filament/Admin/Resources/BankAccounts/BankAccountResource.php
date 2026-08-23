@@ -44,8 +44,6 @@ class BankAccountResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingLibrary;
 
-    protected static ?int $navigationSort = 9;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static function permissionModule(): string
@@ -66,11 +64,6 @@ class BankAccountResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.bank_account.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.general_ledger');
     }
 
     /** @return array<int, string> */

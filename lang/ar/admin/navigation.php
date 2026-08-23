@@ -62,6 +62,10 @@ return [
         'settings' => 'الإعدادات',
         'property_overrides' => 'إعدادات العقار',
         'portfolio' => 'المحفظة العقارية',
+        'recoveries' => 'الاستردادات والمرافق',
+        'owners' => 'الملاك',
+        'setup' => 'الإعداد',
+        'administration' => 'إدارة النظام',
     ],
 
     'resources' => [
@@ -124,6 +128,9 @@ return [
     ],
 
     'permission_modules' => [
+        'recurring_expenses' => 'التكاليف الدورية',
+        'custom_fields' => 'الحقول المخصصة',
+        'document_templates' => 'صياغة المستندات',
         'work_permits' => 'تصاريح العمل',
         'budget' => 'الموازنة',
         'unit_ownerships' => 'مُلّاك الوحدات',

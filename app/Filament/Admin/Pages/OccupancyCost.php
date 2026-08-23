@@ -56,8 +56,6 @@ class OccupancyCost extends Page implements DeliverableReport, HasSchemas, HasTa
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBarSquare;
 
-    protected static ?int $navigationSort = 7;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'occupancy-cost';
@@ -116,11 +114,6 @@ class OccupancyCost extends Page implements DeliverableReport, HasSchemas, HasTa
             'from' => CarbonImmutable::parse($this->from)->format('m/Y'),
             'to' => CarbonImmutable::parse($this->to)->format('m/Y'),
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function getNavigationLabel(): string

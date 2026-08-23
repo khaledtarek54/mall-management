@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Models\BudgetLine;
 use App\Services\Accounting\BudgetService;
+use App\Support\Modules;
 use App\Support\TenantScope;
 use BackedEnum;
 use DomainException;
@@ -44,8 +45,6 @@ class Budget extends Page implements HasSchemas
 
     protected static ?string $slug = 'budget';
 
-    protected static ?int $navigationSort = 27;
-
     protected string $view = 'filament.pages.budget';
 
     /** @var array<string, mixed> */
@@ -60,7 +59,10 @@ class Budget extends Page implements HasSchemas
         // nor `accounting` could open this screen at all: the finance lead could not load a budget
         // without a super-admin (pre-staging QA, F-07). `budget.manage` says the same thing about
         // intent while being grantable to the people whose job it is.
-        return Auth::user()?->can('budget.manage') ?? false;
+        // Module flag AND permission — the composite gate every module-owned screen uses.
+        // Without the flag half, `modules.budget` would be a switch that changes nothing.
+        return Modules::enabled('budget')
+            && (Auth::user()?->can('budget.manage') ?? false);
     }
 
     public static function getNavigationLabel(): string

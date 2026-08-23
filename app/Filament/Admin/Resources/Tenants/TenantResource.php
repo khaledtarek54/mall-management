@@ -68,8 +68,6 @@ class TenantResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 
-    protected static ?int $navigationSort = 3;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function getNavigationLabel(): string
@@ -85,11 +83,6 @@ class TenantResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.tenant.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function infolist(Schema $schema): Schema

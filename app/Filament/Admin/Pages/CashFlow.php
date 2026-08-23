@@ -36,8 +36,6 @@ class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?int $navigationSort = 26;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'cash-flow';

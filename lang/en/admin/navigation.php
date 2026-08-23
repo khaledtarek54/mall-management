@@ -62,6 +62,12 @@ return [
         'settings' => 'Settings',
         'property_overrides' => 'Property overrides',
         'portfolio' => 'Portfolio',
+        // Ordered as App\Support\Navigation renders them; the four below arrived with that
+        // registry. 'accounting' is gone with the group nobody had declared in the panel.
+        'recoveries' => 'Recoveries & utilities',
+        'owners' => 'Owners',
+        'setup' => 'Setup',
+        'administration' => 'Administration',
     ],
 
     'resources' => [
@@ -127,6 +133,9 @@ return [
     ],
 
     'permission_modules' => [
+        'recurring_expenses' => 'Recurring costs',
+        'custom_fields' => 'Custom fields',
+        'document_templates' => 'Document wording',
         'work_permits' => 'Work permits',
         'budget' => 'Budget',
         'unit_ownerships' => 'Unit owners',

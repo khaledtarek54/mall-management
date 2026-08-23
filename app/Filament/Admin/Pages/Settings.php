@@ -6,6 +6,7 @@ use App\Filament\Actions\GuideAction;
 use App\Models\JournalEntry;
 use App\Models\TaxCode;
 use App\Services\GratuityService;
+use App\Support\DeletionPolicy;
 use App\Support\DocumentNumbering;
 use App\Support\FiscalYearStart;
 use App\Support\Modules;
@@ -45,8 +46,6 @@ class Settings extends Page implements HasSchemas
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static ?int $navigationSort = 95;
-
     protected string $view = 'filament.pages.settings';
 
     /** @var array<string, mixed> */
@@ -60,11 +59,6 @@ class Settings extends Page implements HasSchemas
     public function getTitle(): string
     {
         return __('admin.settings.page_title');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     public static function canAccess(): bool
@@ -109,7 +103,7 @@ class Settings extends Page implements HasSchemas
             abort(403);
         }
 
-        $state = $this->form->getState();
+        $state = $this->withoutModuleChanges($this->form->getState());
 
         // Moving the fiscal year start re-dates the PERIODS, so a document posted into an open one
         // can land inside a closed one — or an entry the accountant has closed and reported becomes
@@ -578,20 +572,101 @@ class Settings extends Page implements HasSchemas
     /** @return array<int, mixed> */
     private function modulesFields(): array
     {
+        $mayToggle = self::mayToggleModules();
+
+        $sections = [
+            // Said once, at the top, in the operator's own language: this tab is the platform
+            // owner's. A control an operator can see, can move, and that then silently does not
+            // save is worse than a disabled one — so the switches below are disabled for everyone
+            // else, and save() refuses the payload regardless (see assertMayToggleModules()).
+            Placeholder::make('modules_locked_notice')
+                ->hiddenLabel()
+                ->visible(! $mayToggle)
+                ->content(fn (): string => __('admin.settings.sections.modules_locked'))
+                ->columnSpanFull(),
+        ];
+
+        // Grouped, never one flat wall of switches. `Modules::GROUPS` orders them the way
+        // App\Support\Navigation orders the sidebar, so "where do I switch this off" has the same
+        // answer as "where do I find it".
+        foreach (array_keys(Modules::GROUPS) as $group) {
+            // `toggleableIn()`, never the raw group: a FROZEN module (App\Support\Modules::FROZEN)
+            // answers false whatever the row says, so rendering its switch would offer the operator
+            // a control that cannot do anything — and, worse, would advertise unfinished work as a
+            // feature they are choosing to leave off.
+            $keys = Modules::toggleableIn($group);
+
+            if ($keys === []) {
+                continue;
+            }
+
+            $sections[] = Section::make(__("admin.groups.{$group}"))
+                ->columns(2)
+                ->collapsible()
+                ->components(array_map(
+                    fn (string $key) => Toggle::make("modules.{$key}")
+                        ->label(__("admin.permission_modules.{$key}"))
+                        ->helperText(__("admin.settings.modules.{$key}"))
+                        // The UI half. `dehydrated()` keeps the current value in the payload so a
+                        // save by anyone else round-trips the module state unchanged instead of
+                        // handing SettingsRegistry a missing key.
+                        ->disabled(! $mayToggle)
+                        ->dehydrated(),
+                    $keys,
+                ));
+        }
+
         return [
             Section::make(__('admin.settings.sections.modules'))
                 ->description(__('admin.settings.sections.modules_description'))
-                ->columns(2)
-                // `toggleable()`, never `KEYS`: a FROZEN module (App\Support\Modules::FROZEN)
-                // answers false whatever the row says, so rendering its switch would offer the
-                // operator a control that cannot do anything — and, worse, would advertise an
-                // unfinished module as a feature they are choosing to leave off.
-                ->components(array_map(
-                    fn (string $key) => Toggle::make("modules.{$key}")
-                        ->label(__("admin.permission_modules.{$key}")),
-                    Modules::toggleable(),
-                )),
+                ->components($sections),
         ];
+    }
+
+    /**
+     * Switching a module on or off is the platform owner's act, and nobody else's.
+     *
+     * **Deliberately a ROLE check, not a permission.** `settings.manage` is grantable — a
+     * super_admin can hand it to a custom role, and `roles.edit` can hand `settings.manage` to
+     * itself — so gating the module switches on it would mean the answer to "who may turn Payroll
+     * off for the whole portfolio" is whatever the roles matrix happens to say this week. The same
+     * reasoning that puts deletion behind `hasRole('super_admin')` in
+     * {@see DeletionPolicy} rather than behind a `{module}.delete` permission: a
+     * decision that reaches every property and every user is not a CRUD right.
+     *
+     * Everything ELSE on this screen stays on `settings.manage`. A finance lead moving the late-fee
+     * percent is ordinary configuration; a mall admin removing Owner Statements from the system is
+     * not.
+     */
+    public static function mayToggleModules(): bool
+    {
+        return Auth::user()?->hasRole('super_admin') ?? false;
+    }
+
+    /**
+     * Drop every `modules.*` key from a submitted state unless the actor may set them.
+     *
+     * The disabled switches above are a RENDERING decision and not a guard — this codebase has the
+     * rule written down in three other places for the same reason: a disabled input's value still
+     * arrives in the Livewire payload, and `modules` is a plain array in `$this->data` that a
+     * crafted `$set` reaches directly. Stripping rather than refusing is deliberate: a manager
+     * pressing Save on the Billing tab has a full `modules` array in their form state through no
+     * act of their own, and 403-ing an honest save would make the whole screen unusable for them.
+     * {@see SettingsRegistry::persist()} leaves an absent key alone, so removing the
+     * group here is exactly "change nothing about the modules".
+     *
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
+    private function withoutModuleChanges(array $state): array
+    {
+        if (self::mayToggleModules()) {
+            return $state;
+        }
+
+        unset($state['modules']);
+
+        return $state;
     }
 
     /** @return array<int, mixed> */

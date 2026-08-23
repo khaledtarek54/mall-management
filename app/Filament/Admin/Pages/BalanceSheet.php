@@ -38,8 +38,6 @@ class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTab
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedScale;
 
-    protected static ?int $navigationSort = 25;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'balance-sheet';

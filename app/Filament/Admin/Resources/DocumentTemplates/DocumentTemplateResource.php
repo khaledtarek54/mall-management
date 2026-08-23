@@ -41,8 +41,6 @@ class DocumentTemplateResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static ?int $navigationSort = 34;
-
     protected static function permissionModule(): string
     {
         return 'document_templates';
@@ -61,11 +59,6 @@ class DocumentTemplateResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.document_templates_screen.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     public static function form(Schema $schema): Schema

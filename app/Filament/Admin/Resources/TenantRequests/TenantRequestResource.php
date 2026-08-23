@@ -95,8 +95,6 @@ class TenantRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
 
-    protected static ?int $navigationSort = 1;
-
     protected static ?string $recordTitleAttribute = 'reference';
 
     public static function getNavigationLabel(): string
@@ -112,11 +110,6 @@ class TenantRequestResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.tenant_request.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.operations');
     }
 
     public static function getNavigationBadge(): ?string

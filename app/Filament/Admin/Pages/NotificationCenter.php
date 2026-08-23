@@ -41,8 +41,6 @@ class NotificationCenter extends Page implements HasTable
 
     protected static ?string $slug = 'notifications';
 
-    protected static ?int $navigationSort = 2;
-
     protected string $view = 'filament.pages.notification-center';
 
     protected function panelId(): string
@@ -68,12 +66,6 @@ class NotificationCenter extends Page implements HasTable
     public function getSubheading(): ?string
     {
         return __('admin.notifications.centre.subheading');
-    }
-
-    /** Top level, beside the dashboard — this belongs to the reader, not to a module. */
-    public static function getNavigationGroup(): ?string
-    {
-        return null;
     }
 
     /** The count that makes the sidebar worth glancing at; blank rather than a zero. */

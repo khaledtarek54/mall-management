@@ -44,8 +44,6 @@ class FixedAssetResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?int $navigationSort = 4;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static function permissionModule(): string
@@ -66,11 +64,6 @@ class FixedAssetResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.fixed_assets.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.inventory_assets');
     }
 
     public static function form(Schema $schema): Schema

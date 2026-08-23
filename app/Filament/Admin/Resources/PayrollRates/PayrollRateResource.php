@@ -42,8 +42,6 @@ class PayrollRateResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static ?int $navigationSort = 32;
-
     protected static function permissionModule(): string
     {
         return 'payroll_rates';
@@ -62,14 +60,6 @@ class PayrollRateResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.payroll_rates_screen.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        // `hr_payroll`, the group the PANEL declares — the same one `PayrollResource` sits in.
-        // `admin.groups.hr` resolves to a plausible "HR" and is a group `AdminPanelProvider` never
-        // registers, so the screen filed itself outside the declared navigation order.
-        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

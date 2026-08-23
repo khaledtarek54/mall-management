@@ -48,8 +48,6 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTableCells;
 
-    protected static ?int $navigationSort = 5;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'rent-roll';
@@ -102,11 +100,6 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
             'per_sqm' => $area > 0 ? number_format($rent * 12 / $area, 2) : '—',
             'as_of' => ArAging::parseAsOf($this->asOf)->format('d/m/Y'),
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function getNavigationLabel(): string

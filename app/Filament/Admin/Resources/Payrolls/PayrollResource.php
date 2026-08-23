@@ -37,8 +37,6 @@ class PayrollResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static ?int $navigationSort = 3;
-
     protected static ?string $recordTitleAttribute = 'number';
 
     public static function getNavigationLabel(): string
@@ -54,11 +52,6 @@ class PayrollResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.payroll.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

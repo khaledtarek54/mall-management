@@ -45,8 +45,6 @@ class RecurringExpenseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPath;
 
-    protected static ?int $navigationSort = 46;
-
     protected static function permissionModule(): string
     {
         return 'recurring_expenses';
@@ -65,11 +63,6 @@ class RecurringExpenseResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.recurring_expenses.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.payables');
     }
 
     public static function form(Schema $schema): Schema

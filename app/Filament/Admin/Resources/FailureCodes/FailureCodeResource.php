@@ -10,7 +10,6 @@ use App\Filament\Admin\Resources\FailureCodes\Pages\ListFailureCodes;
 use App\Filament\Admin\Resources\FailureCodes\Schemas\FailureCodeForm;
 use App\Filament\Admin\Resources\FailureCodes\Tables\FailureCodesTable;
 use App\Models\FailureCode;
-use App\Support\Modules;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -36,16 +35,9 @@ class FailureCodeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedExclamationTriangle;
 
-    protected static ?int $navigationSort = 10;
-
     protected static function permissionModule(): string
     {
         return 'failure_codes';
-    }
-
-    public static function canAccess(): bool
-    {
-        return Modules::enabled('facility') && parent::canAccess();
     }
 
     public static function getNavigationLabel(): string
@@ -61,11 +53,6 @@ class FailureCodeResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.facility.failure_code.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.facility');
     }
 
     public static function form(Schema $schema): Schema

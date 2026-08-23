@@ -34,8 +34,6 @@ class VendorResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?int $navigationSort = 4;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     // Vendors are typically cross-property service providers (one contractor
@@ -56,11 +54,6 @@ class VendorResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.vendor.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.payables');
     }
 
     public static function form(Schema $schema): Schema

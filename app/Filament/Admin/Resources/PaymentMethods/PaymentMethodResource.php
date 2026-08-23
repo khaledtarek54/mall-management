@@ -39,8 +39,6 @@ class PaymentMethodResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
-    protected static ?int $navigationSort = 12;
-
     protected static function permissionModule(): string
     {
         return 'payment_methods';
@@ -59,11 +57,6 @@ class PaymentMethodResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.payment_methods.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.general_ledger');
     }
 
     public static function form(Schema $schema): Schema

@@ -44,8 +44,6 @@ class WeeklySpend extends Page implements DeliverableReport, HasSchemas, HasTabl
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;
 
-    protected static ?int $navigationSort = 52;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'weekly-spend';
@@ -59,11 +57,6 @@ class WeeklySpend extends Page implements DeliverableReport, HasSchemas, HasTabl
     {
         return Modules::enabled('reports')
             && Auth::user()?->can('reports.view');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.accounting');
     }
 
     public static function getNavigationLabel(): string

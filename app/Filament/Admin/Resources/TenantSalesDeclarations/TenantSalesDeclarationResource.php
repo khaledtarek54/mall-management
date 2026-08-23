@@ -53,8 +53,6 @@ class TenantSalesDeclarationResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;
 
-    protected static ?int $navigationSort = 5;
-
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.tenant_sales');
@@ -68,11 +66,6 @@ class TenantSalesDeclarationResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.tenant_sales.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function getNavigationBadge(): ?string

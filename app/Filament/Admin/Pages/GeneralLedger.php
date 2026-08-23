@@ -56,8 +56,6 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
 
-    protected static ?int $navigationSort = 23;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'general-ledger';

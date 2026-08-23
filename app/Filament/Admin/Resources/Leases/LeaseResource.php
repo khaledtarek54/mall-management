@@ -44,8 +44,6 @@ class LeaseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static ?int $navigationSort = 4;
-
     protected static ?string $recordTitleAttribute = 'reference';
 
     public static function getNavigationLabel(): string
@@ -61,11 +59,6 @@ class LeaseResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.lease.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function form(Schema $schema): Schema

@@ -42,8 +42,6 @@ class EquipmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static ?int $navigationSort = 3;
-
     protected static ?string $recordTitleAttribute = 'code';
 
     protected static function permissionModule(): string
@@ -64,11 +62,6 @@ class EquipmentResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.facility.equipment.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.facility');
     }
 
     public static function form(Schema $schema): Schema

@@ -49,8 +49,6 @@ class PaymentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'reference';
 
     public static function getNavigationLabel(): string
@@ -66,11 +64,6 @@ class PaymentResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.payment.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema

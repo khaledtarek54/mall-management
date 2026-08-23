@@ -153,8 +153,8 @@ return [
         'net_income_period' => 'Net income (not yet closed)',
         'total_equity_and_liabilities' => 'Total liabilities & equity',
         'as_of_year_end' => 'As of year end',
-        'nav_label' => 'Reports',
-        'page_title' => 'Reports',
+        'nav_label' => 'Monthly summary',
+        'page_title' => 'Monthly summary',
         'csv' => [
             'export' => 'Export CSV',
             'account_code' => 'Account code',
@@ -206,6 +206,7 @@ return [
         'week' => 'Week',
         'no_spend_in_range' => 'No spend recorded in this range.',
         'ar_aging_page_title' => 'AR Aging — Detail',
+        'ar_aging_nav_label' => 'AR aging',
         'ar_aging' => 'AR Aging',
         'bucket' => 'Bucket',
         'bucket_total' => 'Bucket total',

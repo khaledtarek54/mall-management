@@ -59,8 +59,6 @@ class AnnouncementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMegaphone;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'title';
 
     protected static function permissionModule(): string
@@ -104,11 +102,6 @@ class AnnouncementResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.announcements.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.marketing');
     }
 
     public static function form(Schema $schema): Schema

@@ -7,6 +7,7 @@ use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Models\PurchaseRequest;
 use App\Services\FacilityWorkOrderService;
 use App\Services\TenantRequestService;
+use App\Support\Modules;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -36,21 +37,17 @@ class Workflows extends Page implements HasSchemas, HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPathRoundedSquare;
 
-    protected static ?int $navigationSort = 90;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'workflows';
 
     public static function canAccess(): bool
     {
-        // A harmless read-only reference — visible to anyone who works one of the workflows it maps.
-        return Auth::user()?->canAny(['requests.view', 'procurement.view']) ?? false;
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
+        // A harmless read-only reference — visible to anyone who works one of the workflows it maps,
+        // and only while the approval ladder is switched on: with `modules.approvals` off there is
+        // no ladder for this page to map.
+        return Modules::enabled('approvals')
+            && (Auth::user()?->canAny(['requests.view', 'procurement.view']) ?? false);
     }
 
     public static function getNavigationLabel(): string

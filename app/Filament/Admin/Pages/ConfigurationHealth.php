@@ -44,8 +44,6 @@ class ConfigurationHealth extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
-    protected static ?int $navigationSort = 96;
-
     protected static string $routePath = 'configuration-health';
 
     protected string $view = 'filament.pages.report-hub';
@@ -72,11 +70,6 @@ class ConfigurationHealth extends Page implements HasTable
             'blocking' => $open->where('severity', Checks::BLOCKING)->count(),
             'advisory' => $open->where('severity', Checks::ADVISORY)->count(),
         ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     /**

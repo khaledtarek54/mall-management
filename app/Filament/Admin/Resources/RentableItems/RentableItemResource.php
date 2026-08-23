@@ -39,8 +39,6 @@ class RentableItemResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
 
-    protected static ?int $navigationSort = 6;
-
     protected static ?string $recordTitleAttribute = 'code';
 
     protected static function permissionModule(): string
@@ -61,11 +59,6 @@ class RentableItemResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.rentable_item.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function form(Schema $schema): Schema

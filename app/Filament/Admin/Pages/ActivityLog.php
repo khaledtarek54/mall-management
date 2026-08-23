@@ -34,6 +34,7 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
     private const CSV_ROW_CAP = 5000;
 
     use ExportsReport;
+
     // Aliased, not overridden via parent::. `getTableRecords()` reaches this class through a
     // TRAIT, and `parent::` walks the class chain only — Filament\Pages\Page has no such method,
     // so a plain override calling parent:: fell through to Livewire's __call and every render
@@ -44,8 +45,6 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
     use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
-
-    protected static ?int $navigationSort = 1;
 
     protected string $view = 'filament.pages.activity-log';
 
@@ -66,11 +65,6 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
     public function getTitle(): string
     {
         return __('admin.activity.page_title');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     public static function canAccess(): bool

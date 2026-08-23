@@ -59,8 +59,6 @@ class ReportHub extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?int $navigationSort = 1;
-
     protected static string $routePath = 'report-hub';
 
     protected string $view = 'filament.pages.report-hub';
@@ -78,11 +76,6 @@ class ReportHub extends Page implements HasTable
     public function getSubheading(): ?string
     {
         return __('admin.report_hub.subheading');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.accounting');
     }
 
     /**

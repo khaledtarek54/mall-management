@@ -38,8 +38,6 @@ class InventoryItemResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCube;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static function permissionModule(): string
@@ -60,11 +58,6 @@ class InventoryItemResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.inventory.item.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.inventory_assets');
     }
 
     public static function form(Schema $schema): Schema

@@ -44,8 +44,6 @@ class ArAgingByType extends Page implements DeliverableReport, HasSchemas, HasTa
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleGroup;
 
-    protected static ?int $navigationSort = 6;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'ar-aging-by-type';
@@ -93,11 +91,6 @@ class ArAgingByType extends Page implements DeliverableReport, HasSchemas, HasTa
                 : '')
             .' · '.__('admin.reports.aged_as_of').' '
             .ArAging::parseAsOf($this->asOf)->format('d/m/Y');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.accounting');
     }
 
     public static function getNavigationLabel(): string

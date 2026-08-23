@@ -38,8 +38,6 @@ class RetailCategoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
-    protected static ?int $navigationSort = 15;
-
     protected static function permissionModule(): string
     {
         return 'retail_categories';
@@ -58,11 +56,6 @@ class RetailCategoryResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.retail_categories_screen.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.leasing');
     }
 
     public static function form(Schema $schema): Schema

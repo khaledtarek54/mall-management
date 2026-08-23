@@ -29,8 +29,6 @@ class UserResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static ?int $navigationSort = 1;
-
     protected static ?string $recordTitleAttribute = 'email';
 
     // Users are a cross-property concept — a single user is assigned to many
@@ -50,11 +48,6 @@ class UserResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.user.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     // Users is the HR department's resource: access/create/edit are gated on

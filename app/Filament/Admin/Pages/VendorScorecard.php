@@ -50,8 +50,6 @@ class VendorScorecard extends Page implements DeliverableReport, HasSchemas, Has
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTrophy;
 
-    protected static ?int $navigationSort = 60;
-
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'vendor-scorecard';
@@ -72,14 +70,6 @@ class VendorScorecard extends Page implements DeliverableReport, HasSchemas, Has
     {
         return Modules::enabled('vendors')
             && (Auth::user()?->can('vendors.view') ?? false);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        // Beside the Vendors register rather than under Reports: this is read when somebody is
-        // looking at a vendor — at renewal, or when deciding who to dispatch. The Reports hub
-        // indexes it too, so both routes in exist.
-        return __('admin.groups.payables');
     }
 
     public static function getNavigationLabel(): string

@@ -39,7 +39,6 @@ return [
         ],
     ],
 
-
     'budget' => [
         'title' => 'Budget',
         'subheading' => 'What each account is expected to do this year. The income statement can then be read against the plan, not just against last month.',

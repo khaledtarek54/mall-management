@@ -45,8 +45,6 @@ class OpeningBalances extends Page implements HasSchemas
 
     protected static ?string $slug = 'opening-balances';
 
-    protected static ?int $navigationSort = 29;
-
     protected string $view = 'filament.pages.opening-balances';
 
     /** @var array<string, mixed> */

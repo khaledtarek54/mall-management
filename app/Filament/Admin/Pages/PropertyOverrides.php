@@ -52,8 +52,6 @@ class PropertyOverrides extends Page implements HasSchemas
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;
 
-    protected static ?int $navigationSort = 96;
-
     protected string $view = 'filament.pages.property-overrides';
 
     /** @var array<string, mixed> */
@@ -67,11 +65,6 @@ class PropertyOverrides extends Page implements HasSchemas
     public function getTitle(): string
     {
         return __('admin.property_overrides.page_title');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.settings');
     }
 
     /**

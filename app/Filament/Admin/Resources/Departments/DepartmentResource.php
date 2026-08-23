@@ -33,8 +33,6 @@ class DepartmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 
-    protected static ?int $navigationSort = 2;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     // Departments are operator-wide org units, not per-property records.
@@ -72,11 +70,6 @@ class DepartmentResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.resources.department.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

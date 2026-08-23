@@ -41,8 +41,6 @@ class VendorDocumentTypeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentCheck;
 
-    protected static ?int $navigationSort = 17;
-
     protected static function permissionModule(): string
     {
         return 'vendor_document_types';
@@ -61,11 +59,6 @@ class VendorDocumentTypeResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('admin.vendor_document_types_screen.plural');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return __('admin.groups.payables');
     }
 
     public static function form(Schema $schema): Schema
