@@ -199,7 +199,7 @@ a pivot column, a migration and a backfill.
 | CPI / index escalation | ✅ with a feed | Absent by design — no feed, and the system refuses to invent a number | ➕ **EXTEND — O14** | 🟡 |
 | Free rent / abatement | Per code, date-ranged | `fit_out_scope` — `rent_only` (net abatement, default) or `gross`. Per-charge-code abatement rows remain future work | ✅ KEEP | ⚪ |
 | Billing frequency | Per charge row | Per lease (monthly/quarterly/semiannual/annual), cycle-anchored, billed in advance, capped at expiry | ✅ KEEP | ⚪ |
-| Proration — both ends | ✅ | `monthsCovered()` is the ONE rule for both the bill and the trailing credit | ✅ KEEP | ⚪ |
+| Proration — both ends | ✅ | `monthsCovered()` is the ONE rule for both the bill and the trailing credit, and since EG-29 it takes the METHOD the lease states — `actual` · `thirty_day` (30/360) · `year_365` · `whole_month`, Yardi's four, on the usual lease → property → portfolio tiers. `actual` is the default, so nothing an install bills today moved | ✅ KEEP | ⚪ |
 | Holdover billing | ✅ 125–200% | `ConvertLeaseToHoldoverService` at the contracted multiple (default 150%, settings-driven). Operator-confirmed, never automatic | ✅ KEEP | ⚪ |
 | Batch review before posting | ✅ edit the batch | `/admin/billing-run-preview` — a dry run computed by the same `planInvoiceForLease()` the post persists. Yardi lets you EDIT the batch; Atriom's is review-then-commit | ✅ KEEP | ⚪ |
 | Double-bill prevention | Batch + post month | `Cache::lock` on the period + `WithoutOverlapping` + a period-overlap guard, and the manual action contends on the same lock | ✅ KEEP — triple defence | ⚪ |

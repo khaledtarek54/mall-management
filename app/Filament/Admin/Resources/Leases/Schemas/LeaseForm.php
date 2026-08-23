@@ -15,6 +15,7 @@ use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
 use App\Support\LeaseTerm;
 use App\Support\PropertySettings;
+use App\Support\ProrationMethod;
 use App\Support\SalesExclusions;
 use App\Support\Search\RecordOption;
 use App\Support\TenantScope;
@@ -677,6 +678,15 @@ class LeaseForm
                             ->placeholder(fn () => (string) app(BillingSettings::class)->late_fee_minimum),
                         // The ceiling the clause states. 0 anywhere in the chain means no cap, so
                         // blank here inherits the property's answer exactly as the other three do.
+                        Select::make('proration_method')
+                            ->label(__('admin.fields.proration_method'))
+                            ->helperText(__('admin.fields.proration_method_helper'))
+                            ->options(fn (): array => collect(ProrationMethod::METHODS)
+                                ->mapWithKeys(fn (string $m): array => [$m => __("admin.proration_methods.{$m}")])
+                                ->all())
+                            ->native(false)
+                            // Null is the normal state: the property's answer, then the portfolio's.
+                            ->placeholder(__('admin.fields.proration_method_inherited')),
                         TextInput::make('late_fee_maximum')
                             ->label(__('admin.fields.late_fee_maximum'))
                             ->helperText(__('admin.helpers.late_fee_maximum'))

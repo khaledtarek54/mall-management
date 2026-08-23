@@ -81,6 +81,15 @@ the service charge. Voyager's condo model, where the owner IS the customer recor
 items are assigned to. Screen: a **Rentable items** tab on the ownership, deliberately identical to
 the lease's. See [modules/35](35-rentable-items.md).
 
+
+> **A part month of صيانة is priced by the PROPERTY's method (EG-29, 2026-08-23).** An ownership has
+> no lease clause to state one, so `UnitOwnership::prorationMethod()` resolves the two tiers it does
+> have — the property, then the portfolio — and `BillUnitOwnershipsService` threads that one answer
+> through every line, including the arrears row. Not a gap: the assessment an owner pays is set by
+> the operator's own schedule, not negotiated document by document the way a lease is. The
+> termination credit reads the same method through `BillableAgreement`, so an ownership's credit
+> cannot disagree with the assessment it credits.
+
 ## 1. Purpose & business context
 
 Egyptian malls sell units (تمليك) as well as leasing them. The buyer pays no rent, but owes the

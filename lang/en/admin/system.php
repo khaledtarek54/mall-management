@@ -103,6 +103,8 @@ return [
             'late_fee_grace_days' => 'Grace period (days)',
             'late_fee_recurrence_days' => 'Charge again after',
             'late_fee_recurrence_days_helper' => 'Days before the same invoice may be charged another late fee. 0 charges once, which is the default.',
+            'proration_method' => 'Part-month pricing',
+            'proration_method_helper' => 'The portfolio default. A property may override it and a lease may state its own.',
             'late_fee_maximum' => 'Late fee cap',
             'late_fee_maximum_helper' => 'The most one late fee may be. 0 for no cap. Applied after the minimum, so a cap below it still wins.',
             'default_security_deposit_months' => 'Default deposit (months of rent)',

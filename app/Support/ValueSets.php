@@ -117,6 +117,11 @@ class ValueSets
         // defined as.
         'custom_fields.type' => [CustomField::class, 'TYPES'],
 
+        // How a PART month is priced (EG-29). Registered because a mistyped method does not error —
+        // `ProrationMethod::resolve()` falls back to `actual`, so the lease would quietly bill on a
+        // rule nobody chose while the form showed something else.
+        'leases.proration_method' => [ProrationMethod::class, 'METHODS'],
+
         // ── Registered 2026-08-22 (EG-37) ──────────────────────────────────────────────────────
         // `ValueSets` covered the 62 columns that were DB enums on 2026-08-12 and nothing since, so
         // every classification column added in the ten weeks after was UNENFORCED — including

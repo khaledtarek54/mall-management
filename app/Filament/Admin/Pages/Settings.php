@@ -9,6 +9,7 @@ use App\Services\GratuityService;
 use App\Support\DocumentNumbering;
 use App\Support\FiscalYearStart;
 use App\Support\Modules;
+use App\Support\ProrationMethod;
 use App\Support\SettingsRegistry;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -293,6 +294,14 @@ class Settings extends Page implements HasSchemas
                         ->required(),
                     // The other half of the clause. 0 = no ceiling, which is what every install had
                     // before this existed — so an unset value must keep meaning exactly that.
+                    Select::make('billing.proration_method')
+                        ->label(__('admin.settings.fields.proration_method'))
+                        ->helperText(__('admin.settings.fields.proration_method_helper'))
+                        ->options(fn (): array => collect(ProrationMethod::METHODS)
+                            ->mapWithKeys(fn (string $m): array => [$m => __("admin.proration_methods.{$m}")])
+                            ->all())
+                        ->native(false)
+                        ->required(),
                     TextInput::make('billing.late_fee_maximum')
                         ->label(__('admin.settings.fields.late_fee_maximum'))
                         ->helperText(__('admin.settings.fields.late_fee_maximum_helper'))

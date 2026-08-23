@@ -1,6 +1,13 @@
 <?php
 
 return [
+    'proration_methods' => [
+        'actual' => 'Actual days in the month',
+        'thirty_day' => 'One thirtieth per day (30/360)',
+        'year_365' => 'Annual rent ÷ 365 days',
+        'whole_month' => 'Charge the whole month',
+    ],
+
     'lease_clauses' => [
         'title' => 'Clauses',
         'type_helper' => 'Co-tenancy and kick-out can cost money if their trigger fires — those two are badged apart.',

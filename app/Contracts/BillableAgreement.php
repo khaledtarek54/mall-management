@@ -5,6 +5,7 @@ namespace App\Contracts;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\RentableItem;
+use App\Support\ProrationMethod;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -65,6 +66,15 @@ interface BillableAgreement
 
     /** Days from issue date to due date, per this agreement's own terms. */
     public function paymentTermsDays(): int;
+
+    /**
+     * How a PARTIAL month of this agreement is priced (EG-29).
+     *
+     * On the contract rather than on the lease alone, because the termination credit reads it to
+     * un-bill exactly what the invoice billed — and it credits a unit ownership as readily as a
+     * lease. One of {@see ProrationMethod::METHODS}.
+     */
+    public function prorationMethod(): string;
 
     /** How many months one invoice covers — 1 monthly, 3 quarterly, 12 annually. */
     public function billingCycleMonths(): int;

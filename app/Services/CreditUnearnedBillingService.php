@@ -113,8 +113,15 @@ class CreditUnearnedBillingService
         $cycleMonths = ($periodEnd->year - $periodStart->year) * 12
             + ($periodEnd->month - $periodStart->month) + 1;
 
-        $billed = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $periodEnd);
-        $earned = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $terminationDate);
+        // THE SAME PRORATION METHOD THE INVOICE WAS BILLED ON (EG-29). A credit computed on a
+        // different rule than the invoice it credits disagrees with it by days — on exactly the
+        // mid-month move-out this service exists for, and by an amount plausible enough that nobody
+        // would query it. A `BillableAgreement` answers `prorationMethod()`, so a lease and a unit
+        // ownership resolve it their own way and neither is special-cased here.
+        $proration = $agreement->prorationMethod();
+
+        $billed = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $periodEnd, $proration);
+        $earned = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $terminationDate, $proration);
 
         if ($billed <= 0) {
             return null;

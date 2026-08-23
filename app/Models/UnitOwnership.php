@@ -14,6 +14,7 @@ use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\ProrationMethod;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -369,6 +370,18 @@ class UnitOwnership extends Model implements BillableAgreement
      *
      * @see BillableAgreement::billingCycleMonths()
      */
+    /**
+     * How a PARTIAL month of this ownership is priced (EG-29).
+     *
+     * An ownership has no lease clause to state one, so it resolves on the two tiers it does have:
+     * the property, then the portfolio. That is not a gap — the صيانة an owner pays is set by the
+     * operator's own schedule, not negotiated document by document the way a lease is.
+     */
+    public function prorationMethod(): string
+    {
+        return ProrationMethod::resolve(null, $this->assetId());
+    }
+
     public function billingCycleMonths(): int
     {
         return 1;

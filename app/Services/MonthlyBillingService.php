@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Notifications\InvoiceIssuedNotification;
 use App\Support\OpsLog;
+use App\Support\ProrationMethod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -313,7 +314,7 @@ class MonthlyBillingService
             return null;
         }
 
-        return self::monthsCovered($windowStart, $windowMonths, $rentStart, $windowEnd);
+        return self::monthsCovered($windowStart, $windowMonths, $rentStart, $windowEnd, $lease->prorationMethod());
     }
 
     /**
@@ -387,9 +388,13 @@ class MonthlyBillingService
      * disagree with the invoice it credits, by a day or two, on every mid-month move-out — a
      * difference nobody would notice and everybody would have to reconcile.
      *
-     * A full month contributes 1, a partial one its days ÷ that month's length, a month the window
-     * does not reach contributes 0. Day-share per MONTH rather than across the whole window,
-     * because a quarter's months are 30, 31 and 31 days and rent is a monthly amount.
+     * A full month contributes 1 under EVERY method, a partial one whatever the lease's proration
+     * method says its days are worth, a month the window does not reach contributes 0. Day-share
+     * per MONTH rather than across the whole window, because a quarter's months are 30, 31 and 31
+     * days and rent is a monthly amount.
+     *
+     * `$method` defaults to {@see ProrationMethod::ACTUAL}, which is what this rule always did — so
+     * a caller that has not been taught about proration bills exactly as it did before EG-29.
      *
      * @param  CarbonImmutable  $cycleStart  first month of the cycle
      * @param  int  $cycleMonths  how many months the cycle spans
@@ -401,6 +406,7 @@ class MonthlyBillingService
         int $cycleMonths,
         CarbonImmutable $windowStart,
         CarbonImmutable $windowEnd,
+        string $method = ProrationMethod::DEFAULT,
     ): float {
         $total = 0.0;
 
@@ -424,7 +430,17 @@ class MonthlyBillingService
 
             // Full-precision ratio: the per-line AMOUNT is rounded to 2dp, never the factor, so a
             // clean fraction (1 of 30 days) bills exactly 1000 rather than 999.
-            $total += $days / $month->daysInMonth;
+            //
+            // WHICH ratio is the lease's to state (EG-29). `actual` — days over this month's own
+            // length — is what this line always did and remains the default, so nothing moves on
+            // deploy; a clause reading "one thirtieth per day" now bills that instead of being
+            // wrong in the seven months that are not thirty days long.
+            $total += ProrationMethod::shareOfMonth(
+                $method,
+                $days,
+                $month->daysInMonth,
+                ProrationMethod::coversWholeMonth($windowStart, $windowEnd, $month),
+            );
         }
 
         return $total;
@@ -568,7 +584,12 @@ class MonthlyBillingService
         // edges and for a multi-month cycle: a full month contributes 1, a partial one contributes
         // its day-share, a month the lease does not reach contributes nothing. For a monthly lease
         // that never ends mid-month this is exactly 1, so nothing that bills today changes.
-        $multiplier = self::monthsCovered($periodStart, $cycleMonths, $effectivePeriodStart, $effectivePeriodEnd);
+        // The lease's own proration method (EG-29), resolved once and threaded through every
+        // multiplier below — a call site left on the default would bill one line of an invoice by a
+        // different rule than the rest of it.
+        $proration = $lease->prorationMethod();
+
+        $multiplier = self::monthsCovered($periodStart, $cycleMonths, $effectivePeriodStart, $effectivePeriodEnd, $proration);
 
         // Nothing of this period falls inside the lease — a cycle whose months are all past the
         // end date. Better to say so than to mint a zero invoice.
@@ -598,7 +619,7 @@ class MonthlyBillingService
         $graceMultiplier = ($rentStart
             && $rentStart->greaterThan($effectivePeriodStart)
             && ! $rentStart->greaterThan($effectivePeriodEnd))
-                ? self::monthsCovered($periodStart, $cycleMonths, $rentStart, $effectivePeriodEnd)
+                ? self::monthsCovered($periodStart, $cycleMonths, $rentStart, $effectivePeriodEnd, $proration)
                 : null;
 
         // The share of a full cycle, for the label and the `prorated` flag.
@@ -649,6 +670,7 @@ class MonthlyBillingService
                             $coveredMonths,
                             $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
                             $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
+                            $proration,
                         ),
                 // An arrears row prorates against the month it COVERS, not the month the invoice
                 // is dated to. A lease that commenced on 15 August owes half of August's service
@@ -662,6 +684,7 @@ class MonthlyBillingService
                     $coveredMonths,
                     $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
                     $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
+                    $proration,
                 ),
                 default => $multiplier,
             };

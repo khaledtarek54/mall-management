@@ -341,6 +341,8 @@ class Lease extends Model implements BillableAgreement, HasMedia
     ];
 
     protected $fillable = [
+        // How a PART month is priced (EG-29). Null = whatever the property says.
+        'proration_method',
         // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
         // through `fillCustomFields()`, which discards keys the catalogue does not define. The
         // `metadata` column itself is deliberately NOT fillable: nothing fills it wholesale.

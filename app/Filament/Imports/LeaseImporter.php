@@ -9,10 +9,12 @@ use App\Models\Unit;
 use App\Services\LeaseCreationService;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\LeaseTerm;
+use App\Support\ValueSets;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -166,6 +168,14 @@ class LeaseImporter extends Importer
                 // reached through the approval and cancellation workflows, and importing a lease
                 // straight into either would skip the steps that put it there.
                 ->rules(['nullable', 'in:draft,active,expired,renewed,terminated']),
+
+            ImportColumn::make('proration_method')
+                ->label(__('admin.fields.proration_method'))
+                // READ FROM THE REGISTRY, unlike `status` above: there is no narrower set here — a
+                // migrating operator's leases genuinely state any of the four, and a lease imported
+                // on the wrong one is under- or over-billed on its very first part month. Blank
+                // means "inherit the property's", which is what most rows will say.
+                ->rules(['nullable', Rule::in(ValueSets::allowed('leases', 'proration_method') ?? [])]),
 
             // The operator's own fields (D-7), LAST so an existing mapping template's column
             // order is untouched. Optional: a sheet that names none imports as it always did.

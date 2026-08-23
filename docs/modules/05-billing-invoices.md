@@ -122,6 +122,44 @@
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:
 - Generates invoices idempotently from lease charges (avoiding duplicates within a period)
 - Applies VAT (standard rate, 14% today — settings-driven, see §8) to the supplies the charge-code catalogue marks taxable (base rent is VAT-exempt per Egyptian law)
+### How a PART month is priced — a lease term since EG-29 (2026-08-23)
+
+`App\Support\ProrationMethod`, resolved on the same three tiers as every other lease term:
+`leases.proration_method` → `PropertySettings('billing.proration_method')` → `BillingSettings`.
+
+Proration was one hardcoded line — days ÷ that month's own length — which is one of the **four
+methods Yardi Voyager ships**, and leases say different things:
+
+| Method | A partial month is | 16 days of a 31-day August, rent 30,000 |
+|---|---|---|
+| `actual` **(default)** | days ÷ that month's length | 15,483.87 |
+| `thirty_day` | days ÷ 30 — the "one thirtieth per day" clause | **16,000.00** |
+| `year_365` | days × 12 ÷ 365 | 15,780.82 |
+| `whole_month` | the whole month | 30,000.00 |
+
+So a clause reading *"one thirtieth of the monthly rent per day"* was under-billed by 516.13 on that
+one move-in, and wrong in the seven months that are not thirty days long — on every move-in,
+move-out, rent commencement and final cycle.
+
+**A FULL month is exactly one month under every method.** The divisor prices the STUB; without that
+rule `thirty_day` bills 31/30 of a month every August and `year_365` bills 31 × 12 ÷ 365 — more than
+a month's rent for a month occupied normally, which is not what any of these methods mean.
+
+**`actual` is the default at every tier**, so nothing an install bills today moves.
+
+**One method per invoice.** `planInvoiceForLease()` resolves it once and threads it through all five
+`monthsCovered()` call sites — a site left on the parameter default would price one line of an
+invoice by a different rule than the rest of it. `CreditUnearnedBillingService` reads the
+**agreement's** method for the same reason: a termination credit computed on a different rule than
+the invoice it credits disagrees with it by days, on exactly the mid-month move-out it exists for.
+`prorationMethod()` is therefore on `BillableAgreement`, so a unit ownership answers it too — from
+the property and portfolio tiers, since an ownership has no clause of its own.
+
+**CAM does NOT use this, deliberately.** `CamReconciliationService` weights a tenure by *area ×
+days ÷ period days* — square-metre-days, answering "what share of the mall's GLA did this tenant
+occupy across the year". Numerator and denominator must share one day basis, so applying a lease's
+30/360 clause there would break the apportionment rather than honour the clause.
+
 - Supports proration at BOTH ends: mid-month commencement (per-run flag) and mid-month
   termination/expiry (unconditional), plus the automatic credit note when the month was already
   billed in advance

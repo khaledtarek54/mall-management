@@ -3,6 +3,7 @@
 namespace App\Settings;
 
 use App\Support\AgingBuckets;
+use App\Support\ProrationMethod;
 use Spatie\LaravelSettings\Settings;
 
 /**
@@ -57,6 +58,16 @@ class BillingSettings extends Settings
      * 0 rather than null so the column keeps one type, and 0 reads correctly as "no ceiling" beside
      * a minimum of 50 that reads as "no floor" at 0. Per-property overridable, like the other three.
      */
+    /**
+     * How a PARTIAL month is priced, portfolio-wide (EG-29).
+     *
+     * `actual` — days ÷ that month's own length — is what this system has always done, so nothing
+     * moves on deploy. The other three are Yardi's: `thirty_day` (the "one thirtieth per day"
+     * clause), `year_365`, and `whole_month`. A property may override it and a lease may state its
+     * own; see {@see ProrationMethod}.
+     */
+    public string $proration_method = ProrationMethod::DEFAULT;
+
     public float $late_fee_maximum = 0.0;
 
     /**

@@ -435,7 +435,7 @@ credential from the operator/accountant · ⚙️ ops.
 | **EG-26** | **Legal entity as a first-class object** — per-entity TRN, issuer, chart and fiscal calendar. Already named as a blocker for the Jawad/Eltizam revenue split | S-1, S-2, T-10 | 🧑‍💻 + 🔑 | XL |
 | **EG-27** | 🟡 **HALF DONE 2026-08-22 — the disappearing entries, not the consolidated view.** Every statement scoped with `whereIn('je.asset_id', …)`, which never matches NULL, so a property-less entry was invisible in all five and nothing said so — while the year-end close already bucketed those rows *"so no P&L is ever stranded"*. **Surfaced, not folded in**, on the operator's call: a null `asset_id` is portfolio overhead visible from every mall, so absorbing it would show one operator-wide cost in full on each of them and no mall's figures would be right. `LedgerReportService::unallocated()` + a notice on `ScopesLedgerReport` (so a sixth statement inherits it), silent on clean books and on an unscoped read, sized by debits because an entry balances. **Consolidated stays unreachable** — that half reopens the "All-Properties mode removed" decision and is not something to drift into | S-3 | 🧑‍💻 | M |
 | **EG-28** | ✅ **DONE 2026-08-22 — both halves.** Statement LAYOUT now reads the chart's own `parent_id` rollup: `App\Support\StatementGroups` resolves each row to its highest ancestor below the root and the screen, the CSV and the PDF all subtotal through it, so a balance sheet reads current vs non-current and an income statement separates operating revenue from other income and sales returns. On the demo books that is 10,055,007 of operating revenue distinguished from 12,440 of other income — a figure the page did not previously carry. **THE DANGEROUS HALF DONE 2026-08-22.** The cash-flow statement no longer classifies by **literal code prefixes** — `ledger_accounts.cash_flow_section` is the account's own answer, resolved through `App\Support\CashFlowSection`, with the shipped chart backfilled from exactly the rules the report used so no existing figure moves. That was the silent one: a chart numbered 1–5 with different sub-ranges SAVES (the guard only checks the leading digit) and then misclassifies every flow with nothing on screen to say so — and the operator's real chart is still pending. **The chart IMPORTER shipped the same day** — `LedgerAccountImporter`, keyed on `code` like the seeder, with `cash_flow_section` as a column because a chart arriving from another system is exactly when the classification must be stated. It also closed a latent ordering bug: parent links are derived by looking BACKWARD for an existing parent, which is complete only when parents precede children — true of the seeder, false of a CSV — so `LedgerAccount::adoptOrphanedDescendants()` now closes the reverse direction on `saved`. **Nothing open.** | S-4 | 🧑‍💻 | L |
-| **EG-29** | **Configurable proration method** (30/360 · actual/actual · actual/365 · whole month), per property or per charge code | M-1 | 🧑‍💻 + 🔑 | M |
+| **EG-29** | ✅ **DONE 2026-08-23.** `App\Support\ProrationMethod` — Yardi's four (`actual` · `thirty_day` · `year_365` · `whole_month`) on the usual **lease → property → portfolio** tiers, `actual` everywhere by default so nothing an install bills moved. **Per LEASE, not per charge code**, and that is a deviation from the row stated rather than drifted into: a lease states one proration rule for the money it governs, and no clause these malls have signed prorates rent one way and the service charge another — a second column on the same seam if that is ever wrong. **A full month is exactly one month under every method**, or 30/360 bills 31/30 of a month every August. Threaded through all five `monthsCovered()` call sites from one resolution, and `CreditUnearnedBillingService` reads the AGREEMENT's method so a termination credit cannot disagree with the invoice it credits — which is why `prorationMethod()` sits on `BillableAgreement` and a unit ownership answers it too. **CAM deliberately excluded**: it weights area × days ÷ period days, and numerator and denominator must share one day basis | M-1 | 🧑‍💻 | M |
 | ~~**EG-30**~~ ✅ | **DONE 2026-08-22 — both halves.** **M-6:** `leases.escalation_interval_months`, nullable, null = twelve, read through `Lease::escalationIntervalMonths()`. Two things the tests caught: Carbon's `addMonths()` OVERFLOWS a month-end date (31 Aug + 18 months → 2 March, not the last day of February), so the roll is `addMonthsNoOverflow()`; and a 0 from an importer would roll the date nowhere and make the sweep reconsider that lease daily for ever, so the accessor floors at one month. **M-2:** `charges.billing_timing` — per CHARGE, not per lease, because the case that matters is MIXED (rent ahead, service charge behind, one lease). Both ride the SAME invoice, each arrears line naming the month it covers. **A second invoice per lease per month was rejected on evidence:** `alreadyBilledForMonth()` has silently suppressed a lease's base rent FIVE times over a second invoice dated into a billed month, and every one was a ONE-OFF — a recurring one would fire monthly for every arrears lease. Stated cost of that choice: the invoice header's period no longer bounds every line, which it already did not (late fees, utility recharges and violation fines all ride on invoices covering another window). An arrears row prorates against the month it COVERS, and produces nothing on a lease's first invoice because that month predates the lease. Ships with every charge in advance — null is the normal state and no figure moves | M-2, M-6 | 🧑‍💻 | M  **Reviewed adversarially after shipping, and the review found nine defects in it** — seven follow-up commits. Worth recording because the pattern is the lesson: the feature was UNREACHABLE through its only UI (the add-charge action built an explicit attribute list and the column was not on it), it DOUBLE-BILLED its own headline example (an arrears `utility` line put a standalone type on the recurring invoice, so `alreadyBilledForMonth()` ignored the invoice just raised), it REFUNDED a month already earned on termination, LOST the final month, lost up to NINE months on a truncated annual cycle (108,000 EGP on a 12,000/month charge), handed back a rent-free abatement a month later, reverted to advance on every successor row / renewal / resale, and skipped the صيانة run entirely. Every one silent — plausible figures, no error, nothing in a run summary. **Known limitation, deliberately not built:** a lease TERMINATED mid-period loses the arrears tail for its final month. `LeaseTerminationService` writes `expiry_date = terminationDate` so `$isFinalCycle` is satisfied, but the lease then goes `status = 'terminated'` and `scopeBillableForPeriod()` only selects `active` — so unless the final invoice is raised in the same period, that month's arrears is never billed. Fixing it is a decision about whether termination should raise a final arrears settlement, which is its own change |
 | **EG-31** | **USD-indexed / EGP-denominated rent** — the index on the escalation path, no GL change. **Do this instead of full multi-currency unless the client insists otherwise** | X-4, §3.5 | 🧑‍💻 + 🔑 | M |
 | **EG-32** | ✅ **DONE 2026-08-23 — four slices.** **S-5's user-defined columns are real and durable**: every table is toggleable AND reorderable panel-wide, a saved list view stores the toggles and the ORDER, and the 23 catalogued reports remember their layout too (`SavedColumnLayout`, one implementation for both). **D-7 is complete end to end** — define, fill, read, filter, sort, export, import and search. **What this is NOT is a drag-and-drop report DESIGNER**, and that is stated rather than implied: which columns a given report offers as optional is a per-report editorial call (RentRoll offers 3; AR ageing, the GL, the expiration schedule and the income statement offer none), and a generic query builder over financial statements, an occupancy map and a workflow diagram is not a sensible thing to build. **SLICES 1–3. Slice 3 made the answers USABLE** — list column, filter and sort per field on all five lists, and export columns on the three resources that have an exporter. A value you can type and never group by is the notes box with extra steps. **SLICE 2 — custom fields (D-7) are built**, the larger half. **SLICE 1 DONE 2026-08-23 — a saved view remembers its columns.** The cheapest real part of S-5, and the part the finding got wrong: columns were already user-selectable, just not durable or shareable. **Still open and still XL:** a report BUILDER for the 23 catalogued report pages, user-defined groupings, column reordering (needs a blank-label sweep — two table columns use `->label('')` and `reorderableColumns()` throws on them), **Nothing open beyond one editorial choice**: widening which report and list columns are offered as optional. The vendor and property exporters — the last concrete gap — shipped the same day | S-5, D-7 | 🧑‍💻 | XL |
@@ -1423,6 +1423,59 @@ loops. The second reads the journalizers from disk and fails on one that writes 
 because a journalizer left behind would look identical to the converted ones in review.
 
 ---
+
+### 2026-08-23 — milestone 29: EG-29, a part month priced the way the lease says
+
+Proration was one line: `days ÷ that month's own length`. That is one of the four methods Yardi
+Voyager ships, and leases say different things. On 30,000/month, sixteen days of a 31-day August:
+
+| Method | Bills |
+|---|---|
+| `actual` — what the line always did | 15,483.87 |
+| `thirty_day` — the "one thirtieth per day" clause | **16,000.00** |
+| `year_365` | 15,780.82 |
+| `whole_month` | 30,000.00 |
+
+So a lease carrying the commonest clause in the market was under-billed by 516.13 on one move-in,
+and wrong in the seven months that are not thirty days long — on every move-in, move-out, rent
+commencement and final cycle.
+
+`App\Support\ProrationMethod` on the usual three tiers, `actual` by default at every one, so
+**nothing an install bills today moved** — 316 service tests unchanged proves it rather than asserts
+it.
+
+**A FULL month is exactly one month under every method.** The divisor prices the stub; without that
+rule `thirty_day` bills 31/30 of a month every August and `year_365` bills 31 × 12 ÷ 365, both more
+than a month's rent for a month occupied normally.
+
+**Per LEASE, not per charge code** — a stated deviation from the row. A lease states one proration
+rule for the money it governs, and no clause these malls have signed prorates rent one way and the
+service charge another. If that is ever wrong it is a second column on the same seam.
+
+**Resolved once per invoice and threaded through all five `monthsCovered()` call sites.** A site
+left on the parameter default would price one line of an invoice by a different rule than the rest
+of it. `CreditUnearnedBillingService` reads the AGREEMENT's method for the same reason — a credit
+computed on a different rule than the invoice it credits disagrees by days, on exactly the mid-month
+move-out it exists for — which is why `prorationMethod()` is on `BillableAgreement` and a unit
+ownership answers it from the property and portfolio tiers.
+
+**CAM is deliberately excluded** and says why: it weights a tenure by area × days ÷ period days, and
+its numerator and denominator must share one day basis.
+
+**The review found a bug in my own code, and the test caught it first.**
+`ProrationMethod::coversWholeMonth()` compared raw TIMESTAMPS, so a period end that had been through
+`startOfDay()` — which several billing paths do — read 00:00:00 against `endOfMonth()`'s 23:59:59 and
+the last day of the month counted as uncovered. A full 31-day August then billed 31/30 of a month
+under `thirty_day`. Intermittent, because it depended on which caller built the date. Now compared on
+day boundaries, exactly as `monthsCovered()` counts its days.
+
+**The review also found the clause was form-only** — `LeaseImporter` could not carry it, so a
+migrating operator with 200 leases on 30/360 terms would key each one in by hand, and a lease
+imported on the wrong method is mis-billed on its very first part month. The import column reads the
+registry rather than a second hardcoded list.
+
+8 cases, three mutations checked: removing the full-month rule fails one, making the planner ignore
+the lease fails one, and dropping the lease tier fails two.
 
 ### 2026-08-23 — milestone 28a: EG-34 review — the command I left loaded
 

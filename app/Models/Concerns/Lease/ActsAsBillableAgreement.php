@@ -4,6 +4,7 @@ namespace App\Models\Concerns\Lease;
 
 use App\Models\Unit;
 use App\Support\PropertySettings;
+use App\Support\ProrationMethod;
 
 /**
  * **Who owes, where it posts, and on what terms — the {@see \App\Contracts\BillableAgreement} half.**
@@ -48,6 +49,18 @@ trait ActsAsBillableAgreement
      *
      * @return array{percent: float, grace_days: int, minimum: float, maximum: float, recurrence_days: int}
      */
+    /**
+     * How a PARTIAL month of this lease is priced (EG-29).
+     *
+     * Same three tiers as every other lease term: the clause first, then the property, then the
+     * portfolio — and `actual` underneath all of it, which is what this system billed before the
+     * method was expressible, so a lease that states nothing bills exactly as it always did.
+     */
+    public function prorationMethod(): string
+    {
+        return ProrationMethod::resolve($this->proration_method, $this->assetId());
+    }
+
     public function lateFeeTerms(): array
     {
         // THREE tiers, not two. The lease's negotiated figure still wins; what changed is the

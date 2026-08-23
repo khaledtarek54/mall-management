@@ -172,7 +172,12 @@ class BillUnitOwnershipsService
             ? CarbonImmutable::parse($locked->ended_at)
             : $periodEnd;
 
-        $multiplier = MonthlyBillingService::monthsCovered($periodStart, 1, $windowStart, $windowEnd);
+        // The property's proration method (EG-29). An ownership states no clause of its own, so
+        // this is the property tier falling through to the portfolio — resolved ONCE and used for
+        // every row below, so an arrears line cannot be priced by a different rule than the rest.
+        $proration = $locked->prorationMethod();
+
+        $multiplier = MonthlyBillingService::monthsCovered($periodStart, 1, $windowStart, $windowEnd, $proration);
 
         if ($multiplier <= 0) {
             return null;
@@ -181,7 +186,7 @@ class BillUnitOwnershipsService
         // A co-owner pays his share of the unit's assessment, not the whole of it.
         $share = (float) ($locked->ownership_share_pct ?? 100) / 100;
 
-        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart, $periodEnd, $locked): array {
+        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart, $periodEnd, $locked, $proration): array {
             [$coveredStart, $coveredEnd] = MonthlyBillingService::coveredWindow($charge, $periodStart, $periodEnd, 1);
 
             // An arrears row prorates against the tenure the owner held in the month it COVERS, not
@@ -196,6 +201,7 @@ class BillUnitOwnershipsService
                         ? CarbonImmutable::parse($locked->started_at) : $coveredStart,
                     $locked->ended_at !== null && $locked->ended_at->lt($coveredEnd)
                         ? CarbonImmutable::parse($locked->ended_at) : $coveredEnd,
+                    $proration,
                 ),
                 default => $multiplier,
             };
