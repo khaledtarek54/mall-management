@@ -77,6 +77,7 @@ Read these in order — each one assumes the one before it.
 | 19 | [Notifications & Scheduled Scans](19-notifications-scans.md) | Every scheduled sweep, and who gets told what, on which channel |
 | 20 | [Mobile API](20-mobile-api.md) | `/api/v1` — Sanctum against `Tenant`. Endpoint reference in [api/MOBILE-API.md](../api/MOBILE-API.md) |
 | 34 | [Search](34-search.md) | The folded `search_text` blob, the pickers, and why both sides must be folded |
+| 38 | [Custom fields](38-custom-fields.md) | The operator's own fields on five record types — stored in each record's `metadata`, no deploy |
 
 ---
 

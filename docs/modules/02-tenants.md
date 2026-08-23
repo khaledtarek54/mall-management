@@ -297,6 +297,12 @@ both years. And the status column was 8% wide, breaking the header to "STATU S" 
 ## 8. Extension points — how to change SAFELY
 
 ### Adding a new tenant field
+
+> **First ask whether it needs to be a column at all.** Since 2026-08-23 an operator can add their own
+> fields to a tenant with no deploy — see [38 · Custom fields](38-custom-fields.md). A fact that is *this
+> operator's* (their parent buying group, the reference their finance team files a retailer under) belongs
+> there. A column is for a fact the SYSTEM reasons about: something a service, a report or an invoice reads.
+
 1. **Create a migration** in `database/migrations/` (e.g., `add_field_to_tenants_table.php`).
 2. **Add to `Tenant::$fillable`** if it should be mass-assignable.
 3. **Add to TenantForm** schema (TenantForm.php) if it should be editable in admin.
