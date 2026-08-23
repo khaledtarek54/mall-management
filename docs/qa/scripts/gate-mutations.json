@@ -173,5 +173,19 @@
     "path": "tests/Feature/Scenarios/NullLeaseChainConformanceTest.php",
     "old": "    'app/Console/Commands/ScanLeaseOptionWindowsCommand.php' => 'A lease OPTION is a clause of a lease by definition \u2014 `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n",
     "new": "    'app/Console/Commands/ThisFileDoesNotExist.php' => 'A lease OPTION is a clause of a lease by definition \u2014 `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n"
+  },
+  {
+    "name": "DerivedMoney \u2014 a fillable money column left unclassified (and so untested)",
+    "gate": "tests/Feature/Scenarios/DerivedMoneyConformanceTest.php",
+    "path": "app/Support/DerivedMoney.php",
+    "old": "            'credit_applied_amount' => 'the SECOND settlement channel.",
+    "new": "            'zz_not_a_column' => 'the SECOND settlement channel."
+  },
+  {
+    "name": "DerivedMoney \u2014 the invoice guard stops reverting a tampered settlement column",
+    "gate": "tests/Feature/Scenarios/DerivedMoneyConformanceTest.php",
+    "path": "app/Models/Invoice.php",
+    "old": "$invoice->isDirty(['balance', 'paid_amount', 'credit_applied_amount'])",
+    "new": "$invoice->isDirty(['balance', 'paid_amount'])"
   }
 ]

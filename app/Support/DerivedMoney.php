@@ -54,6 +54,7 @@ class DerivedMoney
             'vat_amount' => 'Σ of the lines\' VAT, at the rate each line was ISSUED at.',
             'total' => 'subtotal + vat_amount, and the figure the GL debits to AR.',
             'paid_amount' => 'the FOUR settlement channels; recomputeTotals() is the single source of truth and writes it through saveQuietly(), so it never reaches the guard — anything that does is a payload.',
+            'credit_applied_amount' => 'the SECOND settlement channel. Fillable, and until 2026-08-23 in neither dirty-check list, so a payload touching it alone hit the early exit and stuck — the next recomputeTotals() then folded it into paid_amount and the invoice read part-settled with no credit note behind it. Same saveQuietly() reasoning as paid_amount: CreditNoteService writes it and persists through recomputeTotals(), so nothing legitimate reaches the guard.',
             'balance' => 'total − paid_amount. Drives AR aging, the overdue scan, the portal and every collections screen.',
             'number' => 'allocated once by AllocatesDocumentNumber; it identifies a tax document that exists outside this system.',
         ],

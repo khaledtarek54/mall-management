@@ -72,7 +72,10 @@ it('nets all four settlement channels, not just cash', function () {
         'status' => 'applied', 'issue_date' => '2026-01-15', 'subtotal' => 30000, 'total' => 30000,
         'applied_amount' => 30000, 'balance' => 0, 'reason' => 'adjustment',
     ]);
-    $invoice->update(['credit_applied_amount' => 30000]);
+    // Persisted the way `CreditNoteService` does — quietly. `update()` routes through
+    // `Invoice::saving`, which now reverts a dirty `credit_applied_amount` as a client payload.
+    $invoice->credit_applied_amount = 30000;
+    $invoice->saveQuietly();
 
     DepositApplication::create([
         'lease_id' => $this->lease->id, 'tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id,

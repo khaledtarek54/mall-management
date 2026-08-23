@@ -51,8 +51,15 @@ function settledFourWays(): Invoice
     $payment->invoices()->attach($invoice->id, ['allocated_amount' => 2500]);
 
     // 2. An applied credit note — settles through its own column, not the payments pivot.
+    //
+    // `saveQuietly()`, which is how the real writer persists it: `CreditNoteService` sets the
+    // column and calls `recomputeTotals()`, which saves quietly. A plain `save()` here is now
+    // REFUSED by design — `Invoice::saving` reverts a dirty `credit_applied_amount`, because
+    // anything reaching that hook with it dirty is a client payload (2026-08-23: a crafted payload
+    // set it to 5,000 and the next recompute read the invoice as part-settled with no credit note
+    // behind it). The shortcut stays a shortcut; it just has to persist the way production does.
     $invoice->credit_applied_amount = 2500;
-    $invoice->save();
+    $invoice->saveQuietly();
 
     // 3. On-account tenant credit.
     TenantCreditApplication::create([

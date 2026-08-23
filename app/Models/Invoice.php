@@ -414,7 +414,7 @@ class Invoice extends Model
             }
 
             $headerTouched = $invoice->isDirty(['subtotal', 'vat_amount', 'total']);
-            $settlementTouched = $invoice->isDirty(['balance', 'paid_amount']);
+            $settlementTouched = $invoice->isDirty(['balance', 'paid_amount', 'credit_applied_amount']);
 
             if (! $headerTouched && ! $settlementTouched) {
                 return;
@@ -435,6 +435,31 @@ class Invoice extends Model
             // something else entirely.
             if ($invoice->isDirty('paid_amount')) {
                 $invoice->paid_amount = $invoice->getOriginal('paid_amount');
+            }
+
+            // ── …and `credit_applied_amount`, for exactly the same reason ──────────────────────
+            // It is the SECOND of the four settlement channels, and it was missing from both lists
+            // above until 2026-08-23 — so a payload dirtying it ALONE returned at the early exit
+            // and persisted, which is the identical short-circuit this hook already carries a
+            // paragraph about fixing for `balance`. Fixed one column, left its sibling.
+            //
+            // Measured before the fix: `update(['credit_applied_amount' => 5000])` stuck on a
+            // committed invoice, and the next `recomputeTotals()` — any payment, any credit note,
+            // the nightly sweep — folded it in as settlement: paid 0.00 → 5,000.00, balance
+            // 11,400.00 → 6,400.00. An invoice reading part-settled with no credit note, no
+            // payment and no deposit behind it, and the GL still carrying the full AR debit.
+            //
+            // Reverted rather than refused, and safe to revert, because every legitimate write
+            // (`CreditNoteService`, all four of them) sets the column and then persists through
+            // `recomputeTotals()` → `saveQuietly()`, which never fires this hook. Anything that
+            // reaches here dirtying it is a client payload by construction.
+            if ($invoice->isDirty('credit_applied_amount')) {
+                // `?? 0`, because an invoice created without this attribute has no ORIGINAL for it
+                // and the column is NOT NULL — reverting to a bare `getOriginal()` writes null and
+                // the save dies on the constraint. Zero IS the truthful prior state of a numeric
+                // column nobody has written, and it is the coercion rule this codebase already
+                // keeps for NOT NULL columns.
+                $invoice->credit_applied_amount = $invoice->getOriginal('credit_applied_amount') ?? 0;
             }
 
             // Balance follows the (possibly corrected) total in the same write — mirrors the

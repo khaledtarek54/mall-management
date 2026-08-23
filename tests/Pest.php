@@ -37,7 +37,25 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => ValueSets::flushCatalogueCache())
     ->in('Feature');
+
+/*
+|--------------------------------------------------------------------------
+| The catalogue memo does not roll back — flush it between tests
+|--------------------------------------------------------------------------
+| `ValueSets` memoises the widened value sets PER PROCESS, and a Pest worker runs many test files
+| in one process. `RefreshDatabase` rolls the ROWS back; it cannot roll back a static.
+|
+| So one test creating a `PaymentMethod` (the offered-vs-accepted gate seeds `fawry` in its own
+| `beforeEach`) leaves the memo holding a widened set, and the NEXT test in that worker sees
+| `forTable()` return eight rails while the table holds none — a mismatch that depends entirely on
+| which files the worker happened to be given. It surfaced on 2026-08-23 when adding test files
+| reshuffled that distribution: `LeaseDepositActionActuallySavesTest` failed in the parallel run
+| and passed alone, which is the signature of exactly this.
+|
+| Flushed per test rather than per file: the leak is between tests, not between files.
+*/
 
 // The MySQL tier gets the framework but NOT RefreshDatabase: what it tests is the driver's
 // behaviour against the schema that actually ships — including whatever a `->change()` migration
