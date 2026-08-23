@@ -52,7 +52,7 @@ function arrearsLease(array $chargeOverrides = []): Lease
 }
 
 /** The plan for one month, which is what the run and the preview both read. */
-function planFor(Lease $lease, string $month): array
+function planInvoiceFor(Lease $lease, string $month): array
 {
     $start = CarbonImmutable::parse($month)->startOfMonth();
 
@@ -63,7 +63,7 @@ function planFor(Lease $lease, string $month): array
 it('bills rent for this month and the service charge for last, on one invoice', function () {
     $lease = arrearsLease();
 
-    $plan = planFor($lease, '2026-09-01');
+    $plan = planInvoiceFor($lease, '2026-09-01');
     $descriptions = collect($plan['items'])->pluck('description');
 
     expect($plan['billable'])->toBeTrue()
@@ -85,7 +85,7 @@ it('leaves an advance charge exactly where it was', function () {
     // The deployment argument: null is the state every charge written before this is in.
     $lease = arrearsLease(['billing_timing' => null]);
 
-    $plan = planFor($lease, '2026-09-01');
+    $plan = planInvoiceFor($lease, '2026-09-01');
 
     foreach ($plan['items'] as $item) {
         expect($item['description'])->toContain('September 2026')
@@ -114,13 +114,13 @@ it('does not bill an arrears line on the lease\'s very first month', function ()
         'billing_timing' => Charge::TIMING_ARREARS,
     ]);
 
-    $first = planFor($lease->fresh(), '2026-08-01');
+    $first = planInvoiceFor($lease->fresh(), '2026-08-01');
 
     expect(collect($first['items'])->pluck('description'))->toHaveCount(1)
         ->and(collect($first['items'])->first()['description'])->toContain('Base Rent');
 
     // …and September carries August's service charge, so nothing was LOST — only deferred.
-    $second = planFor($lease->fresh(), '2026-09-01');
+    $second = planInvoiceFor($lease->fresh(), '2026-09-01');
 
     expect(collect($second['items'])->pluck('description')
         ->first(fn ($d) => str_contains($d, 'Service Charge')))->toContain('August 2026');
@@ -142,7 +142,7 @@ it('prorates an arrears line against the month it COVERS, not the month it is bi
         'billing_timing' => Charge::TIMING_ARREARS,
     ]);
 
-    $plan = planFor($lease->fresh(), '2026-09-01');
+    $plan = planInvoiceFor($lease->fresh(), '2026-09-01');
     $line = collect($plan['items'])->first();
 
     // 15–31 August is 17 of 31 days. 31,000 × 17/31 = 17,000 exactly.
@@ -191,7 +191,7 @@ it('bills the FINAL month of an arrears charge on the last invoice', function ()
         'billing_timing' => Charge::TIMING_ARREARS,
     ]);
 
-    $plan = planFor($lease->fresh(), '2026-08-01');
+    $plan = planInvoiceFor($lease->fresh(), '2026-08-01');
     $descriptions = collect($plan['items'])->pluck('description');
 
     $line = $descriptions->first(fn ($d) => str_contains($d, 'Service Charge'));
@@ -325,7 +325,7 @@ it('does not hand back a rent-free abatement a month later', function () {
         'billing_timing' => Charge::TIMING_ARREARS,
     ]);
 
-    $line = collect(planFor($lease->fresh(), '2026-09-01')['items'])->first();
+    $line = collect(planInvoiceFor($lease->fresh(), '2026-09-01')['items'])->first();
 
     // Only if the lease's grace actually abates a service charge does the abated figure apply; on a
     // `rent_only` grace the service charge is payable in full and 31,000 is correct. Either way the
@@ -364,7 +364,7 @@ it('does not drop a month when a quarterly lease truncates its final cycle', fun
         'billing_timing' => Charge::TIMING_ARREARS,
     ]);
 
-    $plan = planFor($lease->fresh(), '2026-07-01');
+    $plan = planInvoiceFor($lease->fresh(), '2026-07-01');
 
     expect($plan['billable'])->toBeTrue();
 
@@ -400,7 +400,7 @@ it('does not drop NINE months when an annual lease truncates its final cycle', f
         'billing_timing' => Charge::TIMING_ARREARS,
     ]);
 
-    $line = collect(planFor($lease->fresh(), '2026-01-01')['items'])
+    $line = collect(planInvoiceFor($lease->fresh(), '2026-01-01')['items'])
         ->first(fn ($i) => str_contains($i['description'], 'Service Charge'));
 
     expect($line)->not->toBeNull()
