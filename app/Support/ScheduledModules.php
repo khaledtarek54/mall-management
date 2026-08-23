@@ -67,7 +67,7 @@ final class ScheduledModules
 
         'reports:deliver' => 'reports',
 
-        'activitylog:clean' => 'activity_log',
+        'atriom:prune-activity-log' => 'activity_log',
     ];
 
     /**

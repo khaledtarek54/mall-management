@@ -216,6 +216,40 @@ No state machine per se. User authorization is static post-login:
 
 ## 5. Services, jobs & scheduled commands
 
+### How long the audit trail is kept (EG-34, 2026-08-23)
+
+`AccountingSettings::activity_log_retention_days` — **1,825 days (five years)** by default, `0` to
+keep everything, on the Settings screen under *Accounting → Records retention*. Pruned by
+`atriom:prune-activity-log`, scheduled monthly on the 1st.
+
+It was `config('activitylog.clean_after_days') = 365`, hardcoded, with no screen — and **not
+dormant**: the prune was already scheduled, so audit history really was being deleted at a year old.
+
+Two things make 365 wrong, and the second is the stronger one:
+
+- Egyptian commercial and tax records are commonly a **five-year** obligation, so the trail expired
+  years before the books it describes.
+- **This system never deletes a money document.** An invoice from four years ago is still on the
+  books; losing the record of who voided a line on it leaves a document nobody can account for.
+
+**Bounded rather than infinite, on purpose.** The log names WHO did each thing, which is personal
+data — PDPL asks both that it not be kept longer than the purpose needs and that the period be
+DOCUMENTED. A screen showing the number is that documentation; a constant in `config/` never was.
+
+**Why it is our command and not Spatie's `activitylog:clean`.** The period is a SETTING, so passing
+it as a scheduled command's argument would read the database while the schedule is being *defined* —
+and `routes/console.php` is loaded by every artisan invocation, including `migrate` on a database
+that has no settings table yet. Reading it at RUN time is the only version that is both current and
+safe. It also reports when it prunes nothing, because a silent no-op is indistinguishable from a
+broken schedule.
+
+Raising a retention period destroys nothing, so the migration gives every install the new default —
+including one that has been pruning at 365 for a year.
+
+Tests: `TheAuditTrailOutlivesTheBooksTest`, one of which asserts the SCHEDULER runs this command and
+no longer the old one, because a policy nothing schedules is a policy nobody applies.
+
+
 **TenantScope** (`App\Support\TenantScope`):
 - `currentAssetId()` — returns the active Filament tenant's ID, or null if "ALL Properties" or no tenant context (CLI, commands)
 - `applyTo(Builder $query, ?string $relation)` — constrain a query to the current property (no-op if "ALL" or no tenant)

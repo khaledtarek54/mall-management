@@ -179,6 +179,20 @@ class Settings extends Page implements HasSchemas
                         ->suffix(__('admin.fields.months'))
                         ->required(),
                 ]),
+            Section::make(__('admin.settings.sections.records_retention'))
+                ->description(__('admin.settings.sections.records_retention_description'))
+                ->components([
+                    TextInput::make('accounting.activity_log_retention_days')
+                        ->label(__('admin.settings.fields.activity_log_retention_days'))
+                        ->helperText(__('admin.settings.fields.activity_log_retention_days_help'))
+                        ->numeric()
+                        ->minValue(0)
+                        // ~27 years. Not a real ceiling, a typo guard: the field is in DAYS and an
+                        // operator thinking in years will eventually type one.
+                        ->maxValue(10000)
+                        ->suffix(__('admin.fields.days'))
+                        ->required(),
+                ]),
             Section::make(__('admin.settings.sections.document_numbering'))
                 ->description(__('admin.settings.sections.document_numbering_description'))
                 ->columns(3)

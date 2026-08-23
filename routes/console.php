@@ -158,10 +158,13 @@ Schedule::command('vendors:scan-contract-renewals')
     ->name('atriom-scan-contract-renewals')
     ->withoutOverlapping();
 
-// Monthly housekeeping. Spatie's activitylog:clean drops rows older than
-// the config's clean_after_days (default 365) so the audit log doesn't
-// accumulate indefinitely (audit M20 F-75 / D-59).
-Schedule::command('activitylog:clean')
+// Monthly housekeeping. Drops activity rows older than the operator's retention
+// period — `AccountingSettings::activity_log_retention_days`, five years by
+// default, 0 to keep everything (EG-34). Ours rather than Spatie's
+// `activitylog:clean` because the period is a SETTING: passing it as a command
+// argument would read the database while the schedule is being DEFINED, and this
+// file is loaded by every artisan invocation.
+Schedule::command('atriom:prune-activity-log')
     ->monthlyOn(1, '05:00')
     ->name('atriom-clean-activity-log')
     ->withoutOverlapping();

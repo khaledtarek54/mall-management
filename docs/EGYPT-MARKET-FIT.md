@@ -440,7 +440,7 @@ credential from the operator/accountant · ⚙️ ops.
 | **EG-31** | **USD-indexed / EGP-denominated rent** — the index on the escalation path, no GL change. **Do this instead of full multi-currency unless the client insists otherwise** | X-4, §3.5 | 🧑‍💻 + 🔑 | M |
 | **EG-32** | ✅ **DONE 2026-08-23 — four slices.** **S-5's user-defined columns are real and durable**: every table is toggleable AND reorderable panel-wide, a saved list view stores the toggles and the ORDER, and the 23 catalogued reports remember their layout too (`SavedColumnLayout`, one implementation for both). **D-7 is complete end to end** — define, fill, read, filter, sort, export, import and search. **What this is NOT is a drag-and-drop report DESIGNER**, and that is stated rather than implied: which columns a given report offers as optional is a per-report editorial call (RentRoll offers 3; AR ageing, the GL, the expiration schedule and the income statement offer none), and a generic query builder over financial statements, an occupancy map and a workflow diagram is not a sensible thing to build. **SLICES 1–3. Slice 3 made the answers USABLE** — list column, filter and sort per field on all five lists, and export columns on the three resources that have an exporter. A value you can type and never group by is the notes box with extra steps. **SLICE 2 — custom fields (D-7) are built**, the larger half. **SLICE 1 DONE 2026-08-23 — a saved view remembers its columns.** The cheapest real part of S-5, and the part the finding got wrong: columns were already user-selectable, just not durable or shareable. **Still open and still XL:** a report BUILDER for the 23 catalogued report pages, user-defined groupings, column reordering (needs a blank-label sweep — two table columns use `->label('')` and `reorderableColumns()` throws on them), **Nothing open beyond one editorial choice**: widening which report and list columns are offered as optional. The vendor and property exporters — the last concrete gap — shipped the same day | S-5, D-7 | 🧑‍💻 | XL |
 | **EG-33** | **Real-estate tax and municipal levies as a recurring statutory cost** — there is no recurring-expense concept at all today | T-8, §3.6 | 🧑‍💻 + 🔑 | M |
-| **EG-34** | **Configurable retention policy** (activity log is pruned at 365 days from a hardcoded config value), per PDPL's documented-retention obligation | S-16, §3.6 | 🧑‍💻 + 🔑 | S |
+| **EG-34** | ✅ **DONE 2026-08-23.** `AccountingSettings::activity_log_retention_days`, defaulting to **1,825 days (five years)** and `0` for keep-everything, with a *Records retention* section on the Accounting tab. **It was not a dormant default**: `activitylog:clean` is scheduled monthly on the 1st, so audit history really was being deleted at a year old — years before the books it describes, and while this system's money documents are never deletable at all. **Bounded rather than infinite on purpose**: the log names WHO did each thing, so PDPL asks both that it not outlive its purpose and that the period be DOCUMENTED — the screen is that documentation. Replaced by `atriom:prune-activity-log`, which reads the setting at RUN time: passing it to Spatie's command would read the database while `routes/console.php` is being loaded, which every artisan invocation does, including `migrate` on a database with no settings table. **The five-year figure is the one thing here still worth the accountant confirming** — the mechanism does not depend on it | S-16, §3.6 | 🧑‍💻 | S |
 | ~~**EG-35**~~ ✅ | **CLOSED 2026-08-22 — its own scope is delivered; what is left was mis-scoped into it.** **Shipped:** the late-fee CAP on the three tiers its siblings already had (`leases.late_fee_maximum` → `PropertySettings` → `BillingSettings`, 0 = no cap at every tier, applied AFTER the minimum so a floor cannot bill above a ceiling the clause names); late-fee RECURRENCE (`late_fee_recurrence_days`, 0 = charge once, measured from the last fee's ISSUE date so an old arrear does not fire a burst of back-dated fees); and the DEPOSIT default, which was a literal `3` in `LeaseCreationService` and is now `BillingSettings::default_security_deposit_months`. All three ship at today's behaviour — no figure moves on deploy. **The two remaining items are not this row's work, and both are recorded at source rather than left pending here:** M-10 (rounding mode) is a standing DECISION — 540 money sites, every stored figure re-derived, for a request nobody has made; and M-12 (quarterly CAM true-up) is a 🔴 L in the CAM module that was mis-scoped into an M — `cam_expense_pools` is `unique(asset_id, period_year)`, so the POOL must gain a shorter period before any schedule can change. M-12 is promoted to **EG-41** so a real L is not lost inside a closed row | M-8, M-11 | 🧑‍💻 | M |
 | **EG-41** | **A CAM true-up that is not annual.** Split out of EG-35 (M-12), where it was mis-scoped as part of an M. `cam_expense_pools` is `unique(asset_id, period_year)` — one pool per property per YEAR — so a quarterly or half-yearly true-up is not a scheduling option at all: the pool itself has to gain a period shorter than a year, and the apportionment, the reconciliation and every read that assumes one-pool-per-year follow it. Sized honestly as an L across the CAM module rather than a setting. Worth doing only if the operator's leases actually state a non-annual reconciliation — which is a question for §6, not an assumption | M-12 | 🧑‍💻 + 🔑 | L |
 | ~~**EG-36**~~ ✅ | **DONE 2026-08-22.** `journal_entries.description_key` + `description_data`, resolved by `App\Support\JournalNarrative` — the ledger's twin of `ActivityVocabulary`, and the same rule: **a row stores DATA, never PROSE**. All **24** journalizers converted (25 narratives: the custody one branches, so its key is chosen in the same branch its prose is, and the two can never describe different movements). **The prose columns STAY and are still written**, as a snapshot and a floor: every row posted before today has prose and no key, a manual entry is prose the operator typed, and a read site nobody converted degrades to today's wording rather than to a blank cell — on a general ledger an empty description is indistinguishable from an entry nobody described. Nothing re-posts, because `matches()` compares lines, date and asset and deliberately not text | S-12 | 🧑‍💻 | M |
@@ -1423,6 +1423,46 @@ loops. The second reads the journalizers from disk and fails on one that writes 
 because a journalizer left behind would look identical to the converted ones in review.
 
 ---
+
+### 2026-08-23 — milestone 28: EG-34, an audit trail that outlived nothing
+
+`config('activitylog.clean_after_days') = 365`, hardcoded, with no screen. The important part is
+that it was **not dormant**: `activitylog:clean` is scheduled monthly on the 1st, so audit history
+really was being deleted at a year old.
+
+Two things make 365 wrong here, and the second is the stronger one:
+
+- Egyptian commercial and tax records are commonly a FIVE-year obligation, so the trail was expiring
+  years before the books it describes.
+- **This system never deletes a money document.** An invoice from four years ago is still on the
+  books, and the record of who voided a line on it had already gone — a document nobody can account
+  for, which is the opposite of what an audit trail is for.
+
+So: `AccountingSettings::activity_log_retention_days`, defaulting to **1,825 days**, `0` for
+keep-everything, in a *Records retention* section on the Accounting tab — which is where fiscal
+calendar and document numbering already live, because they are all the same question about records
+policy.
+
+**Bounded rather than infinite, deliberately.** The log names WHO did each thing, which is personal
+data: PDPL asks both that it not be kept longer than the purpose needs AND that the period be
+documented. A screen showing the number is that documentation; a constant in `config/` never was.
+That is the whole of the "🔑" in this row — and the only part still worth putting to the accountant
+is the five-year figure itself, which the mechanism does not depend on.
+
+**Raising a retention period destroys nothing**, so every install gets the new default including one
+that has been pruning at 365 for a year. Rows already gone are gone; this stops the bleeding.
+
+**`atriom:prune-activity-log` replaces Spatie's command**, and the reason is worth recording: the
+period is a SETTING, so passing it as a scheduled command's argument would read the database while
+the schedule is being DEFINED — and `routes/console.php` is loaded by every artisan invocation,
+including `migrate` on a database that has no settings table yet. Reading it at RUN time is the only
+version that is both current and safe. It also reports when it prunes nothing, because a silent
+no-op is indistinguishable from a broken schedule.
+
+6 cases, three mutations checked: hardcoding 365 back into the command fails three, removing the
+zero-means-keep branch fails one, reverting the default fails one. One of them asserts the SCHEDULER
+runs the new command and no longer the old one — a policy nothing schedules is a policy nobody
+applies.
 
 ### 2026-08-23 — milestone 27a: EG-10 review — the allocator nobody had counted past
 

@@ -33,6 +33,8 @@ return [
             'revenue_recognition' => 'Revenue recognition',
             'leasing_defaults' => 'Leasing defaults',
             'leasing_defaults_description' => 'What a new lease form starts from. A starting point only — the operator overwrites it on any lease that differs, and nothing derives from it afterwards.',
+        'records_retention' => 'Records retention',
+        'records_retention_description' => 'How long the audit trail is kept. Egyptian commercial and tax records are commonly a five-year obligation, and this system never deletes a money document — so the trail should outlive the books it describes.',
             'document_numbering' => 'Document numbering',
             'document_numbering_description' => 'The letters at the front of each document number. Set these BEFORE go-live: afterwards they are printed on issued documents that cannot be renumbered, and changing one starts a second series rather than renumbering the first.',
             'revenue_recognition_description' => 'How rent is recognised in the books. This does not change what any tenant is invoiced.',
@@ -71,6 +73,8 @@ return [
             'payroll_gratuity_days_suffix' => 'days',
             'payroll_gratuity_exposure' => 'Accrued to date',
             'payroll_gratuity_exposure_value' => ':amount across :headcount active employees — what would be owed if everyone left today.',
+            'activity_log_retention_days' => 'Keep the activity log for',
+            'activity_log_retention_days_help' => 'Older entries are deleted on the 1st of each month. 0 keeps everything. Five years (1825) covers the usual Egyptian statutory period.',
             'document_number_reset' => 'When a series starts again',
             'document_number_reset_help' => 'Set this before your first invoice — it is printed on documents that cannot be renumbered. Yearly is what most accounting systems do.',
             'document_number_reset_options' => [

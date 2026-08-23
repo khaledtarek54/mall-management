@@ -70,6 +70,28 @@ class AccountingSettings extends Settings
      * deploy to change a number that is only ever a starting point. The operator overwrites it on
      * any lease that differs; nothing derives from it after creation.
      */
+    /**
+     * How long an activity-log row is kept, in days. `0` keeps them for ever (EG-34).
+     *
+     * It was `config('activitylog.clean_after_days') = 365`, hardcoded, with no screen — and the
+     * prune is SCHEDULED, monthly on the 1st, so it was really deleting audit history.
+     *
+     * 365 days is a web-application default, not an accounting one. Two things make it wrong here:
+     *
+     * - **Egyptian statutory book retention is longer.** Commercial and tax records are commonly
+     *   cited as a FIVE-year obligation, so the audit trail was expiring years before the books it
+     *   describes. The default is now 1,825 days.
+     * - **Money records in this system are never deletable.** An invoice from four years ago is
+     *   still on the books; losing the record of who voided a line on it leaves a document nobody
+     *   can account for.
+     *
+     * **Bounded rather than infinite, on purpose.** The log names WHO did each thing, which is
+     * personal data — PDPL asks that it not be kept longer than the purpose needs and that the
+     * period be documented. A screen showing the chosen number IS that documentation; a hardcoded
+     * constant never could be.
+     */
+    public int $activity_log_retention_days = 1825;
+
     public int $default_lease_term_months = 36;
 
     public static function group(): string
