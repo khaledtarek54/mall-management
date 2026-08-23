@@ -1,0 +1,135 @@
+[
+  {
+    "name": "GlRegistry \u2014 drop a source's entry-date column",
+    "gate": "tests/Feature/Scenarios/GlRegistryConformanceTest.php",
+    "path": "app/Support/LedgerRealtimeSync.php",
+    "old": "        Payment::class => 'payment_date',",
+    "new": ""
+  },
+  {
+    "name": "DeletionPolicy \u2014 unclassify a money model",
+    "gate": "tests/Feature/Scenarios/DeletionPolicyConformanceTest.php",
+    "path": "app/Models/Invoice.php",
+    "old": "#[NeverDeletable(correction: 'cancel the invoice, or issue a credit note')]\n",
+    "new": ""
+  },
+  {
+    "name": "MediaPrivacy \u2014 publish a private collection to the webroot",
+    "gate": "tests/Feature/Scenarios/MediaPrivacyConformanceTest.php",
+    "path": "app/Models/Announcement.php",
+    "old": "->useDisk('local')->singleFile()",
+    "new": "->useDisk('public')->singleFile()"
+  },
+  {
+    "name": "MorphMap \u2014 remove an alias",
+    "gate": "tests/Feature/Scenarios/MorphMapConformanceTest.php",
+    "path": "app/Support/MorphMap.php",
+    "old": "        'budget_line' => BudgetLine::class,\n",
+    "new": ""
+  },
+  {
+    "name": "PostingDateGuard \u2014 drop a GL source's guard declaration",
+    "gate": "tests/Feature/Scenarios/PostingDateGuardConformanceTest.php",
+    "path": "app/Models/CreditNote.php",
+    "old": "#[PostingDateGuardedBy(guard: CreditNoteService::class)]\n",
+    "new": ""
+  },
+  {
+    "name": "ConcurrencyPolicy \u2014 remove a registered lock",
+    "gate": "tests/Feature/Scenarios/ConcurrencyPolicyConformanceTest.php",
+    "path": "app/Services/LateFeeService.php",
+    "old": "Invoice::query()->lockForUpdate()->find($invoice->id)",
+    "new": "Invoice::query()->find($invoice->id)"
+  },
+  {
+    "name": "PropertyIsolation \u2014 unclassify a property-owned model",
+    "gate": "tests/Feature/Scenarios/PropertyIsolationConformanceTest.php",
+    "path": "app/Models/Area.php",
+    "old": "#[PropertyOwned]\n",
+    "new": ""
+  },
+  {
+    "name": "SearchPolicy \u2014 search a raw column instead of the folded blob",
+    "gate": "tests/Feature/Scenarios/SearchPolicyConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Tenants/TenantResource.php",
+    "old": "            'search_text',",
+    "new": "            'name',"
+  },
+  {
+    "name": "RecordStateRefresh \u2014 drop the trait from a money Edit page",
+    "gate": "tests/Feature/Scenarios/RecordStateRefreshConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/CreditNotes/Pages/EditCreditNote.php",
+    "old": "    use RefreshesRecordState;\n",
+    "new": ""
+  },
+  {
+    "name": "PropertyFieldPinned \u2014 unpin the property field",
+    "gate": "tests/Feature/Scenarios/PropertyFieldPinnedConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Areas/Schemas/AreaForm.php",
+    "old": "            PropertyField::make()",
+    "new": "            PropertyField::make()->disabled(false)"
+  },
+  {
+    "name": "ScreenGuide \u2014 unregister a screen",
+    "gate": "tests/Feature/Scenarios/ScreenGuideConformanceTest.php",
+    "path": "app/Support/ScreenGuides.php",
+    "old": "        UnitResource::class => 'units',\n",
+    "new": ""
+  },
+  {
+    "name": "ValueSetCoverage \u2014 unregister a classification column",
+    "gate": "tests/Feature/Scenarios/ValueSetCoverageConformanceTest.php",
+    "path": "app/Support/ValueSets.php",
+    "old": "        'ledger_accounts.cash_flow_section' => [CashFlowSection::class, 'SECTIONS'],\n",
+    "new": ""
+  },
+  {
+    "name": "ValueSetCoverage \u2014 let the suffix list drift behind the registry",
+    "gate": "tests/Feature/Scenarios/ValueSetCoverageConformanceTest.php",
+    "path": "tests/Feature/Scenarios/ValueSetCoverageConformanceTest.php",
+    "old": "    'section', 'timing', 'result', 'recipient', 'decision', 'pool',\n",
+    "new": ""
+  },
+  {
+    "name": "ActionAuthz \u2014 remove BOTH gates from a write action",
+    "gate": "tests/Feature/Scenarios/ActionAuthzConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Invoices/Pages/EditInvoice.php",
+    "old": "                ->authorize(fn () => Auth::user()?->can('invoices.edit') ?? false)\n                ->visible(fn () => filled($this->record->payment_link_token)\n                    && (Auth::user()?->can('invoices.edit') ?? false))\n                ->action(function (): void {\n                    abort_unless(Auth::user()?->can('invoices.edit') ?? false, 403);\n",
+    "new": "                ->visible(fn () => filled($this->record->payment_link_token))\n                ->action(function (): void {\n"
+  },
+  {
+    "name": "ChangeImpact \u2014 unclassify a REFUSED field on a posted document",
+    "gate": "tests/Feature/Scenarios/ChangeImpactConformanceTest.php",
+    "path": "app/Support/ChangeImpact.php",
+    "old": "                'issue_date' => 'it IS the entry date, so it decides which period recognises the revenue',\n",
+    "new": ""
+  },
+  {
+    "name": "ProjectedState \u2014 point a derived column at a sweep that does not exist",
+    "gate": "tests/Feature/Scenarios/ProjectedStateConformanceTest.php",
+    "path": "app/Support/ProjectedState.php",
+    "old": "            'sweep' => 'leases:expire',\n            'stale_when' => 'a future-dated expansion or give-back reaches its effective date, or a '.",
+    "new": "            'sweep' => 'leases:does-not-exist',\n            'stale_when' => 'a future-dated expansion or give-back reaches its effective date, or a '."
+  },
+  {
+    "name": "ScheduledModuleGate \u2014 point a scheduled command at a module key that does not exist",
+    "gate": "tests/Feature/Scenarios/ScheduledModuleGateConformanceTest.php",
+    "path": "app/Support/ScheduledModules.php",
+    "old": "        'cam:reconcile' => 'cam',",
+    "new": "        'cam:reconcile' => 'cam_typo',"
+  },
+  {
+    "name": "DashboardLayout \u2014 rename a role out of the widget registry",
+    "gate": "tests/Feature/Scenarios/DashboardLayoutConformanceTest.php",
+    "path": "app/Support/DashboardLayout.php",
+    "old": "        'viewer' => [",
+    "new": "        'viewer_typo' => ["
+  },
+  {
+    "name": "EntitySelect \u2014 downgrade a record picker to a bare Select",
+    "gate": "tests/Feature/Scenarios/EntitySelectConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Areas/Schemas/AreaForm.php",
+    "old": "            EntitySelect::make('supervisors')",
+    "new": "            \\Filament\\Forms\\Components\\Select::make('supervisors')"
+  }
+]

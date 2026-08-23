@@ -27,6 +27,44 @@ docs/qa/scripts/race.sh lease "44,1"                     # two-process concurren
 `boot.php` **refuses to run unless the connection is `mall_management_qa`**, so a mistyped
 `DB_DATABASE` cannot touch your working database.
 
+## Gate mutation audit — does a green gate mean anything?
+
+```bash
+python3 docs/qa/scripts/gate-audit.py docs/qa/scripts/gate-mutations.json /tmp/gate-audit.json
+```
+
+Different from everything else here: it runs against the ordinary **SQLite Pest suite**, not the QA
+database, and it does not test the app — it tests the **tests**.
+
+There are 67 conformance gates, and until 2026-08-23 exactly one
+(`ReconciliationChecksCanFailConformanceTest`) proved the checks it covers could actually go red. The
+rest were trusted. That matters because a gate is how this project convinces itself an invariant
+holds, and *"a gate can report on a set it has silently stopped collecting"* is its most repeated
+defect — recorded five times before this audit, and twice more on the day it was written.
+
+For each entry in the manifest the harness applies one mutation — **the real defect the gate names**,
+never a syntax break — runs that gate alone, and requires it to fail. Then it restores the file. A
+gate that stays green is a `HOLE`. It verifies each mutation actually LANDED before believing the
+result, because a substitution that silently does not apply reports a false PASS, which has happened
+twice in this project.
+
+**Result of the first run: 19 mutations across 18 gates, one hole.**
+`ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
+guards — 10 of 156 registered columns were invisible to it, so a new column of any of those shapes
+would have shipped unenforced with the gate silent. Fixed, and the list is now self-checking.
+
+Two things worth knowing before adding a mutation:
+
+- **An invalid mutation reads exactly like a weak gate.** Removing `abort_unless` from an action that
+  also carries `->authorize()` leaves it gated, so `ActionAuthz` passed and looked holed. The
+  double-gate is deliberate; the mutation has to remove both.
+- **A gate can bucket its own target as noise.** The extended reorderable-columns sweep filed the
+  blank-label exception it exists to catch under "could not mount" and passed. If a gate catches
+  exceptions, check where its own defect lands.
+
+The manifest is not exhaustive — 18 of 67 gates, chosen for money, authorization and property
+isolation. Adding a gate to it is four strings.
+
 ## What each script covers
 
 | Script | Covers |
