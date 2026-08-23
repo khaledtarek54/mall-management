@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Invoice;
+use App\Support\DocumentText;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -33,11 +34,20 @@ class InvoiceOverdueTenantNotification extends Notification implements ShouldQue
     {
         return (new MailMessage)
             ->subject(__('admin.notifications.invoice_overdue_reminder_subject', ['number' => $this->invoice->number]))
-            ->line(__('admin.notifications.invoice_overdue_reminder_mail', [
+            // The operator's own wording where they have written one, the translation key the
+            // notification always used where they have not (EG-15 slice 2). Dunning is the message
+            // whose WORDING is the whole artefact: a chasing email that reads as a system alert is
+            // ignored, and a mall does not write to an anchor tenant what it writes to a kiosk.
+            //
+            // Resolved for the INVOICE's property, so a two-mall operator can chase differently in
+            // each — and per locale, because `DocumentText` holds both languages on one row and
+            // picks at render time. That is the opposite of the invoice LINE description, which is
+            // stored prose and therefore stays English; a notification is composed when it is sent.
+            ->line(DocumentText::for('dunning.overdue_reminder', $this->invoice->asset_id, [
                 'number' => $this->invoice->number,
                 'days' => $this->daysOverdue(),
                 'amount' => number_format((float) $this->invoice->balance, 2),
-            ]));
+            ]) ?? '');
     }
 
     public function toDatabase(object $notifiable): array

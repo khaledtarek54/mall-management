@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\DocumentTemplate;
+use App\Notifications\InvoiceOverdueTenantNotification;
 use App\Services\InvoicePdfService;
 use App\Support\DocumentText;
 use App\Support\ValueSets;
@@ -158,4 +159,63 @@ it('renders no payment-instructions heading until one is written', function () {
     expect($html)->not->toContain(__('admin.pdf.payment_instructions'))
         // …while the footer, which HAS a floor, still prints.
         ->and($html)->toContain('Bank transfer / Card / InstaPay');
+});
+
+it('lets the operator write their own dunning notice, per property', function () {
+    // EG-15 slice 2. Dunning is the message where WORDING is the whole artefact: a chasing email
+    // that reads as a system alert gets ignored, and a mall does not write to an anchor tenant what
+    // it writes to a kiosk. The floor is the lang key the notification always used, so an install
+    // that has written nothing sends exactly what it sent before.
+    $mall = makeAsset(['code' => 'DN']);
+
+    $floor = DocumentText::for('dunning.overdue_reminder', $mall->id, [
+        'number' => 'INV-1', 'days' => 9, 'amount' => '5,000.00',
+    ]);
+
+    // The floor renders and carries the figures — an operator who writes nothing still chases.
+    expect($floor)->not->toBeNull()
+        ->and($floor)->toContain('INV-1');
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'dunning.overdue_reminder',
+        'body_en' => 'Invoice {number} is {days} days past due. EGP {amount} is outstanding.',
+        'body_ar' => 'الفاتورة {number} متأخرة {days} يومًا. المستحق {amount} جنيه.',
+        'is_active' => true,
+    ]);
+
+    $written = DocumentText::for('dunning.overdue_reminder', $mall->id, [
+        'number' => 'INV-1', 'days' => 9, 'amount' => '5,000.00',
+    ]);
+
+    expect($written)->toBe('Invoice INV-1 is 9 days past due. EGP 5,000.00 is outstanding.');
+
+    // …and the other mall is untouched, which is the point of the property dimension: a two-mall
+    // operator chases differently in each.
+    $other = makeAsset(['code' => 'DO']);
+
+    expect(DocumentText::for('dunning.overdue_reminder', $other->id, [
+        'number' => 'INV-1', 'days' => 9, 'amount' => '5,000.00',
+    ]))->toBe($floor);
+});
+
+it('sends the operator wording in the overdue email, not the shipped sentence', function () {
+    // The resolver being right is not the same as the notification using it — the half that would
+    // otherwise ship as a settings screen nothing reads.
+    $mall = makeAsset(['code' => 'DM']);
+    $lease = makeLease(makeUnit($mall), null, ['status' => 'active']);
+    $invoice = makeInvoice($lease, ['status' => 'overdue', 'balance' => 4000, 'total' => 4000,
+        'due_date' => now()->subDays(6), 'asset_id' => $mall->id]);
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'dunning.overdue_reminder',
+        'body_en' => 'Kindly settle {number}. It is {days} days late.',
+        'is_active' => true,
+    ]);
+
+    $mail = (new InvoiceOverdueTenantNotification($invoice->fresh()))
+        ->toMail($invoice->tenant);
+
+    expect(collect($mail->introLines)->implode(' '))->toContain('Kindly settle');
 });

@@ -58,6 +58,7 @@ final class DocumentText
         'invoice.footer',
         'invoice.payment_instructions',
         'invoice.terms',
+        'dunning.overdue_reminder',
     ];
 
     public const KEYS = [
@@ -72,6 +73,20 @@ final class DocumentText
 
         // NEW. Late-payment terms, disputes window, whatever the lease says in general.
         'invoice.terms' => ['floor' => null, 'tokens' => []],
+
+        // SLICE 2 (EG-15). The dunning notice — the one message where the WORDING is the whole
+        // artefact. A chasing email that reads as a system alert gets ignored; an operator wants
+        // their own sentence, and a mall chasing an anchor tenant does not write what it writes to
+        // a kiosk. The floor is the lang key the notification always used, so an install that has
+        // written nothing sends exactly what it sent before.
+        //
+        // Tokens are the three figures the message cannot be written without. `:amount` arrives
+        // already formatted, because a template author cannot be asked to think about thousands
+        // separators.
+        'dunning.overdue_reminder' => [
+            'floor' => 'admin.notifications.invoice_overdue_reminder_mail',
+            'tokens' => ['number', 'days', 'amount'],
+        ],
     ];
 
     /**
