@@ -258,3 +258,51 @@ it('lets the operator write the late-fee, receipt and renewal notices too', func
         expect($written)->not->toContain('{');
     }
 });
+
+it('sends an Arabic-preferring tenant the Arabic row', function () {
+    // The claim these commits rest on: `DocumentText` holds both languages on ONE row and picks at
+    // render time, so a notification composed when it is sent gets the reader's language — unlike
+    // the invoice LINE description, which is stored prose and stays as written.
+    //
+    // It works because `Tenant implements HasLocalePreference` and Laravel's `NotificationSender`
+    // wraps the send in `withLocale()`. Proven rather than assumed: this is the whole difference
+    // between a bilingual notice and one that emails Arabic to an English reader.
+    $mall = makeAsset(['code' => 'AR']);
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'dunning.overdue_reminder',
+        'body_en' => 'English body {number}.',
+        'body_ar' => 'Arabic body {number}.',
+        'is_active' => true,
+    ]);
+
+    $tokens = ['number' => 'INV-7', 'days' => 3, 'amount' => '100.00'];
+
+    expect(DocumentText::for('dunning.overdue_reminder', $mall->id, $tokens))
+        ->toBe('English body INV-7.');
+
+    // The same row, read as the tenant reads it.
+    app()->setLocale('ar');
+    $arabic = DocumentText::for('dunning.overdue_reminder', $mall->id, $tokens);
+    app()->setLocale('en');
+
+    expect($arabic)->toBe('Arabic body INV-7.');
+});
+
+it('falls back to the house row for a payment tied to no property', function () {
+    // `PaymentReceivedNotification` resolves the property from the invoices the payment settles —
+    // and an on-account payment settles none, so the asset is null. Null must mean "the house row",
+    // not a crash and not a blank line: an operator who wrote one house sentence expects every
+    // receipt to use it.
+    DocumentTemplate::create([
+        'asset_id' => null,
+        'key' => 'receipt.payment_received',
+        'body_en' => 'House receipt for {amount}.',
+        'is_active' => true,
+    ]);
+
+    expect(DocumentText::for('receipt.payment_received', null, [
+        'amount' => 'EGP 1,000.00', 'method' => 'Cash', 'date' => '01/09/2026',
+    ]))->toBe('House receipt for EGP 1,000.00.');
+});
