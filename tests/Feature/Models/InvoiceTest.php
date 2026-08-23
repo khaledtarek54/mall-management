@@ -53,12 +53,13 @@ it('auto-generates a unique invoice number with the asset code and period', func
     $b = makeInvoice($lease, ['issue_date' => '2026-02-15']);
     $c = makeInvoice($lease, ['issue_date' => '2026-03-01']);
 
-    // One series for the YEAR since EG-10 — February and March invoices share it, which is what
-    // SAP, Oracle, NetSuite and Odoo do and what an auditor following a tax series expects. The
-    // shipped monthly reset gave twelve series a mall a year and nobody had chosen it.
-    expect($a->number)->toMatch('/^INV-XY-2026-\d{4}$/');
-    expect($b->number)->toMatch('/^INV-XY-2026-\d{4}$/');
-    expect($c->number)->toMatch('/^INV-XY-2026-\d{4}$/');
+    // ONE continuous series per property since EG-10 — February and March invoices share it. That
+    // is Yardi's and MRI's behaviour (a control number that never resets, with the property a field
+    // on the record); the shipped monthly reset gave twelve series a mall a year and nobody had
+    // chosen it. SAP/Oracle/Odoo's annual reset is available as a setting.
+    expect($a->number)->toMatch('/^INV-XY-\d{4}$/');
+    expect($b->number)->toMatch('/^INV-XY-\d{4}$/');
+    expect($c->number)->toMatch('/^INV-XY-\d{4}$/');
 
     // Still unique, and still climbing within the series — which is the property this test is
     // really about, and the one a period reset never guaranteed on its own.

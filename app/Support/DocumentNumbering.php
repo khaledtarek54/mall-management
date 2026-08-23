@@ -101,21 +101,30 @@ class DocumentNumbering
      * Atriom shipped a MONTHLY reset (`INV-AW-202608-0417`), which is a convention nobody chose and
      * that **no major system uses**. The market splits two ways and neither is monthly:
      *
-     * - **SAP, Oracle, NetSuite and Odoo** reset accounting document numbers per YEAR. Odoo's
-     *   sequences are the closest analogue to this one — a prefix with a date range and a counter.
      * - **Yardi Voyager and MRI** use continuous control numbers that never reset; the property or
-     *   entity is a field on the record rather than a segment of the number.
+     *   entity is a field on the record rather than a segment of the number. **Yardi is this
+     *   project's primary reference, so `NEVER` is the default.**
+     * - **SAP, Oracle, NetSuite and Odoo** reset per YEAR. Offered as `ANNUAL` for an operator
+     *   whose auditor expects a year in the series; Odoo's sequences are the closest analogue to
+     *   this implementation — a prefix with a date range and a counter.
      *
-     * So `ANNUAL` is the default, and the scheme is CONFIGURABLE because every one of those systems
-     * treats a number range as configuration rather than as code.
+     * The scheme is CONFIGURABLE because every one of those systems treats a number range as
+     * configuration rather than as code.
      *
-     * ## The reset is on the DOCUMENT's own date, and it is a calendar year
+     * ## `NEVER` needs an allocator that can count past its padding, and now there is one
      *
-     * SAP resets per FISCAL year. That is deliberately not copied: this system already lets a
-     * property run an April→March year, and a March-2027 invoice numbered `…-2026-…` reads as a
-     * mistake to everyone who is not an accountant. An operator whose fiscal year is not the
-     * calendar year should choose {@see NEVER}, which is Yardi's behaviour and has no year in the
-     * number to disagree with.
+     * The next number is derived from `MAX(number)` within the prefix, which was a STRING sort:
+     * once a series passed `%04d`, `INV-AW-10000` sorted below `INV-AW-9999` and the allocator
+     * handed out a number already taken. Unreachable while a series reset every month — and
+     * entirely reachable on a continuous one, which is the default now. Every allocator orders by
+     * `LENGTH(number) DESC, number DESC`.
+     *
+     * ## Where a year IS used, it is the calendar year
+     *
+     * SAP resets per FISCAL year. Deliberately not copied: this system lets a property run an
+     * April→March year, and a March-2027 invoice numbered `…-2026-…` reads as a mistake to everyone
+     * who is not an accountant. It is also the strongest argument for the Yardi default — a
+     * continuous series has no year in it to disagree with anything.
      *
      * ## Changing it after go-live does the same thing changing a prefix does
      *
@@ -133,8 +142,8 @@ class DocumentNumbering
     /** @var array<int, string> */
     public const RESET_SCHEMES = [self::NEVER, self::ANNUAL, self::MONTHLY];
 
-    /** The market default — see {@see RESET_SCHEMES}'s docblock for why it is not monthly. */
-    public const DEFAULT_RESET = self::ANNUAL;
+    /** Yardi's behaviour, and this project's primary reference. See {@see RESET_SCHEMES}. */
+    public const DEFAULT_RESET = self::NEVER;
 
     /** How this install numbers its series. */
     public static function resetScheme(): string

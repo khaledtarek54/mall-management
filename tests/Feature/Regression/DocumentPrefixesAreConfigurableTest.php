@@ -216,9 +216,13 @@ function setNumberReset(string $scheme): void
     $settings->save();
 }
 
-it('defaults to the ANNUAL reset the market uses, not the monthly one it shipped with', function () {
-    expect(DocumentNumbering::DEFAULT_RESET)->toBe(DocumentNumbering::ANNUAL)
-        ->and(DocumentNumbering::resetScheme())->toBe(DocumentNumbering::ANNUAL);
+it('defaults to the CONTINUOUS series Yardi uses, not the monthly one it shipped with', function () {
+    // Yardi Voyager and MRI use control numbers that never reset, with the property as a field on
+    // the record rather than a segment of the number. Yardi is this project's primary reference, so
+    // it is the default; SAP/Oracle/NetSuite/Odoo's annual reset is offered for an operator whose
+    // auditor expects a year in the series. Monthly, which Atriom shipped, is used by none of them.
+    expect(DocumentNumbering::DEFAULT_RESET)->toBe(DocumentNumbering::NEVER)
+        ->and(DocumentNumbering::resetScheme())->toBe(DocumentNumbering::NEVER);
 });
 
 it('puts the year, the month or nothing in the number, on the DOCUMENT’s own date', function () {
@@ -263,6 +267,31 @@ it('actually numbers a document the configured way, and keeps counting within th
         ->and($nextYear->number)->toEndWith('0001');
 });
 
+it('counts a continuous series past its zero-padding', function () {
+    // The bug that made Yardi's scheme unsafe to default to. The next number comes from
+    // `MAX(number)` within the prefix, which was a STRING sort — so once a series passed `%04d`,
+    // `INV-PAD-9999` sorted ABOVE `INV-PAD-10000` and the allocator proposed a number already taken.
+    //
+    // Asserted on `generateNumber()` rather than by creating invoices, and that is the point: the
+    // allocator's collision loop RETRIES on a duplicate, so end to end the bug is invisible — it
+    // just costs a query per collision until it exceeds its 100-attempt cap and throws. A test that
+    // created two invoices passed with the broken sort restored, which is how this was caught.
+    setNumberReset(DocumentNumbering::NEVER);
+
+    $asset = makeAsset(['code' => 'PAD']);
+    $lease = makeLease(makeUnit($asset), makeTenant());
+
+    $seed = makeInvoice($lease, ['issue_date' => '2026-03-01']);
+    $seed->forceFill(['number' => 'INV-PAD-9999'])->saveQuietly();
+
+    $second = makeInvoice($lease, ['issue_date' => '2026-03-02']);
+    $second->forceFill(['number' => 'INV-PAD-10000'])->saveQuietly();
+
+    // With a string sort this answers `INV-PAD-10000` — a number that already exists.
+    expect(Invoice::generateNumber('PAD', new DateTimeImmutable('2026-03-03')))
+        ->toBe('INV-PAD-10001');
+});
+
 it('leaves PAYROLL on the month, because there the month is the run’s identity', function () {
     // A stated exception. A payroll run is per property per MONTH by definition and there is one of
     // them, so `202608` names the run rather than resetting a counter — annualising it would give
@@ -277,5 +306,5 @@ it('falls back rather than throwing when the stored scheme is not one we offer',
     // billing run — the same reasoning the prefix fallback already uses.
     setNumberReset('fortnightly');
 
-    expect(DocumentNumbering::resetScheme())->toBe(DocumentNumbering::ANNUAL);
+    expect(DocumentNumbering::resetScheme())->toBe(DocumentNumbering::NEVER);
 });

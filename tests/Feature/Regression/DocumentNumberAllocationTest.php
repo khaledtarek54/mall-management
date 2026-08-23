@@ -10,7 +10,7 @@
 | them add is not protection: it cannot see another connection's UNCOMMITTED row.
 |
 | Demonstrated against the real database before the fix — two allocations with no insert between
-| them both returned `INV-AW-2026-0082`. Reachable, too: invoices are created by five services,
+| them both returned `INV-AW-0082`. Reachable, too: invoices are created by five services,
 | three of which take no lock (BillMeterReadingService, BillViolationFineService,
 | CamReconciliationService), so the nightly billing run racing a violation-fine or a CAM
 | reconciliation is exactly it.
@@ -72,7 +72,7 @@ it('holds the lock across the insert, not just the calculation', function () {
 
     $asset = makeAsset(['code' => 'LCK']);
     $lease = makeLease(makeUnit($asset), makeTenant());
-    $prefix = 'doc-number:INV-LCK-2026-';
+    $prefix = 'doc-number:INV-LCK-';
 
     // Observed from INSIDE the create, after the allocator has taken the lock: a rival process
     // asking for the same prefix must be refused.
@@ -84,7 +84,7 @@ it('holds the lock across the insert, not just the calculation', function () {
     $invoice = makeInvoice($lease, ['issue_date' => '2026-07-05']);
 
     expect($rivalBlockedDuringInsert)->toBeTrue('the allocator must hold the prefix lock while inserting')
-        ->and($invoice->number)->toStartWith('INV-LCK-2026-');
+        ->and($invoice->number)->toStartWith('INV-LCK-');
 
     // …and released afterwards, so the next writer is not stuck behind a leaked lock.
     $freeAfterwards = Cache::lock($prefix, 1);
@@ -94,8 +94,8 @@ it('holds the lock across the insert, not just the calculation', function () {
 
 it('gives concurrent creations distinct numbers within one prefix', function () {
     // The property the whole mechanism exists to hold. Ten invoices in one property's series:
-    // every number distinct, and the UNIQUE index never had to refuse anything. (The series is a
-    // YEAR since EG-10, not a month — the lock is keyed on the prefix either way.)
+    // every number distinct, and the UNIQUE index never had to refuse anything. (The series is
+    // CONTINUOUS since EG-10, not a month — the lock is keyed on the prefix either way.)
     $asset = makeAsset();
     $lease = makeLease(makeUnit($asset), makeTenant());
 
@@ -103,7 +103,7 @@ it('gives concurrent creations distinct numbers within one prefix', function () 
         ->map(fn () => makeInvoice($lease, ['issue_date' => '2026-07-10'])->number);
 
     expect($numbers->unique())->toHaveCount(10)
-        ->and($numbers->every(fn (string $n) => str_starts_with($n, 'INV-'.$asset->code.'-2026-')))->toBeTrue();
+        ->and($numbers->every(fn (string $n) => str_starts_with($n, 'INV-'.$asset->code.'-')))->toBeTrue();
 });
 
 it('scopes the lock to the prefix, so one property never blocks another', function () {
@@ -113,14 +113,14 @@ it('scopes the lock to the prefix, so one property never blocks another', functi
     $a = makeAsset(['code' => 'AAA']);
     $b = makeAsset(['code' => 'BBB']);
 
-    $lockA = Cache::lock('doc-number:INV-AAA-2026-', 5);
+    $lockA = Cache::lock('doc-number:INV-AAA-', 5);
     expect($lockA->get())->toBeTrue();
 
     // Holding A's lock must not stop B minting a number.
     $leaseB = makeLease(makeUnit($b), makeTenant());
     $invoiceB = makeInvoice($leaseB, ['issue_date' => '2026-07-11']);
 
-    expect($invoiceB->number)->toStartWith('INV-BBB-2026-');
+    expect($invoiceB->number)->toStartWith('INV-BBB-');
 
     $lockA->release();
 });

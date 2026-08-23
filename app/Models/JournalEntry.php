@@ -223,7 +223,9 @@ class JournalEntry extends Model
 
         $lastNumber = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
-            ->orderByDesc('number')
+            // LENGTH first: `orderByDesc('number')` alone is a STRING sort, so once a series passes
+            // its zero-padding the shorter number sorts higher and MAX returns the wrong row.
+            ->orderByRaw('LENGTH(number) DESC, number DESC')
             ->value('number');
 
         $next = $lastNumber

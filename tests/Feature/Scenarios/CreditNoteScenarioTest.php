@@ -417,13 +417,13 @@ it('generates sequential, zero-padded numbers within a property + month', functi
     $first = cnDraft($tenant->id, null, 100, $lease->id);
     $second = cnDraft($tenant->id, null, 100, $lease->id);
 
-    expect($first->number)->toBe('CN-HW-2026-0001')
-        ->and($second->number)->toBe('CN-HW-2026-0002');
+    expect($first->number)->toBe('CN-HW-0001')
+        ->and($second->number)->toBe('CN-HW-0002');
 });
 
 it('falls back to the AW prefix when the note has no lease to derive an asset code', function () {
     $tenant = makeTenant();
     $note = cnDraft($tenant->id, null, 100, null);
 
-    expect($note->number)->toBe('CN-AW-2026-0001');
+    expect($note->number)->toBe('CN-AW-0001');
 });

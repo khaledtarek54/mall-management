@@ -405,7 +405,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-07**~~ ✅ | **DONE 2026-08-20.** The picker is gone and `ValueSets` now refuses a non-EGP value on `vendor_contracts.currency` **and** `assets.currency` — the guard, not the dropdown, is what makes it true. The rule both screens follow is stated: **a currency field survives only where the value is PRINTED**, so the asset's stays (it leads the owner statement) visible and read-only with a server-side `Rule::in`, and the vendor contract's went. Not inert, which is why it ranked: the contract value feeds the SLA-penalty basis, so a foreign number reached the GL | X-3 | 🧑‍💻 | S |
 | ~~**EG-08**~~ ✅ | **DONE 2026-08-21.** `holidays` (a register, because Egypt's are ANNOUNCED — the Eids move with the moon and mid-week holidays shift to the Thursday), `CalendarSettings` (Sun–Thu, 09:00–17:00) and `App\Support\WorkingCalendar`. The SLA clock each job is promised on is **frozen onto the job**, and the feature **ships off** — `SlaSettings::sla_working_clock_priorities` is empty, so nothing changes until the operator rules on which priorities are office work. **Three deliberate narrowings from this row, all argued below:** the working WEEK is portfolio-wide (individual dates are per property); PM compliance is excluded; and the reporting week is untouched | C-1..C-4, §3.4 | 🧑‍💻 | L |
 | ~~**EG-09**~~ ✅ | **DONE 2026-08-20.** Registered (`none · fixed_percent · fixed_amount · cpi`), and the lease form's options now DERIVE from the registry rather than from the label catalogue, so the picker cannot offer what the model would refuse. It also closed the drift that proved the point: the field help advertised a **"Step"** type that existed in neither list, and omitted `fixed_amount`. Why the sweep missed it: the column stopped being a DB enum on 2026-08-10, two days before the generator read the live schema | M-7 | 🧑‍💻 | S |
-| **EG-10** | ✅ **DECIDED AND BUILT 2026-08-23, by market standard.** Atriom shipped a MONTHLY reset (`INV-AW-202608-0417`) — twelve series per mall per year, a convention **no major system uses**: SAP, Oracle, NetSuite and Odoo all reset accounting document numbers per YEAR, while Yardi and MRI use continuous control numbers. Default is now **annual** (`INV-AW-2026-0417`), and the scheme is a SETTING (`never` · `annual` · `monthly`) because every one of those systems treats a number range as configuration. **An install that has already issued an invoice stays monthly** — the migration reads the books first, so no live series is ever split. **Calendar year, not fiscal**: SAP resets per fiscal year, deliberately not copied, because a March-2027 invoice numbered `…-2026-…` reads as a mistake to anyone who is not an accountant — an operator on an April→March year should choose `never`, which is Yardi's behaviour. **PAYROLL keeps its month** (`PAY-AW-202608-0001`): there the period is the run's identity, not a counter reset | M-9, §3.6 | 🧑‍💻 | S |
+| **EG-10** | ✅ **DECIDED AND BUILT 2026-08-23, by market standard.** Atriom shipped a MONTHLY reset (`INV-AW-202608-0417`) — twelve series per mall per year, a convention **no major system uses**: SAP, Oracle, NetSuite and Odoo all reset accounting document numbers per YEAR, while Yardi and MRI use continuous control numbers. **Yardi is this project's primary reference, so the default is `never`** — a continuous control number per property (`INV-AW-0417`), which is also the only scheme with no year in it to disagree with an April→March fiscal year. The scheme is a SETTING (`never` · `annual` · `monthly`) because every one of those systems treats a number range as configuration; `annual` is there for an operator whose auditor expects a year in the series. **An install that has already issued an invoice stays monthly** — the migration reads the books first, so no live series is ever split. **Two allocator bugs had to be fixed before Yardi's scheme was safe to default to**: the next number came from a STRING `MAX`, so a continuous series passing `%04d` proposed a number already taken (masked by the collision retry until it exceeds its 100-attempt cap and throws), and the invoice collision branch rebuilt the prefix with a hardcoded `Ym` that the configurable scheme made wrong. **PAYROLL keeps its month** (`PAY-AW-202608-0001`): there the period is the run's identity, not a counter reset | M-9, §3.6 | 🧑‍💻 | S |
 
 ### P1 — real operator pain in the first weeks
 
@@ -1435,24 +1435,38 @@ genuinely blocked when the answer is a FACT about Eltizam — what their leases 
 accountant has ruled, what their tax registrations are. *"Should an invoice series reset monthly,
 annually or never"* is not that: it is a market-standard question, and parking it was the mistake.
 
-**What the market does.** SAP, Oracle, NetSuite and Odoo reset accounting document numbers per YEAR
-— Odoo's sequences (a prefix with a date range and a counter) are the closest analogue to this
-implementation. Yardi Voyager and MRI use continuous control numbers that never reset, with the
-property as a field on the record rather than a segment of the number. **Monthly, which Atriom
-shipped, is used by none of them.**
+**What the market does.** Yardi Voyager and MRI use continuous control numbers that never reset,
+with the property as a field on the record rather than a segment of the number. SAP, Oracle,
+NetSuite and Odoo reset per YEAR — Odoo's sequences (a prefix with a date range and a counter) are
+the closest analogue to this implementation. **Monthly, which Atriom shipped, is used by none of
+them.**
 
-So: default **annual**, and the scheme is a SETTING (`never` · `annual` · `monthly`), because every
-one of those systems treats a number range as configuration rather than as code.
+I first shipped ANNUAL, weighting the four ERPs over Yardi. Corrected the same day on the standing
+instruction that **Yardi comes first and other systems second**: the default is now `never`, with
+`annual` offered for an operator whose auditor expects a year in the series. It is also the better
+answer on its own merits — a continuous series is the only one with no year in it to disagree with
+an April→March fiscal year.
+
+**Two allocator bugs had to be fixed before Yardi's scheme was safe to default to.** The next number
+came from `MAX(number)` ordered as a STRING, so once a series passed `%04d` the shorter
+`INV-AW-9999` sorted above `INV-AW-10000` and the allocator proposed a number already taken —
+unreachable on a monthly series, routine on a continuous one. It is **masked end to end** by the
+collision-retry loop, which simply costs a query per collision until it exceeds its 100-attempt cap
+and throws; a test that created two invoices passed with the broken sort restored, which is how the
+masking was found. All seven allocators now order by `LENGTH(number) DESC, number DESC`. Separately,
+the invoice collision branch rebuilt the prefix by hand with a hardcoded `Ym`, which the configurable
+scheme made wrong — it would have taken the substring at the wrong offset, and only ever fires on a
+collision.
 
 **An install that has already issued an invoice stays MONTHLY.** Numbers are allocated as
 `MAX(number)` within a prefix, so changing the scheme starts a fresh sequence at 1 and leaves the
 old documents on the old series — harmless on an empty install, exactly the discontinuity an auditor
 would query on a live one. The settings migration reads the books before it decides.
 
-**Calendar year, not fiscal.** SAP resets per fiscal year; deliberately not copied. This system
-already lets a property run an April→March year, and a March-2027 invoice numbered `…-2026-…` reads
-as a mistake to everyone who is not an accountant. An operator whose year is not the calendar year
-should choose `never` — Yardi's behaviour, with no year in the number to disagree with.
+**Where a year IS used it is the calendar year.** SAP resets per fiscal year; deliberately not
+copied. This system lets a property run an April→March year, and a March-2027 invoice numbered
+`…-2026-…` reads as a mistake to everyone who is not an accountant — which is also the strongest
+argument for the Yardi default.
 
 **Payroll keeps its month.** `PAY-AW-202608-0001`: a payroll run is per property per month by
 definition and there is one of them, so `202608` names the run rather than resetting a counter.
