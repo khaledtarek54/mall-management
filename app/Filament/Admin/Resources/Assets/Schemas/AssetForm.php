@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Assets\Schemas;
 
+use App\Support\Filament\CustomFieldsSchema;
 use App\Support\ValueSets;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
@@ -118,6 +119,10 @@ class AssetForm
                         ->label(__('admin.fields.brand_primary_color'))
                         ->helperText(__('admin.fields.brand_primary_color_helper')),
                 ]),
+            // The operator's own fields for this record type (D-7). Renders nothing at all
+            // until somebody defines one, so a fresh install is unchanged.
+            ...CustomFieldsSchema::form('asset'),
+
         ]);
     }
 }

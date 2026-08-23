@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Vendors\Schemas;
 use App\Models\TaxCode;
 use App\Models\Trade;
 use App\Models\Vendor;
+use App\Support\Filament\CustomFieldsSchema;
 use App\Support\WithholdingTax;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -111,6 +112,10 @@ class VendorForm
                         ->rows(3)
                         ->columnSpanFull(),
                 ]),
+            // The operator's own fields for this record type (D-7). Renders nothing at all
+            // until somebody defines one, so a fresh install is unchanged.
+            ...CustomFieldsSchema::form('vendor'),
+
         ]);
     }
 }

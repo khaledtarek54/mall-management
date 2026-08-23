@@ -212,6 +212,15 @@ class RolesPermissionsSeeder extends Seeder
             'payroll_rates.view' => 'View the dated ladder of statutory payroll rates',
             'payroll_rates.create' => 'Add a payroll-rate rung (a new year\'s decree)',
             'payroll_rates.edit' => 'Correct a payroll-rate rung',
+            // The operator's own fields (D-7). Deliberately on the ordinary manager blanket rather
+            // than withheld like `approvals.manage_rules`: adding "parent group" to tenants is a
+            // normal request, and needing a super_admin for it is the friction this exists to
+            // remove. A definition destroys nothing — the key is immutable and deletion is refused
+            // once anyone has answered it.
+            'custom_fields.view' => 'View the fields your organisation added to a record type',
+            'custom_fields.create' => 'Add a field to a record type',
+            'custom_fields.edit' => 'Rename or retire a custom field',
+            'custom_fields.delete' => 'Remove a custom field nobody has answered',
             'violation_categories.view' => 'View the house rules and their standard fines',
             'violation_categories.create' => 'Add a house rule',
             'violation_categories.edit' => 'Edit a house rule or its standard fine',

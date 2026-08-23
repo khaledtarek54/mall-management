@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Pages;
 
 use App\Filament\Admin\Actions\LeaseActions;
+use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Models\Lease;
@@ -22,6 +23,7 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditLease extends EditRecord
 {
+    use FillsCustomFields;
     use RefreshesRecordState;
 
     protected static string $resource = LeaseResource::class;

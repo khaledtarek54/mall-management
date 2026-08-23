@@ -10,6 +10,7 @@ use App\Models\UnitOwnership;
 use App\Services\MarketingLevyService;
 use App\Settings\AccountingSettings;
 use App\Settings\BillingSettings;
+use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
 use App\Support\LeaseTerm;
@@ -836,6 +837,10 @@ class LeaseForm
                             ->columnSpanFull(),
                     ])->columns(1),
                 ]),
+            // The operator's own fields for this record type (D-7). Renders nothing at all
+            // until somebody defines one, so a fresh install is unchanged.
+            ...CustomFieldsSchema::form('lease'),
+
         ]);
     }
 

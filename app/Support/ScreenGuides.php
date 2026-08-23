@@ -47,9 +47,11 @@ use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource;
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Custodies\CustodyResource;
+use App\Filament\Admin\Resources\CustomFields\CustomFieldResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Resources\Disbursements\DisbursementResource;
+use App\Filament\Admin\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Filament\Admin\Resources\ExpenseCategories\ExpenseCategoryResource;
@@ -69,7 +71,6 @@ use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Filament\Admin\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
-use App\Filament\Admin\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Admin\Resources\PayrollRates\PayrollRateResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
@@ -229,6 +230,7 @@ class ScreenGuides
         RetailCategoryResource::class => 'retail_categories',
         DocumentTemplateResource::class => 'document_templates',
         PayrollRateResource::class => 'payroll_rates',
+        CustomFieldResource::class => 'custom_fields',
         ViolationCategoryResource::class => 'violation_categories',
         VendorDocumentTypeResource::class => 'vendor_document_types',
         TenantRequestSubcategoryResource::class => 'tenant_request_subcategories',

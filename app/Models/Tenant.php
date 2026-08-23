@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PartyType;
 use App\Models\Concerns\AllocatesPartyCode;
+use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
@@ -37,6 +38,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference, HasMedia
 {
     use AllocatesPartyCode, CanResetPassword, HasApiTokens, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, Notifiable, RefusesDeletionWhenReferenced, SoftDeletes;
+    use HasCustomFields;
 
     /** Identity paperwork — commercial register, tax card, trade licence. */
     public const DOCUMENTS_COLLECTION = 'documents';
@@ -130,6 +132,10 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     }
 
     protected $fillable = [
+        // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
+        // through `fillCustomFields()`, which discards keys the catalogue does not define. The
+        // `metadata` column itself is deliberately NOT fillable: nothing fills it wholesale.
+        'custom_fields',
         // The retailer's own number — quotable, unique, and the thing an operator types to mean
         // exactly one tenant. Allocated by AllocatesPartyCode when blank; a code carried in from
         // another system is kept as-is.
@@ -155,7 +161,6 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         'contact_person',
         'contact_person_phone',
         'status',
-        'metadata',
         // ---- Store directory (module 36): who this retailer is to a SHOPPER.
         'trade_name',
         'trade_name_ar',

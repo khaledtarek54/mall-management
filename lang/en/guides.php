@@ -1898,6 +1898,30 @@ return [
         ],
     ],
 
+    'custom_fields' => [
+        'purpose' => 'Fields your organisation needs that this system does not ship. A tenant\'s parent buying group, a lease\'s broker, the landlord-works reference on a shop, whether a supplier is on a government approved list. Anything you add here appears on that record type\'s form for everyone, and is stored on the record itself — not in a notes box where nothing can read it back.',
+        'steps' => [
+            'Choose which record type grows the field. This cannot be changed later, because it decides where every answer is stored.',
+            'Write the label in both languages. This is what everyone filling the form will read, and you can rename it at any time.',
+            'Check the field key. It is filled in from the English label and you can edit it now — but not after saving, because every answer is filed under it.',
+            'Pick the type. Choice fields need their options listed, each with a stored value and a label in both languages.',
+            'Mark it required only if the record genuinely cannot be saved without it — including for records people are part way through creating.',
+            'To retire a field, switch it off. It stops being asked and every answer already given is kept and still shown on the record.',
+        ],
+        'affects' => [
+            'The record type\'s create and edit forms grow an "Additional information" section immediately, for every user with access — there is no per-user opt in.',
+            'Answers already given are never touched by a change here. Renaming the label changes what everyone reads; switching the field off hides the question, not the answers.',
+            'Deleting a field is refused once anyone has answered it, because the answers would stay on the records with nothing able to label or read them.',
+            'A required field applies to records being created from now on. Existing records are not retrospectively invalid, but the next person to edit one will have to answer it.',
+        ],
+        'rules' => [
+            'The record type and the field key cannot change once saved. They are the address of every answer already recorded — changing either would strand the data.',
+            'A field can only be added to tenants, leases, units, vendors and properties. Money documents are deliberately excluded: an invoice or a payment is evidence, and it must mean the same thing a year later.',
+            'Switching a field off never deletes an answer. Retired fields still appear on records that carry them.',
+            'A choice field needs at least one choice, otherwise it is a question that can never be answered.',
+        ],
+    ],
+
     'violation_categories' => [
         'purpose' => 'The mall\'s house rules, as the field officer sees them. Each row is one kind of breach — blocked fire exit, unauthorised signage, after-hours noise — and the standard fine for it. It used to be a fixed list of seven; it is yours now, and it is meant to grow as the handbook does.',
         'steps' => [

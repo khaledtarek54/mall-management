@@ -318,7 +318,7 @@ operator will want to change in week one.
 | ~~D-4~~ ✅ | **FIXED 2026-08-22 (EG-23, part 2).** `violation_categories` — a row per house rule, with a screen, and the row carries the STANDARD FINE so a field officer at the shop door is not recalling the tariff from memory (a prefill only: `violations.fine_amount` stays the operator's number and is never re-derived). `violations.category` had NO value set either, despite the migration's promise, so the column accepted anything and a typo matched no filter and no repeat-offender report. ~~7 hardcoded values; the migration promised the opposite in writing~~ | `app/Models/ViolationCategory.php` | 🟠 |
 | ~~D-5~~ ✅ | **FIXED 2026-08-22 (EG-23, part 2).** `vendor_document_types` — and the field that earns the screen is `blocks_dispatch`, which was a one-element array literal deciding who may be sent onto the mall floor. An operator dealing with a government client may be told a lapsed social-insurance certificate blocks too; that is now a tick, not a deploy. The floor is applied only when the table holds NO rows, because `whereIn([])` matches nothing and an empty answer would have deleted the compliance gate silently; inactive types still block, because `is_active` governs what may be FILED. ~~6 fixed types gating the COI chase and dispatchability~~ | `app/Models/VendorDocumentType.php` | 🟠 |
 | ~~D-6~~ ✅ | **FIXED 2026-08-21 (EG-23, part 1).** `canCreate()` is the trait's again, i.e. gated on `departments.create` (held by manager and mall_admin — checked, not assumed). `name_ar` added and the five seeded rows backfilled, so the register is bilingual like the panel around it. DELETE stays refused for everyone: a department that routed a request is referenced by rows an auditor reads. Four tests encoded the old decision and now state the new one. ~~`canCreate()` simply `return false;`~~ | `app/Models/Department.php`; `DepartmentResource.php` | 🟠 |
-| D-7 | **No custom fields / UDFs anywhere.** Zero hits for `custom_field`; five `metadata` JSON columns with no reader in any UI, service or report. **The single biggest structural gap vs Yardi UDFs / MRI user-defined fields / Odoo Studio** | ABSENT | searches named | 🔴 |
+| D-7 | ✅ **BUILT 2026-08-23 (EG-32 slice 2).** The operator defines their own fields at `/admin/custom-fields` and they appear on tenants, leases, units, vendors and properties. **The five unread `metadata` columns were the answer, not just the evidence** — answers live on the record, so no join, no N+1, and an export is a column read. `units` gained the one new column. Only keys the catalogue defines are ever written, and `metadata` is no longer `fillable` on any of the five | `app/Support/CustomFields.php`; `app/Models/CustomField.php`; `app/Models/Concerns/HasCustomFields.php` | 🟢 |
 | D-8 | **`ValueSets` covers only the 62 columns that were DB enums on 2026-08-12.** ~25 classification columns added since are outside the registry — including `facility_work_orders.status`, which the transition matrix branches on. `NoDatabaseEnumsConformanceTest` never asks *"is this new column registered?"* | gate gap | `tests/Feature/Scenarios/NoDatabaseEnumsConformanceTest.php:75-131` | 🟠 |
 | D-9 | Trades, failure codes, charge codes, tax codes, SLA policies, rent indices, utility tariffs, areas, approval bands, roles — **all rows, bilingual, operator-editable** | ROW | — | 🟢 |
 | D-10 | **Correctly code-coupled and should stay so:** every workflow status the code branches on; posting-role *names*; tax `family`/`direction`/`treatment`; `fixed_assets.tax_pool` (Law 91/2005); `failure_codes.type`; `ledger_accounts.type`; permission keys; `EgyptGovernorates` | — | — | 🟢 |
@@ -438,7 +438,7 @@ credential from the operator/accountant · ⚙️ ops.
 | **EG-29** | **Configurable proration method** (30/360 · actual/actual · actual/365 · whole month), per property or per charge code | M-1 | 🧑‍💻 + 🔑 | M |
 | ~~**EG-30**~~ ✅ | **DONE 2026-08-22 — both halves.** **M-6:** `leases.escalation_interval_months`, nullable, null = twelve, read through `Lease::escalationIntervalMonths()`. Two things the tests caught: Carbon's `addMonths()` OVERFLOWS a month-end date (31 Aug + 18 months → 2 March, not the last day of February), so the roll is `addMonthsNoOverflow()`; and a 0 from an importer would roll the date nowhere and make the sweep reconsider that lease daily for ever, so the accessor floors at one month. **M-2:** `charges.billing_timing` — per CHARGE, not per lease, because the case that matters is MIXED (rent ahead, service charge behind, one lease). Both ride the SAME invoice, each arrears line naming the month it covers. **A second invoice per lease per month was rejected on evidence:** `alreadyBilledForMonth()` has silently suppressed a lease's base rent FIVE times over a second invoice dated into a billed month, and every one was a ONE-OFF — a recurring one would fire monthly for every arrears lease. Stated cost of that choice: the invoice header's period no longer bounds every line, which it already did not (late fees, utility recharges and violation fines all ride on invoices covering another window). An arrears row prorates against the month it COVERS, and produces nothing on a lease's first invoice because that month predates the lease. Ships with every charge in advance — null is the normal state and no figure moves | M-2, M-6 | 🧑‍💻 | M  **Reviewed adversarially after shipping, and the review found nine defects in it** — seven follow-up commits. Worth recording because the pattern is the lesson: the feature was UNREACHABLE through its only UI (the add-charge action built an explicit attribute list and the column was not on it), it DOUBLE-BILLED its own headline example (an arrears `utility` line put a standalone type on the recurring invoice, so `alreadyBilledForMonth()` ignored the invoice just raised), it REFUNDED a month already earned on termination, LOST the final month, lost up to NINE months on a truncated annual cycle (108,000 EGP on a 12,000/month charge), handed back a rent-free abatement a month later, reverted to advance on every successor row / renewal / resale, and skipped the صيانة run entirely. Every one silent — plausible figures, no error, nothing in a run summary. **Known limitation, deliberately not built:** a lease TERMINATED mid-period loses the arrears tail for its final month. `LeaseTerminationService` writes `expiry_date = terminationDate` so `$isFinalCycle` is satisfied, but the lease then goes `status = 'terminated'` and `scopeBillableForPeriod()` only selects `active` — so unless the final invoice is raised in the same period, that month's arrears is never billed. Fixing it is a decision about whether termination should raise a final arrears settlement, which is its own change |
 | **EG-31** | **USD-indexed / EGP-denominated rent** — the index on the escalation path, no GL change. **Do this instead of full multi-currency unless the client insists otherwise** | X-4, §3.5 | 🧑‍💻 + 🔑 | M |
-| **EG-32** | 🟡 **SLICE 1 DONE 2026-08-23 — a saved view remembers its columns.** The cheapest real part of S-5, and the part the finding got wrong: columns were already user-selectable, just not durable or shareable. **Still open and still XL:** a report BUILDER for the 23 catalogued report pages, user-defined groupings, column reordering (needs a blank-label sweep — two table columns use `->label('')` and `reorderableColumns()` throws on them), and **custom fields / UDFs (D-7), which is untouched and is the larger half** | S-5, D-7 | 🧑‍💻 | XL |
+| **EG-32** | 🟡 **SLICE 2 DONE 2026-08-23 — custom fields (D-7) are built**, the larger half. **SLICE 1 DONE 2026-08-23 — a saved view remembers its columns.** The cheapest real part of S-5, and the part the finding got wrong: columns were already user-selectable, just not durable or shareable. **Still open and still XL:** a report BUILDER for the 23 catalogued report pages, user-defined groupings, column reordering (needs a blank-label sweep — two table columns use `->label('')` and `reorderableColumns()` throws on them), and — for custom fields — **filtering, list columns, export and import**, which slice 2 deliberately left out and named | S-5, D-7 | 🧑‍💻 | XL |
 | **EG-33** | **Real-estate tax and municipal levies as a recurring statutory cost** — there is no recurring-expense concept at all today | T-8, §3.6 | 🧑‍💻 + 🔑 | M |
 | **EG-34** | **Configurable retention policy** (activity log is pruned at 365 days from a hardcoded config value), per PDPL's documented-retention obligation | S-16, §3.6 | 🧑‍💻 + 🔑 | S |
 | **EG-35** | 🟡 **TWO OF FOUR DONE 2026-08-22 — and the row is really four separate pieces of work, not one M.** **Shipped:** the late-fee CAP, on the same three tiers its siblings already had (lease clause → property → portfolio, `leases.late_fee_maximum` + `BillingSettings::late_fee_maximum`, 0 = no cap), and the DEPOSIT default, which was the literal `3` in `LeaseCreationService`'s `$rent * 3` and is now a per-property setting. Both ship at today's behaviour, so no figure moves. **Recurrence shipped later the same day** (milestone 21) — it was deferred because it needed a schema change on a money link, which is what a separate change is for. **Still not shipped:** the ROUNDING mode (M-10) is 540 money sites, changes every stored figure, and nobody has asked for banker's rounding; and a QUARTERLY CAM true-up (M-12) is **not a schedule change at all** — `cam_expense_pools` is `unique(asset_id, period_year)`, one pool per property per YEAR, so the pool's own period must change first and that is an L across the CAM module | M-8, M-11, M-12, M-10 | 🧑‍💻 | M |
@@ -1422,6 +1422,63 @@ loops. The second reads the journalizers from disk and fails on one that writes 
 because a journalizer left behind would look identical to the converted ones in review.
 
 ---
+
+### 2026-08-23 — milestone 23: EG-32 slice 2 — D-7, the operator's own fields
+
+**The single biggest structural gap vs Yardi UDFs / MRI user-defined fields / Odoo Studio**, and the
+larger half of EG-32. Every operator eventually needs to record something the vendor never modelled:
+a tenant's parent buying group, a lease's broker, the landlord-works reference on a shop, whether a
+supplier is on a government approved list. Without somewhere to put it the fact goes in the notes
+box where nothing can filter, report or export it — or it costs a deploy, every time.
+
+**The storage was already here, and D-7's own evidence was the answer.** `tenants`, `leases`,
+`assets`, `vendors` and `departments` have carried a nullable `metadata` JSON column since the first
+migrations. All five are `fillable`, all five are cast to `array`, and **not one was written or read
+by any form, table, service, report or export** — verified before designing anything, because a
+finding in this document has been wrong more often than right. So an answer lives on the record it
+describes: no join, no N+1, and an export is a column read. `units` gained the one new column, and it
+is the only host-table change — the shop is the record a mall accumulates the most physical facts
+about and was the only master record with nowhere to put them. `departments` keeps its column and is
+deliberately not offered.
+
+**Only known keys are ever written.** `metadata` being `fillable` made it an open mass-assignment
+surface — a JSON column accepts anything without complaint — so `fillCustomFields()` writes only
+keys the catalogue currently defines, and **`metadata` was removed from `$fillable` on all five
+models**. Nothing filled it wholesale, so nothing breaks; the concern assigns the attribute directly,
+which `$fillable` does not govern. Pinned by a test that drives the real Create page and pushes two
+extra keys straight into the Livewire payload.
+
+**The key and the record type are immutable; the label is not.** Together they are the ADDRESS of
+every answer already recorded — renaming either strands the data in `metadata` where nothing can read
+it again. The label is renamed freely, in both languages, and reaches every record at once because it
+resolves at read time. Same rule the activity log runs on: the row stores DATA, the words come later.
+
+**Deactivating is not deleting, and deleting is refused once anyone has answered.** A retired field
+still explains what is on the records that carry it, so the display keeps showing it — and a value
+whose definition was deleted outright still renders, labelled by its own key, rather than becoming
+invisible while it is still stored.
+
+**Money documents are deliberately excluded.** An invoice, a payment, a journal entry is evidence,
+and an operator-defined field on one is a place to record something onto a document nobody can
+reconstruct later — the same reasoning that already refuses to let them be deleted.
+
+**One bug found only by driving the real pages.** Writing worked through a virtual `custom_fields`
+attribute; reading did not. Filament fills an Edit form from `attributesToArray()`, which never
+contains a virtual accessor — so the section opened EMPTY on every edit, and the next save would have
+looked exactly like the operator clearing every answer. Appending the attribute would have fixed it
+and been wrong: `$appends` reaches `toArray()`, and `docs/api/openapi.json` is GENERATED from the API
+resources' `toArray()`, so a display concern would have quietly rewritten the mobile contract.
+`FillsCustomFields` does it on the five Edit pages instead. **Building the schema and asserting its
+shape passed the whole time.**
+
+**Deliberately NOT in this slice, and each says why:** filtering and sorting by a custom field (JSON
+extraction works on both drivers, but a filter per definition is its own design), a list column,
+CSV export, and import. Each is a real half-capability if left unsaid, so they are said.
+
+17 cases in `ACustomFieldIsARowTheOperatorDefinesTest`, including the real Create, Edit and View
+pages. Screen at `/admin/custom-fields`, gated on `custom_fields.*` (manager holds view/create/edit;
+delete is super_admin), with a bilingual screen guide, and two definitions seeded into `DemoSeeder`
+so the capability does not read as unbuilt on a fresh demo.
 
 ### 2026-08-23 — milestone 22: EG-32 slice 1 — a saved view remembers its columns
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Units\Pages;
 
+use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -10,6 +11,8 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditUnit extends EditRecord
 {
+    use FillsCustomFields;
+
     protected static string $resource = UnitResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array

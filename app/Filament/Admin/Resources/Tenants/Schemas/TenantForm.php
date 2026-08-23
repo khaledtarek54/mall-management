@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Tenants\Schemas;
 use App\Models\RetailCategory;
 use App\Models\Tenant;
 use App\Support\EgyptGovernorates;
+use App\Support\Filament\CustomFieldsSchema;
 use App\Support\FormTab;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -225,6 +226,10 @@ class TenantForm
                             ->columnSpanFull(),
                     ]),
                 ]),
+            // The operator's own fields for this record type (D-7). Renders nothing at all
+            // until somebody defines one, so a fresh install is unchanged.
+            ...CustomFieldsSchema::form('tenant'),
+
         ]);
     }
 }

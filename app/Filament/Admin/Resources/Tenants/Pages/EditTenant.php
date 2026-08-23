@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Tenants\Pages;
 
+use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Services\TenantStatementPdfService;
 use App\Support\Filament\RefreshesRecordState;
@@ -19,6 +20,7 @@ use Illuminate\Support\Str;
 
 class EditTenant extends EditRecord
 {
+    use FillsCustomFields;
     use RefreshesRecordState;
 
     /**

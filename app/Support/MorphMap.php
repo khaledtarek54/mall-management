@@ -25,12 +25,14 @@ use App\Models\CreditNoteApplication;
 use App\Models\CreditNoteItem;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
+use App\Models\CustomField;
 use App\Models\Department;
 use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\DeviceToken;
 use App\Models\Disbursement;
+use App\Models\DocumentTemplate;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
@@ -74,7 +76,6 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
-use App\Models\DocumentTemplate;
 use App\Models\PayrollRate;
 use App\Models\PostDatedCheque;
 use App\Models\PropertySetting;
@@ -191,6 +192,7 @@ class MorphMap
         'credit_note' => CreditNote::class,
         'credit_note_application' => CreditNoteApplication::class,
         'credit_note_item' => CreditNoteItem::class,
+        'custom_field' => CustomField::class,
         'custody' => Custody::class,
         'custody_transaction' => CustodyTransaction::class,
         'department' => Department::class,

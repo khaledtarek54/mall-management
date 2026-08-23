@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Tenants\Schemas;
 
 use App\Models\Tenant;
+use App\Support\Filament\CustomFieldsSchema;
 use App\Support\TenantScope;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -86,6 +87,9 @@ class TenantInfolist
                         ->copyable()
                         ->placeholder('—'),
                 ]),
+            // The operator's own fields (D-7). Nothing renders until one is answered.
+            ...CustomFieldsSchema::infolist(),
+
         ]);
     }
 }

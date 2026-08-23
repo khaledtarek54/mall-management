@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\AllocatesPartyCode;
+use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
@@ -24,6 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class Vendor extends Model
 {
     use AllocatesPartyCode, HasFactory, HasSearchText, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
+    use HasCustomFields;
 
     public const STATUS_ACTIVE = 'active';
 
@@ -60,6 +62,10 @@ class Vendor extends Model
     }
 
     protected $fillable = [
+        // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
+        // through `fillCustomFields()`, which discards keys the catalogue does not define. The
+        // `metadata` column itself is deliberately NOT fillable: nothing fills it wholesale.
+        'custom_fields',
         // The supplier's own number — the AP side of the same problem `Tenant::$code` solves.
         'code',
         'name',
@@ -75,7 +81,6 @@ class Vendor extends Model
         'address',
         'city',
         'notes',
-        'metadata',
     ];
 
     protected $casts = [

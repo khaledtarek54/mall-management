@@ -17,6 +17,7 @@ use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
+use App\Models\CustomField;
 use App\Models\Department;
 use App\Models\DepositTransaction;
 use App\Models\Employee;
@@ -477,6 +478,7 @@ class DemoSeeder extends Seeder
         $this->command->info('   Mall news: sent notices with read receipts, one scheduled, one draft');
 
         $this->seedViolations($atriomWalk);
+        $this->seedCustomFields();
         $this->command->info('   House rules: a tariff on the register, four breaches, one fine billed');
 
         // --- Operational + financial modules (22–26 + AP / expenses / deposits) ---
@@ -2673,6 +2675,62 @@ class DemoSeeder extends Seeder
      * inventing figures on a real install would put numbers in front of a field officer that nobody
      * agreed. A DEMO mall is exactly where the figures should exist.
      */
+    /**
+     * A couple of the operator's own fields, answered on real tenants (D-7).
+     *
+     * Same reasoning as the violation tariff above: with no definitions the Custom Fields screen is
+     * empty, no record shows an "Additional information" section, and the whole capability reads as
+     * unbuilt to anyone opening the demo. The install ships NONE — what an operator records about a
+     * tenant is their vocabulary and inventing it on a real deployment would put fields in front of
+     * their staff that nobody asked for. A DEMO mall is exactly where they should exist.
+     */
+    private function seedCustomFields(): void
+    {
+        CustomField::create([
+            'model' => 'tenant',
+            'key' => 'parent_group',
+            'label_en' => 'Parent buying group',
+            'label_ar' => 'المجموعة الشرائية الأم',
+            'type' => 'text',
+            'sort_order' => 1,
+        ]);
+
+        CustomField::create([
+            'model' => 'tenant',
+            'key' => 'segment',
+            'label_en' => 'Segment',
+            'label_ar' => 'القطاع',
+            'type' => 'select',
+            'sort_order' => 2,
+            'options' => [
+                ['value' => 'f_and_b', 'label_en' => 'Food & beverage', 'label_ar' => 'أغذية ومشروبات'],
+                ['value' => 'fashion', 'label_en' => 'Fashion', 'label_ar' => 'أزياء'],
+                ['value' => 'services', 'label_en' => 'Services', 'label_ar' => 'خدمات'],
+            ],
+        ]);
+
+        CustomField::create([
+            'model' => 'unit',
+            'key' => 'shutter_type',
+            'label_en' => 'Shutter type',
+            'label_ar' => 'نوع الستارة المعدنية',
+            'type' => 'text',
+        ]);
+
+        // Answered on a few, not all — a column that is filled in everywhere hides the fact that
+        // these are optional, and the "not answered" case is the one a reader needs to recognise.
+        $answers = [
+            ['parent_group' => 'Americana Group', 'segment' => 'f_and_b'],
+            ['parent_group' => 'Alshaya', 'segment' => 'fashion'],
+            ['segment' => 'services'],
+        ];
+
+        Tenant::query()->where('party_type', 'retailer')->orderBy('id')->take(3)->get()
+            ->each(function (Tenant $tenant, int $i) use ($answers): void {
+                $tenant->fillCustomFields($answers[$i])->save();
+            });
+    }
+
     private function seedViolations(Asset $asset): void
     {
         $tariff = [

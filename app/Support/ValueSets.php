@@ -11,6 +11,7 @@ use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\CustomField;
 use App\Models\Disbursement;
 use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
@@ -109,6 +110,12 @@ class ValueSets
         'ledger_accounts.cash_flow_section' => [CashFlowSection::class, 'SECTIONS'],
 
         'document_templates.key' => [DocumentText::class, 'KEY_NAMES'],
+
+        // What an operator-defined field can hold (D-7 / EG-32). Registered because a mistyped type
+        // does not error — `CustomFieldsSchema::input()` falls through its `match` to a plain text
+        // box, so the field renders, saves, and quietly is not the date or the number it was
+        // defined as.
+        'custom_fields.type' => [CustomField::class, 'TYPES'],
 
         // ── Registered 2026-08-22 (EG-37) ──────────────────────────────────────────────────────
         // `ValueSets` covered the 62 columns that were DB enums on 2026-08-12 and nothing since, so

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
@@ -19,9 +20,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[PropertyOwned]
 class Unit extends Model
 {
+    use HasCustomFields;
     use HasFactory, HasSearchText, RefusesDeletionWhenReferenced, SoftDeletes;
 
     protected $fillable = [
+        // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
+        // through `fillCustomFields()`, which discards keys the catalogue does not define. The
+        // `metadata` column itself is deliberately NOT fillable: nothing fills it wholesale.
+        'custom_fields',
         'asset_id',
         'area_id',
         'code',
@@ -33,6 +39,7 @@ class Unit extends Model
     ];
 
     protected $casts = [
+        'metadata' => 'array',
         'area_sqm' => 'decimal:2',
     ];
 

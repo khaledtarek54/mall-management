@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\BillableAgreement;
 use App\Models\Concerns\AllocatesDocumentNumber;
+use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\Lease\ActsAsBillableAgreement;
 use App\Models\Concerns\Lease\DeterminesFitOutGrace;
@@ -37,6 +38,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 class Lease extends Model implements BillableAgreement, HasMedia
 {
     use ActsAsBillableAgreement, AllocatesDocumentNumber, DeterminesFitOutGrace, HasCamTerms, HasFactory, HasLeasePremises, HasLeaseTermState, HasRenewalLineage, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
+    use HasCustomFields;
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
@@ -335,6 +337,10 @@ class Lease extends Model implements BillableAgreement, HasMedia
     ];
 
     protected $fillable = [
+        // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
+        // through `fillCustomFields()`, which discards keys the catalogue does not define. The
+        // `metadata` column itself is deliberately NOT fillable: nothing fills it wholesale.
+        'custom_fields',
         'reference',
         'unit_id',
         'unit_ownership_id',
@@ -385,7 +391,6 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'late_fee_maximum',
         'late_fee_recurrence_days',
         'notes',
-        'metadata',
     ];
 
     // Non-nullable boolean columns: default the in-memory model so a

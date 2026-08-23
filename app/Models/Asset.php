@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\Attributes\DeletableWhenUnused;
@@ -22,6 +23,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[PropertyItself]
 class Asset extends Model implements HasMedia
 {
+    use HasCustomFields;
     use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, RefusesDeletionWhenReferenced, SoftDeletes;
 
     /**
@@ -58,6 +60,10 @@ class Asset extends Model implements HasMedia
     }
 
     protected $fillable = [
+        // The operator's own fields (D-7). A VIRTUAL attribute — `HasCustomFields` routes it
+        // through `fillCustomFields()`, which discards keys the catalogue does not define. The
+        // `metadata` column itself is deliberately NOT fillable: nothing fills it wholesale.
+        'custom_fields',
         'name',
         'code',
         'type',
@@ -68,7 +74,6 @@ class Asset extends Model implements HasMedia
         'leasable_area_sqm',
         'currency',
         'primary_color',
-        'metadata',
         'is_active',
         'is_publicly_listed',
     ];

@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\Asset;
 use App\Models\Floor;
 use App\Models\Unit;
+use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
 use App\Support\TenantScope;
@@ -116,6 +117,10 @@ class UnitForm
                         ->rows(2)
                         ->columnSpanFull(),
                 ]),
+            // The operator's own fields for this record type (D-7). Renders nothing at all
+            // until somebody defines one, so a fresh install is unchanged.
+            ...CustomFieldsSchema::form('unit'),
+
         ]);
     }
 }
