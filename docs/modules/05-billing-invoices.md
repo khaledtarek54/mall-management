@@ -302,8 +302,25 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
      "permanently exempt", reintroducing the bug one unit at a time.
    - **The standing wording on the invoice is the OPERATOR's** (EG-15 slice 1, 2026-08-22).
      `App\Support\DocumentText::for($key, $assetId, $tokens)` resolves *this property's row → the
-     house row → the translation key the document always used*. Three blocks today, registered in
-     `DocumentText::KEYS`: `invoice.footer`, `invoice.payment_instructions` and `invoice.terms`.
+     house row → the translation key the document always used*. **Twelve blocks** today, registered
+     in `DocumentText::KEYS`: the PDF's `invoice.footer`, `invoice.payment_instructions` and
+     `invoice.terms` (slice 1); the invoice EMAIL's `invoice.email_body`; and a body **and subject**
+     each for the overdue reminder, the late-fee notice, the payment receipt and the lease-expiry
+     notice (slice 2, 2026-08-23).
+
+     **Mail is plain text too, and that is a decision rather than an omission.** Slice 1 argued
+     against a `RichEditor` because operator-authored HTML flowing into mpdf is a poor trade; the
+     same holds for email, where it is an injection surface rather than a rendering one. Bodies are
+     `nl2br(e(...))` — `e()` INSIDE, or nl2br's own `<br>` gets escaped — and subjects go through
+     `DocumentText::forSubject()`, which collapses whitespace so a newline an operator types cannot
+     reach a mail header.
+
+     **`TenantFacingWordingIsTheOperatorsConformanceTest` keeps it honest.** It discovers
+     notifications from disk, follows `->markdown()`/`->view()` into the blade (a notification that
+     renders a view keeps its wording there, which the first cut of the gate missed), and requires
+     every tenant-facing mail notice to be templated or exempt with a stated reason. It also asserts
+     each key has a floor and a bilingual PICKER LABEL — which is how five blocks that were
+     registered, resolvable and impossible to choose in the dropdown were caught.
 
      Every word on an invoice was a lang key, so changing the footer was a deploy — and two things
      made that worse than the usual complaint. The footer **names payment rails**: *"Payment due
