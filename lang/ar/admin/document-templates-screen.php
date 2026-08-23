@@ -10,6 +10,11 @@ return [
             'invoice_footer' => 'الفاتورة — التذييل',
             'invoice_payment_instructions' => 'الفاتورة — طرق السداد',
             'invoice_terms' => 'الفاتورة — الشروط',
+            'invoice_email_body' => 'بريد الفاتورة — نص التقديم',
+            'dunning_overdue_reminder' => 'تذكير التأخر — بريد',
+            'dunning_late_fee_applied' => 'احتساب غرامة تأخير — بريد',
+            'receipt_payment_received' => 'استلام دفعة — بريد',
+            'lease_expiry_approaching' => 'قرب انتهاء العقد — بريد',
         ],
         'sections' => [
             'which' => 'أي نص',

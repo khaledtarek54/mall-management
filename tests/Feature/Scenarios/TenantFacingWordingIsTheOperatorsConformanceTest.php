@@ -133,3 +133,20 @@ it('registers a floor for every key, so nothing ships blank', function () {
         expect(Lang::has($spec['floor']))->toBeTrue("{$key}'s floor names a translation key that does not exist.");
     }
 });
+
+it('gives every registered block a picker label, in both languages', function () {
+    // A key the resolver accepts and the PICKER cannot name is a block the operator can never
+    // write. All five keys added for the messages shipped exactly that way: the dropdown on
+    // `/admin/document-templates` renders its label from
+    // `admin.document_templates_screen.blocks.{key}`, and with the entry missing it shows the raw
+    // translation key — on the one screen whose whole purpose is choosing a block.
+    //
+    // `fallback: false` on BOTH, because `Lang::has($key, 'ar')` falls back to English and would
+    // pass for a key that exists only in EN — the parity trap CLAUDE.md names.
+    foreach (DocumentText::KEY_NAMES as $key) {
+        $label = 'admin.document_templates_screen.blocks.'.str_replace('.', '_', $key);
+
+        expect(Lang::has($label, 'en', false))->toBeTrue("{$key} has no English label; the picker would show its raw key.");
+        expect(Lang::has($label, 'ar', false))->toBeTrue("{$key} has no Arabic label; the picker would show English to an Arabic operator.");
+    }
+});

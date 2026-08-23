@@ -10,6 +10,11 @@ return [
             'invoice_footer' => 'Invoice — footer',
             'invoice_payment_instructions' => 'Invoice — how to pay',
             'invoice_terms' => 'Invoice — terms',
+            'invoice_email_body' => 'Invoice email — covering note',
+            'dunning_overdue_reminder' => 'Overdue reminder — email',
+            'dunning_late_fee_applied' => 'Late fee charged — email',
+            'receipt_payment_received' => 'Payment received — email',
+            'lease_expiry_approaching' => 'Lease expiring soon — email',
         ],
         'sections' => [
             'which' => 'Which block',
