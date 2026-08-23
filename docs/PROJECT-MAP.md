@@ -29,7 +29,7 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 |---|---|---|---|
 | **124** models | **164** services | **67** admin resources | **9** portal resources |
 | **54** API controllers | **19** dashboard widgets | **54** console commands | **6** queued jobs |
-| **37** notifications | **279** migrations | **38** module docs | **907** test files |
+| **37** notifications | **280** migrations | **38** module docs | **908** test files |
 
 ### Coverage — what the gates actually enforce
 
@@ -38,7 +38,7 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 | **Property isolation** | 124 models classified — 88 property-owned, 35 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 24 posting sources, 24 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 21 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 907 files — 158 scenario, 493 regression. |
+| **Tests** | 908 files — 158 scenario, 494 regression. |
 | **Module flags** | 16 toggleable modules (`App\Support\Modules`). 1 frozen in code and shown nowhere: `eta`. |
 
 **Scheduled automation** — commands: `billing:run-assessments` · `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `reports:deliver` · `marketing:expire-posts` · `announcements:send-scheduled` · `vendors:scan-document-expiry` · `tenants:scan-document-expiry` · `vendors:scan-contract-renewals` · `expenses:generate-recurring` · `atriom:prune-activity-log` · `requests:auto-close` · `facility:generate-preventive` · `requests:scan-sla-breaches` · `facility:scan-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:expire` · `leases:apply-escalations` · `pdc:scan-maturing` · `facility:scan-open-permits` · `pdc:scan-coverage` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `billing:reconcile --deep` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`

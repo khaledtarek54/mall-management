@@ -52,6 +52,20 @@ with no join — and would make renaming a tenant silently strand every invoice 
 save is then the only thing that can invalidate a blob, so the trait's own hook is a complete guarantee.
 Cross-record search stays a relation search against the **related model's** blob (`tenant.search_text`).
 
+**"Pure function of the row" includes the ORDER, and a JSON source breaks it (2026-08-23).** Custom-field
+answers reach the blob through `HasCustomFields::customFieldSearchValues()`, which iterated `metadata` in
+whatever order the array arrived in. `metadata` is a native `json` column on MySQL, and **MySQL does not
+preserve object key order** — it normalises, shortest key first — so the order PHP wrote was not the order the
+row read back, and every `atriom:rebuild-search` rewrote every blob with the same answers resequenced
+(`… 235264657 americana group fandb` → `… 235264657 fandb americana group`). Harmless for substring matching
+and wrong twice: it breaks the invariant this section states, and **a rebuild that rewrites every blob buries
+a real change in the churn** — which is the whole reason the command is documented as idempotent below.
+`ksort` before folding. **The Pest suite is structurally blind to it**: on SQLite `metadata` is TEXT and keeps
+insertion order, so both paths agree there whatever the code does. The regression test pins **order
+independence** rather than a golden string, because a golden string passes on SQLite while the bug runs on
+MySQL — which is exactly what let it ship. Any future source that is a JSON column, not a scalar column, owes
+the same treatment.
+
 **Two hooks, not one** — `saving` is genuinely too early for the two most-searched values in the system:
 
 - **Document numbers.** Eloquent fires `saving` → `creating` → INSERT, and `AllocatesDocumentNumber` assigns

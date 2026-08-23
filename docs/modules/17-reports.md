@@ -120,6 +120,35 @@ Livewire property and Livewire takes what the payload says, not what the `Select
 > already guarantees (including that a URL beats a stale session filter), and it can be pasted to a
 > colleague as a plain link.
 >
+> **…and one view can be the one that OPENS (UX-11's other half, 2026-08-23).** Saving a view was
+> only half of what the benchmark row asks for; until this shipped an operator could build the
+> arrears pack, name it, share it — and still land on the unfiltered list every morning and pick it
+> out of a menu. `table_views.is_default` means *"the default for whoever can see it"*, which
+> answers both defaults an operator actually wants: an unshared view is a **personal** default, a
+> shared one is the **team's**. **A personal default WINS**, so a manager marking a team view never
+> overrules a colleague who has already stated their own. (The alternative — a user × resource
+> preference table — buys one more case, adopting a colleague's shared view without copying it, for
+> a whole extra model and a second place a default can live. Recorded in the migration rather than
+> silently dropped.)
+>
+> **It is applied by REDIRECTING to the view's own URL, never by setting Livewire state** — the same
+> rule as the paragraph above, which is what keeps the address bar honest and the link pasteable.
+> Livewire fires a trait's mount hook exactly once on the initial build, so it cannot fire on a
+> filter change, and it is skipped the moment the request asks for anything, so it cannot loop.
+> **The escape hatch is load-bearing, not a nicety:** a link to the plain list carries an EMPTY query
+> string, which is indistinguishable from a bare page load, so the obvious "All records" reset would
+> bounce straight back into the default. It carries **`?tableView=none`** instead —
+> `bootedSavesTableViews()` already ignores anything non-numeric. The default is offered over views
+> this user may SEE rather than only ones they own (adopting the team's pack is the case UX-11 is
+> about), and re-resolved through `visibleTo()` at the WRITE, because the option list is a UI
+> convenience and that clause is the gate.
+>
+> *(Testing trap, paid for here: `assertNoRedirect()` asserts only on `$effects['redirect']`, which
+> Livewire populates on an UPDATE request. A redirect issued from `mount()` is a plain HTTP one on
+> the initial response, so that assertion can never fail there — measured, it stayed green with the
+> loop guard deleted. `assertRedirect()` is NOT its mirror: on a non-Livewire request it checks the
+> RESPONSE, which is why the positive test was sound. The negative one uses `assertOk()`.)*
+>
 > **…and the COLUMNS are part of it (EG-32, 2026-08-23).** A view stored everything about what the
 > list was showing except the columns — the one part an operator had to redo by hand. Filament
 > persists a column layout in the SESSION, so the choice survived a reload and nothing else: it did

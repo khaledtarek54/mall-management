@@ -217,6 +217,18 @@ fails CI when a new model/resource ships unclassified, unscoped, or unguarded:
   `BypassesFilamentTenantAutoScope`. (The gate renders each create form and inspects the `asset_id`
   component's disabled/dehydrated state, so a new such resource fails CI unless it opts out.)
 
+**The gate earns its keep on the resource whose DOCBLOCK says it is scoped (2026-08-23).**
+`RecurringExpenseResource` shipped with a docblock stating it was *"tenant-scoped by the panel in
+the ordinary way and needs no `BypassesFilamentTenantAutoScope`"*, and that was wrong in both
+directions at once: the **table listed every mall's schedules on every mall's screen**, and the form
+exposes an editable `asset_id` through `PropertyField`, which is exactly the shape check **D**
+exists to catch. Fixed with `ScopesToProperty` + `GuardsAssetInScope`, with `assertAssetInScope` on
+**both** Create and Edit — Filament stamps `asset_id` on create only, so the edit form was the
+unguarded half, which is the standing rule in [the write-guarding section](#2-write-guarding-which-property-a-createedit-may-target)
+and the half most often missed. **A comment asserting a safety property is not the property**; only
+the gate reading the built component is, which is why check D renders the form rather than reading
+the source.
+
 ## How to add a new property-owned module safely
 
 1. Give the model an `asset_id` column (or a clean relation chain to one).

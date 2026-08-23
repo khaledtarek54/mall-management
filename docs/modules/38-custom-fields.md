@@ -191,6 +191,16 @@ definition, not this row, so indexing it would make a rename silently stale unti
 the exact failure the no-relations rule exists to prevent. And **booleans are skipped**, because "1"
 is not a search term and would match every record carrying any number.
 
+**The answers are folded in KEY ORDER, and that `ksort` is load-bearing (2026-08-23).** `metadata` is
+a native `json` column on MySQL and **MySQL does not preserve object key order** — it normalises,
+shortest key first — so the sequence PHP wrote was not the sequence the row read back, and every run
+of `atriom:rebuild-search` rewrote every blob with the same answers in a different order. That breaks
+the blob's documented promise to be a pure function of the row, and it hides a real change inside a
+full-table rewrite. **No Pest test can see it**: on SQLite `metadata` is TEXT and keeps insertion
+order, so both paths agree there regardless. It was caught by the MySQL QA harness, and the
+regression pins **order independence** rather than a golden string — a golden string would pass on
+SQLite while the bug ran on MySQL. See [34 · Search](34-search.md).
+
 ## 7. Registrations (what a sixth record type would need)
 
 | Registry | Entry |
