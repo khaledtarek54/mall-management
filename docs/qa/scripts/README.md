@@ -48,7 +48,7 @@ gate that stays green is a `HOLE`. It verifies each mutation actually LANDED bef
 result, because a substitution that silently does not apply reports a false PASS, which has happened
 twice in this project.
 
-**Result: 25 mutations across 24 gates, three holes — all three in gates that guarded a REGISTRY.**
+**Result: 32 mutations across 29 gates, four holes — all four in gates that guarded a REGISTRY, and two of them had a live money defect underneath.**
 
 1. `ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
    guards — 10 of 156 registered columns were invisible to it, so a new column of any of those
@@ -71,9 +71,24 @@ twice in this project.
    `ChargeCodeGlMappingConformanceTest` now derives the expected roles from what the journalizers
    actually resolve (`->id('<role>')` under `app/Services`).
 
-All three holes are the same shape, and it is worth naming: **a gate that reads only the registry it
+4. `DerivedMoneyConformanceTest` generates its tampering cases FROM the registry
+   (`->with(array_keys(DERIVED[Invoice::class]))`), so a money column missing from the registry got
+   no test at all. Two were missing, and both were exploitable: `invoices.credit_applied_amount`
+   (a payload set it, the next recompute folded it into `paid_amount`, and the invoice read
+   part-settled with nothing behind it) and `credit_notes.applied_amount` (reset a spent note to
+   zero and the same credit can be given away twice). The gate now derives from the SCHEMA — every
+   fillable money column on a guarded model is classified or exempt with a reason.
+
+All four holes are the same shape, and it is worth naming: **a gate that reads only the registry it
 guards cannot see what the registry omits.** When a gate checks a list, ask where its worklist comes
 from — if the answer is "the list", it can only check the list against itself.
+
+**Three "holes" in the run were invalid MUTATIONS, not weak gates**, and each looked identical to a
+real one until checked: removing `abort_unless` from an action that also carries `->authorize()`
+(the deliberate double-gate); removing one of seven widened columns from a gate that only asserts
+every catalogue is NAMED; and hardcoding an inline English array where the gate detects the
+realistic failure — a screen resolving the rail LANG GROUP. A mutation audit needs its own
+scepticism: verify what the gate claims before believing it failed.
 
 Two things worth knowing before adding a mutation:
 

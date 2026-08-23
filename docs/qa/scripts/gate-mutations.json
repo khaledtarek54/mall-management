@@ -194,5 +194,33 @@
     "path": "app/Models/CreditNote.php",
     "old": "            if ($note->isDirty('applied_amount')) {",
     "new": "            if (false) {"
+  },
+  {
+    "name": "SettingsReach \u2014 a setting nothing reads",
+    "gate": "tests/Feature/Scenarios/SettingsReachConformanceTest.php",
+    "path": "app/Settings/AccountingSettings.php",
+    "old": "    public int $activity_log_retention_days = 1825;",
+    "new": "    public int $activity_log_retention_days = 1825;\n\n    public int $orphan_setting_nobody_reads = 0;"
+  },
+  {
+    "name": "ChargeCodeVatTreatment \u2014 the exempt floor loses a type",
+    "gate": "tests/Feature/Scenarios/ChargeCodeVatTreatmentConformanceTest.php",
+    "path": "app/Support/Vat.php",
+    "old": "        'percentage_rent',\n",
+    "new": ""
+  },
+  {
+    "name": "HealthChecksAreWired \u2014 a registered check disappears",
+    "gate": "tests/Feature/Scenarios/HealthChecksAreWiredConformanceTest.php",
+    "path": "app/Support/Health.php",
+    "old": "            'scheduler' => self::checkScheduler(),\n",
+    "new": ""
+  },
+  {
+    "name": "CatalogueBackedSurfaces \u2014 a form resolves the rail lang group directly",
+    "gate": "tests/Feature/Scenarios/CatalogueBackedSurfacesConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/DepositTransactions/Schemas/DepositTransactionForm.php",
+    "old": "->options(fn () => DepositTransaction::methodOptions())",
+    "new": "->options(fn () => __('admin.enums.method'))"
   }
 ]
