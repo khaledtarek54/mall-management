@@ -11,6 +11,7 @@ use App\Support\ValueSets;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -284,37 +285,37 @@ class PaymentMethod extends Model
         return $this->belongsTo(LedgerAccount::class);
     }
 
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(Payment::class, 'method', 'code');
     }
 
-    public function vendorBillPayments()
+    public function vendorBillPayments(): HasMany
     {
         return $this->hasMany(VendorBillPayment::class, 'method', 'code');
     }
 
-    public function depositTransactions()
+    public function depositTransactions(): HasMany
     {
         return $this->hasMany(DepositTransaction::class, 'method', 'code');
     }
 
-    public function expenses()
+    public function expenses(): HasMany
     {
         return $this->hasMany(Expense::class, 'paid_from', 'code');
     }
 
-    public function disbursements()
+    public function disbursements(): HasMany
     {
         return $this->hasMany(Disbursement::class, 'method', 'code');
     }
 
-    public function employeeAdvanceRepayments()
+    public function employeeAdvanceRepayments(): HasMany
     {
         return $this->hasMany(EmployeeAdvanceRepayment::class, 'method', 'code');
     }
 
-    public function employeeAdvances()
+    public function employeeAdvances(): HasMany
     {
         return $this->hasMany(EmployeeAdvance::class, 'paid_from', 'code');
     }

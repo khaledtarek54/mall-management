@@ -48,10 +48,23 @@ gate that stays green is a `HOLE`. It verifies each mutation actually LANDED bef
 result, because a substitution that silently does not apply reports a false PASS, which has happened
 twice in this project.
 
-**Result of the first run: 19 mutations across 18 gates, one hole.**
-`ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
-guards — 10 of 156 registered columns were invisible to it, so a new column of any of those shapes
-would have shipped unenforced with the gate silent. Fixed, and the list is now self-checking.
+**Result: 23 mutations across 22 gates, two holes — both in gates that guarded a REGISTRY.**
+
+1. `ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
+   guards — 10 of 156 registered columns were invisible to it, so a new column of any of those
+   shapes would have shipped unenforced with the gate silent. The list is now self-checking.
+2. Nothing noticed a column dropping out of `ValueSets::CATALOGUE_WIDENED`. The gate that looks
+   closest — offered-vs-accepted — compares `allowed()` against `forTable()`, and **both** read that
+   registry: delete an entry and the two derivations narrow together, still agree, and it passes.
+   Measured: removing `disbursements.method` left every gate green while the column silently stopped
+   accepting the operator's rails. `CatalogueWidensItsColumnsConformanceTest` now derives the
+   expected set from each catalogue's own `hasMany(X::class, '<column>', 'code')` relations — an
+   independent source, so it can see what the registry omits. (`ValueSets::catalogueWidenedColumns()`
+   was exposed for exactly this and the check had never been written.)
+
+Both holes are the same shape, and it is worth naming: **a gate that reads only the registry it
+guards cannot see what the registry omits.** When a gate checks a list, ask where its worklist comes
+from.
 
 Two things worth knowing before adding a mutation:
 

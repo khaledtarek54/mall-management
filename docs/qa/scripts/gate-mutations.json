@@ -131,5 +131,33 @@
     "path": "app/Filament/Admin/Resources/Areas/Schemas/AreaForm.php",
     "old": "            EntitySelect::make('supervisors')",
     "new": "            \\Filament\\Forms\\Components\\Select::make('supervisors')"
+  },
+  {
+    "name": "QueueJobSafety \u2014 unclassify a serialised job",
+    "gate": "tests/Feature/Scenarios/QueueJobSafetyConformanceTest.php",
+    "path": "app/Support/QueueJobSafety.php",
+    "old": "        RunMonthlyBilling::class => 'A manually-dispatched run racing the scheduled one would double-bill: the '.\n            'already-billed existence check is not yet behind a DB unique constraint.',\n",
+    "new": ""
+  },
+  {
+    "name": "ResourceTenancy \u2014 drop a shared catalogue's tenancy opt-out",
+    "gate": "tests/Feature/Scenarios/ResourceTenancyConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/AccountingPeriods/AccountingPeriodResource.php",
+    "old": "    use BypassesFilamentTenantAutoScope;\n",
+    "new": ""
+  },
+  {
+    "name": "OwnerVisibility \u2014 unclassify an owner-visible group",
+    "gate": "tests/Feature/Scenarios/OwnerVisibilityConformanceTest.php",
+    "path": "app/Support/OwnerVisibility.php",
+    "old": "        'assets' => 'The property they own.',\n",
+    "new": ""
+  },
+  {
+    "name": "CatalogueWidensItsColumns \u2014 a catalogue-governed column stops being widened",
+    "gate": "tests/Feature/Scenarios/CatalogueWidensItsColumnsConformanceTest.php",
+    "path": "app/Support/ValueSets.php",
+    "old": "        'disbursements.method' => [PaymentMethod::class, 'outboundCodes'],\n",
+    "new": ""
   }
 ]

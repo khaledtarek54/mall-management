@@ -20,7 +20,9 @@
 | be named. It is deliberately not a count: a count drifts and gets bumped.
 */
 
+use App\Models\Concerns\IsCodeCatalogue;
 use App\Support\ValueSets;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\File;
 
 /** @return array<int, class-string> */
@@ -73,4 +75,65 @@ it('points every CATALOGUE_WIDENED entry at a real set and a real reader', funct
     }
 
     expect($broken)->toBe([], implode("\n", $broken));
+});
+
+it('widens every column its own relations say it governs', function () {
+    // Derived from the catalogue MODEL, not from the registry being checked — which is the whole
+    // point. `OfferedValuesAreAcceptedValuesConformanceTest` compares `allowed()` against
+    // `forTable()`, and BOTH read `CATALOGUE_WIDENED`; delete a column from it and the two
+    // derivations narrow together, still agree, and that gate passes. Measured: removing
+    // `disbursements.method` left every existing gate green while the column silently stopped
+    // accepting the operator's rails — `is_active` inert, a rail added on the catalogue screen
+    // simply absent from that picker, and no error anywhere.
+    //
+    // A catalogue states which columns it governs by declaring `hasMany(X::class, '<column>',
+    // 'code')` — a relation keyed on the CODE is exactly the claim "this column holds my codes".
+    // That is an independent source, so it can see what the registry omits. EG-11 shipped naming
+    // five columns when there were seven; this is the check that would have caught it.
+    $missing = [];
+    $checked = 0;
+
+    foreach (File::allFiles(app_path('Models')) as $file) {
+        $class = 'App\\Models\\'.$file->getFilenameWithoutExtension();
+
+        if (! class_exists($class) || ! in_array(IsCodeCatalogue::class, class_uses_recursive($class), true)) {
+            continue;
+        }
+
+        $model = new $class;
+
+        foreach ((new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            // Filtered on the declared RETURN TYPE before calling anything: invoking arbitrary
+            // public methods to see what comes back would run whatever else the model does.
+            if ($method->isStatic()
+                || $method->getNumberOfParameters() > 0
+                || $method->class !== $class
+                || ($method->getReturnType()?->getName() ?? null) !== HasMany::class) {
+                continue;
+            }
+
+            $relation = $model->{$method->getName()}();
+
+            if ($relation->getLocalKeyName() !== 'code') {
+                continue;   // keyed on the id — an ordinary relation, not a code-governed column
+            }
+
+            $checked++;
+            $key = $relation->getRelated()->getTable().'.'.$relation->getForeignKeyName();
+
+            if (! array_key_exists($key, ValueSets::catalogueWidenedColumns())) {
+                $missing[] = class_basename($class).'::'.$method->getName().' governs '.$key;
+            }
+        }
+    }
+
+    // The sweep must have found the relations before reporting on them.
+    expect($checked)->toBeGreaterThan(10);
+
+    expect($missing)->toBe([], implode("\n  ", array_merge(
+        ['These catalogue-governed columns are NOT in ValueSets::CATALOGUE_WIDENED, so the column',
+            'keeps only its shipped floor: an operator-added code is offered nowhere and accepted',
+            'nowhere, silently, and `is_active` decides nothing for that column:'],
+        $missing,
+    )));
 });
