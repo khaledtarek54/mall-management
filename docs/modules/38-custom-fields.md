@@ -226,9 +226,9 @@ columns whose name ends in a classification suffix, so an exemption there would 
 
 Deliberately out of this slice, each stated rather than implied:
 
-- **Export for vendors and properties**, which have no exporter at all. A gap in those two resources
-  rather than in this feature; adding one is a `Exporter` class each, and the custom-field columns
-  would come with it for free.
+- Nothing. **Vendors and properties gained an exporter on 2026-08-23**, which was the last gap: they
+  were the two registers with no way OUT of the system, so a custom field on a vendor could be
+  defined, filled, filtered and imported and could not be taken away.
 - **A choice field is searched by its stored VALUE, not its label** — see §6c. Deliberate, and the
   filter is the right control for a choice.
 

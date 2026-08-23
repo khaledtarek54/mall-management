@@ -2,6 +2,15 @@
 
 > A vendor is an external service provider, contractor, or supplier (modeled by type: contractor / supplier / service_provider / consultant / other) with contacts and time-bound contracts; contracts expire automatically and may be scoped to a specific property (Asset) for multi-mall operators.
 
+> **The supplier register exports (2026-08-23).** Vendors and properties were the two resources an
+> operator could import INTO and never export OUT of — a one-way door, and the reason a custom field
+> on a vendor could be recorded and never taken away. `VendorExporter` leads with `code`, the
+> identity `VendorImporter` dedups on, so a file exported here can be re-imported. The gate is the
+> resource's own `canViewAny()` through `App\Support\Exports` — never a permission of its own,
+> because the FRD restricts import and widens export. Read as an authorization question it is not
+> one: Filament exports `getTableQueryForExport()`, the resource's own scoped query with the
+> operator's filters applied, so an export can never return a row the list would not.
+
 ## 1. Purpose & business context
 
 Vendors model the external service partners that Egyptian malls depend on: HVAC contractors, cleaners, electrical suppliers, security services, and consulting firms. The module tracks:

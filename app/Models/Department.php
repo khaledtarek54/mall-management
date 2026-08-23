@@ -84,7 +84,11 @@ class Department extends Model
         'head_user_id',
         'is_active',
         'sort_order',
-        'metadata',
+        // `metadata` is deliberately NOT fillable. It is a nullable JSON column no form, service
+        // or report reads, and a fillable JSON column accepts every key a crafted payload sends.
+        // Departments are not in `CustomFields::EXTENSIBLE`, so nothing writes it at all; if that
+        // changes, `HasCustomFields` assigns the attribute directly, which `$fillable` does not
+        // govern. Same reasoning applied to the five extensible models with EG-32.
     ];
 
     protected $casts = [

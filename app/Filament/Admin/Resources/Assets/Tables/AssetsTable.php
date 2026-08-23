@@ -3,14 +3,18 @@
 namespace App\Filament\Admin\Resources\Assets\Tables;
 
 use App\Filament\Admin\Resources\Assets\AssetResource;
+use App\Filament\Exports\AssetExporter;
 use App\Models\Asset;
 use App\Services\AssetStatementPdfService;
+use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
@@ -166,8 +170,25 @@ class AssetsTable
                         );
                     }),
             ])
+            // Whoever may read the list may take it away — the gate is the resource's own
+            // canViewAny() through `Exports`, never a permission of its own. Vendors and properties
+            // were the two registers with no way out of the system at all.
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(AssetExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(AssetResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(AssetResource::class)),
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(AssetExporter::class)
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(AssetResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(AssetResource::class)),
                     DeleteBulkAction::make()
                         ->visible(fn () => AssetResource::canDeleteAny()),
                     ForceDeleteBulkAction::make()

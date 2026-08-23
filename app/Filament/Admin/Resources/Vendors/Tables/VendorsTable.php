@@ -3,15 +3,19 @@
 namespace App\Filament\Admin\Resources\Vendors\Tables;
 
 use App\Filament\Admin\Resources\Vendors\VendorResource;
+use App\Filament\Exports\VendorExporter;
 use App\Models\Vendor;
 use App\Models\VendorDocument;
 use App\Models\VendorDocumentType;
+use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\TenantScope;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -149,8 +153,25 @@ class VendorsTable
                     ->authorize(fn ($record) => VendorResource::canView($record)),
                 EditAction::make()->visible(fn ($record) => VendorResource::canEdit($record)),
             ])
+            // Whoever may read the list may take it away — the gate is the resource's own
+            // canViewAny() through `Exports`, never a permission of its own. Vendors and properties
+            // were the two registers with no way out of the system at all.
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(VendorExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (): bool => Exports::allowed(VendorResource::class))
+                    ->authorize(fn (): bool => Exports::allowed(VendorResource::class)),
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(VendorExporter::class)
+                        ->label(__('admin.actions.export'))
+                        ->visible(fn (): bool => Exports::allowed(VendorResource::class))
+                        ->authorize(fn (): bool => Exports::allowed(VendorResource::class)),
                     DeleteBulkAction::make()->visible(fn () => VendorResource::canDeleteAny()),
                 ]),
             ])
