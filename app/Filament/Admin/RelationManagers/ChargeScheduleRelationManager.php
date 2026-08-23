@@ -14,6 +14,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
@@ -210,6 +211,17 @@ class ChargeScheduleRelationManager extends RelationManager
                         ? ''
                         : __("admin.enums.billing_timing.{$state}"))
                     ->toggleable(isToggledHiddenByDefault: true),
+                // Written and never shown is a field that reads as doing nothing. Blank means it
+                // prorates, which is the normal state, so only a flat row says anything.
+                TextColumn::make('prorate')
+                    ->label(__('admin.charge_schedule.does_not_prorate'))
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('')
+                    ->state(fn (Charge $record): string => $record->prorate === false
+                        ? __('admin.charge_schedule.flat')
+                        : '')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 // Shows the rate that will be BILLED, not the stored column — which is usually
                 // null now. A row that departs from the catalogue is marked, because that is the
                 // one an accountant needs to see.
@@ -282,6 +294,16 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->helperText(__('admin.helpers.billing_timing'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_timing'))
                             ->native(false),
+                        Toggle::make('does_not_prorate')
+                            ->label(__('admin.charge_schedule.does_not_prorate'))
+                            // Asked in the NEGATIVE, and stored inverted below. The column's null is
+                            // "the operator ruled on nothing", which a three-state toggle cannot
+                            // express and a positive "Prorate?" toggle would silently answer for
+                            // them on every row they add — writing a decision nobody made, which is
+                            // the trap `charges.vat_applicable` fell into (EG-01).
+                            ->helperText(__('admin.helpers.does_not_prorate'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.does_not_prorate'))
+                            ->visible(fn (Get $get): bool => $get('frequency') === 'monthly'),
                         DatePicker::make('effective_from')
                             ->label(__('admin.charge_schedule.from'))
                             ->helperText(__('admin.charge_schedule.add_effective_hint'))
@@ -337,6 +359,10 @@ class ChargeScheduleRelationManager extends RelationManager
                                 // charge that bills in advance with nothing to say otherwise. The
                                 // whole of M-2 was unreachable through the only screen offering it.
                                 'billing_timing' => $data['billing_timing'] ?? null,
+                                // false = bills whole months; null = the lease's own method. The
+                                // toggle is only offered for a monthly row, so an untouched or
+                                // hidden one must leave the column null rather than write `true`.
+                                'prorate' => ($data['does_not_prorate'] ?? false) ? false : null,
                                 // A charge added in September is not owed from the lease's
                                 // commencement — without this the first row would back-date to it
                                 // and the next run would bill every month since.

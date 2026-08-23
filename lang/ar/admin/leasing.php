@@ -155,6 +155,8 @@ return [
         'from_commencement' => 'من بداية العقد',
         'unprojected_escalation' => 'زيادة تعاقدية :step مستحقة في :date، لم تُجدول بعد',
         'frequency' => 'التكرار',
+        'does_not_prorate' => 'يُحاسب شهورًا كاملة',
+        'flat' => 'شهور كاملة',
         'state' => 'الحالة',
         'frequencies' => [
             'monthly' => 'شهري',

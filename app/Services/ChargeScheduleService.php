@@ -122,6 +122,11 @@ class ChargeScheduleService
             // service in September having been billed August's in September the month before —
             // one month charged twice, with the schedule looking entirely ordinary.
             'billing_timing' => $attributes['billing_timing'] ?? $current->billing_timing,
+            // Carried onto the next rung, like every other term of the row. A signage licence that
+            // does not prorate must not start prorating because its amount was revised — and this
+            // method builds an EXPLICIT attribute list, which is exactly how `billing_timing` came
+            // to be rendered on a form and thrown away on save.
+            'prorate' => $attributes['prorate'] ?? $current->prorate,
             'start_date' => $effectiveFrom->toDateString(),
             // Inherit the boundary, so closing a bounded schedule doesn't quietly make it open.
             'end_date' => $inheritedEnd,
@@ -567,6 +572,9 @@ class ChargeScheduleService
             // Null = advance, which is what every charge did before EG-30 — so a caller that says
             // nothing gets today's behaviour and only a deliberate `arrears` changes anything.
             'billing_timing' => $attributes['billing_timing'] ?? null,
+            // Null, not false: null means the operator ruled on nothing and the lease's own
+            // proration method stands, which is what every charge did before the flag existed.
+            'prorate' => $attributes['prorate'] ?? null,
             // The FIRST row is dated to the lease commencement, not the effective date: a charge
             // that never existed should bill the lease's term, not only from today. This matches
             // what LeaseCreationService/LeaseRentChangeService did before schedules existed.

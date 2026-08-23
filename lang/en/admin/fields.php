@@ -503,6 +503,7 @@ return [
         'tax_treatment' => 'Treatment',
         'statutory_reference' => 'Statutory reference',
         'effective_from' => 'In force from',
+        'prorate' => 'Prorates a part month',
         'document_block' => 'Document block',
         'body_en' => 'English',
         'body_ar' => 'Arabic',

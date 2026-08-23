@@ -303,6 +303,7 @@ class MonthlyBillingService
         CarbonImmutable $windowStart,
         CarbonImmutable $windowEnd,
         int $windowMonths,
+        ?string $method = null,
     ): ?float {
         $rentStart = $lease->rent_commencement_date
             ? CarbonImmutable::instance($lease->rent_commencement_date)
@@ -314,7 +315,7 @@ class MonthlyBillingService
             return null;
         }
 
-        return self::monthsCovered($windowStart, $windowMonths, $rentStart, $windowEnd, $lease->prorationMethod());
+        return self::monthsCovered($windowStart, $windowMonths, $rentStart, $windowEnd, $method ?? $lease->prorationMethod());
     }
 
     /**
@@ -638,7 +639,7 @@ class MonthlyBillingService
             ? CarbonImmutable::instance($lease->expiry_date)
             : CarbonImmutable::create(2999, 12, 31);
 
-        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $fullCycleMonths, $effectivePeriodStart, $leaseWindowStart, $leaseWindowEnd, $isFinalCycle) {
+        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $fullCycleMonths, $effectivePeriodStart, $effectivePeriodEnd, $rentStart, $proration, $leaseWindowStart, $leaseWindowEnd, $isFinalCycle) {
             // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
             // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
             //
@@ -655,6 +656,29 @@ class MonthlyBillingService
             $coveredMonths = (($coveredEnd->year - $coveredStart->year) * 12)
                 + ($coveredEnd->month - $coveredStart->month) + 1;
 
+            // The proration method THIS row bills on — Yardi's per-charge prorate flag. EG-29 made
+            // the METHOD a lease term (how a part-month is priced); this answers the prior question
+            // of whether the row prorates AT ALL. A flat signage licence, a fixed parking fee or a
+            // fixed management fee is payable in full for any month the lease runs into, and before
+            // this a mid-month move-in cut every one of them by the fraction it cut the rent.
+            //
+            // A row that opts out resolves to WHOLE_MONTH — the EXISTING rule, not a new branch —
+            // so `CreditUnearnedBillingService` reads the same one back and a credit cannot
+            // disagree with the invoice it credits.
+            $rowProration = $charge->prorationMethodWithin($proration);
+
+            // The two multipliers computed once for the whole invoice were derived on the LEASE's
+            // method, so a row departing from it has to re-derive them. Identical whenever it does
+            // not — which is every row on every install until an operator ticks the box, so nothing
+            // that bills today changes.
+            $cycleMultiplier = $rowProration === $proration
+                ? $multiplier
+                : self::monthsCovered($periodStart, $cycleMonths, $effectivePeriodStart, $effectivePeriodEnd, $rowProration);
+
+            $rowGrace = ($rowProration === $proration || $graceMultiplier === null || $rentStart === null)
+                ? $graceMultiplier
+                : self::monthsCovered($periodStart, $cycleMonths, $rentStart, $effectivePeriodEnd, $rowProration);
+
             $rowMultiplier = match (true) {
                 $charge->frequency !== 'monthly' => 1.0,
                 // Grace is measured on the window this row COVERS. `$graceMultiplier` is derived
@@ -663,14 +687,14 @@ class MonthlyBillingService
                 // the one behind it. A tenant whose rent commenced 15 August would otherwise have
                 // been billed August's service charge in full on the September invoice, having had
                 // it abated in August — the abatement given and then taken back a month later.
-                $graceMultiplier !== null && $lease->graceAbates($charge->type) && ! $charge->billsInArrears() => $graceMultiplier,
-                $lease->graceAbates($charge->type) && $charge->billsInArrears() => self::graceMultiplierFor($lease, $coveredStart, $coveredEnd, $coveredMonths)
+                $rowGrace !== null && $lease->graceAbates($charge->type) && ! $charge->billsInArrears() => $rowGrace,
+                $lease->graceAbates($charge->type) && $charge->billsInArrears() => self::graceMultiplierFor($lease, $coveredStart, $coveredEnd, $coveredMonths, $rowProration)
                         ?? self::monthsCovered(
                             $coveredStart,
                             $coveredMonths,
                             $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
                             $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
-                            $proration,
+                            $rowProration,
                         ),
                 // An arrears row prorates against the month it COVERS, not the month the invoice
                 // is dated to. A lease that commenced on 15 August owes half of August's service
@@ -684,9 +708,9 @@ class MonthlyBillingService
                     $coveredMonths,
                     $leaseWindowStart->greaterThan($coveredStart) ? $leaseWindowStart : $coveredStart,
                     $leaseWindowEnd->lessThan($coveredEnd) ? $leaseWindowEnd : $coveredEnd,
-                    $proration,
+                    $rowProration,
                 ),
-                default => $multiplier,
+                default => $cycleMultiplier,
             };
 
             // Nothing of the covered window falls inside the lease — an arrears row on the FIRST

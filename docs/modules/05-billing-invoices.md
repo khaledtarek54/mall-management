@@ -155,6 +155,50 @@ the invoice it credits disagrees with it by days, on exactly the mid-month move-
 `prorationMethod()` is therefore on `BillableAgreement`, so a unit ownership answers it too — from
 the property and portfolio tiers, since an ownership has no clause of its own.
 
+### Whether a charge prorates AT ALL — `charges.prorate` (2026-08-23)
+
+EG-29 above answers *how* a part month is priced. Yardi's lease charge row carries the prior
+question too — *"charge code · amount · from date · to date · frequency · basis · **prorate flag**"*
+([01-yardi-lease-administration.md](../benchmarks/yardi/01-yardi-lease-administration.md) §3.2) —
+and until this column existed every monthly row prorated together. A mid-month move-in cut a flat
+signage licence, a fixed parking fee and a fixed management fee by the same fraction it cut the
+rent: measured, a 5,000 parking fee billed **2,580.65** on a 16 August commencement.
+
+Those charges are not time-priced. A licence buys the right to trade under it for a month; taking it
+from the 15th does not make it half a licence.
+
+**On the CHARGE, not the lease**, for the reason `billing_timing` is: the case that matters is
+MIXED. Rent prorates and the licence beside it does not, on one lease and one invoice — a per-lease
+flag would force the operator to choose which of the two is wrong.
+
+**Null is the normal state.** Nullable; null and `true` both mean *prorate, by the lease's method*.
+Only an explicit `false` changes anything, so no figure moves on deploy. Tested `=== false` rather
+than falsy — the trap `charges.vat_applicable` fell into (EG-01).
+
+**It is not a fifth proration method.** `Charge::prorationMethodWithin()` resolves a non-prorating
+row to `ProrationMethod::WHOLE_MONTH` — the EXISTING rule. That matters beyond tidiness:
+`monthsCovered()` is the ONE definition of how much of a period an agreement runs, and
+`CreditUnearnedBillingService` reads the same one back, so **a flat charge is not clawed back on a
+mid-month move-out either**. A separate "bill it whole" branch in the billing service would have
+been a second definition, and the credit note would have refunded half a month the charge says is
+fully earned — measured at 17,500 where 15,000 was owed back.
+
+A month the lease never reached still bills **nothing**: whether a part month is worth a whole month
+is a different question from whether the lease ran in that month at all.
+
+Reachable from the charge-schedule relation manager (a *"Bills whole months"* toggle, offered only
+for a monthly row), from `ChargeImporter`, and read back as a badge on the schedule table.
+`AFlatChargeIsPayableInFullForAnyMonthTest` pairs every assertion with a control on the same
+invoice — a test that only asserted *"the licence billed 5,000"* would pass just as happily on an
+install where nothing prorated at all.
+
+> **A live crash found by writing that test.** EG-29's per-charge closure used `$proration` without
+> capturing it in its `use (…)` list. An undefined variable reaching `monthsCovered()`'s
+> non-nullable `string $method` is a **TypeError**, so every lease carrying an ARREARS charge
+> fatalled the whole billing run — and the suite was green because every test of arrears billing
+> called the arithmetic directly rather than the planner. Exactly the shape of the `use ($get)` bug
+> that 500'd the invoice form for five days. The regression test drives `planInvoiceForLease()`.
+
 **CAM does NOT use this, deliberately.** `CamReconciliationService` weights a tenure by *area ×
 days ÷ period days* — square-metre-days, answering "what share of the mall's GLA did this tenant
 occupy across the year". Numerator and denominator must share one day basis, so applying a lease's

@@ -502,6 +502,7 @@ return [
         'tax_treatment' => 'المعالجة الضريبية',
         'statutory_reference' => 'السند القانوني',
         'effective_from' => 'يسري من',
+        'prorate' => 'يُجزَّأ الشهر الجزئي',
         'document_block' => 'نص المستند',
         'body_en' => 'الإنجليزية',
         'body_ar' => 'العربية',

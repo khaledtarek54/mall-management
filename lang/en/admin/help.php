@@ -6,6 +6,7 @@ return [
         'escalation_index_code' => 'Which published series this rent follows. Enter the figures under Leasing, Rent indices.',
         'escalation_index_base_value' => 'The index figure this rent was last measured from. It rolls forward each time the rent steps.',
         'billing_timing' => "Blank means in advance. In arrears bills last month's, on this month's invoice.",
+        'does_not_prorate' => 'A part month bills in full. For a flat licence or fixed fee, never rent.',
         'escalation_interval_months' => 'Blank means every year. Enter 24 for biennial, 6 for a half-yearly review.',
         'escalation_index_lag_months' => 'How far back to read. The September index effective 1 January is 4.',
         'property_pinned' => 'Follows the property switcher at the top — this record belongs to the mall you are in.',
@@ -174,6 +175,7 @@ return [
     */
     'hints' => [
         'billing_timing' => 'Rent is settled ahead of the month; a service charge or utility recharge is settled after it, once the cost or the meter reading is known. The line names the month it covers.',
+        'does_not_prorate' => 'Rent is priced by time, so a mid-month move-in pays part of it. A signage licence, a fixed parking fee or a fixed management fee is not — the tenant holds it for the month whichever day they arrive. Tick this and the row bills in full for any month the lease runs into, and is not credited back on a mid-month move-out either.',
         'cash_flow_section' => 'Only balance-sheet accounts carry one. Revenue and expense net into profit, which the statement starts from.',
         'escalation_interval_months' => 'The date rolls by this many months each time a step applies, from the last step — so an 18-month clause alternates between two dates in the year rather than drifting.',
         'subcategory_trade' => 'A work order raised from this problem goes to that trade, so it reaches the right craft rate and the right contractors.',

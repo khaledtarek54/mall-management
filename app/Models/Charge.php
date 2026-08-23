@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\ProrationMethod;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -24,7 +25,7 @@ class Charge extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['lease_id', 'name', 'type', 'amount', 'frequency', 'is_active'])
+            ->logOnly(['lease_id', 'name', 'type', 'amount', 'frequency', 'prorate', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('charge');
@@ -78,6 +79,7 @@ class Charge extends Model
         'currency',
         'frequency',
         'billing_timing',
+        'prorate',
         'vat_applicable',
         'vat_rate',
         'start_date',
@@ -89,6 +91,7 @@ class Charge extends Model
         'amount' => 'decimal:2',
         'vat_rate' => 'decimal:2',
         'vat_applicable' => 'boolean',
+        'prorate' => 'boolean',
         'is_active' => 'boolean',
         'start_date' => 'date',
         'end_date' => 'date',
@@ -300,6 +303,33 @@ class Charge extends Model
     public function billsInArrears(): bool
     {
         return $this->billing_timing === self::TIMING_ARREARS;
+    }
+
+    /**
+     * The proration method THIS row bills on — the agreement's, unless the row opts out entirely.
+     *
+     * EG-29 made the METHOD a lease term (how a part-month is priced). This answers the prior
+     * question Yardi's charge row also carries: whether the row prorates at all. A flat signage
+     * licence, a fixed parking fee or a fixed management fee is payable in full for any month the
+     * lease runs into — hanging a sign from the 15th does not make it half a sign — and before this
+     * existed a mid-month move-in cut every one of them by the same fraction it cut the rent.
+     *
+     * `false` resolves to {@see ProrationMethod::WHOLE_MONTH} rather than short-circuiting the
+     * multiplier, deliberately. `MonthlyBillingService::monthsCovered()` is the ONE definition of
+     * how much of a period an agreement runs, and the termination credit reads the same rule so a
+     * credit cannot disagree with the invoice it credits; a separate "bill it whole" branch would
+     * have been a second definition, and the credit would then claw back half a month this charge
+     * says is fully earned. A month the lease does not reach at all still bills nothing — whether a
+     * part-month is worth a whole one is a different question from whether the lease ran in it.
+     *
+     * `=== false`, never falsy: null is the normal state and means the operator has ruled on
+     * nothing, which is the trap `charges.vat_applicable` fell into (EG-01).
+     */
+    public function prorationMethodWithin(string $agreementMethod): string
+    {
+        return $this->prorate === false
+            ? ProrationMethod::WHOLE_MONTH
+            : $agreementMethod;
     }
 
     /**

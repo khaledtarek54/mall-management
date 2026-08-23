@@ -157,6 +157,8 @@ return [
         'from_commencement' => 'From commencement',
         'unprojected_escalation' => 'a contracted :step escalation is due :date, not yet scheduled',
         'frequency' => 'Frequency',
+        'does_not_prorate' => 'Bills whole months',
+        'flat' => 'Whole months',
         'state' => 'Status',
         'frequencies' => [
             'monthly' => 'Monthly',

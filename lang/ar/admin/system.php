@@ -290,6 +290,7 @@ return [
             'line_description' => 'وصف البند',
             'amount_per_cycle' => 'المبلغ لكل دورة (ج.م)',
             'effective_from' => 'ساري من (YYYY-MM-DD)',
+        'prorate' => 'يُحاسب شهورًا كاملة (بلا تجزئة)',
             'vat_override' => 'نسبة ضريبة القيمة المضافة (تجاوز) — اتركه فارغًا لاستخدام دليل الضرائب',
             'meter_number' => 'رقم العداد',
             'reading_date' => 'تاريخ القراءة (YYYY-MM-DD)',

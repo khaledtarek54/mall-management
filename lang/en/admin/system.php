@@ -291,6 +291,7 @@ return [
             'line_description' => 'Line description',
             'amount_per_cycle' => 'Amount per cycle (EGP)',
             'effective_from' => 'Effective from (YYYY-MM-DD)',
+        'prorate' => 'Bills whole months (no proration)',
             'vat_override' => 'VAT % override — LEAVE BLANK to use the tax catalogue',
             'meter_number' => 'Meter number',
             'reading_date' => 'Reading date (YYYY-MM-DD)',

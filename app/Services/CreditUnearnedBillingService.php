@@ -127,11 +127,9 @@ class CreditUnearnedBillingService
             return null;
         }
 
+        // The agreement-level ratio, and the floor for every line. A row that prorates the way the
+        // lease does — every row until an operator ticks the flag — is credited on exactly this.
         $unearnedRatio = 1 - ($earned / $billed);
-
-        if ($unearnedRatio <= 0) {
-            return null;
-        }
 
         $subtotal = 0.0;
         $vat = 0.0;
@@ -152,8 +150,30 @@ class CreditUnearnedBillingService
                 continue;
             }
 
-            $lineAmount = (float) $item->amount * $unearnedRatio;
-            $lineVat = (float) $item->vat_amount * $unearnedRatio;
+            // A charge that does not prorate is not clawed back for a part month either — the
+            // mirror of how it was billed, and the reason `prorate = false` resolves to
+            // WHOLE_MONTH rather than short-circuiting the billing multiplier. Billing a signage
+            // licence whole and crediting half of it back refunds the tenant for a month they
+            // held the sign, on a document an auditor reads as a correction.
+            //
+            // Re-derived through `monthsCovered()` — the ONE definition — rather than zeroed, so a
+            // QUARTER's invoice still credits the whole months the tenant did not have.
+            $lineRatio = $unearnedRatio;
+            $lineMethod = $item->charge?->prorationMethodWithin($proration) ?? $proration;
+
+            if ($lineMethod !== $proration) {
+                $lineBilled = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $periodEnd, $lineMethod);
+                $lineEarned = MonthlyBillingService::monthsCovered($periodStart->startOfMonth(), $cycleMonths, $periodStart, $terminationDate, $lineMethod);
+
+                $lineRatio = $lineBilled > 0 ? 1 - ($lineEarned / $lineBilled) : 0.0;
+            }
+
+            if ($lineRatio <= 0) {
+                continue;
+            }
+
+            $lineAmount = (float) $item->amount * $lineRatio;
+            $lineVat = (float) $item->vat_amount * $lineRatio;
 
             $subtotal += $lineAmount;
             $vat += $lineVat;

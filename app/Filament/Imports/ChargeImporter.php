@@ -102,6 +102,14 @@ class ChargeImporter extends Importer
                 ->label(__('admin.fields.billing_timing'))
                 ->rules(['nullable', Rule::in(ValueSets::allowed('charges', 'billing_timing'))])),
 
+            // Yardi's per-charge prorate flag. A migrating operator arrives with a spreadsheet of
+            // charges, some of which their previous system never prorated — settable in the UI and
+            // not here is 200 rows keyed in by hand.
+            $inputOnly(ImportColumn::make('prorate')
+                ->label(__('admin.imports.columns.prorate'))
+                ->boolean()
+                ->rules(['nullable', 'boolean'])),
+
             $inputOnly(ImportColumn::make('effective_from')
                 ->label(__('admin.imports.columns.effective_from'))
                 ->requiredMapping()
@@ -140,6 +148,13 @@ class ChargeImporter extends Importer
                 // Null, not 'advance', when the column is absent or blank — null IS advance, and
                 // writing the word would claim the operator ruled on a row they never mentioned.
                 'billing_timing' => trim((string) ($this->data['billing_timing'] ?? '')) ?: null,
+                // Blank stays NULL — the lease's own proration method stands, which is what every
+                // charge did before the flag existed. Only an explicit falsehood in the file says
+                // this row bills whole months. `array_filter` below drops nulls, so a `true` here
+                // would be indistinguishable from silence and is deliberately not written.
+                'prorate' => array_key_exists('prorate', $this->data) && $this->data['prorate'] !== null && $this->data['prorate'] !== ''
+                    ? (bool) $this->data['prorate']
+                    : null,
                 // Blank stays NULL so the catalogue answers per invoice. An explicit 0 is the
                 // operator saying this charge is not taxed, which is a different statement.
                 'vat_rate' => ($rawRate === null || $rawRate === '') ? null : (float) $rawRate,
