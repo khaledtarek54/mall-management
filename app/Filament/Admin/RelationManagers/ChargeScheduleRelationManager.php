@@ -198,6 +198,18 @@ class ChargeScheduleRelationManager extends RelationManager
                     // as a LEASE billing_frequency (…/semiannual/annual), so it has its own map.
                     ->formatStateUsing(fn (string $state): string => __("admin.charge_schedule.frequencies.{$state}"))
                     ->toggleable(isToggledHiddenByDefault: true),
+                // Read-back for `billing_timing`. Written and never shown is what the EG-12 review
+                // called a field that reads as doing nothing — and this change repeated it. Blank
+                // means advance, which is the normal state, so only an arrears row says anything.
+                TextColumn::make('billing_timing')
+                    ->label(__('admin.fields.billing_timing'))
+                    ->badge()
+                    ->color('warning')
+                    ->placeholder('')
+                    ->formatStateUsing(fn (?string $state): string => $state === null
+                        ? ''
+                        : __("admin.enums.billing_timing.{$state}"))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 // Shows the rate that will be BILLED, not the stored column — which is usually
                 // null now. A row that departs from the catalogue is marked, because that is the
                 // one an accountant needs to see.

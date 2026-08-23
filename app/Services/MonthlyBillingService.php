@@ -325,7 +325,9 @@ class MonthlyBillingService
      * September has run.
      *
      * Shifted by whole CYCLES, not by one month, so a quarterly lease's arrears row covers the
-     * previous quarter rather than a month that sits inside the current one. `subMonthsNoOverflow`
+     * previous quarter rather than a month that sits inside the current one. `$cycleMonths` here is
+     * the lease's FULL cycle, never the truncated final one — the cycle behind this one was a whole
+     * one however short this one turns out to be. `subMonthsNoOverflow`
      * for the reason `RentEscalationService` uses its counterpart: Carbon's plain `subMonths()`
      * overflows a month-end date into the neighbouring month, which would silently move the window
      * a charge is billed for.
@@ -457,6 +459,14 @@ class MonthlyBillingService
         // lease's first billable month; every cycle is a full N months (no partial cycles). A monthly
         // lease has cycleMonths = 1, so this is a no-op for it.
         $cycleMonths = $lease->billingCycleMonths();
+
+        // The cycle length BEFORE the final-cycle truncation below. An arrears row shifts back by a
+        // whole cycle, and the cycle behind this one was a full one however short this one turns
+        // out to be — shifting by the truncated length drops a month on the floor. A quarterly
+        // lease expiring 31 August truncates its Jul–Sep cycle to two months, so a two-month shift
+        // covers May–Jun and APRIL is never billed by anything.
+        $fullCycleMonths = $cycleMonths;
+
         if ($cycleMonths > 1) {
             if (! $lease->isBillingCycleStart($periodStart)) {
                 return $nothing('off_cycle');
@@ -494,8 +504,8 @@ class MonthlyBillingService
         // September's service on the September invoice, when the whole point is that September's
         // service is not knowable until October.
         $applicableCharges = $lease->charges->filter(
-            function (Charge $c) use ($periodStart, $periodEnd, $cycleMonths, $isFinalCycle) {
-                [$from, $to] = self::coveredWindow($c, $periodStart, $periodEnd, $cycleMonths, $isFinalCycle);
+            function (Charge $c) use ($periodStart, $periodEnd, $fullCycleMonths, $isFinalCycle) {
+                [$from, $to] = self::coveredWindow($c, $periodStart, $periodEnd, $fullCycleMonths, $isFinalCycle);
 
                 return $this->chargeAppliesToPeriod($c, $from, $to);
             }
@@ -607,7 +617,7 @@ class MonthlyBillingService
             ? CarbonImmutable::instance($lease->expiry_date)
             : CarbonImmutable::create(2999, 12, 31);
 
-        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $effectivePeriodStart, $leaseWindowStart, $leaseWindowEnd, $isFinalCycle) {
+        $items = $applicableCharges->map(function (Charge $charge) use ($lease, $periodStart, $periodEnd, $multiplier, $graceMultiplier, $cycleMonths, $fullCycleMonths, $effectivePeriodStart, $leaseWindowStart, $leaseWindowEnd, $isFinalCycle) {
             // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
             // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
             //
@@ -616,7 +626,7 @@ class MonthlyBillingService
             // which the tenant has been paying since handover, bills all of it.
             // The window THIS row covers — the invoice's own period, or the previous cycle for an
             // arrears row (EG-30 / M-2).
-            [$coveredStart, $coveredEnd] = self::coveredWindow($charge, $periodStart, $periodEnd, $cycleMonths, $isFinalCycle);
+            [$coveredStart, $coveredEnd] = self::coveredWindow($charge, $periodStart, $periodEnd, $fullCycleMonths, $isFinalCycle);
 
             // Driven by the COVERED window, not by `$cycleMonths` — on a final invoice an arrears
             // row spans two months while the cycle is still one, and branching on the cycle printed

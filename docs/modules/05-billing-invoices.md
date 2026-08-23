@@ -673,6 +673,17 @@ public function runForPeriod(?CarbonImmutable $period = null): array
     first, which would have made one column mean two different things in two runs. Its arrears rows
     also prorate against the TENURE held in the covered month, so a handover on 20 February owes
     9/28 of February on the March assessment.
+  - **The back-shift uses the lease's FULL cycle, never the truncated final one.** The final-cycle
+    block caps `period_end` at the expiry month and re-assigns `$cycleMonths` to the shortened
+    length; shifting an arrears window back by THAT drops the months between. An annual lease
+    expiring 15 March truncates to three months, so a three-month shift covers Oct–Dec and the whole
+    of January–September is billed by nothing — 108,000 EGP on a 12,000/month service charge,
+    behind a final invoice whose figures all look plausible. `$fullCycleMonths` is captured before
+    the truncation.
+  - **`billing_timing` is importable and visible.** A column on the schedule table (toggled hidden,
+    blank = advance) and an `ImportColumn` on `ChargeImporter`, because settable-in-the-UI-only is
+    the gap a migrating operator falls into — they arrive with a spreadsheet of charges, half billed
+    in arrears by their previous system, and can express none of it.
   - **An arrears row prorates against the month it COVERS**, not the month the invoice is dated to:
     a lease commencing 15 August owes half of August's service charge on the September invoice.
   - **Nothing on a lease's first invoice**, because the month it would cover predates the lease. It

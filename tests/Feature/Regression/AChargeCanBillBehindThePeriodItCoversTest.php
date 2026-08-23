@@ -342,3 +342,72 @@ it('does not hand back a rent-free abatement a month later', function () {
         'The arrears line was measured against a month other than the one it covers.'
     );
 });
+
+it('does not drop a month when a quarterly lease truncates its final cycle', function () {
+    // A quarterly lease expiring 31 August truncates its Jul–Sep cycle to two months, and
+    // `$cycleMonths` is reassigned to 2. Shifting an arrears row back by THAT covers May–Jun — so
+    // APRIL, which the previous full quarter (Apr–Jun) would have carried, is billed by nothing at
+    // all. The shift has to use the lease's full cycle, because the cycle behind this one was whole.
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active',
+        'commencement_date' => '2026-01-01',
+        'expiry_date' => '2026-08-31',
+        'base_rent_monthly' => 90000,
+        'billing_frequency' => 'quarterly',
+    ]);
+
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Service Charge', 'type' => 'service_charge',
+        'amount' => 3000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2026-01-01', 'is_active' => true,
+        'billing_timing' => Charge::TIMING_ARREARS,
+    ]);
+
+    $plan = planFor($lease->fresh(), '2026-07-01');
+
+    expect($plan['billable'])->toBeTrue();
+
+    $line = collect($plan['items'])->first(fn ($i) => str_contains($i['description'], 'Service Charge'));
+
+    expect($line)->not->toBeNull()
+        // April, not May: the window starts a FULL quarter back.
+        ->and($line['description'])->toContain('Apr');
+
+    // Apr–Aug is five months at 3,000. A truncated two-month shift would have produced four.
+    expect((float) $line['amount'])->toBe(15000.0);
+});
+
+it('does not drop NINE months when an annual lease truncates its final cycle', function () {
+    // The quarterly case above loses two months. The adversarial review worked the annual one and
+    // it loses nine: a lease on an annual cycle expiring 15 March 2026 truncates its Jan–Dec 2026
+    // cycle to three months, so a three-month shift covers Oct–Dec 2025 and the whole of
+    // January–September 2025 is billed by NOTHING. At 12,000/month that is 108,000 EGP, silently,
+    // behind a final invoice whose figures all look plausible.
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active',
+        'commencement_date' => '2020-01-01',
+        'expiry_date' => '2026-03-15',
+        'base_rent_monthly' => 90000,
+        'billing_frequency' => 'annual',
+    ]);
+
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Service Charge', 'type' => 'service_charge',
+        'amount' => 12000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0,
+        'start_date' => '2020-01-01', 'is_active' => true,
+        'billing_timing' => Charge::TIMING_ARREARS,
+    ]);
+
+    $line = collect(planFor($lease->fresh(), '2026-01-01')['items'])
+        ->first(fn ($i) => str_contains($i['description'], 'Service Charge'));
+
+    expect($line)->not->toBeNull()
+        // The window opens a FULL year back — January 2025, not October.
+        ->and($line['description'])->toContain('Jan');
+
+    // Jan 2025 → 15 Mar 2026 is 12 + 15/31 = 14.483871 months at 12,000 = 173,806.45.
+    // The truncated shift produced 5.483871 months = 65,806.45 — the 108,000 gap.
+    expect((float) $line['amount'])->toBe(173806.45);
+});

@@ -94,6 +94,14 @@ class ChargeImporter extends Importer
             $inputOnly(ImportColumn::make('frequency')
                 ->rules(['nullable', Rule::in(ValueSets::allowed('charges', 'frequency'))])),
 
+            // Settable in the UI and not in the importer is the gap a migrating operator falls
+            // into: they arrive with a spreadsheet of charges, half of which their previous system
+            // billed in arrears, and can express none of it. Blank = advance, which is what every
+            // row without the column means.
+            $inputOnly(ImportColumn::make('billing_timing')
+                ->label(__('admin.fields.billing_timing'))
+                ->rules(['nullable', Rule::in(ValueSets::allowed('charges', 'billing_timing'))])),
+
             $inputOnly(ImportColumn::make('effective_from')
                 ->label(__('admin.imports.columns.effective_from'))
                 ->requiredMapping()
@@ -129,6 +137,9 @@ class ChargeImporter extends Importer
             array_filter([
                 'name' => trim((string) ($this->data['name'] ?? '')) ?: null,
                 'frequency' => trim((string) ($this->data['frequency'] ?? '')) ?: 'monthly',
+                // Null, not 'advance', when the column is absent or blank — null IS advance, and
+                // writing the word would claim the operator ruled on a row they never mentioned.
+                'billing_timing' => trim((string) ($this->data['billing_timing'] ?? '')) ?: null,
                 // Blank stays NULL so the catalogue answers per invoice. An explicit 0 is the
                 // operator saying this charge is not taxed, which is a different statement.
                 'vat_rate' => ($rawRate === null || $rawRate === '') ? null : (float) $rawRate,
