@@ -114,6 +114,12 @@
         "guide": "custodies"
     },
     {
+        "screen": "CustomFieldResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "custom_fields"
+    },
+    {
         "screen": "Dashboard",
         "panel": "admin",
         "kind": "page",

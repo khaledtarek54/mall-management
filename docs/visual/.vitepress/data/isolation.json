@@ -138,6 +138,12 @@
         "note": null
     },
     {
+        "model": "CustomField",
+        "label": "Custom Field",
+        "classification": "shared",
+        "note": null
+    },
+    {
         "model": "Department",
         "label": "Department",
         "classification": "owned",
