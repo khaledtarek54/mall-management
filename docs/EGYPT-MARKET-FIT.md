@@ -33,11 +33,14 @@ Three things make this urgent rather than academic, and all three are Egyptian:
 
 1. **Egyptian law moved under a rule the system treats as fixed.** Law 157/2025 pulled property rental
    into the tax net (§3.1), and as of June 2026 the exact scope is *still being written into the
-   executive regulations*. Atriom can change a tax **rate** without a deploy — but it cannot say
-   *"this lease is taxed, that one is not"*, because taxability is portfolio-wide per charge code
-   ([§4.1](#41-tax)). *(It was **also** frozen onto each lease's charge rows the day the lease was
-   created — fixed 2026-08-22, EG-01. A ruling now reaches every existing lease; what remains missing
-   is the lease/unit DIMENSION, EG-02.)*
+   executive regulations*. **Taxing rent is a CONFIGURATION act — the operator's own ruling,
+   2026-08-23, and on this half they are right**: point charge code `base_rent` at a dated tax code on
+   `/admin/charge-codes` and every rent line originated from that day bills it, on every lease already
+   on the books (EG-01 stopped freezing taxability onto the charge row). No deploy, and no answer
+   anyone has to hand us first. What is still portfolio-wide is the DIFFERENTIATION — *"this lease is
+   taxed, that one is not"* — whose only channel today is a per-charge `vat_rate` override reachable
+   through the Charges importer, and which moves the RATE rather than the tax CODE
+   ([§4.1](#41-tax), EG-02).
 2. **Statutory payroll numbers change every January.** They were three flat, undated settings with no
    insurable-wage cap; since 2026-08-22 they are a dated ladder with the band (EG-03). What remains is
    the progressive bracket table and the personal exemption — and whether the operator wants
@@ -63,7 +66,7 @@ value, or a row with a code-side twin that must move with it · **HARDCODED** = 
 | # | Axis | Rating | One-line verdict |
 |---|---|---|---|
 | 1 | **Tax rates** | 🟢 DYNAMIC | Best-in-class: dated rungs resolved for the *document's* date, editable at `/admin/tax-codes` |
-| 2 | **Tax *treatment*** (who is taxed) | 🟠 SEMI | A row per charge code, resolved at billing so a ruling reaches existing leases (EG-01, 2026-08-22) — but still **portfolio-wide**: no lease or unit dimension (EG-02) |
+| 2 | **Tax *treatment*** (who is taxed) | 🟠 SEMI | *Whether* a supply is taxed is a row, resolved at billing so a ruling reaches every existing lease — no deploy, no gate in the way (EG-01; T-4 measured false 2026-08-23). *Which leases* is the gap: the per-charge override is importer-only and moves the rate, not the tax code (EG-02) |
 | 3 | **Chart of accounts / posting map** | 🟢 DYNAMIC | 51 roles re-pointable globally or per property; the real handover point for a new chart |
 | 4 | **Billing policy** (late fee, terms, ageing, fiscal year, numbering) | 🟢 DYNAMIC | The CFG cycle shipped this properly, incl. 3-tier lease→property→portfolio resolution |
 | 5 | **Approvals** | 🟢 DYNAMIC | `approval_rules` bands, fail-closed; no multi-level chain |
@@ -241,14 +244,16 @@ fields are absent entirely.
 
 The rate mechanism is the best thing in the system. The *treatment* mechanism is one dimension short
 of what Egyptian law now requires. It was **also** frozen per lease until 2026-08-22 (T-2/T-3, EG-01);
-that half is fixed and the missing dimension (T-1, EG-02) is not.
+that half is fixed and the missing dimension (T-1, EG-02) is not. **Re-measured 2026-08-23, after the
+operator ruled that taxing rent is theirs to configure:** they are right, and T-4 — the row claiming a
+conformance gate stood in the way — was false.
 
 | # | Finding | Where | Rating |
 |---|---|---|---|
-| T-1 | **Taxability has no lease or unit dimension.** `Vat::rateForType($type, $on)` resolves *charge code → tax code → dated rate*. There is no third input. Whether base rent is taxed is one answer for the whole portfolio | `app/Support/Vat.php:125-140`; `app/Models/ChargeCode.php` | 🔴 |
+| T-1 | **Taxability has no lease or unit dimension — though "there is no third input" was too strong.** `Vat::rateForType($type, $on)` resolves *charge code → tax code → dated rate*, one answer for the portfolio; `charges.vat_rate` overrides it per charge row, effective-dated, and `Charge::resolvedVatRate($on)` is what billing actually reads. Two things stop that being the dimension: for RENT the only channel to it is the Charges importer — the lease's charge-schedule screen refuses `base_rent` as a derived type — and it moves the RATE while the line keeps the charge code's `tax_code`, so a 1% schedule tax entered that way posts under the VAT role and files on the VAT return | `app/Support/Vat.php:125`; `app/Models/Charge.php:361`; `app/Filament/Imports/ChargeImporter.php:118` | 🟠 |
 | ~~T-2~~ ✅ | **FIXED 2026-08-22 (EG-01).** Nullable, null the normal state, every row backfilled, and `resolvedVatRate()` now tests `=== false` rather than falsy — so a ruling reaches every existing lease and an explicit per-charge exemption still wins. Thirteen derived writes removed, not eleven. ~~`vat_applicable` is frozen onto each recurring charge row at creation~~, from whatever the catalogue said that day: `'vat_applicable' => Vat::rateForType('base_rent') > 0`. `Charge::resolvedVatRate()` short-circuits to `0.0` when it is false, so **an accountant's later ruling can never reach an existing lease** | `app/Services/LeaseCreationService.php:127`; `app/Models/Charge.php:289-295`; and 10 sibling sites: `LeaseRentChangeService.php:109,116` · `LeaseSpaceChangeService.php:229` · `ConvertLeaseToHoldoverService.php:136` · `MarketingLevyService.php:81` · `ApplyCamEstimateService.php:90` · `ChargeScheduleService.php:541` · `AssignRentableItemService.php:221` · `ChargeScheduleRelationManager.php:307` · `UnitOwnershipChargesRelationManager.php:232` · `ChargeImporter.php:135` | 🔴 |
 | ~~T-3~~ ✅ | **FIXED 2026-08-22 (EG-01),** together with T-2 — the two are one bug read at two layers. ~~Base rent additionally writes a non-null `vat_rate` override (0.00)~~, re-introducing at the *rate* layer exactly what migration `2026_08_12_200000_charge_vat_rate_is_an_override` removed. The service-charge block **two lines below does it correctly** (`'vat_rate' => null` with the comment *"null = the catalogue answers at billing time; a value is an override"*) — so the same file contains both the bug and its fix | `app/Services/LeaseCreationService.php:128` vs `:145`; also `LeaseSpaceChangeService.php:230` · `ConvertLeaseToHoldoverService.php:137` · `AssignRentableItemService.php:222` | 🔴 |
-| T-4 | **Making base rent taxable turns a conformance gate red.** `ChargeCodeVatTreatmentConformanceTest` asserts the catalogue's exempt set `toEqualCanonicalizing(Vat::EXEMPT_TYPES)` — so the accountant's row change must be paired with a PHP edit. Correct as a design (floor and catalogue must agree), but it means *"change the tax treatment of rent"* is **not** a no-deploy operation | `tests/Feature/Scenarios/ChargeCodeVatTreatmentConformanceTest.php:36`; `app/Support/Vat.php:EXEMPT_TYPES` | 🟠 |
+| ~~T-4~~ ❌ | **MEASURED FALSE 2026-08-23.** ~~Making base rent taxable turns a conformance gate red.~~ `ChargeCodeVatTreatmentConformanceTest` seeds `ChargeCodeSeeder` in its own `beforeEach` and compares THAT catalogue against the floor — it never reads the operator's database. So an accountant pointing `base_rent` at `VAT_14` on a live install turns nothing red, and no runtime guard refuses it: the floor answers only for a charge code with **no row**, and this one has a row. The PHP edit buys one narrower thing — changing what a **fresh install ships**, where the seeded catalogue and the unseeded floor must keep agreeing. *"Change the tax treatment of rent"* **is** a no-deploy operation | `tests/Feature/Scenarios/ChargeCodeVatTreatmentConformanceTest.php:27-42`; `app/Support/Vat.php:95,125` | ✅ |
 | T-5 | **A new withholding rate cannot be entered from the screen.** The rates relation manager sets `->minValue(0)` while every `WH_*` rung is negative by construction and the conformance test *requires* it | `app/Filament/Admin/Resources/TaxCodes/RelationManagers/RatesRelationManager.php:46`; `database/seeders/TaxCodeSeeder.php:219` | 🟠 |
 | ~~T-6~~ ✅ | **FIXED 2026-08-22 (EG-21).** `WithholdingTaxReturnService` + a quarterly Form 41 page + a per-supplier certificate PDF. The tie-out is the point of the screen: what was DEDUCTED from suppliers against what the LEDGER owes the ETA, two independent reads that must agree before a number becomes a filing position. ~~The engine was correct and dated — per-vendor code → portfolio default → 0, on the VAT-exclusive share — and there was no Form 41 report and no per-vendor certificate, so `VatReturn.php` had no WHT sibling.~~ | `app/Services/Reports/WithholdingTaxReturnService.php` | 🟠 |
 | T-7 | **Tenant-side WHT unmodelled** — a tenant who withholds from rent reconciles as an underpayment forever | `docs/OPEN-QUESTIONS.md` A2.1 | 🟠 |
@@ -256,16 +261,17 @@ that half is fixed and the missing dimension (T-1, EG-02) is not.
 | T-9 | **Tax depreciation rates are PHP constants** (5/10/25/50%, Law 91/2005 art. 25) | `app/Support/TaxDepreciation.php:52-58` | 🟡 |
 | T-10 | **One seller identity for the whole install.** `seller_tax_registration_number` and `seller_legal_name` are single portfolio-wide settings; `IssuingEntity` documents the intended per-asset override and does not have it. Two owners with two VAT registrations cannot both be billed correctly | `app/Settings/TaxSettings.php:65,68`; `app/Support/IssuingEntity.php:27-30,69,87` | 🔴 |
 
-> **The concrete Egyptian scenario T-1..T-4 fails.** Suppose the executive regulations land and the
-> accountant rules: *administrative units in the mall carry 1% schedule tax; retail shops stay
-> exempt.* Today that requires (a) a second charge code, since taxability is per code; (b) a PHP edit
-> to `Vat::EXEMPT_TYPES` and the gate. ~~and (c) **it still would not reach any existing lease**,
-> because every rent charge row already carries `vat_applicable = false` frozen at creation.~~
-> **(c) was fixed 2026-08-22 (EG-01)** — taxability is resolved at billing, so a ruling now reaches
-> every lease already on the books, and the thirteen origination sites no longer freeze the answer.
-> What is left is (a) and (b): the fix for those is not a bigger settings screen but a
-> **lease/unit-level tax treatment** as a third input to the resolver — EG-02, which waits on the
-> accountant's ruling rather than on code.
+> **The concrete Egyptian scenario, re-measured 2026-08-23 — and (b) was wrong.** Suppose the
+> executive regulations land and the accountant rules: *administrative units in the mall carry 1%
+> schedule tax; retail shops stay exempt.* Taxing rent **at all** needs nothing from a developer:
+> point `base_rent` at the schedule-tax code, dated, and it reaches every lease on the books.
+> ~~(b) a PHP edit to `Vat::EXEMPT_TYPES` and the gate~~ is needed only to change what a **fresh
+> install ships** — the gate seeds its own catalogue and never reads the operator's (T-4).
+> ~~and (c) **it still would not reach any existing lease**, because every rent charge row already
+> carries `vat_applicable = false` frozen at creation~~ **was fixed 2026-08-22 (EG-01)**. What is
+> genuinely left is (a) and the DIFFERENTIATION behind it: two units in one mall taxed differently,
+> and taxed under different CODES rather than merely at different rates. That is a third input to the
+> resolver — EG-02 — and it is plain code, waiting on nobody's ruling.
 
 ### 4.2 Payroll
 
@@ -397,7 +403,7 @@ credential from the operator/accountant · ⚙️ ops.
 | # | Work | Refs | Owner | Size |
 |---|---|---|---|---|
 | ~~**EG-01**~~ ✅ | **DONE 2026-08-22.** The row was right about the shape and understated the damage. `vat_rate` had been half-fixed on 2026-08-12 — the service-charge block, not the base-rent block two lines above it — but `vat_applicable` was untouched, `boolean default(true)` NOT NULL, written by thirteen services from `Vat::rateForType($type) > 0`. **That is the worse half**: `resolvedVatRate()` tests it FIRST and returns before the catalogue is consulted, so a `base_rent` row born `false` can never become taxable again, and a rate the operator deliberately TYPED was discarded with it. Measured before changing anything — charge code pointed at `VAT_14`, resolver answered 14.0, charge resolved 0.0, billing run raised a rent line with **0.00 VAT where 14,000 was due**. Both columns are now nullable with null the normal state, every row backfilled, and the test is `=== false` rather than falsy. **No screen ever offered `vat_applicable` as a tick** — all three UI/import sites derived it — so nothing an operator had stated was lost: their channel is the rate they type, and `vat_rate = 0` still holds a supply untaxed. One trap the ticket could not have named: `TransferUnitOwnershipService` copied the flag through a `(bool)` cast, which turns null into false, so a resale would have re-frozen the row one unit at a time | T-2, T-3 | 🧑‍💻 | M |
-| **EG-02** | **Give tax treatment a lease/unit dimension.** An effective-dated tax treatment on the lease (or on the unit's type), resolved through `Vat::rateForType()` as a third input, so *"admin units taxed, retail exempt, from date D"* is expressible. This is what Law 157/2025 and the pending executive regulations actually require | T-1, §3.1 | 🧑‍💻 + 🔑 | L |
+| **EG-02** | **Give tax treatment a lease/unit dimension.** An effective-dated tax treatment on the lease (or on the unit's type), resolved through `Vat::rateForType()` as a third input, so *"admin units taxed, retail exempt, from date D"* is expressible — and expressible as a tax **CODE**, not merely a rate, so a schedule tax stops filing itself as VAT. **The 🔑 came off 2026-08-23**: the operator ruled that the accountant adds tax on rent from the screens, and for the portfolio-wide half that is exactly right — charge code → dated tax code, no deploy, reaching every existing lease (and T-4, the row claiming a gate stood in the way, was measured false the same day). What remains is code and waits on no answer: the DIFFERENTIATION, whose only channel today is a per-charge `vat_rate` override reachable through the Charges importer | T-1, §3.1 | 🧑‍💻 | L |
 | **EG-03** | 🟡 **PART DONE 2026-08-22 — P-1 and P-3 shipped, P-2 still open.** `App\Support\PayrollRates::for($periodMonth)` is built as asked, mirroring `Vat::rateForType($code, $on)`, over a `payroll_rates` ladder: **a row is a SET of figures, not a key/value pair**, because Egypt publishes the band and the rates together in one decree. The 1 Jan 2026 rung ships with the band (2,700 / 16,700) and **not** the rates — seed the vocabulary, not the numbers, the same call `TaxCodeSeeder` makes; a migration that started withholding 11% from every salary would be this software deciding to deduct money from people. The band only bites through a non-zero rate, so nothing moves on deploy. `GeneratePayrollService` now resolves for the run's own `period_month`, charges SI on the **insurable wage** and tax on the whole gross, and the cap binds the employer share too. The three settings are **gone** (settings hold policy, master data holds rates) and EG-04's health row reads the ladder, as this row asked. **P-2 — the seven-band progressive engine with a personal exemption — is deliberately NOT built**, because §6.4 asks the operator a prior question: whether they want statutory payroll computed at all or keyed per run. Brackets are rungs with more columns, so the ladder is what they will hang off | P-1, P-2, P-3, §3.2 | 🧑‍💻 + 🔑 | L |
 | ~~**EG-04**~~ ✅ | **DONE 2026-08-20.** `payroll_rates_configured`, in a new `payroll` category. **Not** the blocking-on-zero-rates row this line originally asked for: the settings screen's own help offers *"leave at 0 and enter it per employee"* as a supported posture, so a red row saying otherwise would contradict the field help beside it. It fires on **evidence** — BLOCKING when the latest payroll month's approved runs withheld nothing at all (net = gross, no liability in the books), ADVISORY when there is a roster, every rate is still nil and nothing has been approved yet. Scoped to the **latest** month so the row can clear, because an approved run's amounts are frozen and an all-time count would pin a red dot with no remedy but cancelling a real payroll | P-4 | 🧑‍💻 | S |
 | ~~**EG-05**~~ ✅ | **DONE 2026-08-21.** `TaxSettings::seller_billing_email`, resolved through `IssuingEntity` like the seller's other particulars and **omitted when unset** — the same contract the TRN has. **THREE documents, not two**: the owner-facing asset statement carried the same fabrication. Pinned by a sweep that fails on any `@…​.test/.example/.invalid` in a lang file or a Blade. It also surfaced a **live 500**: `invoices.lease_id` became nullable when module 37 started billing owners, and the template dereferenced it — so every صيانة assessment invoice's PDF crashed on the list, the edit page, the portal and the API. Fixed by resolving the invoice's context from its AGREEMENT (lease **or** ownership) | S-7 | 🧑‍💻 | S |
@@ -454,10 +460,13 @@ credential from the operator/accountant · ⚙️ ops.
 
 None of these are engineering questions. They are recorded here so they can be asked once.
 
-1. **Which units in the mall carry the 1% schedule tax on administrative-unit rental, and from what
-   date?** And if the pending executive regulations impose 14% VAT on administrative space, does it
-   reach our units, and does the 1% survive alongside it? *(§3.1 — this is the question EG-02 is
-   built to answer, and it is still open in Egyptian law.)*
+1. ~~**Which units in the mall carry the 1% schedule tax on administrative-unit rental, and from what
+   date?**~~ **CLOSED 2026-08-23 — the operator's answer is that this is configuration, not a question
+   for us.** The accountant adds the tax on rent from the screens: `base_rent` → a dated tax code is a
+   row on `/admin/charge-codes`, it reaches every lease already on the books, and nothing in the code
+   refuses it (T-4, which said a conformance gate did, was measured false the same day). It stops being
+   purely configuration only where two units in one mall must be taxed **differently** — which is
+   EG-02, and EG-02 no longer waits on this being asked. *(§3.1, §4.1)*
 2. **Does the operator charge a trade-name / brand component?** If so it now attracts a 10% schedule
    tax on 10% of the value. *(§3.1)*
 3. **Confirm the withholding rates by supply type** — published summaries disagree (1%/2%/3%/5%).
@@ -1122,7 +1131,9 @@ reintroducing the whole bug one unit at a time.
 
 **EG-02 is still open and is not blocked by this.** Taxability now resolves from the charge code at
 billing time for every lease alike; giving it a per-lease or per-unit dimension — *"admin units
-taxed, retail exempt, from date D"* — is the separate question, and it waits on the accountant.
+taxed, retail exempt, from date D"* — is the separate work. *(And since 2026-08-23 it waits on nobody:
+the operator ruled that taxing rent is theirs to configure, which is true of the portfolio-wide half,
+leaving EG-02 as plain code.)*
 
 ---
 

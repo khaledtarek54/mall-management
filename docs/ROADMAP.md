@@ -18,9 +18,11 @@
 > **[EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md)** (2026-08-20). Its worklist is numbered **EG-01…EG-38**
 > and is not restated here; where a row below overlaps one, it cites it. The items that documented
 > rates 🔴 and that nothing in this file covers: taxability with no lease/unit dimension (EG-02) and
-> the progressive payroll bracket table (EG-03's remaining half). **Both wait on somebody else** —
-> the accountant's ruling on which units carry the schedule tax, and a decision on whether statutory
-> payroll should be computed at all rather than keyed per run. **EG-03's other two findings shipped
+> the progressive payroll bracket table (EG-03's remaining half). **EG-03's half waits on somebody
+> else** — a decision on whether statutory payroll should be computed at all rather than keyed per
+> run. **EG-02 no longer does** (2026-08-23): taxing rent is the accountant's own configuration —
+> charge code → dated tax code, reaching every existing lease, with no gate in the way — so what is
+> left of EG-02 is plain code, the per-lease/unit dimension, and no question is outstanding. **EG-03's other two findings shipped
 > 2026-08-22**: the statutory numbers are a dated ladder (`payroll_rates`) resolved for the run's own
 > month, and social insurance is charged on the insurable wage inside the 2,700/16,700 band rather
 > than on the whole salary — which had been over-deducting every employee above the ceiling and
