@@ -26,6 +26,7 @@
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Contracts\HasTable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -41,6 +42,27 @@ function listPagesIn(string $panelDir, string $namespace): array
             return $namespace.'\\'.str_replace('/', '\\', $rel);
         })
         ->filter(fn (string $c) => class_exists($c) && is_subclass_of($c, ListRecords::class))
+        ->values()
+        ->all();
+}
+
+/**
+ * Every CUSTOM page that renders a table — the half `listPagesIn()` cannot see.
+ *
+ * That helper keys on a filename starting with `List` under `Resources`, so a dashboard, a report or
+ * the notification centre — a `Page` with a table on it — was never swept. The notification centre's
+ * unread marker is `->label('')`, and turning reordering on 500'd it on BOTH panels while this gate
+ * reported the blank-label set as exactly one column. Discovered by what a class IMPLEMENTS rather
+ * than by what it is named, so a new table page is covered without anyone remembering to add it.
+ */
+function tablePagesIn(string $panelDir, string $namespace): array
+{
+    return collect(File::allFiles(app_path($panelDir)))
+        ->filter(fn ($f) => $f->getExtension() === 'php')
+        ->map(fn ($f) => $namespace.'\\'.str_replace(['/', '.php'], ['\\', ''], str_replace(app_path($panelDir).'/', '', $f->getPathname())))
+        ->filter(fn (string $c) => class_exists($c)
+            && in_array(HasTable::class, class_implements($c) ?: [], true)
+            && ! is_subclass_of($c, ListRecords::class))
         ->values()
         ->all();
 }
@@ -118,3 +140,73 @@ it('has reordering actually switched on', function () {
         expect($table->hasReorderableColumns())->toBeTrue();
     });
 });
+
+it('gives every custom table PAGE a labelled column too', function () {
+    // The gap that let the notification centre ship a 500. `listPagesIn()` sweeps resource List
+    // pages; roughly thirty admin pages and one portal page render a table without being one, and
+    // none of them were checked. A blank label is fatal on those screens for exactly the same reason.
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+
+    $asset = makeAsset(['code' => 'RC4']);
+    $this->actingAs(makeUser('super_admin', [$asset->id]));
+
+    $pages = tablePagesIn('Filament/Admin/Pages', 'App\\Filament\\Admin\\Pages');
+
+    expect($pages)->not->toBeEmpty('No custom table pages discovered — this sweep has stopped collecting.');
+
+    $blank = [];
+    $unmountable = [];
+    $optedOut = [];
+
+    asTenant($asset, function () use ($pages, &$blank, &$unmountable) {
+        foreach ($pages as $page) {
+            try {
+                $table = Livewire::test($page)->instance()->getTable();
+            } catch (Throwable $e) {
+                // The blank-label refusal is THIS GATE'S TARGET and it arrives as a thrown
+                // exception, not as a column we can inspect: `Livewire::test()` renders on mount,
+                // and the column manager throws during that render. Routing it to the tolerated
+                // "could not mount" bucket is how a gate reports green on the very defect it
+                // exists to catch — which this one did, until the mutation showed it.
+                if (str_contains($e->getMessage(), 'blank label')) {
+                    $blank[] = class_basename($page).' → '.Str::limit($e->getMessage(), 90);
+
+                    continue;
+                }
+
+                // Anything else is not this gate's finding, but it is not a pass either — counted
+                // and bounded below rather than swallowed.
+                $unmountable[] = class_basename($page).': '.Str::limit($e->getMessage(), 100);
+
+                continue;
+            }
+
+            // Only where reordering is actually ON, which is this gate's own stated premise: a
+            // blank label is fatal BECAUSE the column manager has to name the column. A bespoke
+            // page may legitimately opt out and keep an icon-only marker unlabelled — the
+            // notification centre does exactly that, and calling it a defect would be demanding a
+            // header the design deliberately does without.
+            if (! $table->hasReorderableColumns()) {
+                $optedOut[] = class_basename($page);
+
+                continue;
+            }
+
+            foreach ($table->getColumns() as $name => $column) {
+                if (trim((string) $column->getLabel()) === '') {
+                    $blank[] = class_basename($page).' → '.$name;
+                }
+            }
+        }
+    });
+
+    expect($blank)->toBe([], "These custom-page table columns have a blank label, which is a 500 on that page:\n  ".implode("\n  ", $blank));
+
+    // Opt-outs are reported for the same reason skips are: each one is a page this sweep is NOT
+    // checking, and a growing list means the gate covers less than it appears to.
+    expect(count($optedOut))->toBeLessThanOrEqual(3, 'More pages have opted out of reorderable columns than expected: '.implode(', ', $optedOut));
+
+    // Bounded, so the sweep cannot quietly shrink to nothing while still reporting green.
+    expect(count($unmountable))->toBeLessThanOrEqual(12, "Too many custom table pages could not be mounted, so this sweep covers less than it claims:\n  ".implode("\n  ", $unmountable));
+})->group('slow');

@@ -99,6 +99,14 @@ trait RendersNotificationCentre
     {
         return $table
             ->query(fn (): Builder => $this->notificationsQuery())
+            // Opted OUT of the global `reorderableColumns()` default, and it must stay opted out.
+            // Filament's column manager throws `LogicException` on ANY blank-label column, and the
+            // unread marker below is deliberately blank — the icon IS the column, and giving it a
+            // header would spend the width the design exists to save. This table is a fixed,
+            // bespoke four-column list, not a resource: there is nothing here worth reordering, so
+            // the label is the thing worth keeping. Turning the default on globally without this
+            // 500'd the notification centre for every user (`d71a50db`).
+            ->reorderableColumns(false)
             ->columns([
                 // The unread marker is the icon itself: unread entries keep the notification's own
                 // colour, read ones go grey. One glance separates "needs me" from "already dealt
