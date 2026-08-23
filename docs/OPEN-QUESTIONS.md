@@ -27,7 +27,12 @@
 Each question states **what the system does today**, so silence is a decision too — if you don't
 answer, that is what ships.
 
-## Status at a glance — reviewed 2026-07-29, spot-checked 2026-08-12
+## Status at a glance — reviewed 2026-07-29, spot-checked 2026-08-12, **re-verified against the code 2026-08-23**
+
+> **Read [the 2026-08-23 verification pass](#2026-08-23--verified-against-the-code-what-the-system-already-answers) first.**
+> It classifies every question as ⚙️ configuration · ✅ already built · 🧑‍💻 buildable · 🔑 only you can
+> answer — checked against the code rather than against this file, which had fourteen rows describing
+> as missing something that has since shipped. The summary immediately below is the older reading.
 
 > **2026-08-12:** the two questions that now block WORK rather than polish are **A9.x stamp/schedule tax GL accounts** (eleven catalogue codes ship inactive without them) and the **budget shape** (§4.8 of the accountant briefing, added the same day). Everything else on the prioritised roadmap is shipped or closed. A9.7's numbering half became answerable and carries a go-live deadline — see the row.
 
@@ -65,6 +70,105 @@ per-property roles deliberately not built (C4.10 records the trigger); the app t
 
 ---
 
+## 2026-08-23 — verified against the CODE: what the system already answers
+
+> **Why this pass exists.** EG-02's question — *"which units carry the schedule tax, and from
+> when"* — turned out to be a **configuration** answer, not a code one, and the document said
+> otherwise. So every row below was re-checked **against the code today**, not against this file.
+> Fourteen rows were stale in the same direction: they describe as missing something that has
+> since shipped.
+
+| Marker | Meaning |
+|---|---|
+| ⚙️ | **The system answers it.** A screen, a row or a setting — no deploy, no build. All that is left is you stating the value. |
+| ✅ | **Built since this document was written.** The row was stale; do not ask it. |
+| 🧑‍💻 | **Not expressible today, and code CAN answer it** — a customization, sized here. |
+| ⏸️ | Frozen or already decided. Not a live question. |
+| 🔑 | **Only you can answer**: a contract term, a legal ruling, a number, a credential. Most ⚙️ rows carry one of these too — the knob exists, the value is yours. |
+
+### ✅ Stale — these are BUILT, and the row below still said they were not
+
+| # | What actually exists |
+|---|---|
+| A2.2 | **Stamp tax** — the whole family is in the dated tax catalogue with its own posting roles (output = liability, input = expense). Point a charge code at it and it bills. |
+| A2.5 | **VAT return** — `/admin/vat-return`, output and input by document, with the ledger tie-out. |
+| A3.5 | **Bank reconciliation** — statements, lines, matching, and since EG-12 a per-document `bank_account_id` so two banks stop sharing one chart account. |
+| A3.6 | **Bad-debt write-off** — `WriteOffInvoiceService` + a `written_off` status. |
+| A3.7 | **Opening balances** — a screen that takes the accountant's own trial balance, plus open-AR and fixed-asset importers. Only the DATA is missing. |
+| A4.1 | **The chart is IMPORTABLE** (EG-28) — keyed on `code`, order-independent, `cash_flow_section` included. Still waiting on the accountant's file. |
+| A5.3 | **Statutory payroll numbers are a dated ladder** (EG-03) resolved for the run's own month, with the insurable-wage band. |
+| A6.1 | **Egyptian tax depreciation** — `/admin/tax-depreciation`, statutory pools, and the temporary difference from the book figure. A schedule, not a second ledger, because Egypt files single-book. |
+| A9.7 | **A bank account per mall** (EG-12) and **configurable numbering** incl. the reset rule (EG-10). |
+| A9.8 | **Form 41** — quarterly, per registration, with per-supplier certificates (EG-21). |
+| C1.7 | **Tenant insurance certificates** — typed documents with expiry and a scheduled expiry scan. |
+| C1.9 | **Proration is the LEASE's to state** (EG-29) — `actual` · `thirty_day` · `year_365` · `whole_month`, plus a per-charge *"never prorate"* flag. |
+| C1.10 | **A holdover IS billable** once converted — `holdover_from` keeps the run going past expiry, at `holdover_rate_pct` (150% default). |
+| C2.3 | **A working calendar exists** (EG-08/EG-38) — Fri–Sat weekend, holidays register, Ramadan short days, per property. Ships off. |
+
+### ⚙️ Configuration — the system answers it; you only state the value
+
+**A1.1–A1.10** (every tax rate, which supplies are taxed, the marketing levy, the CAM basis, the
+late-fee policy incl. its new CAP and RECURRENCE, the deposit months, the breakpoint type, payment
+terms) · **A3.2** straight-line rent (a switch) · **A3.4** period close · **A5.2** payroll splits ·
+**A6.2** depreciation run + payslips · **A7.2** deposit treatment · **A7.5** credit notes +
+approvals · **A8.1/A8.2** reports and CSV/XLSX export · **A9.1** the posting map (re-pointable
+per role AND per property) · **A9.3** CAM gross · **A9.4** valuation · **A9.6** useful lives ·
+**B.2** co-owners with % and dates · **C1.2–C1.6** renewal, escalation (incl. CPI-indexed),
+termination, fit-out grace, sales declarations · **C2.1** the CAM pool · **C2.6/C3.5/C3.9**
+approval bands and who may delete · **C3.3** warehouse categories (free-form) · **C3.4** reorder
+level and quantity · **C4.11** 2FA roles · and the GO-LIVE decisions **C-NUM · C-FY · C-NSF ·
+C-TAX · C-PAY · C-SLA**, every one a settings field.
+
+> **The one thing to take from this list:** none of it is a build. If the answer is *"we do it
+> differently"*, the change is a value on a screen, not a release.
+
+### 🧑‍💻 Not expressible today — and code CAN answer it, like EG-02
+
+| # | What a customization would be | Size |
+|---|---|---|
+| A2.6 | **Tax-exempt tenants** — EG-02's twin, and the same fix: a lease/unit tax input on the resolver, as a tax CODE not a rate | L |
+| A2.7 | **A TRN per owner** — `IssuingEntity` documents the per-asset override and does not have it, so two VAT registrations cannot both be billed correctly (T-10) | M |
+| A2.1 | **Tenant-side withholding** — a tenant who withholds from rent reconciles as an underpayment for ever | M |
+| A3.3 / A7.3 | **Recognising rent-in-advance over the period it covers.** The role exists; only unapplied payments and tenant credits use it | M |
+| A5.1 / A9.5 | **Posting** the gratuity accrual (the figure is already computed and reported) and a leave provision — after your entitlement ruling | S |
+| A7.1 | **A security cheque as its own class** — one column, a filter, and a rule that it never auto-clears | XS |
+| A9.8 | A **salary-tax return** beside the VAT and WHT ones | S |
+| C1.8 | **A generated lease contract PDF** + signature tracking (uploading a signed one already works) | M |
+| C2.5 | **Recharging a tenant-caused repair** — responsibility is recorded; there is no path from a work order to a tenant invoice | M |
+| C2.7 | **Requiring a vendor bill before a work order may close** | XS |
+| C3.1 | **Bins/shelves inside a warehouse** (a warehouse is the finest grain today) | M |
+| C3.2 | **Inter-mall stock transfers** — the movement types exist and nothing creates them; note it moves value between two properties' books | M |
+| C3.6 | **A multi-level approval CHAIN** — `approval_rules` is a single-level band lookup | M |
+| C3.8 | **A per-service chargeable-vs-absorbed toggle** + the annual report either way | M |
+| C4.1 | **WhatsApp / SMS** channels (email + in-app + push exist) | M |
+| C4.10 | **Role authority per property** — deliberately not built; the trigger is the first person assigned to both malls | L |
+| C4.12 / C4.13 | The unassigned-user policy, and emailing a technician on assignment | XS |
+| C1.1 | **Unit types/statuses** — these are a code-side value set, not a catalogue. If your list differs, it is a one-line change (not a row) | XS |
+| E.4 / E.5 | Requiring a completion photo; per-step comments and attachments on status history | XS / M |
+| B.4 / B.6 | **The owner-statement management FEE** — built-but-omitted, waiting on the % and its basis | M |
+| B2.1 / B2.2 | **The unit-owner fee account and the sinking fund.** Both are nearly configuration: a charge code may already point at ANY of the 52 posting roles, liabilities included — what is missing is a dedicated role + mapping | XS |
+| B.5 / B.7 / B.8 | Trust/escrow per property · an operator float per property · separate legal entities and inter-company | L–XL |
+
+### ⏸️ Not live questions
+
+**A2.4 · D.1 · D.3** — e-invoicing is **frozen in code** (`Modules::FROZEN`, 2026-08-22): the module
+answers *disabled* before any settings row is read. Not a question, and not work to schedule.
+**A7.4** — multi-currency was decided (EGP only, enforced at the value set); if a lease is really
+USD-linked the answer is EG-31, index the escalation and denominate in EGP.
+**C-NUM's reset rule** — decided by market standard (EG-10): continuous, like Yardi and MRI.
+
+### 🔑 Genuinely yours — no code and no configuration can answer these
+
+**A1.x values** (the rates and policies themselves) · **A4.1** the accountant's chart file ·
+**A3.7** the opening figures and the cut-over date · **A8.3** what history migrates and sample
+files · **B.1/B.3/B.4/B.5** how Eltizam is paid and whose account money lands in · **C1.9** whether
+a departing tenant is *entitled* to the unearned credit · **C1.10** whether holdover conversion
+should be automatic · **C2.4** whether an SLA penalty's benefit should reach tenants · **C4.2/C4.3**
+go-live date and training · **D.5/D.6** secret storage and whether the app is reachable outside the
+proxy · **E.1/E.2/E.3** one clarifying sentence each.
+
+---
+
 **Sections:** [A · Accountant / Finance](#a--accountant--finance) · [B · Owner (Jawad) &
 ownership](#b--owner-jawad--ownership-structure) · [C · Eltizam operations](#c--eltizam-operations) ·
 [D · ETA / tax registration & IT](#d--eta--tax-registration--it) · [E · Requirements we cannot build
@@ -92,10 +196,10 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 | A1.4 | Are **late fees VAT-exempt**? | 0% VAT (penalty outside VAT) | Every late fee under-charges VAT | 🔴 | |
 | A1.5 | Is the **marketing levy 5% of base rent only**, accrued internally and **never shown on the tenant invoice**? | Yes, both | Levy mis-calculated, or tenants should see it | 🔴 | |
 | A1.6 | Is **CAM allocated pro-rata by leased area (m²)**? Does the lease wording say "by area"? | Pro-rata by m² | Leases by turnover/fixed share are allocated wrong | 🔴 | |
-| A1.7 | **Late-fee policy:** 2% of outstanding, min 50 EGP, charged **once** (not compounding), after a **7-day** grace? | Exactly that | None of these four numbers has a legal source — they are defaults | 🔴 | |
-| A1.8 | **Security deposit = 3 months' rent** and **annual escalation = 7%** — the real contract defaults? | Both, baked into new leases | Every new lease starts wrong | 🔴 | |
+| A1.7 | **Late-fee policy:** 2% of outstanding, min 50 EGP, charged **once** (not compounding), after a **7-day** grace? | ⚙️ **All four are settings, on three tiers** (lease → property → portfolio) — and since EG-35 (2026-08-22) there is also a **CAP** (`late_fee_maximum`, 0 = none, applied AFTER the minimum) and **RECURRENCE** (`late_fee_recurrence_days`, 0 = charge once). A fee never earns a fee. | Only the NUMBERS are yours; none of this is code | 🔑 | |
+| A1.8 | **Security deposit = 3 months' rent** and **annual escalation = 7%** — the real contract defaults? | ⚙️ Both are settings: `BillingSettings::default_security_deposit_months` (EG-35 — it was a literal `3` until 2026-08-22) and the escalation type/percent per lease, incl. a CPI-indexed option (`rent_indices`). | Every new lease starts from the default you set | 🔑 | |
 | A1.9 | Is the **artificial-breakpoint** formula right for %-rent — `(sales − threshold) × rate`? | Yes; leases with no type set use it **silently** | If leases use the natural breakpoint, %-rent is wrong | 🔴 | |
-| A1.10 | Is the **default payment term 7 days** from issue? | 7 days | Due dates + the whole overdue/late-fee chain shift | 🔴 | |
+| A1.10 | Is the **default payment term 7 days** from issue? | ⚙️ A setting (`BillingSettings`), overridable per property and per lease. | Due dates + the whole overdue/late-fee chain shift | 🔑 | |
 
 > **Verify once confirmed:** `php artisan billing:reconcile` independently re-derives receivables and
 > prints control totals (invoiced / collected / credits / outstanding AR / VAT) to reconcile against
@@ -106,12 +210,12 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
 | A2.1 | **Withholding tax (WHT) — the TENANT side only now:** do tenants withhold from rent, at what rate, and do they issue WHT certificates you must track? | 🟡 **Vendor side built (module 12):** `vendors.withholding_tax_rate` per supplier + `vendor_bill_payments.withholding_amount`, settings-driven, posting to the GL — so paying a contractor net of WHT no longer looks like a shortfall. **The tenant side is still unmodelled:** a tenant who withholds from rent still reconciles as an underpayment. | 🔴 | |
-| A2.2 | **Stamp tax (رسم دمغة)** — on lease contracts and/or invoices? Who calculates & remits? | Not modelled | 🟠 | |
-| A2.3 | **Real-estate / property tax (الضريبة العقارية)** — charged on units? Recharged to tenants or owner-borne? | Not modelled | 🟠 | |
-| A2.4 | **e-Receipts** (B2C / cash) needed, separate from B2B e-invoices? | Not built — only e-invoice exists | 🟠 | |
-| A2.5 | **VAT filing period** (monthly?) — need a **VAT output report** (by invoice) for the return? | Not built | 🟠 | |
-| A2.6 | Any **tax-exempt tenants** (free zone, government, NGO, embassy)? How on invoices/ETA? | No per-tenant tax override | 🟠 | |
-| A2.7 | Are invoices issued under **Eltizam's TRN or each owner's TRN**? | Single issuer identity | 🔴 | |
+| A2.2 | **Stamp tax (رسم دمغة)** — which supplies carry it, and at what rate? | ⚙️ **BUILT 2026-08-19 — configuration, not work.** The stamp family is in the tax catalogue (both directions) with its own posting roles, and the journalizers group tax by the tax code's own role — output stamp is a LIABILITY, input stamp an EXPENSE. A code taxes a supply the moment a charge code points at it: a row, no deploy. **What is yours is WHICH supplies and at what rate.** | 🔑 | |
+| A2.3 | **Real-estate / property tax (الضريبة العقارية)** — charged on units? Recharged to tenants or owner-borne? | ⚙️ **Cost side BUILT (EG-33, 2026-08-23):** a recurring expense schedule — monthly · quarterly · **semiannual** (Egypt's two instalments) · annual — that mints the expense and posts it; recovery through a CAM pool already worked. **The ASSESSMENT is deliberately not modelled** (rate, rental-value basis, the 32% non-residential deduction): a computed guess would go on a statutory filing. | 🔑 | |
+| A2.4 | **e-Receipts** (B2C / cash) needed, separate from B2B e-invoices? | ⏸️ **Moot while module 16 is FROZEN** (`Modules::FROZEN`, 2026-08-22). e-invoicing itself is frozen in code, so its B2C sibling is not a question anyone need answer today. | ⏸️ | |
+| A2.5 | **VAT filing period** (monthly?) — need a **VAT output report** (by invoice) for the return? | ✅ **BUILT.** `/admin/vat-return` (`VatReturnService`) — output and input VAT by document for a period, with the ledger tie-out. Its withholding sibling (Form 41) shipped with EG-21. | ✅ | |
+| A2.6 | Any **tax-exempt tenants** (free zone, government, NGO, embassy)? | 🧑‍💻 **Not expressible — this is EG-02's twin.** Taxability resolves *charge code → tax code → dated rate*, one answer for the portfolio; there is no tenant or lease input. The nearest channel today is a per-charge `vat_rate` override reachable through the Charges importer, which moves the RATE and not the tax CODE. **Code can answer it** — the same third input EG-02 describes. | 🧑‍💻 | |
+| A2.7 | Are invoices issued under **Eltizam's TRN or each owner's TRN**? | 🧑‍💻 **One seller identity for the whole install** (`TaxSettings::seller_tax_registration_number`); `IssuingEntity` documents the intended per-asset override and does not have it. Two owners with two VAT registrations cannot both be billed correctly. **Code can answer it** (EGYPT-MARKET-FIT T-10). | 🔴 | |
 
 ### A3 · General ledger, close & controls
 
@@ -119,43 +223,43 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 |---|---|---|---|---|
 | A3.1 | Full **GL / chart of accounts here**, or accounting done elsewhere (export vs live integration, which software)? | Full double-entry GL exists (modules 21–29) | 🟡 | |
 | A3.2 | **Accrual or cash basis**? Need **straight-line rent recognition** (spread rent-free/escalations)? | Accrual, revenue-at-issue. **Straight-line rent IS built** (`StraightLineRentAdjustment`, `PostStraightLineRentService`, a lease relation manager) and ships **off** behind `BillingSettings::straight_line_rent_enabled` — EAS 49 requires it for a lessor, so this is now a switch your accountant flips, not work to do | 🟠 | |
-| A3.3 | How is **rent-in-advance** treated — deferred/unearned until earned? | Not modelled as deferred | 🟠 | |
+| A3.3 | How is **rent-in-advance** treated — deferred/unearned until earned? | 🧑‍💻 Revenue is recognised at ISSUE. `unearned_revenue` exists as a posting role but only an unapplied payment and an applied tenant credit use it — rent billed for a future period is not deferred over that period. *(EAS 49's other half, straight-line rent, IS built and switchable — A3.2.)* **Code can answer it.** | 🟠 | |
 | A3.4 | **Fiscal year** (Jan–Dec)? Do you **lock/close periods** to block back-dated edits? | Period close exists; closed periods refuse back-dated posts | 🟡 | |
-| A3.5 | **Bank reconciliation inside the system**, or external? | ❌ **Not built** — the cash/bank GL balance is asserted by construction, never matched to a statement. The clearest treasury gap. | 🟠 | |
-| A3.6 | **Bad debt / write-offs** — process + who approves? | Not modelled as a distinct workflow | 🟠 | |
-| A3.7 | **Opening balances** (AR, cash, deposits, prepaid, payables) to load at go-live — as of what date? | Migration cutover — not defined | 🔴 | |
+| A3.5 | **Bank reconciliation inside the system**, or external? | ✅ **BUILT — the row was stale.** `bank_statements` / `bank_statement_lines` / `bank_matches` with a matching service; since EG-12 (2026-08-22) each document carries its own `bank_account_id`, so a mall banking in two places no longer offers one bank's postings against the other's statement. | ✅ | |
+| A3.6 | **Bad debt / write-offs** — process + who approves? | ✅ **BUILT — the row was stale.** `WriteOffInvoiceService` + a `written_off` status a tenant still sees (a document that explains a number they remember). **Who may approve is RBAC configuration.** | ⚙️ | |
+| A3.7 | **Opening balances** (AR, cash, deposits, prepaid, payables) to load at go-live — as of what date? | ⚙️ **The MACHINERY is built:** `/admin/opening-balances` (a trial balance pasted from the accountant's own sheet, `ImportOpeningBalancesService`), `OpeningInvoiceImporter` for open AR, and an opening fixed-asset import. **What is missing is your DATA and your cut-over date** — nothing here is code. | 🔑 | |
 | A3.8 | Need **cost centres / segment reporting per property** (and per unit)? | Property scoping exists | 🟡 | |
 
 ### A4 · Chart of accounts (still waiting) — 🔴
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| A4.1 | Can **Mr. Ibrahim / Jawad provide the real coded chart of accounts**? Replace the seeded chart, or reconcile against it? (The file received earlier was a Saudi *contracting* template — zakat, no VAT — and was rejected.) | Running on a starter Egyptian chart | 🔴 | |
+| A4.1 | Can **Mr. Ibrahim / Jawad provide the real coded chart of accounts**? (The file received earlier was a Saudi *contracting* template — zakat, no VAT — and was rejected.) | ⚙️ **Since EG-28 (2026-08-22) the accountant's chart is IMPORTABLE** — `LedgerAccountImporter`, keyed on `code`, order-independent (a child before its parent re-parents itself), with `cash_flow_section` as a column so a foreign chart classifies correctly. `parent_id` and `normal_balance` are derived, never imported. **Still blocked on the file itself.** | 🔑 | |
 | A4.2 | Are the account names/codes right for Egyptian practice? | Starter names/codes | 🟡 | |
 
 ### A5 · Payroll — the one item that may mean the books are wrong today
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| A5.1 | **Is the accruing end-of-service gratuity captured anywhere** (even a manual monthly expense entry)? | 🟡 **Half resolved 2026-07-26.** The **employer's social-insurance contribution IS now recorded** (`payrolls.employer_social_insurance`, posting Dr SI Expense 51110001) — that part of the question is closed. **End-of-service gratuity is still not accrued** (see also A9.5); if it is captured nowhere, the balance sheet understates that liability. | 🟠 | |
+| A5.1 | **Is the accruing end-of-service gratuity captured anywhere?** | 🟡 **Employer social insurance IS recorded.** Gratuity: `GratuityService` computes the exposure under Labour Law 12/2003 Art. 122 with both rates as settings, and **ships OFF and posts nothing** — Art. 122 covers workers *not* under the social-insurance law, and most Egyptian employees are. **Two things are needed: your entitlement ruling (🔑), then wiring the accrual to the GL (🧑‍💻, small).** | 🟠 | |
 | A5.2 | Are the payroll **withholdings** (salary tax + social insurance) split the way you need? | Split into their own payable accounts | 🟡 | |
-| A5.3 | Are **statutory amounts** (tax brackets / insurance rates) something the system should compute, or will they always be keyed per run? | Keyed per line, not rate-driven | 🟡 | |
+| A5.3 | Are **statutory amounts** (tax brackets / insurance rates) something the system should compute, or always keyed per run? | ⚙️ **EG-03 (2026-08-22) made them a DATED LADDER** (`payroll_rates`, `PayrollRates::for($periodMonth)`) — a January run generated in March uses January's figures and a rise is enterable in advance. SI is charged on the **insurable wage** and the ceiling binds the employer share. Rates ship at **0** on purpose. **The seven-band progressive engine is the one unbuilt half (🧑‍💻), and §6.4 asks you first whether it should compute at all.** | 🔑 | |
 
 ### A6 · Fixed assets & depreciation
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| A6.1 | Do you need **Egyptian tax depreciation** (declining-balance pools per Law 91/2005 — ~25% general / 50% IT / 5% SL buildings, **confirm exact rates**) as a **second book** alongside straight-line? | ❌ Straight-line only — cannot produce tax-basis depreciation. May be computed separately by the accountant today. | 🟠 | |
+| A6.1 | Do you need **Egyptian tax depreciation** (Law 91/2005 pools) as a **second book** alongside straight-line? | ✅ **BUILT — the row was stale.** `/admin/tax-depreciation` + `TaxDepreciationService`: statutory rates, pooled diminishing value, and the temporary DIFFERENCE from the book figure. **It is a schedule, not a second ledger** — Egypt files single-book, so nothing posts. **Confirm the rates per class (🔑).** | ✅ | |
 | A6.2 | Do you need **fixed-asset depreciation run automatically**, and per-employee **payslips**? | Both exist (monthly depreciation cron + bilingual payslip PDFs) | 🟡 | |
 
 ### A7 · Deposits, cheques, advanced billing
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| A7.1 | Do tenants pay via **post-dated cheques (PDCs)** for the term up front? Hold **security cheques** separately from payment cheques? | ✅ **Built (module 33).** Full PDC register with status lifecycle (pending → deposited → cleared / bounced), bulk series lodging for a term paid up front, a maturity dashboard and GL posting. *Remaining question is narrow: do you need security cheques held as a separate class?* | 🟡 | |
+| A7.1 | Do tenants pay via **post-dated cheques**? Hold **security cheques** separately from payment cheques? | 🧑‍💻 **PDC register built (module 33)** — status lifecycle, bulk series lodging, maturity dashboard, GL posting. **The security-cheque half is NOT expressible:** `post_dated_cheques` has no purpose/class column, so a security cheque is only distinguishable by a note. **Code can answer it — a column, a filter and a rule that it never auto-clears (XS).** | 🟠 | |
 | A7.2 | Is the **security deposit** a pure liability (no VAT)? Refundable at exit minus deductions (unpaid rent, damages, restoration, cleaning)? | Liability, refundable; deposit ledger exists | 🟡 | |
-| A7.3 | Do you track **prepaid rent / advances** separately from the deposit? | Not separated | 🟠 | |
-| A7.4 | **Multi-currency:** any leases billed in **USD/EUR**, and how is FX handled? *(Q-F — also gates multi-currency treasury.)* | EGP only | 🟠 | |
+| A7.3 | Do you track **prepaid rent / advances** separately from the deposit? | 🟡 **Partly.** Money received with no invoice sits as an on-account **tenant credit** (its own GL source, `unearned_revenue`), which is separate from the deposit ledger. What is not modelled is recognising prepaid RENT over the period it covers — same gap as A3.3. | 🟠 | |
+| A7.4 | **Multi-currency:** any leases billed in **USD/EUR**, and how is FX handled? *(Q-F)* | ⚙️ **DECIDED 2026-08-20 (EG-07): EGP only, and enforced** — `ValueSets` refuses a non-EGP value on `vendor_contracts.currency` and `assets.currency`; the picker is gone. **If a lease really is USD-indexed, the recommended answer is EG-31 — index the escalation, denominate in EGP (🧑‍💻 M)** — not full multi-currency. | 🔑 | |
 | A7.5 | Discounts / concessions booked as **credit notes** with approval + audit trail? | Credit-note module + approvals exist | 🟡 | |
 
 ### A8 · Reporting & migration
@@ -173,13 +277,13 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
 | A9.1 | **Review the posting-role → account mapping** (briefing Part 2): does every role post to the right account in your chart? Every role is re-pointable per-role **and per-property** from the UI, no code change. | Starter mapping (`AccountMappingSeeder`) | 🔴 | |
-| A9.2 | **Marketing levy (5%)** — book as **revenue** (today: `marketing_revenue` 41106001, billed as an invoice line) or as a **restricted marketing fund / liability** to be spent on marketing, not kept as profit? And is it shown on the tenant invoice? *(Refines A1.5 with the GL treatment.)* | Revenue, billed as a line | 🔴 | |
+| A9.2 | **Marketing levy (5%)** — book as **revenue** (today: `marketing_revenue`, billed as an invoice line) or as a **restricted marketing fund / liability**? And is it shown on the tenant invoice? | ⚙️ **Configuration, with one caveat.** A charge code picks its posting role from ALL 52 roles — liabilities included — and the invoice journalizer credits whatever role it names, so booking the levy to a liability is a screen change. **The caveat:** there is no dedicated *marketing fund* liability role, so you either reuse one or add a role + account mapping (🧑‍💻 XS). | 🔑 | |
 | A9.3 | **CAM** presented **gross** (recovery revenue + pooled expenses booked separately) or **net**? Confirm the GL treatment, not just the pool contents (C2.1). | Gross | 🟡 | |
 | A9.4 | **Inventory valuation method** — FIFO / weighted-average / standard cost? | Per-movement unit cost | 🟡 | |
-| A9.5 | Accrue **end-of-service & leave provisions monthly** (accounts 22201001 / 22201002 already exist in the chart)? | Not automated | 🟠 | |
+| A9.5 | Accrue **end-of-service & leave provisions monthly** (accounts 22201001 / 22201002 exist)? | 🧑‍💻 See A5.1 — the gratuity figure is computed and reported, and posts nothing. Leave provision is not computed at all. **Both are code, and both wait on your entitlement ruling first.** | 🟠 | |
 | A9.6 | **Fixed-asset useful lives / depreciation rates per class** and **salvage value**? | Straight-line, per-asset params | 🟡 | |
-| A9.7 | Separate **cash/bank account per mall**, or shared? Any specific **numbering series** for journals/invoices to match your books? | Shared; internal numbering | 🟡 | |<br><br>**Updated 2026-08-12 — the numbering half is now answerable, and urgent.** Document prefixes are configurable (Settings → Accounting): `INV` · `CN` · `JE` · `BILL` · `EXP` · `DEP` · `PAY` · `PR` · `LSE` · `PDC`. **Send your series before the first real invoice** — afterwards the prefix is on issued documents that cannot be renumbered, and changing it starts a SECOND series rather than renumbering the first. Tracked as Q-COA-5 in the accountant briefing.
-| A9.8 | Need a **WHT report (Form 41)** and a **salary-tax report** alongside the VAT-output report (A2.5)? | Not built | 🟠 | |
+| A9.7 | Separate **cash/bank account per mall**, or shared? Any specific **numbering series** for journals/invoices? | ⚙️ **Both answered.** `bank_accounts` per property, and since EG-12 (2026-08-22) every one of the thirteen journalizers resolves the account through `MoneyAccount::for()` — document's own bank account → the rail's account → the posting role — so two banks no longer share one chart account. Numbering: prefixes AND the reset rule (`never` · `annual` · `monthly`, default continuous) are settings since EG-10. | 🔑 | |
+| A9.8 | Need a **WHT report (Form 41)** and a **salary-tax report** alongside the VAT-output report? | ✅ **Form 41 BUILT (EG-21, 2026-08-22)** — quarterly off the FISCAL year, per registration, with a per-supplier certificate PDF and a tie-out between what was deducted and what the ledger owes. **A salary-tax return is the one still missing (🧑‍💻 S).** | 🟠 | |
 
 ---
 
@@ -237,10 +341,10 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | C1.4 | **Early termination** — penalty (X months), notice period, deposit forfeited? | `terminate` action exists | 🟡 | |
 | C1.5 | **Rent-free / grace / fit-out** periods at lease start? **One-off charges** (fit-out, key money, signage, parking, storage, fines)? | ✅ **Grace RESOLVED 2026-07-19:** `leases.fit_out_months` — a **FULL** grace (rent + service + CAM + marketing levy all suppressed) for that many whole months from the commencement month; billing starts after. Whole-month grace (no mid-month proration of the tail). *One-off charges still via ad-hoc Charge rows — separate item.* | 🟢 | |
 | C1.6 | For **percentage rent**, how do tenants **report sales** (POS, manual monthly declaration, audited)? Do you **audit** them and what if under-reported? | Manual sales-declaration flow exists | 🟡 | |
-| C1.7 | **Multiple contacts per tenant** (owner + accountant + ops — different access)? Track **tenant insurance certificates** + expiry? | Multi portal-user support; no insurance-cert tracking | 🟡 | |
+| C1.7 | **Multiple contacts per tenant**? Track **tenant insurance certificates** + expiry? | ✅ **Both built — the row was stale.** Multi-user portal accounts (only `is_admin` may write), and `tenant_documents` with an insurance-COI type, expiry dates and a scheduled expiry scan (`tenants:scan-document-expiry`), private-disk media. | ✅ | |
 | C1.8 | Need a **lease/contract PDF** + signature tracked in-system? | Not generated | 🟠 | |
 | C1.9 | **Final month of an expiring lease — full month or pro-rata?** A lease ending on the **10th** is billed the **whole month**. Proration keys on *commencement* only, so a mid-month move-IN is prorated but a mid-month move-OUT is not. On EGP 30,000/month that is **30,000 billed vs 9,677 pro-rata — a ~20,300 difference on every departing tenant.** If the lease says the tenant pays for occupied days, this is over-billing; if it says rent is due for any month in which the term runs, today's behaviour is correct. **CORRECTED 2026-08-11 — this is no longer unremedied over-billing.** `CreditUnearnedBillingService` now credits the unearned portion at move-out, using `MonthlyBillingService::monthsCovered()` — the same rule the invoice billed on, so the bill and the credit cannot disagree. The question narrows to whether the tenant is ENTITLED to that credit, or whether the lease makes rent due for any month the term runs into. *(Found 2026-07-29 in the module-05 close-out; pinned by `ManualBillingEligibilityTest`.)* **NARROWED AGAIN 2026-08-23 (EG-29):** the figures quoted here assume `actual` days. The method is now the lease's to state — a lease on `thirty_day` credits 30,000 − (10 ÷ 30 × 30,000) = 20,000 rather than 20,323, and one on `whole_month` credits nothing at all because the month is earned in full. So the remaining question is purely the entitlement, and the arithmetic follows whichever clause the lease carries. | Bills the full month, **credits the unearned part on move-out** | 🟠 | |
-| C1.10 | **A tenant who stays past the lease end date — do they keep paying, and at what rate?** Today a lease past its expiry stays `active` (correct: they still occupy the shop), the unit still reads occupied, and the dashboard raises a "holdover" alert — but **the billing engine skips them, so they occupy rent-free until someone renews or terminates.** Nothing is silently lost (the alert and the Leases "holdover" filter both surface it) and there are **0 holdover leases today**, so this is a policy to set before it bites, not a live leak. Commercial leases usually charge holdover at a penalty rate (125–150% of the last rent). Three options: keep billing at the same rent · bill at an uplift (state the %) · keep it manual and rely on the alert. *(Logged 2026-07-30 during the module-04 close-out; the code calls automatic holdover billing a deferred decision.)* | Alerted, **not billed** | 🟠 | |
+| C1.10 | **A tenant who stays past the lease end date — do they keep paying, and at what rate?** | ⚙️ **Stale as written — it IS billable.** Converting the lease to holdover stamps `holdover_from` (what keeps the billing run going past expiry) and `holdover_rate_pct`, defaulting to `BillingSettings::holdover_default_rate_pct` (150%); EG-40 made every derivation from the rate honour the uplift. An UNCONVERTED overstay is alerted and unbilled. **The only decision left: should conversion be automatic on expiry, or always an operator's act (it is an act today, deliberately).** | 🔑 | |
 
 ### C2 · CAM, utilities & maintenance
 
@@ -248,7 +352,7 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 |---|---|---|---|---|
 | C2.1 | What's in the **CAM expense pool** (security, cleaning, common power/water, M&E, insurance)? Are **vacant units carried by the owner**? Reconciliation frequency (annual)? | Pool + annual true-up exist | 🟡 | |
 | C2.2 | Utilities recharged with a **markup** or **pass-through at cost**? Any **min/cap** on service charge or annual increase? | Pass-through; no cap | 🟡 | |
-| C2.3 | **SLA targets** (e.g. urgent within 4 hrs) — confirm the numbers the breach scan alerts on. | SLA scan exists; targets configurable | 🟡 | |
+| C2.3 | **SLA targets** (e.g. urgent within 4 hrs) — confirm the numbers the breach scan alerts on. | ⚙️ Settings (`SlaSettings`), and since EG-08/EG-38 a **working calendar** exists too — Egypt's Fri–Sat weekend, a holidays register, Ramadan short days, per property. It **ships off**: `sla_working_clock_priorities` is empty, so every clock still runs on bare hours until you say which priorities are office work. | 🔑 | |
 | C2.4 | **SLA penalties (FR-CM-08):** treated as a **cost reduction** (Dr AP / Cr the expense, no VAT) — right, or **other income**? Those costs flow into CAM tenants reimburse, so a penalty's saving reaches tenants automatically — **is that intended**, or should the mall keep it? | Cost reduction, benefit reaches tenants | 🟠 | |
 | C2.5 | **Recharge tenant-caused repairs at all?** If yes: VATable or cost recovery? Parts only or parts+labour+vendor invoice? What if the cost changes after? Can the tenant dispute (→ credit note or void)? | ❌ We record responsibility but **cannot bill a tenant for a repair** — the FRD never asks us to | 🟠 | |
 | C2.6 | **Approval bands (FR-CM-11):** are **1,000 / 10,000 EGP** the right thresholds (supervisor / manager / senior)? Does a large spend need **more than one** approver (a chain, not a level lookup)? | These bands; single-level lookup | 🟡 | |
@@ -260,11 +364,11 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 |---|---|---|---|---|
 | C3.1 | **Multi-location warehousing** — multiple warehouses per mall? **Bins/shelves** within a warehouse? | A warehouse is the finest grain | 🟠 | |
 | C3.2 | **Inter-mall stock transfers** in scope? (Note: transfer types exist as scaffolding but **nothing creates them** — looks shipped, isn't. They also move value between two properties' books.) | Not built | 🟠 | |
-| C3.3 | What is the **3rd warehouse/inventory category**? (Only "daily consumables" and "main / spare parts + machines" are named. *Q-C*) | Two categories | 🟠 | |
+| C3.3 | What is the **3rd warehouse/inventory category**? *(Q-C)* | ⚙️ **Not a question for us:** `warehouses.category` is a free-form label — name as many as you like on the screen. | 🔑 | |
 | C3.4 | **Low-stock alerts** wanted at all, and is **one reorder level per item** enough (vs per-property)? | Daily bell alert, per mall, one number per item | 🟡 | |
 | C3.5 | Does **procurement approval follow the same price bands** as spare parts? Confirm the FRD's own open item. | Defaulted to identical bands | 🟡 | |
 | C3.6 | Exact **approval chain for department requests/payments routed through Accounting**? *(Q-E)* | Not defined | 🟠 | |
-| C3.7 | **"Personal accounts" (محسوبات شخصية)** — who exactly (staff? related parties?) and what for? *(Q-B)* | Not built | 🟠 | |
+| C3.7 | **"Personal accounts" (محسوبات شخصية)** — who exactly (staff? related parties?) and what for? *(Q-B)* | 🟡 **Two thirds exist:** custody (عهدة) with its own transactions and settlement, and employee advances with repayments — both posting to the GL. What does not exist is a per-PERSON sub-ledger beyond those. **Still needs your one sentence on who and what for.** | 🔑 | |
 | C3.8 | For each **service**: billed out (chargeable) or absorbed as a unit expense? Confirm the annual-report format. *(Q-D)* | Not distinguished | 🟠 | |
 | C3.9 | Which actions need **approval before they take effect** (new lease, discount, write-off, refund, large expense, invoice cancellation/credit note)? Who holds **delete/void/cancel** authority — only super-admin? | Approval ladder for procurement/parts; delete = super-admin only | 🟡 | |
 
@@ -291,9 +395,9 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| D.1 | **ETA e-invoicing go-live:** provide live `ETA_CLIENT_ID/SECRET`, the **CAdES signing certificate** (HSM/USB token), registered **activity code (6820?)** and real **EGS/GS1 item codes** — all placeholders today. Submit **real-time or batched**? | ⚠️ Runs in **MOCK mode** (`ETA_MOCK=true`). Nothing has ever reached the real tax authority; signing is a no-op passthrough. **Not certified.** | 🔴 | |
+| D.1 | **ETA e-invoicing go-live** — credentials, signing certificate, activity code, item codes. | ⏸️ **FROZEN IN CODE 2026-08-22** (`Modules::FROZEN`): the module answers *disabled* before any settings row is read, and every surface that made an unfinished integration look finished was removed. **Not a question to ask, and not work to schedule, until the freeze is lifted deliberately.** | ⏸️ | |
 | D.2 | **Paymob** card payments — activate now or later? (Built, currently off.) | Off | 🟡 | |
-| D.3 | **ETA receiver address per tenant** — tenants have only a free-form `address`; real invoices need governorate/city fields (hardcoded to Giza / 6 October today). | Hardcoded buyer address | 🟠 | |
+| D.3 | **ETA receiver address per tenant** — governorate/city fields. | ⏸️ Same freeze as D.1. | ⏸️ | |
 | D.5 | **Where do live Paymob credentials live, and who rotates them?** The 4 live keys sit in plaintext `.env` with no vault and no rotation procedure. **A leaked HMAC secret lets someone forge a "paid" callback** — i.e. mark invoices settled without money arriving. Needs a decision on secret storage before the live cutover, not after. | Plaintext `.env` | 🟠 | |
 | D.6 | **Is the app reachable ONLY through the reverse proxy?** We now trust `X-Forwarded-*` from any proxy (`TRUSTED_PROXIES=*`), which is what makes login throttling and the audit trail see the real client IP instead of the proxy's. That is safe **only** if nothing can reach the app directly — otherwise a caller can forge `X-Forwarded-For` and become un-throttleable. If the app has a directly-reachable address, give us the proxy IPs to pin. | Trusts any proxy | 🟠 | |
 | D.4 | **Hosting** — cloud SaaS (we manage) or on-prem? Do they have an **IT team**? **Backup/DR** expectations? Need **2FA**? Account lifecycle when someone leaves (deactivate vs delete)? | Cloud-ready; 2FA built but switched off — see C4.11 | 🟡 | |
@@ -317,7 +421,7 @@ Each needs **one clarifying sentence** before we can build it.
 ## What happens if you answer nothing
 
 - Everything **🟡** ships as described — those are working defaults.
-- Everything **🟠** stays unbuilt (notably: no tenant-repair recharge, no owner money-flow, no cheque register, no bank reconciliation).
+- Everything **🟠** stays unbuilt (notably: no tenant-repair recharge, no owner money-flow, no per-tenant tax exemption, no tenant-side withholding). *(Corrected 2026-08-23: the cheque register and bank reconciliation are BUILT — see the verification pass.)*
 - Everything **🔴** is the risk: Section A1 are the numbers the billing engine computes from, and most are unconfirmed assumptions; **A5.1 (employer social insurance/gratuity)** may mean the books are wrong today; **D.1 (ETA)** blocks legal e-invoicing; and **C1.8 (final-month proration)** over-bills every departing tenant by up to a month's rent if the lease says otherwise. Sign these off before the first real invoice.
 
 ## Sign-off
