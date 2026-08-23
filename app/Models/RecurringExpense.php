@@ -37,9 +37,12 @@ use Spatie\Activitylog\Support\LogOptions;
  * assessed figure is a fact the operator holds, and computing it from guessed rates would produce a
  * confident wrong number on a statutory filing.
  */
+// BOTH relations. A schedule that names a vendor raises `vendorBills`, never `expenses`, so
+// listing only the first would leave every supplier schedule freely deletable — the blocked_by
+// under-population trap, and the gate verifies the relations EXIST but cannot know one is missing.
 #[DeletableWhenUnused(
-    blockedBy: ['expenses'],
-    instead: 'Switch it off. A schedule that has already booked costs explains why those expenses exist, and every P&L and CAM pool that read them is downstream of it.',
+    blockedBy: ['expenses', 'vendorBills'],
+    instead: 'Switch it off. A schedule that has already booked costs explains why those expenses and supplier bills exist, and every P&L and CAM pool that read them is downstream of it.',
 )]
 #[PropertyOwned]
 class RecurringExpense extends Model
@@ -70,12 +73,15 @@ class RecurringExpense extends Model
 
     protected $fillable = [
         'asset_id',
+        'vendor_id',
+        'vendor_contract_id',
         'description',
         'category',
         'amount',
         'tax_code',
         'frequency',
         'day_of_month',
+        'payment_terms_days',
         'starts_on',
         'ends_on',
         'last_generated_on',
@@ -86,6 +92,7 @@ class RecurringExpense extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'day_of_month' => 'integer',
+        'payment_terms_days' => 'integer',
         'starts_on' => 'immutable_date',
         'ends_on' => 'immutable_date',
         'last_generated_on' => 'immutable_date',
@@ -103,10 +110,54 @@ class RecurringExpense extends Model
         return $this->belongsTo(Asset::class);
     }
 
+    /**
+     * The supplier this standing cost is owed to — null for a cost with no counterparty.
+     *
+     * @return BelongsTo<Vendor, $this>
+     */
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class);
+    }
+
+    /**
+     * The agreement it runs under, where there is one.
+     *
+     * @return BelongsTo<VendorContract, $this>
+     */
+    public function vendorContract(): BelongsTo
+    {
+        return $this->belongsTo(VendorContract::class);
+    }
+
+    /**
+     * Does this schedule raise a PAYABLE, or spend money outright?
+     *
+     * `expenses` carries no `vendor_id` at all — an expense is money leaving with no creditor — so
+     * naming a supplier IS the statement that this cost is owed to somebody. One question, asked
+     * of the row, rather than a second `type` column that could disagree with the vendor on it.
+     */
+    public function billsAVendor(): bool
+    {
+        return $this->vendor_id !== null;
+    }
+
+    /** When a bill dated `$on` falls due — 0 terms mean due on issue. */
+    public function dueOn(CarbonImmutable $on): CarbonImmutable
+    {
+        return $on->addDays(max(0, (int) $this->payment_terms_days));
+    }
+
     /** What this schedule has already booked — and what makes it undeletable once it has. */
     public function expenses(): HasMany
     {
         return $this->hasMany(Expense::class);
+    }
+
+    /** The other half of the same question: the supplier bills it has raised. */
+    public function vendorBills(): HasMany
+    {
+        return $this->hasMany(VendorBill::class);
     }
 
     /** How many months one period of this schedule spans. */

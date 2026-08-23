@@ -176,3 +176,133 @@ it('books through the real command, not just the service', function () {
 
     expect(Expense::whereNotNull('recurring_expense_id')->count())->toBe(1);
 });
+
+/**
+ * ── The other kind of standing cost: one owed to a SUPPLIER ─────────────────────────────────────
+ *
+ * EG-33 shipped covering costs the operator simply incurs. The kind a mall actually has most of is
+ * the fixed cleaning retainer, the security contract, the lift-maintenance contract — a payable
+ * owed to a named vendor, usually under a `vendor_contracts` row, and still typed in by hand every
+ * month because `vendor_contracts` generated nothing. Found by the pre-staging verification against
+ * Yardi, whose recurring payables post to a VENDOR.
+ */
+function retainerSchedule(array $attrs = []): RecurringExpense
+{
+    return RecurringExpense::create($attrs + [
+        'asset_id' => test()->reAsset->id,
+        'vendor_id' => App\Models\Vendor::factory()->create()->id,
+        'description' => 'Cleaning retainer',
+        'category' => 'cleaning_security',
+        'amount' => 50000,
+        'frequency' => RecurringExpense::MONTHLY,
+        'day_of_month' => 1,
+        'payment_terms_days' => 30,
+        'starts_on' => '2026-03-01',
+    ]);
+}
+
+it('raises a supplier BILL when the schedule names a vendor', function () {
+    $schedule = retainerSchedule();
+
+    app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
+
+    $bill = App\Models\VendorBill::where('recurring_expense_id', $schedule->id)->sole();
+
+    expect($bill->vendor_id)->toBe($schedule->vendor_id)
+        ->and((float) $bill->subtotal)->toBe(50000.0)
+        ->and($bill->bill_date->toDateString())->toBe('2026-03-01')
+        // Payment terms are a term of THIS agreement, not the AR default a tenant is given.
+        ->and($bill->due_date->toDateString())->toBe('2026-03-31')
+        // DRAFT, and that is the point: `vendor_bills.reference` is the SUPPLIER's invoice number,
+        // unique per vendor and impossible to invent, and posting Dr Expense / Cr AP for an invoice
+        // nobody sent would be the system inventing a creditor's claim.
+        ->and($bill->status)->toBe('draft')
+        ->and($bill->reference)->toBeNull()
+        // THE CONTROL — and the invariant: it raised a bill INSTEAD of an expense, never both.
+        ->and(Expense::where('recurring_expense_id', $schedule->id)->count())->toBe(0);
+});
+
+it('still books an EXPENSE when no vendor is named — the paired control', function () {
+    // Naming a supplier is the whole discriminator, so the negative case has to be asserted on the
+    // same day with the same sweep, or "it raised a bill" proves nothing about what a blank does.
+    $tax = taxSchedule();
+
+    app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
+
+    expect(Expense::where('recurring_expense_id', $tax->id)->count())->toBe(1)
+        ->and(App\Models\VendorBill::where('recurring_expense_id', $tax->id)->count())->toBe(0);
+});
+
+it('never raises the same supplier bill twice, however often the sweep runs', function () {
+    $schedule = retainerSchedule();
+
+    foreach (['2026-03-01', '2026-03-02', '2026-03-15', '2026-03-31'] as $day) {
+        app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse($day));
+    }
+
+    // One for March, one for April — the sweep having run four times inside March.
+    expect(App\Models\VendorBill::where('recurring_expense_id', $schedule->id)->count())->toBe(1);
+
+    app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-04-01'));
+
+    expect(App\Models\VendorBill::where('recurring_expense_id', $schedule->id)
+        ->orderBy('bill_date')->pluck('bill_date')
+        ->map(fn ($d) => $d->toDateString())->all())
+        ->toBe(['2026-03-01', '2026-04-01']);
+});
+
+it('cannot be deleted once it has raised a supplier bill', function () {
+    // `blockedBy` naming only `expenses` would leave every supplier schedule freely deletable —
+    // the under-population trap the deletion gate cannot see, because it only checks the relations
+    // NAMED there really exist.
+    $schedule = retainerSchedule();
+    app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
+
+    expect(fn () => $schedule->fresh()->delete())->toThrow(DomainException::class);
+
+    // The control: one that has raised nothing is still a mistake worth clearing.
+    $unused = retainerSchedule(['description' => 'Typed twice']);
+
+    $unused->delete();
+
+    expect(RecurringExpense::whereKey($unused->id)->exists())->toBeFalse();
+});
+
+it('derives the input tax from the code the schedule states', function () {
+    // `recurring_expenses.tax_code` was offered on the form and read by NOTHING — both documents
+    // were minted with zero tax, so a cost under VAT_14 booked no recoverable input VAT and the
+    // code sat on the row explaining a figure never derived from it.
+    $withTax = retainerSchedule(['tax_code' => 'VAT_14']);
+
+    app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
+
+    $bill = App\Models\VendorBill::where('recurring_expense_id', $withTax->id)->sole();
+
+    expect((float) $bill->vat_amount)->toBe(7000.0)
+        ->and((float) $bill->total)->toBe(57000.0);
+
+    // THE CONTROL — a schedule naming no code still books nothing, which is what an unclassified
+    // cost has always meant. Without this the assertion above passes on an install that taxes
+    // everything at 14%.
+    $noTax = retainerSchedule(['description' => 'Security retainer', 'amount' => 20000]);
+
+    app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
+
+    $plain = App\Models\VendorBill::where('recurring_expense_id', $noTax->id)->sole();
+
+    expect((float) $plain->vat_amount)->toBe(0.0)
+        ->and((float) $plain->total)->toBe(20000.0);
+});
+
+it('names the drafts separately in the command output', function () {
+    // An expense is POSTED and a bill is a DRAFT waiting for an invoice — different states needing
+    // different next actions. One combined count would read as "2 costs booked" and hide that one
+    // of them is sitting unapproved in the AP register.
+    taxSchedule();
+    retainerSchedule();
+
+    $this->artisan('expenses:generate-recurring --date=2026-03-01')
+        ->expectsOutputToContain('2 booked')
+        ->expectsOutputToContain('(draft)')
+        ->assertSuccessful();
+});

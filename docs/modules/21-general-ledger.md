@@ -688,6 +688,45 @@ and `expenses.(recurring_expense_id, expense_date)` is UNIQUE underneath. It als
 period per run, so a schedule reactivated after six months cannot post six back-dated entries into
 periods that may be closed.
 
+**TWO kinds of standing cost, and the vendor is what tells them apart (2026-08-23).** EG-33 shipped
+covering only costs the operator simply incurs. The kind a mall actually has most of is the fixed
+cleaning retainer, the security contract, the lift-maintenance contract — a **payable owed to a
+named supplier**, usually under a `vendor_contracts` row, and still typed in every month because
+`vendor_contracts` generated nothing. Found by the pre-staging verification against Yardi, whose
+recurring payables post to a VENDOR.
+
+`recurring_expenses.vendor_id` is the discriminator and it is not an arbitrary one: **`expenses`
+carries no `vendor_id` at all** — an expense is money leaving with no creditor — so naming a supplier
+IS the statement that this cost is a payable. There is no second `type` column that could disagree
+with the vendor on the row. Null keeps every existing schedule minting an expense, so nothing moves
+on deploy. `VendorBill` is likewise already a GL source, so the double-post rule above holds
+unchanged for both branches.
+
+**The supplier bill is a DRAFT and the expense is not**, which is the one asymmetry worth stating.
+`vendor_bills.reference` is the SUPPLIER's invoice number, unique per vendor, and cannot be
+invented; and posting `Dr Expense / Cr AP` for an invoice nobody sent is the system inventing a
+creditor's claim. A statutory levy has no counterparty document to wait for. Voyager stages its
+recurring payable batch and has a person post it, for the same reason. What the schedule removes
+either way is the RE-TYPING — vendor, contract, category, property, amount, tax code and dates
+arrive filled in.
+
+`vendor_bills.(recurring_expense_id, bill_date)` is UNIQUE, the same backstop as the expense side.
+`recurring_expenses.payment_terms_days` is NOT NULL default 0 (due on issue) and lives on the
+schedule rather than reading `BillingSettings::default_payment_terms_days` — that is the **AR**
+figure, what a TENANT is given, and one number answering two unrelated questions is how a setting
+comes to mean two things.
+
+> **`recurring_expenses.tax_code` was offered on the form and read by nothing.** Both documents were
+> minted with zero tax, so a cost under `VAT_14` booked no recoverable input VAT while the code sat
+> on the row explaining a figure never derived from it — the inert-field shape. Both branches now
+> resolve through `CatalogueTaxRate::deriveOnNet()`, the same seam the vendor-bill and expense FORMS
+> use, for the DOCUMENT's own date rather than today.
+
+> **A silent `$fillable` omission cost the first run.** `recurring_expense_id` was not on
+> `VendorBill::$fillable`, so `create()` dropped the key without a word: the bill was written with
+> no provenance and the UNIQUE index meant to make a double-raise impossible never saw a value to
+> be unique about. It reads as "the generator did not run".
+
 ### A statement is read by the chart's own subtotals (EG-28, 2026-08-22)
 
 `App\Support\StatementGroups` — the second half of EG-28, and the one that closes it.

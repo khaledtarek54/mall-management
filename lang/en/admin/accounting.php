@@ -5,6 +5,10 @@ return [
         'singular' => 'Recurring cost',
         'plural' => 'Recurring costs',
         'empty_hint' => 'Costs that arrive on a calendar rather than on an invoice — real-estate tax, municipal levies, a licence renewal, a fixed retainer.',
+        'no_vendor' => 'No supplier',
+        'raises_bill' => 'Raises a supplier bill',
+        'raises_expense' => 'Books an expense',
+        'days' => 'days',
         'frequencies' => [
             'monthly' => 'Monthly',
             'quarterly' => 'Quarterly',
@@ -12,6 +16,7 @@ return [
             'annually' => 'Once a year',
         ],
         'fields' => [
+            'payment_terms_days' => 'Payment terms',
             'day_of_month' => 'Day of the period',
             'next_due' => 'Next booking',
             'nothing_due' => 'Nothing further due',
@@ -19,6 +24,8 @@ return [
             'no_end' => 'Runs until switched off',
         ],
         'help' => [
+            'vendor' => 'Leave blank for a cost with no supplier — a tax, a levy, a licence.',
+            'payment_terms_days' => 'Days from the bill date until it falls due. Zero means due on issue.',
             'description' => 'What appears on the expense this books. "Real-estate tax — 2nd instalment" reads better on a P&L than "Tax".',
             'amount' => 'The assessed figure. This system does not compute real-estate tax — the assessment comes from the authority.',
             'day_of_month' => 'Clamped to the month, so 31 still books on 28 February.',

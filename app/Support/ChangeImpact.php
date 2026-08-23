@@ -284,6 +284,10 @@ class ChangeImpact
             self::NEUTRAL => [
                 'facility_work_order_id', // which JOB this paid for — a management dimension; no journalizer reads it, so re-homing a bill moves no books
                 'vendor_contract_id', 'due_date', 'reference', 'description', 'currency',
+                // Which SCHEDULE raised this bill (EG-33). Provenance, on the same terms as its
+                // twin on Expense: no journalizer reads it, and the generator's idempotency is the
+                // UNIQUE (recurring_expense_id, bill_date) index rather than anything re-derived.
+                'recurring_expense_id',
                 'approved_by_user_id', 'created_by_user_id', 'approved_at', 'tax_override_reason',
                 // AP sub-ledger state; a payment and a penalty each post their own entry.
                 'paid_amount', 'penalty_applied_amount', 'balance',

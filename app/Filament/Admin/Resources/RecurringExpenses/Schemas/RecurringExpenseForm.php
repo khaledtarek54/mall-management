@@ -5,12 +5,17 @@ namespace App\Filament\Admin\Resources\RecurringExpenses\Schemas;
 use App\Models\ExpenseCategory;
 use App\Models\RecurringExpense;
 use App\Models\TaxCode;
+use App\Models\Vendor;
+use App\Models\VendorContract;
+use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -24,6 +29,38 @@ class RecurringExpenseForm
                 // Never a bare EntitySelect on asset_id — the pinned component, per the property
                 // isolation rule.
                 PropertyField::make(),
+
+                // Naming a supplier is what turns this schedule from "money leaving" into a
+                // PAYABLE — `expenses` carries no vendor at all, so the presence of one IS the
+                // statement. Blank keeps it an expense, which is what every existing schedule is.
+                EntitySelect::make('vendor_id')
+                    ->label(__('admin.fields.vendor'))
+                    ->entity(Vendor::class)
+                    ->live()
+                    ->helperText(__('admin.recurring_expenses.help.vendor')),
+
+                EntitySelect::make('vendor_contract_id')
+                    ->label(__('admin.fields.vendor_contract'))
+                    ->entity(VendorContract::class)
+                    // Same narrowing as the vendor-bill form's own contract picker, including the
+                    // portfolio-wide exception (`asset_id IS NULL` — a master agreement covering
+                    // every mall), which the derived property scope cannot know about.
+                    ->modifyOptionsQuery(function ($query, Get $get) {
+                        $vendorId = $get('vendor_id');
+
+                        if (blank($vendorId)) {
+                            return $query->whereRaw('1 = 0');
+                        }
+
+                        $visible = TenantScope::visibleAssetIds();
+
+                        return $query
+                            ->where('vendor_id', $vendorId)
+                            ->when($visible !== null, fn ($q) => $q->where(
+                                fn ($w) => $w->whereIn('asset_id', $visible)->orWhereNull('asset_id'),
+                            ));
+                    })
+                    ->visible(fn (Get $get): bool => filled($get('vendor_id'))),
 
                 TextInput::make('description')
                     ->label(__('admin.fields.description'))
@@ -53,6 +90,16 @@ class RecurringExpenseForm
                         ->all())
                     ->required()
                     ->native(false),
+
+                TextInput::make('payment_terms_days')
+                    ->label(__('admin.recurring_expenses.fields.payment_terms_days'))
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(365)
+                    ->suffix(__('admin.recurring_expenses.days'))
+                    // Only a payable has terms. An expense is money already gone.
+                    ->visible(fn (Get $get): bool => filled($get('vendor_id')))
+                    ->helperText(__('admin.recurring_expenses.help.payment_terms_days')),
 
                 TextInput::make('day_of_month')
                     ->label(__('admin.recurring_expenses.fields.day_of_month'))

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Expense;
 use App\Models\RecurringExpense;
+use App\Models\VendorBill;
+use App\Support\CatalogueTaxRate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -14,11 +16,26 @@ use Illuminate\Support\Facades\DB;
  * revenue side. This is the counterpart to `MonthlyBillingService` for money going OUT — Yardi's
  * Recurring Payables.
  *
- * ## It creates expenses; it posts nothing itself
+ * ## It creates documents; it posts nothing itself
  *
- * An {@see Expense} is already a registered GL source, so the cost reaches the ledger through the
- * journalizer that exists. Registering this service's schedule as a source would post every levy
- * twice and balance both times.
+ * {@see Expense} and {@see VendorBill} are both already registered GL sources, so the cost reaches
+ * the ledger through the journalizers that exist. Registering this service's schedule as a source
+ * would post every levy twice and balance both times.
+ *
+ * ## TWO kinds of standing cost, and the vendor is what tells them apart
+ *
+ * A real-estate tax assessment or a government levy is money leaving with **no creditor** — it
+ * mints an `Expense`, `recorded`, which posts. A fixed cleaning retainer or a lift-maintenance
+ * contract is a **payable owed to a named supplier** — it mints a `VendorBill`. `expenses` carries
+ * no `vendor_id` at all, so naming a vendor on the schedule IS the statement that this is a
+ * payable, and there is no second `type` column that could disagree with it.
+ *
+ * **The supplier bill is a DRAFT and the expense is not**, which is the one asymmetry worth
+ * stating. `vendor_bills.reference` is the SUPPLIER's invoice number, unique per vendor, and
+ * cannot be invented; and posting `Dr Expense / Cr AP` for an invoice nobody sent is the system
+ * inventing a creditor's claim. A statutory levy has no counterparty document to wait for. Yardi
+ * stages its recurring payable batch and has a person post it, for the same reason. What the
+ * schedule removes either way is the RE-TYPING.
  *
  * ## Generating a statutory cost twice is real money, so this is belt AND braces
  *
@@ -42,7 +59,7 @@ class GenerateRecurringExpensesService
     /**
      * Generate whatever is due on or before `$on`.
      *
-     * @return array{generated: int, skipped: int, expenses: array<int, Expense>}
+     * @return array{generated: int, skipped: int, expenses: array<int, Expense>, bills: array<int, VendorBill>}
      */
     public function generate(?CarbonImmutable $on = null, ?int $assetId = null): array
     {
@@ -54,22 +71,32 @@ class GenerateRecurringExpensesService
             ->orderBy('id')
             ->pluck('id');
 
-        $generated = [];
+        $expenses = [];
+        $bills = [];
         $skipped = 0;
 
         foreach ($schedules as $id) {
-            $expense = $this->generateOne($id, $on);
+            $document = $this->generateOne($id, $on);
 
-            $expense === null ? $skipped++ : $generated[] = $expense;
+            match (true) {
+                $document instanceof Expense => $expenses[] = $document,
+                $document instanceof VendorBill => $bills[] = $document,
+                default => $skipped++,
+            };
         }
 
-        return ['generated' => count($generated), 'skipped' => $skipped, 'expenses' => $generated];
+        return [
+            'generated' => count($expenses) + count($bills),
+            'skipped' => $skipped,
+            'expenses' => $expenses,
+            'bills' => $bills,
+        ];
     }
 
     /** One schedule, under its own lock, so a slow property does not hold up the rest. */
-    private function generateOne(int $scheduleId, CarbonImmutable $on): ?Expense
+    private function generateOne(int $scheduleId, CarbonImmutable $on): Expense|VendorBill|null
     {
-        return DB::transaction(function () use ($scheduleId, $on): ?Expense {
+        return DB::transaction(function () use ($scheduleId, $on): Expense|VendorBill|null {
             /** @var RecurringExpense|null $schedule */
             $schedule = RecurringExpense::query()->whereKey($scheduleId)->lockForUpdate()->first();
 
@@ -86,26 +113,84 @@ class GenerateRecurringExpensesService
                 return null;
             }
 
-            $expense = Expense::create([
-                'asset_id' => $schedule->asset_id,
-                'recurring_expense_id' => $schedule->id,
-                'category' => $schedule->category,
-                'description' => $schedule->description,
-                'amount' => $schedule->amount,
-                'tax_code' => $schedule->tax_code,
-                'expense_date' => $due,
-                // `recorded`, which is what posts it to the ledger. That is the point of the
-                // schedule: a statutory cost with a known amount and date books itself, exactly as
-                // Yardi's recurring payables do. `expenses.status` accepts only recorded|cancelled
-                // anyway — the ValueSets listener refuses anything else on save.
-                'status' => 'recorded',
-            ]);
+            $document = $schedule->billsAVendor()
+                ? $this->raiseVendorBill($schedule, $due)
+                : $this->recordExpense($schedule, $due);
 
-            // Stamped only after the expense exists, and inside the same transaction — a stamp
+            // Stamped only after the document exists, and inside the same transaction — a stamp
             // written first would skip a period if the insert then failed.
             $schedule->forceFill(['last_generated_on' => $due])->save();
 
-            return $expense;
+            return $document;
         });
+    }
+
+    /**
+     * The input tax on a period's net, resolved for the DOCUMENT's own date.
+     *
+     * **`recurring_expenses.tax_code` was offered on the form and read by nothing** — the schedule
+     * stored the accountant's ruling and both documents were minted with zero tax, so a levy under
+     * `VAT_14` booked no recoverable input VAT at all and the code sat on the row explaining a
+     * figure that was never derived from it. The inert-field shape this codebase keeps finding.
+     *
+     * `deriveOnNet()` is the same seam the vendor-bill and expense FORMS use, resolved for the
+     * document's date rather than today, so a rate rise entered in advance reaches a schedule by
+     * itself and a back-dated period keeps the rate that was in force. Null — no code, or no rate
+     * on that date — means zero, which is exactly what an unclassified cost meant before.
+     */
+    private function taxOn(RecurringExpense $schedule, CarbonImmutable $due): float
+    {
+        return CatalogueTaxRate::deriveOnNet(
+            $schedule->tax_code,
+            (float) $schedule->amount,
+            $due->toDateString(),
+        ) ?? 0.0;
+    }
+
+    /** A cost with no creditor: money leaving, posted the moment it is recorded. */
+    private function recordExpense(RecurringExpense $schedule, CarbonImmutable $due): Expense
+    {
+        return Expense::create([
+            'asset_id' => $schedule->asset_id,
+            'recurring_expense_id' => $schedule->id,
+            'category' => $schedule->category,
+            'description' => $schedule->description,
+            'amount' => $schedule->amount,
+            'vat_amount' => $this->taxOn($schedule, $due),
+            'tax_code' => $schedule->tax_code,
+            'expense_date' => $due,
+            // `recorded`, which is what posts it to the ledger. That is the point of the schedule:
+            // a statutory cost with a known amount and date books itself, exactly as Yardi's
+            // recurring payables do. `expenses.status` accepts only recorded|cancelled anyway —
+            // the ValueSets listener refuses anything else on save.
+            'status' => 'recorded',
+        ]);
+    }
+
+    /**
+     * A payable owed to a named supplier, staged as a DRAFT for the invoice to arrive against.
+     *
+     * `reference` is deliberately left EMPTY rather than filled with something invented: it is the
+     * supplier's own invoice number, it is unique per vendor, and a generated placeholder there
+     * would collide with the real one the day it is entered.
+     */
+    private function raiseVendorBill(RecurringExpense $schedule, CarbonImmutable $due): VendorBill
+    {
+        return VendorBill::create([
+            'asset_id' => $schedule->asset_id,
+            'vendor_id' => $schedule->vendor_id,
+            'vendor_contract_id' => $schedule->vendor_contract_id,
+            'recurring_expense_id' => $schedule->id,
+            'category' => $schedule->category,
+            'description' => $schedule->description,
+            // `subtotal`, not `amount` — the AP document names its net differently from the
+            // expense one, and the model derives `total` from subtotal + VAT on every write.
+            'subtotal' => $schedule->amount,
+            'vat_amount' => $this->taxOn($schedule, $due),
+            'tax_code' => $schedule->tax_code,
+            'bill_date' => $due,
+            'due_date' => $schedule->dueOn($due),
+            'status' => 'draft',
+        ]);
     }
 }

@@ -36,10 +36,18 @@ class GenerateRecurringExpensesCommand extends Command
 
         // Reported even when nothing was due: a silent no-op is indistinguishable from a schedule
         // that is not running at all, which is how a missing caller stays missing.
-        $this->info("Recurring expenses on {$on->toDateString()}: {$result['generated']} booked, {$result['skipped']} not due.");
+        $this->info("Recurring costs on {$on->toDateString()}: {$result['generated']} booked, {$result['skipped']} not due.");
 
         foreach ($result['expenses'] as $expense) {
-            $this->line("  {$expense->number} · {$expense->description} · {$expense->total}");
+            $this->line("  expense  {$expense->number} · {$expense->description} · {$expense->total}");
+        }
+
+        // Named separately because they are in a DIFFERENT state and need a different next action:
+        // an expense is posted, a supplier bill is a draft waiting for the invoice to arrive
+        // against it. One combined count would read as "12 costs booked" and hide that four of
+        // them are sitting in the AP register unapproved.
+        foreach ($result['bills'] as $bill) {
+            $this->line("  bill     {$bill->number} · {$bill->vendor?->name} · {$bill->description} · {$bill->total} (draft)");
         }
 
         return self::SUCCESS;

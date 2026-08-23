@@ -43,6 +43,11 @@ class VendorBill extends Model
         'purchase_request_id',
         // Which JOB this invoice paid for — the service bucket of the work-order cost object.
         'facility_work_order_id',
+        // Which SCHEDULE raised this bill (EG-33). Fillable because the generator mass-assigns it,
+        // and a missing entry here is silent: `create()` drops the key without a word, the bill is
+        // written with no provenance, and the UNIQUE (recurring_expense_id, bill_date) index that
+        // is supposed to make a double-raise impossible never sees a value to be unique about.
+        'recurring_expense_id',
         'number',
         'vendor_id',
         'vendor_contract_id',

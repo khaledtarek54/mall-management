@@ -30,6 +30,17 @@ class RecurringExpensesTable
                     ->badge()
                     ->color('gray'),
 
+                // Which of the two things this schedule raises. A blank vendor is not missing
+                // data — it is the statement that the cost has no creditor and books straight to
+                // the ledger, so the column says which, rather than showing an empty cell.
+                TextColumn::make('vendor.name')
+                    ->label(__('admin.fields.vendor'))
+                    ->placeholder(__('admin.recurring_expenses.no_vendor'))
+                    ->description(fn (RecurringExpense $record): string => $record->billsAVendor()
+                        ? __('admin.recurring_expenses.raises_bill')
+                        : __('admin.recurring_expenses.raises_expense'))
+                    ->searchable(),
+
                 TextColumn::make('amount')
                     ->label(__('admin.fields.amount'))
                     ->money('EGP')
