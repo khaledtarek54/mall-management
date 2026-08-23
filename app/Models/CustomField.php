@@ -92,6 +92,15 @@ class CustomField extends Model
                 throw new \DomainException("[{$field->model}] is not a record type that carries custom fields.");
             }
 
+            // Filament reads a dot as NESTING, so `parent.group` would silently become a two-level
+            // array in the form state and the answer would never reach `metadata` under that key.
+            // The definition form carries the same rule; this is the gate, per the codebase's own
+            // "guard in the model, the form is the UI half" doctrine — an import or a crafted
+            // payload meets this one.
+            if (! preg_match('/^[a-z][a-z0-9_]*$/', (string) $field->key)) {
+                throw new \DomainException("[{$field->key}] is not a usable field key — use lower-case letters, digits and underscores, starting with a letter.");
+            }
+
             if ($field->exists && $field->isDirty('key')) {
                 throw new \DomainException('A custom field\'s key cannot change — every value already recorded is stored under it. Rename the label instead.');
             }

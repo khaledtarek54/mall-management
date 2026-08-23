@@ -135,7 +135,10 @@ columns whose name ends in a classification suffix, so an exemption there would 
 ## 8. Gotchas
 
 - **A field key must be `[a-z][a-z0-9_]*`.** Filament reads a dot as nesting, so `parent.group` would
-  silently become a two-level array in the form state.
+  silently become a two-level array in the form state and the answer would never reach `metadata` under
+  that key — a field that records nothing, quietly. Enforced in `CustomField::saving()` as well as on the
+  form, per the codebase's "guard in the model, the form is the UI half" doctrine: an import or a crafted
+  payload meets the model, not the form.
 - **A boolean is never required.** A required tick is a consent box, not a data field, so
   `CustomFieldsSchema` ignores `is_required` for `boolean` and the definition form hides the toggle.
 - **A cleared answer is REMOVED, not stored as null** — otherwise `metadata` accumulates a null for every

@@ -328,3 +328,15 @@ it('shows an answered field on the record page, and hides the section when none 
             ->assertSee('Americana Group');
     });
 });
+
+it('refuses a key Filament would read as nesting', function () {
+    // A dot is NESTING in a form state path, so `parent.group` would become a two-level array and
+    // the answer would never reach `metadata` under that key — a field that silently records
+    // nothing. The definition form carries the same rule; this is the gate an import meets.
+    foreach (['parent.group', 'Parent_Group', '9lives', 'has space', ''] as $bad) {
+        expect(fn () => defineField(['key' => $bad]))->toThrow(DomainException::class);
+    }
+
+    // The control, so this is not passing because every create is refused.
+    expect(defineField(['key' => 'parent_group2'])->exists)->toBeTrue();
+});
