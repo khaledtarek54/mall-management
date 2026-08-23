@@ -5,9 +5,10 @@
 > period, and whether the statutory payroll rates were actually applied to the latest approved run.
 > Each row says what the gap breaks.
 >
-> This file is still the wider gate — it covers credentials, infrastructure and unanswered questions
-> that no query can see — but the parts a query CAN see no longer depend on somebody re-verifying
-> this document by hand.
+> This file is still the wider gate — it covers credentials and infrastructure no query can see —
+> but the parts a query CAN see no longer depend on somebody re-verifying this document by hand.
+> **The QUESTIONS moved out on 2026-08-23:** they all live in
+> [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md), and §2 below lists only which IDs block a launch.
 
 # Atriom — the go-live gate
 
@@ -148,55 +149,40 @@ while throwing on every money column in the panel. One missing `.ini` symlink do
       wrong in both runbooks until 2026-08-21.
 
 ---
+## 2. ❓ The questions — all of them, in one place
 
-## 2. 🔴 Questions only the ACCOUNTANT can answer
+**Every unanswered question now lives in [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)** and is not
+restated here (2026-08-23). Two lists of the same questions is how a stale one survives: on
+2026-08-23 a re-check against the code found fourteen rows describing as missing something that had
+since shipped, and this page carried two of them — it still said Egyptian tax depreciation was
+*"deliberately not built"* four days after it shipped with its own screen.
 
-These block correct books, not merely features. Tracked bilingually in
-[ACCOUNTANT-BRIEFING.md](../accounting/ACCOUNTANT-BRIEFING.md); full detail in
-[OPEN-QUESTIONS.md §A](../OPEN-QUESTIONS.md#a--accountant--finance).
+**What blocks launch, by ID.** Follow each into [§1 of OPEN-QUESTIONS](../OPEN-QUESTIONS.md#1---before-the-first-real-invoice)
+for what ships if nobody answers.
 
-| # | Question | Why it blocks | Today |
-|---|---|---|---|
-| **A4** | **The real Egyptian chart of accounts.** The file supplied was a Saudi contracting template and was rejected. | Every posting resolves through `account_mappings` to accounts that must be the accountant's, not ours. | A sample chart ships; **code width is 8-vs-10 digits, parked on the accountant** (the system is width-agnostic and proven so) |
-| **A1** | **The tax rates the billing engine computes from** — and confirmation that **base rent is VAT-exempt while service charge is standard-rated**. | **Corrected 2026-08-12:** the rate is no longer a setting. It lives in the **dated tax catalogue** at `/admin/tax-codes` — `TaxSettings::vat_standard_rate` is gone — so a rate is a rung with an effective date and a rise can be entered before it applies. Which supplies are taxable is `charge_codes.tax_code`, the accountant's ruling as a row. Both are configuration answers, not builds. | 14% standard, base rent exempt |
-| **A1.1** | **The operator's own tax registration number** (and registered legal name, if it differs from the mall's trading name). One field, one answer — but nothing else unblocks it. | **Every invoice is titled "Tax Invoice" and is not a valid one without it: the tenant cannot reclaim the VAT.** Since 2026-08-17 the **credit note** carries the same particulars and has the same dependency — it is what the tenant uses to *reverse* input tax already claimed, so an unidentifiable one is the same defect pointing the other way. Entered at Settings → Tax → Seller identity. Deliberately **blank** on a fresh install, and the PDFs omit the line rather than printing a placeholder — a plausible-looking TRN reads as valid, gets filed by the tenant, and fails on audit with Atriom's name on the document. | **Blank — must be set before the first real invoice is issued** |
-| **A1.2** | **`seller_legal_name`** specifically. Not blocking for VAT, but not cosmetic. | It is the name **every generated document leads with** (`App\Support\IssuingEntity`) — the twelve PDFs, the invoice email, and the hosted **payment page a cardholder reads before entering their card details**. Left blank, all of them fall back to `"Atriom"`, which is the software's name and one no tenant has seen on a lease. An unrecognised merchant on a card page is what a chargeback starts as. | **Blank — set it with A1.1** |
-| **A1.3** | **The billing-enquiries address** — where a tenant writes about an invoice. | Advisory rather than blocking: an invoice with no contact line is still a valid invoice. It is here because until 2026-08-21 all three documents (invoice, tenant statement, owner/asset statement) printed `billing@{property-slug}.test`, **fabricated in the template from the mall's own name** — so a tenant querying a bill wrote to nobody and the operator never learned they had asked. The line is now omitted rather than invented, which is the honest failure but a silent one; `/admin/configuration-health` carries an advisory row for it. Settings → Tax. | **Blank — set it with A1.1** |
-| **A9.1/A9.2** | **Sign off the posting map**, and the treatment of the **5% marketing levy**. | The map is editable on screen; what it should SAY is an accounting decision. | Defaults seeded |
-| **A3.7** | **Opening balances** — AR, AP, bank, deposits held, fixed assets at cut-over. | Without them the first trial balance is wrong by exactly the history that preceded it. | Not loaded |
-| **A5** | **End-of-service gratuity** — is this workforce entitled, and at what rate? | Employer social insurance **is** already recorded. `GratuityService` computes the exposure under Labour Law 12/2003 Art. 122 (both rates settings) and **ships off, posting nothing** — Art. 122 covers workers *not* under the social-insurance law, and most Egyptian employees are, so accruing a provision nobody owes overstates the liability exactly as surely as omitting a real one understates it. | Computed and reported, **not posted** — your entitlement ruling first, then a small wiring step |
-| **A6** | **Egyptian tax depreciation** (Law 91/2005 pool/diminishing-value) — **confirm the rates per class.** *(Row corrected 2026-08-23: "deliberately did not build this" was stale — it shipped 2026-08-18.)* | ✅ **BUILT:** `/admin/tax-depreciation` + `TaxDepreciationService` — statutory rates, pooled diminishing value, and the temporary DIFFERENCE from the book figure, computed from history every year rather than accumulated into a column. **It is a SCHEDULE, not a second ledger**: Egypt files single-book, so nothing posts and there is no second set of balances to reconcile. | Book straight-line + a tax schedule beside it; **the rates per class are yours to confirm** |
-| **A2.1** | **Tenant-side withholding tax** — do tenants withhold on rent, and at what rate? | The vendor side shipped; this half is unmodelled. | Not modelled |
-
----
-
-## 3. 🔴 Questions only the OWNER (Jawad) can answer
-
-| # | Question | What is waiting on it |
+| # | The question | Why it blocks launch |
 |---|---|---|
-| **B.1 / B.3 / B.4 / B.5** | **How is Eltizam paid, and whose bank account does tenant money land in?** | The **owner-statement management fee** is built-but-omitted pending B.4. More seriously, the **Jawad/Eltizam revenue split** (FR-FIN-06..09) needs legal entities, issuer-vs-payer separation, effective-dated split rules and per-entity VAT — it touches every journalizer and **ETA's single hardcoded issuer TRN, which cannot express two entities**. It therefore *constrains ETA go-live*. Needs a finance workshop, not an email. |
+| **A1.1** | The operator's TRN, legal name and billing-enquiries email | Every invoice is titled *Tax Invoice* and is not one — the tenant cannot reclaim the VAT. Ships blank on purpose: a plausible-looking TRN gets filed and fails on audit |
+| **A1.x · C-TAX** | Which supplies are taxable, at what rate, and which carry stamp or schedule tax | The billing engine computes from it. **All configuration** — a charge-code row and a dated rate, no release |
+| **A4.1** | The real Egyptian chart of accounts | Every posting resolves through `account_mappings` to accounts that must be the accountant's. **Importable since EG-28** — only the file is missing |
+| **A9.1 / A9.2** | Sign off the posting map, and the marketing levy's treatment | The map is editable on screen; what it should SAY is an accounting decision |
+| **A3.7** | Opening balances and the cut-over date | Without them the first trial balance is wrong by exactly the history preceding cut-over. The screen and importers exist |
+| **A8.3** | What history migrates, and sample files | Migration cannot be scoped without it |
+| **A2.7** | One TRN for the install, or one per owner | Two owners with two VAT registrations cannot both be billed correctly today (→ code) |
+| **B.1 / B.3 / B.4 / B.5** | How Eltizam is paid, and whose account tenant money lands in | The owner-statement fee line is built-but-omitted behind it; the wider revenue split needs a finance workshop, not an email |
+| **C-NUM · C-FY** | Document prefixes and the fiscal-year start | **Both have hard deadlines.** A prefix cannot be changed after the first issued invoice without starting a second series; the fiscal year is refused once anything is posted |
+| **C-PAY** | The statutory payroll rates | All three at nil on an approved run means net = gross on every payslip and no liability in the books |
+| **C4.2** | Go-live date, parallel run, and who validates the data on the client side | Nothing can be scheduled around it |
+
+**Decisions for the first real month** — C1.9 (is a departing tenant entitled to the unearned
+credit), C1.10 (should holdover conversion be automatic), C-SLA (which priorities run on the working
+calendar — a vendor SLA penalty is charged off that clock), C-NSF (price the returned-cheque fee),
+C4.11–C4.12 (2FA rollout, and what an unassigned account may see) — are
+[§2 of OPEN-QUESTIONS](../OPEN-QUESTIONS.md#2---before-the-first-real-month).
 
 ---
 
-## 4. 🟠 Decisions the OPERATOR should make before the first real month
-
-| # | Decision | Today | Consequence of not deciding |
-|---|---|---|---|
-| **C1.9** | **The final month of an expiring lease — full month or by occupied days?** *(Row corrected 2026-08-11: this was recorded as unremedied over-billing. It is not — the full month is billed and `CreditUnearnedBillingService` credits the unearned portion at move-out, using `monthsCovered()`, the same rule the invoice used.)* The remaining question is narrower and still real: **is the tenant entitled to that credit at all**, or does the lease make rent due for any month the term runs into? | Bill full, credit the unearned part on move-out — and since EG-29 the credit uses the **proration method the lease states** (`actual` · `thirty_day` · `year_365` · `whole_month`), so the figure follows the clause rather than one hardcoded rule | ~20,300 EGP per departing tenant on a 30k lease under `actual`, in the wrong direction if the lease says otherwise. A lease on `whole_month` credits nothing at all, which is why the clause matters more than the arithmetic |
-| **C1.10** | **A tenant who stays past lease end — do they keep paying, and at what rate?** Commercial leases usually charge 125–150% of the last rent. *(Row corrected 2026-08-12: "not billed" was stale.)* | **Alerted, and billable once an operator CONVERTS the lease to holdover** (`ConvertLeaseToHoldoverService`, story LE-04). Conversion stamps `holdover_from` — which is what makes the lease billable past its own expiry — and `holdover_rate_pct`, defaulting to `BillingSettings::holdover_default_rate_pct` (150%). An UNCONVERTED overstay is still alerted and unbilled. | The remaining decision is narrower: **should conversion be automatic on expiry, or always an operator's act?** It is deliberately an act today, because billing a tenant past a lease nobody has agreed to extend is a commercial claim rather than a calculation |
-| **C4.10–C4.13** | Access and alerting decisions (who is forced into 2FA, who receives which alert). | **Verified: `SECURITY_FORCE_2FA_ROLES` is empty — nobody is forced into 2FA.** `App\Support\SecurityDefaults::FORCE_2FA_ROLES` is the recommended list to paste in. | Admin accounts are password-only |
-| **C-NUM** | **Document number prefixes** — the letters in front of every invoice, credit note, journal entry, bill, expense, deposit, **payment receipt**, payroll run, purchase request, lease and cheque. *(Configurable since 2026-08-12; Settings → Accounting. **Corrected 2026-08-23:** payments were outside the registry entirely and hardcoded `PAY-`, which is PAYROLL's prefix — two document types on one series, invisible to the duplicate guard. A payment is a RECEIPT, Yardi's own word, so it is `RCT`.)* **The RESET RULE is now decided and is no longer an open question** (EG-10): a series is CONTINUOUS by default, which is what Yardi and MRI do; `annual` (SAP/Oracle/NetSuite/Odoo) and `monthly` are offered at Settings → Accounting. An install that has already issued an invoice keeps monthly, so no live series is ever split. | Defaults `INV` · `CN` · `JE` · `BILL` · `EXP` · `DEP` · `RCT` · `PAY` · `PR` · `LSE` · `PDC`, continuous | **This one has a hard deadline.** After the first issued invoice the prefix is printed on documents that cannot be renumbered, and changing it later starts a SECOND series rather than renumbering the first — a jump an auditor will query on a tax-invoice sequence. Ask the accountant (Q-COA-5) before the first real month, not after |
-| **C-FY** | **The month the fiscal year starts.** *(Configurable since 2026-08-12; Settings → Accounting.)* | January (calendar year) | **Refused once anything is posted**, because moving it re-dates the periods: a document posted into an open period lands inside a closed one, or an entry the accountant closed and reported becomes editable again. Decide on the empty install — which is exactly when it is free |
-| **D.5 / D.6** | **Paymob secret storage** (vault vs plaintext `.env`) and **whether the app is reachable outside the proxy** — `TRUSTED_PROXIES` defaults to `*`, which is safe *only* while it is not. | Plaintext `.env`; verification itself is sound (SHA-512 + `hash_equals`, fails closed) | A leaked HMAC forges "paid" callbacks |
-| **C-NSF** | **Price the returned-cheque fee** (`BillingSettings::nsf_fee_amount`, **per property**). Ships at **0**, which is deliberate rather than unfinished: it is a money default, the lease may not permit the charge, and Yardi ships its NSF charge code unset for the same reason. What the operator is pricing is normally two things in one flat figure — **the bank's own returned-cheque charge**, which the operator actually pays and should recover, plus an **administrative component**. Set it per property; a flat fee is the market shape and what the code models. | 0 — and the action that charges it stays hidden until a figure is set, which the settings screen says on the field | Not a silent gap (the screen explains the zero), but a bounced cheque then costs the operator the bank charge with no way to recover it |
-| **C-TAX** | **Which supplies carry stamp tax (ضريبة الدمغة) or schedule tax (ضريبة الجدول)?** Both families were commissioned on 2026-08-19 — accounts, posting roles, and journalizers that post them to their own accounts rather than to VAT. **Activation grants nothing on its own:** a tax code taxes a supply only when the accountant points a charge code at it (`charge_codes.tax_code`), which is a row and not a deploy. | Available and unassigned — no charge code names one, so nothing is taxed under them today | Nothing breaks. But if a supply IS subject to stamp or schedule tax and no charge code says so, it is under-taxed on the return — which is the accountant's exposure, not a software fault |
-| **C-PAY** | **The statutory payroll rates.** *(Row corrected 2026-08-23: the three `PayrollSettings` scalars are **GONE**. EG-03 replaced them with `payroll_rates`, a DATED ladder at Settings → Payroll rates — `App\Support\PayrollRates::for($periodMonth)` resolves the rung in force for the month the run is FOR, so a January run generated in March uses January's figures and a rise can be entered in advance. Social insurance is charged on the **insurable wage** — gross clamped into the band — and the ceiling binds the employer share too. The 1 Jan 2026 rung ships the band (2,700 / 16,700) and NOT the rates.)* The rates still ship at **0**, deliberately: a guessed rate would look authoritative and be wrong, and entering each employee's deductions on the run is a supported way to work. **But all three at nil on an approved run means net = gross on every payslip and no liability to the authority in the books.** Egypt's figures move every January, which the dated ladder now expresses. **What is still not built is the seven-band progressive engine (EG-03 P-2)** — brackets are rungs with more columns and hang off this ladder — and §6.4 asks the operator a prior question: whether this system should compute statutory payroll at all, or whether each run is keyed by hand. | Rates 0 · 0 · 0 on a dated 1 Jan 2026 rung that carries the band; `/admin/configuration-health` says so — advisory before the first run, **blocking** once an approved month withheld nothing (EG-04) | Every payslip over-pays and the payroll liability is missing from the balance sheet, on a run that looks exactly like a working one |
-| **C-SLA** | **Which SLA priorities are measured in WORKING time, and which on the calendar?** Egypt's weekend is Friday–Saturday, so a 24-hour promise made Thursday afternoon is not kept by Friday afternoon. A working calendar now exists (Settings → SLA → Working calendar, plus the Holidays register) and it **ships off**: every clock still runs on bare hours. | Empty — every priority on the calendar, exactly as before | This is a contract question, not a default: a chiller failure is arguably a 24-hour promise whatever day it is, while a signage approval is plainly office work. Left unset, an urgent job raised Thursday 17:00 is still due Friday 17:00 with nobody on site — **and a vendor SLA penalty is charged off that**, which an Egyptian contractor will contest. Each job freezes the clock it was promised on, so changing this never re-prices work in flight |
-| **—** | **Auto-apply open credit** is now **ON by default** (Voyager's behaviour, decided 2026-08-11) with a global switch in Billing settings. Confirm that suits — a credit raised in dispute will otherwise be consumed by the next invoice. | On | A support call, occasionally a legal one |
-
----
-
-## 5. 🟢 Deliberately NOT blocking — recorded so nobody re-opens them
+## 3. 🟢 Deliberately NOT blocking — recorded so nobody re-opens them
 
 Each of these was measured or decided, not forgotten. Re-opening one should require new evidence.
 
@@ -217,15 +203,16 @@ Each of these was measured or decided, not forgotten. Re-opening one should requ
 
 ---
 
-## 6. Requirements that cannot be built as written
+## 4. Requirements that cannot be built as written
 
-Five clarifications in [OPEN-QUESTIONS.md §E](../OPEN-QUESTIONS.md#e--requirements-we-cannot-build-as-written).
-The sharpest is **FR-REQ-01 "delegation (from/to)"** — no such concept exists anywhere in the system,
-and it cannot be inferred from anything the client has described.
+Two clarifications remain in [OPEN-QUESTIONS.md §5](../OPEN-QUESTIONS.md#5--requirement-wording-we-cannot-build-from)
+— it was five, and three turned out to be confirmations of what already ships. The sharpest is
+**FR-REQ-01 "delegation (from/to)"**: no such concept exists anywhere in the system, and it cannot be
+inferred from anything the client has described.
 
 ---
 
-## 7. What happens if nothing is answered
+## 5. What happens if nothing is answered
 
 The system runs, bills correctly against the rules it has, and posts a complete double-entry ledger.
 What it **cannot** do is file a legally valid tax invoice, take a real card payment, survive the loss

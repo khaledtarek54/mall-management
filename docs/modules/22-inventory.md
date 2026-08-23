@@ -32,7 +32,7 @@ is a real answer, and the drafted line then carries the shortfall for the operat
 | **Stock model** | **Movement ledger** (append-only; on-hand DERIVED) | Auditable + reconcilable, and mirrors Atriom's double-entry/GL "derived truth" — on-hand can't silently drift. |
 | **Warehouse scope** | **Per-property** (`asset_id`, via `TenantScope`) | Each mall runs its own stores; matches units/leases/meters scoping. |
 | **Item catalog** | **Shared** (global reference data) | A "pump seal" is the same item everywhere; stock differs per warehouse via movements. |
-| **Warehouse category** | **Free-form label** (not an enum) | Sidesteps the open "3rd category name" question (Q-C) — the operator creates whatever stores they run. |
+| **Warehouse category** | **Free-form label** (not an enum) | Sidesteps the "3rd category name" question (Q-C), which is **closed for that reason** — the operator creates whatever stores they run. |
 
 ---
 

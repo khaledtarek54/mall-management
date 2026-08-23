@@ -17,7 +17,7 @@ are the retailers. Laravel 13 · PHP 8.4 · Filament 4.
 | **2** | [PROJECT-MAP.md](PROJECT-MAP.md) | Where everything lives — the generated census, every route family, the codebase layout, the scheduled automation |
 | **3** | [BUSINESS-RULES.md](BUSINESS-RULES.md) | Every financial rule the system enforces, in plain language, for the operator and accountant to **sign off** |
 | **4** | [PROPERTY-ISOLATION.md](PROPERTY-ISOLATION.md) | The invariant that confines every module to one mall — read before adding a property-owned module |
-| **5** | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | Everything still unanswered, grouped by **who can answer it** |
+| **5** | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | **The only live question list** — what is still unanswered, ordered by deadline, with what ships if nobody answers |
 | **6** | [ROADMAP.md](ROADMAP.md) | The single prioritised list — what to build next, and what not to rebuild |
 | **7** | [DEMO.md](DEMO.md) | **Showing the system to somebody** — a 30-minute run for a non-accountant, and how to adapt it per audience |
 | **8** | [EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md) | **What the operator can change without a developer**, and what Egyptian law and Egyptian mall practice demand of it — the configurability axis, with the statute research behind it |

@@ -1,8 +1,15 @@
 # Atriom — Client Discovery (Val Plaza / Eltizam)
 
-> **This file = the record of answers already collected (Part 1).**
-> The **open questions** are consolidated into one hand-out:
-> ➡️ [**docs/OPEN-QUESTIONS.md**](../OPEN-QUESTIONS.md) (grouped by who answers).
+> **This file = the record of answers already collected (Part 1). It is NOT a question list.**
+>
+> ⚠️ **The `_(open)_` cells below are historical** (2026-08-23). They were asked in June 2026, before
+> the system existed, and most of them ask *"can it do X?"* — the build has since answered nearly all
+> of them: occupancy map, AR ageing, rent roll, scheduled report delivery, meter readings, SLAs,
+> tenant photo evidence, vendor contracts with expiry alerts, sales declarations, credit notes,
+> statements, invoice emailing, payment matching, prepaid credit. **Do not work from them.**
+>
+> ➡️ The live questions — and only those — are in
+> [**docs/OPEN-QUESTIONS.md**](../OPEN-QUESTIONS.md), grouped by who answers.
 >
 > Keep this file as the canonical record of what the client has already told us; as questions in
 > OPEN-QUESTIONS get answered, fold them back here.

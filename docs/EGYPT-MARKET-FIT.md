@@ -458,7 +458,10 @@ credential from the operator/accountant · ⚙️ ops.
 
 ## 6. Decisions this needs from the operator and the accountant
 
-None of these are engineering questions. They are recorded here so they can be asked once.
+None of these are engineering questions. **They now live in
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), which is the single list** (2026-08-23) — recorded below with
+their IDs so this document's argument still reads end to end, but asked and answered there. Two lists
+of one question is how the stale one survives.
 
 1. ~~**Which units in the mall carry the 1% schedule tax on administrative-unit rental, and from what
    date?**~~ **CLOSED 2026-08-23 — the operator's answer is that this is configuration, not a question
@@ -468,16 +471,19 @@ None of these are engineering questions. They are recorded here so they can be a
    purely configuration only where two units in one mall must be taxed **differently** — which is
    EG-02, and EG-02 no longer waits on this being asked. *(§3.1, §4.1)*
 2. **Does the operator charge a trade-name / brand component?** If so it now attracts a 10% schedule
-   tax on 10% of the value. *(§3.1)*
+   tax on 10% of the value. *(§3.1 — asked as **A2.8**)*
 3. **Confirm the withholding rates by supply type** — published summaries disagree (1%/2%/3%/5%).
-   *(§3.3)*
+   *(§3.3 — **A2.9**)*
 4. **Payroll:** confirm the bracket table, the personal exemption, and whether the operator wants the
-   system to compute statutory payroll at all, or to keep keying it per run. *(§3.2, EG-03)*
+   system to compute statutory payroll at all, or to keep keying it per run. *(§3.2, EG-03 —
+   **A5.3** and **C-PAY**)*
 5. **Which employees are covered by social insurance** — the input the gratuity feature needs and has
-   nowhere to store. *(P-8)*
-6. **The document-number reset rule** — monthly per property, annual, or continuous. Decide before
-   go-live; it cannot be changed afterwards. *(EG-10)*
-7. **Proration convention** — what do the actual leases say? *(EG-29)*
+   nowhere to store. *(P-8 — **A5.4**, asked beside the gratuity entitlement it gates)*
+6. ~~**The document-number reset rule**~~ **DECIDED 2026-08-23 by market standard (EG-10):** continuous,
+   as Yardi and MRI do, with `annual` and `monthly` offered as settings. The PREFIXES are still
+   **C-NUM**, and still carry the same deadline.
+7. **Proration convention** — what do the actual leases say? *(EG-29 — **C1.9**, which is now only
+   about ENTITLEMENT: since EG-29 the arithmetic follows whichever clause the lease carries)*
 8. **USD-indexed rent** — is any lease USD-denominated or dollar-indexed? If indexed rather than
    denominated, EG-31 is an M and full multi-currency can stay declined. *(§3.5, open question A7.4)*
 9. **Whose TRN issues the invoice** — Eltizam's, or each owner's? *(T-10, open question A2.7)*

@@ -6,7 +6,7 @@
 > relation manager + `custodies.*` RBAC (accounting) + the `custodies` module flag. Delivers
 > the core of discovery backlog item **TREAS-1** (custodies/عهدة). Multi-treasury (petty-cash
 > boxes, sub-treasuries) and **multi-currency (TREAS-2)** are deferred — the latter is gated
-> on open question **Q-F** (is anything billed in USD/EUR?); everything here is EGP.
+> on **Q-F**, which was **decided 2026-08-20 (EG-07): EGP only, and enforced at the value set**; everything here is EGP.
 
 An operator constantly hands cash to staff — a purchasing agent, a site engineer — to buy
 materials or pay small bills, later settled against receipts. This module keeps that **عهدة**
@@ -119,7 +119,7 @@ custodian's hands) — NOT accounts receivable — so the AR tie-out is unaffect
 |-------|-------|--------|
 | **1 — Custodies (عهدة)** | `Custody` + `CustodyTransaction` posting to the GL (grant Dr Custodies / Cr Cash\|Bank; expense/return settlements), grant + settle services (lock-safe over-settle guard), property-scoped `CustodyResource` + settlements relation manager, chart account + mapping + 2 journalizers + sweep, tests | ✅ shipped |
 | **2 — Multi-treasury / petty cash** | multiple cash boxes / bank accounts, each mapping to its own chart account, with transactions routed to a chosen treasury (reshapes the single cash/bank routing) | ⏳ |
-| **2b — Multi-currency (TREAS-2)** | per-account currency + FX/exchange-rate — **blocked on Q-F** (is anything billed in USD/EUR?) | ⏳ |
+| **2b — Multi-currency (TREAS-2)** | per-account currency + FX/exchange-rate — **declined by decision (Q-F / EG-07): EGP only, enforced.** A USD-*linked* lease is EG-31 — index the escalation, denominate in EGP | ⛔ |
 
 ---
 

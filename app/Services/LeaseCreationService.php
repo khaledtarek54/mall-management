@@ -82,7 +82,13 @@ class LeaseCreationService
                     ?? $rent * (float) PropertySettings::get('billing.default_security_deposit_months', $unit->asset_id)),
                 'escalation_rate' => (float) ($payload['lease']['escalation_rate'] ?? 7),
                 'escalation_type' => 'fixed_percent',
-                'payment_terms_days' => (int) ($payload['lease']['payment_terms_days'] ?? 7),
+                // The property's convention, not a literal 7 — the same shape as the deposit
+                // above. The lease FORM already pre-fills from this resolver, so the form path is
+                // unchanged (it always sends an explicit value); what this reaches is every caller
+                // that does NOT state terms — above all `LeaseImporter`, which has no such column,
+                // so a migrating operator whose terms are 30 days imported every lease at 7.
+                'payment_terms_days' => (int) ($payload['lease']['payment_terms_days']
+                    ?? PropertySettings::paymentTermsDays($unit->asset_id)),
             ]);
 
             self::seedStandardCharges($lease, $rent, $service, $commencement);

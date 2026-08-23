@@ -158,12 +158,20 @@ These four decisions steer the FRs below:
 
 ## 5. Open questions still needing client input
 
-These (Q-A chart of accounts, Q-B personal accounts, Q-C 3rd warehouse category, Q-D service
-chargeable toggle, Q-E accounting approval chain, Q-F multi-currency, Q-G owner/Jawad parties, Q-H
-post-dated cheques) are consolidated into the single hand-out, mapped to the answering department:
+**Re-checked against the code 2026-08-23 — three of the eight are no longer questions:**
 
-> ➡️ **[../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)** (see sections A4, C3.7, C3.3, C3.8, C3.6, A7.4,
-> B.3, A7.1 respectively).
+| | Question | Status |
+|---|---|---|
+| **Q-A** | Chart of accounts | **Still open (A4.1)** — but the accountant's own file is now IMPORTABLE (EG-28), so it is a hand-over rather than a build |
+| **Q-B** | Personal accounts (محسوبات شخصية) | **Narrowed (C3.7)** — custody (عهدة) and employee advances are built and post to the GL; what is missing is one sentence on who a personal account is for |
+| **Q-C** | 3rd warehouse category | ✅ **CLOSED** — `warehouses.category` is free text; name as many as you like |
+| **Q-D** | Per-service chargeable toggle | **Still open (C3.8)** — → code (M) |
+| **Q-E** | Accounting approval chain | **Still open (C3.6)** — bands are configurable; a multi-level CHAIN is → code (M) |
+| **Q-F** | Multi-currency | ✅ **DECIDED** — EGP only and enforced at the value set (EG-07). A USD-*linked* lease is EG-31, not multi-currency |
+| **Q-G** | Owner / Jawad as one party or two | **Still open (B.3)** — part of the money-flow workshop |
+| **Q-H** | Post-dated cheques | ✅ **BUILT** (module 33). Only *"hold security cheques as their own class"* remains (A7.1, → code XS) |
+
+> ➡️ The live ones are in **[../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)**, which is the single list.
 
 ---
 

@@ -148,23 +148,26 @@ document you want them to take away and mark up.
 Say these unprompted. Credibility comes from the gaps you volunteer, and an accountant will find
 them anyway:
 
-- **ETA e-invoicing runs in mock mode.** Nothing has ever been submitted to the tax authority. It
-  needs their live credentials and a CAdES signing certificate. *(Question D.1.)*
+- **e-invoicing is switched off and frozen in the code** — nothing has ever been submitted to the tax
+  authority, and the module is deliberately unreachable rather than merely disabled. Do not present
+  it as available or nearly-available.
 - **The chart of accounts is a starter chart**, not theirs. Replacing it is the first thing we want
-  from them.
-- **The VAT rate is now a setting**, not a constant — if 14% is wrong for any supply, that is a
-  field, not a release.
-- **Payroll tax brackets are not modelled progressively** yet; we need their confirmed brackets.
-- **~96 questions are open** in [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md), 48 of them theirs
-  (section A). The briefing is the subset written for them.
+  from them — and it can now be **imported** from their own file rather than keyed.
+- **Tax treatment is a row and the rate is a dated rung** — if 14% is wrong for any supply, or if
+  Law 157/2025 makes rent taxable from a date, that is a field and a row, not a release.
+- **Payroll tax brackets are not modelled progressively** yet; we need their confirmed brackets. The
+  statutory numbers ARE a dated ladder now, so a January change is enterable in advance.
+- **The open questions are in [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)**, which was re-verified
+  against the code on 2026-08-23 and is now considerably shorter — two dozen rows closed because the
+  system already answered them. Section 1 is what blocks the first real invoice; most of it is theirs.
 
 ---
 
 ## What to do with what they say
 
 Anything they answer goes straight into `docs/OPEN-QUESTIONS.md` **in the meeting** — the row, their
-answer, the date. Section A is the accountant's; it is 48 rows and it is the single thing blocking
-the accounting module from being finished rather than merely correct.
+answer, the date. The `A·` rows are the accountant's, and they are the single thing between the
+accounting module being correct and being finished.
 
 If they push on something not covered here, do not guess in the room. Write it down as a new row.
 The one thing that will cost credibility is an invented answer they later discover was wrong.

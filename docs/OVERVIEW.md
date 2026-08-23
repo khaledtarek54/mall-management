@@ -106,7 +106,7 @@ Demo logins (password `password`): `admin@mall.test` (super_admin) · `manager@/
 | Doc | Purpose |
 |---|---|
 | [docs/BUSINESS-RULES.md](BUSINESS-RULES.md) | **Business-rules & assumptions register** — every encoded financial rule (VAT, levy, CAM, late fees, percentage rent…) for **operator/accountant sign-off before go-live**. Verified accurate against code 2026-06-27. |
-| [docs/OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | **The single hand-out of open questions**, grouped by who can answer (accountant/finance · owner · operations · ETA/IT) and by what breaks if the answer differs. Consolidates the old client-questions + the accountant & operations meeting agendas + the FRD open items + the payroll/depreciation/bank-rec questions. |
+| [docs/OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | **The single list of questions still waiting on an answer** — and nothing else. Ordered by deadline (before the first invoice · before the first month · *do you need this?* · confirm-a-default) with what ships if nobody answers, and a §7 index of what was CLOSED because the code answers it. Re-verified against the code 2026-08-23. |
 | [docs/PRODUCTION-RUNBOOK.md](operations/PRODUCTION-RUNBOOK.md) | **Go-live runbook** — env, deploy steps, queue worker, scheduler cron, backups, observability, and the pre-flight gates (integrations:check · billing:reconcile). |
 | [README.md](../README.md) | Repo entry — setup, panels, demo accounts |
 | [docs/FUNCTIONAL-REQUIREMENTS.md](requirements/FUNCTIONAL-REQUIREMENTS.md) | The FRD — requirements ↔ build status |
