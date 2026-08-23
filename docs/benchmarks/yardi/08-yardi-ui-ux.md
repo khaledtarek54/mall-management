@@ -246,9 +246,31 @@ just record lookups. Keep the existing rule absolutely: authz + property isolati
 
 ---
 
-### UX-11 ✅ Saved views — **SHIPPED** *(this row read 🟡 until 2026-08-17; `SavesReportViews` is used by 21 pages)*
+### UX-11 ✅ Saved views — **SHIPPED, both halves** *(filters 2026-08-17 · columns and the default 2026-08-23)*
 Let a user save a table's filter+column state and set one as their default. The accountant's monthly
 pack becomes one click.
+
+**The row was marked shipped while half of it was not built.** `SavesReportViews`/`SavesTableViews`
+saved the filters; the columns rode along from EG-32 slice 1; *"and set one as their default"* had
+no column, no action and no code path, so an operator could build the arrears pack, name it, share
+it — and still land on the unfiltered list every morning and pick it out of a menu. Found by the
+pre-staging verification against this file, which is the argument for re-reading a row rather than
+trusting its tick.
+
+`table_views.is_default` means *"the default for whoever can see it"*, which covers both defaults
+that are actually wanted: an unshared view is a PERSONAL default, a shared one is the TEAM's. **A
+personal default wins**, so a manager marking a team view never overrules a colleague who has
+already stated their own. It is applied by REDIRECTING to the view's own URL — this trait's rule is
+that a view IS a URL and nothing sets Livewire state directly — and the menu grows an *"All
+records"* escape carrying `?tableView=none`, because a link to the plain list has an empty query
+string, which is precisely what the redirect reads as "nothing asked for".
+
+> **A false-pass worth recording.** `assertNoRedirect()` reads only `$effects['redirect']`, which
+> Livewire populates on an UPDATE request — a redirect issued from `mount()` is a plain HTTP one on
+> the initial response, so that assertion **cannot fail** there and stayed green with the loop guard
+> deleted. `assertRedirect()` is not its mirror: on a non-Livewire request it checks the RESPONSE.
+> The negative assertion has to be `assertOk()`, which falls through `Testable::__call()` to the
+> same response.
 
 ---
 

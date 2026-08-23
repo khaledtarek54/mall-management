@@ -338,6 +338,13 @@ return [
 
     // Named filter/sort states for a resource list — App\Filament\Admin\Resources\Concerns\SavesTableViews.
     'saved_views' => [
+        'set_default' => 'العرض الافتراضي',
+        'set_default_description' => 'اختر العرض الذي تُفتح عليه هذه القائمة. اتركه فارغًا لفتح القائمة كاملة.',
+        'default_suffix' => 'يُفتح افتراضيًا',
+        'default_set' => 'أصبح ":name" يُفتح افتراضيًا',
+        'default_cleared' => 'ستُفتح هذه القائمة كاملة من جديد',
+        'no_default' => 'بلا افتراضي — افتح القائمة كاملة',
+        'all_records' => 'كل السجلات',
         'menu' => 'العروض المحفوظة',
         'save' => 'حفظ العرض',
         'save_description' => 'يحفظ عوامل التصفية والترتيب والبحث المعروضة الآن في هذه القائمة، باسم تختاره.',

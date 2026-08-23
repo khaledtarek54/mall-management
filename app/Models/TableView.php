@@ -9,6 +9,7 @@ use Filament\Tables\Concerns\HasColumnManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A named filter/sort state for a resource list — see the migration for why it exists.
@@ -22,11 +23,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[PortfolioShared]
 class TableView extends Model
 {
-    protected $fillable = ['resource', 'name', 'state', 'user_id', 'is_shared'];
+    protected $fillable = ['resource', 'name', 'state', 'user_id', 'is_shared', 'is_default'];
 
     protected $casts = [
         'state' => 'array',
         'is_shared' => 'boolean',
+        'is_default' => 'boolean',
     ];
 
     /** @return BelongsTo<User, $this> */
@@ -47,6 +49,53 @@ class TableView extends Model
     public function scopeOwnedBy(Builder $query, ?int $userId): Builder
     {
         return $query->where('user_id', $userId);
+    }
+
+    /**
+     * The view this list should OPEN on for `$userId`, or null when they have not chosen one.
+     *
+     * **A personal default beats a team one.** An unshared default is a preference its owner stated
+     * about their own screen; a shared one is a manager saying "this is where the team starts". If
+     * the two disagree the person's own choice must win, or marking a team view would silently
+     * overrule every colleague who had already set theirs.
+     *
+     * Ordered by key within each tier so the answer is deterministic — the write path allows only
+     * one default per user per resource, but a restored backup or a hand-edited row must still
+     * resolve to the same view on every request rather than whichever the database offers first.
+     */
+    public static function defaultFor(string $resource, ?int $userId): ?self
+    {
+        if ($userId === null) {
+            return null;
+        }
+
+        $base = static fn (): Builder => static::query()
+            ->where('resource', $resource)
+            ->where('is_default', true);
+
+        return $base()->where('user_id', $userId)->orderBy('id')->first()
+            ?? $base()->where('is_shared', true)->orderBy('id')->first();
+    }
+
+    /**
+     * Make this the user's default for its list, clearing whatever held the flag before.
+     *
+     * On the MODEL rather than in the action, because "at most one default per user per resource"
+     * is a fact about these rows and there is no partial unique index to enforce it — see the
+     * migration. Two callers writing the flag directly is how a user ends up with two defaults and
+     * a list that opens on whichever one the database returns first.
+     */
+    public function makeDefault(): void
+    {
+        DB::transaction(function (): void {
+            static::query()
+                ->where('resource', $this->resource)
+                ->where('user_id', $this->user_id)
+                ->whereKeyNot($this->getKey())
+                ->update(['is_default' => false]);
+
+            $this->forceFill(['is_default' => true])->save();
+        });
     }
 
     /**

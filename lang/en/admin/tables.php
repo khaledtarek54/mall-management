@@ -338,6 +338,13 @@ return [
 
     // Named filter/sort states for a resource list — App\Filament\Admin\Resources\Concerns\SavesTableViews.
     'saved_views' => [
+        'set_default' => 'Default view',
+        'set_default_description' => 'Choose the view this list opens on. Leave it blank to open the full list.',
+        'default_suffix' => 'opens by default',
+        'default_set' => '":name" now opens by default',
+        'default_cleared' => 'This list opens on the full list again',
+        'no_default' => 'No default — open the full list',
+        'all_records' => 'All records',
         'menu' => 'Saved views',
         'save' => 'Save view',
         'save_description' => 'Keeps the filters, sort and search this list is showing right now, under a name you choose.',

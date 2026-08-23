@@ -493,3 +493,156 @@ it('keeps a column the saved order never mentioned, at the end', function () {
             ->and(count($names))->toBeGreaterThan(2);
     });
 });
+
+/**
+ * ── The default view — the second half of UX-11 ─────────────────────────────────────────────────
+ *
+ * *"Let a user save a table's filter+column state **and set one as their default**."* Only the
+ * first half shipped: an operator could build the arrears pack, name it, share it — and still land
+ * on the unfiltered list every morning and pick it out of a menu.
+ *
+ * The property under test is the RESOLUTION order and the escape, not that a boolean was written.
+ */
+it('opens the list on the default view, as a redirect to its own URL', function () {
+    Livewire::withQueryParams([]);
+
+    $view = TableView::create([
+        'resource' => 'leases',
+        'name' => 'Draft leases',
+        'state' => ['filters' => ['status' => ['value' => 'draft']]],
+        'user_id' => $this->user->id,
+        'is_default' => true,
+    ]);
+
+    asTenant($this->asset, function () use ($view) {
+        // A redirect, never a state mutation — this trait's stated rule is that a view IS a URL,
+        // and honouring it is what keeps the address bar honest and the link pasteable.
+        Livewire::test(ListLeases::class)
+            ->assertRedirect()
+            ->assertRedirectContains('tableView='.$view->getKey())
+            ->assertRedirectContains('status');
+    });
+});
+
+it('does not redirect when the request already asked for something', function () {
+    // The loop guard AND the escape hatch, in one property. The URL the redirect produces always
+    // carries `tableView`, so a page that asked for anything must be left alone — otherwise
+    // opening the default would bounce for ever.
+    TableView::create([
+        'resource' => 'leases', 'name' => 'Draft leases',
+        'state' => ['filters' => ['status' => ['value' => 'draft']]],
+        'user_id' => $this->user->id, 'is_default' => true,
+    ]);
+
+    // **`assertNoRedirect()` cannot fail here and must not be used.** It asserts only on
+    // `$effects['redirect']`, which Livewire populates on an UPDATE request; a redirect issued from
+    // `mount()` is a plain HTTP one on the initial response, so the effect is never set and the
+    // assertion passes whether or not the page redirected. Measured: with the guard below deleted
+    // this test stayed green. `assertRedirect()` is not symmetric with it — on a non-Livewire
+    // request it checks the RESPONSE — which is why the test above is sound and this one was not.
+    // `assertOk()` falls through `Testable::__call()` to that same response.
+    asTenant($this->asset, function () {
+        // The menu's "All records" link — the ONE way back to the unfiltered list. A plain link
+        // would carry an empty query string, which is indistinguishable from a bare page load.
+        Livewire::withQueryParams(['tableView' => 'none']);
+        Livewire::test(ListLeases::class)->assertOk();
+
+        // And any ordinary filtered arrival.
+        Livewire::withQueryParams(['filters' => ['status' => ['value' => 'active']]]);
+        Livewire::test(ListLeases::class)->assertOk();
+    });
+
+    // THE CONTROL — with nothing asked for, the very same default does redirect. Without this the
+    // two refusals above would pass on an install where the feature does not work at all.
+    Livewire::withQueryParams([]);
+
+    asTenant($this->asset, function () {
+        Livewire::test(ListLeases::class)->assertRedirect();
+    });
+});
+
+it('lets a personal default beat the team’s', function () {
+    // A shared default is a manager saying "this is where the team starts". A personal one is
+    // somebody stating a preference about their own screen. If the two disagree the person wins,
+    // or marking a team view silently overrules every colleague who had already chosen.
+    $manager = makeUser('manager', [$this->asset->id]);
+
+    $team = TableView::create([
+        'resource' => 'leases', 'name' => 'Team pack', 'state' => [],
+        'user_id' => $manager->id, 'is_shared' => true, 'is_default' => true,
+    ]);
+    $mine = TableView::create([
+        'resource' => 'leases', 'name' => 'Mine', 'state' => [],
+        'user_id' => $this->user->id, 'is_default' => true,
+    ]);
+
+    expect(TableView::defaultFor('leases', $this->user->id)?->getKey())->toBe($mine->getKey())
+        // …and a colleague with no preference of their own still lands on the team's.
+        ->and(TableView::defaultFor('leases', $manager->id)?->getKey())->toBe($team->getKey())
+        // A list nobody chose a default for opens on itself.
+        ->and(TableView::defaultFor('invoices', $this->user->id))->toBeNull();
+});
+
+it('keeps at most one default per user per list, and clears on a blank', function () {
+    $first = TableView::create([
+        'resource' => 'leases', 'name' => 'First', 'state' => [],
+        'user_id' => $this->user->id, 'is_default' => true,
+    ]);
+    $second = TableView::create([
+        'resource' => 'leases', 'name' => 'Second', 'state' => [], 'user_id' => $this->user->id,
+    ]);
+    // A view on ANOTHER list must not be disturbed — the flag is per resource, not per user.
+    $elsewhere = TableView::create([
+        'resource' => 'invoices', 'name' => 'Elsewhere', 'state' => [],
+        'user_id' => $this->user->id, 'is_default' => true,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () use ($second) {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $second->id]);
+    });
+
+    expect($second->fresh()->is_default)->toBeTrue()
+        ->and($first->fresh()->is_default)->toBeFalse()
+        ->and($elsewhere->fresh()->is_default)->toBeTrue();
+
+    // Blank clears it — the way back for an operator who changed their mind.
+    asTenant($this->asset, function () {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => null]);
+    });
+
+    expect(TableView::defaultFor('leases', $this->user->id))->toBeNull()
+        ->and($elsewhere->fresh()->is_default)->toBeTrue();
+});
+
+it('will not make a view somebody never shared into your default', function () {
+    // The option list is a UI convenience; `visibleTo` at the point of the write is the gate.
+    // Asserted on behaviour, not a status code — Livewire's harness swallows abort(403).
+    $someoneElse = makeUser('manager', [$this->asset->id]);
+
+    $private = TableView::create([
+        'resource' => 'leases', 'name' => 'Theirs', 'state' => [],
+        'user_id' => $someoneElse->id, 'is_shared' => false,
+    ]);
+    $shared = TableView::create([
+        'resource' => 'leases', 'name' => 'Team', 'state' => [],
+        'user_id' => $someoneElse->id, 'is_shared' => true,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => 'none']);
+
+    asTenant($this->asset, function () use ($private, $shared) {
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $private->id]);
+
+        // THE CONTROL — a view they DID share can be adopted, which is the case UX-11 is about.
+        Livewire::test(ListLeases::class)
+            ->callAction('chooseDefaultView', ['view_id' => $shared->id]);
+    });
+
+    expect($private->fresh()->is_default)->toBeFalse()
+        ->and($shared->fresh()->is_default)->toBeTrue();
+});

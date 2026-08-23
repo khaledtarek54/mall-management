@@ -78,7 +78,7 @@ final class ResourceLink
         ?string $sort = null,
         ?string $search = null,
         ?string $tab = null,
-        ?int $tableView = null,
+        int|string|null $tableView = null,
     ): string {
         $parameters = [];
 
@@ -101,6 +101,12 @@ final class ResourceLink
         // A saved view's COLUMN layout is too big for a query string and Filament binds none of it
         // to the URL, so the link names the view and the page reads its columns back (EG-32). It is
         // an id, not a layout: what the reader sees is rebuilt from their own table.
+        //
+        // `string` as well as `int` for the ONE non-id value: `tableView=none` is how the saved-view
+        // menu asks for the plain list when a default is set. A link with an empty query string is
+        // indistinguishable from a bare page load, which is exactly what the default's mount hook
+        // redirects — so the reset has to say something. `bootedSavesTableViews()` ignores anything
+        // non-numeric, so it applies no columns and the request simply stops being "nothing asked".
         if ($tableView !== null) {
             $parameters['tableView'] = $tableView;
         }

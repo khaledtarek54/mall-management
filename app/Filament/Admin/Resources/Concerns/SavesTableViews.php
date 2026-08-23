@@ -90,12 +90,22 @@ trait SavesTableViews
     {
         $views = $this->savedViewsForThisList();
 
-        $actions = $views->map(function (TableView $view): Action {
+        $default = TableView::defaultFor($this->savedViewResourceKey(), Auth::id());
+
+        $actions = $views->map(function (TableView $view) use ($default): Action {
             $isOwn = $view->user_id === Auth::id();
+            $isDefault = $default?->getKey() === $view->getKey();
 
             return Action::make('savedView'.$view->id)
-                ->label($view->name)
-                ->icon($isOwn ? 'heroicon-o-bookmark' : 'heroicon-o-user-group')
+                // The one that opens says so. Without it the operator has no way to tell which of
+                // five saved views the list came up on, and "why am I not seeing everything" is
+                // then a question the screen cannot answer.
+                ->label($isDefault ? $view->name.' · '.__('admin.saved_views.default_suffix') : $view->name)
+                ->icon(match (true) {
+                    $isDefault => 'heroicon-s-bookmark',
+                    $isOwn => 'heroicon-o-bookmark',
+                    default => 'heroicon-o-user-group',
+                })
                 // A link, not a state mutation — see the class docblock. `tableView` carries the
                 // id so the COLUMNS travel with it too: a layout is far too big for a query string,
                 // and this keeps a saved view a single pasteable URL rather than growing a second
@@ -111,6 +121,18 @@ trait SavesTableViews
         })->all();
 
         if ($views->isNotEmpty()) {
+            // The way OUT of a default. A link to the plain list carries an EMPTY query string,
+            // which is exactly what `mountSavesTableViews()` reads as "nothing asked for" and
+            // redirects — so the obvious reset would bounce straight back to the default. The
+            // marker makes the request say "the unfiltered list, deliberately".
+            if ($default !== null) {
+                $actions[] = Action::make('savedViewNone')
+                    ->label(__('admin.saved_views.all_records'))
+                    ->icon('heroicon-o-bars-3')
+                    ->url(ResourceLink::index(static::getResource(), tableView: 'none'));
+            }
+
+            $actions[] = $this->chooseDefaultViewAction();
             $actions[] = $this->manageSavedViewsAction();
         }
 
@@ -120,6 +142,111 @@ trait SavesTableViews
             ->color('gray')
             ->button()
             ->visible(fn (): bool => $views->isNotEmpty());
+    }
+
+    /**
+     * Choose which saved view this list opens on — the second half of UX-11.
+     *
+     * Offered over the views this user may SEE, not only the ones they own: adopting the team's
+     * shared arrears pack as your landing screen is the case the row is about, and refusing it
+     * would be the half-capability this codebase keeps finding. Marking a shared view sets the
+     * TEAM default, and a colleague's own personal default still wins over it
+     * ({@see TableView::defaultFor()}), so this can never overrule a preference someone stated.
+     *
+     * Blank clears it. A `Select` with no `required()` is the whole of that — an operator who has
+     * changed their mind about landing on a filtered list needs one obvious way back to none.
+     */
+    protected function chooseDefaultViewAction(): Action
+    {
+        return Action::make('chooseDefaultView')
+            ->label(__('admin.saved_views.set_default'))
+            ->icon('heroicon-o-star')
+            ->modalHeading(__('admin.saved_views.set_default'))
+            ->modalDescription(__('admin.saved_views.set_default_description'))
+            ->modalSubmitActionLabel(__('admin.saved_views.set_default'))
+            ->fillForm(fn (): array => [
+                'view_id' => TableView::defaultFor($this->savedViewResourceKey(), Auth::id())?->getKey(),
+            ])
+            ->schema([
+                Select::make('view_id')
+                    ->label(__('admin.saved_views.menu'))
+                    ->placeholder(__('admin.saved_views.no_default'))
+                    ->options(fn (): array => $this->savedViewsForThisList()->pluck('name', 'id')->all()),
+            ])
+            ->visible(fn (): bool => Auth::check())
+            ->authorize(fn (): bool => Auth::check())
+            ->action(function (array $data): void {
+                abort_unless(Auth::check(), 403);
+
+                // Clearing is the blank case and must not require a view to exist.
+                if (blank($data['view_id'] ?? null)) {
+                    TableView::query()
+                        ->where('resource', $this->savedViewResourceKey())
+                        ->ownedBy(Auth::id())
+                        ->update(['is_default' => false]);
+
+                    Notification::make()->title(__('admin.saved_views.default_cleared'))->success()->send();
+
+                    return;
+                }
+
+                // Re-resolved through `visibleTo`, not trusted from the payload: the option list is
+                // a UI convenience and this is the gate. A view someone unshared between the modal
+                // opening and its submit must not become anybody's landing screen.
+                $view = TableView::query()
+                    ->whereKey($data['view_id'])
+                    ->where('resource', $this->savedViewResourceKey())
+                    ->visibleTo(Auth::id())
+                    ->first();
+
+                abort_unless($view !== null, 403);
+
+                $view->makeDefault();
+
+                Notification::make()
+                    ->title(__('admin.saved_views.default_set', ['name' => $view->name]))
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Open this list on the operator's default view, when they have one and asked for nothing else.
+     *
+     * **A redirect, not a state mutation.** This trait's rule is that a view IS a URL and there is
+     * no second code path setting Livewire state; honouring it here keeps the address bar honest —
+     * the operator can see which view they landed on, and paste the link to a colleague.
+     *
+     * Livewire fires trait `mount` hooks exactly once, on the initial page build
+     * (`SupportLifecycleHooks::mount()` → `callTraitHook('mount')`), so this cannot fire on a
+     * filter change or any later Livewire round trip. It is also skipped the moment the request
+     * asks for ANYTHING — a filter, a sort, a search, a tab, an explicit `tableView`, or the
+     * `tableView=none` the menu's "All records" carries — so it can never loop: the URL it redirects
+     * to always carries at least `tableView`.
+     *
+     * Variadic by design: Livewire spreads the component's own mount params into every trait hook,
+     * and a List page that grows one would otherwise fatal here.
+     */
+    public function mountSavesTableViews(mixed ...$params): void
+    {
+        if (request()->query() !== [] || ! Auth::check()) {
+            return;
+        }
+
+        $view = TableView::defaultFor($this->savedViewResourceKey(), Auth::id());
+
+        if ($view === null) {
+            return;
+        }
+
+        $this->redirect(ResourceLink::index(
+            static::getResource(),
+            filters: $view->queryParameters()['filters'] ?? [],
+            sort: $view->queryParameters()['sort'] ?? null,
+            search: $view->queryParameters()['search'] ?? null,
+            tab: $view->queryParameters()['tab'] ?? null,
+            tableView: $view->getKey(),
+        ));
     }
 
     /** Delete one of this user's own saved views. */
