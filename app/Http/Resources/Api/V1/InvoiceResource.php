@@ -3,7 +3,6 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\Invoice;
-use App\Support\Modules;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -65,7 +64,7 @@ class InvoiceResource extends JsonResource
         // ETA (Egyptian Tax Authority) e-invoice references — `eta_status`, `eta_submission_id`
         // and `eta_long_id`, which let the app show a "tax-registered" badge once the portal has
         // accepted the invoice — were REMOVED here on 2026-08-22 with the module-16 freeze
-        // ({@see Modules::FROZEN}). Nothing files an invoice any more, so the three keys could
+        // (`App\Support\Modules::FROZEN`). Nothing files an invoice any more, so the three keys could
         // only ever be null: a value the app would reasonably read as "not filed yet" rather than
         // "this system does not file". Omitted rather than nulled for exactly that reason.
         //
