@@ -18,6 +18,8 @@
 
 use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
+use App\Models\Payroll;
 use App\Settings\AccountingSettings;
 use App\Support\DocumentNumbering;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -49,8 +51,18 @@ it('numbers an invoice with the operator letters', function () {
     // prefix the registry knows and the model ignores would be an inert setting.
     setPrefixes(['invoice' => 'TX']);
 
+    // The reset scheme is stated rather than assumed. This test is about the PREFIX; it read
+    // `TX-AW-202603-` only because monthly happened to be the shipped default, and it broke the day
+    // EG-10 changed that default to the annual reset the market actually uses.
+    setNumberReset(DocumentNumbering::MONTHLY);
+
     expect(Invoice::numberPrefix('AW', new DateTimeImmutable('2026-03-05')))
         ->toBe('TX-AW-202603-');
+
+    setNumberReset(DocumentNumbering::ANNUAL);
+
+    expect(Invoice::numberPrefix('AW', new DateTimeImmutable('2026-03-05')))
+        ->toBe('TX-AW-2026-');
 });
 
 it('reaches every document type, not just the one that was checked', function () {
@@ -181,4 +193,89 @@ it('never starts a lease at a zero-month term', function () {
         ->assertSet('data.term_months', 1);
 
     Filament::setTenant(null, isQuiet: true);
+});
+
+/*
+|--------------------------------------------------------------------------
+| When a series starts counting again (EG-10)
+|--------------------------------------------------------------------------
+|
+| Atriom shipped a MONTHLY reset — `INV-AW-202608-0417` — which is a convention nobody chose and
+| that no major system uses. SAP, Oracle, NetSuite and Odoo reset accounting document numbers per
+| YEAR; Yardi and MRI use continuous control numbers that never reset. Twelve series per mall per
+| year is the kind of thing an auditor asks about, and the answer has to be "we chose that".
+|
+| Like the prefix, this has a DEADLINE rather than a preference: the number is printed on issued
+| documents that cannot be renumbered, so the window closes the day the first invoice is sent.
+*/
+
+function setNumberReset(string $scheme): void
+{
+    $settings = app(AccountingSettings::class);
+    $settings->document_number_reset = $scheme;
+    $settings->save();
+}
+
+it('defaults to the ANNUAL reset the market uses, not the monthly one it shipped with', function () {
+    expect(DocumentNumbering::DEFAULT_RESET)->toBe(DocumentNumbering::ANNUAL)
+        ->and(DocumentNumbering::resetScheme())->toBe(DocumentNumbering::ANNUAL);
+});
+
+it('puts the year, the month or nothing in the number, on the DOCUMENT’s own date', function () {
+    $august = new DateTimeImmutable('2026-08-15');
+
+    setNumberReset(DocumentNumbering::ANNUAL);
+    expect(Invoice::numberPrefix('AW', $august))->toBe('INV-AW-2026-')
+        ->and(JournalEntry::numberPrefix($august))->toBe('JE-2026-');
+
+    setNumberReset(DocumentNumbering::MONTHLY);
+    expect(Invoice::numberPrefix('AW', $august))->toBe('INV-AW-202608-')
+        ->and(JournalEntry::numberPrefix($august))->toBe('JE-202608-');
+
+    // Yardi's behaviour: a continuous control number with no period in it at all. The separator
+    // must not double up — the prefix IS the `LIKE` that finds the last number in the series.
+    setNumberReset(DocumentNumbering::NEVER);
+    expect(Invoice::numberPrefix('AW', $august))->toBe('INV-AW-')
+        ->and(JournalEntry::numberPrefix($august))->toBe('JE-');
+});
+
+it('actually numbers a document the configured way, and keeps counting within the series', function () {
+    // The prefix method is only half of it — this drives the real allocation, which is what an
+    // auditor would be reading.
+    setNumberReset(DocumentNumbering::ANNUAL);
+
+    $asset = makeAsset(['code' => 'AW']);
+    $tenant = makeTenant(['asset_id' => $asset->id]);
+    $lease = makeLease(makeUnit($asset), $tenant);
+
+    $first = makeInvoice($lease, ['issue_date' => '2026-03-01']);
+    $second = makeInvoice($lease, ['issue_date' => '2026-08-15']);
+
+    // March and August are ONE series under an annual reset — that is the whole point.
+    expect($first->number)->toStartWith('INV-AW-2026-')
+        ->and($second->number)->toStartWith('INV-AW-2026-')
+        ->and($second->number)->not->toBe($first->number);
+
+    // …and the next year starts again, which is what makes it a reset rather than a label.
+    $nextYear = makeInvoice($lease, ['issue_date' => '2027-01-04']);
+
+    expect($nextYear->number)->toStartWith('INV-AW-2027-')
+        ->and($nextYear->number)->toEndWith('0001');
+});
+
+it('leaves PAYROLL on the month, because there the month is the run’s identity', function () {
+    // A stated exception. A payroll run is per property per MONTH by definition and there is one of
+    // them, so `202608` names the run rather than resetting a counter — annualising it would give
+    // `PAY-AW-2026-0007` and lose the period the run is for.
+    setNumberReset(DocumentNumbering::ANNUAL);
+
+    expect(Payroll::numberPrefix('AW', new DateTimeImmutable('2026-08-15')))->toBe('PAY-AW-202608-');
+});
+
+it('falls back rather than throwing when the stored scheme is not one we offer', function () {
+    // Numbering runs inside document creation. A hand-edited settings row must not kill a scheduled
+    // billing run — the same reasoning the prefix fallback already uses.
+    setNumberReset('fortnightly');
+
+    expect(DocumentNumbering::resetScheme())->toBe(DocumentNumbering::ANNUAL);
 });

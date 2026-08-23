@@ -405,7 +405,7 @@ credential from the operator/accountant · ⚙️ ops.
 | ~~**EG-07**~~ ✅ | **DONE 2026-08-20.** The picker is gone and `ValueSets` now refuses a non-EGP value on `vendor_contracts.currency` **and** `assets.currency` — the guard, not the dropdown, is what makes it true. The rule both screens follow is stated: **a currency field survives only where the value is PRINTED**, so the asset's stays (it leads the owner statement) visible and read-only with a server-side `Rule::in`, and the vendor contract's went. Not inert, which is why it ranked: the contract value feeds the SLA-penalty basis, so a foreign number reached the GL | X-3 | 🧑‍💻 | S |
 | ~~**EG-08**~~ ✅ | **DONE 2026-08-21.** `holidays` (a register, because Egypt's are ANNOUNCED — the Eids move with the moon and mid-week holidays shift to the Thursday), `CalendarSettings` (Sun–Thu, 09:00–17:00) and `App\Support\WorkingCalendar`. The SLA clock each job is promised on is **frozen onto the job**, and the feature **ships off** — `SlaSettings::sla_working_clock_priorities` is empty, so nothing changes until the operator rules on which priorities are office work. **Three deliberate narrowings from this row, all argued below:** the working WEEK is portfolio-wide (individual dates are per property); PM compliance is excluded; and the reporting week is untouched | C-1..C-4, §3.4 | 🧑‍💻 | L |
 | ~~**EG-09**~~ ✅ | **DONE 2026-08-20.** Registered (`none · fixed_percent · fixed_amount · cpi`), and the lease form's options now DERIVE from the registry rather than from the label catalogue, so the picker cannot offer what the model would refuse. It also closed the drift that proved the point: the field help advertised a **"Step"** type that existed in neither list, and omitted `fixed_amount`. Why the sweep missed it: the column stopped being a DB enum on 2026-08-10, two days before the generator read the live schema | M-7 | 🧑‍💻 | S |
-| **EG-10** | **Decide the document-number reset rule before go-live.** Monthly-per-property reset is a convention nobody chose and cannot be changed afterwards | M-9, §3.6 | 🔑 | S |
+| **EG-10** | ✅ **DECIDED AND BUILT 2026-08-23, by market standard.** Atriom shipped a MONTHLY reset (`INV-AW-202608-0417`) — twelve series per mall per year, a convention **no major system uses**: SAP, Oracle, NetSuite and Odoo all reset accounting document numbers per YEAR, while Yardi and MRI use continuous control numbers. Default is now **annual** (`INV-AW-2026-0417`), and the scheme is a SETTING (`never` · `annual` · `monthly`) because every one of those systems treats a number range as configuration. **An install that has already issued an invoice stays monthly** — the migration reads the books first, so no live series is ever split. **Calendar year, not fiscal**: SAP resets per fiscal year, deliberately not copied, because a March-2027 invoice numbered `…-2026-…` reads as a mistake to anyone who is not an accountant — an operator on an April→March year should choose `never`, which is Yardi's behaviour. **PAYROLL keeps its month** (`PAY-AW-202608-0001`): there the period is the run's identity, not a counter reset | M-9, §3.6 | 🧑‍💻 | S |
 
 ### P1 — real operator pain in the first weeks
 
@@ -1423,6 +1423,45 @@ loops. The second reads the journalizers from disk and fails on one that writes 
 because a journalizer left behind would look identical to the converted ones in review.
 
 ---
+
+### 2026-08-23 — milestone 27: EG-10, and what "needs a decision" actually means
+
+Asked to walk the 🔑 items one by one, I put EG-10 up as a question with three options. The answer
+was not one of them: *"take reference from other systems like yardi or market standards … always
+take into consideration the market standards and how other good systems behave with good UX."*
+
+So the 🔑 marker is **my** classification and most of it does not survive that rule. A row is only
+genuinely blocked when the answer is a FACT about Eltizam — what their leases state, what their
+accountant has ruled, what their tax registrations are. *"Should an invoice series reset monthly,
+annually or never"* is not that: it is a market-standard question, and parking it was the mistake.
+
+**What the market does.** SAP, Oracle, NetSuite and Odoo reset accounting document numbers per YEAR
+— Odoo's sequences (a prefix with a date range and a counter) are the closest analogue to this
+implementation. Yardi Voyager and MRI use continuous control numbers that never reset, with the
+property as a field on the record rather than a segment of the number. **Monthly, which Atriom
+shipped, is used by none of them.**
+
+So: default **annual**, and the scheme is a SETTING (`never` · `annual` · `monthly`), because every
+one of those systems treats a number range as configuration rather than as code.
+
+**An install that has already issued an invoice stays MONTHLY.** Numbers are allocated as
+`MAX(number)` within a prefix, so changing the scheme starts a fresh sequence at 1 and leaves the
+old documents on the old series — harmless on an empty install, exactly the discontinuity an auditor
+would query on a live one. The settings migration reads the books before it decides.
+
+**Calendar year, not fiscal.** SAP resets per fiscal year; deliberately not copied. This system
+already lets a property run an April→March year, and a March-2027 invoice numbered `…-2026-…` reads
+as a mistake to everyone who is not an accountant. An operator whose year is not the calendar year
+should choose `never` — Yardi's behaviour, with no year in the number to disagree with.
+
+**Payroll keeps its month.** `PAY-AW-202608-0001`: a payroll run is per property per month by
+definition and there is one of them, so `202608` names the run rather than resetting a counter.
+Stated as an exception rather than left as an inconsistency.
+
+Six tests updated that had hardcoded the monthly shape. One of them, `InvoiceTest`, was asserting
+"February and March get different sequences" — which was describing the accident rather than the
+requirement, so it now asserts what the test is really about: the numbers are unique and climbing
+within one series.
 
 ### 2026-08-23 — milestone 26: the two registers with no way out
 

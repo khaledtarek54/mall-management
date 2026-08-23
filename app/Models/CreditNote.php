@@ -210,7 +210,7 @@ class CreditNote extends Model
     {
         $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
 
-        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('credit_note'), $assetCode, $issueDate->format('Ym'));
+        return sprintf('%s-%s-%s', DocumentNumbering::prefixFor('credit_note'), $assetCode, DocumentNumbering::periodSegment($issueDate));
     }
 
     public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string

@@ -292,7 +292,7 @@ class VendorBill extends Model
     {
         $billDate = $billDate ? Carbon::instance($billDate) : now();
 
-        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('vendor_bill'), $assetCode, $billDate->format('Ym'));
+        return sprintf('%s-%s-%s', DocumentNumbering::prefixFor('vendor_bill'), $assetCode, DocumentNumbering::periodSegment($billDate));
     }
 
     public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $billDate = null): string

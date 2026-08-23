@@ -182,7 +182,19 @@ class Settings extends Page implements HasSchemas
             Section::make(__('admin.settings.sections.document_numbering'))
                 ->description(__('admin.settings.sections.document_numbering_description'))
                 ->columns(3)
-                ->components(
+                ->components(array_merge(
+                    // The reset scheme first: it shapes every number below it, so choosing a prefix
+                    // before seeing what series it belongs to is the wrong order to read the screen in.
+                    [Select::make('accounting.document_number_reset')
+                        ->label(__('admin.settings.fields.document_number_reset'))
+                        ->options(collect(DocumentNumbering::RESET_SCHEMES)
+                            ->mapWithKeys(fn (string $scheme): array => [
+                                $scheme => __("admin.settings.fields.document_number_reset_options.{$scheme}"),
+                            ])->all())
+                        ->helperText(__('admin.settings.fields.document_number_reset_help'))
+                        ->native(false)
+                        ->required()
+                        ->columnSpanFull()],
                     collect(DocumentNumbering::TYPES)
                         ->map(fn (array $meta, string $type) => TextInput::make("accounting.document_prefixes.{$type}")
                             ->label(__("admin.document_types.{$type}"))
@@ -193,7 +205,7 @@ class Settings extends Page implements HasSchemas
                             ->dehydrateStateUsing(fn ($state) => filled($state) ? strtoupper(trim((string) $state)) : null))
                         ->values()
                         ->all(),
-                ),
+                )),
         ];
     }
 

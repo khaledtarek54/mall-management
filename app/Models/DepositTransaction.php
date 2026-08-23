@@ -146,7 +146,7 @@ class DepositTransaction extends Model
     {
         $date = $date ? Carbon::instance($date) : now();
 
-        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('deposit'), $assetCode, $date->format('Ym'));
+        return sprintf('%s-%s-%s', DocumentNumbering::prefixFor('deposit'), $assetCode, DocumentNumbering::periodSegment($date));
     }
 
     public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string

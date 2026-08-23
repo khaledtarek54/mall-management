@@ -70,6 +70,13 @@ return [
             'payroll_gratuity_days_suffix' => 'يوم',
             'payroll_gratuity_exposure' => 'المستحق حتى تاريخه',
             'payroll_gratuity_exposure_value' => ':amount على :headcount موظفًا نشطًا — ما سيُستحق لو ترك الجميع العمل اليوم.',
+            'document_number_reset' => 'متى يبدأ الترقيم من جديد',
+            'document_number_reset_help' => 'اضبطه قبل أول فاتورة — فالرقم يُطبع على مستندات لا يمكن إعادة ترقيمها. السنوي هو ما تفعله معظم الأنظمة المحاسبية.',
+            'document_number_reset_options' => [
+                'annual' => 'كل سنة — INV-AW-2026-0417',
+                'monthly' => 'كل شهر — INV-AW-202608-0417',
+                'never' => 'لا يبدأ من جديد — INV-AW-0417',
+            ],
             'document_prefix_help' => 'الافتراضي :default. حروف وأرقام، من 2 إلى 6.',
             'default_lease_term_months' => 'مدة العقد الافتراضية',
             'fiscal_year_start_month' => 'تبدأ السنة المالية في',

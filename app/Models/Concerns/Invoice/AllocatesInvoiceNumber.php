@@ -30,7 +30,7 @@ trait AllocatesInvoiceNumber
     {
         $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
 
-        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('invoice'), $assetCode, $issueDate->format('Ym'));
+        return sprintf('%s-%s-%s', DocumentNumbering::prefixFor('invoice'), $assetCode, DocumentNumbering::periodSegment($issueDate));
     }
 
     public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string

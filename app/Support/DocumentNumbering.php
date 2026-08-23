@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Settings\AccountingSettings;
+use Carbon\Carbon;
 use DomainException;
 
 /**
@@ -93,6 +94,76 @@ class DocumentNumbering
      * widen that match or split the series in two.
      */
     public const PATTERN = '/^[A-Z0-9]{2,6}$/';
+
+    /**
+     * When a document series starts counting again — the other half of EG-10.
+     *
+     * Atriom shipped a MONTHLY reset (`INV-AW-202608-0417`), which is a convention nobody chose and
+     * that **no major system uses**. The market splits two ways and neither is monthly:
+     *
+     * - **SAP, Oracle, NetSuite and Odoo** reset accounting document numbers per YEAR. Odoo's
+     *   sequences are the closest analogue to this one — a prefix with a date range and a counter.
+     * - **Yardi Voyager and MRI** use continuous control numbers that never reset; the property or
+     *   entity is a field on the record rather than a segment of the number.
+     *
+     * So `ANNUAL` is the default, and the scheme is CONFIGURABLE because every one of those systems
+     * treats a number range as configuration rather than as code.
+     *
+     * ## The reset is on the DOCUMENT's own date, and it is a calendar year
+     *
+     * SAP resets per FISCAL year. That is deliberately not copied: this system already lets a
+     * property run an April→March year, and a March-2027 invoice numbered `…-2026-…` reads as a
+     * mistake to everyone who is not an accountant. An operator whose fiscal year is not the
+     * calendar year should choose {@see NEVER}, which is Yardi's behaviour and has no year in the
+     * number to disagree with.
+     *
+     * ## Changing it after go-live does the same thing changing a prefix does
+     *
+     * Numbers are allocated as `MAX(number)` within a prefix, so a new scheme means a new prefix
+     * shape and a new sequence starting at 1 — the old documents are untouched. Allowed for the
+     * same reason, surfaced the same way, and it is exactly why this row has a deadline rather than
+     * a preference.
+     */
+    public const NEVER = 'never';
+
+    public const ANNUAL = 'annual';
+
+    public const MONTHLY = 'monthly';
+
+    /** @var array<int, string> */
+    public const RESET_SCHEMES = [self::NEVER, self::ANNUAL, self::MONTHLY];
+
+    /** The market default — see {@see RESET_SCHEMES}'s docblock for why it is not monthly. */
+    public const DEFAULT_RESET = self::ANNUAL;
+
+    /** How this install numbers its series. */
+    public static function resetScheme(): string
+    {
+        $configured = app(AccountingSettings::class)->document_number_reset;
+
+        // A value the settings screen cannot produce falls back rather than throwing, for the same
+        // reason a mistyped prefix does: numbering runs inside document creation, and a scheduled
+        // billing run must not die because a settings row was hand-edited.
+        return in_array($configured, self::RESET_SCHEMES, true) ? $configured : self::DEFAULT_RESET;
+    }
+
+    /**
+     * The period segment of a document number, including its trailing separator.
+     *
+     * `''` · `'2026-'` · `'202608-'`. Returned WITH the dash so a caller composing a prefix does
+     * not have to know whether the segment is present — the `never` scheme would otherwise leave a
+     * double dash, which changes the `LIKE` that finds the last number in the series.
+     */
+    public static function periodSegment(?\DateTimeInterface $date = null): string
+    {
+        $date = $date ? Carbon::instance($date) : Carbon::now();
+
+        return match (self::resetScheme()) {
+            self::NEVER => '',
+            self::MONTHLY => $date->format('Ym').'-',
+            default => $date->format('Y').'-',
+        };
+    }
 
     /** The configured prefix for a document type, or the one it ships with. */
     public static function prefixFor(string $type): string

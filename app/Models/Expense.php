@@ -137,7 +137,7 @@ class Expense extends Model
     {
         $date = $date ? Carbon::instance($date) : now();
 
-        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('expense'), $assetCode, $date->format('Ym'));
+        return sprintf('%s-%s-%s', DocumentNumbering::prefixFor('expense'), $assetCode, DocumentNumbering::periodSegment($date));
     }
 
     public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string

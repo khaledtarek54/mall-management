@@ -53,10 +53,18 @@ it('auto-generates a unique invoice number with the asset code and period', func
     $b = makeInvoice($lease, ['issue_date' => '2026-02-15']);
     $c = makeInvoice($lease, ['issue_date' => '2026-03-01']);
 
-    expect($a->number)->toMatch('/^INV-XY-202602-\d{4}$/');
-    expect($b->number)->toMatch('/^INV-XY-202602-\d{4}$/');
-    expect($c->number)->toMatch('/^INV-XY-202603-\d{4}$/');
-    expect($a->number)->not->toBe($b->number);
+    // One series for the YEAR since EG-10 — February and March invoices share it, which is what
+    // SAP, Oracle, NetSuite and Odoo do and what an auditor following a tax series expects. The
+    // shipped monthly reset gave twelve series a mall a year and nobody had chosen it.
+    expect($a->number)->toMatch('/^INV-XY-2026-\d{4}$/');
+    expect($b->number)->toMatch('/^INV-XY-2026-\d{4}$/');
+    expect($c->number)->toMatch('/^INV-XY-2026-\d{4}$/');
+
+    // Still unique, and still climbing within the series — which is the property this test is
+    // really about, and the one a period reset never guaranteed on its own.
+    expect([$a->number, $b->number, $c->number])->toBe(
+        collect([$a->number, $b->number, $c->number])->unique()->sort()->values()->all(),
+    );
 });
 
 // NOTE: the tests for the legacy Invoice::recalculateBalance() were removed with the method — it

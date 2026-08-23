@@ -214,7 +214,7 @@ class JournalEntry extends Model
     {
         $entryDate = $entryDate ? Carbon::instance($entryDate) : now();
 
-        return sprintf('%s-%s-', DocumentNumbering::prefixFor('journal_entry'), $entryDate->format('Ym'));
+        return sprintf('%s-%s', DocumentNumbering::prefixFor('journal_entry'), DocumentNumbering::periodSegment($entryDate));
     }
 
     public static function generateNumber(?\DateTimeInterface $entryDate = null): string

@@ -2,6 +2,7 @@
 
 namespace App\Settings;
 
+use App\Support\DocumentNumbering;
 use Spatie\LaravelSettings\Settings;
 
 /**
@@ -48,6 +49,18 @@ class AccountingSettings extends Settings
      * @var array<string, string>
      */
     public array $document_prefixes = [];
+
+    /**
+     * When a document series starts counting again — `never` · `annual` · `monthly` (EG-10).
+     *
+     * Defaults to ANNUAL, which is what SAP, Oracle, NetSuite and Odoo do; Yardi and MRI never
+     * reset. Atriom shipped MONTHLY, which no major system uses and nobody chose. See
+     * {@see DocumentNumbering::RESET_SCHEMES}.
+     *
+     * Like the prefix, the window to set it closes at go-live: changing it starts a new series and
+     * leaves the old documents on the old one.
+     */
+    public string $document_number_reset = DocumentNumbering::DEFAULT_RESET;
 
     /**
      * The term a NEW lease form starts from, in months.

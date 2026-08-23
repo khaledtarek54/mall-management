@@ -71,6 +71,13 @@ return [
             'payroll_gratuity_days_suffix' => 'days',
             'payroll_gratuity_exposure' => 'Accrued to date',
             'payroll_gratuity_exposure_value' => ':amount across :headcount active employees — what would be owed if everyone left today.',
+            'document_number_reset' => 'When a series starts again',
+            'document_number_reset_help' => 'Set this before your first invoice — it is printed on documents that cannot be renumbered. Yearly is what most accounting systems do.',
+            'document_number_reset_options' => [
+                'annual' => 'Every year — INV-AW-2026-0417',
+                'monthly' => 'Every month — INV-AW-202608-0417',
+                'never' => 'Never — INV-AW-0417',
+            ],
             'document_prefix_help' => 'Defaults to :default. Letters and digits, 2–6 characters.',
             'default_lease_term_months' => 'Default lease term',
             'fiscal_year_start_month' => 'Fiscal year starts in',
