@@ -53,6 +53,15 @@ Integration creds (see ETA-PAYMOB-CERTIFICATION.md): `PAYMOB_*` (live, after KYC
 > migrations are pending. It prompts on production (`--yes` for a CI caller) and lifts maintenance
 > mode even if a step fails, so a broken deploy cannot leave the site dark with no explanation.
 > The list below is what it does, and remains the manual fallback.
+>
+> **Corrected 2026-08-23:** until then the script ran the nine commands in the block below and
+> skipped the two this section's own prose calls REQUIRED — `atriom:install --force` and
+> `atriom:rebuild-search`. Both are silent when skipped, which is the entire reason for having a
+> script, so both are now in it (`--skip-search` opts out of the re-fold on a very large database),
+> and `DeployScriptRunsTheReleaseSequenceTest` fails the build if a step leaves the script or the
+> two documents drift apart. **The re-fold runs on EVERY release, not only one that changed a
+> `searchTextSources()`** — it compares each fold before writing and skips the row when unchanged,
+> so on a release that touched nothing it is a read-only pass, and nobody has to remember to ask.
 
 ```
 git pull
@@ -61,9 +70,10 @@ npm ci && npm run build             # REQUIRED — app assets AND the handbook; 
 php artisan filament:assets
 php artisan migrate --force
 php artisan atriom:install --force            # REQUIRED on any release adding reference data — see below
-php artisan config:cache && php artisan route:cache && php artisan view:cache
+php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan event:cache
 php artisan storage:link            # once — PDFs/media links
 php artisan queue:restart           # workers pick up new code
+php artisan atriom:rebuild-search   # REQUIRED on any release that changes a searchTextSources()
 ```
 
 > **Re-run `atriom:install` on every release, not only the first.** It is idempotent by design — it

@@ -106,6 +106,7 @@ npm run docs:dev                          # the handbook alone, live-reloading, 
 npm run docs:build                        # the handbook alone → storage/app/handbook (read at /admin/handbook)
 php artisan atriom:install --admin-email=… # FIRST DEPLOY: reference data (roles, chart, mappings, charge codes, fiscal year) + the first super_admin + verifies the DB can post
 php artisan atriom:backup-verify          # restore drill: replay the newest backup into a scratch DB
+./deploy.sh                               # THE release: pull → composer → npm build → migrate → atriom:install --force → caches → queue:restart → rebuild-search → preflight. Refuses on a dirty tree/missing npm/empty public/build; lifts maintenance mode even if a step dies. --skip-migrate, --skip-search, --yes
 php artisan atriom:preflight              # THE pre-deploy gate: health + both data audits + billing:reconcile --deep, in order (--sync also backfills the ledger; read-only otherwise)
 composer qa:baseline                      # ONE-TIME: build the MySQL QA database + dump docs/qa/scripts/baseline.sql
 composer qa [filter]                      # run the pre-staging harness — restores the baseline BEFORE EACH SUITE, then reports pass/fail

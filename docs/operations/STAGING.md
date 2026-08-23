@@ -162,7 +162,9 @@ part of the release.
 > gate: a preflight that only passes while repairing is not one.
 
 Every release after that is **`./deploy.sh`**, which runs the runbook's sequence and deploys
-staging without the production confirm prompt.
+staging without the production confirm prompt — including the two steps above that are easy to
+forget by hand: it re-asserts the reference data and RBAC catalogue (`atriom:install --force`)
+and re-folds the search index on every release (2026-08-23).
 
 ---
 

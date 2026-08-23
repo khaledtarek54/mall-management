@@ -97,9 +97,10 @@ is visible only to someone who happens to open `/admin`.
 *Row corrected 2026-08-16: this was verified 2026-08-11 and went stale two days later.*
 **`./deploy.sh` exists at the repo root.** It is [PRODUCTION-RUNBOOK.md §2](PRODUCTION-RUNBOOK.md)
 in one command — `git pull` → `composer install --no-dev` → `npm ci && npm run build` →
-`migrate --force` → cache rebuild → `queue:restart` → `atriom:health` — and **refuses rather than
+`migrate --force` → **`atriom:install --force`** → cache rebuild → `queue:restart` →
+**`atriom:rebuild-search`** → `atriom:preflight --quick` — and **refuses rather than
 continues**: a dirty working tree, a missing `npm`, an empty `public/build`, or `--skip-migrate`
-with migrations pending all stop it. Production is gated behind a manual confirm; staging deploys
+with migrations pending all stop it. *(The two bold steps were added 2026-08-23: the script had been running the runbook's code block and skipping the two steps its prose calls REQUIRED, both of which fail silently — an empty new catalogue with its screen hidden from everyone, and a stale search fold that reports records as missing.)* Production is gated behind a manual confirm; staging deploys
 freely. Maintenance mode is lifted by an `EXIT` trap, so a failed deploy cannot strand the box on a
 503 with nobody knowing why.
 

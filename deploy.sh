@@ -14,6 +14,8 @@
 #   ./deploy.sh                  # deploy this environment (prompts on production)
 #   ./deploy.sh --yes            # no prompt — for a CI/CD caller
 #   ./deploy.sh --skip-migrate   # code-only release; refuses if migrations are pending
+#   ./deploy.sh --skip-search    # skip the search re-fold (a huge database, and you know this
+#                                # release changed no searchTextSources())
 #
 # Rollback is NOT here on purpose. Restoring a release means restoring its DATABASE too, and
 # `down()` drops columns in 171 of this project's migrations — so a code-only rollback silently
@@ -25,11 +27,13 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 ASSUME_YES=0
 SKIP_MIGRATE=0
+SKIP_SEARCH=0
 
 for arg in "$@"; do
   case "$arg" in
     --yes|-y)       ASSUME_YES=1 ;;
     --skip-migrate) SKIP_MIGRATE=1 ;;
+    --skip-search)  SKIP_SEARCH=1 ;;
     -h|--help)      sed -n '2,22p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -125,6 +129,29 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# The step this script existed to make unforgettable and did not run (added 2026-08-23).
+#
+# A migration creates an EMPTY table; the rows come from a seeder, and `atriom:install` is the only
+# thing that lays down the reference data and re-syncs the RBAC catalogue. Both failure modes are
+# silent and neither is an error:
+#
+#   * a permission that exists only in the seeder file leaves its screen ABSENT FROM THE NAVIGATION
+#     for everyone, including super_admin — `canAccess()` simply returns false. That is how the
+#     Trades and Failure-code registers shipped invisible on 2026-08-20, and it took the operator
+#     opening the panel to find it;
+#   * an upgraded box gets the schema of a new catalogue and none of its content — no rails to
+#     activate, none of the seeded expense categories — while every screen renders normally.
+#
+# It runs in the `--skip-migrate` branch TOO, deliberately: a release can add a permission or a
+# catalogue row with no migration at all, which is exactly what the 2026-08-20 one did.
+#
+# Idempotent by design — it re-asserts reference data, touches no business row, never seeds demo
+# data, and verifies through the journalizers' own resolver that the database can still post.
+step "Re-asserting reference data and permissions"
+php artisan atriom:install --force
+ok "reference data + RBAC catalogue in step with this release"
+
+# ---------------------------------------------------------------------------
 step "Rebuilding caches"
 # optimize:clear first — a cached config from the PREVIOUS release survives otherwise, and the
 # symptom (an env var that will not take effect) looks like a bad .env rather than a stale cache.
@@ -151,6 +178,27 @@ step "Lifting maintenance mode"
 php artisan up
 MAINTENANCE=0
 ok "site is live"
+
+# ---------------------------------------------------------------------------
+# The fold blob is written by the model on save, so a RESTORE or an UPGRADE leaves every existing
+# row carrying the fold of the release before it — and the failure is silent in the worst way: the
+# search bar reports that a record does not exist. The 2026-08-20 trade register is exactly that
+# (`category` left three blobs when it stopped being a column).
+#
+# The runbook's rule was "if a release changes any searchTextSources(), this command is part of the
+# release", which is a question somebody has to remember to ask. It runs every time instead: the
+# rebuild compares the fold before writing and SKIPS the row when it is unchanged, so on a release
+# that touched nothing this is a read-only pass. Chunked by id, written quietly, and it does not
+# move `updated_at`.
+#
+# After `up` on purpose — it is a data pass that is safe while the site is live, and holding the
+# site down for it would trade a silent bug for real downtime.
+if [[ $SKIP_SEARCH -eq 1 ]]; then
+  step "Skipping the search re-fold (--skip-search)"
+else
+  step "Re-folding the search index"
+  php artisan atriom:rebuild-search
+fi
 
 # ---------------------------------------------------------------------------
 # The preflight is the deploy's own verdict. It is reported, not enforced: a stopped worker or a
