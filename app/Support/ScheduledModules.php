@@ -87,6 +87,7 @@ final class ScheduledModules
         'backup:clean' => 'Backups are infrastructure, not a feature — pruning old archives keeps the restore drill affordable and the disk from filling.',
         'backup:monitor' => 'Backups are infrastructure, not a feature. This is the one thing that notices an archive stopped being written at all.',
         'backup:run' => 'Backups are infrastructure, not a feature. A mall that has switched a module off still needs last night\'s data.',
+        'expenses:generate-recurring' => 'The costs that arrive on a calendar rather than on an invoice — real-estate tax, municipal levies, a licence renewal. There is no `expenses` module key because money going OUT is not optional for a property manager, and a statutory cost that stopped booking because somebody switched a feature off would be discovered by the tax authority rather than by the operator.',
         'marketing:ensure-budgets' => 'The marketing budget is part of the money model — a levy is billed to tenants against it — and there is no `marketing` module key. Only the shopper-facing feed (module 36) is toggleable.',
         'billing:reconcile' => 'The weekly tie-out that says WHICH document the books disagree about. Gating a reconciliation on a feature flag is how a discrepancy goes unreported.',
         'billing:remind-overdue-tenants' => 'Billing is core — a mall that cannot invoice is not running Atriom. There is no `billing` key and there should not be one.',

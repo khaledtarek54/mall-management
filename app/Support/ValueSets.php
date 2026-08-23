@@ -25,6 +25,7 @@ use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Models\PaymentMethod;
 use App\Models\PostDatedCheque;
+use App\Models\RecurringExpense;
 use App\Models\RentableItem;
 use App\Models\RetailCategory;
 use App\Models\ServicePlan;
@@ -121,6 +122,11 @@ class ValueSets
         // `ProrationMethod::resolve()` falls back to `actual`, so the lease would quietly bill on a
         // rule nobody chose while the form showed something else.
         'leases.proration_method' => [ProrationMethod::class, 'METHODS'],
+
+        // How often a statutory cost comes round (EG-33). Registered because the generator branches
+        // on it: an unrecognised frequency would fall to a one-month period and book a levy twelve
+        // times a year instead of once.
+        'recurring_expenses.frequency' => [RecurringExpense::class, 'FREQUENCIES'],
 
         // ── Registered 2026-08-22 (EG-37) ──────────────────────────────────────────────────────
         // `ValueSets` covered the 62 columns that were DB enums on 2026-08-12 and nothing since, so
@@ -245,6 +251,9 @@ class ValueSets
         // introduced would be the same gap, one table along.
         'expense_categories.cost_nature' => ['fixed', 'variable'],
         'expenses.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
+        // The same catalogue the expense it mints uses (EG-33) — a schedule that could name a
+        // category the expense cannot would mint a row the saving listener then refuses, nightly.
+        'recurring_expenses.category' => ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'],
         'expenses.paid_from' => ['cash', 'bank'],
         'expenses.status' => ['recorded', 'cancelled'],
         'fiscal_years.status' => ['open', 'closed'],
@@ -507,6 +516,7 @@ class ValueSets
         'disbursements.method' => [PaymentMethod::class, 'outboundCodes'],
         'custody_transactions.category' => [ExpenseCategory::class, 'codes'],
         'expenses.category' => [ExpenseCategory::class, 'codes'],
+        'recurring_expenses.category' => [ExpenseCategory::class, 'codes'],
         'vendor_bills.category' => [ExpenseCategory::class, 'codes'],
         'tenant_requests.category' => [TenantRequestSubcategory::class, 'codes'],
         'tenants.retail_category' => [RetailCategory::class, 'codes'],

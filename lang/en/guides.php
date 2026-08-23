@@ -1922,6 +1922,31 @@ return [
         ],
     ],
 
+    'recurring_expenses' => [
+        'purpose' => 'The costs that arrive on a calendar rather than on an invoice — real-estate tax instalments, municipal levies, a civil-defence licence renewal, a fixed cleaning retainer. Each schedule books its own expense when the period comes round, so nobody has to remember it. Until this existed, recurrence was a revenue-side idea only: leases billed themselves and every outgoing was a reminder in somebody\'s calendar.',
+        'steps' => [
+            'Add a schedule when a cost repeats on a known date for a known amount. If either is a surprise each time, record it as an ordinary expense instead.',
+            'Choose the property. A real-estate tax assessment is issued against a building, so the cost belongs to that building\'s books.',
+            'Enter the assessed amount. This system does not compute real-estate tax — the rate, the rental-value basis and the deduction come from the authority\'s assessment, and a computed guess would put a wrong number on a filing.',
+            'Pick the category. It decides which P&L account the cost books to; "Government fees & licences" ships switched off, so activate it under Expense categories first.',
+            'Set the frequency and the day. Twice a year on the 1st covers the usual Egyptian real-estate tax instalments.',
+            'Leave the end date empty for something with no end, like a licence. Set it for a fixed-term retainer.',
+            'To stop a schedule, switch it off. Costs it has already booked are untouched.',
+        ],
+        'affects' => [
+            'An expense is created automatically when each period arrives, and it posts to the ledger like any other expense — so the P&L, the cash position and any CAM pool that recovers this account all move without anyone typing.',
+            'The expense carries the schedule that made it, so a cost on the P&L can always be traced back to the arrangement that caused it.',
+            'A cost booked to an account inside a CAM pool starts being recovered from tenants through that pool. Choosing the category is therefore a decision about what tenants pay, not only about where the cost sits.',
+            'Nothing is ever booked twice: one expense per schedule per period, enforced by the database rather than by the code being careful.',
+        ],
+        'rules' => [
+            'The schedule books ONE outstanding period per night. A schedule switched back on after six months catches up a month at a time rather than posting six back-dated entries at once.',
+            'Periods before the start date are never back-filled. Set the start date to the first period you want booked.',
+            'The day is clamped to the month, so a schedule set to the 31st books on 28 February rather than skipping it.',
+            'A schedule that has booked a cost cannot be deleted — switch it off. Every P&L and CAM pool that read those expenses is downstream of it.',
+        ],
+    ],
+
     'violation_categories' => [
         'purpose' => 'The mall\'s house rules, as the field officer sees them. Each row is one kind of breach — blocked fire exit, unauthorised signage, after-hours noise — and the standard fine for it. It used to be a fixed list of seven; it is yours now, and it is meant to grow as the handbook does.',
         'steps' => [

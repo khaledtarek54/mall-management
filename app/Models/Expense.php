@@ -82,6 +82,8 @@ class Expense extends Model
         'facility_work_order_id',
         'number',
         'asset_id',
+        // Which recurring schedule minted this cost, if any (EG-33). Null for an ad-hoc expense.
+        'recurring_expense_id',
         'category',
         'reference',
         'description',

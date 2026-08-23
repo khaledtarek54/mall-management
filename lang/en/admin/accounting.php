@@ -1,6 +1,37 @@
 <?php
 
 return [
+    'recurring_expenses' => [
+        'singular' => 'Recurring cost',
+        'plural' => 'Recurring costs',
+        'empty_hint' => 'Costs that arrive on a calendar rather than on an invoice — real-estate tax, municipal levies, a licence renewal, a fixed retainer.',
+        'frequencies' => [
+            'monthly' => 'Monthly',
+            'quarterly' => 'Quarterly',
+            'semiannually' => 'Twice a year',
+            'annually' => 'Once a year',
+        ],
+        'fields' => [
+            'day_of_month' => 'Day of the period',
+            'next_due' => 'Next booking',
+            'nothing_due' => 'Nothing further due',
+            'last_booked' => 'Last booked :date',
+            'no_end' => 'Runs until switched off',
+        ],
+        'help' => [
+            'description' => 'What appears on the expense this books. "Real-estate tax — 2nd instalment" reads better on a P&L than "Tax".',
+            'amount' => 'The assessed figure. This system does not compute real-estate tax — the assessment comes from the authority.',
+            'day_of_month' => 'Clamped to the month, so 31 still books on 28 February.',
+            'starts_on' => 'The first period booked. Earlier periods are never back-filled.',
+            'ends_on' => 'Leave empty for a cost with no end date, such as a licence.',
+            'is_active' => 'Switching off stops future bookings; costs already booked are untouched.',
+        ],
+        'hints' => [
+            'category' => 'Decides which P&L account the cost books to. Government fees and licences ships switched off — activate it under Expense categories.',
+            'tax_code' => 'Leave empty for a levy outside VAT, which most statutory charges are.',
+        ],
+    ],
+
 
     'budget' => [
         'title' => 'Budget',

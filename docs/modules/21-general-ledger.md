@@ -665,6 +665,29 @@ about charts. The report no longer reads a code.
 - **The cash branch is tested BEFORE the zero-impact guard**: a cash account whose movement nets to
   zero over the period still contributes to the running cash figure.
 
+### A recurring cost SCHEDULE is not a GL source (EG-33, 2026-08-23)
+
+`recurring_expenses` books the costs that arrive on a calendar rather than on an invoice —
+real-estate tax instalments, municipal levies, a licence renewal. Yardi's Recurring Payables, which
+this system had no counterpart to: recurrence existed only on the revenue side.
+
+**It must never be registered in `LedgerPoster::JOURNALIZERS`.** The schedule mints an `Expense`,
+and that is already a source — so a journalizer here would post every levy TWICE and balance both
+times, which is exactly the trap `WorkOrderIsACostObjectNotAGlSourceTest` gates for facility work
+orders. The same rule, arrived at from the other direction: a thing that CAUSES money to move is not
+itself a movement of money.
+
+Verified end to end on real data rather than asserted: `EXP-AW-2026-0008` for 48,000 booked by a
+semiannual real-estate tax schedule, posting `JE-2026-0562` through the ordinary expense
+journalizer.
+
+**Booking a statutory cost twice is real money**, so the generator is belt and braces: the schedule
+row is taken with `lockForUpdate()`, the due date is re-derived INSIDE the transaction *after* the
+lock (a value read before the wait answers from a snapshot taken before the other writer committed),
+and `expenses.(recurring_expense_id, expense_date)` is UNIQUE underneath. It also catches up ONE
+period per run, so a schedule reactivated after six months cannot post six back-dated entries into
+periods that may be closed.
+
 ### A statement is read by the chart's own subtotals (EG-28, 2026-08-22)
 
 `App\Support\StatementGroups` — the second half of EG-28, and the one that closes it.

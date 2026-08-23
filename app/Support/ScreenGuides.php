@@ -75,6 +75,7 @@ use App\Filament\Admin\Resources\PayrollRates\PayrollRateResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
+use App\Filament\Admin\Resources\RecurringExpenses\RecurringExpenseResource;
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Filament\Admin\Resources\RentIndices\RentIndexResource;
 use App\Filament\Admin\Resources\RetailCategories\RetailCategoryResource;
@@ -231,6 +232,7 @@ class ScreenGuides
         DocumentTemplateResource::class => 'document_templates',
         PayrollRateResource::class => 'payroll_rates',
         CustomFieldResource::class => 'custom_fields',
+        RecurringExpenseResource::class => 'recurring_expenses',
         ViolationCategoryResource::class => 'violation_categories',
         VendorDocumentTypeResource::class => 'vendor_document_types',
         TenantRequestSubcategoryResource::class => 'tenant_request_subcategories',

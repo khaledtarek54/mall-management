@@ -22,6 +22,7 @@ return [
             'tenant_request_subcategory' => 'Request subcategory',
             'document_template' => 'Document wording',
             'payroll_rate' => 'Payroll rate',
+            'recurring_expense' => 'Recurring cost',
             'custom_field' => 'Custom field',
             'violation_category' => 'Violation category',
             'vendor_document_type' => 'Vendor document type',

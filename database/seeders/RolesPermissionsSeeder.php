@@ -217,6 +217,12 @@ class RolesPermissionsSeeder extends Seeder
             // normal request, and needing a super_admin for it is the friction this exists to
             // remove. A definition destroys nothing — the key is immutable and deletion is refused
             // once anyone has answered it.
+            // The costs that come round every period (EG-33). Accounting owns them: a real-estate
+            // tax instalment is a statutory filing position, not an operational purchase.
+            'recurring_expenses.view' => 'View the recurring cost schedules',
+            'recurring_expenses.create' => 'Add a recurring cost schedule',
+            'recurring_expenses.edit' => 'Change or switch off a recurring cost schedule',
+            'recurring_expenses.delete' => 'Remove a schedule that has booked nothing',
             'custom_fields.view' => 'View the fields your organisation added to a record type',
             'custom_fields.create' => 'Add a field to a record type',
             'custom_fields.edit' => 'Rename or retire a custom field',

@@ -40,6 +40,7 @@ use App\Filament\Admin\Resources\PayrollRates\PayrollRateResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
+use App\Filament\Admin\Resources\RecurringExpenses\RecurringExpenseResource;
 use App\Filament\Admin\Resources\RentIndices\RentIndexResource;
 use App\Filament\Admin\Resources\RetailCategories\RetailCategoryResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
@@ -237,6 +238,7 @@ class SearchPolicy
         DocumentTemplateResource::class => 'A handful of rows the operator writes once and revises rarely, found by opening the screen rather than by searching. Searching for a phrase should find the DOCUMENT that carries it — the invoice, the statement — not the template it was written in.',
         PayrollRateResource::class => 'One row a year, and nobody searches for a year — the accountant opens the ladder to add next January\'s decree or to check what was in force. There is no name, code or reference to fold: every column is a number or a date.',
         ViolationCategoryResource::class => 'Seven-odd house rules a compliance manager configures and a field officer picks from a dropdown. Searching for "signage" should find the BREACH, not the rule it was filed under, and that already works through the violation blob.',
+        RecurringExpenseResource::class => 'A handful of CONFIGURATION rows an operator sets up once and reviews yearly — a real-estate tax schedule, a licence renewal. Searching for "real-estate tax" should find the EXPENSES it booked, which the expense blob already answers; surfacing the schedule above them would put a setting where the money should be.',
         CustomFieldResource::class => 'The DEFINITIONS of the operator\'s own fields — configuration, not records. Searching for "parent group" should find the TENANT whose parent group it is, not the row that says tenants have one; making the definitions findable would put a settings row above every record it describes.',
         VendorDocumentTypeResource::class => 'A handful of compliance-paper kinds an operator configures once. Searching for "insurance" should find the VENDOR whose certificate is lapsing, not the word for the certificate, and that already works through the vendor blob.',
         TenantRequestSubcategoryResource::class => 'A closed vocabulary of about thirty problems an operator configures once and a tenant picks from a dropdown. Nobody hunts for "Lift / escalator" from the top bar; they open a request and choose it.',

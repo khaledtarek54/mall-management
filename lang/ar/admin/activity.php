@@ -22,6 +22,7 @@ return [
             'tenant_request_subcategory' => 'تصنيف فرعي للطلب',
             'document_template' => 'نص مستند',
             'payroll_rate' => 'نسبة رواتب',
+            'recurring_expense' => 'مصروف دوري',
             'custom_field' => 'حقل مخصص',
             'violation_category' => 'بند مخالفة',
             'vendor_document_type' => 'نوع مستند مورّد',

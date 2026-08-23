@@ -81,6 +81,7 @@ use App\Models\PostDatedCheque;
 use App\Models\PropertySetting;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestLine;
+use App\Models\RecurringExpense;
 use App\Models\RentableItem;
 use App\Models\RentIndex;
 use App\Models\ReportPreference;
@@ -247,6 +248,7 @@ class MorphMap
         'property_setting' => PropertySetting::class,
         'purchase_request' => PurchaseRequest::class,
         'purchase_request_line' => PurchaseRequestLine::class,
+        'recurring_expense' => RecurringExpense::class,
         'rentable_item' => RentableItem::class,
         'role' => Role::class,
         'report_preference' => ReportPreference::class,

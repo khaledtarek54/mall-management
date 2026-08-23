@@ -158,6 +158,16 @@ Schedule::command('vendors:scan-contract-renewals')
     ->name('atriom-scan-contract-renewals')
     ->withoutOverlapping();
 
+// The costs that come round every period — real-estate tax, municipal levies, a
+// licence renewal, a fixed retainer (EG-33). DAILY rather than monthly because
+// the schedules do not share a day: one property's tax instalment falls in March
+// and September, another's licence renews in July. Idempotent and lock-safe, and
+// `expenses.(recurring_expense_id, expense_date)` is UNIQUE underneath it.
+Schedule::command('expenses:generate-recurring')
+    ->dailyAt('05:30')
+    ->name('atriom-generate-recurring-expenses')
+    ->withoutOverlapping();
+
 // Monthly housekeeping. Drops activity rows older than the operator's retention
 // period — `AccountingSettings::activity_log_retention_days`, five years by
 // default, 0 to keep everything (EG-34). Ours rather than Spatie's

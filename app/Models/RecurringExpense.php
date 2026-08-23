@@ -1,0 +1,181 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Services\GenerateRecurringExpensesService;
+use App\Support\Attributes\DeletableWhenUnused;
+use App\Support\Attributes\PropertyOwned;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
+
+/**
+ * مصروف دوري — a cost that comes round every period whether or not anyone remembers it (EG-33).
+ *
+ * Recurrence existed only on the revenue side: `charges` bill a lease every cycle, and every cost
+ * arriving on a calendar rather than on an invoice was somebody's reminder. Real-estate tax,
+ * municipal levies, the annual civil-defence licence, a fixed retainer. Yardi calls these Recurring
+ * Payables.
+ *
+ * ## It mints expenses; it is not one
+ *
+ * {@see GenerateRecurringExpensesService} creates an {@see Expense} per due period,
+ * and THAT posts to the ledger through the journalizer that already exists. The schedule must never
+ * be registered in `LedgerPoster::JOURNALIZERS` — it would post every levy twice, and balance both
+ * times. Same reasoning that keeps a facility work order a cost object rather than a GL source.
+ *
+ * ## The amount is the operator's figure, not a computed one
+ *
+ * Egyptian real-estate tax has a rate, a rental-value basis, a 32% non-residential maintenance
+ * deduction and an assessment issued per property. None of that is modelled here on purpose: the
+ * assessed figure is a fact the operator holds, and computing it from guessed rates would produce a
+ * confident wrong number on a statutory filing.
+ */
+#[DeletableWhenUnused(
+    blockedBy: ['expenses'],
+    instead: 'Switch it off. A schedule that has already booked costs explains why those expenses exist, and every P&L and CAM pool that read them is downstream of it.',
+)]
+#[PropertyOwned]
+class RecurringExpense extends Model
+{
+    use LogsActivity;
+    use RefusesDeletionWhenReferenced;
+    use SoftDeletes;
+
+    public const MONTHLY = 'monthly';
+
+    public const QUARTERLY = 'quarterly';
+
+    /** Egyptian real-estate tax is payable in two instalments, which is why this one exists. */
+    public const SEMIANNUALLY = 'semiannually';
+
+    public const ANNUALLY = 'annually';
+
+    /** @var array<int, string> */
+    public const FREQUENCIES = [self::MONTHLY, self::QUARTERLY, self::SEMIANNUALLY, self::ANNUALLY];
+
+    /** How many months one period spans. */
+    public const MONTHS_PER_PERIOD = [
+        self::MONTHLY => 1,
+        self::QUARTERLY => 3,
+        self::SEMIANNUALLY => 6,
+        self::ANNUALLY => 12,
+    ];
+
+    protected $fillable = [
+        'asset_id',
+        'description',
+        'category',
+        'amount',
+        'tax_code',
+        'frequency',
+        'day_of_month',
+        'starts_on',
+        'ends_on',
+        'last_generated_on',
+        'is_active',
+        'notes',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'day_of_month' => 'integer',
+        'starts_on' => 'immutable_date',
+        'ends_on' => 'immutable_date',
+        'last_generated_on' => 'immutable_date',
+        'is_active' => 'boolean',
+    ];
+
+    protected $attributes = [
+        'frequency' => self::MONTHLY,
+        'day_of_month' => 1,
+        'is_active' => true,
+    ];
+
+    public function asset(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class);
+    }
+
+    /** What this schedule has already booked — and what makes it undeletable once it has. */
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    /** How many months one period of this schedule spans. */
+    public function periodMonths(): int
+    {
+        return self::MONTHS_PER_PERIOD[$this->frequency] ?? 1;
+    }
+
+    /**
+     * The date of the next period due on or before `$on`, or null when nothing is due.
+     *
+     * Walks forward from `starts_on` in whole periods rather than adding to `last_generated_on`:
+     * a schedule switched off for six months and back on must not silently mint six back-dated
+     * expenses, and it must not lose its place either. The first period on or after the stamp is
+     * the answer, and the sweep asks again tomorrow.
+     *
+     * The day is CLAMPED to the month's length, so a schedule set to the 31st does not skip the
+     * seven months that are shorter — the same trap `BillingDay` records.
+     */
+    public function nextDueOn(CarbonImmutable $on): ?CarbonImmutable
+    {
+        if (! $this->is_active) {
+            return null;
+        }
+
+        $months = $this->periodMonths();
+        $cursor = $this->periodDate(CarbonImmutable::instance($this->starts_on));
+
+        // Skip whole periods already generated. Bounded rather than `while (true)`: a corrupt stamp
+        // must not spin a nightly job for ever.
+        for ($i = 0; $i < 600; $i++) {
+            if ($this->ends_on !== null && $cursor->greaterThan(CarbonImmutable::instance($this->ends_on))) {
+                return null;
+            }
+
+            $alreadyDone = $this->last_generated_on !== null
+                && ! $cursor->greaterThan(CarbonImmutable::instance($this->last_generated_on));
+
+            if (! $alreadyDone) {
+                return $cursor->greaterThan($on) ? null : $cursor;
+            }
+
+            $cursor = $this->periodDate($cursor->addMonthsNoOverflow($months));
+        }
+
+        return null;
+    }
+
+    /** The schedule's own day within a month, clamped so a 31 never skips February. */
+    private function periodDate(CarbonImmutable $month): CarbonImmutable
+    {
+        return $month->day(min(max($this->day_of_month, 1), $month->daysInMonth));
+    }
+
+    /** @param  Builder<self>  $query */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'description', 'category', 'amount', 'tax_code', 'frequency',
+                'day_of_month', 'starts_on', 'ends_on', 'is_active', 'notes',
+            ])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->useLogName('recurring_expense');
+    }
+}
