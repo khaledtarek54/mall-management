@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Lease;
 use App\Models\Unit;
+use App\Support\DocumentText;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -33,11 +34,11 @@ class LeaseExpiryApproachingNotification extends Notification implements ShouldQ
     {
         return (new MailMessage)
             ->subject(__('admin.notifications.lease_expiry_subject', ['reference' => $this->lease->reference]))
-            ->line(__('admin.notifications.lease_expiry_mail', [
+            ->line(DocumentText::for('lease.expiry_approaching', $this->lease->assetId(), [
                 'unit' => $this->unitCode(),
                 'days' => $this->daysUntil(),
                 'date' => $this->lease->expiry_date->format('d/m/Y'),
-            ]))
+            ]) ?? '')
             ->line(__('admin.notifications.lease_expiry_hint'));
     }
 

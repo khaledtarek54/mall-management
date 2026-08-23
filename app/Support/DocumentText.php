@@ -59,6 +59,9 @@ final class DocumentText
         'invoice.payment_instructions',
         'invoice.terms',
         'dunning.overdue_reminder',
+        'dunning.late_fee_applied',
+        'receipt.payment_received',
+        'lease.expiry_approaching',
     ];
 
     public const KEYS = [
@@ -86,6 +89,28 @@ final class DocumentText
         'dunning.overdue_reminder' => [
             'floor' => 'admin.notifications.invoice_overdue_reminder_mail',
             'tokens' => ['number', 'days', 'amount'],
+        ],
+
+        // A penalty notice. Yardi templates this for the reason an operator would give: a late fee
+        // is the message most likely to be argued with, and the sentence that announces it is the
+        // one a leasing manager wants to have written themselves.
+        'dunning.late_fee_applied' => [
+            'floor' => 'admin.notifications.late_fee_applied_mail',
+            'tokens' => ['fee', 'number', 'balance'],
+        ],
+
+        // The acknowledgement. Short, and the one message a tenant is pleased to get — which is
+        // exactly why an operator wants their own voice in it rather than the system's.
+        'receipt.payment_received' => [
+            'floor' => 'admin.notifications.payment_received_body',
+            'tokens' => ['amount', 'method', 'date'],
+        ],
+
+        // The renewal conversation's opening line. Commercially the most valuable of the four: it
+        // is the first thing said about whether the tenant is staying.
+        'lease.expiry_approaching' => [
+            'floor' => 'admin.notifications.lease_expiry_mail',
+            'tokens' => ['unit', 'days', 'date'],
         ],
     ];
 

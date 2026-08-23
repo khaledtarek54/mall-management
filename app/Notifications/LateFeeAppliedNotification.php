@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Invoice;
 use App\Services\LateFeeService;
+use App\Support\DocumentText;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -38,11 +39,11 @@ class LateFeeAppliedNotification extends Notification implements ShouldQueue
             // The OVERDUE invoice in the subject: that is the one the tenant recognises and the one
             // they need to act on. The fee invoice is a document they have never seen before.
             ->subject(__('admin.notifications.late_fee_applied_subject', ['number' => $this->overdueInvoice->number]))
-            ->line(__('admin.notifications.late_fee_applied_mail', [
+            ->line(DocumentText::for('dunning.late_fee_applied', $this->overdueInvoice->asset_id, [
                 'fee' => 'EGP '.number_format($this->fee(), 2),
                 'number' => $this->overdueInvoice->number,
                 'balance' => 'EGP '.number_format((float) $this->overdueInvoice->balance, 2),
-            ]))
+            ]) ?? '')
             ->line(__('admin.notifications.late_fee_invoice_line', [
                 'number' => $this->feeInvoice->number,
                 // `due_date` is NOT NULL on invoices — no fallback to hedge against.

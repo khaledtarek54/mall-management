@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Support\DocumentText;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -28,7 +29,7 @@ class PaymentReceivedNotification extends Notification
         return (new MailMessage)
             ->subject(__('admin.notifications.payment_received_subject', ['reference' => $this->payment->reference]))
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->payment->tenant?->name ?? '']))
-            ->line(__('admin.notifications.payment_received_body', [
+            ->line(DocumentText::for('receipt.payment_received', $this->payment->invoices->first()?->asset_id, [
                 'amount' => 'EGP '.number_format((float) $this->payment->amount, 2),
                 // admin.enums.method is the canonical map (the same one the tables and filters
                 // read). The old key `admin.fields.payment_methods.*` never existed, and the
@@ -36,7 +37,7 @@ class PaymentReceivedNotification extends Notification
                 // which is truthy — so the raw key was emailed to the tenant.
                 'method' => PaymentMethod::labelFor($this->payment->method),
                 'date' => $this->payment->payment_date->format('d/m/Y'),
-            ]))
+            ]) ?? '')
             ->when($invoiceLines !== '', fn (MailMessage $m) => $m->line(__('admin.notifications.payment_received_allocations', ['invoices' => $invoiceLines])))
             ->line(__('admin.notifications.payment_received_thanks'));
     }

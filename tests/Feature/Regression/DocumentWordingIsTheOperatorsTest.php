@@ -219,3 +219,42 @@ it('sends the operator wording in the overdue email, not the shipped sentence', 
 
     expect(collect($mail->introLines)->implode(' '))->toContain('Kindly settle');
 });
+
+it('lets the operator write the late-fee, receipt and renewal notices too', function () {
+    // Four tenant-facing notices, not one. Yardi templates every notice for a reason a leasing
+    // manager would give: a late fee is the message most likely to be argued with, a receipt is the
+    // one a tenant is pleased to get, and the expiry notice is the first thing said about whether
+    // they are staying. `TenantFacingWordingIsTheOperatorsConformanceTest` is what stops the fifth
+    // one shipping un-templated.
+    $mall = makeAsset(['code' => 'TW']);
+
+    $cases = [
+        'dunning.late_fee_applied' => ['fee' => 'EGP 500.00', 'number' => 'INV-9', 'balance' => 'EGP 9,000.00'],
+        'receipt.payment_received' => ['amount' => 'EGP 3,000.00', 'method' => 'Bank transfer', 'date' => '01/09/2026'],
+        'lease.expiry_approaching' => ['unit' => 'AW-12', 'days' => 45, 'date' => '31/12/2026'],
+    ];
+
+    foreach ($cases as $key => $tokens) {
+        // The floor renders and carries the figures — nothing is blank on a fresh install.
+        expect(DocumentText::for($key, $mall->id, $tokens))->not->toBeNull("{$key} renders nothing at its floor.");
+
+        DocumentTemplate::create([
+            'asset_id' => $mall->id,
+            'key' => $key,
+            'body_en' => "OURS {$key}: ".implode(' ', array_map(fn ($t) => '{'.$t.'}', array_keys($tokens))),
+            'is_active' => true,
+        ]);
+
+        $written = DocumentText::for($key, $mall->id, $tokens);
+
+        expect($written)->toStartWith("OURS {$key}:");
+
+        // Every token substituted — a template naming a token the caller does not pass would leave
+        // a brace on a tenant's email.
+        foreach ($tokens as $value) {
+            expect($written)->toContain((string) $value);
+        }
+
+        expect($written)->not->toContain('{');
+    }
+});
