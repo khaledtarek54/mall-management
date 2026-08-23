@@ -120,6 +120,46 @@ Livewire property and Livewire takes what the payload says, not what the `Select
 > already guarantees (including that a URL beats a stale session filter), and it can be pasted to a
 > colleague as a plain link.
 >
+> **…and the COLUMNS are part of it (EG-32, 2026-08-23).** A view stored everything about what the
+> list was showing except the columns — the one part an operator had to redo by hand. Filament
+> persists a column layout in the SESSION, so the choice survived a reload and nothing else: it did
+> not travel with a shared view, was gone tomorrow, and opening a named view left whatever the
+> browser happened to be showing. S-5 called that *"no user-defined columns"*, which is only half
+> right — this app marks **173** columns toggleable and Filament v4 ships the manager. Work orders
+> offer **13** optional columns and tenant requests **10**; what was missing was making the choice
+> durable and shareable. (Worth knowing: **`ListInvoices` offers none at all** — the busiest money
+> list has no column choice to save. Which of its ten columns should be optional is a judgement for
+> the operator, not a default worth guessing.)
+>
+> The layout is far too big for a query string and Filament binds none of it to the URL, so the link
+> carries **`?tableView={id}`** and the page reads the columns back — which keeps a view a single
+> pasteable URL instead of growing the second code path the paragraph above rules out. Because the
+> id is in the URL, a refresh re-applies the view's columns, exactly as it re-applies its filters.
+>
+> **Only the toggles are stored** (`name => isToggled`), and only for columns that are toggleable at
+> all: a fixed column records no decision, and storing it would pin today's fixed set into a row
+> read a year from now. Labels and hidden flags are deliberately not stored — they are re-derived
+> from the reader's table every time.
+>
+> **A view that states no columns opens on the list DEFAULTS**, not on whatever the session held.
+> A view is a named state a colleague must be able to open and see what you saw. Views saved before
+> this shipped state none, so they open on the defaults.
+>
+> **Sharing still grants nothing, and now that has two layers.** The layout is rebuilt from the
+> READER's own `getDefaultTableColumnState()`, so a name their table does not carry is never
+> introduced. On top of that Filament's `syncTableColumnStateItemAttributes()` re-derives `label`,
+> `isHidden` and `isToggleable` and forces a fixed column back on. **Upstream is the layer currently
+> doing the work** — measured, by deleting our own guard and watching the security test stay green —
+> so `SavedTableViewsTest` pins Filament's half as a contract, the same way
+> `FilamentActionDispatchContractTest` pins hidden-implies-disabled, and an upgrade that changes it
+> turns the build red rather than quietly removing the protection.
+>
+> **Column REORDERING is deliberately not enabled.** Filament supports it
+> (`Table::reorderableColumns()`, one line in `TableDefaults`), but `HasColumnManager` throws a
+> `LogicException` for any column with a blank label when reordering is on, and two table columns
+> here use `->label('')` — so flipping it globally would 500 those lists. It needs a label sweep
+> across all 62 resources first, which is its own change.
+>
 > **Stored in `table_views`, not `saved_reports`.** They are the same idea and not the same record:
 > `saved_reports` carries the scheduled-delivery half (`frequency`, `recipients`,
 > `last_delivered_on`), and emailing someone "the leases list" is not a thing. Those columns would

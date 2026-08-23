@@ -48,6 +48,45 @@ class TableView extends Model
     }
 
     /**
+     * Which columns this view was saved showing — `name => isToggled`, or `[]` if it stated none.
+     *
+     * Deliberately NOT part of {@see queryParameters()}: a column layout is far too big for a query
+     * string, and Filament does not bind one to the URL. It travels as `?tableView={id}`, so a saved
+     * view is still a LINK — which is what makes a shared one show a colleague the same columns.
+     *
+     * Only the toggles are stored, never the labels or the hidden flags that sit beside them in
+     * Filament's own state. Those are re-derived from the VIEWER's table every time
+     * ({@see \Filament\Tables\Concerns\HasColumnManager::syncTableColumnStateItemAttributes()}
+     * overwrites `label`, `isToggleable` and `isHidden` from the current default state), so storing
+     * them would be storing a stale snapshot of somebody else's screen. It is also what makes a
+     * shared view safe: the layout is rebuilt from what the reader may already see, so a view saved
+     * by someone with wider rights cannot turn on a column their colleague's table does not have.
+     *
+     * Values are cast rather than trusted — this is JSON written by one version of the feature and
+     * read by another, the same reasoning that makes `queryParameters()` an allowlist.
+     *
+     * @return array<string, bool>
+     */
+    public function columnState(): array
+    {
+        $columns = ($this->state ?? [])['columns'] ?? null;
+
+        if (! is_array($columns)) {
+            return [];
+        }
+
+        $state = [];
+
+        foreach ($columns as $name => $isToggled) {
+            if (is_string($name) && $name !== '') {
+                $state[$name] = (bool) $isToggled;
+            }
+        }
+
+        return $state;
+    }
+
+    /**
      * The query string this view reopens, restricted to the four keys a Filament list page binds.
      *
      * Anything else in `state` is dropped rather than passed through: the column is JSON written

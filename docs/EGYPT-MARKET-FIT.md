@@ -370,7 +370,7 @@ operator will want to change in week one.
 | S-2 | **One chart, one fiscal calendar, for the whole install.** `ledger_accounts.code` is globally unique; `fiscal_years.year` is globally unique with no `asset_id`; periods are exactly 12 calendar months; the start month is **refused once anything is posted**. Pick the wrong month before go-live and no owner on a different year-end can ever be onboarded | `2026_06_30_000001_...:18`; `2026_06_30_000002_...:18,25-36`; `app/Services/Accounting/FiscalCalendar.php:42-53` | 🔴 |
 | S-3 | 🟡 **HALF FIXED 2026-08-22 (EG-27).** The invisible-money half is closed: every statement now declares what it is leaving out, with the amount and the remedy. The **consolidated view is still unreachable**, deliberately — reaching it reopens a decision already taken the other way. ~~**Consolidated books exist in the service layer and are unreachable in the panel.**~~ The property switcher never offers "All Properties" and the report picker is pinned+disabled. Combined with `whereIn('je.asset_id', $ids)` never matching NULL, **any operator-level or cross-property journal entry is invisible in every financial statement an operator can open.** Module 21's doc still advertises "per-property & consolidated" | `app/Models/User.php:151-153`; `app/Support/Filament/PropertyField.php:146-147`; `LedgerReportService.php:472` | 🔴 |
 | S-4 | ✅ **CLOSED 2026-08-22 (EG-28).** Cash flow is driven by `ledger_accounts.cash_flow_section`, not by code prefixes; the `parent_id` rollup now drives statement layout via `App\Support\StatementGroups`; the chart IMPORTER shipped the same day. ~~**Financial-statement layout is a PHP `match()` on `ledger_accounts.type`**~~, and the chart's own `parent_id` rollup hierarchy is read by **no report**. The cash-flow statement classifies by **literal code prefixes** (`111`, `121`, `12`, `22`…). **If the accountant hands over a different Egyptian chart:** a chart not numbered 1–5 by nature is *refused at save*; one numbered 1–5 with different sub-ranges *saves fine and silently misclassifies the cash-flow statement* — and `reconciled` will not catch it, because it only re-asserts the double-entry identity. There is also **no chart importer** | `app/Support/StatementGroups.php`; `LedgerReportService.php:163-227,280-303`; `app/Models/LedgerAccount.php:39-45,131-148,197-209` | 🟢 |
-| S-5 | **No report builder.** 23 catalogued reports, every column a PHP literal, no user-defined columns or groupings. The *parameter* layer is genuinely good (saved views, per-user memory, scheduled delivery, CSV+XLSX) but saves **filters/sort/search/tab only, never columns**. Against Yardi's Report Builder this is the largest ongoing cost multiplier per additional owner | `app/Support/ReportCatalogue.php:85-118`; `app/Models/TableView.php:59-69` | 🔴 |
+| S-5 | 🟡 **PART CORRECTED, PART DONE 2026-08-23.** *"No user-defined columns"* was **overstated**: this app marks **173** columns toggleable and Filament v4 ships a column manager — work orders offer 13 optional columns, tenant requests 10. What was true is the second half: a saved view stored **filters/sort/search/tab only, never columns**, and Filament persists a layout in the SESSION, so the choice did not travel with a shared view and was gone tomorrow. Columns now ride the view as `?tableView={id}`. **Still open:** no report BUILDER for the 23 catalogued report pages (their columns are PHP literals), no user-defined groupings, and column REORDERING is off pending a blank-label sweep. `ListInvoices` offers no toggleable column at all | `app/Support/ReportCatalogue.php:85-118`; `app/Models/TableView.php`; `app/Filament/Admin/Resources/Concerns/SavesTableViews.php` | 🟡 |
 | S-6 | 🟡 **HALF FIXED 2026-08-22 (EG-15 slice 1)** — `document_templates` + a screen now carry the invoice's footer, payment instructions and terms, property-overridable with the old lang key as the floor. **Messages are untouched**: no mail tab, no dunning wording, and still no `RichEditor` in the app. ~~**No operator-editable document or message templates anywhere.**~~ No `document_templates` table, no terms/footer settings field, **no `RichEditor` in the entire app**, no mail tab on the settings page. Every invoice footer, dunning letter and SLA email is a deploy. **This is the single largest "the operator cannot run their own business" gap** | searches named; `app/Filament/Admin/Pages/Settings.php:91-98` | 🔴 |
 | S-7 ✅ | **FIXED 2026-08-21 (EG-05).** ~~A fake `.test` address prints on every issued invoice PDF.~~ `__('admin.pdf.footer')` interpolates `billing@:slug.test` — rendering e.g. `billing@atriom-walk.test` on a legal tax document, and on tenant/asset statements. Verified in all four lang files. **One settings field plus four string edits; cheapest item in this report and the most embarrassing** | `resources/views/invoices/pdf.blade.php:332`; `lang/en/admin/reports.php:324`, `lang/ar/admin/reports.php:323`, `lang/en/admin/accounting.php:439`, `lang/ar/admin/accounting.php:432` | 🔴 |
 | ~~S-8~~ ✅ | **FIXED 2026-08-21 (EG-16), completed after review.** The first cut reached all twelve TEMPLATES and only seven SERVICES: five called `forView()` with no asset, so the owner statement — the document Jawad actually receives — rendered `$asset` in its own party block while the logo beside the issuer name was unconditionally absent. The gate only checked the `@include` was present. Both halves are gated now, and a report filtered to one mall carries that mall's letterhead via `forViewScopedTo()`. ~~No mall logo on any PDF~~ | `app/Support/IssuingEntity.php` | 🟠 |
@@ -438,7 +438,7 @@ credential from the operator/accountant · ⚙️ ops.
 | **EG-29** | **Configurable proration method** (30/360 · actual/actual · actual/365 · whole month), per property or per charge code | M-1 | 🧑‍💻 + 🔑 | M |
 | ~~**EG-30**~~ ✅ | **DONE 2026-08-22 — both halves.** **M-6:** `leases.escalation_interval_months`, nullable, null = twelve, read through `Lease::escalationIntervalMonths()`. Two things the tests caught: Carbon's `addMonths()` OVERFLOWS a month-end date (31 Aug + 18 months → 2 March, not the last day of February), so the roll is `addMonthsNoOverflow()`; and a 0 from an importer would roll the date nowhere and make the sweep reconsider that lease daily for ever, so the accessor floors at one month. **M-2:** `charges.billing_timing` — per CHARGE, not per lease, because the case that matters is MIXED (rent ahead, service charge behind, one lease). Both ride the SAME invoice, each arrears line naming the month it covers. **A second invoice per lease per month was rejected on evidence:** `alreadyBilledForMonth()` has silently suppressed a lease's base rent FIVE times over a second invoice dated into a billed month, and every one was a ONE-OFF — a recurring one would fire monthly for every arrears lease. Stated cost of that choice: the invoice header's period no longer bounds every line, which it already did not (late fees, utility recharges and violation fines all ride on invoices covering another window). An arrears row prorates against the month it COVERS, and produces nothing on a lease's first invoice because that month predates the lease. Ships with every charge in advance — null is the normal state and no figure moves | M-2, M-6 | 🧑‍💻 | M |
 | **EG-31** | **USD-indexed / EGP-denominated rent** — the index on the escalation path, no GL change. **Do this instead of full multi-currency unless the client insists otherwise** | X-4, §3.5 | 🧑‍💻 + 🔑 | M |
-| **EG-32** | **Report builder / user-defined columns**, and **custom fields (UDFs)** — the two biggest structural gaps vs the market standard | S-5, D-7 | 🧑‍💻 | XL |
+| **EG-32** | 🟡 **SLICE 1 DONE 2026-08-23 — a saved view remembers its columns.** The cheapest real part of S-5, and the part the finding got wrong: columns were already user-selectable, just not durable or shareable. **Still open and still XL:** a report BUILDER for the 23 catalogued report pages, user-defined groupings, column reordering (needs a blank-label sweep — two table columns use `->label('')` and `reorderableColumns()` throws on them), and **custom fields / UDFs (D-7), which is untouched and is the larger half** | S-5, D-7 | 🧑‍💻 | XL |
 | **EG-33** | **Real-estate tax and municipal levies as a recurring statutory cost** — there is no recurring-expense concept at all today | T-8, §3.6 | 🧑‍💻 + 🔑 | M |
 | **EG-34** | **Configurable retention policy** (activity log is pruned at 365 days from a hardcoded config value), per PDPL's documented-retention obligation | S-16, §3.6 | 🧑‍💻 + 🔑 | S |
 | **EG-35** | 🟡 **TWO OF FOUR DONE 2026-08-22 — and the row is really four separate pieces of work, not one M.** **Shipped:** the late-fee CAP, on the same three tiers its siblings already had (lease clause → property → portfolio, `leases.late_fee_maximum` + `BillingSettings::late_fee_maximum`, 0 = no cap), and the DEPOSIT default, which was the literal `3` in `LeaseCreationService`'s `$rent * 3` and is now a per-property setting. Both ship at today's behaviour, so no figure moves. **Recurrence shipped later the same day** (milestone 21) — it was deferred because it needed a schema change on a money link, which is what a separate change is for. **Still not shipped:** the ROUNDING mode (M-10) is 540 money sites, changes every stored figure, and nobody has asked for banker's rounding; and a QUARTERLY CAM true-up (M-12) is **not a schedule change at all** — `cam_expense_pools` is `unique(asset_id, period_year)`, one pool per property per YEAR, so the pool's own period must change first and that is an L across the CAM module | M-8, M-11, M-12, M-10 | 🧑‍💻 | M |
@@ -1422,6 +1422,57 @@ loops. The second reads the journalizers from disk and fails on one that writes 
 because a journalizer left behind would look identical to the converted ones in review.
 
 ---
+
+### 2026-08-23 — milestone 22: EG-32 slice 1 — a saved view remembers its columns
+
+The first slice of EG-32, and the one where **verifying the finding changed what got built**.
+
+S-5 says *"no report builder … every column a PHP literal, no user-defined columns or groupings"*.
+The first half is overstated: this app marks **173** columns `toggleable()` and Filament v4 ships a
+column manager. Work orders offer **13** optional columns and tenant requests **10** — an operator
+can already choose. What was actually missing is the half the same row states correctly: a saved view
+stored **filters, sort, search and tab, never columns**, and Filament persists a layout in the
+**session**. So the choice survived a page reload and nothing else — it did not travel with a shared
+view, was gone tomorrow, and opening a named view left whatever the browser happened to be showing.
+That is a real cost, and it is the one an operator pays every morning.
+
+Had I built to the row as written, the work would have been a report builder. The row's own evidence
+pointed at `TableView.php:59-69` — `queryParameters()`, an allowlist of exactly four keys.
+
+**Columns travel as `?tableView={id}`.** The layout is far too big for a query string and Filament
+binds none of it to the URL, so the link names the view and the page reads the columns back. That
+matters because `SavesTableViews` states a design rule in writing — *"a view is a URL … there is no
+second code path that sets Livewire state directly"* — and an id in the URL honours it: a saved view
+stays a single pasteable link, and a colleague opening it sees the same columns.
+
+**Only the toggles are stored**, and only for columns that are toggleable at all. A fixed column
+records no decision — Filament forces its toggle back on when it re-syncs — so storing it would be
+noise that reads as a choice and would pin today's fixed set into a row read a year from now. Labels
+and hidden flags are not stored either: they are re-derived from the reader's own table every time.
+
+**A view that states no columns opens on the list DEFAULTS**, not on whatever the session held. A
+view is a named state a colleague must be able to open and see what you saw; "whatever your browser
+was showing" is not a state anyone named.
+
+**The security property has two layers, and only one is ours.** The layout is rebuilt from the
+READER's `getDefaultTableColumnState()`, so a name their table does not carry is never introduced.
+On top of that Filament's `syncTableColumnStateItemAttributes()` re-derives `label`, `isHidden` and
+`isToggleable` and forces a fixed column back on. Mutation testing showed **upstream is the layer
+actually doing the work** — deleting our own guard leaves the security test green — so rather than
+claim a protection we do not provide, `SavedTableViewsTest` now pins Filament's half as a contract,
+the same way `FilamentActionDispatchContractTest` pins hidden-implies-disabled. An upgrade that
+changes it turns the build red instead of quietly removing the guarantee.
+
+**Two things deliberately not done, each with its reason.** Column REORDERING is one line in
+`TableDefaults` (`reorderableColumns()`) and would 500 two lists: `HasColumnManager` throws a
+`LogicException` for any blank-label column when reordering is on, and two table columns here use
+`->label('')`. It needs a label sweep across 62 resources, which is its own change. And **`ListInvoices`
+offers no toggleable column at all** — the busiest money list has no column choice to save; which of
+its ten should be optional is a judgement for the operator, not a default worth guessing.
+
+7 new cases in `SavedTableViewsTest` (20 → 27), every one mutation-checked: making the apply hook
+inert fails 3, storing non-toggleable columns fails 1. The "opens on the defaults" case dirties the
+session first, because otherwise it would pass just as happily against a feature that does nothing.
 
 ### 2026-08-22 — milestone 21: EG-28's other half — a statement is read by the chart's own subtotals
 

@@ -211,3 +211,228 @@ it('renders every list page that carries saved views', function (string $page) {
     ListTenants::class,
     ListFacilityWorkOrders::class,
 ]);
+
+/*
+|--------------------------------------------------------------------------
+| The columns are part of the view (EG-32 / S-5)
+|--------------------------------------------------------------------------
+|
+| A saved view stored filters, sort, search and tab — everything about what the list was showing
+| EXCEPT the columns, which is the one part an operator had to redo by hand. Filament persists a
+| column layout in the SESSION, so it survived a page reload and nothing else: it did not travel
+| with a shared view, did not come back tomorrow, and applying a named view left whatever the
+| browser happened to be showing.
+|
+| That is what S-5 called "no user-defined columns", and the finding is only half right — this app
+| marks 173 columns toggleable and Filament v4 ships the manager. Work orders offer 13 optional
+| columns and tenant requests 10. What was missing was making the choice durable and shareable.
+|
+| The claim under test is the same one the rest of this file makes: a view is a BOOKMARK, not a
+| capability. Columns travel as an id in the URL and the layout is rebuilt from the READER's own
+| table, so a view saved by someone with wider rights cannot turn on a column their colleague's
+| table does not have.
+*/
+
+/** The list's default column state with one column's toggle flipped. */
+function columnStateWith(array $default, string $name, bool $isToggled): array
+{
+    return collect($default)->map(function (array $item) use ($name, $isToggled): array {
+        if (isset($item['columns'])) {
+            $item['columns'] = collect($item['columns'])->map(fn (array $c): array => toggledOff($c, $name, $isToggled))->all();
+
+            return $item;
+        }
+
+        return toggledOff($item, $name, $isToggled);
+    })->all();
+}
+
+function toggledOff(array $column, string $name, bool $isToggled): array
+{
+    if (($column['name'] ?? null) === $name) {
+        $column['isToggled'] = $isToggled;
+    }
+
+    return $column;
+}
+
+it('saves the columns the list is currently showing', function () {
+    Livewire::withQueryParams([]);
+
+    asTenant($this->asset, function () {
+        $page = Livewire::test(ListFacilityWorkOrders::class);
+
+        // Turn one of the thirteen optional columns off, the way the column manager does.
+        $page->call('applyTableColumnManager', columnStateWith($page->get('tableColumns'), 'area.name', false))
+            ->callAction('saveTableView', ['name' => 'Without area']);
+    });
+
+    $columns = TableView::sole()->columnState();
+
+    expect($columns)->toHaveKey('area.name')
+        ->and($columns['area.name'])->toBeFalse()
+        // The control: a column left alone is recorded as ON, not omitted. A view states the whole
+        // layout, so opening it is deterministic rather than "whatever was already showing".
+        ->and($columns['priority'])->toBeTrue();
+});
+
+it('stores only the columns the operator can actually choose', function () {
+    // A fixed column records no decision — Filament forces its toggle back on when it re-syncs —
+    // so storing it would be storing noise that reads as a decision, and would pin today's fixed
+    // set into a row read a year from now.
+    Livewire::withQueryParams([]);
+
+    asTenant($this->asset, function () {
+        Livewire::test(ListFacilityWorkOrders::class)->callAction('saveTableView', ['name' => 'Everything']);
+    });
+
+    $columns = TableView::sole()->columnState();
+
+    expect($columns)->toHaveKey('area.name')          // toggleable
+        ->and($columns)->not->toHaveKey('reference'); // fixed
+});
+
+it('reopens a view on the columns it was saved with', function () {
+    $view = TableView::create([
+        'resource' => 'facility-work-orders',
+        'name' => 'Without area',
+        'state' => ['columns' => ['area.name' => false, 'priority' => true]],
+        'user_id' => $this->user->id,
+        'is_shared' => false,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => $view->id]);
+
+    asTenant($this->asset, function () {
+        $page = Livewire::test(ListFacilityWorkOrders::class);
+
+        expect($page->instance()->isTableColumnToggledHidden('area.name'))->toBeTrue()
+            // Paired control — a refusal-shaped assertion passes just as happily when the whole
+            // mechanism is a no-op that hides everything.
+            ->and($page->instance()->isTableColumnToggledHidden('priority'))->toBeFalse();
+    });
+});
+
+it('opens a view that states no columns on the list defaults', function () {
+    // Views saved before this shipped carry no column state. They open on the defaults rather than
+    // inheriting whatever the browser was showing: a view is a named state a colleague must be able
+    // to open and see what you saw, and "whatever your session had" is not a state anyone named.
+    $view = TableView::create([
+        'resource' => 'facility-work-orders',
+        'name' => 'Legacy',
+        'state' => ['filters' => ['status' => ['value' => 'open']]],
+        'user_id' => $this->user->id,
+        'is_shared' => false,
+    ]);
+
+    asTenant($this->asset, function () {
+        // Dirty the session first, or this test proves nothing: "opens on the defaults" is also
+        // what a completely inert feature produces. Filament persists a layout in the session, so
+        // turning a column off here is the state the legacy view has to overrule.
+        Livewire::withQueryParams([]);
+        $dirty = Livewire::test(ListFacilityWorkOrders::class);
+        $dirty->call('applyTableColumnManager', columnStateWith($dirty->get('tableColumns'), 'priority', false));
+
+        expect($dirty->instance()->isTableColumnToggledHidden('priority'))->toBeTrue();
+    });
+
+    Livewire::withQueryParams(['tableView' => $view->id]);
+
+    asTenant($this->asset, function () {
+        $page = Livewire::test(ListFacilityWorkOrders::class);
+        $default = $page->instance()->getDefaultTableColumnState();
+
+        foreach ($default as $item) {
+            foreach ($item['columns'] ?? [$item] as $column) {
+                expect($page->instance()->isTableColumnToggledHidden($column['name']))
+                    ->toBe(! $column['isToggled']);
+            }
+        }
+    });
+});
+
+it('cannot introduce a column the reader’s own table does not have', function () {
+    // The security property. A shared view is rebuilt from the READER's default column state, so a
+    // name that table does not carry is never introduced and a fixed column cannot be forced off.
+    $colleague = makeUser('manager', [$this->asset->id]);
+
+    $view = TableView::create([
+        'resource' => 'facility-work-orders',
+        'name' => 'Crafted',
+        'state' => ['columns' => [
+            'not_a_column_on_this_table' => true,
+            'reference' => false,   // a FIXED column — not the operator's to switch off
+            'area.name' => false,   // a genuine choice, which must still be honoured
+        ]],
+        'user_id' => $colleague->id,
+        'is_shared' => true,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => $view->id]);
+
+    asTenant($this->asset, function () {
+        $page = Livewire::test(ListFacilityWorkOrders::class);
+
+        $names = [];
+        foreach ($page->get('tableColumns') as $item) {
+            foreach ($item['columns'] ?? [$item] as $column) {
+                $names[] = $column['name'];
+            }
+        }
+
+        expect($names)->not->toContain('not_a_column_on_this_table')
+            ->and($page->instance()->isTableColumnToggledHidden('reference'))->toBeFalse()
+            // The control: the legitimate half of the same view still applies.
+            ->and($page->instance()->isTableColumnToggledHidden('area.name'))->toBeTrue();
+    });
+});
+
+it('ignores a view id that is not this user’s to open, without refusing the page', function () {
+    $stranger = makeUser('manager', [makeAsset()->id]);
+
+    $private = TableView::create([
+        'resource' => 'facility-work-orders',
+        'name' => 'Not shared',
+        'state' => ['columns' => ['area.name' => false]],
+        'user_id' => $stranger->id,
+        'is_shared' => false,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => $private->id]);
+
+    asTenant($this->asset, function () {
+        // The list opens on its defaults. Deliberately not a 403: the id names a display
+        // preference, not a record, and a deleted bookmark should not take the page down with it.
+        Livewire::test(ListFacilityWorkOrders::class)
+            ->assertOk()
+            ->tap(fn ($page) => expect($page->instance()->isTableColumnToggledHidden('area.name'))->toBeFalse());
+    });
+});
+
+it('pins Filament’s own refusal to switch off a column that is not toggleable', function () {
+    // The upstream half of the previous test's guarantee, pinned as a CONTRACT.
+    //
+    // `applySavedViewColumns()` carries its own `isToggleable` check, and deleting it leaves the
+    // security test green — because `HasColumnManager::syncTableColumnStateItemAttributes()` forces
+    // `isToggled` back to true for a fixed column. That makes upstream the layer actually doing the
+    // work, and an upstream implementation detail is exactly the thing that changes in a release
+    // and silently removes a protection. So this asserts Filament's behaviour directly, the same
+    // way `FilamentActionDispatchContractTest` pins hidden-implies-disabled.
+    Livewire::withQueryParams([]);
+
+    asTenant($this->asset, function () {
+        $page = Livewire::test(ListFacilityWorkOrders::class);
+
+        // Hand the column manager a state that switches a FIXED column off.
+        $page->call('applyTableColumnManager', columnStateWith($page->get('tableColumns'), 'reference', false));
+
+        expect($page->instance()->isTableColumnToggledHidden('reference'))->toBeFalse()
+            // The control: the same call on a genuinely toggleable column IS honoured, so this is
+            // not passing because `applyTableColumnManager` ignored the whole state.
+            ->and($page->instance()->isTableColumnToggledHidden('area.name'))->toBeFalse();
+
+        $page->call('applyTableColumnManager', columnStateWith($page->get('tableColumns'), 'area.name', false));
+
+        expect($page->instance()->isTableColumnToggledHidden('area.name'))->toBeTrue();
+    });
+});

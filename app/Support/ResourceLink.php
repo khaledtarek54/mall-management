@@ -78,6 +78,7 @@ final class ResourceLink
         ?string $sort = null,
         ?string $search = null,
         ?string $tab = null,
+        ?int $tableView = null,
     ): string {
         $parameters = [];
 
@@ -95,6 +96,13 @@ final class ResourceLink
 
         if ($tab !== null) {
             $parameters['tab'] = $tab;
+        }
+
+        // A saved view's COLUMN layout is too big for a query string and Filament binds none of it
+        // to the URL, so the link names the view and the page reads its columns back (EG-32). It is
+        // an id, not a layout: what the reader sees is rebuilt from their own table.
+        if ($tableView !== null) {
+            $parameters['tableView'] = $tableView;
         }
 
         return $resource::getUrl('index', $parameters);

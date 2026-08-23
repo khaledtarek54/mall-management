@@ -95,13 +95,17 @@ trait SavesTableViews
             return Action::make('savedView'.$view->id)
                 ->label($view->name)
                 ->icon($isOwn ? 'heroicon-o-bookmark' : 'heroicon-o-user-group')
-                // A link, not a state mutation — see the class docblock.
+                // A link, not a state mutation — see the class docblock. `tableView` carries the
+                // id so the COLUMNS travel with it too: a layout is far too big for a query string,
+                // and this keeps a saved view a single pasteable URL rather than growing a second
+                // code path that sets Livewire state directly.
                 ->url(ResourceLink::index(
                     static::getResource(),
                     filters: $view->queryParameters()['filters'] ?? [],
                     sort: $view->queryParameters()['sort'] ?? null,
                     search: $view->queryParameters()['search'] ?? null,
                     tab: $view->queryParameters()['tab'] ?? null,
+                    tableView: $view->id,
                 ));
         })->all();
 
@@ -204,6 +208,130 @@ trait SavesTableViews
     }
 
     /**
+     * Which columns the operator is looking at, as `name => isToggled`.
+     *
+     * Only the TOGGLEABLE ones. A column that cannot be turned off records no choice — Filament
+     * forces its `isToggled` to true when it re-syncs — so storing it would be storing noise that
+     * looks like a decision, and would pin today's fixed columns into a row read a year from now.
+     *
+     * Column GROUPS are walked into rather than stored as containers: names are unique across a
+     * table, so a flat map reapplies correctly whether or not the column still sits in a group.
+     *
+     * @return array<string, bool>
+     */
+    protected function savedViewColumnToggles(): array
+    {
+        $toggles = [];
+
+        foreach ($this->tableColumns ?? [] as $item) {
+            foreach ($item['columns'] ?? [$item] as $column) {
+                if (($column['isToggleable'] ?? false) && isset($column['name'])) {
+                    $toggles[$column['name']] = (bool) ($column['isToggled'] ?? true);
+                }
+            }
+        }
+
+        return $toggles;
+    }
+
+    /**
+     * Apply the columns of the view named in the URL, if there is one.
+     *
+     * Livewire calls `booted{TraitName}` after `mount`, and Filament's own
+     * `bootedInteractsWithTable()` calls `initTableColumnManager()`. **Either order converges**:
+     * that method returns early when `$tableColumns` is already filled, and re-applying an
+     * already-applied state is idempotent — so this does not depend on the order two traits happen
+     * to be listed in.
+     *
+     * It runs on every Livewire request and does nothing on almost all of them: `tableView` is a
+     * plain query parameter, present only on the page load the link produced. After that Filament's
+     * own session persistence carries the layout, exactly as it does for a hand-toggled column — so
+     * opening a view does not re-pin its columns every time the operator changes one.
+     */
+    public function bootedSavesTableViews(): void
+    {
+        $id = request()->query('tableView');
+
+        if (! is_numeric($id) || ! Auth::check()) {
+            return;
+        }
+
+        $view = TableView::query()
+            ->whereKey((int) $id)
+            ->where('resource', $this->savedViewResourceKey())
+            ->visibleTo(Auth::id())
+            ->first();
+
+        // Silently, and deliberately not a 403. The id names a display preference, not a record:
+        // a view someone deleted, or one belonging to a colleague who never shared it, should open
+        // the list on its default columns rather than refuse the whole page.
+        if ($view === null) {
+            return;
+        }
+
+        $this->applySavedViewColumns($view->columnState());
+    }
+
+    /**
+     * Rebuild Filament's column state from THIS user's table, adopting only the stored toggles.
+     *
+     * Built from `getDefaultTableColumnState()` outward rather than from the stored row inward,
+     * which is what makes a shared view safe: a name the current table does not have is never
+     * introduced, and a column this user may not toggle keeps whatever the table says.
+     *
+     * **Two layers, and only one of them is ours.** Filament's own
+     * `syncTableColumnStateItemAttributes()` re-derives `label`, `isHidden` and `isToggleable` from
+     * the current default state and forces `isToggled` back to true for a non-toggleable column —
+     * measured, by deleting the guard in {@see savedViewColumn()} and watching the security test
+     * stay green. So upstream is what currently enforces it and ours is the stated intent. Both are
+     * kept for the reason the action-authorization seam gives: an upstream implementation detail
+     * can change in a release and would silently remove the protection, so
+     * `SavedTableViewsTest` pins Filament's half as a contract and turns the build red if an
+     * upgrade changes it.
+     *
+     * An EMPTY map resets the list to its default columns instead of leaving whatever was in the
+     * session. A view is a named state that a colleague must be able to open and see what you saw;
+     * "whatever your browser happened to be showing" is not a state anyone named. Views saved
+     * before this shipped state no columns and therefore open on the defaults.
+     *
+     * @param  array<string, bool>  $toggles
+     */
+    protected function applySavedViewColumns(array $toggles): void
+    {
+        $state = collect($this->getDefaultTableColumnState())
+            ->map(function (array $item) use ($toggles): array {
+                if (isset($item['columns'])) {
+                    $item['columns'] = collect($item['columns'])
+                        ->map(fn (array $column): array => $this->savedViewColumn($column, $toggles))
+                        ->all();
+
+                    return $item;
+                }
+
+                return $this->savedViewColumn($item, $toggles);
+            })
+            ->all();
+
+        $this->applyTableColumnManager($state);
+    }
+
+    /**
+     * One column, taking the saved toggle when the view stated one and this table allows it.
+     *
+     * @param  array<string, mixed>  $column
+     * @param  array<string, bool>  $toggles
+     * @return array<string, mixed>
+     */
+    protected function savedViewColumn(array $column, array $toggles): array
+    {
+        if (($column['isToggleable'] ?? false) && array_key_exists($column['name'] ?? '', $toggles)) {
+            $column['isToggled'] = $toggles[$column['name']];
+        }
+
+        return $column;
+    }
+
+    /**
      * What the list is carrying right now, in query-string shape.
      *
      * Filters are stripped of their empty slots before storing. Filament's filter form fills
@@ -221,6 +349,9 @@ trait SavesTableViews
             'search' => $this->tableSearch,
             // 'all' is the default tab; storing it would make the view fight a later default.
             'tab' => ($this->activeTab === null || $this->activeTab === 'all') ? null : $this->activeTab,
+            // The columns are the other half of "what this list is showing", and until EG-32 a view
+            // saved every part of that except the one an operator had to redo by hand each morning.
+            'columns' => $this->savedViewColumnToggles(),
         ], fn ($value) => $value !== null && $value !== '' && $value !== []);
     }
 
