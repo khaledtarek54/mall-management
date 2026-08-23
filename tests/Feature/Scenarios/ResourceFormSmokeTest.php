@@ -24,11 +24,13 @@ use Livewire\Livewire;
  *
  * ## What this covers, and what it deliberately does not
  *
- * **Create pages only.** An Edit page needs a valid, saved record of its own model, and
- * manufacturing one for fifty models generically is a fixture project that would fail for reasons
- * unrelated to rendering. Most resources share ONE schema class between Create and Edit, so
- * mounting Create exercises it; where they genuinely differ, the Edit path stays uncovered and is
- * named here rather than implied.
+ * **Create pages only — and the Edit half now has its own sweep.** This said, for months, that
+ * manufacturing a valid record for fifty models was a fixture project. That stopped being true once
+ * `DemoSeeder` produced a real record for essentially every model, so
+ * `ResourceEditFormSmokeTest` opens 57 of the 60 Edit pages on seeded rows. The distinction still
+ * matters and is why they are two files: a closure typed `?Vendor $record` with no import resolves
+ * only when a record is PRESENT, so this sweep passes on it and its sibling fails — which is
+ * exactly how the vendor edit form once 500'd in production behind a green suite.
  *
  * **Mount, not interaction.** This asserts the schema builds and renders. It would NOT have caught
  * the `$get` bug above, which fired from `afterStateUpdated` — that needs a form to be driven, and
