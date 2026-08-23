@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
+use App\Support\Filament\CustomFieldsTable;
 use App\Support\LeaseTerm;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\ImportColumn;
@@ -165,6 +166,10 @@ class LeaseImporter extends Importer
                 // reached through the approval and cancellation workflows, and importing a lease
                 // straight into either would skip the steps that put it there.
                 ->rules(['nullable', 'in:draft,active,expired,renewed,terminated']),
+
+            // The operator's own fields (D-7), LAST so an existing mapping template's column
+            // order is untouched. Optional: a sheet that names none imports as it always did.
+            ...CustomFieldsTable::importColumns('lease'),
         ];
     }
 

@@ -5,12 +5,15 @@ use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
 use App\Filament\Exports\TenantExporter;
+use App\Filament\Imports\TenantImporter;
 use App\Models\CustomField;
 use App\Models\Tenant;
 use App\Support\CustomFields;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\Filament\CustomFieldsTable;
+use App\Support\Search\SearchText;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Actions\Imports\Models\Import;
 use Livewire\Livewire;
 
 /**
@@ -512,4 +515,71 @@ it('does not offer a column or filter for a field that was retired', function ()
     expect(CustomFieldsTable::columns('tenant'))->toBe([])
         ->and(CustomFieldsTable::filters('tenant'))->toBe([])
         ->and(CustomFieldsTable::exportColumns('tenant'))->toBe([]);
+});
+
+it('folds an answer into the record’s own search blob', function () {
+    // The top bar could not find a tenant by their parent group. `metadata` is this row's own
+    // attribute, so indexing it honours `searchTextSources()`'s one hard rule — never reach through
+    // a relation — and the blob re-folds whenever the record saves.
+    defineField();
+    $tenant = makeTenant();
+
+    expect($tenant->fresh()->search_text)->not->toContain('americana');
+
+    $tenant->fillCustomFields(['parent_group' => 'Americana Group'])->save();
+
+    expect($tenant->fresh()->search_text)->toContain('americana')
+        // Found the way the search bar asks, with BOTH sides folded.
+        ->and(Tenant::whereRaw('search_text like ?', ['%'.SearchText::normalize('Americana').'%'])->pluck('id'))
+        ->toContain($tenant->id);
+});
+
+it('does not index a boolean answer as a search term', function () {
+    // "1" is not a search term, and indexing it would match every record carrying any number.
+    defineField(['key' => 'listed', 'type' => 'boolean']);
+    $tenant = makeTenant();
+    $before = $tenant->fresh()->search_text;
+
+    $tenant->fillCustomFields(['listed' => true])->save();
+
+    expect($tenant->fresh()->search_text)->toBe($before);
+});
+
+it('imports an answer from a spreadsheet, and refuses a key the catalogue never defined', function () {
+    // The last direction the operator's own data could not travel. Routing through
+    // `fillCustomFields()` means an import gets the same key filtering and casting a form does.
+    defineField();
+    defineField(['key' => 'units_worldwide', 'type' => 'number']);
+
+    $columns = CustomFieldsTable::importColumns('tenant');
+    $names = array_map(fn ($c) => $c->getName(), $columns);
+
+    expect($names)->toBe(['cf_parent_group', 'cf_units_worldwide']);
+
+    // Driven through the REAL importer, not by asserting a column exists: `fillRecordUsing` runs
+    // inside Filament's own fill pass, and a column that never reaches the record looks identical
+    // in a shape assertion.
+    $import = new Import([
+        'file_name' => 'tenants.csv',
+        'file_path' => 'tenants.csv',
+        'importer' => TenantImporter::class,
+        'total_rows' => 1,
+    ]);
+    $import->user_id = makeUser('manager', [makeAsset()->id])->id;
+    $import->save();
+
+    (new TenantImporter($import, [
+        'name' => 'Name',
+        'email' => 'Email',
+        'cf_parent_group' => 'Parent group',
+        'cf_units_worldwide' => 'Units',
+    ], []))([
+        'Name' => 'Americana Egypt',
+        'Email' => 'ops@americana.test',
+        'Parent group' => 'Americana Group',
+        'Units' => '120',
+    ]);
+
+    expect(Tenant::where('email', 'ops@americana.test')->sole()->customFieldValues())
+        ->toBe(['parent_group' => 'Americana Group', 'units_worldwide' => 120]);
 });

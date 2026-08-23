@@ -154,11 +154,38 @@ Livewire property and Livewire takes what the payload says, not what the `Select
 > `FilamentActionDispatchContractTest` pins hidden-implies-disabled, and an upgrade that changes it
 > turns the build red rather than quietly removing the protection.
 >
-> **Column REORDERING is deliberately not enabled.** Filament supports it
-> (`Table::reorderableColumns()`, one line in `TableDefaults`), but `HasColumnManager` throws a
-> `LogicException` for any column with a blank label when reordering is on, and two table columns
-> here use `->label('')` — so flipping it globally would 500 those lists. It needs a label sweep
-> across all 62 resources first, which is its own change.
+> **Column REORDERING is ON since 2026-08-23**, panel-wide, from the one line in `TableDefaults`.
+> `HasColumnManager` throws a `LogicException` for any blank-label column when reordering is on, so
+> it needed a sweep first — and the sweep, run by building every admin list rather than by grepping,
+> found exactly **one**: `MarketingPostsTable::hero`, the card thumbnail, plus its portal twin. Both
+> now carry the label the form field already had. (Six other `->label('')` calls in `app/Filament`
+> are FORM components, which the column manager never sees.)
+> `ReorderableColumnsConformanceTest` keeps it true, and **asserts its own premise** — that
+> reordering is actually switched on — because a blank label is only fatal BECAUSE it is.
+>
+> **A saved view stores the ORDER as well as the toggles**, under its own `column_order` key: which
+> columns show and what order they show in are different questions, and a row saved before
+> reordering existed answers only the first. An empty order means the table's own, and a column the
+> saved order never mentions keeps its place at the END — so a column added to the resource later
+> appears rather than vanishing because an old row failed to mention it.
+>
+> **The 23 catalogued REPORTS remember their columns too (EG-32).** `ReportParameters::snapshot()`
+> reads a page's own public scalar properties and deliberately excludes trait-provided ones, so
+> Filament's `$tableColumns` was invisible to it and a saved report reset its columns on every open.
+> `SavesReportViews` now captures the layout beside the parameters and the hub's link carries
+> `?savedReport={id}`, exactly as a resource list's saved view carries `?tableView={id}`. Both go
+> through **one** implementation, `App\Support\Filament\SavedColumnLayout` — two copies is how the
+> two would drift into remembering different things.
+>
+> The guard is `method_exists($this, 'getDefaultTableColumnState')`, not a list of page classes:
+> several catalogued "reports" are not tables at all (the workflow diagram, the occupancy map) and a
+> list would be one more thing to keep in step with the catalogue.
+>
+> **What this does NOT make is a report designer.** Which columns a report offers as optional is
+> still a per-report editorial decision, and most offer none today — `RentRoll` offers three,
+> AR ageing, the general ledger, the expiration schedule and the income statement offer none. The
+> DURABILITY is built and proven; widening the choice is a judgement about each report, not a
+> mechanism.
 >
 > **Stored in `table_views`, not `saved_reports`.** They are the same idea and not the same record:
 > `saved_reports` carries the scheduled-delivery half (`frequency`, `recipients`,

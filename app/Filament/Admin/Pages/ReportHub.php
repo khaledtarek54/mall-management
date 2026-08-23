@@ -281,7 +281,7 @@ class ReportHub extends Page implements HasTable
                 'description' => $view->user_id === Auth::id()
                     ? __("admin.report_hub.descriptions.{$view->report}")
                     : __('admin.report_hub.shared_by', ['name' => $view->user?->name ?? '—']),
-                'url' => ReportParameters::urlFor($pageFor[$view->report], $view->parameters ?? []),
+                'url' => ReportParameters::urlFor($pageFor[$view->report], $view->parameters ?? [], $view->id),
             ]);
     }
 

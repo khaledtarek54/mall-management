@@ -19,6 +19,7 @@
 
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\GeneralLedger;
+use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\ReportHub;
 use App\Filament\Admin\Pages\VatReturn;
 use App\Models\SavedReport;
@@ -194,4 +195,117 @@ it('ignores a saved view whose report has left the catalogue', function () {
     SavedReport::create(['report' => 'a_report_we_deleted', 'name' => 'Orphan', 'parameters' => [], 'user_id' => $user->id]);
 
     expect(SavedReport::catalogued()->pluck('name')->all())->not->toContain('Orphan');
+});
+
+it('remembers the report’s COLUMN layout too, not just its filters', function () {
+    // S-5: "23 catalogued reports … no user-defined columns". Filament's column manager was already
+    // there; what was missing was DURABILITY — `ReportParameters::snapshot()` reads the page's own
+    // public scalar properties and deliberately excludes trait-provided ones, so `$tableColumns` was
+    // invisible to it and a saved report reset its columns on every open.
+    //
+    // Driven on RENT ROLL because it is a report that actually offers a choice (3 toggleable
+    // columns). An earlier cut of this test ran on AR ageing, which offers none, and skipped its
+    // own assertions — it passed with the feature deleted, which is the whole failure mode this
+    // codebase keeps recording.
+    $user = makeUser('super_admin', [$this->asset->id]);
+    $this->actingAs($user);
+
+    asTenant($this->asset, function () {
+        Livewire::withQueryParams([]);
+
+        $page = Livewire::test(RentRoll::class);
+        $state = $page->get('tableColumns');
+        $target = collect($state)->first(fn (array $c) => $c['isToggleable'] ?? false);
+
+        // The premise, asserted rather than assumed: without a toggleable column there is nothing
+        // to remember and everything below would pass for the wrong reason.
+        expect($target)->not->toBeNull();
+
+        $page->call('applyTableColumnManager', collect($state)
+            ->map(fn (array $c): array => $c['name'] === $target['name']
+                ? array_merge($c, ['isToggled' => false])
+                : $c)
+            ->all())
+            ->callAction('saveReportView', ['name' => 'Fewer columns']);
+
+        $saved = SavedReport::sole();
+
+        expect($saved->parameters)->toHaveKey('columns')
+            ->and($saved->parameters['columns'][$target['name']])->toBeFalse()
+            // The order rides along as its own key — a different question from which columns show.
+            ->and($saved->parameters)->toHaveKey('column_order');
+
+        // …and reopening on the hub's link restores it.
+        Livewire::withQueryParams(['savedReport' => $saved->id]);
+
+        $reopened = Livewire::test(RentRoll::class)->instance();
+
+        expect($reopened->isTableColumnToggledHidden($target['name']))->toBeTrue()
+            // Paired control: a column the view left ON is still on, so this is the saved layout
+            // being applied rather than everything being hidden.
+            ->and($reopened->isTableColumnToggledHidden($state[0]['name']))->toBeFalse();
+    });
+});
+
+it('opens a report on its own columns when the saved view names none', function () {
+    // A view saved before this shipped states no layout, and must not silently inherit whatever the
+    // session held — the same rule a resource list's saved view follows.
+    $user = makeUser('super_admin', [$this->asset->id]);
+    $this->actingAs($user);
+
+    $saved = SavedReport::create([
+        'report' => 'rent_roll',
+        'name' => 'Legacy',
+        'parameters' => ['assetId' => $this->asset->id],
+        'user_id' => $user->id,
+        'is_shared' => false,
+    ]);
+
+    asTenant($this->asset, function () use ($saved) {
+        // Dirty the session first, or "opens on the defaults" is also what a completely inert
+        // feature produces. Filament persists a layout in the session, so turning a column off here
+        // is the state the legacy view has to overrule.
+        Livewire::withQueryParams([]);
+        $dirty = Livewire::test(RentRoll::class);
+        $state = $dirty->get('tableColumns');
+        $target = collect($state)->first(fn (array $c) => $c['isToggleable'] ?? false);
+        $dirty->call('applyTableColumnManager', collect($state)
+            ->map(fn (array $c): array => $c['name'] === $target['name']
+                ? array_merge($c, ['isToggled' => ! ($c['isToggled'] ?? true)])
+                : $c)
+            ->all());
+
+        Livewire::withQueryParams(['savedReport' => $saved->id]);
+        $page = Livewire::test(RentRoll::class);
+
+        foreach ($page->instance()->getDefaultTableColumnState() as $item) {
+            foreach ($item['columns'] ?? [$item] as $column) {
+                expect($page->instance()->isTableColumnToggledHidden($column['name']))
+                    ->toBe(! $column['isToggled']);
+            }
+        }
+    });
+});
+
+it('carries the saved report id on the hub link, so the columns travel with it', function () {
+    $user = makeUser('super_admin', [$this->asset->id]);
+    $this->actingAs($user);
+
+    $saved = SavedReport::create([
+        'report' => 'rent_roll',
+        'name' => 'Mine',
+        'parameters' => ['assetId' => $this->asset->id],
+        'user_id' => $user->id,
+        'is_shared' => false,
+    ]);
+
+    // Inside a tenant, because `getUrl()` on a tenant-scoped panel needs one and `urlFor()`
+    // deliberately rescues to '#' rather than throwing when it cannot build a link.
+    asTenant($this->asset, function () use ($saved) {
+        expect(ReportParameters::urlFor(RentRoll::class, $saved->parameters, $saved->id))
+            ->toContain('savedReport='.$saved->id)
+            // The control: without an id the link is unchanged, so nothing gained a stray param.
+            ->and(ReportParameters::urlFor(RentRoll::class, $saved->parameters))
+            ->not->toContain('savedReport');
+    });
 });

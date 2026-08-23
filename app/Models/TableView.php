@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
+use App\Support\Filament\SavedColumnLayout;
+use Filament\Tables\Concerns\HasColumnManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -56,7 +58,7 @@ class TableView extends Model
      *
      * Only the toggles are stored, never the labels or the hidden flags that sit beside them in
      * Filament's own state. Those are re-derived from the VIEWER's table every time
-     * ({@see \Filament\Tables\Concerns\HasColumnManager::syncTableColumnStateItemAttributes()}
+     * ({@see HasColumnManager::syncTableColumnStateItemAttributes()}
      * overwrites `label`, `isToggleable` and `isHidden` from the current default state), so storing
      * them would be storing a stale snapshot of somebody else's screen. It is also what makes a
      * shared view safe: the layout is rebuilt from what the reader may already see, so a view saved
@@ -69,21 +71,22 @@ class TableView extends Model
      */
     public function columnState(): array
     {
-        $columns = ($this->state ?? [])['columns'] ?? null;
+        return SavedColumnLayout::togglesFrom($this->state);
+    }
 
-        if (! is_array($columns)) {
-            return [];
-        }
-
-        $state = [];
-
-        foreach ($columns as $name => $isToggled) {
-            if (is_string($name) && $name !== '') {
-                $state[$name] = (bool) $isToggled;
-            }
-        }
-
-        return $state;
+    /**
+     * The order the columns were in when the view was saved, as a list of names.
+     *
+     * Separate from {@see columnState()} because they answer different questions — WHICH columns
+     * show, and in WHAT ORDER — and because a view saved before columns were reorderable states the
+     * first and not the second. An empty list means "the list's own order", which is what every
+     * pre-existing row says.
+     *
+     * @return array<int, string>
+     */
+    public function columnOrder(): array
+    {
+        return SavedColumnLayout::orderFrom($this->state);
     }
 
     /**

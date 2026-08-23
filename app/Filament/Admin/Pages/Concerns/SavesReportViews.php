@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages\Concerns;
 
 use App\Models\SavedReport;
+use App\Support\Filament\SavedColumnLayout;
 use App\Support\ReportCatalogue;
 use App\Support\ReportParameters;
 use Filament\Actions\Action;
@@ -70,7 +71,11 @@ trait SavesReportViews
                     'report' => $key,
                     'name' => $data['name'],
                     // Whatever the page is carrying right now — not a re-read of defaults.
-                    'parameters' => ReportParameters::snapshot($this),
+                    // The parameters AND the column layout. `ReportParameters::snapshot()` reads
+                    // the page's own public scalar properties and deliberately excludes
+                    // trait-provided ones, so Filament's `$tableColumns` is invisible to it — a
+                    // saved report remembered its filters and reset its columns.
+                    'parameters' => ReportParameters::snapshot($this) + $this->savedReportColumnLayout(),
                     'user_id' => Auth::id(),
                     'is_shared' => (bool) ($data['is_shared'] ?? false),
                 ]);
@@ -81,6 +86,68 @@ trait SavesReportViews
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * This report's column layout, or nothing when the page has no table.
+     *
+     * Several catalogued "reports" are not tables at all — the workflow diagram, the occupancy map —
+     * and asking them for a column state would fatal. The guard is `method_exists`, not a list of
+     * page classes: a list would be one more thing to keep in step with the catalogue.
+     *
+     * @return array<string, mixed>
+     */
+    protected function savedReportColumnLayout(): array
+    {
+        if (! method_exists($this, 'getDefaultTableColumnState')) {
+            return [];
+        }
+
+        return SavedColumnLayout::capture($this->tableColumns ?? []);
+    }
+
+    /**
+     * Apply the column layout of the saved report named in the URL, if there is one.
+     *
+     * Same seam as a resource list's saved view, and for the same reason: a layout is far too big
+     * for a query string, so the link carries `?savedReport={id}` and the page reads the columns
+     * back. Livewire calls `booted{TraitName}` after mount, and either order converges —
+     * `initTableColumnManager()` returns early when `$tableColumns` is already filled, and
+     * re-applying an already-applied state is idempotent.
+     *
+     * Silent on a missing or unreadable id: it names a display preference, not a record, so a
+     * deleted bookmark opens the report on its default columns rather than refusing the page.
+     */
+    public function bootedSavesReportViews(): void
+    {
+        $id = request()->query('savedReport');
+
+        if (! is_numeric($id) || ! Auth::check() || ! method_exists($this, 'getDefaultTableColumnState')) {
+            return;
+        }
+
+        $key = $this->reportCatalogueKey();
+
+        $saved = $key === null ? null : SavedReport::query()
+            ->whereKey((int) $id)
+            ->where('report', $key)
+            ->visibleTo(Auth::id())
+            ->first();
+
+        if ($saved === null) {
+            return;
+        }
+
+        $order = SavedColumnLayout::orderFrom($saved->parameters);
+
+        $this->applyTableColumnManager(
+            SavedColumnLayout::rebuild(
+                $this->getDefaultTableColumnState(),
+                SavedColumnLayout::togglesFrom($saved->parameters),
+                $order,
+            ),
+            wasReordered: $order !== [],
+        );
     }
 
     /** This page's catalogue key, or null when it is not a catalogued report. */

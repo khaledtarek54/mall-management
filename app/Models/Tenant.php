@@ -95,6 +95,10 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
             self::digitsOf($this->phone),
             self::digitsOf($this->whatsapp),
             self::digitsOf($this->contact_person_phone),
+
+            // The operator's own fields (D-7). `metadata` is this row's own attribute, so this
+            // honours the no-relations rule and re-folds whenever the record saves.
+            ...$this->customFieldSearchValues(),
         ];
     }
 

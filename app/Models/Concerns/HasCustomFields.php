@@ -100,6 +100,41 @@ trait HasCustomFields
     }
 
     /**
+     * The answers, as search terms for this record's own `search_text` blob.
+     *
+     * Spread into the model's `searchTextSources()`. This honours that method's one hard rule —
+     * **never reach through a relation** — because `metadata` is the row's OWN attribute: the blob
+     * re-folds whenever the record saves, and no other record's edit can strand it.
+     *
+     * **Stored VALUES only, never a choice's label.** A label lives on the definition, not on this
+     * row, so indexing it would make a rename silently stale until the next rebuild — the exact
+     * failure the no-relations rule exists to prevent. So a choice field is findable by what is
+     * stored (`f_and_b`) and is filtered rather than searched, which is what the filter is for.
+     *
+     * Booleans are skipped: "1" is not a search term, and indexing it would match every record
+     * carrying any number.
+     *
+     * Adding this to a model changes nothing already stored — run `php artisan atriom:rebuild-search`.
+     *
+     * @return array<int, string>
+     */
+    public function customFieldSearchValues(): array
+    {
+        $types = $this->customFieldsForDisplay()->pluck('type', 'key');
+        $terms = [];
+
+        foreach ($this->customFieldValues() as $key => $value) {
+            if (is_bool($value) || $value === null || ($types[$key] ?? 'text') === 'boolean') {
+                continue;
+            }
+
+            $terms[] = (string) $value;
+        }
+
+        return $terms;
+    }
+
+    /**
      * The answers, as a virtual `custom_fields` attribute Filament can bind a form to.
      *
      * A getter/setter pair rather than ten page classes: every Create and Edit page for all five

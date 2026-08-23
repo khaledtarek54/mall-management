@@ -96,6 +96,8 @@ actually exists, and naming one that does not is the exact silent failure that c
 | Managing the definitions | `/admin/custom-fields`, gated on `custom_fields.*` |
 | List column, filter, sort on the five lists | `CustomFieldsTable::columns()` / `::filters()` |
 | CSV/XLSX export (tenants, leases, units) | `CustomFieldsTable::exportColumns()` |
+| CSV import (tenants, leases, units, vendors) | `CustomFieldsTable::importColumns()` |
+| Global search (the top bar) | `HasCustomFields::customFieldSearchValues()` in each model's `searchTextSources()` |
 
 The section **hides itself when nothing is defined**, so a fresh install is unchanged and no form grows an
 empty "Additional information" heading. `hidden()` is evaluated per render, so it appears the moment the
@@ -165,6 +167,30 @@ the shipped column positions a colleague's import template depends on never move
 **Vendors and properties have no exporter at all**, so their custom fields are not exportable — that is a
 pre-existing gap in those two resources, not something this slice introduced.
 
+## 6c. Import and global search
+
+**Import** completes the round trip: `CustomFieldsTable::importColumns()` adds an optional column
+per active field to the tenant, lease, unit and vendor importers, so a migrating operator brings
+their own columns in with the records instead of keying them in afterwards. Columns come LAST, so an
+existing mapping template is untouched, and a sheet naming none imports exactly as it always did.
+
+Filled through **`fillRecordUsing()`**, never by attribute name: Filament's default fill does
+`data_set($record, $name, $state)`, which for a dotted name builds a nested array on the model and
+for a bare one sets an attribute that is not a column. Routing through `fillCustomFields()` means an
+import gets the same key filtering and type casting a form does — **a CSV cannot introduce a key the
+catalogue never defined.** A choice imports by its stored value, matching what the export writes, so
+a sheet exported from here re-imports cleanly.
+
+**Global search**: each model spreads `customFieldSearchValues()` into its `searchTextSources()`.
+That honours the blob's one hard rule — *never reach through a relation* — because `metadata` is the
+row's OWN attribute, so it re-folds whenever the record saves and no other record's edit can strand
+it.
+
+Two deliberate limits. **Stored values only, never a choice's label**: a label lives on the
+definition, not this row, so indexing it would make a rename silently stale until the next rebuild —
+the exact failure the no-relations rule exists to prevent. And **booleans are skipped**, because "1"
+is not a search term and would match every record carrying any number.
+
 ## 7. Registrations (what a sixth record type would need)
 
 | Registry | Entry |
@@ -200,19 +226,20 @@ columns whose name ends in a classification suffix, so an exemption there would 
 
 Deliberately out of this slice, each stated rather than implied:
 
-- **Import.** `UnitImporter`/`LeaseImporter` and friends do not map custom fields, so a migrating operator
-  cannot bring their own columns in with the records — the one remaining direction.
-- **Export for vendors and properties**, which have no exporter at all. A gap in those resources rather
-  than in this feature.
-- **Global search.** A custom field is not in the folded `search_text` blob, so the top bar cannot find a
-  tenant by their parent group. `HasSearchText` says the blob is a pure function of the row's own
-  attributes, which `metadata` is — so this is reachable, and it needs `atriom:rebuild-search`.
+- **Export for vendors and properties**, which have no exporter at all. A gap in those two resources
+  rather than in this feature; adding one is a `Exporter` class each, and the custom-field columns
+  would come with it for free.
+- **A choice field is searched by its stored VALUE, not its label** — see §6c. Deliberate, and the
+  filter is the right control for a choice.
+
+> **Deploy step.** Adding custom fields to the search blob rewrites nothing on its own. Run
+> `php artisan atriom:rebuild-search` so existing records become findable by their answers.
 - **A report builder** for the 23 catalogued report pages, whose columns are PHP literals — the other half of
   S-5, and the larger one.
 
 ## 10. Tests & related
 
-`tests/Feature/Regression/ACustomFieldIsARowTheOperatorDefinesTest.php` — 23 cases, including the real
+`tests/Feature/Regression/ACustomFieldIsARowTheOperatorDefinesTest.php` — 26 cases, including the real
 Create/Edit/View pages and the crafted-payload case.
 
 Related: [18 · RBAC & scoping](18-rbac-scoping.md) (activity log vocabulary) · [34 · Search](34-search.md)

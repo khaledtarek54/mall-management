@@ -53,6 +53,10 @@ class Lease extends Model implements BillableAgreement, HasMedia
     {
         return [
             $this->reference,
+
+            // The operator's own fields (D-7). `metadata` is this row's own attribute, so this
+            // honours the no-relations rule and re-folds whenever the record saves.
+            ...$this->customFieldSearchValues(),
         ];
     }
 

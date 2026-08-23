@@ -47,6 +47,10 @@ class Asset extends Model implements HasMedia
             $this->code,
             $this->city,
             $this->address,
+
+            // The operator's own fields (D-7). `metadata` is this row's own attribute, so this
+            // honours the no-relations rule and re-folds whenever the record saves.
+            ...$this->customFieldSearchValues(),
         ];
     }
 

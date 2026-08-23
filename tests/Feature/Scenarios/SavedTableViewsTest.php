@@ -436,3 +436,60 @@ it('pins Filament’s own refusal to switch off a column that is not toggleable'
         expect($page->instance()->isTableColumnToggledHidden('area.name'))->toBeTrue();
     });
 });
+
+it('saves the ORDER the columns were in, and reopens on it', function () {
+    // Columns became reorderable with EG-32's last slice. Without this a saved view restored the
+    // toggles and silently reset the order to the resource's own — so a colleague opening a shared
+    // view saw a different layout from the one that was saved, which is the whole point of a view.
+    Livewire::withQueryParams([]);
+
+    asTenant($this->asset, function () {
+        $page = Livewire::test(ListFacilityWorkOrders::class);
+        $state = $page->get('tableColumns');
+
+        // Move the last column to the front, the way the manager's drag does.
+        $moved = array_merge([array_pop($state)], $state);
+        $movedName = $moved[0]['name'];
+
+        $page->call('applyTableColumnManager', $moved, true)
+            ->callAction('saveTableView', ['name' => 'My order']);
+
+        expect(TableView::sole()->columnOrder()[0])->toBe($movedName);
+    });
+
+    $view = TableView::sole();
+    Livewire::withQueryParams(['tableView' => $view->id]);
+
+    asTenant($this->asset, function () use ($view) {
+        $reopened = collect(Livewire::test(ListFacilityWorkOrders::class)->get('tableColumns'))
+            ->pluck('name')->all();
+
+        expect($reopened[0])->toBe($view->columnOrder()[0])
+            // Every column still present — reordering must not drop one.
+            ->and(count($reopened))->toBe(count($view->columnOrder()));
+    });
+});
+
+it('keeps a column the saved order never mentioned, at the end', function () {
+    // A view saved before a column was added to the resource must not make that column vanish;
+    // the operator gets it last rather than not at all.
+    $view = TableView::create([
+        'resource' => 'facility-work-orders',
+        'name' => 'Partial order',
+        // Only two names, in reverse of the list's own order.
+        'state' => ['column_order' => ['priority', 'reference']],
+        'user_id' => $this->user->id,
+        'is_shared' => false,
+    ]);
+
+    Livewire::withQueryParams(['tableView' => $view->id]);
+
+    asTenant($this->asset, function () {
+        $names = collect(Livewire::test(ListFacilityWorkOrders::class)->get('tableColumns'))
+            ->pluck('name')->all();
+
+        expect(array_slice($names, 0, 2))->toBe(['priority', 'reference'])
+            // The unmentioned ones are still there, after the two the view named.
+            ->and(count($names))->toBeGreaterThan(2);
+    });
+});

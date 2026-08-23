@@ -86,7 +86,7 @@ class ReportParameters
      *
      * @param  array<string, mixed>  $parameters
      */
-    public static function urlFor(string $page, array $parameters): string
+    public static function urlFor(string $page, array $parameters, ?int $savedReport = null): string
     {
         $declared = array_keys(self::parametersOf($page));
 
@@ -94,6 +94,13 @@ class ReportParameters
             ->only($declared)
             ->filter(fn ($value) => $value !== null && $value !== '')
             ->all();
+
+        // The saved report's COLUMN layout is far too big for a query string and Filament binds
+        // none of it to the URL, so the link names the view and the page reads its columns back
+        // (EG-32). An id, not a layout: what the reader sees is rebuilt from their own table.
+        if ($savedReport !== null) {
+            $query['savedReport'] = $savedReport;
+        }
 
         return rescue(fn () => $page::getUrl($query), '#', false);
     }

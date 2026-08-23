@@ -49,6 +49,10 @@ class Vendor extends Model
             $this->phone,
             $this->city,
             self::digitsOf($this->phone),
+
+            // The operator's own fields (D-7). `metadata` is this row's own attribute, so this
+            // honours the no-relations rule and re-folds whenever the record saves.
+            ...$this->customFieldSearchValues(),
         ];
     }
 

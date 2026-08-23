@@ -57,6 +57,7 @@ class TableDefaults
                 ->persistColumnSearchesInSession()
                 ->persistSortInSession()
                 ->persistColumnsInSession()
+                ->reorderableColumns()
                 ->filtersLayout(FiltersLayout::Dropdown)
                 ->filtersFormColumns(2)
                 ->striped()

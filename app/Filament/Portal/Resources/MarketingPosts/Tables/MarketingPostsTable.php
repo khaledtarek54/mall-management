@@ -33,7 +33,7 @@ class MarketingPostsTable
         return $table
             ->columns([
                 SpatieMediaLibraryImageColumn::make('hero')
-                    ->label('')
+                    ->label(__('admin.marketing_posts.fields.hero'))
                     ->collection(MarketingPost::HERO_COLLECTION)
                     ->height(40)
                     ->extraImgAttributes(['class' => 'rounded object-cover']),

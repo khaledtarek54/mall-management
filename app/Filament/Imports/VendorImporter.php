@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\TaxCode;
 use App\Models\Vendor;
+use App\Support\Filament\CustomFieldsTable;
 use App\Support\PropertyIsolation;
 use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
@@ -110,6 +111,10 @@ class VendorImporter extends Importer
             // `slug` is deliberately absent. The model derives it from the name and de-duplicates
             // against soft-deleted rows; accepting one from a CSV would let two suppliers collide
             // on a column the model guarantees is unique.
+
+            // The operator's own fields (D-7), LAST so an existing mapping template's column
+            // order is untouched. Optional: a sheet that names none imports as it always did.
+            ...CustomFieldsTable::importColumns('vendor'),
         ];
     }
 

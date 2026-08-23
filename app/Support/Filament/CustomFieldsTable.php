@@ -5,6 +5,7 @@ namespace App\Support\Filament;
 use App\Models\CustomField;
 use App\Support\CustomFields;
 use Filament\Actions\Exports\ExportColumn;
+use Filament\Actions\Imports\ImportColumn;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -160,6 +161,35 @@ final class CustomFieldsTable
                         : null),
             };
         })->all();
+    }
+
+    /**
+     * An IMPORT column per active field.
+     *
+     * The last direction the operator's own data could not travel: a migrating operator keeps their
+     * columns in the spreadsheet they are already importing records from, and without this they
+     * would have to key every answer in by hand after the import.
+     *
+     * **Filled through `fillRecordUsing()`, never by attribute name.** Filament's default fill does
+     * `data_set($record, $name, $state)`, which for a dotted name would build a nested array on the
+     * model and for a bare one would set an attribute that is not a column. Routing through
+     * `fillCustomFields()` means an import gets exactly the same key filtering and type casting a
+     * form does — a CSV cannot introduce a key the catalogue never defined.
+     *
+     * A `select` is imported by its STORED VALUE, matching what the export writes, so a sheet
+     * exported from here re-imports cleanly.
+     *
+     * @return array<int, ImportColumn>
+     */
+    public static function importColumns(string $morphAlias): array
+    {
+        return CustomFields::for($morphAlias)
+            ->map(fn (CustomField $field): ImportColumn => ImportColumn::make('cf_'.$field->key)
+                ->label($field->label())
+                ->fillRecordUsing(function ($record, $state) use ($field): void {
+                    $record->fillCustomFields([$field->key => $state]);
+                }))
+            ->all();
     }
 
     /**

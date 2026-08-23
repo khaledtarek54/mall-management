@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\Asset;
 use App\Models\Unit;
+use App\Support\Filament\CustomFieldsTable;
 use App\Support\TenantScope;
 use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
@@ -79,6 +80,10 @@ class UnitImporter extends Importer
                 // Deliberately NOT read from ValueSets like `category` above: this is a narrower
                 // rule than the column accepts, and deriving it would widen the importer.
                 ->rules(['nullable', 'in:vacant,maintenance']),
+
+            // The operator's own fields (D-7), LAST so an existing mapping template's column
+            // order is untouched. Optional: a sheet that names none imports as it always did.
+            ...CustomFieldsTable::importColumns('unit'),
         ];
     }
 

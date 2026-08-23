@@ -62,6 +62,10 @@ class Unit extends Model
             // the ambiguity that made dropping the old column visible. This always means the
             // relation.
             $this->floor()->value('code'),
+
+            // The operator's own fields (D-7). `metadata` is this row's own attribute, so this
+            // honours the no-relations rule and re-folds whenever the record saves.
+            ...$this->customFieldSearchValues(),
         ];
     }
 

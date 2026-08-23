@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Concerns;
 
 use App\Models\TableView;
+use App\Support\Filament\SavedColumnLayout;
 use App\Support\ResourceLink;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -208,33 +209,6 @@ trait SavesTableViews
     }
 
     /**
-     * Which columns the operator is looking at, as `name => isToggled`.
-     *
-     * Only the TOGGLEABLE ones. A column that cannot be turned off records no choice — Filament
-     * forces its `isToggled` to true when it re-syncs — so storing it would be storing noise that
-     * looks like a decision, and would pin today's fixed columns into a row read a year from now.
-     *
-     * Column GROUPS are walked into rather than stored as containers: names are unique across a
-     * table, so a flat map reapplies correctly whether or not the column still sits in a group.
-     *
-     * @return array<string, bool>
-     */
-    protected function savedViewColumnToggles(): array
-    {
-        $toggles = [];
-
-        foreach ($this->tableColumns ?? [] as $item) {
-            foreach ($item['columns'] ?? [$item] as $column) {
-                if (($column['isToggleable'] ?? false) && isset($column['name'])) {
-                    $toggles[$column['name']] = (bool) ($column['isToggled'] ?? true);
-                }
-            }
-        }
-
-        return $toggles;
-    }
-
-    /**
      * Apply the columns of the view named in the URL, if there is one.
      *
      * Livewire calls `booted{TraitName}` after `mount`, and Filament's own
@@ -269,7 +243,7 @@ trait SavesTableViews
             return;
         }
 
-        $this->applySavedViewColumns($view->columnState());
+        $this->applySavedViewColumns($view->columnState(), $view->columnOrder());
     }
 
     /**
@@ -295,40 +269,18 @@ trait SavesTableViews
      * before this shipped state no columns and therefore open on the defaults.
      *
      * @param  array<string, bool>  $toggles
+     * @param  array<int, string>  $order  empty means the list's own order
      */
-    protected function applySavedViewColumns(array $toggles): void
+    protected function applySavedViewColumns(array $toggles, array $order = []): void
     {
-        $state = collect($this->getDefaultTableColumnState())
-            ->map(function (array $item) use ($toggles): array {
-                if (isset($item['columns'])) {
-                    $item['columns'] = collect($item['columns'])
-                        ->map(fn (array $column): array => $this->savedViewColumn($column, $toggles))
-                        ->all();
-
-                    return $item;
-                }
-
-                return $this->savedViewColumn($item, $toggles);
-            })
-            ->all();
-
-        $this->applyTableColumnManager($state);
-    }
-
-    /**
-     * One column, taking the saved toggle when the view stated one and this table allows it.
-     *
-     * @param  array<string, mixed>  $column
-     * @param  array<string, bool>  $toggles
-     * @return array<string, mixed>
-     */
-    protected function savedViewColumn(array $column, array $toggles): array
-    {
-        if (($column['isToggleable'] ?? false) && array_key_exists($column['name'] ?? '', $toggles)) {
-            $column['isToggled'] = $toggles[$column['name']];
-        }
-
-        return $column;
+        $this->applyTableColumnManager(
+            SavedColumnLayout::rebuild($this->getDefaultTableColumnState(), $toggles, $order),
+            // `wasReordered: true` only when the view actually states an order — it persists the
+            // session flag that sends Filament down `syncReorderableColumnsFromDefaultTableColumnState()`,
+            // which keeps THIS order while still re-deriving every label and flag from the reader's
+            // own table.
+            wasReordered: $order !== [],
+        );
     }
 
     /**
@@ -351,7 +303,11 @@ trait SavesTableViews
             'tab' => ($this->activeTab === null || $this->activeTab === 'all') ? null : $this->activeTab,
             // The columns are the other half of "what this list is showing", and until EG-32 a view
             // saved every part of that except the one an operator had to redo by hand each morning.
-            'columns' => $this->savedViewColumnToggles(),
+            'columns' => SavedColumnLayout::capture($this->tableColumns ?? [])[SavedColumnLayout::TOGGLES],
+            // …and, since columns became reorderable, the ORDER they were in. A separate key: which
+            // columns show and what order they show in are different questions, and a view saved
+            // before reordering existed answers only the first.
+            'column_order' => SavedColumnLayout::capture($this->tableColumns ?? [])[SavedColumnLayout::ORDER],
         ], fn ($value) => $value !== null && $value !== '' && $value !== []);
     }
 
