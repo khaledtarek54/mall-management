@@ -11,6 +11,7 @@ use App\Notifications\PaymentReceivedNotification;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\DocumentNumbering;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -203,14 +204,31 @@ class Payment extends Model
         return $this->clearedCheque()->value('asset_id');
     }
 
+    /**
+     * The prefix a payment receipt's reference is allocated within (EG-10).
+     *
+     * One method, because the prefix is also the LOCK KEY that serialises allocation and the `LIKE`
+     * that finds the last reference in the series — three hand-built copies of it is how a series
+     * and the lock guarding it drift apart.
+     */
+    public static function referencePrefix(?\DateTimeInterface $receivedAt = null): string
+    {
+        return sprintf(
+            '%s-%s',
+            DocumentNumbering::prefixFor('payment'),
+            DocumentNumbering::periodSegment($receivedAt),
+        );
+    }
+
     public static function generateReference(): string
     {
-        $yearMonth = now()->format('Ym');
-        $prefix = "PAY-{$yearMonth}-";
+        $prefix = static::referencePrefix();
 
         $last = static::withTrashed()
             ->where('reference', 'like', $prefix.'%')
-            ->orderByDesc('reference')
+            // LENGTH first: a plain string sort puts `…-9999` above `…-10000`, so once a
+            // series passes its zero-padding MAX returns the wrong row (EG-10).
+            ->orderByRaw('LENGTH(reference) DESC, reference DESC')
             ->value('reference');
 
         $next = $last
@@ -421,7 +439,7 @@ class Payment extends Model
             // number of its own. The lock spans the INSERT, so the second writer waits and takes
             // the next number instead of colliding.
             $payment->reference = $payment->allocateDocumentNumber(
-                'PAY-'.now()->format('Ym').'-',
+                static::referencePrefix(),
                 fn (): string => static::generateUniqueReference(),
             );
 
@@ -488,8 +506,9 @@ class Payment extends Model
             if ($attempts > 100) {
                 throw new \RuntimeException('Unable to allocate a unique payment reference after 100 attempts.');
             }
-            $yearMonth = now()->format('Ym');
-            $prefix = "PAY-{$yearMonth}-";
+            // `referencePrefix()`, never a fourth hand-built copy — a hardcoded period here would
+            // take the substring at the wrong offset the moment the reset scheme is not monthly.
+            $prefix = static::referencePrefix();
             $n = ((int) substr($candidate, strlen($prefix))) + 1;
             $candidate = sprintf('%s%04d', $prefix, $n);
         }

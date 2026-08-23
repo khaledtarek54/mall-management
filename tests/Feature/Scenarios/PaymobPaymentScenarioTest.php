@@ -41,7 +41,7 @@ use Illuminate\Support\Facades\Notification;
 |                      to BOTH the Tenant record AND each portal TenantUser
 |                      (Tenant::notifyPortal); a failed capture notifies nobody.
 |   DEMO FAN-OUT     — RecordDemoPaymentAction notifies the portal user too and
-|                      stamps gateway='demo' + a generated PAY- reference.
+|                      stamps gateway='demo' + a generated RCT- reference.
 */
 
 beforeEach(function () {
@@ -428,10 +428,11 @@ it('demo capture stamps gateway=demo with a generated reference and fans out to 
 
     $payment = app(RecordDemoPaymentAction::class)->handle($this->invoice);
 
-    // Gateway tag + a real generated PAY- reference (booted creating hook).
+    // Gateway tag + a real generated RCT- reference (booted creating hook). A payment is a
+    // RECEIPT — Yardi's word — and `PAY` belongs to payroll (EG-10).
     expect($payment->gateway)->toBe('demo');
     expect($payment->status)->toBe('captured');
-    expect($payment->reference)->toStartWith('PAY-');
+    expect($payment->reference)->toStartWith('RCT-');
     expect($payment->gateway_transaction_id)->toStartWith('demo:invoice:'.$this->invoice->id.':');
 
     // Settles the invoice…

@@ -368,6 +368,7 @@ return [
         'vendor_bill' => 'Supplier bill',
         'expense' => 'Expense',
         'deposit' => 'Security deposit movement',
+        'payment' => 'Payment receipt',
         'payroll' => 'Payroll run',
         'purchase_request' => 'Purchase request',
         'lease' => 'Lease',

@@ -1424,6 +1424,36 @@ because a journalizer left behind would look identical to the converted ones in 
 
 ---
 
+### 2026-08-23 — milestone 27a: EG-10 review — the allocator nobody had counted past
+
+Reviewing EG-10 rather than moving on found three things, and the first two are the same defect in
+places the ticket never named.
+
+**Fourteen allocators derive the next number from a STRING sort.** `orderByDesc('number')` puts
+`…-9999` above `…-10000`, so once a series passes its zero-padding the allocator proposes a number
+that already exists. I fixed seven while doing EG-10; a sweep found seven more — leases, payments,
+work permits, unit ownerships, purchase requests, work orders and the tenant/vendor party codes. All
+now order by `LENGTH(col) DESC, col DESC`. Reachability varies (a monthly series never gets there; a
+continuous one does, which is now the default for six document types), but the fix is
+behaviour-identical below the boundary and correct above it, so there was no reason to fix only the
+ones the ticket had touched.
+
+**It is masked, which is why it had survived.** The collision-retry loop simply tries the next
+number, so end to end everything works — it costs a query per collision until it exceeds its
+100-attempt cap and throws. My own first test created two invoices across the boundary and passed
+with the broken sort restored.
+
+**Payments were outside the numbering registry entirely, and collided with payroll.**
+`Payment::generateReference()` hardcoded `PAY-` in three places — and `PAY` is the registry's prefix
+for a PAYROLL RUN. Two document types on one prefix is exactly what `DocumentNumbering::assertValid()`
+refuses for every type it can see, and it could not see this one: different tables, so nothing ever
+errored, and an operator reading `PAY-…` simply could not tell which document they were holding.
+
+A tenant payment is a **RECEIPT** — Yardi's own word, and the name of the module — so `payment` joins
+the registry as `RCT`, routed through the same `referencePrefix()` seam so the lock key, the `LIKE`
+and the collision branch cannot drift from each other. It is configurable and inside the duplicate
+guard for the first time.
+
 ### 2026-08-23 — milestone 27: EG-10, and what "needs a decision" actually means
 
 Asked to walk the 🔑 items one by one, I put EG-10 up as a question with three options. The answer

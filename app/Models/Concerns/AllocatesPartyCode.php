@@ -88,7 +88,9 @@ trait AllocatesPartyCode
 
         $last = static::withTrashed()
             ->where('code', 'like', $prefix.'%')
-            ->orderByDesc('code')
+            // LENGTH first: a plain string sort puts `…-9999` above `…-10000`, so once a
+            // series passes its zero-padding MAX returns the wrong row (EG-10).
+            ->orderByRaw('LENGTH(code) DESC, code DESC')
             ->value('code');
 
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;

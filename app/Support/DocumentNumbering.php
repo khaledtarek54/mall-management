@@ -60,6 +60,12 @@ class DocumentNumbering
         // `PR` is the standard procurement abbreviation and purchase requests had five tests
         // asserting it; payroll had none. Free to fix now and not after go-live, which is the whole
         // reason this row had a deadline.
+        // A tenant payment is a RECEIPT — Yardi's own word for it, and the module is called
+        // Receipts. It was outside this registry entirely and hardcoded `PAY-`, which is payroll's
+        // prefix: two document types on one series is precisely what `assertValid()` refuses for
+        // every type it can see, and it could not see this one. Different tables so nothing ever
+        // errored; an operator reading `PAY-…` simply could not tell which document it was.
+        'payment' => ['default' => 'RCT', 'label' => 'Payment receipt'],
         'payroll' => ['default' => 'PAY', 'label' => 'Payroll run'],
         'purchase_request' => ['default' => 'PR', 'label' => 'Purchase request'],
         'lease' => ['default' => 'LSE', 'label' => 'Lease'],

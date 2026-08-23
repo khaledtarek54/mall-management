@@ -854,7 +854,9 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
         $last = static::withTrashed()
             ->where('reference', 'like', $prefix.'%')
-            ->orderByDesc('reference')
+            // LENGTH first: a plain string sort puts `…-9999` above `…-10000`, so once a
+            // series passes its zero-padding MAX returns the wrong row (EG-10).
+            ->orderByRaw('LENGTH(reference) DESC, reference DESC')
             ->value('reference');
 
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;

@@ -307,7 +307,7 @@ class PurchaseRequest extends Model
         $date = $date ? Carbon::instance($date) : now();
         $prefix = sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('purchase_request'), $assetCode, $date->format('Ym'));
 
-        $last = static::withTrashed()->where('reference', 'like', $prefix.'%')->orderByDesc('reference')->value('reference');
+        $last = static::withTrashed()->where('reference', 'like', $prefix.'%')->orderByRaw('LENGTH(reference) DESC, reference DESC')->value('reference');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
 
         // Bump until free — max+1 races under concurrent creates; the unique index is the backstop.

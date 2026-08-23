@@ -367,6 +367,7 @@ return [
         'vendor_bill' => 'فاتورة مورّد',
         'expense' => 'مصروف',
         'deposit' => 'حركة تأمين',
+        'payment' => 'إيصال سداد',
         'payroll' => 'مسير رواتب',
         'purchase_request' => 'طلب شراء',
         'lease' => 'عقد إيجار',

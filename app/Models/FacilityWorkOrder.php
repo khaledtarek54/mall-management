@@ -712,7 +712,7 @@ class FacilityWorkOrder extends Model implements HasMedia
         $date = $date ? Carbon::instance($date) : now();
         $prefix = sprintf('%s-%s-%s-', $type === self::TYPE_CM ? 'CM' : 'WO', $assetCode, $date->format('Ym'));
 
-        $last = static::withTrashed()->where('reference', 'like', $prefix.'%')->orderByDesc('reference')->value('reference');
+        $last = static::withTrashed()->where('reference', 'like', $prefix.'%')->orderByRaw('LENGTH(reference) DESC, reference DESC')->value('reference');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
 
         // Bump until free — the bare max+1 is race-prone under concurrent creates
