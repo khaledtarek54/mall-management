@@ -684,6 +684,12 @@ public function runForPeriod(?CarbonImmutable $period = null): array
     blank = advance) and an `ImportColumn` on `ChargeImporter`, because settable-in-the-UI-only is
     the gap a migrating operator falls into — they arrive with a spreadsheet of charges, half billed
     in arrears by their previous system, and can express none of it.
+  - **Known limitation: a TERMINATED lease loses its final month's arrears.**
+    `LeaseTerminationService` writes `expiry_date = terminationDate`, so `$isFinalCycle` is
+    satisfied — but the lease then goes `status = 'terminated'` and `Lease::scopeBillableForPeriod()`
+    selects only `active`. Unless the final invoice happens to be raised in the same period as the
+    termination, that month's arrears is billed by nothing. Whether termination should raise a final
+    arrears settlement is a decision, not an oversight, so it is recorded rather than half-built.
   - **An arrears row prorates against the month it COVERS**, not the month the invoice is dated to:
     a lease commencing 15 August owes half of August's service charge on the September invoice.
   - **Nothing on a lease's first invoice**, because the month it would cover predates the lease. It
