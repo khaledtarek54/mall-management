@@ -545,6 +545,13 @@ pool.variance() = total_actual_expense - total_estimated_collected
 
 #### `autoTrueUpForYear(int $year, bool $autoBill = false): array<int, array{pool_id, asset, allocations, billed, status}>`
 
+> **A non-annual true-up is EG-41, and it is an L rather than a setting.** `cam_expense_pools` is
+> `unique(asset_id, period_year)` — one pool per property per YEAR — so a quarterly or half-yearly
+> reconciliation is not a scheduling option: the POOL must gain a period shorter than a year first,
+> and the apportionment, the reconciliation and every read that assumes one-pool-per-year follow it.
+> It was mis-scoped inside EG-35 as part of an M before being sized honestly. Worth building only if
+> the operator's leases actually state a non-annual reconciliation — a §6 question, not an assumption.
+
 **Signature**: Full annual reconciliation lifecycle. Generates allocations for all draft/reconciling pools in a given year, optionally bills all pending allocations, and bumps pool statuses.
 
 **Returns**: Report array. Each entry is a dict with keys: `pool_id`, `asset` (name), `allocations` (count generated/updated), `billed` (count billed, 0 if `$autoBill=false`), `status` (pool's new status).
