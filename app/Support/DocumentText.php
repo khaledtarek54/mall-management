@@ -62,6 +62,7 @@ final class DocumentText
         'dunning.late_fee_applied',
         'receipt.payment_received',
         'lease.expiry_approaching',
+        'invoice.email_body',
     ];
 
     public const KEYS = [
@@ -111,6 +112,16 @@ final class DocumentText
         'lease.expiry_approaching' => [
             'floor' => 'admin.notifications.lease_expiry_mail',
             'tokens' => ['unit', 'days', 'date'],
+        ],
+
+        // The covering note on the monthly invoice EMAIL — the one message every tenant gets every
+        // month, and the last exemption `TenantFacingWordingIsTheOperatorsConformanceTest` carried.
+        // It was waived because the notification renders a markdown VIEW rather than `->line()`, so
+        // templating it meant reaching into the blade; that is a reason to do it carefully, not a
+        // reason to leave the most-read sentence in the product un-editable.
+        'invoice.email_body' => [
+            'floor' => 'admin.email.invoice_issued_body',
+            'tokens' => ['number', 'due_date'],
         ],
     ];
 

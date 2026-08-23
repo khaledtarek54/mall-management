@@ -29,7 +29,6 @@ use Illuminate\Support\Facades\File;
  */
 const TENANT_WORDING_EXEMPT = [
     'TenantResetPasswordNotification' => 'A security email on a fixed flow. Operator-authored text on a password link is a phishing surface, not a tone decision — and Laravel owns the template.',
-    'InvoiceIssuedNotification' => 'Renders a markdown VIEW (`emails.invoice-issued`) rather than `->line()`, and the invoice PDF it attaches already carries the operator blocks from slice 1 (footer, payment instructions, terms). Templating the covering note means templating the view, which is the mail-tab slice.',
     'ChequeCoverageEndingNotification' => 'Operational prompt about lodged cheques running out — a working alert to the operator side of the relationship, not a standing notice a tenant reads as policy.',
     'SalesDeclarationReminderNotification' => 'A deadline nudge whose whole content is a date the system computes. Nothing here is a phrasing decision.',
     'SalesDeclarationLockedNotification' => 'States that a declaration is now locked — a fact about system state, not a message with a tone.',
@@ -67,7 +66,25 @@ it('templates every tenant-facing mail notice, or says why not', function () {
             continue;
         }
 
-        if (! str_contains($code, 'DocumentText::for(')) {
+        // A notification that renders a VIEW keeps its wording in the blade, not in the class —
+        // `InvoiceIssuedNotification` is the one, and checking only the class here reported it as
+        // un-templated when the covering note had just been templated one file away. Follow the
+        // view: this gate is about whether the OPERATOR can change the words, and it does not
+        // matter which file they live in.
+        $templated = str_contains($code, 'DocumentText::for(');
+
+        if (! $templated && preg_match_all("/->(?:markdown|view)\(\s*'([a-z0-9_.\-]+)'/i", $code, $views)) {
+            foreach ($views[1] as $view) {
+                $path = resource_path('views/'.str_replace('.', '/', $view).'.blade.php');
+
+                if (File::exists($path) && str_contains(File::get($path), 'DocumentText::for(')) {
+                    $templated = true;
+                    break;
+                }
+            }
+        }
+
+        if (! $templated) {
             $notTemplated[] = $name;
         }
     }

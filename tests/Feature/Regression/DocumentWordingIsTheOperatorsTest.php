@@ -4,6 +4,7 @@ use App\Models\DocumentTemplate;
 use App\Notifications\InvoiceOverdueTenantNotification;
 use App\Services\InvoicePdfService;
 use App\Support\DocumentText;
+use App\Support\IssuingEntity;
 use App\Support\ValueSets;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\View;
@@ -305,4 +306,57 @@ it('falls back to the house row for a payment tied to no property', function () 
     expect(DocumentText::for('receipt.payment_received', null, [
         'amount' => 'EGP 1,000.00', 'method' => 'Cash', 'date' => '01/09/2026',
     ]))->toBe('House receipt for EGP 1,000.00.');
+});
+
+it('lets the operator write the covering note on the invoice email', function () {
+    // The last exemption the tenant-wording gate carried, and the most-read sentence in the
+    // product: every tenant gets this email every month. It was waived because the notification
+    // renders a markdown VIEW rather than `->line()`, which is a reason to template it carefully,
+    // not a reason to leave it alone. The gate now follows the view, so the waiver is gone.
+    $mall = makeAsset(['code' => 'EB']);
+    $lease = makeLease(makeUnit($mall), null, ['status' => 'active']);
+    $invoice = makeInvoice($lease, ['asset_id' => $mall->id, 'total' => 5000, 'balance' => 5000]);
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'invoice.email_body',
+        'body_en' => "Your invoice {number} is attached.\nIt falls due on {due_date}.",
+        'is_active' => true,
+    ]);
+
+    $html = view('emails.invoice-issued', [
+        'invoice' => $invoice->fresh(),
+        'tenant' => $invoice->tenant,
+        'lease' => $lease,
+        ...IssuingEntity::forView($mall),
+    ])->render();
+
+    expect($html)->toContain('Your invoice '.$invoice->number.' is attached.')
+        // A newline in the operator's text becomes a line break, not a run-on sentence.
+        ->and($html)->toContain('<br');
+});
+
+it('escapes operator text on the invoice email rather than rendering it as markup', function () {
+    // The body is operator-typed and lands in an HTML email. `e()` INSIDE `nl2br` — the trap slice
+    // 1 recorded on the PDF, where escaping AFTER would have escaped nl2br's own <br>.
+    $mall = makeAsset(['code' => 'EX']);
+    $lease = makeLease(makeUnit($mall), null, ['status' => 'active']);
+    $invoice = makeInvoice($lease, ['asset_id' => $mall->id]);
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'invoice.email_body',
+        'body_en' => '<script>alert(1)</script> due {due_date}',
+        'is_active' => true,
+    ]);
+
+    $html = view('emails.invoice-issued', [
+        'invoice' => $invoice->fresh(),
+        'tenant' => $invoice->tenant,
+        'lease' => $lease,
+        ...IssuingEntity::forView($mall),
+    ])->render();
+
+    expect($html)->not->toContain('<script>alert(1)</script>')
+        ->and($html)->toContain('&lt;script&gt;');
 });

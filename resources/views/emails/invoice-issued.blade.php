@@ -26,7 +26,13 @@
 <div class="card">
     <div class="brand">{{ $issuerName }}</div>
     <p>{{ __('admin.email.greeting', ['name' => $tenant->name]) }}</p>
-    <p>{{ __('admin.email.invoice_issued_body', ['number' => $invoice->number, 'due_date' => $invoice->due_date->format('d M Y')]) }}</p>
+    {{-- The operator's own covering note where they have written one, the shipped sentence where
+         they have not (EG-15). `e()` INSIDE `nl2br`, never after — nl2br would otherwise have its
+         own <br> escaped, which is the trap slice 1 recorded on the PDF. --}}
+    <p>{!! nl2br(e(\App\Support\DocumentText::for('invoice.email_body', $invoice->asset_id, [
+        'number' => $invoice->number,
+        'due_date' => $invoice->due_date->format('d M Y'),
+    ]) ?? '')) !!}</p>
 
     <div class="amount">{{ number_format((float) $invoice->total, 2) }} {{ $invoice->currency }}</div>
 
