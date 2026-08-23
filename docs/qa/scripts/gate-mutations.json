@@ -159,5 +159,19 @@
     "path": "app/Support/ValueSets.php",
     "old": "        'disbursements.method' => [PaymentMethod::class, 'outboundCodes'],\n",
     "new": ""
+  },
+  {
+    "name": "ChargeCodeGlMapping \u2014 a posting role a journalizer asks for leaves the registry",
+    "gate": "tests/Feature/Scenarios/ChargeCodeGlMappingConformanceTest.php",
+    "path": "app/Support/PostingRoles.php",
+    "old": "        'accounts_receivable' => self::GROUP_ASSET,\n",
+    "new": ""
+  },
+  {
+    "name": "NullLeaseChain \u2014 a stale lease-bound exemption",
+    "gate": "tests/Feature/Scenarios/NullLeaseChainConformanceTest.php",
+    "path": "tests/Feature/Scenarios/NullLeaseChainConformanceTest.php",
+    "old": "    'app/Console/Commands/ScanLeaseOptionWindowsCommand.php' => 'A lease OPTION is a clause of a lease by definition \u2014 `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n",
+    "new": "    'app/Console/Commands/ThisFileDoesNotExist.php' => 'A lease OPTION is a clause of a lease by definition \u2014 `lease_options.lease_id` is NOT NULL, so the subject cannot exist without one.',\n"
   }
 ]

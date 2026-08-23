@@ -48,7 +48,7 @@ gate that stays green is a `HOLE`. It verifies each mutation actually LANDED bef
 result, because a substitution that silently does not apply reports a false PASS, which has happened
 twice in this project.
 
-**Result: 23 mutations across 22 gates, two holes — both in gates that guarded a REGISTRY.**
+**Result: 25 mutations across 24 gates, three holes — all three in gates that guarded a REGISTRY.**
 
 1. `ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
    guards — 10 of 156 registered columns were invisible to it, so a new column of any of those
@@ -62,9 +62,18 @@ twice in this project.
    independent source, so it can see what the registry omits. (`ValueSets::catalogueWidenedColumns()`
    was exposed for exactly this and the check had never been written.)
 
-Both holes are the same shape, and it is worth naming: **a gate that reads only the registry it
+3. Nothing noticed a posting role leaving `PostingRoles::ROLES`. Deleting `accounts_receivable` left
+   this gate, `GlRegistry`, `HealthChecksAreWired` and `DerivedMoney` all green — and it is
+   invisible on any existing database, because the `account_mappings` ROW survives and the resolver
+   finds it by name. It bites a FRESH install: `atriom:install` seeds the posting map from the
+   registry, so a role that has left it is never mapped, and `Health::accountingReadiness()` cannot
+   help because it only asks about roles the registry still lists.
+   `ChargeCodeGlMappingConformanceTest` now derives the expected roles from what the journalizers
+   actually resolve (`->id('<role>')` under `app/Services`).
+
+All three holes are the same shape, and it is worth naming: **a gate that reads only the registry it
 guards cannot see what the registry omits.** When a gate checks a list, ask where its worklist comes
-from.
+from — if the answer is "the list", it can only check the list against itself.
 
 Two things worth knowing before adding a mutation:
 

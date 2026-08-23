@@ -8,6 +8,7 @@ use App\Support\PostingRoles;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChargeCodeSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\File;
 
 /**
  * Every charge code must post somewhere on purpose.
@@ -112,4 +113,53 @@ it('names only posting roles the registry knows, in the catalogue too', function
         ->all();
 
     expect($unknown)->toBe([], 'Catalogue roles not in App\Support\PostingRoles: '.implode(', ', $unknown));
+});
+
+it('registers every posting role a journalizer actually asks for', function () {
+    // Derived from the JOURNALIZERS, not from the registry — the third instance of the rule the
+    // 2026-08-23 mutation audit kept turning up: a gate that reads only the registry it guards
+    // cannot see what the registry omits. Measured, before this existed: deleting
+    // `accounts_receivable` from `PostingRoles::ROLES` left this gate, `GlRegistry`,
+    // `HealthChecksAreWired` and `DerivedMoney` all green.
+    //
+    // Why it matters on a FRESH install specifically. The existing books keep working, because the
+    // `account_mappings` ROW survives and the resolver finds it by name — so the loss is invisible
+    // on any database that already has one. But `atriom:install` seeds the posting map FROM this
+    // registry, so a role missing here is a role never mapped on a new deployment, and the first
+    // document that needs it cannot resolve an account. `Health::accountingReadiness()` will not
+    // catch it either: it checks that every role in the registry is mapped, and a role that has
+    // left the registry is simply not asked about.
+    //
+    // Scoped to `app/Services`, where the journalizers are: `->id('admin')` and `->id('portal')`
+    // elsewhere are Filament panel ids, and a whole-app sweep reads them as posting roles.
+    $used = [];
+
+    foreach (File::allFiles(app_path('Services')) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        if (preg_match_all("/->id\(\s*'([a-z_]+)'/", $file->getContents(), $matches)) {
+            foreach ($matches[1] as $role) {
+                $used[$role][] = str_replace(base_path().'/', '', $file->getPathname());
+            }
+        }
+    }
+
+    // The sweep must have found the call sites before reporting on them.
+    expect(count($used))->toBeGreaterThan(20);
+
+    $unregistered = [];
+
+    foreach ($used as $role => $files) {
+        if (! array_key_exists($role, PostingRoles::ROLES)) {
+            $unregistered[] = $role.' — asked for by '.implode(', ', array_unique($files));
+        }
+    }
+
+    expect($unregistered)->toBe([], implode("\n  ", array_merge(
+        ['These posting roles are resolved by a service but are not in PostingRoles::ROLES, so a',
+            'fresh install never maps them and the first document that needs one cannot post:'],
+        $unregistered,
+    )));
 });
