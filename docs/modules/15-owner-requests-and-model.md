@@ -304,9 +304,9 @@ php artisan test tests/Feature/Scenarios/OwnerRequestScenarioTest.php
 ```
 
 ### Related modules (links to docs)
-- **docs/modules/13-asset-and-property-model.md**: The `Asset` model, ownership (asset_owner) vs staff assignment (asset_user), property scoping
-- **docs/modules/11-user-model-and-rbac.md**: RBAC roles (owner, manager, super_admin, department roles), the Spatie permissions trait, `User::accessibleAssets()` union
-- **docs/modules/06-notifications.md**: Filament database notification channel, `OwnerRequestNotification` payload structure
+- **docs/modules/01-properties-units.md**: The `Asset` model, ownership (asset_owner) vs staff assignment (asset_user), property scoping
+- **docs/modules/18-rbac-scoping.md**: RBAC roles (owner, manager, super_admin, department roles), the Spatie permissions trait, `User::accessibleAssets()` union
+- **docs/modules/19-notifications-scans.md**: Filament database notification channel, `OwnerRequestNotification` payload structure
 - **docs/modules/XX-maintenance-requests.md** (TBD): Maintenance requests are distinct; owner requests are owner ↔ operator coordination; maintenance is operator ↔ tenant/vendor
 
 ### Activity log

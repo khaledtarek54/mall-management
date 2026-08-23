@@ -63,7 +63,7 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 - `Vendor::primaryContact()` → returns first with `is_primary=true`, or oldest by creation if none marked (helper method)
 - `Vendor::contracts()` → `hasMany(VendorContract::class)` (all contracts)
 - `Vendor::activeContractsCount()` → count of contracts with `status='active'` (helper for nav badge)
-- `Vendor::maintenanceRequests()` → `hasMany(TenantRequest::class, 'assigned_to_vendor_id')` (tenant requests assigned to this vendor; `MaintenanceRequest` was renamed `TenantRequest`)
+- `Vendor::tenantRequests()` → `hasMany(TenantRequest::class, 'assigned_to_vendor_id')` (tenant requests assigned to this vendor; `MaintenanceRequest` was renamed `TenantRequest`, and the relation with it)
 - `VendorContact::vendor()` → `belongsTo(Vendor::class)`
 - `VendorContract::vendor()` → `belongsTo(Vendor::class)`
 - `VendorContract::asset()` → `belongsTo(Asset::class)` (nullable; null = portfolio-wide contract)
@@ -756,7 +756,7 @@ A non-dispatchable vendor **cannot be put on a facility job.** The single server
   - Vendors can be assigned to maintenance requests via `assigned_to_vendor_id`.
   - Assignment is one-to-many; a vendor services many requests.
 
-- **Assets / Properties** (`docs/modules/01-assets.md`)
+- **Assets / Properties** (`docs/modules/01-properties-units.md`)
   - VendorContract.asset_id links to Asset (property).
   - TenantScope uses Asset to filter contracts for property-scoped operators.
   - Synthetic "All Properties" asset is excluded from contract-scoping picker.

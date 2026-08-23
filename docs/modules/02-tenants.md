@@ -23,7 +23,7 @@ Tenants are the **customers** of the mall (Eltizam/operator) — the retailers, 
 - `Tenant → CreditNote` (hasMany): all credit notes issued to this tenant
 - `Tenant → TenantUser` (hasMany): portal login accounts belonging to this company
 - `Tenant → TenantSalesDeclaration` (hasManyThrough Lease): sales declarations (for percentage-rent leases)
-- `Tenant → MaintenanceRequest` (hasMany): maintenance tickets filed by/for this tenant
+- `Tenant → TenantRequest` (hasMany): maintenance tickets filed by/for this tenant
 - `Tenant → Note` (morphMany): admin notes attached to the tenant
 - `Tenant → DeviceToken` (hasMany): mobile device registration records
 - `TenantUser → Tenant` (belongsTo)
@@ -55,7 +55,7 @@ looking for — the tenant billed as "Crema Coffee Co. LLC" is the sign above th
 | **Status gate:** Only a `status='active'` company can access the Portal or the mobile API. `inactive`/`blacklisted`/soft-deleted are blocked — **on every request**, not just at login. | **Portal:** `TenantUser::canAccessPanel()` = `panel->getId()==='portal' && $this->tenant?->status==='active'` (the portal authenticates `TenantUser` since the multi-user migration, so the check lives here — `Tenant::canAccessPanel()` is dead for the portal). **API:** login checks status once, and the `EnsureTenantActive` middleware on the `auth:tenant-api` group re-checks every request + revokes the token if the company is no longer active (a blacklist mid-session cuts access immediately). | `Module02TenantIntegrityTest` (portal gate across active/inactive/blacklisted; API cut-off mid-session) |
 | **Outstanding balance = invoices − unapplied credit-notes.** A tenant with a 1000 EGP invoice and a 300 EGP issued credit note owes 700 EGP. | `Tenant::outstandingBalance()`: sums invoices with status in [issued, partially_paid, overdue], subtracts credit notes with status='issued' (only issued = has unapplied balance; applied=0 balance, void excluded). | `TenantFinancialsTest::outstandingBalance_nets_unapplied_credit_notes` — creates a 1000+500 invoice scenario, adds 300 CN, asserts 1200 remaining. |
 | **Delinquency = open-balance invoice past due_date.** Not status-based (Payment hooks may be late/broken). Must re-query `balance > 0 AND due_date < now AND status IN [issued, partially_paid, overdue]`. | `Tenant::isDelinquent()` — defensive check ignoring the `status` column for the due-date window. | `TenantFinancialsTest::isDelinquent_flags_issued_but_past_due` — creates issued (not overdue) invoice 30 days in past, asserts delinquency. |
-| **Multi-user: at least one portal admin.** Only TenantUser records with `is_admin=true` can create/submit in the Portal. Others see read-only views. | Filament portal resource permission checks (each resource calls `TenantUser->isPortalAdmin()` or checks via policy). | `TenantUserGatingTest` — admin user can create MaintenanceRequest + TenantSalesDeclaration; non-admin cannot. |
+| **Multi-user: at least one portal admin.** Only TenantUser records with `is_admin=true` can create/submit in the Portal. Others see read-only views. | Filament portal resource permission checks (each resource calls `TenantUser->isPortalAdmin()` or checks via policy). | `TenantUserGatingTest` — admin user can create TenantRequest + TenantSalesDeclaration; non-admin cannot. |
 | **Identity fields (tax_id, national_id, commercial_register) are collected for ETA/legal filing.** At ETA submission, business tenants must have a valid tax_id. | `tax_id` matches `/^\d{3}-?\d{3}-?\d{3}$/` (Egyptian VAT format) on **both** the form AND the **importer** (import is the primary roster-onboarding path). `Tenant::setTaxIdAttribute` then **normalises to bare digits on save** — the dashed form is accepted for readability, but ETA rejects dashes, so the on-wire receiver id is always digits-only. The importer `type` rule is `in:individual,company` (matches the enum; `foreign` was unstorable). | `Module02TenantIntegrityTest` (tax_id normalisation + importer rules); ETA builder tests assert digits-only receiver id. |
 | **No cross-tenant data leak via property scope.** Tenants with no lease yet remain visible in the admin Tenant list (since they're unaffiliated), but filtering by property excludes them if they have any lease in another property. | `TenantResource::getEloquentQuery()`: if a property is in scope, return tenants with leases in that property OR tenants with no leases. | `TenantScopeTest` — scoping filters correctly; unaffiliated tenants are not hidden cross-property. |
 | **Soft deletes.** Deleted tenants are not shown by default; can be restored via admin UI. | `SoftDeletes` trait on Tenant and TenantUser. `deleted_at` column. | TenantsTable has TrashedFilter; RestoreBulkAction visible for admins. |
@@ -77,7 +77,7 @@ looking for — the tenant billed as "Crema Coffee Co. LLC" is the sign above th
 
 | Role | Permissions in Portal |
 |---|---|
-| `is_admin=true` | Can CREATE/SUBMIT (MaintenanceRequest, TenantSalesDeclaration, etc.). Can upload documents. |
+| `is_admin=true` | Can CREATE/SUBMIT (TenantRequest, TenantSalesDeclaration, etc.). Can upload documents. |
 | `is_admin=false` | Can VIEW all resources (invoices, sales declarations, etc.) but NOT create/edit/delete. |
 
 **Multi-user backfill:** When multi-user portal shipped (migration 2026_06_25_000003), all existing Tenants with a `password` + `email` were backfilled to one admin TenantUser each (preserving login continuity). New tenants created in admin panel do not auto-create a TenantUser; admins must create portal users explicitly in the PortalUsersRelationManager.
@@ -188,7 +188,7 @@ both years. And the status column was 8% wide, breaking the header to "STATU S" 
 - Returns a `[id => name]` keyed array of tenants visible in the current Filament context.
 - Scopes to the current user's visible properties (via `visibleAssetIds()`).
 - Excludes tenants that have no lease in the user's visible properties, **unless** they have no leases at all (unaffiliated tenants are safe to offer).
-- Used by Lease form, MaintenanceRequest form, etc. to populate tenant dropdowns.
+- Used by Lease form, TenantRequest form, etc. to populate tenant dropdowns.
 
 **Idempotency:** Yes — reads only; no state change.
 
@@ -262,7 +262,7 @@ both years. And the status column was 8% wide, breaking the header to "STATU S" 
 ### Portal Resources
 **Location:** `app/Filament/Portal/Resources/` (auto-discovered; each module owns its own)
 - Tenant is the authenticated **user model** for the portal panel (via guard `portal`).
-- Portal resources: Invoice, Payment, MaintenanceRequest, TenantSalesDeclaration (each module's responsibility).
+- Portal resources: Invoice, Payment, TenantRequest, TenantSalesDeclaration (each module's responsibility).
 - Widgets: AccountBalance (uses `Tenant::outstandingBalance()`), OpenMaintenance.
 - Only TenantUser with `is_admin=true` can create/submit; others are read-only.
 
@@ -284,7 +284,7 @@ both years. And the status column was 8% wide, breaking the header to "STATU S" 
 | `PaymentReceivedNotification` | Payment status flipped to 'captured' + has allocated invoices | Portal users | Confirms receipt and shows amount/invoices paid. Called by Payment.notifyReceiptOnce() (idempotent via `receipt_notified_at`). |
 | `InvoiceIssuedNotification` | Invoice created by MonthlyBillingService | Portal users | New invoice for rent/CAM/etc. Reference number, due date, amount. |
 | `PercentageRentCalculatedNotification` (inferred) | PercentageRentCalculationService | Portal users | Percentage-rent invoice auto-generated from tenant sales declaration. |
-| `MaintenanceRequestStatusChangedNotification` (inferred) | MaintenanceRequestService | Portal users | Maintenance ticket acknowledged, resolved, assigned, etc. |
+| `TenantRequestStatusChangedNotification` (inferred) | TenantRequestService | Portal users | Maintenance ticket acknowledged, resolved, assigned, etc. |
 | `TenantResetPasswordNotification` | Tenant calls `sendPasswordResetNotification($token)` (mobile app forgot-password flow) | Tenant email | Password reset link (deep-link to mobile app via `APP_MOBILE_RESET_URL` config). Token expires in 60 minutes. |
 
 ### External integrations
@@ -433,18 +433,18 @@ both years. And the status column was 8% wide, breaking the header to "STATU S" 
 - `/tests/Feature/Resources/TenantDelinquencyColumnTest.php` — TenantsTable delinquency badge.
 
 ### Related modules (dependencies and cross-refs)
-- **Module 01 — Assets** (`docs/modules/01-assets.md`): Property scoping is hierarchical (Tenant → Lease → Unit → Asset); TenantScope queries are `leases.unit.asset_id`.
-- **Module 03 — Units** (`docs/modules/03-units.md`): Tenants occupy Units via Leases; Unit.asset_id gates what tenants can be leased.
+- **Module 01 — Properties & Units** (`docs/modules/01-properties-units.md`): Property scoping is hierarchical (Tenant → Lease → Unit → Asset); TenantScope queries are `leases.unit.asset_id`.
+- **Module 01 — Properties & Units** (`docs/modules/01-properties-units.md`): Tenants occupy Units via Leases; Unit.asset_id gates what tenants can be leased.
 - **Module 04 — Leases** (`docs/modules/04-leases.md`): Lease.tenant_id binds a tenant to units; lease billing (rent, CAM) drives invoice generation.
-- **Module 05 — Invoices** (`docs/modules/05-invoices.md`): Invoice.tenant_id + Invoice.lease_id tie invoices to companies and lease terms; outstanding balance is computed from invoices.
+- **Module 05 — Billing & Invoices** (`docs/modules/05-billing-invoices.md`): Invoice.tenant_id + Invoice.lease_id tie invoices to companies and lease terms; outstanding balance is computed from invoices.
 - **Module 06 — Payments** (`docs/modules/06-payments.md`): Payment.tenant_id + Payment.invoices (pivot) allocate payments; notifies tenant via `PaymentReceivedNotification`.
-- **Module 07 — CAM** (`docs/modules/07-cam.md`): CAM charges are billed to tenants via invoices; service charge invoices are generated monthly.
-- **Module 08 — ETA** (`docs/modules/08-eta.md`): ETA submission uses Tenant.tax_id; invoice ETA metadata stored in Invoice.eta_* columns.
-- **Module 09 — Maintenance** (`docs/modules/09-maintenance.md`): MaintenanceRequest.tenant_id ties tickets to tenant; notifies via `MaintenanceRequestStatusChanged`.
-- **Module 11 — Tenant Portal** (`docs/modules/11-tenant-portal.md`): Portal panel auth guard uses Tenant model; TenantUser controls admin/read-only access.
-- **Module 12 — Tenant Sales** (`docs/modules/12-tenant-sales.md`): TenantSalesDeclaration belongs to Lease (not directly to Tenant); accessed via `Tenant.salesDeclarations()` (hasManyThrough).
-- **Module 14 — Credit Notes** (`docs/modules/14-credit-notes.md`): CreditNote.tenant_id + CreditNote.balance factor into `Tenant.outstandingBalance()`.
-- **Module 19 — Mobile API** (`docs/modules/19-mobile-api.md`): Mobile endpoints auth via `auth:tenant-api` (Sanctum); TenantResource API serialization.
+- **Module 08 — CAM** (`docs/modules/08-cam.md`): CAM charges are billed to tenants via invoices; service charge invoices are generated monthly.
+- **Module 16 — ETA** (`docs/modules/16-eta-einvoicing.md`, frozen): ETA submission uses Tenant.tax_id; invoice ETA metadata stored in Invoice.eta_* columns.
+- **Module 11 — Tenant Requests** (`docs/modules/11-tenant-requests.md`): TenantRequest.tenant_id ties tickets to tenant; notifies via `TenantRequestStatusChanged`.
+- **Module 03 — Tenant Portal Users** (`docs/modules/03-tenant-portal-users.md`): Portal panel auth guard uses Tenant model; TenantUser controls admin/read-only access.
+- **Module 09 — Tenant Sales & Percentage Rent** (`docs/modules/09-tenant-sales-percentage-rent.md`): TenantSalesDeclaration belongs to Lease (not directly to Tenant); accessed via `Tenant.salesDeclarations()` (hasManyThrough).
+- **Module 07 — Credit Notes** (`docs/modules/07-credit-notes.md`): CreditNote.tenant_id + CreditNote.balance factor into `Tenant.outstandingBalance()`.
+- **Module 20 — Mobile API** (`docs/modules/20-mobile-api.md`): Mobile endpoints auth via `auth:tenant-api` (Sanctum); TenantResource API serialization.
 - **Cross-cutting: Notifications** (`docs/modules/notifications.md`?): Tenant.notifyPortal() broadcasts to TenantUser collection; see PaymentReceivedNotification, InvoiceIssuedNotification.
 
 ---

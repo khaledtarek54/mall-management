@@ -474,6 +474,12 @@
         "note": "request"
     },
     {
+        "model": "RecurringExpense",
+        "label": "Recurring Expense",
+        "classification": "owned",
+        "note": null
+    },
+    {
         "model": "RentIndex",
         "label": "Rent Index",
         "classification": "shared",

@@ -85,6 +85,13 @@
             "hasView": false
         },
         {
+            "class": "CustomFieldResource",
+            "slug": "custom-fields",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "DepartmentResource",
             "slug": "departments",
             "hasCreate": true,
@@ -269,6 +276,13 @@
         {
             "class": "PurchaseRequestResource",
             "slug": "purchase-requests",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "RecurringExpenseResource",
+            "slug": "recurring-expenses",
             "hasCreate": true,
             "hasEdit": true,
             "hasView": false

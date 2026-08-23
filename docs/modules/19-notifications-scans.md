@@ -13,10 +13,10 @@ This module delivers time-sensitive alerts to tenants, operators (Eltizam), and 
 **Owner oversight alerts** (database-only): When an invoice on their property is overdue, they are notified via the operator bell; when a maintenance SLA breaches, oversight users at that asset see it.
 
 The module enforces **idempotency** through two mechanisms:
-- **Notification lock stamps** (`MaintenanceRequest.sla_breach_notified_at`, `Invoice.owner_overdue_notified_at`) prevent duplicate alerts.
+- **Notification lock stamps** (`TenantRequest.sla_breach_notified_at`, `Invoice.owner_overdue_notified_at`) prevent duplicate alerts.
 - **Tenant portal fan-out** (`Tenant::notifyPortal()`) ensures all portal logins (TenantUser records) receive tenant-facing events.
 
-**Real-world flow**: A tenant submits a maintenance request → PortalMaintenanceSubmitted alerts assigned ops staff → staff acknowledges it → MaintenanceStatusChanged notifies tenant + portal logins via email + bell → if 72h SLA passes (for high priority) without resolution → ScanMaintenanceSlaBreachesCommand locks the request, stamps it, and alerts managers + owners again → resolved → auto-closed after 7 days.
+**Real-world flow**: A tenant submits a maintenance request → PortalRequestSubmitted alerts assigned ops staff → staff acknowledges it → TenantRequestStatusChanged notifies tenant + portal logins via email + bell → if 72h SLA passes (for high priority) without resolution → ScanTenantRequestSlaBreachesCommand locks the request, stamps it, and alerts managers + owners again → resolved → auto-closed after 7 days.
 
 ---
 
@@ -25,16 +25,16 @@ The module enforces **idempotency** through two mechanisms:
 | Table/Model | Key Columns | Meaning |
 |---|---|---|
 | `notifications` (Laravel default) | `id` (uuid), `type`, `notifiable_type`, `notifiable_id`, `data` (JSON), `read_at`, `created_at` | Stores all notifications sent to Users and TenantUsers. The `data` column holds `toDatabase()` payload: type, title, body, format ('filament' for bell-rendered), duration ('persistent' for no auto-close), icon, color. |
-| `MaintenanceRequest` | `sla_breach_notified_at` (timestamp, nullable) | Idempotency stamp: set when hourly scan fires the SLA breach alert; if not null, scan skips this request. |
+| `TenantRequest` | `sla_breach_notified_at` (timestamp, nullable) | Idempotency stamp: set when hourly scan fires the SLA breach alert; if not null, scan skips this request. |
 | `Invoice` | `owner_overdue_notified_at` (timestamp, nullable) | Idempotency stamp: set when daily scan fires the overdue alert to Jawad owners; if not null, scan skips this invoice. |
 | `Invoice` | `tenant_overdue_notified_at` (timestamp, nullable) | Separate idempotency stamp for the tenant-facing overdue reminder (`billing:remind-overdue-tenants`) — kept distinct from the owner stamp so tenant + owner alerts fire independently. |
 | `Lease` | `expiry_reminder_notified_at` (timestamp, nullable) | Idempotency stamp for the tenant lease-expiry reminder (`leases:remind-expiring`). A renewal is a new lease row (`previous_lease_id`), so each lease reminds once for its own expiry. |
 
 **Relationships**:
 - `Tenant` → (1:many) `TenantUser` (portal logins); `Tenant::notifyPortal($notification)` sends to both Tenant + all TenantUsers
-- `MaintenanceRequest` → (many:1) `Tenant`, `Unit`, `Asset`
+- `TenantRequest` → (many:1) `Tenant`, `Unit`, `Asset`
 - `Invoice` → (many:1) `Lease` → `Unit` → `Asset`, `Tenant`
-- `MaintenanceRequest` → (many:1) `MaintenanceRequestComment` (public/internal)
+- `TenantRequest` → (many:1) `TenantRequestComment` (public/internal)
 - `TenantSalesDeclaration` → (many:1) `Lease` → `Tenant`
 
 ---
@@ -48,7 +48,7 @@ The module enforces **idempotency** through two mechanisms:
 2. **SLA breach alert fires exactly once per request**  
    - `sla_breach_notified_at` is the guard; transaction lock prevents concurrent scans from double-alerting.
    - Formula: if `status` ∈ `['submitted', 'acknowledged', 'in_progress']` AND `target_resolution_at < now()` AND `sla_breach_notified_at IS NULL`, alert fires.
-   - Tested in `ScanMaintenanceSlaBreachesCommandTest::alerts on a breached request and stamps sla_breach_notified_at`.
+   - Tested in `ScanTenantRequestSlaBreachesCommandTest::alerts on a breached request and stamps sla_breach_notified_at`.
 
 3. **Overdue invoice alert fires exactly once per invoice**  
    - `owner_overdue_notified_at` is the guard; transaction lock prevents concurrent scans from double-alerting.
@@ -57,7 +57,7 @@ The module enforces **idempotency** through two mechanisms:
 
 4. **SLA targets are priority-based** (from `config/sla.php`)  
    - urgent: 24h, high: 72h, medium: 7 days (168h), low: 14 days (336h)
-   - `MaintenanceRequest.target_resolution_at = created_at + priority_hours`
+   - `TenantRequest.target_resolution_at = created_at + priority_hours`
 
 5. **Late-fee policy** (lease → property → `BillingSettings`, never config)  
    - Grace period: `late_fee_grace_days` (default 7 days after due_date)
@@ -133,7 +133,7 @@ The module enforces **idempotency** through two mechanisms:
 
 The notification module itself is **stateless** (notifications are created and archived, not transitioned). However, it guards the **triggering** state machines:
 
-**Maintenance Request Status Machine** (triggers MaintenanceStatusChanged on non-cancelled transitions):
+**Maintenance Request Status Machine** (triggers TenantRequestStatusChanged on non-cancelled transitions):
 ```
 submitted ──→ acknowledged ──→ in_progress ──→ resolved ──→ closed
         ╲                                          ↑
@@ -150,7 +150,7 @@ issued ──→ partially_paid ──→ paid (no more alerts)
 
 **Scan Idempotency (by timestamp):**: Each scan passes its entry point idempotency state to the next run:
 ```
-maintenance:scan-sla-breaches (hourly)
+requests:scan-sla-breaches (hourly)
   ├─ Find open requests with target_resolution_at < now AND sla_breach_notified_at IS NULL
   ├─ For each: DB::transaction { lock request, re-check stamp, if still null → Notification::send() + stamp }
   └─ Repeated runs skip already-stamped rows
@@ -167,10 +167,16 @@ billing:scan-overdue-invoices (daily @ 06:00)
 
 ### Scheduled Commands (defined in `routes/console.php`)
 
+> **This table is the scans THIS module owns — the ones that raise a notification — not the whole
+> schedule.** `routes/console.php` runs ~38 events; the accounting, backup, leasing, facility and
+> reporting sweeps live in their own module docs. Do not read a command's absence here as "not
+> scheduled" — read `routes/console.php`, and grep `Schedule::job` as well as `Schedule::command`,
+> because `RunMonthlyBilling` and `ApplyLateFees` are scheduled as jobs.
+
 | Command | Cron | Signature | What it does | Idempotency | Locking |
 |---------|------|-----------|--------------|-------------|---------|
-| `maintenance:scan-sla-breaches` | hourly | `--dry-run` | Find open maintenance requests past `target_resolution_at`, notify asset managers + owners if breach is new (sla_breach_notified_at=null), then stamp. Rolls up breach count + delivery success count. | sla_breach_notified_at | DB::transaction + lockForUpdate per request |
-| `maintenance:auto-close` | 03:00 daily | `--days=7 --dry-run` | Transition MaintenanceRequest rows from 'resolved' → 'closed' if resolved_at ≤ (today - --days). Uses MaintenanceRequestService::transition(). | resolved_at timestamp | none (service provides) |
+| `requests:scan-sla-breaches` | hourly | `--dry-run` | Find open maintenance requests past `target_resolution_at`, notify asset managers + owners if breach is new (sla_breach_notified_at=null), then stamp. Rolls up breach count + delivery success count. | sla_breach_notified_at | DB::transaction + lockForUpdate per request |
+| `requests:auto-close` | 03:00 daily | `--days=7 --dry-run` | Transition TenantRequest rows from 'resolved' → 'closed' if resolved_at ≤ (today - --days). Uses TenantRequestService::transition(). | resolved_at timestamp | none (service provides) |
 | `billing:scan-overdue-invoices` | 06:00 daily | `--dry-run` | Find invoices with balance > 0, due_date < today, status=[issued\|partially_paid\|overdue], alert Jawad owners, stamp owner_overdue_notified_at. | owner_overdue_notified_at | DB::transaction + lockForUpdate per invoice |
 | `billing:remind-overdue-tenants` | 06:15 daily | `--dry-run` | Same overdue set, but reminds the **tenant** (email + bell + mobile push) and stamps tenant_overdue_notified_at. Independent of owners — fires even when the property has no owner assigned. | tenant_overdue_notified_at | DB::transaction + lockForUpdate per invoice |
 | `leases:remind-expiring` | 07:00 daily | `--dry-run` | Remind tenants whose **active** lease expires within `billing.lease_expiry_reminder_days` (default 90) — email + bell + mobile push — nudging renewal, then stamp expiry_reminder_notified_at. Mirrors the admin "expiring soon" widget window. | expiry_reminder_notified_at | DB::transaction + lockForUpdate per lease |
@@ -197,11 +203,11 @@ Loops through eligible invoices, calls `applyTo()` per invoice inside a transact
 
 **`AssetStaffRecipients::for(?int $assetId, array $roles)`**  
 Returns Collection of Users with $roles assigned to $assetId, plus all super_admins.  
-Used by: PortalMaintenanceSubmitted, MaintenanceSlaBreached; also called by SalesDeclarationSubmitted (with `['manager', 'leasing']`).
+Used by: PortalRequestSubmitted, TenantRequestSlaBreached; also called by SalesDeclarationSubmitted (with `['manager', 'leasing']`).
 
 **`AssetStaffRecipients::owners(?int $assetId)`**  
 Returns Collection of Users with owner (Jawad) role + asset_owner relationship for $assetId.  
-Used by: ScanMaintenanceSlaBreachesCommand, ScanOverdueInvoicesCommand for oversight alerts.
+Used by: ScanTenantRequestSlaBreachesCommand, ScanOverdueInvoicesCommand for oversight alerts.
 
 ---
 
@@ -243,10 +249,10 @@ and `App\Filament\Portal\Pages\NotificationCenter` (`/portal/notifications`), sh
 |--------------|----------|-----------|----------|------|
 | `InvoiceIssuedNotification` | mail, database, **push** | Tenant + portal logins | MonthlyBillingService::generateForLease() | Invoice created during monthly billing run |
 | `PaymentReceivedNotification` | mail, database, **push** | Tenant + portal logins | Payment observer (status: initiated → captured, with allocations) | Payment captured + allocated to invoices |
-| `MaintenanceStatusChangedNotification` | mail, database, **push** | Tenant + portal logins (except for cancelled transition) | MaintenanceRequestService::transition() | Any status change except cancelled |
-| `MaintenanceCommentAddedNotification` | mail + database + **push** (Tenant recipient) OR database-only (staff recipient) | Tenant (if staff commented) OR asset staff (if tenant commented) | MaintenanceRequestService::comment($isInternal=false) | Public comment added to maintenance request |
-| `PortalMaintenanceSubmittedNotification` | database | Asset managers + operations + super_admins | MaintenanceRequestService::create() | Tenant submits maintenance request via portal |
-| `MaintenanceSlaBreachedNotification` | database | Asset managers + operations + super_admins + owners | ScanMaintenanceSlaBreachesCommand (hourly) | Request still open past target_resolution_at (hourly scan) |
+| `TenantRequestStatusChangedNotification` | mail, database, **push** | Tenant + portal logins (except for cancelled transition) | TenantRequestService::transition() | Any status change except cancelled |
+| `TenantRequestCommentAddedNotification` | mail + database + **push** (Tenant recipient) OR database-only (staff recipient) | Tenant (if staff commented) OR asset staff (if tenant commented) | TenantRequestService::comment($isInternal=false) | Public comment added to maintenance request |
+| `PortalRequestSubmittedNotification` | database | Asset managers + operations + super_admins | TenantRequestService::create() | Tenant submits maintenance request via portal |
+| `TenantRequestSlaBreachedNotification` | database | Asset managers + operations + super_admins + owners | ScanTenantRequestSlaBreachesCommand (hourly) | Request still open past target_resolution_at (hourly scan) |
 | `InvoiceOverdueOwnerNotification` | database | Jawad owners of the property | ScanOverdueInvoicesCommand (daily) | Invoice past due_date with balance > 0 (daily scan) |
 | `InvoiceOverdueTenantNotification` | mail, database, **push** | Tenant + portal logins | RemindOverdueTenantsCommand (daily) | Invoice past due_date with balance > 0 — tenant reminder, idempotent via `tenant_overdue_notified_at` (separate stamp from the owner alert) |
 | `LateFeeAppliedNotification` | mail, database, **push** (ShouldQueue) | Tenant + portal logins | LateFeeService::applyTo() — inside the fee transaction | A late fee line item is added to an overdue invoice (once per invoice) |
@@ -298,8 +304,8 @@ mail, and the quiet ones must not start mailing because someone copied the trait
 **Mail Channels** (tenant-facing + lock notifications only):
 - InvoiceIssuedNotification: view `emails.invoice-issued`, attaches invoice PDF
 - PaymentReceivedNotification: generic MailMessage with allocated invoices
-- MaintenanceStatusChangedNotification: generic MailMessage with status + resolution notes if resolved/closed
-- MaintenanceCommentAddedNotification: generic MailMessage with comment body
+- TenantRequestStatusChangedNotification: generic MailMessage with status + resolution notes if resolved/closed
+- TenantRequestCommentAddedNotification: generic MailMessage with comment body
 - SalesDeclarationLockedNotification: generic MailMessage with period + amount
 
 ### Mobile Push (Firebase Cloud Messaging)
@@ -412,7 +418,7 @@ The `push` channel delivers tenant-facing notifications to the tenant mobile app
 
 ### Changing SLA targets:
 
-Edit `config/sla.php` `sla` array. The `MaintenanceRequestService` reads this at create-time to set `target_resolution_at`. **Changing the config does NOT update existing targets** — only new requests get the new SLA. If you need to re-calculate existing requests, write a one-off command.
+Edit `config/sla.php` `sla` array. The `TenantRequestService` reads this at create-time to set `target_resolution_at`. **Changing the config does NOT update existing targets** — only new requests get the new SLA. If you need to re-calculate existing requests, write a one-off command.
 
 ### Changing late-fee policy:
 
@@ -574,14 +580,14 @@ happen".
 
 5. **Maintenance status change does NOT notify if cancelled**  
    The `cancelled` transition is user-initiated (tenant or staff cancelling a request they submitted). No notification fires because the other party (staff or tenant) already knows.  
-   **Guard**: `MaintenanceRequestService::transition()` has an explicit check: `if ($to === 'cancelled') return; // no notify`.
+   **Guard**: `TenantRequestService::transition()` has an explicit check: `if ($to === 'cancelled') return; // no notify`.
 
 6. **Internal-only maintenance comments never trigger notifications**  
-   If `MaintenanceRequestService::comment(..., isInternal: true)`, the notification is suppressed entirely.  
+   If `TenantRequestService::comment(..., isInternal: true)`, the notification is suppressed entirely.  
    **Guard**: The service checks `isInternal` before calling the notify method.
 
 7. **SLA breach alerts include both assigned staff AND owners**  
-   The `ScanMaintenanceSlaBreachesCommand` merges both `AssetStaffRecipients::for(..., ['manager', 'operations'])` AND `AssetStaffRecipients::owners(...)`. This is intentional (FR MNT-5 oversight), but means owners see high-priority operational alerts.  
+   The `ScanTenantRequestSlaBreachesCommand` merges both `AssetStaffRecipients::for(..., ['manager', 'operations'])` AND `AssetStaffRecipients::owners(...)`. This is intentional (FR MNT-5 oversight), but means owners see high-priority operational alerts.  
    **Guard**: Tests verify this; if you need to exclude owners from SLA, edit the command's recipient merge logic.
 
 8. **Invoices with balance=0 (fully paid) are never scanned for overdue alert**  
@@ -617,10 +623,10 @@ happen".
 
 ### Test Files
 - `tests/Feature/Notifications/InvoiceAndPaymentNotificationsTest.php` — invoice issued, payment received, no-notify-if-no-allocations
-- `tests/Feature/Notifications/MaintenanceAndSalesNotificationsTest.php` — maintenance status change, cancelled no-notify, tenant/staff comment routing
+- `tests/Feature/Scenarios/NotificationFlowScenarioTest.php` — request status change, cancelled no-notify, tenant/staff comment routing
 - `tests/Feature/Notifications/AdminTriageNotificationsTest.php` — operator-side routing (portal maintenance submitted, sales declaration submitted, no-notify-if-no-roles)
 - `tests/Feature/Scenarios/NotificationFlowScenarioTest.php` — **authoritative suite** covering notifyPortal fan-out, scoping (unrelated tenant not notified), payload shape (title/body/format/color/duration), recipient branching (maintenance comment Tenant vs staff), sales locked, payment received with invoice list
-- `tests/Feature/Console/ScanMaintenanceSlaBreachesCommandTest.php` — breach alert fired, sla_breach_notified_at stamped, --dry-run, already-alerted skipped, closed/resolved skipped
+- `tests/Feature/Console/ScanTenantRequestSlaBreachesCommandTest.php` — breach alert fired, sla_breach_notified_at stamped, --dry-run, already-alerted skipped, closed/resolved skipped
 - `tests/Feature/Console/ConsoleCommandsTest.php` — apply-late-fees stats, monthly billing dispatch, CAM reconcile, cam:reconcile --auto-bill
 - `tests/Feature/Notifications/NotificationDeepLinkTest.php` — the SAME notification hands an operator `/admin/{property}/…` and a retailer `/portal/…`; the slug is the record's property, not the reader's; a link is withheld rather than 404'd for the wrong property or another tenant; the fallback destination; the URL never leaks into the FCM push or the mobile API
 - `tests/Feature/Notifications/NotificationCenterTest.php` — both panels render, each reader sees only their own rows, read/unread + mark-all, ownership refusal (with an authorised control)
@@ -631,9 +637,9 @@ happen".
 - `tests/Feature/Scenarios/NotificationDeepLinkConformanceTest.php` — **the gate**: unclassified notification, cross-panel destination, payload key that is never written, missing `format => filament`, a reappearing `url` key
 
 ### Related Modules (see docs/modules/<name>.md)
-- `08-maintenance-requests.md` — MaintenanceRequest model, status machine, SLA logic
-- `06-billing.md` — Invoice creation, payment capture, late-fee math, allocation
-- `05-leases.md` — Lease model, tenant relationship
-- `12-sales-declarations.md` — TenantSalesDeclaration, percentage rent locking
-- `14-users-rbac.md` — User roles (manager, operations, leasing, owner), asset assignment, super_admin fallback
-- `17-portal-auth.md` — TenantUser, portal login fan-out surface
+- `11-tenant-requests.md` — TenantRequest model, status machine, SLA logic
+- `05-billing-invoices.md` — Invoice creation, payment capture, late-fee math, allocation
+- `04-leases.md` — Lease model, tenant relationship
+- `09-tenant-sales-percentage-rent.md` — TenantSalesDeclaration, percentage rent locking
+- `18-rbac-scoping.md` — User roles (manager, operations, leasing, owner), asset assignment, super_admin fallback
+- `03-tenant-portal-users.md` — TenantUser, portal login fan-out surface

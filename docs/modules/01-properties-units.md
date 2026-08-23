@@ -422,7 +422,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 
 Related modules send notifications:
 - **Lease module:** LeaseRenewalService, LeaseTerminationService notify tenants/owners.
-- **Maintenance module:** MaintenanceStatusChangedNotification, MaintenanceSlaBreachedNotification.
+- **Maintenance module:** TenantRequestStatusChangedNotification, TenantRequestSlaBreachedNotification.
 - **Invoice module:** InvoiceIssuedNotification, InvoiceOverdueOwnerNotification.
 
 Properties & Units are read/queried by these; no outbound notifications originate here.
@@ -602,7 +602,7 @@ The `lease_unit.is_master=true` row is mirrored into `leases.unit_id` for backwa
 - **Lease module** — Lease model, LeaseCreationService, status transitions, charges.
 - **Tenant module** — Tenant model, used when creating leases.
 - **Charge module** — Charges seeded on lease creation (rent, service charge).
-- **Maintenance module** — MaintenanceRequest references Unit; operates within property context.
+- **Maintenance module** — TenantRequest references Unit; operates within property context.
 - **Utility Meters module** — UtilityMeter.asset and .unit foreign keys.
 - **Invoice/Billing module** — Invoices generated per Lease; roll up to Asset for statements.
 - **User/RBAC module** — Spatie Permission roles + asset_user staff assignments.

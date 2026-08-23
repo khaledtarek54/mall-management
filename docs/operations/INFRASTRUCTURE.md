@@ -166,9 +166,9 @@ also works — pick one. On redeploy, `php artisan queue:restart` lets the worke
 # crontab -u atriom-prod   (and again for atriom-staging)
 * * * * * cd /var/www/atriom-prod/current && php artisan schedule:run >> /dev/null 2>&1
 ```
-Drives every cadence in `routes/console.php`: `maintenance:scan-sla-breaches` (hourly),
+Drives every cadence in `routes/console.php`: `requests:scan-sla-breaches` (hourly),
 `billing:scan-overdue-invoices`/`remind-overdue-tenants` (06:00/06:15), `billing:apply-late-fees`,
-`cam:reconcile`, `accounting:post-depreciation`/`sync-ledger`, `maintenance:auto-close`/
+`cam:reconcile`, `accounting:post-depreciation`/`sync-ledger`, `requests:auto-close`/
 `generate-preventive`, `vendors:expire-contracts`, `marketing:ensure-budgets`, `atriom:prune-activity-log`.
 Set `APP_TIMEZONE=Africa/Cairo` so cadences fire on Cairo wall-clock.
 

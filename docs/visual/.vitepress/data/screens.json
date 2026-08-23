@@ -420,6 +420,12 @@
         "guide": "purchase_requests"
     },
     {
+        "screen": "RecurringExpenseResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "recurring_expenses"
+    },
+    {
         "screen": "RentIndexResource",
         "panel": "admin",
         "kind": "resource",

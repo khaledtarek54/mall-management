@@ -203,7 +203,7 @@ Departments are **reference data**, not workflows. They have no lifecycle transi
 4. **Test:** add a test case in `DepartmentMessageTest` or `DepartmentScenarioTest` that verifies the new payload.
 
 ### Linking a model to a department
-Examples: `MaintenanceRequest` has `department_id`; `Invoice` is owned by the Accounting department.
+Examples: `TenantRequest` has `department_id`; `Invoice` is owned by the Accounting department.
 
 1. **Add `department_id` FK column** to the model's migration (cascade or set-null, as appropriate).
 2. **Add `belongsTo` relation** on the model.
@@ -255,8 +255,8 @@ If a department is scoped to an asset that the current user cannot access (based
 - `tests/Feature/DepartmentRolesTest.php` — role-per-department naming, permission grants via role, `registerMember()` / `unregisterMember()`.
 - `tests/Feature/DepartmentMessageTest.php` — message sending, sender exclusion, recipient count.
 - `tests/Feature/DepartmentResourceTest.php` — resource permissions, tenant scoping, Livewire list rendering.
-- `tests/Feature/DepartmentScenarioTest.php` — multi-member registration, fixed-set lock, messaging fan-out, nav-group alignment, role persistence.
-- `tests/Feature/MaintenanceDepartmentTest.php` — department assignment/redirect on maintenance requests.
+- `tests/Feature/Scenarios/DepartmentScenarioTest.php` — multi-member registration, fixed-set lock, messaging fan-out, nav-group alignment, role persistence.
+- `tests/Feature/TenantRequestDepartmentTest.php` — department assignment/redirect on tenant requests.
 
 **Related modules:**
 - `docs/modules/02-tenants.md` — tenant model & portal.

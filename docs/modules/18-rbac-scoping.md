@@ -312,7 +312,7 @@ Select::make('asset_id')
 ```
 When a user is pinned to property A, the asset_id picker auto-defaults to A and is disabled; in "ALL" mode, they can manually select A but not B.
 
-**Tenant picker scoping** (e.g., MaintenanceRequestForm):
+**Tenant picker scoping** (e.g., TenantRequestForm):
 ```php
 Select::make('tenant_id')
     ->options(fn () => TenantScope::selectableTenantOptions())

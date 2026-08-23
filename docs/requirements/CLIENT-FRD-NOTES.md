@@ -95,7 +95,7 @@ These four decisions steer the FRs below:
 | ID | Functional requirement | Status | Evidence / note |
 |---|---|---|---|
 | **ACCESS-1** | Val internal support/workflow **hidden from Eltizam** | 🟡 | Owner scoping + owner-to-owner requests hidden from operators; but **no owner-private notes/documents** (`Note` has no visibility flag) |
-| **NOT-1** | Val notified when Eltizam acts late | ✅ | `maintenance:scan-sla-breaches` notifies owners on SLA breach |
+| **NOT-1** | Val notified when Eltizam acts late | ✅ | `requests:scan-sla-breaches` notifies owners on SLA breach |
 | **REQ-1** | Only admins can raise a maintenance/request | ✅ | Portal: tenant-admin only; admin panel: `maintenance.create` RBAC |
 | **DEPT-3** | Core departments HR/Accounting/Marketing/Leasing | ✅ | Present (+ Operations) |
 | **DEPT-4** | Departments contact each other via in-app notifications | ✅ | `DepartmentMessageService` fan-out notification |

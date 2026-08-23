@@ -18,11 +18,14 @@
 > | `config/sla.php` | **`config/sla.php`** + **`config/requests.php`** — it held two unrelated things |
 >
 > Also renamed: the `maintenanceRequests()` relation on Tenant/Lease/Unit/Vendor is now
-> `tenantRequests()`, `PortalMaintenanceSubmittedNotification` is `PortalRequestSubmittedNotification`,
-> and the demo login `maintenance@mall.test` is `operations@mall.test`.
+> `tenantRequests()`, `PortalMaintenanceSubmittedNotification` is
+> `PortalRequestSubmittedNotification`, and the demo login `maintenance@mall.test` is
+> `operations@mall.test`.
 >
-> ⚠️ **Reading this doc:** wherever the text below says `MaintenanceRequest`, read `TenantRequest`.
-> No class, permission, setting or config key in this module carries the word "maintenance" any
+> ⚠️ **This doc was swept for the old identifiers on 2026-08-23** — `MaintenanceRequest` reads
+> `TenantRequest`, `MaintenanceRequestService` reads `TenantRequestService`, and the two commands
+> are `requests:scan-sla-breaches` and `requests:auto-close`. No class, permission, setting or
+> config key in this module carries the word "maintenance" any
 > more. It survives in exactly one place here and correctly so — `TenantRequestType::Maintenance`,
 > the request *type*, because a maintenance request is a kind of tenant request.
 
@@ -76,7 +79,7 @@ these fields, so a permit is a typed request with a validity window and nothing 
 
 ## 2. Domain model
 
-**MaintenanceRequest** (primary model)
+**TenantRequest** (primary model)
 
 | Column | Type | Constraints | Meaning |
 |--------|------|-----------|---------|
@@ -111,7 +114,7 @@ these fields, so a permit is a typed request with a validity window and nothing 
 | valid_to | date | nullable | Permit validity window end (FR-REQ-14). Must be ≥ valid_from if both set (enforced in `TenantRequest::booted`). Null for non-permit requests. |
 | sla_clock | string(16) | nullable | Which clock this request's deadline was promised on — `calendar` or `working`. **Frozen at intake**, never re-resolved: a pending SLA is re-read on every breach scan, so resolving it at read time would re-time every running request the moment an operator changed the setting. Null on rows raised before EG-38, which read as `calendar` — the behaviour they were actually given. |
 | sla_breach_notified_at | timestamp | nullable | Stamped by scan-sla-breaches after firing alert (idempotency guard) |
-| csat_rating | tinyint | nullable | Close-out satisfaction score (1–5). Captured from the tenant once the request is resolved/closed — via the portal "Rate" action or `POST /me/requests/{id}/rate`. Recorded by `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable). Shown as a toggleable admin column. |
+| csat_rating | tinyint | nullable | Close-out satisfaction score (1–5). Captured from the tenant once the request is resolved/closed — via the portal "Rate" action or `POST /me/requests/{id}/rate`. Recorded by `TenantRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable). Shown as a toggleable admin column. |
 | csat_comment | text | nullable | Optional free-text feedback accompanying the CSAT score |
 | created_at | timestamp | - | Record creation |
 | updated_at | timestamp | - | Last update |
@@ -124,14 +127,14 @@ these fields, so a permit is a typed request with a validity window and nothing 
 - `assignee()`: BelongsTo User (assigned_to)
 - `assignedVendor()`: BelongsTo Vendor (assigned_to_vendor_id, nullable)
 - `department()`: BelongsTo Department (nullable)
-- `comments()`: HasMany MaintenanceRequestComment, ordered by created_at
+- `comments()`: HasMany TenantRequestComment, ordered by created_at
 
-**MaintenanceRequestComment** (audit trail)
+**TenantRequestComment** (audit trail)
 
 | Column | Type | Meaning |
 |--------|------|---------|
 | id | bigint | PK |
-| maintenance_request_id | bigint | FK→MaintenanceRequest |
+| tenant_request_id | bigint | FK→TenantRequest |
 | author_type | string | Morph type: "App\Models\Tenant" or "App\Models\User" |
 | author_id | bigint | FK to author (tenant_id or user_id) |
 | body | text | Comment text |
@@ -240,8 +243,8 @@ model's docblock.
 
 **Immutability of terminal requests** (FR REQ-3):
 - A request with status='closed' or 'cancelled' cannot transition to any other state (no successors in TRANSITIONS matrix).
-- `MaintenanceRequestResource.canEdit()` returns false for terminal records, hiding Edit, Assign, and Redirect actions in the UI.
-- `MaintenanceRequestService.assign()` and `redirectToDepartment()` both guard with `isTerminal()` — if true, they return the record unchanged without modifying it.
+- `TenantRequestResource.canEdit()` returns false for terminal records, hiding Edit, Assign, and Redirect actions in the UI.
+- `TenantRequestService.assign()` and `redirectToDepartment()` both guard with `isTerminal()` — if true, they return the record unchanged without modifying it.
 - No API or service path can re-route a terminal work-order.
 
 **Department redirect** (FR MNT-2/3):
@@ -263,13 +266,13 @@ model's docblock.
 
 **Reference generation**:
 - Pattern: `MR-{asset_code}-{year}-{seq}`.
-- Sequence counts all MaintenanceRequest rows (including soft-deleted) for that year.
+- Sequence counts all TenantRequest rows (including soft-deleted) for that year.
 - Called by `create()` and defaulted in the admin form.
 
 **Auto-close window** (config/maintenance.auto_close_after_days):
 - Default: 7 days.
 - Candidates: `status='resolved' && resolved_at ≤ now() - {days}`.
-- Closed via console command `maintenance:auto-close` (not automatic).
+- Closed via console command `requests:auto-close` (not automatic).
 
 ### The unit picker SUGGESTS the tenant's own space, it does not restrict it
 
@@ -290,13 +293,13 @@ FIND by typing alone. Returning `null` (no tenant chosen — a walk-in caller, w
 
 ## 4. Lifecycle / state machine
 
-**Status enum** (MaintenanceRequest::STATUSES):
+**Status enum** (TenantRequest::STATUSES):
 `['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled']`
 
 **Open statuses** (OPEN_STATUSES):
 `['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant']`
 
-**Legal transitions** (MaintenanceRequestService::TRANSITIONS):
+**Legal transitions** (TenantRequestService::TRANSITIONS):
 ```
 submitted        → acknowledged, in_progress, cancelled
 acknowledged     → in_progress, awaiting_tenant, cancelled
@@ -359,41 +362,41 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 ## 5. Services, jobs & scheduled commands
 
-**MaintenanceRequestService**
+**TenantRequestService**
 
-*`create(array $data, Tenant $tenant): MaintenanceRequest`*
+*`create(array $data, Tenant $tenant): TenantRequest`*
 - Wraps in DB transaction.
-- Generates reference via `MaintenanceRequest::generateReference($assetCode)`.
+- Generates reference via `TenantRequest::generateReference($assetCode)`.
 - Derives unit and lease from tenant's active leases (or uses explicit data keys).
 - Sets priority (default 'medium'), category (default 'other'), status='submitted', submitted_at=now().
 - Computes target_resolution_at via `defaultTargetResolution($priority)`.
 - Fires `notifyOperators()` to send a database notification to managers + operations staff assigned to the unit's asset (wrapped in Throwable; never breaks the write).
 - Returns the saved request.
 
-*`transition(MaintenanceRequest $request, string $next, array $extra=[]): MaintenanceRequest`*
+*`transition(TenantRequest $request, string $next, array $extra=[]): TenantRequest`*
 - Validates next status against TRANSITIONS[$current].
 - Throws InvalidArgumentException if illegal hop.
 - Merges payload: status, and on →acknowledged/resolved/closed, sets the corresponding timestamp.
 - If extra['resolution_notes'] is passed, uses it; else keeps existing notes.
 - If extra['assigned_to'] is in extra, updates assigned_to.
 - Calls `$request->update($payload)`.
-- Notifies the tenant (via notifyPortal + MaintenanceStatusChangedNotification) unless the transition is 'cancelled' (tenant's own cancellation).
+- Notifies the tenant (via notifyPortal + TenantRequestStatusChangedNotification) unless the transition is 'cancelled' (tenant's own cancellation).
 - Returns `$request->refresh()`.
 
-*`assign(MaintenanceRequest $request, ?int $userId): MaintenanceRequest`*
+*`assign(TenantRequest $request, ?int $userId): TenantRequest`*
 - Guards: if `$request->isTerminal()`, returns unchanged.
 - Sets assigned_to = $userId.
 - If userId is not null and status='submitted', auto-transitions to 'acknowledged'.
 - Returns refreshed request.
 
-*`redirectToDepartment(MaintenanceRequest $request, ?int $departmentId): MaintenanceRequest`*
+*`redirectToDepartment(TenantRequest $request, ?int $departmentId): TenantRequest`*
 - Guards: if `$request->isTerminal()`, returns unchanged.
 - Sets department_id = $departmentId (may be null to unassign).
 - Activity log records the change.
 - Returns refreshed request.
 
-*`comment(MaintenanceRequest $request, Model $author, string $body, bool $isInternal=false): MaintenanceRequestComment`*
-- Creates a MaintenanceRequestComment with author (User or Tenant, polymorphic).
+*`comment(TenantRequest $request, Model $author, string $body, bool $isInternal=false): TenantRequestComment`*
+- Creates a TenantRequestComment with author (User or Tenant, polymorphic).
 - If $isInternal, the comment is hidden from the other party.
 - If !$isInternal, calls `notifyOfComment()`:
   - If author is Tenant: notifies staff (managers + operations) via database notification.
@@ -408,9 +411,9 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 ---
 
-**ScanMaintenanceSlaBreachesCommand** (artisan maintenance:scan-sla-breaches)
+**ScanTenantRequestSlaBreachesCommand** (artisan requests:scan-sla-breaches)
 
-*Signature*: `maintenance:scan-sla-breaches {--dry-run}`
+*Signature*: `requests:scan-sla-breaches {--dry-run}`
 
 *What it does*:
 - Finds all open requests (OPEN_STATUSES) with target_resolution_at in the past and sla_breach_notified_at = null.
@@ -420,7 +423,7 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
   - If still null:
     - Gathers recipients: managers + operations staff for the unit's asset, + all asset owners (FR MNT-5).
     - Dedupes by id.
-    - Fires MaintenanceSlaBreachedNotification (database channel only, bell icon, persistent).
+    - Fires TenantRequestSlaBreachedNotification (database channel only, bell icon, persistent).
     - Sets sla_breach_notified_at = now() via forceFill + save.
   - Catches Throwable and logs warning (never stops the scan).
 - Prints summary: "Alerted on X of Y breach(es)."
@@ -435,9 +438,9 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 ---
 
-**AutoCloseMaintenanceRequestsCommand** (artisan maintenance:auto-close)
+**AutoCloseTenantRequestsCommand** (artisan requests:auto-close)
 
-*Signature*: `maintenance:auto-close {--days=} {--dry-run}`
+*Signature*: `requests:auto-close {--days=} {--dry-run}`
 
 *What it does*:
 - Reads --days or falls back to config(maintenance.auto_close_after_days, 7).
@@ -450,7 +453,7 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 ## 6. Filament resources & key fields
 
-**Admin MaintenanceRequestResource** (/app/Filament/Admin/Resources/MaintenanceRequests/)
+**Admin TenantRequestResource** (/app/Filament/Admin/Resources/TenantRequests/)
 
 *Scoping*:
 - Uses ScopesViaProperty trait.
@@ -466,7 +469,7 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 - Badge: count of OPEN_STATUSES requests (respects tenant scope; ALL pseudo-asset bypasses).
 - Badge color: 'danger' if urgent request exists, else 'warning'.
 
-*Form fields* (MaintenanceRequestForm):
+*Form fields* (TenantRequestForm):
 - **Section 1: Request**
   - reference: TextInput, disabled, dehydrated (auto-generated).
   - tenant_id: Select, searchable/preload, required (scoped to TenantScope).
@@ -497,7 +500,7 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
   - Max 10 MB per file.
   - Multiple, reorderable, downloadable, openable, preserves filenames.
 
-*Table columns* (MaintenanceRequestsTable):
+*Table columns* (TenantRequestsTable):
 - reference, title, tenant.name, unit.code, category, channel, priority, status, department.name, assignee.name, assignedVendor.name, submitted_at, target_resolution_at (red if overdue).
 
 *Filters*:
@@ -518,7 +521,7 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 
 ---
 
-**Portal MaintenanceRequestResource** (/app/Filament/Portal/Resources/MaintenanceRequests/)
+**Portal TenantRequestResource** (/app/Filament/Portal/Resources/TenantRequests/)
 
 *Scoping*:
 - Query filtered to tenant_id = Portal::tenantId().
@@ -535,34 +538,34 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 - unit_id: pre-populated from tenant's active lease; multi-select if multiple leases.
 - description, attachments (image/pdf only, max 5 files).
 
-*Comments* (PortalMaintenanceCommentsRelationManager):
+*Comments* (PortalTenantRequestCommentsRelationManager):
 - Tenant can add public comments (visible to staff).
 - Staff responds (visible to tenant).
 
 ## 7. Notifications & integrations
 
-**PortalMaintenanceSubmittedNotification**
+**PortalRequestSubmittedNotification**
 - Triggered on create().
 - Sent via database channel (bell entry, no email).
 - Recipients: managers + operations staff assigned to unit's asset, + super_admin.
 - Wrapped in Throwable (never breaks create).
 
-**MaintenanceStatusChangedNotification**
+**TenantRequestStatusChangedNotification**
 - Triggered on transition() (except cancelled).
 - Channels: mail + database.
 - Recipient: the requesting tenant (via notifyPortal).
 - Mail subject: "Maintenance Status Changed: {reference} → {status}".
 - Mail body: includes resolution_notes if transitioning to resolved/closed.
 
-**MaintenanceCommentAddedNotification**
+**TenantRequestCommentAddedNotification**
 - Triggered on comment() if $isInternal = false.
 - Channels: mail + database.
 - If author is Tenant: sent to managers + operations.
 - If author is User: sent to tenant.
 - Wrapped in Throwable (never breaks comment write).
 
-**MaintenanceSlaBreachedNotification**
-- Triggered by maintenance:scan-sla-breaches.
+**TenantRequestSlaBreachedNotification**
+- Triggered by requests:scan-sla-breaches.
 - Channel: database only (bell icon, persistent).
 - Recipients: managers + operations + asset owners.
 - Payload: priority, reference, hours_over_sla, icon='heroicon-o-clock', color='danger'.
@@ -583,25 +586,25 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 ## 8. Extension points — how to change/extend SAFELY
 
 **To add a new priority tier**:
-1. Add to MaintenanceRequest::PRIORITIES const.
-2. Add to MaintenanceRequest::CATEGORIES const if a category.
+1. Add to TenantRequest::PRIORITIES const.
+2. Add to TenantRequest::CATEGORIES const if a category.
 3. Add translation key 'admin.enums.maintenance_priority.{new}' in lang/.
 4. Add SLA hours to SlaSettings: `public int $sla_{new}_hours = {value}`;
 5. Update config/sla.php sla.{new}.resolve_hours fallback.
-6. Add form option in MaintenanceRequestForm (automatic via __('admin.enums.maintenance_priority')).
+6. Add form option in TenantRequestForm (automatic via __('admin.enums.maintenance_priority')).
 7. Add test in MaintenanceScenarioTest covering new tier.
 
 **To add a new status**:
-1. Add to MaintenanceRequest::STATUSES.
-2. Update TRANSITIONS in MaintenanceRequestService to define legal successors.
+1. Add to TenantRequest::STATUSES.
+2. Update TRANSITIONS in TenantRequestService to define legal successors.
 3. Add to OPEN_STATUSES if it represents an active work state.
 4. Add translation key 'admin.statuses.maintenance_request.{new}'.
-5. Add table column color mapping in MaintenanceRequestsTable.
+5. Add table column color mapping in TenantRequestsTable.
 6. Add test in MaintenanceScenarioTest covering transition paths involving new status.
 7. If it's terminal-like, update isTerminal() guard logic.
 
 **To add a new channel**:
-1. Add to MaintenanceRequest::CHANNELS enum.
+1. Add to TenantRequest::CHANNELS enum.
 2. Add translation key 'admin.enums.maintenance_channel.{new}'.
 3. Portal form defaults to 'portal'; admin form can select others (walk_in, phone, etc.).
 
@@ -612,7 +615,7 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 4. Log the error; never throw.
 
 **To change SLA computation**:
-1. Edit defaultTargetResolution() in MaintenanceRequestService.
+1. Edit defaultTargetResolution() in TenantRequestService.
 2. Or adjust SlaSettings values via /admin/settings → Maintenance.
 3. Do NOT modify the column name target_resolution_at (many queries filter on it).
 
@@ -621,7 +624,7 @@ tenant typed. See [MOBILE-API.md §4.7](../api/MOBILE-API.md).
 2. Schedule the command via Laravel's scheduler (not currently done; must wire via artisan schedule:run).
 
 **To restrict department reassignment**:
-1. Override canEdit() in MaintenanceRequestResource to add a department-based check.
+1. Override canEdit() in TenantRequestResource to add a department-based check.
 2. Or wrap redirectToDepartment() with additional guards.
 
 **To change immutability of terminal states**:
@@ -637,7 +640,7 @@ the transition INTO closed is allowed; **post-close CSAT** (`csat_rating`/`csat_
 soft-delete/restore stay allowed. Pinned by `TenantRequestTerminalImmutableTest`.
 
 **To add media attachments to comments**:
-1. Add HasMedia trait to MaintenanceRequestComment model.
+1. Add HasMedia trait to TenantRequestComment model.
 2. Add Spatie file upload to comments relation manager.
 
 ## 8a. Action authorization — double-gated (2026-07-26)
@@ -680,14 +683,14 @@ can never re-status, reassign or reroute a request. Guarded by `TenantRequestAct
 - Without the lock, both might fire a notification.
 
 **Cancel does not notify tenant**:
-- If a tenant cancels their own request (from submitted/acknowledged), they don't get a MaintenanceStatusChangedNotification.
-- This is intentional (line 144-145 of MaintenanceRequestService): `if ($next !== 'cancelled')`.
+- If a tenant cancels their own request (from submitted/acknowledged), they don't get a TenantRequestStatusChangedNotification.
+- This is intentional (line 144-145 of TenantRequestService): `if ($next !== 'cancelled')`.
 - If staff cancels a request, the tenant also doesn't get notified (same guard).
 
 **Resolved → closed — manual OR automatic** *(corrected 2026-07-26; the old text below was stale)*:
 - The **Change Status** action builds its options from `TRANSITIONS[$status]`; for a `resolved`
   request that is `['closed', 'in_progress']`, so staff **can** close (or re-open) on the spot.
-- `maintenance:auto-close` also closes a resolved request once the auto-close window expires — so
+- `requests:auto-close` also closes a resolved request once the auto-close window expires — so
   a resolved ticket left alone still closes itself.
 
 **Tenant cannot re-open a resolved request**:
@@ -780,7 +783,7 @@ can never re-status, reassign or reroute a request. Guarded by `TenantRequestAct
   - Notifies managers + operations + owners
   - Idempotent (sla_breach_notified_at stamp prevents re-alert)
 
-- **MaintenanceRequestTest** (/tests/Feature/Models/):
+- **TenantRequestTest** (/tests/Feature/Models/):
   - isOpen() recognizes OPEN_STATUSES
   - isOverdue() true if status open and target past
   - Reference generation
@@ -789,7 +792,7 @@ can never re-status, reassign or reroute a request. Guarded by `TenantRequestAct
 
 - **Departments** (/docs/modules/14-departments.md): Operator team routing
 - **Vendors** (/docs/modules/12-vendors.md): External contractor assignment
-- **Users & Asset Staff** (/docs/modules/01-assets.md): Staff role assignments (manager, operations)
+- **Users & Asset Staff** (`docs/modules/18-rbac-scoping.md`): Staff role assignments (manager, operations)
 - **Tenants** (/docs/modules/02-tenants.md): Request submission, portal access
 - **Units & Leases** (/docs/modules/04-leases.md): Physical locations, lease context
 - **Notifications** (/docs/modules/19-notifications-scans.md): Framework for bell/mail
@@ -802,7 +805,7 @@ can never re-status, reassign or reroute a request. Guarded by `TenantRequestAct
 - `app/Settings/SlaSettings.php`: Operator-tunable SLA hours (read first, then config fallback)
 
 **Database migrations**
-1. 2026_05_16_233721: Create maintenance_requests + comments tables
+1. 2026_05_16_233721: Create tenant_requests + comments tables
 2. 2026_05_24_132917: Add assigned_to_vendor_id FK to vendors
 3. 2026_05_25_145447: Add channel enum
 4. 2026_05_31_213931: Add sla_breach_notified_at timestamp

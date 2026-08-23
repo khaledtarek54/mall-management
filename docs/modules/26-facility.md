@@ -202,8 +202,9 @@ preventive round late would be a *tolerance window*, which this module refuses b
 | `waived_at` · `waived_by_user_id` · `waive_reason` | the operator's decision not to charge |
 
 Terms live on `vendor_contracts.sla_penalty_basis` + `sla_penalty_rate` (`none` by default —
-penalties are opt-in per contract, since most won't have one negotiated), and `job_value` on the
-work order carries the vendor's quote for the `percent_of_value` basis.
+penalties are opt-in per contract, since most won't have one negotiated). The `percent_of_value`
+basis reads the work order's own service cost — `act_service_cost` once a bill has landed, falling
+back to `est_service_cost` — never a hand-typed figure beside it (see *`job_value` was REPLACED*).
 
 ### `service_plans` — the recurring schedule (per property)
 | Column | Meaning |
@@ -380,7 +381,7 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    bad unit, so the throw is a backstop for a direct DB edit or an import.
 
    > The throw is only safe because `GeneratePreventiveWorkOrdersService` contains failures **per
-   > plan** (mirroring `ScanMaintenanceSlaBreachesCommand`) — otherwise one corrupt row would abort
+   > plan** (mirroring `ScanTenantRequestSlaBreachesCommand`) — otherwise one corrupt row would abort
    > the nightly run and every property would silently stop getting work orders. The command reports
    > `$service->failures` and exits non-zero, so a skipped plan is visible rather than lost.
 2b. **The equipment rules are write-time validation and run only on change** (`isDirty`). Running
@@ -462,7 +463,7 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    unanswered job is separately chargeable is a contract question for the operator — not one to
    invent in code. It is alerted, filtered and counted; it is not billed.
 7d. **Breaches are detected hourly** by `facility:scan-sla-breaches` (separate from module
-   11's `maintenance:scan-sla-breaches` — different subject, different table, its own stamp).
+   11's `requests:scan-sla-breaches` — different subject, different table, its own stamp).
    Idempotent via `sla_breach_notified_at`, re-checked under a row lock inside the transaction, and
    contained per row. The stamp is written **even when the property has no staff to alert**, or a
    mall with nobody assigned would re-alert on every run forever. The response breach runs the same
@@ -513,8 +514,8 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
      argument nobody wants.
    - **Only external jobs.** FR-CM-08 is a contractual remedy against the company that missed its
      SLA; an in-house job running late is a management problem, not a billable one.
-   - A `percent_of_value` contract with no `job_value` captured assesses **nothing** rather than
-     zero — "we don't know yet" must not read as "assessed, owes nothing".
+   - A `percent_of_value` contract with neither an actual nor an estimated service cost assesses
+     **nothing** rather than zero — "we don't know yet" must not read as "assessed, owes nothing".
    - The terms are copied onto the row as applied. Re-deriving from the contract at read time would
      silently restate history the moment someone renegotiates the rate. For the same reason the
      governing contract is the one **in force when the job was scheduled**, not the latest.
@@ -1470,7 +1471,7 @@ class you name must be one you imported, caught by its own gate rather than by a
 
 ## 5. Tests
 
-`tests/Feature/Services/PreventiveMaintenanceTest.php` — generation (raises a work order +
+`tests/Feature/Services/PreventiveWorkOrderTest.php` — generation (raises a work order +
 copies the checklist + advances `next_due`), idempotency (no double-generate), not-due /
 inactive skipped, frequency advance (weeks), blank-checklist-entry skipping, and the command.
 
@@ -1531,7 +1532,7 @@ NOT starting at raise and starting on acceptance, an unaccepted job never breach
 order never getting a clock, and the scan alerting once, never twice, never early, never after
 completion, never on PPM — and stamping even when nobody is assigned to the property.
 
-`tests/Feature/Scenarios/CorrectiveMaintenanceScenarioTest.php` — FR-CM-01/02/03/04/14/15: a CM
+`tests/Feature/Scenarios/CorrectiveWorkOrderScenarioTest.php` — FR-CM-01/02/03/04/14/15: a CM
 raised from a failed check inheriting where the work is, refused from a passing check, refused twice
 for the same check, the PPM visit still closing afterwards, internal/external classification, the XOR
 refused from both directions (and the service nulling the unused side rather than erroring), the CM
@@ -1563,7 +1564,7 @@ lock); **behaviourally**, that item writes run inside a transaction; and **by in
 terminal order never carries a pending item. The FOR-UPDATE emission itself is asserted only when
 the suite runs against MySQL (skipped on SQLite).
 
-`tests/Feature/Scenarios/PreventiveMaintenanceScenarioTest.php` drives the **real service**, not raw
+`tests/Feature/Scenarios/PreventiveWorkOrderScenarioTest.php` drives the **real service**, not raw
 model writes — otherwise it would pass straight through the gate it is supposed to prove.
 
 `tests/Feature/Scenarios/WorkOrderPartsScenarioTest.php` — the parts rules through the **service**:

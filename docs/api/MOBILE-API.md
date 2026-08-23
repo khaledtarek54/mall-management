@@ -889,7 +889,7 @@ The implementation lives under `app/Http/Controllers/Api/V1/` (thin invokable
 controllers grouped by domain), `app/Http/Requests/Api/V1/` (validation +
 typed accessors), `app/Http/Resources/Api/V1/` (JSON shaping), and
 `app/Actions/Api/V1/` (one single-action class per write use-case; actions
-delegate to the shared domain services — `MaintenanceRequestService`,
+delegate to the shared domain services — `TenantRequestService`,
 `PercentageRentCalculationService`, `InvoicePdfService`,
 `TenantStatementPdfService` — so mobile and the web portal share one code path).
 Controllers extend `ApiController` for the `{data, message}` envelope, pagination

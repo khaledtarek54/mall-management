@@ -724,11 +724,11 @@ Test: `PercentageRentScenarioTest::fractional-rate rounding to 2dp`
 
 **Integration:**
 - `/tests/Feature/Notifications/AdminTriageNotificationsTest.php` — submitted notification to managers/leasing users
-- `/tests/Feature/Notifications/MaintenanceAndSalesNotificationsTest.php` — locked notification to tenant
+- `tests/Feature/Scenarios/NotificationFlowScenarioTest.php` — locked notification to tenant
 - `/tests/Feature/Regression/RenewalPercentageRentTypeTest.php` — lease renewal carries calculation_type forward
 
 **API (if tested):**
-- `/tests/Feature/Api/V1/SalesDeclarationsControllerTest.php` (if it exists) — tenant portal API submission
+- `tests/Feature/Api/V1/SalesDeclarationsTest.php` — tenant portal API submission
 
 ### Total test count
 ~30–40 test cases covering calculation, state, notifications, idempotency, edge cases, and regression scenarios.

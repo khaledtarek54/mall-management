@@ -107,7 +107,7 @@ from the page's `mutateFormDataBeforeCreate` / `mutateFormDataBeforeSave`:
 - **Direct `asset_id`** (Expense, VendorBill, Payroll, JournalEntry, OwnerRequest, Unit, CamExpensePool,
   UtilityMeter, Employee, …): `assertAssetInScope($data['asset_id'])`.
 - **Chain-derived** (Invoice/TenantSalesDeclaration/CreditNote/DepositTransaction ← lease;
-  Lease/MaintenanceRequest ← unit; Payment ← allocated invoices): the property comes from a client FK, so
+  Lease/TenantRequest ← unit; Payment ← allocated invoices): the property comes from a client FK, so
   the picker `->when(currentAssetId(), …)` is a **no-op in All-mode and leaks** — scope every such picker to
   `visibleAssetIds()` **and** guard with the FK-resolving helpers `assertLeaseAssetInScope` /
   `assertUnitAssetInScope` / `assertUnitsAssetInScope` / `assertInvoiceAssetInScope`.

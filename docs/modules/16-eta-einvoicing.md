@@ -28,7 +28,7 @@
 >   what the endpoint returns. Recorded as breaking in [MOBILE-API.md](../api/MOBILE-API.md).
 > - `DemoSeeder::seedEtaSubmissions()`, the ETA claims on the marketing landing page, the orphaned
 >   `admin.settings.*.eta_*` / `admin.notifications.eta_submitted*` / `bulk_eta_complete*` lang keys
->   in both locales, and `tests/e2e/13-eta.spec.js`.
+>   in both locales. (`tests/e2e/13-eta.spec.js` was deleted with the freeze — see below.)
 >
 > **What was kept, dormant and covered:** `app/Services/Eta/*`, `App\Jobs\SubmitInvoiceToEta`,
 > `config/eta.php`, the `invoices.eta_*` columns, the `EtaCompliance` widget's registration on the
@@ -273,7 +273,7 @@ Codes are placeholders; once the taxpayer profile is registered with ETA, replac
 
 ### Portal / Owner Resources
 - **Portal** (`app/Filament/Portal/Resources/Invoices/InvoiceResource.php`): Read-only tenant view of invoices.
-- **Owner** (`app/Filament/Owner/Resources/Invoices/InvoiceResource.php`): Read-only owner view of invoices.
+- ~~**Owner**~~ — the `/owner` panel was **removed**; owners are ordinary `User` records on the admin panel, gated by the `owner` role.
 - Both display `eta_status` as badge but do NOT expose submit actions (admin-only).
 
 ### Form: `app/Filament/Admin/Resources/Invoices/Schemas/InvoiceForm.php`
@@ -412,16 +412,16 @@ backoff is minutes rather than seconds.
 - **tests/Feature/Scenarios/EtaScenarioTest.php** (356 lines): Multi-line aggregation, status lifecycle, RBAC, scoping, idempotency, rejected/exception handling.
 - **tests/Feature/Services/EtaJsonBuilderTaxIdTest.php** (48 lines): Tax_id validation (business must have it, individual optional).
 - **tests/Feature/Services/EtaIntegrationTest.php** (166 lines): Mock/real HTTP modes, job queue, submission service end-to-end.
-- **tests/Feature/Settings/ModulesEtaToggleTest.php** (39 lines): Module enable/disable, widget visibility.
+- ~~tests/Feature/Settings/ModulesEtaToggleTest.php~~ — **deleted with the freeze.** `modules.eta` is no longer a toggle; `tests/Feature/Regression/EtaIsFrozenAndInvisibleTest.php` asserts the module stays invisible even with the settings row switched ON.
 - **tests/Feature/Resources/InvoiceEtaFiltersTest.php**: Table filters and actions (if exists).
 - ~~tests/e2e/13-eta.spec.js~~ — **deleted with the freeze.** It asserted seeded "Valid" badges in the invoices table, and nothing seeds them any more. `tests/e2e/17-functional-actions.spec.js` now asserts the opposite: no Submit-to-ETA action and no ETA Status column on the page.
 
 ### Related modules (see docs/modules/)
-- **02-invoicing.md**: Invoice model, status lifecycle, tenant scoping, line items, monthly billing.
-- **05-tenants.md**: Tenant model, tax_id field, business types.
-- **06-leasing.md**: Lease model, tenant-unit relationship, charges.
-- **08-access-control.md**: RBAC, permissions, roles (manager, accounting, super_admin, etc.).
-- **10-multi-tenancy.md**: Asset scoping, TenantScope, property isolation.
+- **05-billing-invoices.md**: Invoice model, status lifecycle, tenant scoping, line items, monthly billing.
+- **02-tenants.md**: Tenant model, tax_id field, business types.
+- **04-leases.md**: Lease model, tenant-unit relationship, charges.
+- **18-rbac-scoping.md**: RBAC, permissions, roles (manager, accounting, super_admin, etc.).
+- **../PROPERTY-ISOLATION.md**: Asset scoping, TenantScope, property isolation.
 
 ### Config files
 - **config/eta.php**: Master toggle, mock/live modes, issuer identity, ETA endpoints, OAuth credentials.

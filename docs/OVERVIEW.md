@@ -51,7 +51,7 @@ Three authenticated surfaces over one MySQL source-of-truth:
 
 ## 3. The modules
 
-**[`docs/modules/README.md`](modules/README.md) is the index** — all 37 modules, grouped by the
+**[`docs/modules/README.md`](modules/README.md) is the index** — all 38 modules, grouped by the
 money spine · recoveries and variable rent · counterparties · facility and operations ·
 cross-cutting.
 

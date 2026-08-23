@@ -1555,7 +1555,7 @@ building anything this file calls "future".)*
 
 ### Related modules
 
-- **Units** (`docs/modules/03-units.md`) — occupancy status projection; lease drives unit state.
+- **Properties & Units** (`docs/modules/01-properties-units.md`) — occupancy status projection; lease drives unit state.
 - **Tenants** (`docs/modules/...`) — one tenant per lease.
 - **Charges** (`docs/modules/...`) — rent + service charges linked to lease; VAT rules.
 - **Invoices** (`docs/modules/...`) — monthly billing reads lease charges.

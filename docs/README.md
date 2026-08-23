@@ -30,7 +30,7 @@ page](visual/map.md) · [a month in the life](visual/scenarios.md).
 
 ## 2 · How each module works
 
-**[`modules/`](modules/README.md)** — 37 modules, one doc each: business rules, data model,
+**[`modules/`](modules/README.md)** — 38 modules, one doc each: business rules, data model,
 services, screens, **extension points** and gotchas.
 
 **Read the module's doc before changing its logic, and update it in the same commit.** The index
@@ -48,7 +48,9 @@ effort and blocker; everything declined, with the reason; and the rows that chan
 last re-verified.
 
 Supporting reference — *how the benchmark itself works*, so a claim can be checked rather than
-believed: **[`benchmarks/yardi/`](benchmarks/yardi/README.md)**.
+believed: **[`benchmarks/yardi/`](benchmarks/yardi/README.md)** for leasing, AR and recoveries, and
+**[`benchmarks/fm/`](benchmarks/fm/README.md)** — IBM Maximo for the work-and-asset core,
+ServiceChannel for the contractor loop — for facility and vendors.
 
 **A second, different question — the same discipline.**
 **[EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md)** measures Atriom on the **configurability** axis

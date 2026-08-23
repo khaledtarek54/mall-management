@@ -200,7 +200,7 @@ This broadcasts to:
 **Notifications fired (non-exhaustive):**
 - `InvoiceIssuedNotification` — a new invoice for one of the tenant's leases.
 - `PaymentReceivedNotification` — a payment was applied to the tenant's account.
-- `MaintenanceRequestStatusChangedNotification` — operator updated the maintenance request status.
+- `TenantRequestStatusChangedNotification` — operator updated the maintenance request status.
 - `TenantSalesDeclarationLockedNotification` — the tenant's sales declaration was locked after the reporting period closed.
 
 ### Integrations
@@ -437,12 +437,12 @@ The **Pay Now** action visibility depends on `config('integrations.paymob.enable
 ### Related modules
 
 - **02-tenants.md** — The Tenant model, company identity, Jawad owner vs. Eltizam operator.
-- **05-leases.md** — Leases scoped to tenants; portal resources inherit tenant scoping via leases.
-- **06-invoices.md** — Invoices use `notifyPortal()` on issue; Pay Now/Demo actions gate on `Portal::isAdmin()`.
-- **07-maintenance-requests.md** — Maintenance requests scoped to tenant_id; canCreate gates on `Portal::isAdmin()`.
-- **08-sales-declarations.md** — Sales declarations scoped to lease.tenant_id; canCreate gates on admin.
-- **09-payments.md** — Payments scoped to tenant_id; visible to portal users.
-- **10-cam-allocations.md** — CAM allocations scoped via lease.tenant_id; visible to portal users.
+- **04-leases.md** — Leases scoped to tenants; portal resources inherit tenant scoping via leases.
+- **05-billing-invoices.md** — Invoices use `notifyPortal()` on issue; Pay Now/Demo actions gate on `Portal::isAdmin()`.
+- **11-tenant-requests.md** — Maintenance requests scoped to tenant_id; canCreate gates on `Portal::isAdmin()`.
+- **09-tenant-sales-percentage-rent.md** — Sales declarations scoped to lease.tenant_id; canCreate gates on admin.
+- **06-payments.md** — Payments scoped to tenant_id; visible to portal users.
+- **08-cam.md** — CAM allocations scoped via lease.tenant_id; visible to portal users.
 - **Mobile API (Tenant Sanctum)** — Still authenticates the Tenant record directly (not TenantUser); separate session from portal.
 
 ---

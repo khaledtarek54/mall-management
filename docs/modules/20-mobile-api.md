@@ -45,8 +45,8 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 | `leases` | `Lease` | `id`, `tenant_id`, `unit_id`, `reference`, `status` enum(`active`/`expired`/`etc`), `commencement_date`, `expiry_date`, `base_rent_monthly`, `service_charge_monthly`, `has_percentage_rent` (bool), `percentage_rent_rate`, `percentage_rent_threshold`, `deleted_at` (soft) | Tenant's occupancy contract. The mobile app shows leases on login. |
 | `units` | `Unit` | `id`, `code`, `floor`, `asset_id` | Physical space. Identified by `code` (e.g., "B-214"). |
 | `assets` | `Asset` | `id`, `name` | Mall/building. Shown in mobile login (mall name). |
-| `maintenance_requests` | `MaintenanceRequest` | `id`, `reference`, `tenant_id`, `unit_id`, `status` enum, `priority`, `category`, `title`, `description`, `submitted_at`, `channel` ('portal'/etc), `deleted_at` (soft) | Tenant-reported issues. Accepted via `/me/requests`. Attachments stored via Spatie Media. |
-| `maintenance_comments` | `MaintenanceComment` | `id`, `request_id`, `author_id`, `body`, `created_at` | Comments on requests (tenant + staff). |
+| `tenant_requests` | `TenantRequest` | `id`, `reference`, `tenant_id`, `unit_id`, `status` enum, `priority`, `category`, `title`, `description`, `submitted_at`, `channel` ('portal'/etc), `deleted_at` (soft) | Tenant-reported issues. Accepted via `/me/requests`. Attachments stored via Spatie Media. |
+| `tenant_request_comments` | `TenantRequestComment` | `id`, `tenant_request_id`, `author_id`, `body`, `created_at` | Comments on requests (tenant + staff). |
 | `tenant_sales_declarations` | `TenantSalesDeclaration` | `id`, `lease_id`, `period_start`, `period_end`, `declared_sales` (**nullable**), `calculated_percentage_rent`, `status` enum(`submitted`/`locked`/`disputed`), `declared_at` | Monthly sales for percentage-rent leases. Tenant uploads a **sales report file** (Spatie `sales_report` collection, private disk) — `declared_sales` is null at submission and entered by staff on review. Percentage rent = `(declared_sales - threshold) * rate` (if declared_sales > threshold, else 0). |
 | `announcements` | `Announcement` | `id`, `asset_id`, `title`/`title_ar`, `body`/`body_ar`, `category`, `status`, `sent_at`, `expires_at`, `is_pinned`, `hero` media (**private disk**) | Mall news. Served read-only at `/me/announcements`; see [modules/27](27-announcements.md). |
 | `announcement_recipients` | `AnnouncementRecipient` | `announcement_id`, `tenant_id`, `notified_at`, `read_at`, `read_by_tenant_user_id` | Who a notice went to and whether they opened it. **The recipient row is what makes a notice visible** — `Announcement::liveFor()` asks whether one exists, never whether the tenant is currently in that property. |
@@ -58,7 +58,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - `Tenant::payments()` — HasMany
 - `Tenant::leases()` — HasMany (includes expired/historical)
 - `Tenant::activeLeases()` — HasMany filtered to `status = 'active'`
-- `Tenant::maintenanceRequests()` — HasMany
+- `Tenant::tenantRequests()` — HasMany
 - `Tenant::salesDeclarations()` — HasManyThrough Lease
 - `Tenant::users()` — HasMany (portal login accounts; mobile uses only Tenant itself)
 - `Tenant::deviceTokens()` — HasMany
@@ -190,9 +190,9 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 | `ResetTenantPasswordAction` | `handle(array $credentials): string` (returns Password::* status) | Validates token + email, resets password, revokes ALL tokens (fresh start). | No explicit transaction. | POST `/api/v1/auth/reset-password` |
 | `RegisterDeviceTokenAction` | `handle(Tenant $tenant, array $data): DeviceToken` | Upserts on (tenant, platform, device_name); updates token + last_used_at. | No transaction. | POST `/api/v1/me/devices` |
 | `UnregisterDeviceTokenAction` | `handle(Tenant $tenant, int $id): void` | Deletes the device token (soft-delete). | No transaction. | DELETE `/api/v1/me/devices/{id}` |
-| `CreateMaintenanceRequestAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): MaintenanceRequest` | Creates request, stores attachments via Spatie Media, returns with media URLs. | DB transaction (request + media). | POST `/api/v1/me/requests` |
-| `AddMaintenanceCommentAction` | `handle(MaintenanceRequest $req, Tenant $tenant, string $body): MaintenanceComment` | Adds comment from tenant, scoped to tenant's own request. | No transaction. | POST `/api/v1/me/requests/{id}/comments` |
-| `CancelMaintenanceRequestAction` | `handle(MaintenanceRequest $req, Tenant $tenant): void` | Cancels request if in cancellable status, checks ownership. | No transaction. | POST `/api/v1/me/requests/{id}/cancel` |
+| `CreateTenantRequestAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): TenantRequest` | Creates request, stores attachments via Spatie Media, returns with media URLs. | DB transaction (request + media). | POST `/api/v1/me/requests` |
+| `AddTenantRequestCommentAction` | `handle(TenantRequest $req, Tenant $tenant, string $body): TenantRequestComment` | Adds comment from tenant, scoped to tenant's own request. | No transaction. | POST `/api/v1/me/requests/{id}/comments` |
+| `CancelTenantRequestAction` | `handle(TenantRequest $req, Tenant $tenant): void` | Cancels request if in cancellable status, checks ownership. | No transaction. | POST `/api/v1/me/requests/{id}/cancel` |
 | `CreateSalesDeclarationAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): TenantSalesDeclaration` | Validates lease ownership + percentage-rent eligibility + no-duplicate-period, creates the declaration with `declared_sales=null`, then attaches the uploaded report file(s) to the `sales_report` collection. Does **not** calculate or lock (staff enter the figure later). | No transaction (media moves files on disk). | POST `/api/v1/me/sales-declarations` |
 | `RecordDemoPaymentAction` | `handle(Invoice $invoice): Payment` | Creates `initiated` Payment with full invoice balance, allocates, flips to `captured` (via Status cast triggers Payment::saved). Bypasses Paymob. | DB transaction (payment + allocation). | POST `/api/v1/me/invoices/{id}/pay-demo` |
 
@@ -233,14 +233,14 @@ However, **key validation & business logic** is shared via:
   - `ForgotPasswordRequest`: email (exists validation).
   - `ResetPasswordRequest`: token, email, password, password_confirmation.
   - `RegisterDeviceRequest`: platform (enum: fcm/apns), token, device_name (optional).
-  - `CreateMaintenanceRequestRequest`: title, description, category, priority, attachments (files, optional).
+  - `CreateTenantRequestRequest`: title, description, category, priority, attachments (files, optional).
   - `CreateSalesDeclarationRequest`: lease_id, period_start, period_end, attachments (required 1–5 image/PDF files). No `declared_sales` — staff enter it later.
 
 - **Resources** (in `app/Http/Resources/Api/V1/*`): Format response data.
   - `TenantResource`: id, name, legal_name, type, email, phone, whatsapp, contact_person, status, tax_id (re-exposed for ETA).
   - `InvoiceResource`: id, number, status, issue_date, due_date, period_start, period_end, subtotal, vat_amount, total, paid_amount, balance, currency, is_overdue, days_overdue, eta_status, eta_submission_id, items (when eager-loaded), lease (when eager-loaded).
   - `PaymentResource`: id, reference, amount, method, status, payment_date, allocations (pivot data with invoice numbers + amounts).
-  - `MaintenanceRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs).
+  - `TenantRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs).
   - `TenantSalesDeclarationResource`: id, period_start, period_end, period_label, declared_sales (**null until reviewed**), calculated_percentage_rent, status, is_locked, declared_at, locked_at, `attachments` (streamed report URLs), `has_report`, lease (when loaded).
   - `PaymobSessionResource`: payment_token, iframe_url, order_id, payment_id, expires_at, reused, iframe_id.
   - `DeviceTokenResource`: id, platform, device_name, last_used_at.
@@ -463,7 +463,7 @@ round trip for a number already in hand.
 - Test: register a device, then register the same device with a new token. Verify only one row exists + token is updated.
 
 **Maintenance Request Cancellation State:**
-- The action enforces which statuses can be cancelled (not all). This is not a route-level gate, but enforced inside CancelMaintenanceRequestAction::handle.
+- The action enforces which statuses can be cancelled (not all). This is not a route-level gate, but enforced inside CancelTenantRequestAction::handle.
 - If you add a new status to the enum, remember to update the action's cancellation logic.
 - Test: try cancelling a request in each status; some should throw ValidationException (422).
 
@@ -488,7 +488,7 @@ round trip for a number already in hand.
 - The mobile API *returns* these fields in InvoiceResource (for display), but never writes them. Don't confuse ETA submission (admin-only) with payment/invoice creation (mobile API).
 
 **Soft Deletes:**
-- Invoices, Payments, Leases, MaintenanceRequests are soft-deleted. Queries in the controllers don't filter them out explicitly (Laravel's Illuminate\Database\Eloquent\SoftDeletes automatically excludes them via `withoutTrashed()` on the default query).
+- Invoices, Payments, Leases, TenantRequests are soft-deleted. Queries in the controllers don't filter them out explicitly (Laravel's Illuminate\Database\Eloquent\SoftDeletes automatically excludes them via `withoutTrashed()` on the default query).
 - If you need to query *only* non-deleted records, use `->withoutTrashed()` explicitly. If you want to include soft-deleted rows, use `->withTrashed()`.
 - Test: soft-delete an invoice, verify it doesn't appear in the list endpoint.
 
@@ -512,7 +512,7 @@ round trip for a number already in hand.
 - `Tenant/DemoPayInvoiceTest.php`: Demo payment (Paymob disabled gate), payment capture, balance update.
 - `Scenarios/MobileApiScenarioTest.php`: **Cross-cutting scenarios:** full token round-trip (login → protected endpoint), token isolation (tenant-api vs admin User), token lifecycle (revocation), scoping leaks, pagination clamps, ability tests.
 
-**Helpers** (tests/Feature/Api/V1/Scenarios/MobileApiScenarioTest.php or tests/Helpers/ApiTestHelpers.php):
+**Helpers** (`tests/Feature/Scenarios/MobileApiScenarioTest.php`; shared helpers live in `tests/Pest.php` or a class under `Tests\Support`):
 - `apiHeaders(Tenant $tenant, string $device = 'test'): array` — Returns `['Authorization' => "Bearer {token}"]` by creating a token directly.
 - `loginAndGetToken(Tenant $tenant, string $device): string` — Exercises the login endpoint, returns the bearer from the response.
 - `makeTenant(array $overrides): Tenant` — Factory for test tenants.
@@ -532,10 +532,10 @@ round trip for a number already in hand.
 - Scenario tests: 50+ tests (token round-trip, isolation, revocation, pagination, abilities).
 
 **Related modules:**
-- **Invoice Module** (docs/modules/10-invoicing.md): Core invoice generation, line-item breakdown, balance recomputation, ETA submission. Mobile API consumes this.
-- **Payment Module** (docs/modules/11-payments.md): Payment creation, allocation, capture, refund. Mobile API initiates Paymob payments and consumes captured payments.
-- **Paymob Integration** (docs/modules/30-paymob.md, if exists): Detailed Paymob API docs, HMAC, callback handling. Mobile API references this.
-- **Tenant Module** (docs/modules/01-core-models.md): Tenant model, status enum, relationships. Mobile API authenticates against this.
-- **Lease Module** (docs/modules/05-leases.md): Lease model, percentage-rent config, statuses. Mobile API lists leases on login and handles percentage-rent declarations.
+- **Invoice Module** (`docs/modules/05-billing-invoices.md`): Core invoice generation, line-item breakdown, balance recomputation, ETA submission. Mobile API consumes this.
+- **Payment Module** (`docs/modules/06-payments.md`): Payment creation, allocation, capture, refund. Mobile API initiates Paymob payments and consumes captured payments.
+- **Paymob Integration** (`docs/integrations/PAYMOB.md`): Detailed Paymob API docs, HMAC, callback handling. Mobile API references this.
+- **Tenant Module** (`docs/modules/02-tenants.md`): Tenant model, status enum, relationships. Mobile API authenticates against this.
+- **Lease Module** (`docs/modules/04-leases.md`): Lease model, percentage-rent config, statuses. Mobile API lists leases on login and handles percentage-rent declarations.
 - **Device Tokens** (mobile push integration, TBD): Future feature. Mobile API stores tokens; push fan-out is a separate job.
 

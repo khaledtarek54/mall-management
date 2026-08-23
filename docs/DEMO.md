@@ -167,7 +167,7 @@ closed properly, and **one issued two days ago whose window has passed with no s
 Two things to show, then stop talking:
 
 1. **The guide button** on any list screen — *purpose · steps · what it affects elsewhere · rules*.
-   All **99 screens** have one. Say: *"Nobody has to be trained screen by screen. The 'affects'
+   All **110 screens** have one. Say: *"Nobody has to be trained screen by screen. The 'affects'
    line is the one that matters: what moves somewhere else when you touch this."*
 2. **The language switch.** Flip to Arabic. The whole panel, including the guides, the activity log
    and the handbook.

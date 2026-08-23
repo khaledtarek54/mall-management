@@ -729,17 +729,13 @@ Embedded on the pool's edit page. Shows all allocations in this pool.
 
 ---
 
-### Owner Resource: `CamAllocationResource` (Owner view)
+### ~~Owner Resource: `CamAllocationResource` (Owner view)~~ — REMOVED
 
-**Class**: `App\Filament\Owner\Resources\CamAllocations\CamAllocationResource`
-
-**Navigation**: "Portfolio" group, sort 4. Icon: receipt-percent.
-
-**Read-only**: Same as portal (no create/edit/delete).
-
-**Scoping**: `getEloquentQuery()` filters to allocations of pools whose `pool.asset.owners` include the current user. Pre-loads `pool.asset`, `lease.unit.asset`, `lease.tenant`.
-
-**List & View pages**: Identical to portal version.
+The separate `/owner` panel was **removed**. An owner is an ordinary `User` carrying the `owner`
+role on the admin panel, so they read CAM through the admin resource above, narrowed by
+`App\Support\OwnerVisibility` and the usual property scoping — there is no second resource class
+to keep in step. Owner-facing CAM figures reach them through the owner statement
+([modules/32](32-owner-statements.md)).
 
 ---
 
@@ -994,11 +990,11 @@ php artisan test --filter='generates one pro-rata allocation'
 
 | Module | Relationship |
 |--------|--------------|
-| **Lease** (`docs/modules/03-lease.md`) | CAM allocations bind to active leases. Lease status, unit area, and tenant determine eligibility. |
-| **Charge** (`docs/modules/05-charge.md`) | CAM allocations create one-time charges. The charge's amount, currency, dates are controlled by the true-up and pool year. |
-| **Invoice & AR** (`docs/modules/06-invoice.md` / `09-ar.md`) | CAM charges flow into the next invoice. Negative charges (credits) offset rent or are refunded. |
-| **Asset** (`docs/modules/01-asset.md`) | Pool is scoped to an asset. Asset properties (e.g. name, currency) may influence CAM. |
-| **Permissions & Roles** (`docs/modules/11-permissions.md`) | CAM actions are gated by module permissions (`cam.*`). Only users with the right role can view/create/edit pools or bill allocations. |
+| **Lease** (`docs/modules/04-leases.md`) | CAM allocations bind to active leases. Lease status, unit area, and tenant determine eligibility. |
+| **Charge** (`docs/modules/04-leases.md`) | CAM allocations create one-time charges. The charge's amount, currency, dates are controlled by the true-up and pool year. |
+| **Invoice & AR** (`docs/modules/05-billing-invoices.md` / `06-payments.md`) | CAM charges flow into the next invoice. Negative charges (credits) offset rent or are refunded. |
+| **Asset** (`docs/modules/01-properties-units.md`) | Pool is scoped to an asset. Asset properties (e.g. name, currency) may influence CAM. |
+| **Permissions & Roles** (`docs/modules/18-rbac-scoping.md`) | CAM actions are gated by module permissions (`cam.*`). Only users with the right role can view/create/edit pools or bill allocations. |
 
 
 ## 11. Close-out (2026-07-20) — what changed
