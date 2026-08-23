@@ -58,8 +58,21 @@
 > schedule to the buyer** from the transfer date, closing the seller's rows on their last owned day.
 > One-offs are not carried: a one-off was an event on the seller's holding.
 >
-> Verified end to end: seller 967.74 + buyer 2,032.26 = exactly one month.
-> Pinned by `ResaleRebalancesTheMonthTest`.
+> **The schedule alone does not bill the transfer month (fixed 2026-08-23).** Carrying the schedule
+> lets the buyer be billed from November onward — it does not raise 11–31 October, because the
+> monthly run bills the CURRENT period and never goes back. So the seller was refunded those days
+> and the buyer was never charged them, and the unit stayed short a third of a month, permanently
+> and silently. A manual re-run recovered it and nothing asked anyone to do that.
+>
+> The transfer now raises the buyer's part itself, via `BillUnitOwnershipsService::billOne()` in the
+> same transaction, and **only when that month was already billed** — otherwise the ordinary run
+> bills the buyer and doing it here would raise the assessment twice. `billOne()` re-reads under its
+> own lock, refuses a period already billed and prorates on tenure, so it cannot double-bill and
+> cannot disagree with the scheduled run. The invoice is returned on the buyer as
+> `transfer_buyer_invoice`, beside `transfer_credit_notes`.
+>
+> Verified end to end: seller 3,000.00 + buyer 2,032.26 − credit 2,032.26 = exactly one month.
+> Pinned by `ResaleRebalancesTheMonthTest` and `03_resale_proration.php` (9/9).
 
 
 > The buyer who bought a shop instead of renting one. A peer of the lease, not a variant of it —

@@ -56,9 +56,17 @@ qa_eq('the seller schedule is closed the day before', '2026-10-10',
     $res['seller']->charges()->first()?->end_date?->format('Y-m-d'));
 qa_eq('…and is no longer active', 0, $res['seller']->charges()->where('is_active', true)->count());
 
-$buyerOct = $bill->billOne(UnitOwnership::find($buyer->id), $oct, $oct->endOfMonth());
-qa_ok('the buyer is billed for their part of October', $buyerOct !== null, $buyerOct?->number);
+// Raised BY THE TRANSFER since 2026-08-23 — the third clause of F-02's fix. Carrying the schedule
+// only lets the buyer be billed from NOVEMBER: the monthly run bills the current period and never
+// goes back for 11–31 October, so those days were refunded to the seller and charged to nobody.
+// This script used to raise them with a manual `billOne()`, which measured a recovery the product
+// never performed on its own.
+$buyerOct = $buyer->getAttribute('transfer_buyer_invoice');
+qa_ok('the buyer is billed for their part of October, by the transfer itself',
+    $buyerOct !== null, $buyerOct?->number);
 qa_eq('…21/31 of the month', round(3000 * 21 / 31, 2), (float) $buyerOct->subtotal, 0.02);
+qa_ok('…and the ordinary run does not raise it a second time',
+    $bill->billOne(UnitOwnership::find($buyer->id), $oct, $oct->endOfMonth()) === null);
 
 qa_section('the unit is billed exactly one month of assessment');
 $sellerNet = round((float) $octInv->total - (float) $notes->sum('total'), 2);

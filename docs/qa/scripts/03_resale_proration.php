@@ -56,16 +56,27 @@ $buyerOct = Invoice::where('unit_ownership_id', $buyer->id)
 qa_ok('the buyer is billed for the days he owned in October', $buyerOct !== null,
     $buyerOct ? $buyerOct->number : 'NO October assessment exists for the buyer');
 
-// 5. Would a re-run pick the buyer up? (i.e. is the gap recoverable at all)
+// 5. F-02 FIXED: the buyer's part of the month is raised BY THE TRANSFER, so a re-run has nothing
+//    left to do. It returning null is the correct answer now, not the gap it used to report.
 $rerun = $bill->billOne(UnitOwnership::find($buyer->id), $oct, $oct->endOfMonth());
-qa_ok('a manual re-run CAN bill the buyer for his part of October', $rerun !== null,
-    $rerun ? number_format((float) $rerun->subtotal, 2).' = '.round((float) $rerun->subtotal / 3000 * 31, 1).'/31 of the month' : 'no');
+qa_ok('a re-run does not double-bill the buyer — the transfer already raised it', $rerun === null);
 $seller2 = $bill->billOne($res['seller']->fresh(), $oct, $oct->endOfMonth());
 qa_ok('a re-run does NOT correct the seller (terminal tenure is never re-billed)', $seller2 === null);
 
-if ($rerun) {
-    $tot = $sellerOct + (float) $rerun->subtotal;
-    printf("\n  After a manual re-run the unit's October assessment totals %s against a monthly charge of 3,000.00\n", number_format($tot, 2));
+qa_eq('the buyer is billed 21/31 of the month, from the day his tenure opens',
+    round(3000 * 21 / 31, 2), (float) $buyerOct->subtotal, 0.02);
+
+if ($buyerOct) {
+    // NET, not gross: the seller keeps a 3,000 invoice AND a credit note against it. Summing the
+    // two invoices alone reads 5,032.26 and looks like over-billing — the earlier version of this
+    // check did exactly that and would have reported the FIX as a failure. What the unit owes for
+    // October is what the books say after the credit.
+    $credits = (float) CreditNote::where('tenant_id', $res['seller']->tenant_id)
+        ->whereDate('created_at', '>=', now()->toDateString())->sum('subtotal');
+    $tot = $sellerOct + (float) $buyerOct->subtotal - $credits;
+    printf("\n  October for this unit: seller %s + buyer %s - credit %s = %s against a monthly charge of 3,000.00\n",
+        number_format($sellerOct, 2), number_format((float) $buyerOct->subtotal, 2),
+        number_format($credits, 2), number_format($tot, 2));
     qa_eq('the unit is billed exactly one month of assessment for October', 3000.00, $tot, 0.02);
 }
 

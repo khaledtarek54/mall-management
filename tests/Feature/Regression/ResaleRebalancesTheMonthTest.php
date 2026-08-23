@@ -107,11 +107,18 @@ it('carries the assessment schedule to the buyer and bills their part of the mon
         // are part of their account and every assessment points at it.
         ->and($result['seller']->charges()->first()->end_date->toDateString())->toBe('2026-10-10');
 
-    $buyerInvoice = app(BillUnitOwnershipsService::class)
-        ->billOne($buyer->fresh(), $this->october, $this->october->endOfMonth());
+    // Raised BY THE TRANSFER, not by a later run. That is the second half of F-02: the schedule
+    // alone was not enough, because the monthly run bills the CURRENT period — it raises November
+    // next and never goes back for 11–31 October. The seller was refunded those days and the buyer
+    // was never charged them, so the unit was permanently short a third of a month.
+    $buyerInvoice = $buyer->getAttribute('transfer_buyer_invoice');
 
     expect($buyerInvoice)->not->toBeNull()
         ->and(round((float) $buyerInvoice->subtotal, 2))->toBe(round(3000 * 21 / 31, 2));
+
+    // …and the ordinary run must not raise it a second time.
+    expect(app(BillUnitOwnershipsService::class)
+        ->billOne($buyer->fresh(), $this->october, $this->october->endOfMonth()))->toBeNull();
 });
 
 it('bills the unit exactly one month of assessment across the two owners', function () {
@@ -125,8 +132,7 @@ it('bills the unit exactly one month of assessment across the two owners', funct
     $credited = (float) CreditNote::where('invoice_id', $this->octoberInvoice->id)->sum('total');
     $sellerNet = round((float) $this->octoberInvoice->total - $credited, 2);
 
-    $buyerInvoice = app(BillUnitOwnershipsService::class)
-        ->billOne($result['buyer']->fresh(), $this->october, $this->october->endOfMonth());
+    $buyerInvoice = $result['buyer']->getAttribute('transfer_buyer_invoice');
 
     // The property the whole fix exists for: one unit, one month, one assessment — however the
     // days fall between the two holdings.

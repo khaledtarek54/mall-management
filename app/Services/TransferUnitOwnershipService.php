@@ -7,6 +7,7 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Models\UnitOwnership;
+use App\Services\BillUnitOwnershipsService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -161,7 +162,42 @@ class TransferUnitOwnershipService
                 'is_active' => false,
             ]);
 
+            // Bill the buyer for the rest of the transfer month — the other half of F-02, and the
+            // half that was still losing money.
+            //
+            // The scheduled run raises the assessment on the 1st and the sale completes on the
+            // 11th. The seller is credited above for the days they will not own, and the buyer's
+            // schedule opens on the 11th — but the monthly run bills the CURRENT period, so when it
+            // next fires it raises November. Nobody ever goes back for 11–31 October: the seller
+            // was refunded it and the buyer was never charged it, so the unit is short a third of a
+            // month, silently and permanently. A manual re-run could recover it and nothing asks
+            // anyone to do that.
+            //
+            // Only when the month was ALREADY billed. If it has not been billed yet the ordinary
+            // run will pick the buyer up on its own, and billing here would raise the assessment
+            // twice for one month.
+            $buyerInvoice = null;
+            $monthStart = $on->startOfMonth();
+            $monthEnd = $on->endOfMonth();
+
+            $sellerWasBilledThisMonth = Invoice::query()
+                ->where('unit_ownership_id', $seller->getKey())
+                ->whereDate('period_start', '<=', $monthEnd->toDateString())
+                ->whereDate('period_end', '>=', $monthStart->toDateString())
+                ->exists();
+
+            if ($sellerWasBilledThisMonth) {
+                // `billOne()` re-reads under its own lock, refuses a period already billed and
+                // prorates on the buyer's tenure — so this cannot double-bill and cannot disagree
+                // with what the scheduled run would have produced. Reused rather than reimplemented
+                // for exactly that reason: a second proration here is a second answer to one
+                // question.
+                $buyerInvoice = app(BillUnitOwnershipsService::class)
+                    ->billOne($bought->fresh(), $monthStart, $monthEnd);
+            }
+
             $bought->setAttribute('transfer_credit_notes', collect($sellerCredits));
+            $bought->setAttribute('transfer_buyer_invoice', $buyerInvoice);
 
             return ['certificate' => $certificate, 'seller' => $seller->fresh(), 'buyer' => $bought];
         });

@@ -35,7 +35,7 @@ Repro: `F01_owner_assessment_unreachable.php` (10/10 assertions of the defect ho
 ownership with no schedule as a *warning* rather than an unremarkable skip.
 
 ---
-## F-02 · HIGH · Spacing/Owners · A mid-month resale never rebalances the month's assessment
+## F-02 · HIGH · Spacing/Owners · A mid-month resale never rebalances the month's assessment — ✅ FIXED 2026-08-23
 **Module:** 37 · `TransferUnitOwnershipService`, `BillUnitOwnershipsService`
 
 `BillUnitOwnershipsService::billOne()` prorates on tenure, and its docblock states "a resale on the
@@ -53,6 +53,26 @@ Repro: `03_resale_proration.php`.
 
 **Fix:** on transfer, credit the seller's unearned days and open the buyer's schedule from the
 seller's (or bill the buyer's part of the month), inside the same transaction as the tenure split.
+
+**Done, in two parts.** The seller's credit and the schedule carry-over shipped first —
+`CreditUnearnedBillingService::forOwnershipTransfer()`, reusing the lease instrument so a mid-month
+move-out and a mid-month resale give back the same amount for the same shape of month.
+
+The third clause was still open until 2026-08-23 and was the half still losing money: **the schedule
+alone does not bill the transfer month.** The monthly run bills the CURRENT period, so it raises
+November next and never goes back for 11–31 October — the seller was refunded those days and the
+buyer was never charged them, so the unit stayed permanently short a third of a month. Only a manual
+re-run recovered it, and nothing asked anyone to do that.
+
+`TransferUnitOwnershipService` now calls `BillUnitOwnershipsService::billOne()` for the buyer inside
+the same transaction, and **only when the month was already billed** — otherwise the ordinary run
+picks the buyer up and billing here would raise it twice. `billOne()` re-reads under its own lock,
+refuses a period already billed and prorates on tenure, so it cannot double-bill and cannot disagree
+with what the scheduled run would produce; reusing it avoids a second answer to one question.
+Measured after the fix: seller 3,000.00 + buyer 2,032.26 − credit 2,032.26 = **3,000.00**, one month
+of assessment for one unit. `03_resale_proration.php` is 9/9, and its two stale assertions — a
+manual re-run being expected to succeed, and a total that summed both invoices without netting the
+credit — now assert the fixed behaviour.
 
 ---
 ## F-03 · NOTE · Spacing/Owners · `assessment_basis` is collected and never read — ✅ FIXED 2026-08-19
