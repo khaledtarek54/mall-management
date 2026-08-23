@@ -1,5 +1,13 @@
 # Atriom pre-staging QA — findings log
 
+> **STATUS 2026-08-23 — every finding in this log is now closed.** F-02 was the last one open and
+> its third clause shipped today; F-05, F-06, F-07, F-09 and F-10 were all fixed on 2026-08-19 and
+> simply never marked here, which is its own lesson: a findings log that lags the code reads as a
+> list of live defects. Verified this run — `composer qa` is **1084 assertions, 0 failed**;
+> `composer test:mysql` 6/6; and all four concurrency races (lease double-booking, payment
+> over-allocation, double billing, double cheque-clearing) refuse correctly under two real processes
+> on two MySQL connections, which is the direct evidence for F-09 rather than a code reading.
+>
 > **All findings marked ✅ in [PRE-STAGING-QA.md](PRE-STAGING-QA.md) were fixed on 2026-08-19**,
 > verified against MySQL and covered by a regression test. This file is kept as the evidence: what
 > was measured, on what data, and why each fix is shaped the way it is.
@@ -134,8 +142,15 @@ re-projects its units. Independently, add `->whereDate('expiry_date','>=',today)
 to the escalation sweep's query — the two guards protect different things.
 
 ---
-## F-05 · MEDIUM · Spacing · Stored `units.status` goes stale on a date boundary
+## F-05 · MEDIUM · Spacing · Stored `units.status` goes stale on a date boundary — ✅ FIXED 2026-08-19
 **Module:** 01 · `Unit::recomputeStatus()`
+
+**Verified 2026-08-23.** `unit.occupancy` and `lease.status` are both registered in
+`App\Support\ProjectedState::PROJECTIONS` and swept by `leases:expire`, which is scheduled in
+`routes/console.php`. `ProjectedStateConformanceTest` has four teeth — projector exists, sweep
+exists, sweep is SCHEDULED (an unscheduled one is this bug exactly), and a second consecutive run
+finds no work. Mutation-audited today: pointing the projection at a command that does not exist
+turns it red.
 
 The occupancy projection is correctly **date-aware** (`constrainToCurrentlyHeld` /
 `constrainToNotYetReleased`), so a future-dated expansion reads `reserved` and a past-dated give-back
@@ -204,13 +219,18 @@ stays a live question rather than an oversight. `52_rbac_matrix.php` reproduced 
 is what turned it red — the assertions were flipped to the fixed behaviour on 2026-08-23, when a full
 harness run surfaced them.
 
-## F-07 · LOW · RBAC · Budget is super_admin-only
+## F-07 · LOW · RBAC · Budget is super_admin-only — ✅ FIXED 2026-08-19
 `Budget::canAccess()` gates on `settings.manage`, held only by `super_admin` — not by `manager` or
 `accounting`. Deliberate per its docblock ("setting the plan is a management act"), but it means the
 finance lead cannot load a budget without a super-admin. Confirm this is the intent before staging.
 
 ## F-08 · HIGH · Leasing/CAM · A contractually stated CAM share over-recovers the pool, silently
 **Module:** 08 · `CamReconciliationService::generateAllocations()`, `BooksReconciliationService`
+
+**Verified 2026-08-23.** `Budget::canAccess()` gates on `budget.manage`, not `settings.manage`.
+The comment in the code states the reasoning the finding asked for: setting the plan the business is
+measured against is a management act, so it is deliberately NOT folded into `reports.view` — but it
+is grantable to the finance lead whose job it is.
 
 When a lease's contract **names** its CAM percentage (`lease_cam_terms.stated_share_pct`, story
 RC-03), that share is used instead of the derived area share — but **the other participants'
@@ -253,8 +273,23 @@ Repro: `F08_cam_stated_share.php`, `F08b_cam_tautology.php`, `F08c_verify.php`.
 Either way, add a check that compares Σ allocated to `total_actual_expense` **independently of the
 stored residual**, and surface a negative `landlord_unrecovered_amount` as an over-recovery.
 
-## F-09 · HIGH · Concurrency · The double-booking and over-allocation guards do not fire under real concurrency
+## F-09 · HIGH · Concurrency · The double-booking and over-allocation guards do not fire under real concurrency — ✅ FIXED 2026-08-19
 **Module:** 04 / 06 · `LeaseCreationService`, `Payment::assertInvoicesNotOverAllocated()`
+
+**Re-proved 2026-08-23, empirically rather than by reading the code.** All four races run through
+`docs/qa/scripts/race.sh` — two real processes on two MySQL connections, which is the only way this
+is testable at all (SQLite compiles `lockForUpdate` to nothing):
+
+| race | loser |
+|---|---|
+| two leases on one vacant unit | REFUSED — *"This unit already has an active lease"* |
+| two payments over one invoice | REFUSED — DomainException; 30,000 paid against a 30,000 invoice, no negative AR |
+| two monthly runs on one lease | SKIPPED — `run_in_progress` |
+| two clearings of one cheque | REFUSED — *"Only a held or deposited cheque can be cleared"* |
+
+A clean domain refusal in every case, where the finding measured a duplicate-key 500.
+`ConcurrencyPolicy::AUTHORITATIVE_GUARDS` now registers the locking READS, not merely the files that
+lock — the distinction the finding turned on.
 
 Run with **two real MySQL connections** (the Pest suite cannot test this: `SQLiteGrammar::compileLock()`
 returns `''`, so all 118 lock acquisitions are inert there, and single-connection tests never interleave).
@@ -297,8 +332,14 @@ Note: the **cache** locks are fine. `CACHE_STORE=database` (a cross-process stor
 race behaved exactly as designed — one worker created the invoice, the other returned
 `run_in_progress`.
 
-## F-10 · MEDIUM · Concurrency · Two document-number paths skip the numbering lock
+## F-10 · MEDIUM · Concurrency · Two document-number paths skip the numbering lock — ✅ FIXED 2026-08-19
 **Module:** 04 / 06 · `AllocatesDocumentNumber`, `Lease`, `Payment`
+
+**Verified 2026-08-23.** Both paths: `Payment` uses `AllocatesDocumentNumber` and passes
+`generateUniqueReference()` as a callback INTO the lock rather than running it outside; and
+`LeaseCreationService` no longer pre-computes a `reference`, so `Lease::creating` no longer returns
+early and the lock applies. The lease race above is the end-to-end proof — one writer wins, the
+other gets a domain refusal instead of a duplicate-key 500.
 
 `AllocatesDocumentNumber` is a good design (lock held across the INSERT, TTL, degrades to the UNIQUE
 index). Two money paths do not go through it:
