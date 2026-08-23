@@ -545,6 +545,13 @@ pool.variance() = total_actual_expense - total_estimated_collected
 
 #### `autoTrueUpForYear(int $year, bool $autoBill = false): array<int, array{pool_id, asset, allocations, billed, status}>`
 
+> **A term may state a SHARE without stating a CAP (2026-08-23).** `lease_cam_terms.cap_type` was
+> NOT NULL over `absolute|yoy|both` with no `none`, so a term carrying only `stated_share_pct` — the
+> percentage the parties simply agreed — could not be written at all; the table refused the row it
+> exists to hold. `LeaseCamTerm::effectiveCap()` already treats a non-matching value as no ceiling,
+> so null had always meant "no cap" to the logic and only the schema disagreed. Now nullable, rather
+> than a fourth enum value that every `in_array($this->cap_type, …)` would have to learn.
+
 > **A non-annual true-up is EG-41, and it is an L rather than a setting.** `cam_expense_pools` is
 > `unique(asset_id, period_year)` — one pool per property per YEAR — so a quarterly or half-yearly
 > reconciliation is not a scheduling option: the POOL must gain a period shorter than a year first,
