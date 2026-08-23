@@ -255,7 +255,7 @@
                 "hasCreate": true
             },
             "units": {
-                "view": false,
+                "view": true,
                 "create": false,
                 "hasCreate": true
             },
