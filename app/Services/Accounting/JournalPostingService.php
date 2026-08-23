@@ -29,6 +29,8 @@ class JournalPostingService
      *
      * @param  array{
      *     entry_date?: \DateTimeInterface|string|null,
+     *     description_key?: string|null,
+     *     description_data?: array<string, mixed>|null,
      *     description_en?: string|null,
      *     description_ar?: string|null,
      *     asset_id?: int|null,
@@ -102,6 +104,12 @@ class JournalPostingService
                 'accounting_period_id' => $period?->id,
                 'description_en' => $payload['description_en'] ?? null,
                 'description_ar' => $payload['description_ar'] ?? null,
+                // EG-36. All 24 journalizers put a narrative KEY in the payload and this — the one
+                // place a journal entry row is written — dropped it, so every entry posted since
+                // carried prose and no key and `JournalNarrative::resolve()` fell to its snapshot
+                // for all of them. Measured on a freshly seeded demo: 0 of 699 entries keyed.
+                'description_key' => $payload['description_key'] ?? null,
+                'description_data' => $payload['description_data'] ?? null,
                 'source_type' => $source instanceof Model ? $source->getMorphClass() : null,
                 'source_id' => $source instanceof Model ? $source->getKey() : null,
                 'is_closing' => $payload['is_closing'] ?? false,

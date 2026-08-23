@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\CustomFields\Tables;
 use App\Models\CustomField;
 use App\Support\CustomFields;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -68,7 +69,13 @@ class CustomFieldsTable
 
                 TernaryFilter::make('is_active')->label(__('admin.fields.is_active')),
             ])
-            ->recordActions([EditAction::make()])
+            ->recordActions([
+                // A read-only view, for the role that holds `.view` and not `.edit` — the same
+                // pairing every other catalogue table offers. Its schema is the resource's own form
+                // rendered disabled, so it cannot drift from the fields that exist.
+                ViewAction::make(),
+                EditAction::make(),
+            ])
             ->emptyStateIcon('heroicon-o-adjustments-horizontal')
             ->emptyStateHeading(__('admin.custom_fields.plural'))
             ->emptyStateDescription(__('admin.custom_fields.section_help'));

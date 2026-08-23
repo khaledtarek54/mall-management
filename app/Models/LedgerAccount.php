@@ -251,7 +251,16 @@ class LedgerAccount extends Model
             return;
         }
 
-        static::query()
+        // Resolved to IDS first, then updated by key — and that is not a style choice.
+        //
+        // MySQL refuses `UPDATE t … WHERE EXISTS (SELECT … FROM t)` outright: error 1093, "you
+        // can't specify target table for update in FROM clause". The `orWhereHas` below compiles to
+        // exactly that, so the single-statement form threw on every MySQL install while passing on
+        // the sqlite the suite runs — `migrate:fresh --seed` and `atriom:install` both died in
+        // `ChartOfAccountsSeeder`, which is to say a fresh install was impossible on the production
+        // engine and the whole test suite was green. A SELECT carrying the same subquery is fine;
+        // only the UPDATE form is forbidden.
+        $ids = static::query()
             ->where('code', 'like', $code.'%')
             ->where('code', '!=', $code)
             ->where(fn (Builder $q) => $q
@@ -261,6 +270,14 @@ class LedgerAccount extends Model
                 // relation already excludes those.
                 ->orWhereHas('parent', fn (Builder $p) => $p->whereRaw('LENGTH(code) < ?', [strlen($code)]))
             )
-            ->update(['parent_id' => $account->id]);
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        // Still a BUILDER update, so no model events fire: a model save would re-enter this hook,
+        // and on a real chart that recursion is the whole import.
+        static::query()->whereKey($ids)->update(['parent_id' => $account->id]);
     }
 }

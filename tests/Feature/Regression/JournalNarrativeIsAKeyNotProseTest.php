@@ -1,8 +1,12 @@
 <?php
 
 use App\Models\JournalEntry;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\LedgerPoster;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\JournalNarrative;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Lang;
 
@@ -133,6 +137,46 @@ it('leaves no journalizer writing prose without a key', function () {
     }
 
     expect(implode(', ', $offenders))->toBe('');
+});
+
+it('persists the key onto the ROW a real posting writes, not just into the payload', function () {
+    // The half that was missing, and it hid a total failure of the feature.
+    //
+    // The case above greps the journalizer SOURCE FILES for `'description_key' =>`, which proves
+    // they EMIT a key. It cannot see what happens next: `JournalPostingService` — the one place a
+    // `journal_entries` row is written — copied `description_en`/`description_ar` out of the
+    // payload and dropped the key and its data on the floor. So all 24 journalizers were correct,
+    // the resolver was correct, the lang files were correct, and every entry ever posted carried
+    // prose and no key. Measured on a freshly seeded demo before the fix: **0 of 699 keyed**.
+    //
+    // A gate reporting a weaker property than it names is this codebase's most repeated defect, and
+    // this one was in the gate written to prevent exactly that. So this drives a REAL document
+    // through the REAL posting path and reads the row back out of the database.
+    // The chart and its role mappings, because posting resolves real accounts.
+    test()->seed(ChartOfAccountsSeeder::class);
+    test()->seed(AccountMappingSeeder::class);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
+
+    $lease = makeLease(makeUnit(makeAsset()), null, ['status' => 'active']);
+    // Totals left to the helper: forcing them desynchronises the header from the lines and the
+    // posting refuses as unbalanced, which would be the fixture failing rather than the feature.
+    $invoice = makeInvoice($lease, ['status' => 'issued']);
+
+    app(LedgerPoster::class)->sync($invoice->fresh());
+
+    $entry = JournalEntry::query()
+        ->where('source_type', $invoice->getMorphClass())
+        ->where('source_id', $invoice->getKey())
+        ->where('status', 'posted')
+        ->first();
+
+    expect($entry)->not->toBeNull('The invoice did not post at all — this case proves nothing.');
+
+    expect($entry->description_key)->toBe('invoice.posted')
+        ->and($entry->description_data)->toBeArray()
+        // …and the stored data actually feeds the narrative, rather than being an empty array that
+        // renders an em dash on a financial statement.
+        ->and($entry->displayDescription())->toContain((string) $invoice->number);
 });
 
 it('resolves the narrative in the general-ledger CSV, not only on the screen', function () {
