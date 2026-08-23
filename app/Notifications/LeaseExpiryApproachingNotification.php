@@ -33,7 +33,7 @@ class LeaseExpiryApproachingNotification extends Notification implements ShouldQ
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('admin.notifications.lease_expiry_subject', ['reference' => $this->lease->reference]))
+            ->subject(DocumentText::forSubject('lease.expiry_subject', $this->lease->assetId(), ['reference' => $this->lease->reference]) ?? '')
             ->line(DocumentText::for('lease.expiry_approaching', $this->lease->assetId(), [
                 'unit' => $this->unitCode(),
                 'days' => $this->daysUntil(),

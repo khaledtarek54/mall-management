@@ -62,6 +62,10 @@ final class DocumentText
         'dunning.late_fee_applied',
         'receipt.payment_received',
         'lease.expiry_approaching',
+        'dunning.overdue_subject',
+        'dunning.late_fee_subject',
+        'receipt.payment_subject',
+        'lease.expiry_subject',
         'invoice.email_body',
     ];
 
@@ -114,6 +118,33 @@ final class DocumentText
             'tokens' => ['unit', 'days', 'date'],
         ],
 
+        // ── SUBJECT LINES ────────────────────────────────────────────────────────────────────
+        //
+        // The body is only read if the subject earns the open, so templating one without the other
+        // gives an operator half a message. Registered as their own blocks rather than folded into
+        // the body: a subject is a different piece of writing with a different constraint (short,
+        // no newlines), and one field holding both would invite a paragraph into a mail header.
+        //
+        // `substitute()` is plain token replacement, so a newline typed into a subject would reach
+        // the header — `MailMessage::subject()` is where that would land. Guarded at the resolver
+        // rather than trusted: see `forSubject()`.
+        'dunning.overdue_subject' => [
+            'floor' => 'admin.notifications.invoice_overdue_reminder_subject',
+            'tokens' => ['number'],
+        ],
+        'dunning.late_fee_subject' => [
+            'floor' => 'admin.notifications.late_fee_applied_subject',
+            'tokens' => ['number'],
+        ],
+        'receipt.payment_subject' => [
+            'floor' => 'admin.notifications.payment_received_subject',
+            'tokens' => ['reference'],
+        ],
+        'lease.expiry_subject' => [
+            'floor' => 'admin.notifications.lease_expiry_subject',
+            'tokens' => ['reference'],
+        ],
+
         // The covering note on the monthly invoice EMAIL — the one message every tenant gets every
         // month, and the last exemption `TenantFacingWordingIsTheOperatorsConformanceTest` carried.
         // It was waived because the notification renders a markdown VIEW rather than `->line()`, so
@@ -146,6 +177,30 @@ final class DocumentText
 
         // The floor is a translation key and takes Laravel's own `:token` replacements, not ours.
         return $floor !== null && Lang::has($floor) ? __($floor, $tokens) : null;
+    }
+
+    /**
+     * The same resolution, flattened for a mail HEADER.
+     *
+     * A subject is one line by definition, and `substitute()` is plain token replacement — so an
+     * operator who presses Enter in the subject field would otherwise put a newline into a header.
+     * Depending on the transport that is either a stripped character or a header-injection attempt,
+     * and neither is something to leave to the operator's typing. Collapsed to single spaces and
+     * trimmed here, once, rather than at four call sites.
+     *
+     * @param  array<string, string|int|float>  $tokens
+     */
+    public static function forSubject(string $key, ?int $assetId = null, array $tokens = []): ?string
+    {
+        $text = self::for($key, $assetId, $tokens);
+
+        if ($text === null) {
+            return null;
+        }
+
+        $flat = trim((string) preg_replace('/\s+/u', ' ', $text));
+
+        return $flat === '' ? null : $flat;
     }
 
     /** Is there anything at all to render for this block? Lets a template skip its whole section. */

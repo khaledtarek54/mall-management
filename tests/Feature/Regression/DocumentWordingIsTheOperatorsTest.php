@@ -360,3 +360,69 @@ it('escapes operator text on the invoice email rather than rendering it as marku
     expect($html)->not->toContain('<script>alert(1)</script>')
         ->and($html)->toContain('&lt;script&gt;');
 });
+
+it('lets the operator write the subject line, and keeps it to one line', function () {
+    // The body is only read if the subject earns the open, so templating one without the other
+    // gives an operator half a message.
+    $mall = makeAsset(['code' => 'SJ']);
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'dunning.overdue_subject',
+        'body_en' => 'Overdue: {number}',
+        'is_active' => true,
+    ]);
+
+    expect(DocumentText::forSubject('dunning.overdue_subject', $mall->id, ['number' => 'INV-3']))
+        ->toBe('Overdue: INV-3');
+
+    // The floor still answers for a mall that has written nothing.
+    $other = makeAsset(['code' => 'SK']);
+
+    expect(DocumentText::forSubject('dunning.overdue_subject', $other->id, ['number' => 'INV-3']))
+        ->not->toBeNull();
+});
+
+it('will not let a typed newline reach the mail header', function () {
+    // `substitute()` is plain token replacement, so an operator who presses Enter in the subject
+    // field would put a newline into a header — depending on the transport either a stripped
+    // character or a header-injection attempt. Neither is left to their typing.
+    $mall = makeAsset(['code' => 'SN']);
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'dunning.late_fee_subject',
+        'body_en' => "Late fee\nBcc: someone@example.com\r\nfor {number}",
+        'is_active' => true,
+    ]);
+
+    $subject = DocumentText::forSubject('dunning.late_fee_subject', $mall->id, ['number' => 'INV-4']);
+
+    expect($subject)->toBe('Late fee Bcc: someone@example.com for INV-4')
+        ->and($subject)->not->toContain("\n")
+        ->and($subject)->not->toContain("\r");
+});
+
+it('falls back to the floor when the operator saves an all-whitespace subject', function () {
+    // A subject of spaces is not a subject. Returning it would send mail with an empty header,
+    // which reads as a broken system rather than a blank field somebody left.
+    //
+    // `operatorText()` already handles this and handles it better than `forSubject()` could:
+    // `filled()` treats a whitespace-only string as blank, so the row is skipped and the FLOOR
+    // answers — the tenant gets the shipped subject rather than nothing. Asserted here because it
+    // is load-bearing and was arrived at by accident rather than by design; I expected null.
+    $mall = makeAsset(['code' => 'SW']);
+
+    DocumentTemplate::create([
+        'asset_id' => $mall->id,
+        'key' => 'receipt.payment_subject',
+        'body_en' => "   \n  ",
+        'is_active' => true,
+    ]);
+
+    $subject = DocumentText::forSubject('receipt.payment_subject', $mall->id, ['reference' => 'PAY-1']);
+
+    expect($subject)->not->toBeNull()
+        ->and($subject)->toContain('PAY-1')
+        ->and(trim($subject))->toBe($subject);
+});

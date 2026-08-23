@@ -33,7 +33,7 @@ class InvoiceOverdueTenantNotification extends Notification implements ShouldQue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('admin.notifications.invoice_overdue_reminder_subject', ['number' => $this->invoice->number]))
+            ->subject(DocumentText::forSubject('dunning.overdue_subject', $this->invoice->asset_id, ['number' => $this->invoice->number]) ?? '')
             // The operator's own wording where they have written one, the translation key the
             // notification always used where they have not (EG-15 slice 2). Dunning is the message
             // whose WORDING is the whole artefact: a chasing email that reads as a system alert is

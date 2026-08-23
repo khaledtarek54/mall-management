@@ -38,7 +38,7 @@ class LateFeeAppliedNotification extends Notification implements ShouldQueue
         return (new MailMessage)
             // The OVERDUE invoice in the subject: that is the one the tenant recognises and the one
             // they need to act on. The fee invoice is a document they have never seen before.
-            ->subject(__('admin.notifications.late_fee_applied_subject', ['number' => $this->overdueInvoice->number]))
+            ->subject(DocumentText::forSubject('dunning.late_fee_subject', $this->overdueInvoice->asset_id, ['number' => $this->overdueInvoice->number]) ?? '')
             ->line(DocumentText::for('dunning.late_fee_applied', $this->overdueInvoice->asset_id, [
                 'fee' => 'EGP '.number_format($this->fee(), 2),
                 'number' => $this->overdueInvoice->number,

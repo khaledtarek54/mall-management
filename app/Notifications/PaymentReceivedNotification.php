@@ -27,7 +27,7 @@ class PaymentReceivedNotification extends Notification
         )->implode(', ');
 
         return (new MailMessage)
-            ->subject(__('admin.notifications.payment_received_subject', ['reference' => $this->payment->reference]))
+            ->subject(DocumentText::forSubject('receipt.payment_subject', $this->payment->invoices->first()?->asset_id, ['reference' => $this->payment->reference]) ?? '')
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->payment->tenant?->name ?? '']))
             ->line(DocumentText::for('receipt.payment_received', $this->payment->invoices->first()?->asset_id, [
                 'amount' => 'EGP '.number_format((float) $this->payment->amount, 2),
