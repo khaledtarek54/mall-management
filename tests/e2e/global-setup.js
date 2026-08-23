@@ -94,7 +94,10 @@ export const ROLE_USERS = {
   manager: 'manager@mall.test',
   viewer: 'viewer@mall.test',
   leasing: 'leasing@mall.test',
-  operations: 'maintenance@mall.test',
+  // `operations@mall.test`, not `maintenance@mall.test`: the 2026-08-15 rename swept `app/` and
+  // left this behind. The user has not existed since, so global setup died here and took the
+  // WHOLE suite with it — see `E2eHarnessUsersExistTest`, which now fails fast and by name.
+  operations: 'operations@mall.test',
   accounting: 'accounting@mall.test',
   marketing: 'marketing@mall.test',
   hr: 'hr@mall.test',

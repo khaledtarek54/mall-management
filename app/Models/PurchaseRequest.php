@@ -325,7 +325,13 @@ class PurchaseRequest extends Model
         $date = $date ? Carbon::instance($date) : now();
         $prefix = sprintf('PO-%s-%s-', $assetCode, $date->format('Ym'));
 
-        $last = static::withTrashed()->where('po_number', 'like', $prefix.'%')->orderByDesc('po_number')->value('po_number');
+        // LENGTH first, exactly as the PR reference above and the other twelve series do: a plain
+        // string sort puts `…-9999` above `…-10000`, so once a series passes its zero-padding the
+        // lookup returns the wrong row and proposes a number that already exists (EG-10).
+        $last = static::withTrashed()
+            ->where('po_number', 'like', $prefix.'%')
+            ->orderByRaw('LENGTH(po_number) DESC, po_number DESC')
+            ->value('po_number');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
 
         // Bump until free — max+1 races under concurrent orders; the unique index is the backstop.
