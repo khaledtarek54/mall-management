@@ -66,7 +66,10 @@ class PayrollRateResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.hr');
+        // `hr_payroll`, the group the PANEL declares — the same one `PayrollResource` sits in.
+        // `admin.groups.hr` resolves to a plausible "HR" and is a group `AdminPanelProvider` never
+        // registers, so the screen filed itself outside the declared navigation order.
+        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

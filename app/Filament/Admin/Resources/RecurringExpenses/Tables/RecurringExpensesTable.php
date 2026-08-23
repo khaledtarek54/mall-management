@@ -6,6 +6,7 @@ use App\Models\ExpenseCategory;
 use App\Models\RecurringExpense;
 use Carbon\CarbonImmutable;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -87,7 +88,12 @@ class RecurringExpensesTable
 
                 TernaryFilter::make('is_active')->label(__('admin.fields.is_active')),
             ])
-            ->recordActions([EditAction::make()])
+            ->recordActions([
+                // Read the row without opening its edit form — the project-wide rule that every
+                // table declaring a form of its own offers a read-only view.
+                ViewAction::make(),
+                EditAction::make(),
+            ])
             ->emptyStateIcon('heroicon-o-arrow-path')
             ->emptyStateHeading(__('admin.recurring_expenses.plural'))
             ->emptyStateDescription(__('admin.recurring_expenses.empty_hint'));
