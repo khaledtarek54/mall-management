@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Settings\AccountingSettings;
 use Illuminate\Console\Command;
-use Spatie\Activitylog\Models\Activity;
+use Spatie\Activitylog\Support\Config;
 
 /**
  * Delete activity-log rows older than the operator's retention period (EG-34).
@@ -40,9 +40,16 @@ class PruneActivityLogCommand extends Command
 
         $cutoff = now()->subDays($days)->startOfDay();
 
+        // The CONFIGURED activity model, not `Spatie\...\Activity` by name: the package lets an
+        // application swap it, and a pruner that queried the wrong class would delete from a table
+        // nothing else writes to and report success.
+        $model = Config::activityModelInstance();
+
+        $expired = fn () => $model::query()->where('created_at', '<', $cutoff);
+
         // Counted before deleting so the operator is told what happened, and so `--dry-run` can
         // answer the question a retention policy is actually reviewed on: how much would go.
-        $doomed = Activity::query()->where('created_at', '<', $cutoff)->count();
+        $doomed = $expired()->count();
 
         if ($this->option('dry-run')) {
             $this->info("Would delete {$doomed} activity rows older than {$cutoff->toDateString()} ({$days} days).");
@@ -50,7 +57,13 @@ class PruneActivityLogCommand extends Command
             return self::SUCCESS;
         }
 
-        Activity::query()->where('created_at', '<', $cutoff)->delete();
+        // Deleted in CHUNKS. Spatie's own action issues one unbounded `DELETE`, which is fine for a
+        // library and not for a job that runs unattended at 05:00 on the first of the month: five
+        // years of a real portfolio's audit trail is millions of rows, and one statement holds locks
+        // on the table for as long as it takes. `DemoSeeder` alone writes 1,287 rows for one mall.
+        do {
+            $deleted = $expired()->limit(1000)->delete();
+        } while ($deleted > 0);
 
         $this->info("Deleted {$doomed} activity rows older than {$cutoff->toDateString()} ({$days} days).");
 

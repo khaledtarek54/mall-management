@@ -177,7 +177,7 @@ billing:scan-overdue-invoices (daily @ 06:00)
 | `vendors:expire-contracts` | 02:30 daily | `--dry-run` | Transition active VendorContract rows past end_date to status='expired' (housekeeping for nav badge). | none (direct update) | none |
 | `billing:apply-late-fees` | 04:00 daily | `--date=YYYY-MM-DD --queue` | Scans overdue invoices (due_date ≤ today - grace_days), adds `late_fee` line item if not already present. Idempotent via line item type check. | late_fee line item presence | DB::transaction + lockForUpdate per invoice |
 | `cam:reconcile` | Jan 15, 03:00 yearly | `--year=YYYY --auto-bill` | Generates CamAllocation rows for draft pools; optionally bills them. Review-only by default. | pool status (must be 'draft') | none |
-| `activitylog:clean` | 05:00 monthly (1st) | (Spatie audit log cleanup) | Drops activity log rows older than config's clean_after_days (default 365). | row age | none |
+| `atriom:prune-activity-log` | 05:00 monthly (1st) | (audit log retention) | Drops activity rows older than `AccountingSettings::activity_log_retention_days` — **1,825 days (five years)** by default, `0` keeps everything. Deletes in chunks and reports the count, including when it prunes nothing. Replaced `activitylog:clean`, whose 365-day config value was hardcoded and shorter than Egyptian statutory book retention (EG-34). | row age vs the operator's retention setting | none |
 
 ### Job Classes (queueable versions)
 

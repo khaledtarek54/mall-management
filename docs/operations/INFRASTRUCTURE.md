@@ -169,7 +169,7 @@ also works — pick one. On redeploy, `php artisan queue:restart` lets the worke
 Drives every cadence in `routes/console.php`: `maintenance:scan-sla-breaches` (hourly),
 `billing:scan-overdue-invoices`/`remind-overdue-tenants` (06:00/06:15), `billing:apply-late-fees`,
 `cam:reconcile`, `accounting:post-depreciation`/`sync-ledger`, `maintenance:auto-close`/
-`generate-preventive`, `vendors:expire-contracts`, `marketing:ensure-budgets`, `activitylog:clean`.
+`generate-preventive`, `vendors:expire-contracts`, `marketing:ensure-budgets`, `atriom:prune-activity-log`.
 Set `APP_TIMEZONE=Africa/Cairo` so cadences fire on Cairo wall-clock.
 
 ---

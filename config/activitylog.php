@@ -12,10 +12,19 @@ return [
     'enabled' => env('ACTIVITYLOG_ENABLED', true),
 
     /*
-     * When the clean command is executed, all recording activities older than
-     * the number of days specified here will be deleted.
+     * DELIBERATELY NULL (EG-34). The retention period is an operator SETTING —
+     * `AccountingSettings::activity_log_retention_days`, five years by default — and
+     * `atriom:prune-activity-log` is the only thing that prunes.
+     *
+     * Leaving 365 here would have been the dangerous option rather than the tidy one: Spatie's
+     * `activitylog:clean` is still registered and callable, so a runbook, a stray cron or an
+     * operator reaching for the familiar name would have pruned at a period nobody had chosen,
+     * silently, while the screen showed something else. Two truths about one policy.
+     *
+     * Null makes that command REFUSE ("the days option must be a positive integer") instead of
+     * quietly destroying five years of audit trail. A loud wrong answer beats a silent one.
      */
-    'clean_after_days' => 365,
+    'clean_after_days' => null,
 
     /*
      * If no log name is passed to the activity() helper

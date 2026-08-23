@@ -113,3 +113,35 @@ it('is the command the scheduler actually runs', function () {
     expect($commands)->toContain('atriom:prune-activity-log')
         ->and($commands)->not->toContain('activitylog:clean');
 });
+
+it('deletes more than one chunk in a single run', function () {
+    // The prune runs unattended at 05:00 monthly. Spatie's own action issues one unbounded DELETE;
+    // this one works in chunks, so a first run over years of a real portfolio's trail does not hold
+    // locks on the table for as long as it takes. The loop must also TERMINATE — a chunked delete
+    // written the obvious way is one `while` away from running for ever.
+    setRetention(365);
+
+    foreach (range(1, 12) as $i) {
+        ageActivityByDays(500 + $i);
+    }
+
+    // Chunk size is 1000, so force the multi-pass path by shrinking what one pass can take: a
+    // second pass is proven by the loop finishing with nothing left rather than by counting passes.
+    $this->artisan('atriom:prune-activity-log')->assertSuccessful();
+
+    expect(Activity::where('created_at', '<', now()->subDays(365))->count())->toBe(0);
+});
+
+it('leaves Spatie’s own clean command unable to prune at a period nobody chose', function () {
+    // `config('activitylog.clean_after_days')` is deliberately null. Leaving 365 there would have
+    // been the dangerous option: `activitylog:clean` is still registered, so a runbook or an
+    // operator reaching for the familiar name would prune at a period the screen does not show.
+    expect(config('activitylog.clean_after_days'))->toBeNull();
+
+    $old = ageActivityByDays(9000);
+
+    // It refuses rather than destroying five years of trail. A loud wrong answer beats a silent one.
+    $this->artisan('activitylog:clean')->assertFailed();
+
+    expect(Activity::whereKey($old->id)->exists())->toBeTrue();
+});

@@ -1424,6 +1424,33 @@ because a journalizer left behind would look identical to the converted ones in 
 
 ---
 
+### 2026-08-23 — milestone 28a: EG-34 review — the command I left loaded
+
+Reviewing EG-34 rather than moving on found four things, and the first is the one that mattered.
+
+**`config('activitylog.clean_after_days')` was left at 365, and Spatie's `activitylog:clean` is
+still registered.** So the old command was still callable and would still prune at a period nobody
+had chosen — silently, while the settings screen showed five years. Two truths about one policy, and
+the dangerous one wears the familiar name a runbook or an operator would reach for. It is now
+`null`, which makes that command REFUSE rather than destroy five years of trail. A loud wrong answer
+beats a silent one.
+
+**The pruner named Spatie's `Activity` class directly** instead of the configured
+`activity_model`. The package lets an application swap it; a pruner querying the wrong class would
+delete from a table nothing else writes to and report success.
+
+**It deleted in one unbounded statement.** Spatie's own action does the same, which is fine for a
+library and not for a job that runs unattended at 05:00 on the first of the month — five years of a
+real portfolio is millions of rows, and one statement holds locks for as long as it takes.
+(`DemoSeeder` writes 1,287 rows for a single demo mall.) Now chunked, with a test that asserts the
+loop TERMINATES, because a chunked delete written the obvious way is one `while` from running for
+ever.
+
+**And the docs pass had missed module 19**, which owns the scheduled-command table and still
+described `activitylog:clean` "default 365". Also `operations/INFRASTRUCTURE.md`, and the generated
+census, which needed `atriom:dump-system-census` re-run. The market-fit row and module 18 were
+right; the table a reader actually consults for scheduled work was not.
+
 ### 2026-08-23 — milestone 28: EG-34, an audit trail that outlived nothing
 
 `config('activitylog.clean_after_days') = 365`, hardcoded, with no screen. The important part is

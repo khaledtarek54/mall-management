@@ -7,13 +7,13 @@
         "portal_resources": 9,
         "admin_widgets": 19,
         "api_controllers": 54,
-        "console_commands": 52,
+        "console_commands": 53,
         "jobs": 6,
         "notifications": 37,
-        "migrations": 275
+        "migrations": 276
     },
     "modules": {
-        "documented": 37,
+        "documented": 38,
         "list": [
             {
                 "number": 1,
@@ -236,6 +236,12 @@
                 "slug": "unit-owners",
                 "title": "Unit Owners",
                 "doc": "docs/modules/37-unit-owners.md"
+            },
+            {
+                "number": 38,
+                "slug": "custom-fields",
+                "title": "Custom Fields",
+                "doc": "docs/modules/38-custom-fields.md"
             }
         ]
     },
@@ -264,7 +270,7 @@
                 "vendors:scan-document-expiry",
                 "tenants:scan-document-expiry",
                 "vendors:scan-contract-renewals",
-                "activitylog:clean",
+                "atriom:prune-activity-log",
                 "requests:auto-close",
                 "facility:generate-preventive",
                 "requests:scan-sla-breaches",
@@ -297,9 +303,9 @@
         }
     },
     "tests": {
-        "files": 897,
+        "files": 903,
         "e2e_specs": 21,
-        "scenarios": 154,
-        "regressions": 487
+        "scenarios": 158,
+        "regressions": 489
     }
 }
