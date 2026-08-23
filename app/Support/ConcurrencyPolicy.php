@@ -135,6 +135,10 @@ final class ConcurrencyPolicy
     public const REGISTERED = [
         // ── Scheduled scans: lock the row, re-check the idempotency stamp inside the transaction ─
         'app/Console/Commands/AutoCloseTenantRequestsCommand.php' => 1,
+        // EG-33 — the recurring-cost run locks the SCHEDULE row and re-derives its due date inside
+        // the transaction, so two overlapping runs cannot both mint the month's expense. The
+        // UNIQUE (recurring_expense_id, expense_date) index is the backstop, not the guard.
+        'app/Services/GenerateRecurringExpensesService.php' => 1,
         'app/Console/Commands/EstimateMissingSalesCommand.php' => 1,
         'app/Console/Commands/ExpireVendorContractsCommand.php' => 1,
         'app/Console/Commands/RemindExpiringLeasesCommand.php' => 1,

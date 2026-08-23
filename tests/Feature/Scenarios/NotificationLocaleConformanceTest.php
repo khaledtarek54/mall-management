@@ -109,7 +109,15 @@ it('never writes an EMAIL\'s prose straight into the PHP either', function () {
         preg_match_all('/->(subject|line|action)\((.*?)\)\s*(?:->|;)/s', $body, $calls, PREG_SET_ORDER);
 
         foreach ($calls as [, $method, $argument]) {
-            if (str_contains($argument, '__(') || str_contains($argument, 'Lang::get')) {
+            // `DocumentText::for()` / `::forSubject()` is the THIRD locale-aware resolver, added by
+            // EG-15: it reads the operator's own wording for the document's property — both
+            // languages on one row, picked at render time — and falls back to the very translation
+            // key the notification used before. Trusted on the same terms as `__()`, and with the
+            // same stated limitation: once a resolver is named, the whole argument is trusted, so a
+            // hardcoded English fallback beside it would not be caught here.
+            if (str_contains($argument, '__(')
+                || str_contains($argument, 'Lang::get')
+                || str_contains($argument, 'DocumentText::for')) {
                 continue;
             }
 

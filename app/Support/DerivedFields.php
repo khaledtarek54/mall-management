@@ -118,6 +118,10 @@ class DerivedFields
      * @var array<class-string|string, array{verdict: string, note: string}>
      */
     public const CANDIDATE_VERDICTS = [
+        'app/Filament/Admin/Resources/RecurringExpenses/Schemas/RecurringExpenseForm.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'starts_on + ends_on on a recurring cost schedule (EG-33). A lease insurance premium, a real-estate tax assessment or a cleaning retainer starts on a date and runs until something ends it — a policy is not renewed, a contract lapses, the levy is abolished. There is no duration and there must not be one: `ends_on` is nullable and blank is the normal state, meaning "until further notice", which is what an open-ended standing cost actually is. Deriving an end from the frequency would invent a stop date nobody agreed and silently switch the run off. Same verdict and same reasoning as the charge-schedule rows this mirrors.',
+        ],
         'app/Filament/Admin/RelationManagers/UnitOwnershipChargesRelationManager.php' => [
             'verdict' => 'INDEPENDENT',
             'note' => 'A recurring assessment (\u{635}\u{64a}\u{627}\u{646}\u{629}) is OPENED on one date and CLOSED on another, and the two live in two different actions — you add a row, and months or years later you end it. There is no duration field and there must not be one: an assessment runs until something ends it (a resale, a re-rate, the owner\'s handover reversed), none of which is knowable on the day it starts. The lease charge schedule next door works the same way — `ChargeScheduleService::close()` closes-and-opens a dated rung rather than projecting an end — and this is the same registry of rows read by the same billing run.',

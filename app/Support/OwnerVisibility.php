@@ -141,6 +141,10 @@ class OwnerVisibility
         'accounting_periods' => 'The operator\'s own close calendar.',
         'charge_codes' => 'The SHARED portfolio billing vocabulary and its VAT rulings.',
         'tax_codes' => 'The tax catalogue and its dated rates — the accountant\'s configuration, portfolio-wide. The owner sees the tax CHARGED on their property\'s invoices, not the table it is resolved from.',
+        'payroll_rates' => 'Egypt\'s statutory payroll ladder — the insurable-wage band and contribution rates, portfolio-wide master data (EG-03). Deliberately gated apart from `payrolls` so an HR clerk who may run payroll cannot move the ceiling underneath it; an owner has no part in it at all, and the staff cost that reaches them is a line on their property\'s income statement.',
+        'custom_fields' => 'The operator\'s OWN extensions to the tenant, lease, unit, vendor and asset forms (EG-32 / D-7). Portfolio-wide schema authorship, not oversight: an owner reading the definitions would be reading how Eltizam chooses to run its records, and the VALUES land on the records they can already see.',
+        'document_templates' => 'The standing wording on tenant-facing documents — payment instructions, invoice terms, dunning prose (EG-15). Eltizam writes to its tenants under its own management contract; the owner sees the money those documents raised, not the sentences used to raise it. Per-property rows exist, but authorship is still the operator\'s.',
+        'recurring_expenses' => 'The schedules that mint a standing cost each period (EG-33). Configuration of the operator\'s own run, not a report: the COSTS themselves are fully visible to the owner through the expense register, the income statement and the owner statement, which is where oversight of a property\'s spending belongs.',
         'notes' => 'SHARED polymorphic internal commentary. A note about a tenant is exactly the kind of thing an operator must be able to write without the landlord reading it.',
     ];
 

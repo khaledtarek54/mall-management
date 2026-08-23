@@ -71,9 +71,14 @@ function loggedCodeColumns(): array
             if ($group !== null) {
                 foreach (['en', 'ar'] as $locale) {
                     foreach ($set as $value) {
+                        // Asked of the RESOLVER, not re-derived here. "Which key labels this
+                        // value" has exactly one definition — a value carrying a dot cannot be a
+                        // leaf key, so `ActivityVocabulary` folds it — and a second copy in this
+                        // gate is how a check comes to report on a rule the code no longer follows.
+                        //
                         // `fallback: false` — `Lang::has()` falls back to English, so the obvious
                         // check reports an Arabic gap as present.
-                        if (! Lang::has("{$group}.{$value}", $locale, false)) {
+                        if (ActivityVocabulary::valueKey($group, (string) $value, $locale, fallback: false) === null) {
                             $missing[] = "{$locale}:{$value}";
                         }
                     }

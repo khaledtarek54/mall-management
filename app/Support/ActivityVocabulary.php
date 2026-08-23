@@ -37,6 +37,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Lang;
 
 /**
@@ -119,6 +120,12 @@ class ActivityVocabulary
         'approval_rule.module' => 'admin.enums.approval_module',
         'asset.type' => 'admin.enums.asset_type',
         'charge.frequency' => 'admin.charge_schedule.frequencies',
+        // EG-32 / D-7 — the operator's own field definitions.
+        'custom_field.type' => 'admin.custom_fields.types',
+        // EG-15 — which standing block of document wording this row holds. The value contains a
+        // DOT (`invoice.terms`), which `__()` reads as nesting, so the label lives under an
+        // underscored key and `lookupValue()` folds for it.
+        'document_template.key' => 'admin.document_templates_screen.blocks',
         'charge.type' => 'admin.enums.invoice_item_type',
         'charge_code.posting_role' => 'admin.posting_roles',
         'credit_note.reason' => 'admin.enums.credit_note_reason',
@@ -140,6 +147,10 @@ class ActivityVocabulary
         'expense_category.cost_nature' => 'admin.enums.cost_nature',
         'sla_policy.request_type' => 'admin.enums.request_type',
         'expense.category' => 'admin.enums.vendor_bill_category',
+        // EG-33 — the SAME catalogue the expense it mints reads from, so a schedule and its
+        // expenses cannot name one category two ways in the audit trail.
+        'recurring_expense.category' => 'admin.enums.vendor_bill_category',
+        'recurring_expense.frequency' => 'admin.recurring_expenses.frequencies',
         'expense.paid_from' => 'admin.enums.expense_paid_from',
         'fixed_asset_disposal.proceeds_account' => 'admin.enums.cash_or_bank',
         'inventory_item.unit' => 'admin.enums.inventory_unit',
@@ -562,7 +573,46 @@ class ActivityVocabulary
             return null;
         }
 
-        return Lang::has("{$prefix}.{$value}") ? __("{$prefix}.{$value}") : null;
+        $key = self::valueKey($prefix, $value);
+
+        return $key === null ? null : __($key);
+    }
+
+    /**
+     * The lang key that labels `$value` under `$prefix`, or null when nothing labels it.
+     *
+     * **Public because the conformance gate has to ask the same question this class answers.** Two
+     * copies of "which key labels this value" is precisely how a gate comes to report on a rule the
+     * resolver no longer follows — the fold below lived here for one run before the gate learned
+     * it, and the gate went red over a value that did in fact resolve on screen.
+     *
+     * A value carrying a DOT can never be a leaf key: `__()` reads dots as NESTING, so
+     * `admin…blocks.invoice.terms` asks for `terms` inside `invoice` and finds nothing. The screens
+     * offering such codes already key their labels with underscores (`DocumentTemplateForm` does),
+     * so fold and try once more — after the direct lookup misses, and only for a value that could
+     * never have resolved anyway.
+     *
+     * `$fallback` is the one thing the two callers differ on, deliberately. At RENDER time English
+     * standing in for a missing Arabic label beats printing a raw code; a PARITY check must pass
+     * `false`, or `Lang::has()`'s own fallback makes it green for every key present in English.
+     */
+    public static function valueKey(string $prefix, string $value, ?string $locale = null, bool $fallback = true): ?string
+    {
+        $locale ??= App::getLocale();
+
+        if (Lang::has("{$prefix}.{$value}", $locale, $fallback)) {
+            return "{$prefix}.{$value}";
+        }
+
+        if (str_contains($value, '.')) {
+            $folded = "{$prefix}.".str_replace('.', '_', $value);
+
+            if (Lang::has($folded, $locale, $fallback)) {
+                return $folded;
+            }
+        }
+
+        return null;
     }
 
     /** Render a value according to its Eloquent cast. */

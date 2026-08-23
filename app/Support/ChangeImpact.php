@@ -334,6 +334,11 @@ class ChangeImpact
             ],
             self::NEUTRAL => [
                 'facility_work_order_id', // which JOB this cost belongs to — a management dimension; no journalizer reads it
+                // Which SCHEDULE minted this expense (EG-33). Provenance, not posting: the
+                // journalizer never reads it, and the generator's idempotency comes from the
+                // UNIQUE (recurring_expense_id, expense_date) index rather than from anything
+                // re-derived here. Re-pointing it at another schedule moves no money.
+                'recurring_expense_id',
                 'reference', 'description', 'created_by_user_id', 'tax_override_reason',
             ],
             self::DESCRIPTIVE => ['number' => 'names the entry'],

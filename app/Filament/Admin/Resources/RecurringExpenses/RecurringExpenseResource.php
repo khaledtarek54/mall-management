@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\RecurringExpenses;
 
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesToProperty;
 use App\Filament\Admin\Resources\RecurringExpenses\Pages\CreateRecurringExpense;
 use App\Filament\Admin\Resources\RecurringExpenses\Pages\EditRecurringExpense;
 use App\Filament\Admin\Resources\RecurringExpenses\Pages\ListRecurringExpenses;
@@ -22,12 +24,22 @@ use Filament\Tables\Table;
  * schedule an operator cannot create is the failure `ServiceReachability` was written for and that
  * `BillUnitOwnershipsService` shipped: fully built, fully tested, and billing nobody.
  *
- * Property-owned, because a real-estate tax assessment is issued against a building — so this is
- * tenant-scoped by the panel in the ordinary way and needs no `BypassesFilamentTenantAutoScope`.
+ * Property-owned, because a real-estate tax assessment is issued against a building.
+ *
+ * **That sentence used to end "…so this is tenant-scoped by the panel in the ordinary way and needs
+ * no `BypassesFilamentTenantAutoScope`", and it was wrong on both counts.** The table read was not
+ * scoped at all — a Mall B schedule was listed on Mall A's screen — and the form exposes an
+ * editable `asset_id` through `PropertyField`, which is exactly the shape that clobbers the
+ * operator's chosen mall to the ALL pseudo-asset (the "Announcements tenancy trap").
+ * `ScopesToProperty` supplies both the scoped `getEloquentQuery()` and the auto-scope bypass;
+ * `GuardsAssetInScope` is the write half, because the pin is a UI truth and the value still arrives
+ * in the Livewire payload.
  */
 class RecurringExpenseResource extends Resource
 {
+    use GuardsAssetInScope;
     use RoleGatedActions;
+    use ScopesToProperty;
 
     protected static ?string $model = RecurringExpense::class;
 
