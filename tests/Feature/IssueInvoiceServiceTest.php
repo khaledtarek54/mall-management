@@ -98,12 +98,23 @@ it('bills the lease tenant by default and the stated debtor when a source docume
         ->and($stated->tenant_id)->toBe($other->id);
 });
 
-it('takes the lease currency by default and the penalised debt currency when stated', function () {
+it('takes the lease currency by default, and refuses one the column does not accept', function () {
+    // The `currency` parameter exists so a fee invoice can carry the currency of the DEBT it
+    // penalises rather than the lease's. It still does — but EG-07 narrowed every currency column
+    // to EGP, so the only value it can carry today is EGP, and this case used to assert USD.
+    //
+    // Kept as two claims rather than deleted: the default still comes from the agreement, and a
+    // currency outside the registered set is refused at the MODEL. That second half is the whole
+    // of EG-07 — a picker was removed, and this is what makes the removal true against an import
+    // or a crafted payload rather than only in the UI.
     $default = issueWith($this->lease, [issueLine(100.00, 14.00)]);
-    $stated = issueWith($this->lease, [issueLine(100.00, 14.00)], currency: 'USD');
+    $stated = issueWith($this->lease, [issueLine(100.00, 14.00)], currency: 'EGP');
 
     expect($default->currency)->toBe('EGP')
-        ->and($stated->currency)->toBe('USD');
+        ->and($stated->currency)->toBe('EGP');
+
+    expect(fn () => issueWith($this->lease, [issueLine(100.00, 14.00)], currency: 'USD'))
+        ->toThrow(DomainException::class);
 });
 
 it('refuses to raise an invoice with no lines', function () {

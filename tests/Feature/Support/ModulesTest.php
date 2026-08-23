@@ -32,7 +32,7 @@ it('returns false for a disabled module', function () {
     expect(Modules::enabled('vendors'))->toBeFalse();
 });
 
-it('returns true for every optional module when all flags are on', function () {
+it('returns true for every TOGGLEABLE module when all flags are on', function () {
     $settings = app(ModulesSettings::class);
 
     foreach (Modules::KEYS as $key) {
@@ -40,8 +40,32 @@ it('returns true for every optional module when all flags are on', function () {
     }
     $settings->save();
 
-    foreach (Modules::KEYS as $key) {
-        expect(Modules::enabled($key))->toBeTrue();
+    // `toggleable()`, not `KEYS` — a FROZEN module is deliberately not answerable by a flag, so
+    // asserting over the whole registry asserted the pre-freeze world and had been red since.
+    expect(Modules::toggleable())->not->toBeEmpty();
+
+    foreach (Modules::toggleable() as $key) {
+        expect(Modules::enabled($key))->toBeTrue("{$key} is toggleable and its flag is on.");
+    }
+});
+
+it('keeps a FROZEN module off even with its flag switched on', function () {
+    // The other half, and the one that matters: `Modules::enabled()` answers false BEFORE the
+    // settings row is consulted, so a stale row, a restored backup or a hand-edited `settings`
+    // table cannot bring an uncertified integration back. The test above used to contradict this
+    // by asserting every key goes true; this asserts the freeze instead of working around it.
+    expect(Modules::FROZEN)->not->toBeEmpty('Nothing is frozen — this case would pass vacuously.');
+
+    $settings = app(ModulesSettings::class);
+
+    foreach (array_keys(Modules::FROZEN) as $key) {
+        $settings->{$key} = true;
+    }
+    $settings->save();
+
+    foreach (array_keys(Modules::FROZEN) as $key) {
+        expect(Modules::enabled($key))->toBeFalse("{$key} is frozen; a settings row must not revive it.");
+        expect(Modules::frozen($key))->toBeTrue();
     }
 });
 

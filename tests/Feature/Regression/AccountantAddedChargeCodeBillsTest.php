@@ -115,7 +115,11 @@ it('puts an accountant-added code on a lease from the schedule screen, and bills
     expect((float) $charge->amount)->toBe(2500.0)
         // The catalogue's VAT treatment, not a hard-coded rate and not zero.
         ->and((float) $charge->vat_rate)->toBe(Vat::standardRate())
-        ->and($charge->vat_applicable)->toBeTrue()
+        // NULL, not true — and that IS the point of EG-01 rather than a slip. The column became an
+        // OVERRIDE: null means "nobody ruled on this row, ask the catalogue", and writing `true`
+        // froze the answer so a treatment change could never reach the charge again. What must
+        // hold is the OUTCOME, which the rate assertion above already states.
+        ->and($charge->vat_applicable)->toBeNull()
         // Added in March, so it is owed from March — not back to the January commencement.
         ->and($charge->start_date->toDateString())->toBe('2026-03-01');
 
