@@ -48,7 +48,7 @@ gate that stays green is a `HOLE`. It verifies each mutation actually LANDED bef
 result, because a substitution that silently does not apply reports a false PASS, which has happened
 twice in this project.
 
-**Result: 49 mutations across 46 gates, four holes — all four in gates that guarded a REGISTRY, and
+**Result: 73 mutations across 69 gates — every gate but three — and five holes — all four in gates that guarded a REGISTRY, and
 two of them had a live money defect underneath.**
 
 **One gate is switched OFF and it is the only one.** `FixtureColumnsExistConformanceTest` ships
@@ -153,3 +153,20 @@ isolation. Adding a gate to it is four strings.
 
 Every refusal test is paired with a control that must succeed — a guard that refused everything would
 otherwise read as a pass.
+
+
+## The three gates not in the manifest, and why
+
+Not an oversight — none of the three can be expressed as a string replacement, so each is verified a
+different way and says so here rather than being quietly counted as covered.
+
+- **`ServiceReachability`** — severing one dependency proves nothing, because the gate takes the
+  transitive closure and finds any other path. Verified by hand: drop a `ZzOrphanProbeService` into
+  `app/Services` that nothing calls, run the gate, delete it. It goes red and names the class.
+- **`ReconciliationChecksCanFail`** — it IS a mutation harness. It perturbs each of the four
+  tenant-facing reconciliation checks and requires each to go red, paired with a control requiring
+  all four green on clean data. Auditing it would be auditing an audit.
+- **`FixtureColumnsExist`** — shipped `->skip()`ed on purpose (see above). It cannot fail because it
+  does not run.
+
+Everything else — 69 of 72 gates — is proven by a mutation in `gate-mutations.json`.

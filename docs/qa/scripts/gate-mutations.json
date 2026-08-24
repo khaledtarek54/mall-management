@@ -453,5 +453,61 @@
     "path": "app/Notifications/AreaWorkOrderRaisedNotification.php",
     "old": "            'title' => __('admin.notifications.area_work_order_raised_title', [\n                'area' => $this->order->areaName() ?? '\u2014',\n            ]),",
     "new": "            'title' => 'Work order raised in '.($this->order->areaName() ?? '\u2014'),"
+  },
+  {
+    "name": "ReportFilter \u2014 a report hand-rolls a shared filter",
+    "gate": "tests/Feature/Scenarios/ReportFilterConformanceTest.php",
+    "path": "app/Filament/Admin/Pages/ArAging.php",
+    "old": "                        ReportFilters::asOf(fn () => null),",
+    "new": "                        \\Filament\\Forms\\Components\\DatePicker::make('asOf')->label('As of'),"
+  },
+  {
+    "name": "OfferedValuesAreAcceptedValues \u2014 allowed() widens where forTable() does not",
+    "gate": "tests/Feature/Scenarios/OfferedValuesAreAcceptedValuesConformanceTest.php",
+    "path": "app/Support/ValueSets.php",
+    "old": "        $byTable[$onTable][$column] = self::widen($key, self::expand($values));",
+    "new": "        $byTable[$onTable][$column] = self::expand($values);"
+  },
+  {
+    "name": "LoggedValuesResolve \u2014 a logged code column loses its vocabulary",
+    "gate": "tests/Feature/Scenarios/LoggedValuesResolveConformanceTest.php",
+    "path": "app/Support/ActivityVocabulary.php",
+    "old": "        'holiday.kind' => 'admin.facility.holiday.kinds',\n",
+    "new": ""
+  },
+  {
+    "name": "ResourceLink \u2014 a widget emits a dead Filament v3 query key",
+    "gate": "tests/Feature/Scenarios/ResourceLinkConformanceTest.php",
+    "path": "app/Filament/Admin/Widgets/MarketingPerformance.php",
+    "old": "        $url = MarketingBudgetResource::getUrl('index');",
+    "new": "        $url = MarketingBudgetResource::getUrl('index', ['filters' => ['status' => 'open']]);"
+  },
+  {
+    "name": "TenantFacingWordingIsTheOperators \u2014 a registered block loses its picker label",
+    "gate": "tests/Feature/Scenarios/TenantFacingWordingIsTheOperatorsConformanceTest.php",
+    "path": "lang/en/admin/document-templates-screen.php",
+    "old": "            'invoice_terms' => 'Invoice \u2014 terms',\n",
+    "new": ""
+  },
+  {
+    "name": "NoLeaseShapedPropertyScope \u2014 a self-scoped document is scoped through its lease",
+    "gate": "tests/Feature/Scenarios/NoLeaseShapedPropertyScopeConformanceTest.php",
+    "path": "app/Models/Invoice.php",
+    "old": "            ->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId))",
+    "new": "            ->whereHas('lease', fn (Builder $l) => $l->where('asset_id', $unitId))"
+  },
+  {
+    "name": "BoundedFieldsExplainTheirLimit \u2014 a bounded field stops explaining its limit",
+    "gate": "tests/Feature/Scenarios/BoundedFieldsExplainTheirLimitConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/JournalEntries/Schemas/JournalEntryForm.php",
+    "old": "                                ->prefix('EGP')\n                                ->numeric()\n                                ->minValue(0)\n                                ->default(0)\n                                ->live(onBlur: true)\n                                ->columnSpan(3),\n                            TextInput::make('credit')",
+    "new": "                                ->prefix('EGP')\n                                ->numeric()\n                                ->minValue(0)\n                                ->maxValue(999999)\n                                ->default(0)\n                                ->live(onBlur: true)\n                                ->columnSpan(3),\n                            TextInput::make('credit')"
+  },
+  {
+    "name": "NoDatabaseEnums \u2014 the global saving guard stops refusing out-of-set values",
+    "gate": "tests/Feature/Scenarios/NoDatabaseEnumsConformanceTest.php",
+    "path": "app/Providers/AppServiceProvider.php",
+    "old": "                if ($model instanceof Model) {\n                    ValueSets::guard($model);\n                }",
+    "new": "                if (false) {\n                    ValueSets::guard($model);\n                }"
   }
 ]
