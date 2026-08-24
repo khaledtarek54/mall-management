@@ -63,7 +63,7 @@ class JournalEntryForm
                 ->components([
                     Repeater::make('lines')
                         ->relationship()
-                        ->label('')
+                        ->hiddenLabel()
                         ->columns(12)
                         ->defaultItems(2)
                         ->minItems(2)

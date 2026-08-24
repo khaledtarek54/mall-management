@@ -20,6 +20,7 @@ use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\TableGroup;
 use App\Support\Modules;
 use App\Support\OpsLog;
 use Carbon\Carbon;
@@ -394,7 +395,7 @@ class InvoicesTable
             // reads as broken to anyone who did not choose it.
             ->groups([
                 Group::make('tenant.name')->label(__('admin.filters.tenant'))->collapsible(),
-                Group::make('status')->label(__('admin.filters.status'))->collapsible(),
+                TableGroup::byColumn($table, 'status'),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

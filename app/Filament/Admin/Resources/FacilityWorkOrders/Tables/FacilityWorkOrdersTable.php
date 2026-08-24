@@ -14,6 +14,7 @@ use App\Services\AttributeWorkOrderFaultService;
 use App\Services\FacilityWorkOrderService;
 use App\Services\RaiseCorrectiveWorkOrderService;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\TableGroup;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -26,7 +27,6 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 
 class FacilityWorkOrdersTable
@@ -314,8 +314,8 @@ class FacilityWorkOrdersTable
             ])
             // The dispatcher's two axes: what state the board is in, and what is urgent.
             ->groups([
-                Group::make('status')->label(__('admin.filters.status'))->collapsible(),
-                Group::make('priority')->label(__('admin.facility.fields.priority'))->collapsible(),
+                TableGroup::byColumn($table, 'status'),
+                TableGroup::byColumn($table, 'priority'),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

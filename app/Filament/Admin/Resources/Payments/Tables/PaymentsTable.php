@@ -13,6 +13,7 @@ use App\Support\Exports;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\TableGroup;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -164,7 +165,7 @@ class PaymentsTable
             // Method is the reconciliation axis: cash, bank transfer and cheques are counted
             // against different places, and the summariser totals each group.
             ->groups([
-                Group::make('method')->label(__('admin.tables.payment.method'))->collapsible(),
+                TableGroup::byColumn($table, 'method'),
                 Group::make('tenant.name')->label(__('admin.filters.tenant'))->collapsible(),
             ])
             ->recordActions([

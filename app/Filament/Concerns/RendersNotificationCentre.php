@@ -112,6 +112,9 @@ trait RendersNotificationCentre
                 // colour, read ones go grey. One glance separates "needs me" from "already dealt
                 // with", without a second column spending width to say so.
                 TextColumn::make('icon')
+                    // `label('')` and NOT `hiddenLabel()` — that method exists on a form component,
+                    // not on a table column, and calling it here is a fatal at render. A blank
+                    // column header is also correct on its own terms: this column is a coloured dot.
                     ->label('')
                     ->state(fn (DatabaseNotification $record): string => '')
                     ->icon(fn (DatabaseNotification $record): string => $record->data['icon'] ?? 'heroicon-o-bell')

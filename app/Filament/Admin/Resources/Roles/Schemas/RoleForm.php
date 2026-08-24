@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Roles\Schemas;
 
+use App\Support\Translate;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Hidden;
@@ -44,13 +45,16 @@ class RoleForm
         $sections = [];
 
         foreach (RolesPermissionsSeeder::PERMISSIONS as $module => $perms) {
-            $sections[] = Section::make(__("admin.permission_modules.{$module}", [], static::humanize($module)))
+            $sections[] = Section::make(Translate::orHumanized("admin.permission_modules.{$module}", $module))
                 ->collapsible()
                 ->collapsed()
                 ->columns(1)
                 ->components([
                     CheckboxList::make("permissions_module_{$module}")
-                        ->label('')
+                        // `hiddenLabel()`, not `label('')`: a blank label makes Filament DERIVE one
+                        // from the field name, so the Arabic panel read "Permissions module assets"
+                        // above every checkbox group. The section heading already names the module.
+                        ->hiddenLabel()
                         ->options($perms)
                         ->columns(2)
                         ->bulkToggleable()

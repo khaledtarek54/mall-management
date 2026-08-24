@@ -107,6 +107,12 @@ final class CustomFieldsTable
                     ),
 
                 'select' => Filter::make($name)
+                    // The FILTER's own label, not only the Select's inside it. Without it Filament
+                    // derives one from the name — and the name is `cf_{key}`, so the Arabic panel
+                    // offered a filter called "Cf parent group". Three of the five branches below
+                    // set it and two did not; the two that did not are the two an operator sees
+                    // most, because text and choice are what a custom field usually is.
+                    ->label($field->label())
                     ->schema([
                         Select::make('value')
                             ->label($field->label())
@@ -151,6 +157,7 @@ final class CustomFieldsTable
                 // text · textarea — CONTAINS, because an operator looking for "Americana" should not
                 // have to remember whether they typed "Americana Group".
                 default => Filter::make($name)
+                    ->label($field->label())
                     ->schema([
                         TextInput::make('value')->label($field->label()),
                     ])

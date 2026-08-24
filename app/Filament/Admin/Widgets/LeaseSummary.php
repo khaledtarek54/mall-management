@@ -8,6 +8,7 @@ use App\Models\LeaseOption;
 use App\Services\ChargeScheduleService;
 use App\Services\MoveOutStatementService;
 use App\Support\Filament\RefreshesOnRecordChange;
+use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -228,7 +229,7 @@ class LeaseSummary extends StatsOverviewWidget
             $deadline->format('d/m/Y'),
         )
             ->description(__('admin.lease_summary.option_deadline', [
-                'type' => __('admin.lease_options.types.'.$next->type, [], $next->type),
+                'type' => Translate::orHumanized('admin.lease_options.types.'.$next->type, (string) $next->type),
                 'days' => $days,
             ]))
             ->descriptionIcon('heroicon-m-flag')

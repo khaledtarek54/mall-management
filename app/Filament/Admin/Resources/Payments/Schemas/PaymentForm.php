@@ -141,7 +141,10 @@ class PaymentForm
                             ->columnSpanFull(),
 
                         Repeater::make('allocations')
-                            ->label('')
+                            // `hiddenLabel()`, not `label('')`. A blank label makes Filament DERIVE
+                            // one from the field name, so the Arabic panel read "Allocations" above
+                            // the repeater; the tab it sits in already names it.
+                            ->hiddenLabel()
                             ->columns(12)
                             ->reorderable(false)
                             ->addActionLabel(__('admin.actions.add_allocation'))

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Users\Tables;
 
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\User;
+use App\Support\Translate;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -48,7 +49,7 @@ class UsersTable
                         'viewer' => 'gray',
                         default => 'primary',
                     })
-                    ->formatStateUsing(fn (string $state) => __("admin.users.roles_list.{$state}", [], $state)),
+                    ->formatStateUsing(fn (string $state) => Translate::orHumanized("admin.users.roles_list.{$state}", $state)),
                 // A suspended account still owns its history, so it stays in the list — but it
                 // must be obvious at a glance which logins actually work.
                 TextColumn::make('status')

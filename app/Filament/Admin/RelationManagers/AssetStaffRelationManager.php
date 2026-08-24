@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\User;
+use App\Support\Translate;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
 use Filament\Actions\EditAction;
@@ -70,7 +71,7 @@ class AssetStaffRelationManager extends RelationManager
                 TextColumn::make('roles.name')
                     ->label(__('admin.tables.user.role'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.users.roles_list.{$state}", [], $state))
+                    ->formatStateUsing(fn (string $state) => Translate::orHumanized("admin.users.roles_list.{$state}", $state))
                     ->color('gray'),
                 TextColumn::make('pivot.role')
                     ->label(__('admin.fields.staff_role'))

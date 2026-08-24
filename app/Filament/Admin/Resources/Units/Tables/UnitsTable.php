@@ -11,6 +11,7 @@ use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\EntitySelectFilter;
 use App\Support\Filament\PropertyField;
+use App\Support\Filament\TableGroup;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -164,7 +165,7 @@ class UnitsTable
             // Floor is how a leasing manager physically walks the mall; status is the vacancy view.
             ->groups([
                 Group::make('floor.name')->label(__('admin.tables.unit.floor'))->collapsible(),
-                Group::make('status')->label(__('admin.filters.status'))->collapsible(),
+                TableGroup::byColumn($table, 'status'),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

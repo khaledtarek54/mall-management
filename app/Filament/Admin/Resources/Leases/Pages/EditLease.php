@@ -11,6 +11,7 @@ use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use App\Support\BillingWindow;
 use App\Support\Filament\RefreshesRecordState;
+use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -191,7 +192,7 @@ class EditLease extends EditRecord
                 if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'lease_not_billable') {
                     $why = match (true) {
                         $record->status !== 'active' => __('admin.actions.not_billable_status', [
-                            'status' => __('admin.statuses.lease.'.$record->status, [], $record->status),
+                            'status' => Translate::orHumanized('admin.statuses.lease.'.$record->status, (string) $record->status),
                         ]),
                         $record->expiry_date && $period->greaterThan(CarbonImmutable::instance($record->expiry_date)->endOfMonth()) => __('admin.actions.not_billable_expired', ['date' => $record->expiry_date->format('d/m/Y')]),
                         default => __('admin.actions.not_billable_not_started', [

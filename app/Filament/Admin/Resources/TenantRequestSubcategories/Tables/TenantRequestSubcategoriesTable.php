@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\TenantRequestSubcategories\Tables;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequestSubcategory;
+use App\Support\Filament\TableGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -17,7 +18,7 @@ class TenantRequestSubcategoriesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultGroup('request_type')
+            ->defaultGroup(TableGroup::byColumn($table, 'request_type'))
             ->defaultSort('sort_order')
             ->columns([
                 TextColumn::make('request_type')

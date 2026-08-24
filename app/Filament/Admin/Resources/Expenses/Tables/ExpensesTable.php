@@ -9,6 +9,7 @@ use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
+use App\Support\Filament\TableGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -17,7 +18,6 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 
 class ExpensesTable
@@ -108,7 +108,7 @@ class ExpensesTable
             ])
             // Category is the axis the owner's cost report is built on.
             ->groups([
-                Group::make('category')->label(__('admin.fields.category'))->collapsible(),
+                TableGroup::byColumn($table, 'category'),
             ])
             ->recordActions([
                 LedgerEntryAction::make(),

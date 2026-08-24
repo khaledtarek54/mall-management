@@ -168,7 +168,7 @@ class CreditNoteForm
                             // before it is written.
                             ->mutateRelationshipDataBeforeCreateUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
                             ->mutateRelationshipDataBeforeSaveUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
-                            ->label('')
+                            ->hiddenLabel()
                             ->columns(12)
                             ->defaultItems(1)
                             ->minItems(1)

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\FailureCodes\Tables;
 
 use App\Models\FailureCode;
+use App\Support\Filament\TableGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -59,6 +60,6 @@ class FailureCodesTable
             ])
             ->recordActions([ViewAction::make(), EditAction::make()])
             ->defaultSort('type')
-            ->defaultGroup('type');
+            ->defaultGroup(TableGroup::byColumn($table, 'type'));
     }
 }
