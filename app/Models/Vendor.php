@@ -6,6 +6,7 @@ use App\Models\Concerns\AllocatesPartyCode;
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,11 +59,7 @@ class Vendor extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['name', 'type', 'status', 'email', 'phone', 'tax_id', 'withholding_tax_code', 'withholding_exempt'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('vendor');
+        return ActivityLogging::for($this, 'vendor');
     }
 
     protected $fillable = [

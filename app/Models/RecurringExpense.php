@@ -89,6 +89,18 @@ class RecurringExpense extends Model
         'notes',
     ];
 
+    /**
+     * How a schedule names itself wherever it is referenced by id — an activity diff, a picker.
+     *
+     * Its own `description` is what the operator typed ("Real-estate tax — Atriom Walk"), so that
+     * is the name; the category is the fallback for a row imported without one, because printing a
+     * bare id in a Changes cell tells the reader nothing.
+     */
+    public function label(): string
+    {
+        return (string) ($this->description ?: $this->category ?: __('admin.resources.recurring_expense.singular'));
+    }
+
     protected $casts = [
         'amount' => 'decimal:2',
         'day_of_month' => 'integer',

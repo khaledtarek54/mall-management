@@ -6,6 +6,7 @@ use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\VendorBillService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -99,11 +100,7 @@ class VendorBill extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'vendor_id', 'asset_id', 'category', 'total', 'paid_amount', 'penalty_applied_amount', 'balance'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('vendor_bill');
+        return ActivityLogging::for($this, 'vendor_bill');
     }
 
     /** @return BelongsTo<Vendor, $this> */

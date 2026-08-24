@@ -11,6 +11,7 @@ use App\Models\Concerns\Invoice\HasPaymentLink;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -68,11 +69,7 @@ class Invoice extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'issue_date', 'due_date', 'total', 'paid_amount', 'balance', 'tenant_id', 'lease_id'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('invoice');
+        return ActivityLogging::for($this, 'invoice');
     }
 
     protected $fillable = [

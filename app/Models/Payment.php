@@ -8,6 +8,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Notifications\PaymentReceivedNotification;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -56,11 +57,7 @@ class Payment extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['reference', 'tenant_id', 'amount', 'method', 'status', 'payment_date'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('payment');
+        return ActivityLogging::for($this, 'payment');
     }
 
     /** Payment initiation channels — keep the online link + in-app flows separate. */

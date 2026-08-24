@@ -23,6 +23,9 @@ use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Models\ServicePlan;
 use App\Models\TaxCode;
+use App\Models\PurchaseRequest;
+use App\Models\RecurringExpense;
+use App\Models\VendorContract;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\Trade;
@@ -246,6 +249,14 @@ class ActivityVocabulary
         'head_user_id' => User::class,
         'inventory_item_id' => InventoryItem::class,
         'invoice_id' => Invoice::class,
+        'late_fee_invoice_id' => Invoice::class,
+        'late_fee_for_invoice_id' => Invoice::class,
+        'issued_by_user_id' => User::class,
+        'approved_by_user_id' => User::class,
+        'created_by_user_id' => User::class,
+        'purchase_request_id' => PurchaseRequest::class,
+        'recurring_expense_id' => RecurringExpense::class,
+        'vendor_contract_id' => VendorContract::class,
         'lease_id' => Lease::class,
         'previous_lease_id' => Lease::class,
         'unit_ownership_id' => UnitOwnership::class,

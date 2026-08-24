@@ -7,6 +7,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\HidesDraftsFromTenant;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\CreditNoteService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -44,11 +45,7 @@ class CreditNote extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'invoice_id', 'tenant_id', 'total', 'applied_amount', 'balance', 'reason'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('credit_note');
+        return ActivityLogging::for($this, 'credit_note');
     }
 
     protected $fillable = [

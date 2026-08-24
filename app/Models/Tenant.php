@@ -8,6 +8,7 @@ use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\MarketingFeedCache;
@@ -126,13 +127,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            // `party_type` is logged because reclassifying a party is a consequential act: it decides
-            // which screens offer them, whether they can hold a lease, and what the portal shows.
-            ->logOnly(['name', 'legal_name', 'type', 'party_type', 'status', 'email', 'phone'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('tenant');
+        return ActivityLogging::for($this, 'tenant');
     }
 
     protected $fillable = [
