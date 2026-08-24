@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Models\Invoice;
+use App\Support\AccessControlAudit;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
 use Illuminate\Support\Facades\DB;
@@ -353,6 +354,61 @@ it('stores every description as a translatable key, never as prose', function ()
     expect($missing)->toBe([]);
 });
 
+it('labels every access-control action, the one audit that invents its own keys', function () {
+    // THE BLIND SPOT THIS CLOSES. `AccessControlAudit` is the only place in the app that mints a
+    // description key AND a field key at runtime, and every sweep above is blind to it in a
+    // different way: the field sweep reads each model's logOnly() columns and no model declares
+    // `role_granted`; the context-key sweep reads a hand-kept register it was never added to; the
+    // description sweep regexes `->log('literal')` out of the source and this class calls
+    // `->log($action)` with a VARIABLE. So all seven actions rendered as raw keys in both
+    // languages — on the security trail, the screen that answers "who granted whom which role" —
+    // with thirteen tests green above them. Found 2026-08-24 by rendering it, not by reading it.
+    $vocabulary = app(ActivityVocabulary::class);
+    $missing = [];
+
+    foreach (AccessControlAudit::ACTIONS as $action) {
+        foreach (['en', 'ar'] as $locale) {
+            // The DESCRIPTION — what the row says happened. `description()` returns the raw key
+            // when it cannot resolve, so asking it for a string proves nothing; ask Lang, with
+            // fallback OFF, or a key present only in English passes for Arabic.
+            if (! Lang::has("admin.activity.descriptions.{$action}", $locale, fallback: false)) {
+                $missing[] = "description {$action} [{$locale}]";
+            }
+
+            // The FIELD — this class stores the action as the attribute_changes key too, so the
+            // same string has to resolve on both paths or the cell keeps an English word.
+            if (! $vocabulary->hasFieldLabel('access_control', $action, $locale)) {
+                $missing[] = "field {$action} [{$locale}]";
+            }
+        }
+    }
+
+    expect(AccessControlAudit::ACTIONS)->not->toBeEmpty()
+        ->and($missing)->toBe([], implode('; ', $missing));
+});
+
+it('keeps the access-control register complete, derived from the source not the register', function () {
+    // A register that only describes what somebody remembered to add cannot see the eighth action.
+    // So the set is re-derived from the CALL SITES — `AccessControlAudit::log($x, 'literal', …)`
+    // and the internal `self::log($x, 'literal', …)` — and every literal must be registered.
+    $literals = array_unique(array_merge(
+        activitySourceLiterals("/AccessControlAudit::log\\(\\s*[^,]+,\\s*'([a-z0-9_]+)'/"),
+        activitySourceLiterals("/self::log\\(\\s*\\\$[a-zA-Z_]+,\\s*'([a-z0-9_]+)'/"),
+    ));
+
+    sort($literals);
+
+    // Prove the sweep found something before reporting on it — a regex that matched nothing
+    // agrees with any register at all.
+    expect(count($literals))->toBeGreaterThan(4, 'The call-site sweep found almost no actions — it is checking nothing.');
+
+    $unregistered = array_values(array_diff($literals, AccessControlAudit::ACTIONS));
+    expect($unregistered)->toBe([], 'Logged by AccessControlAudit but absent from ACTIONS, so unlabelled and unswept: '.implode(', ', $unregistered));
+
+    $stale = array_values(array_diff(AccessControlAudit::ACTIONS, $literals));
+    expect($stale)->toBe([], 'Registered in ACTIONS but logged nowhere — a stale entry reads as coverage: '.implode(', ', $stale));
+});
+
 it('renders a real payload with no raw key and no English left in Arabic', function () {
     // Render it, do not grep it: a label built at runtime is invisible to a source sweep, and
     // this is the assertion that speaks to what the operator actually sees.
@@ -372,7 +428,14 @@ it('renders a real payload with no raw key and no English left in Arabic', funct
 
     app()->setLocale('ar');
 
-    foreach ([$invoice, $settings] as $activity) {
+    // The access-control row, whose keys are minted at runtime — the shape that leaked.
+    $access = new Activity;
+    $access->log_name = 'access_control';
+    $access->event = 'updated';
+    $access->description = 'role_granted';
+    $access->attribute_changes = ['attributes' => ['role_granted' => 'manager, accounting']];
+
+    foreach ([$invoice, $settings, $access] as $activity) {
         $rendered = strip_tags(renderActivityChanges($activity));
 
         foreach (preg_split('/\s+/', $rendered, -1, PREG_SPLIT_NO_EMPTY) as $token) {

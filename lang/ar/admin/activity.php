@@ -138,6 +138,16 @@ return [
             'custody_transaction' => ['reversed' => 'عكس حركة عهدة'],
             'settings' => ['updated' => 'تعديل إعدادات المحفظة'],
             'property_settings' => ['updated' => 'تعديل إعدادات العقار'],
+
+            // AccessControlAudit::ACTIONS — مفاتيح مسطّحة من مقطع واحد، لأن القيمة المخزَّنة هي
+            // نفسها اسم الحقل في attribute_changes، والسطور الأقدم من هذا الإصلاح تحملها بالفعل.
+            'role_granted' => 'منح دور',
+            'role_revoked' => 'سحب دور',
+            'permission_granted' => 'منح صلاحية لدور',
+            'permission_revoked' => 'سحب صلاحية من دور',
+            'role_deleted' => 'حذف دور — فقده كل من كان يحمله',
+            'property_access_change_blocked' => 'رفض تغيير صلاحية الوصول للعقار',
+            'protected_role_change_blocked' => 'رفض تغيير دور محمي',
         ],
 
         // تسميات حقول خاصة بنموذج بعينه — الدرجة الأولى في ActivityVocabulary::field()، للعمود
@@ -146,6 +156,18 @@ return [
         'fields' => [
             // «الوحدة» هنا وحدة قياس (قطعة / علبة / كجم)، لا وحدة قابلة للتأجير.
             'inventory_item' => ['unit' => 'وحدة القياس'],
+
+            // سجل التدقيق يبتكر أسماء حقوله بنفسه (القيمة قائمة بأسماء أدوار أو صلاحيات)،
+            // فمكانها هنا لا في فهرس حقول النماذج.
+            'access_control' => [
+                'role_granted' => 'الأدوار الممنوحة',
+                'role_revoked' => 'الأدوار المسحوبة',
+                'permission_granted' => 'الصلاحيات الممنوحة',
+                'permission_revoked' => 'الصلاحيات المسحوبة',
+                'role_deleted' => 'الصلاحيات التي كان يحملها الدور المحذوف',
+                'property_access_change_blocked' => 'العقارات المرفوضة',
+                'protected_role_change_blocked' => 'الأدوار المرفوضة',
+            ],
         ],
         'empty_value' => '(فارغ)',
         'held_by' => 'مُسند إلى',

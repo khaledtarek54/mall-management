@@ -32,6 +32,35 @@ use Illuminate\Database\Eloquent\Model;
 class AccessControlAudit
 {
     /**
+     * Every action this audit records — the register the vocabulary gate sweeps.
+     *
+     * It exists because this class is the ONE place in the app that invents both a description
+     * key and a field key at runtime, and that put it in every activity-log gate's blind spot at
+     * once. The field sweep reads each model's `logOnly()` columns and no model declares
+     * `role_granted`; the description sweep regexes `->log('literal')` out of the source and this
+     * class calls `->log($action)` with a variable. So all seven rendered as RAW KEYS in both
+     * languages — on the security trail, the one screen that answers "who granted whom which
+     * role" — while thirteen conformance tests stayed green. Found 2026-08-24 by rendering the
+     * payload rather than reading the gate.
+     *
+     * The strings are single-segment rather than dotted (`role_granted`, not
+     * `access_control.role_granted`) because they are ALSO the `attribute_changes` field names,
+     * and because rows written before this fix already carry them — re-keying would translate the
+     * new rows and orphan the audit history, which is the opposite of what a trail is for.
+     *
+     * @var list<string>
+     */
+    public const ACTIONS = [
+        'role_granted',
+        'role_revoked',
+        'permission_granted',
+        'permission_revoked',
+        'role_deleted',
+        'property_access_change_blocked',
+        'protected_role_change_blocked',
+    ];
+
+    /**
      * @param  array<int, string>  $names  resolved role/permission names
      */
     public static function log(Model $subject, string $action, array $names): void

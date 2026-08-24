@@ -139,6 +139,16 @@ return [
             'custody_transaction' => ['reversed' => 'Custody transaction reversed'],
             'settings' => ['updated' => 'Portfolio settings updated'],
             'property_settings' => ['updated' => 'Property settings updated'],
+
+            // AccessControlAudit::ACTIONS — flat, single-segment keys, because the stored value
+            // is also the attribute_changes field name and rows predating this carry it.
+            'role_granted' => 'Role granted',
+            'role_revoked' => 'Role revoked',
+            'permission_granted' => 'Permission granted to role',
+            'permission_revoked' => 'Permission revoked from role',
+            'role_deleted' => 'Role deleted — every holder lost it',
+            'property_access_change_blocked' => 'Property access change refused',
+            'protected_role_change_blocked' => 'Protected role change refused',
         ],
 
         // Per-model field labels — rung 1 of ActivityVocabulary::field(), for the rare column
@@ -147,6 +157,18 @@ return [
         'fields' => [
             // `unit` here is a unit of MEASURE (each / box / kg), not a leasable unit.
             'inventory_item' => ['unit' => 'Unit of measure'],
+
+            // The audit trail invents its own field names (the value is a list of role or
+            // permission names), so they belong here rather than in the form catalogue.
+            'access_control' => [
+                'role_granted' => 'Roles granted',
+                'role_revoked' => 'Roles revoked',
+                'permission_granted' => 'Permissions granted',
+                'permission_revoked' => 'Permissions revoked',
+                'role_deleted' => 'Permissions the deleted role held',
+                'property_access_change_blocked' => 'Properties refused',
+                'protected_role_change_blocked' => 'Roles refused',
+            ],
         ],
         'empty_value' => '(empty)',
         'held_by' => 'held by',
