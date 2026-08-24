@@ -18,22 +18,57 @@
  * audited model fails here until it is named.
  */
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 
 /** Every log name declared by a model's getActivitylogOptions(). */
+/**
+ * Every log name in the app, RESOLVED rather than grepped.
+ *
+ * This used to regex `useLogName('x')` out of each model's source, which broke the moment the
+ * shared audit policy (`App\Support\ActivityLogging::for()`) moved that call out of the models —
+ * and would have broken again for any other refactor. Asking the model what its options actually
+ * say is both shape-independent and strictly stronger: it is the value spatie will really use.
+ *
+ * @return list<string>
+ */
 function activityLogNames(): array
 {
     $names = [];
 
-    foreach (glob(app_path('Models/*.php')) as $file) {
-        if (preg_match('/useLogName\([\'"]([a-z_]+)[\'"]\)/', (string) file_get_contents($file), $m)) {
-            $names[] = $m[1];
-        }
+    foreach (activityLoggingModelClasses() as $class) {
+        $names[] = (new $class)->getActivitylogOptions()->logName;
     }
 
+    $names = array_values(array_unique(array_filter($names)));
     sort($names);
 
-    return array_unique($names);
+    return $names;
+}
+
+/**
+ * Every model class that logs activity. A model that cannot be instantiated is REPORTED, never
+ * skipped — a sweep that quietly drops what it cannot read is the failure this file exists for.
+ *
+ * @return list<class-string<Model>>
+ */
+function activityLoggingModelClasses(): array
+{
+    $classes = [];
+
+    foreach (glob(app_path('Models/*.php')) as $file) {
+        if (! str_contains((string) file_get_contents($file), 'LogsActivity')) {
+            continue;
+        }
+
+        $class = 'App\\Models\\'.basename($file, '.php');
+
+        expect(class_exists($class))->toBeTrue("{$class} logs activity but could not be loaded.");
+
+        $classes[] = $class;
+    }
+
+    return $classes;
 }
 
 it('names every audited model in English', function () {
@@ -65,21 +100,20 @@ it('finds some log names at all', function () {
 });
 
 it('every model that logs activity NAMES its log', function () {
-    // The blind spot in this file. `activityLogNames()` above enumerates models that CALL
-    // useLogName(), so a model that logs and does not is invisible here — it files under spatie's
+    // The blind spot in this file. `activityLogNames()` used to enumerate models that CALL
+    // useLogName(), so a model that logs and does not was invisible here — it files under spatie's
     // `default`, and the activity log rendered the raw key `admin.activity.subjects.default`.
     // Found by rendering the page, not by reading the models. Two models were doing it.
+    //
+    // Now resolved from the options themselves, so it also holds for a model that takes its
+    // options from the shared policy rather than declaring them inline.
     $anonymous = [];
 
-    foreach (glob(app_path('Models/*.php')) as $file) {
-        $source = (string) file_get_contents($file);
+    foreach (activityLoggingModelClasses() as $class) {
+        $logName = (new $class)->getActivitylogOptions()->logName;
 
-        if (! str_contains($source, 'LogsActivity')) {
-            continue;
-        }
-
-        if (! preg_match('/useLogName\([\'"]([a-z_]+)[\'"]\)/', $source)) {
-            $anonymous[] = basename($file, '.php');
+        if (blank($logName) || $logName === 'default') {
+            $anonymous[] = class_basename($class);
         }
     }
 

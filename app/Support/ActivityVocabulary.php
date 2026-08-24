@@ -27,6 +27,7 @@ use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\Trade;
 use App\Models\Unit;
+use App\Models\UnitOwnership;
 use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Models\UtilityTariff;
@@ -246,6 +247,8 @@ class ActivityVocabulary
         'inventory_item_id' => InventoryItem::class,
         'invoice_id' => Invoice::class,
         'lease_id' => Lease::class,
+        'previous_lease_id' => Lease::class,
+        'unit_ownership_id' => UnitOwnership::class,
         'ledger_account_id' => LedgerAccount::class,
         'service_plan_id' => ServicePlan::class,
         'marketing_budget_id' => MarketingBudget::class,

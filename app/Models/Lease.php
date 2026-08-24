@@ -13,6 +13,7 @@ use App\Models\Concerns\Lease\HasLeasePremises;
 use App\Models\Concerns\Lease\HasLeaseTermState;
 use App\Models\Concerns\Lease\HasRenewalLineage;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
@@ -298,11 +299,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['reference', 'status', 'commencement_date', 'expiry_date', 'term_months', 'base_rent_monthly', 'service_charge_monthly', 'tenant_id', 'unit_id'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('lease');
+        return ActivityLogging::for($this, 'lease');
     }
 
     /**
