@@ -83,6 +83,8 @@ class PostDatedChequeService
                     // rolls back here rather than silently over-settling.
                     $payment->assertInvoicesNotOverAllocated([$cheque->invoice_id]);
                 }
+            } else {
+                $this->settleOpenInvoices($cheque, $payment);
             }
 
             $cheque->update([
@@ -92,6 +94,76 @@ class PostDatedChequeService
 
             return $cheque;
         });
+    }
+
+    /**
+     * A SERIES cheque names no invoice, and that is the Egyptian norm — a tenant hands over a year
+     * of monthly cheques before most of those invoices exist. `lodgeSeries()` has always promised in
+     * writing that "each cheque settles whatever is open when it clears, through the normal clear()
+     * flow", and until 2026-08-24 `clear()` did not keep that promise: with no `invoice_id` it
+     * captured a Payment with ZERO allocations, and a wholly unallocated receipt belongs to no
+     * property — `Tenant::creditBalance([$assetId])` attributes credit through the invoices a
+     * payment settles, so the per-property term was 0, `ApplyTenantCreditService` refused every draw,
+     * `Invoice::saved`'s auto-apply hook swallowed that refusal as the ordinary case, and the month's
+     * invoice stayed open. The overdue sweep and `LateFeeService` both read an open balance: the
+     * tenant was chased, and could be charged a late fee, while the mall held their cleared cash.
+     * `PaymentForm` already REFUSES creating a zero-allocation receipt for exactly this orphaning
+     * reason — the cheque-clear path was minting the record that guard exists to prevent.
+     *
+     * So the receipt settles the tenant's own OPEN invoices in the CHEQUE'S property, oldest due
+     * first. Deliberately NOT scoped to `lease_id`: Voyager applies a receipt at the customer record
+     * rather than per lease, and one cheque legitimately covers whatever that tenant owes in that
+     * mall. Any surplus stays on account and is still drawable, because `creditBalance()` falls back
+     * to the cheque's own property for a receipt with no allocations at all.
+     */
+    private function settleOpenInvoices(PostDatedCheque $cheque, Payment $payment): void
+    {
+        // A LOCKING read, not a plain one. Under MySQL REPEATABLE READ a plain select inside this
+        // transaction answers from the snapshot taken before we waited on the cheque's own lock, so
+        // an invoice another writer settled while we waited would still read as open and this
+        // receipt would over-allocate it (the class of bug F-09 fixed across the other guards).
+        $open = Invoice::query()
+            ->where('tenant_id', $cheque->tenant_id)
+            ->where('asset_id', $cheque->asset_id)
+            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->where('balance', '>', 0)
+            ->orderBy('due_date')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        $remaining = round((float) $cheque->amount, 2);
+        $allocations = [];
+
+        foreach ($open as $invoice) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $allocate = round(min($remaining, round((float) $invoice->balance, 2)), 2);
+
+            if ($allocate <= 0) {
+                continue;
+            }
+
+            $allocations[$invoice->id] = ['allocated_amount' => $allocate];
+            $remaining = round($remaining - $allocate, 2);
+        }
+
+        // Nothing open is a genuine advance — the tenant paid before being billed. The receipt stays
+        // wholly unallocated on purpose and is drawable as on-account credit against next month.
+        if ($allocations === []) {
+            return;
+        }
+
+        $ids = array_keys($allocations);
+
+        // The cheque's payment settles the tenant's OWN invoices — belt to the model's link-time
+        // guard, exactly as the linked-invoice branch does.
+        $payment->assertInvoicesShareTenant($ids);
+        $payment->invoices()->sync($allocations);
+        $payment->recomputeAllocatedInvoices();
+        $payment->assertInvoicesNotOverAllocated($ids);
     }
 
     public function bounce(PostDatedCheque $cheque): PostDatedCheque

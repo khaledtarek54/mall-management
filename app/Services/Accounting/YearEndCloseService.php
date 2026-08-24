@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
+use App\Support\FiscalYearStart;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -38,13 +39,45 @@ class YearEndCloseService
      */
     public function closingEntriesFor(int $year): Collection
     {
+        // Matched on the FISCAL year's span, not `whereYear`. A July FY2026 closes on 30 June 2027,
+        // so a calendar-year lookup would find no entry for 2026 — and this query is the double-close
+        // guard `close()` re-checks under its lock, so missing the existing entry would roll net
+        // income into retained earnings a SECOND time. On a January install the span is 1 Jan – 31
+        // Dec and this matches exactly what the old query matched.
+        [$from, $to] = $this->spanFor($year);
+
         return JournalEntry::query()
             ->where('is_closing', true)
             ->where('status', 'posted')
             ->whereNull('reversal_of_id') // the closing entries themselves, not reversals
-            ->whereYear('entry_date', $year)
+            ->whereDate('entry_date', '>=', $from->toDateString())
+            ->whereDate('entry_date', '<=', $to->toDateString())
             ->orderBy('id')
             ->get();
+    }
+
+    /**
+     * The fiscal year's own start and end.
+     *
+     * Reads the `FiscalYear` row when it exists — that is the authority, and it is what
+     * `FiscalCalendar::ensureYear()` wrote — and otherwise derives the same span from the configured
+     * start month WITHOUT creating anything, so a read-only helper stays read-only.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function spanFor(int $year): array
+    {
+        $row = FiscalYear::where('year', $year)->first();
+
+        if ($row !== null) {
+            return [Carbon::parse($row->starts_on)->startOfDay(), Carbon::parse($row->ends_on)->endOfDay()];
+        }
+
+        $start = Carbon::create($year, FiscalYearStart::month(), 1)->startOfDay();
+
+        // A year from the start, less a day — the same arithmetic FiscalCalendar uses, and NOT
+        // `->endOfYear()`, which would end a July year on 31 December.
+        return [$start, (clone $start)->addYear()->subDay()->endOfDay()];
     }
 
     /** The latest posted closing entry for a year, if any (back-compat helper). */
@@ -87,8 +120,23 @@ class YearEndCloseService
     /** @return Collection<int, JournalEntry> */
     private function postClosing(int $year): Collection
     {
-        $from = Carbon::create($year, 1, 1)->startOfDay();
-        $to = Carbon::create($year, 12, 31)->endOfDay();
+        // The FISCAL year's own span, not 1 Jan – 31 Dec.
+        //
+        // `FiscalYearStart::month()` is configurable and an April→March or July→June year is
+        // ordinary for an Egyptian mall — the reports, the periods and `closeFiscalYear()` all
+        // already honour it, and this service was the one consumer left sweeping the calendar. On a
+        // July year that swept halves of two fiscal years into one roll, dated the closing entry 31
+        // December (mid-year), never equalled any fiscal year's net income, and sealed six months
+        // whose P&L it had never touched — leaving them to be picked up by the NEXT calendar sweep.
+        // It balanced throughout, because the balance sheet's synthetic net-income line absorbs
+        // whatever has not been rolled, which is exactly why nothing failed loudly.
+        //
+        // Dormant on the January default, and `FiscalYearStart::assertChangeable()` refuses moving
+        // the month once anything is posted — but the month is an OPEN client decision (C-FY), so
+        // any answer other than January would have armed this on the first close.
+        $this->calendar->ensureYear($year);
+
+        [$from, $to] = $this->spanFor($year);
 
         $rows = $this->reports->profitLossBalancesByAsset($from, $to);
         if ($rows->isEmpty()) {

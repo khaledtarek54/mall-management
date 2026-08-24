@@ -1037,6 +1037,20 @@ class Health
             ];
         }
 
+        // `sync` is FURTHER from the production topology than `database`, not closer, and it used to
+        // pass this check for the sole reason that it is not the one string being refused. On a
+        // deployed box it means every queued job runs INLINE in the web request that dispatched it:
+        // the Paymob callback posts its GL entry inside the webhook, the monthly billing run has no
+        // worker at all, and `checkQueue()` reports ok because there is no queue to be behind on.
+        if (config('queue.default') === 'sync') {
+            return [
+                'ok' => false,
+                'detail' => 'queue on the `sync` driver on '.Deployment::name()
+                    .' — jobs run inline in the web request, so the billing run, the ledger sync and '
+                    .'the Paymob callback have no worker and no retry. INFRASTRUCTURE.md §5 requires Redis.',
+            ];
+        }
+
         return ['ok' => true, 'detail' => 'cache/session/queue off the database'];
     }
 

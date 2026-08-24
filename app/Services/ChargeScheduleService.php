@@ -116,8 +116,11 @@ class ChargeScheduleService
             'vat_applicable' => $attributes['vat_applicable'] ?? $current->vat_applicable,
             'vat_rate' => $attributes['vat_rate'] ?? $current->vat_rate,
             // INHERITED, like every other override on this row — and it was the one EG-30 forgot.
-            // Every successor comes through here: a rent change, an escalation step, a CAM
-            // estimate, a relief, a renewal. Dropping it silently reverted an arrears service
+            // A rent change, an escalation step and a CAM estimate all come through here. A RELIEF
+            // and a RENEWAL do NOT — `overlayWindow()` below and `LeaseRenewalService` build their
+            // rows directly, and this comment used to claim otherwise, which is precisely why both
+            // of them were still dropping these terms a fortnight later. Dropping it reverted an
+            // arrears service
             // charge to ADVANCE on the next rung, so the tenant would be billed September's
             // service in September having been billed August's in September the month before —
             // one month charged twice, with the schedule looking entirely ordinary.
@@ -376,6 +379,14 @@ class ChargeScheduleService
                 'frequency' => $row->frequency,
                 'vat_applicable' => $row->vat_applicable,
                 'vat_rate' => $row->vat_rate,
+                // The row's own TERMS, carried like everything else above. `setAmount()`'s comment
+                // claims "every successor comes through here", and relief is the one that does not —
+                // it builds its rows directly. Dropping `billing_timing` reverts an arrears-billed
+                // service charge to advance for the relief segments only, so the crossover months
+                // bill twice or not at all; dropping `prorate` makes a flat licence start prorating
+                // the month relief begins and ends.
+                'billing_timing' => $row->billing_timing,
+                'prorate' => $row->prorate,
                 'start_date' => $step['segment_start']->toDateString(),
                 'end_date' => $step['segment_end']->toDateString(),
                 'is_active' => true,
@@ -398,6 +409,10 @@ class ChargeScheduleService
                 'frequency' => $row->frequency,
                 'vat_applicable' => $row->vat_applicable,
                 'vat_rate' => $row->vat_rate,
+                // Same terms as the row this RESUMES — the whole point of the resumed row is that
+                // the contract goes back to what it was before the relief window.
+                'billing_timing' => $row->billing_timing,
+                'prorate' => $row->prorate,
                 'start_date' => $to->addDay()->toDateString(),
                 'end_date' => $resumeAfter['inherited_end']?->toDateString(),
                 'is_active' => true,

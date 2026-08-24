@@ -449,6 +449,7 @@ return [
         'unit_ownership_transfer_blocked_arrears' => 'EGP :amount is still outstanding on this unit. Settle it, or transfer over it deliberately — the resale certificate states the figure either way.',
         'cam_allocation_needs_one_agreement' => 'A CAM allocation must belong to either a lease or a unit ownership — one of the two, not both and not neither.',
         'charge_needs_one_agreement' => 'A charge must belong to either a lease or a unit ownership — one of the two, not both and not neither.',
+        'deposit_opening_balance_receipt_only' => 'Only a deposit RECEIPT can be marked as an opening balance. A refund or forfeit of a deposit taken before cutover moves this system\'s own cash and must post to the ledger.',
         'invoice_needs_one_agreement' => 'An invoice must be raised against either a lease or a unit ownership — one of the two, not both and not neither.',
         'invoice_without_property' => 'An invoice must belong to a property — it would be invisible on every screen and post to the ledger with no property against it.',
         'holiday_needs_every_property' => 'A holiday with no property applies to every mall, so only someone who can see every mall may add, move or retire one. Choose a property, or ask an administrator.',

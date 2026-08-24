@@ -29,6 +29,20 @@ class DepositTransactionJournalizer implements Journalizer
             return null;
         }
 
+        // A deposit already held on the day Atriom took over is a SUB-LEDGER-ONLY document, exactly
+        // as an opening invoice is (`InvoiceJournalizer`). The cash arrived in the previous system
+        // and the liability is already inside the opening trial balance the accountant loads as one
+        // manual entry — posting `Dr Cash / Cr Deposits Held` again would invent a receipt that
+        // never happened here and double the liability.
+        //
+        // The register still counts it, which is the point: `Lease::depositHeld()` and the move-out
+        // statement need the real figure, and `billing:reconcile`'s `deposits_tie_out` compares that
+        // register against GL `deposits_held` — so green after a cutover is the proof that what was
+        // loaded equals what the accountant says is held.
+        if ($deposit->is_opening_balance) {
+            return null;
+        }
+
         $amount = round((float) $deposit->amount, 2);
         if ($amount <= 0) {
             return null;

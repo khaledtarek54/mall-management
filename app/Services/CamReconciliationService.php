@@ -7,6 +7,7 @@ use App\Enums\UnitOwnershipStatus;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\ChargeCode;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -1171,7 +1172,17 @@ class CamReconciliationService
         ]);
 
         // The LINE, without which this document says nothing. See CreditNote::describeAs().
-        $note->describeAs(__('admin.credit_notes.line_cam_recovery', ['year' => $year]), $credit, $vatRate, $vat);
+        //
+        // It carries the tax code the RECOVERY was billed under — this credit reverses over-recovered
+        // `cam_recovery`, so it must reverse the tax that charge code carries rather than defaulting
+        // to the VAT floor in the journalizer.
+        $note->describeAs(
+            __('admin.credit_notes.line_cam_recovery', ['year' => $year]),
+            $credit,
+            $vatRate,
+            $vat,
+            ChargeCode::taxCodeFor('cam_recovery'),
+        );
 
         return $note;
     }

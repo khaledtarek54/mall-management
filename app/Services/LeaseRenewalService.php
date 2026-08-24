@@ -225,6 +225,12 @@ class LeaseRenewalService
                     // the crossover month twice — and a renewal is exactly where nobody re-reads
                     // every charge.
                     'billing_timing' => $charge->billing_timing,
+                    // Carried for the same reason and by the same rule (EG-29). A flat signage
+                    // licence or fixed parking fee the operator marked "bills whole months" must
+                    // still bill whole months after renewal — otherwise the renewal's own final
+                    // part-month claws back part of a fee the tenant owes in full, and the term
+                    // quietly disappears one renewal at a time.
+                    'prorate' => $charge->prorate,
                     'start_date' => $commencement,
                     'end_date' => null,
                     'is_active' => true,

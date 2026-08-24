@@ -152,13 +152,21 @@ class CreditNote extends Model
      *
      * A single line is deliberate. These notes credit one thing (a period's unearned billing, a
      * year's over-recovery), and splitting a derived figure into invented sub-lines would state more
-     * than the service actually knows. `tax_code` is left to the model layer's own default, the same
-     * seam invoice lines use, so the classification cannot drift between the two documents.
+     * than the service actually knows.
+     *
+     * **`$taxCode` must be passed by the caller.** This docblock used to say the classification was
+     * "left to the model layer's own default, the same seam invoice lines use" — and there is no such
+     * seam here: `InvoiceItem` defaults `tax_code` from its own `type` through the charge-code
+     * catalogue, and a credit-note line has no `type` column to derive from. So every system-raised
+     * note was posting an unclassified line, and `CreditNoteJournalizer` — which since 2026-08-24
+     * reverses tax at the SUPPLY'S OWN posting role — would fall back to the VAT floor for all of
+     * them. The caller knows what it is crediting; it passes that down.
      */
-    public function describeAs(string $description, float $amount, float $vatRate, float $vatAmount): CreditNoteItem
+    public function describeAs(string $description, float $amount, float $vatRate, float $vatAmount, ?string $taxCode = null): CreditNoteItem
     {
         return $this->items()->create([
             'description' => $description,
+            'tax_code' => $taxCode,
             'amount' => round($amount, 2),
             'vat_rate' => $vatRate,
             'vat_amount' => round($vatAmount, 2),

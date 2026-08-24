@@ -131,6 +131,12 @@ class VendorBillResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $overdue = static::getEloquentQuery()
+            // POSTABLE bills only. A draft is a staged document, not yet a payable — EG-33's
+            // recurring supplier schedules mint long-lived drafts deliberately, because posting
+            // `Dr Expense / Cr AP` for an invoice nobody has sent invents a creditor's claim. Every
+            // one of them was joining the red "overdue supplier bills" badge once its due date
+            // passed, so the count could not be reconciled with the AP work on the list.
+            ->whereNotIn('status', VendorBill::NON_POSTABLE_STATUSES)
             ->where('balance', '>', 0)
             ->whereDate('due_date', '<', now())
             ->count();

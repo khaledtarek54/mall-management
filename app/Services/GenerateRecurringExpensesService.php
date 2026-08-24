@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\RecurringExpense;
 use App\Models\VendorBill;
 use App\Support\CatalogueTaxRate;
+use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -59,7 +60,7 @@ class GenerateRecurringExpensesService
     /**
      * Generate whatever is due on or before `$on`.
      *
-     * @return array{generated: int, skipped: int, expenses: array<int, Expense>, bills: array<int, VendorBill>}
+     * @return array{generated: int, skipped: int, expenses: array<int, Expense>, bills: array<int, VendorBill>, failures: array<int, string>}
      */
     public function generate(?CarbonImmutable $on = null, ?int $assetId = null): array
     {
@@ -74,9 +75,24 @@ class GenerateRecurringExpensesService
         $expenses = [];
         $bills = [];
         $skipped = 0;
+        $failures = [];
 
         foreach ($schedules as $id) {
-            $document = $this->generateOne($id, $on);
+            // PER SCHEDULE, because one schedule's refusal must not silence the others. Without this
+            // the run was one poison row away from booking nothing at all: a schedule whose oldest
+            // outstanding period falls in a CLOSED accounting period throws from the posting-date
+            // guard — natural for a levy entered with a historical `starts_on`, or one switched back
+            // on after months — and the throw propagated out of this loop, so every schedule with a
+            // higher id was skipped, silently, every night, for ever (the stamp never advances, so
+            // it fails identically on the next run). A statutory cost that never books is exactly
+            // what EG-33 exists to prevent.
+            try {
+                $document = $this->generateOne($id, $on);
+            } catch (\Throwable $e) {
+                $failures[$id] = $e->getMessage();
+
+                continue;
+            }
 
             match (true) {
                 $document instanceof Expense => $expenses[] = $document,
@@ -85,11 +101,22 @@ class GenerateRecurringExpensesService
             };
         }
 
+        if ($failures !== []) {
+            // Reported, not swallowed: a caught exception that nobody is told about is the same
+            // silent-missed-cost failure in a quieter coat. The command surfaces this in its output
+            // and exits non-zero; the ledger-sync sweep uses the same shape.
+            OpsLog::error('recurring-expenses: schedules refused', [
+                'count' => count($failures),
+                'failures' => $failures,
+            ]);
+        }
+
         return [
             'generated' => count($expenses) + count($bills),
             'skipped' => $skipped,
             'expenses' => $expenses,
             'bills' => $bills,
+            'failures' => $failures,
         ];
     }
 

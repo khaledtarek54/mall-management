@@ -178,10 +178,16 @@ class CreditUnearnedBillingService
             $subtotal += $lineAmount;
             $vat += $lineVat;
 
-            $rate = (string) round((float) $item->vat_rate, 2);
-            $byRate[$rate] ??= ['amount' => 0.0, 'vat' => 0.0];
-            $byRate[$rate]['amount'] += $lineAmount;
-            $byRate[$rate]['vat'] += $lineVat;
+            // Keyed by rate AND tax code, not by rate alone: two supplies can share a rate and carry
+            // different taxes (a 14% VAT line and a 14% schedule-tax line), and the credit note's
+            // journalizer reverses each at its OWN posting role. Collapsing them would credit both to
+            // whichever tax happened to be first — the classification error the invoice side stopped
+            // making on 2026-08-19.
+            $rate = round((float) $item->vat_rate, 2);
+            $key = $rate.'|'.($item->tax_code ?? '');
+            $byRate[$key] ??= ['amount' => 0.0, 'vat' => 0.0, 'rate' => $rate, 'tax_code' => $item->tax_code];
+            $byRate[$key]['amount'] += $lineAmount;
+            $byRate[$key]['vat'] += $lineVat;
         }
 
         $subtotal = round($subtotal, 2);
@@ -231,12 +237,14 @@ class CreditUnearnedBillingService
                 'through' => $periodEnd->format('d/m/Y'),
             ]);
 
-            foreach ($byRate as $rate => $part) {
+            foreach ($byRate as $part) {
                 if (round($part['amount'] + $part['vat'], 2) <= 0) {
                     continue;
                 }
 
-                $note->describeAs($description, $part['amount'], (float) $rate, $part['vat']);
+                // The source line's own tax code travels onto the credit — a reversal never
+                // re-classifies the supply it reverses.
+                $note->describeAs($description, $part['amount'], $part['rate'], $part['vat'], $part['tax_code']);
             }
 
             $service = app(CreditNoteService::class);

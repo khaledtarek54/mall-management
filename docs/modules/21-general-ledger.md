@@ -1010,6 +1010,20 @@ Held; refund Dr Deposits Held / Cr Bank\|Cash; forfeit Dr Deposits Held / Cr Mis
 Swept by `accounting:sync-ledger`; `DepositTransactionResource` gated by
 `deposit_transactions.*`. The GL Deposits-Held balance = Σ receipts − Σ refunds − forfeits.
 
+**A deposit held at CUTOVER posts nothing** (2026-08-24). `deposit_transactions.is_opening_balance`
+is the deposit twin of `invoices.is_opening_balance`: the journalizer returns no payload, the
+register still counts it, and the liability comes from the accountant's opening entry instead. It
+closes the one sub-ledger the opening-balance machinery had missed — the trial balance, open
+receivables and fixed assets all had a cutover path and the per-lease deposit register did not, so a
+migrating operator could only key nothing (every legacy deposit reads **zero**, and `MoveOutStatement`
+then nets arrears against a deposit the books say was never taken) or key ordinary receipts
+(**inventing cash that never arrived here** and double-counting a liability already in the opening
+entry). `billing:reconcile`'s `deposits_tie_out` compares register against GL all-time, so it went
+loudly red either way and there was no way to make it green. **Receipt only** — a refund or forfeit of
+an old deposit is this system's own cash moving and must post, so the model refuses the combination
+rather than ignoring the flag. Green after a cutover is now the proof that what was loaded equals
+what the accountant says is held.
+
 **Inventory stock movements (حركات المخزون) — done (Phase 3, module 22):**
 `StockMovement` posts via `InventoryMovementJournalizer` (registered in
 `LedgerPoster`, swept by `accounting:sync-ledger`) — perpetual inventory: receipt

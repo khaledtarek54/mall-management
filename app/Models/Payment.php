@@ -455,7 +455,13 @@ class Payment extends Model
             if (! in_array($payment->getOriginal('status'), self::RECEIVED_STATUSES, true)) {
                 return;
             }
-            foreach (['amount', 'payment_date'] as $field) {
+            // `tenant_id` joined the list on 2026-08-24. It was classified DERIVED — "the entry is
+            // voided and re-posted to match" — and could not be: `LedgerPoster::matches()` compares
+            // the line signature, the date and the asset, and a line's tenant is none of those. So
+            // re-pointing a captured receipt moved the sub-ledger and left the GL credit against
+            // the original tenant silently, for ever. The receipt is evidence of who paid; a
+            // mis-addressed one is corrected by voiding and re-recording, like its amount and date.
+            foreach (['amount', 'payment_date', 'tenant_id'] as $field) {
                 if ($payment->isDirty($field)) {
                     throw new \DomainException("A captured payment's {$field} is immutable — void and re-record instead.");
                 }

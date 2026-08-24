@@ -12,6 +12,21 @@
 > [STATUS.md](../STATUS.md) / [ROADMAP.md](../ROADMAP.md) adoption; once adopted there, the row here
 > is history, exactly as [PRE-STAGING-FINDINGS.md](PRE-STAGING-FINDINGS.md) (F-01…F-13, all closed)
 > is history. Finding IDs are kept from the audit so every claim traces to its evidence.
+>
+> ---
+>
+> ## ✅ ACTED ON — 2026-08-24, the same day
+>
+> **Every MVP-blocking finding in this report is FIXED**, with regression tests
+> (`ClearedChequeSettlesWhatIsOpenTest`, `CutoverAndChargeTermsSurviveTest`) and the touched suites
+> re-run green: AR-GL-02 · GAP1B-01 · AR-GL-01 · D3-01 · D3-02 · D3-03 · M4B-01 · M4B-02 · M4B-03,
+> plus the small ones (M4B-04, M4B-05, AR-GL-04, D3-05, OPS-02) and the two actively-misleading
+> doc/code claims (M4B-07, D2-06).
+>
+> **Everything else was judged not MVP-blocking and moved to
+> [POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md)** with the reason it can wait. That document is
+> now the live list; the sections below are kept as the EVIDENCE — what was measured, on what data,
+> and what the adversarial pass could not refute.
 
 **Sections:** [0 · Verdict & market position](#0--the-verdict-and-where-atriom-stands-in-the-market) ·
 [1 · What was verified clean](#1--what-was-verified-clean) ·

@@ -3,13 +3,14 @@
 namespace App\Services\Accounting\Journalizers;
 
 use App\Models\CreditNote;
+use App\Models\TaxCode;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Credit note (إشعار خصم):
- *   Dr Sales Returns & Allowances (subtotal)  +  Dr VAT Payable (VAT, reversed)
+ *   Dr Sales Returns & Allowances (subtotal)  +  Dr the tax the supply carried (reversed)
  *   Cr Accounts Receivable (total)
  *
  * Posts once the note is issued/applied; drafts and voided notes are skipped.
@@ -66,10 +67,28 @@ class CreditNoteJournalizer implements Journalizer
             ];
         }
 
-        if ($vat > 0) {
+        // The tax is reversed at the SUPPLY'S OWN posting role, exactly as `InvoiceJournalizer`
+        // charges it — grouped by each line's `tax_code`, with `vat_payable` as the floor for a line
+        // that names none.
+        //
+        // This journalizer hard-coded `vat_payable` until 2026-08-24, and the day that becomes wrong
+        // is not a deploy: pointing a charge code at a stamp or schedule code is a ROW the accountant
+        // writes (the open C-TAX question), reaching every lease already on the books. From that day
+        // the invoice would credit `stamp_tax_payable` and its credit note debit `vat_payable` —
+        // stamp liability permanently overstated, VAT understated, and the VAT return's `ties_out`
+        // control false in every affected period, with both entries balanced throughout.
+        //
+        // A reversal never re-classifies the tax it reverses.
+        foreach ($this->taxByRole($note, $vat) as $role => $amount) {
+            $amount = round((float) $amount, 2);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
             $lines[] = [
-                'ledger_account_id' => $this->accounts->id('vat_payable', $assetId),
-                'debit' => $vat,
+                'ledger_account_id' => $this->accounts->id($role, $assetId),
+                'debit' => $amount,
                 'credit' => 0,
             ];
         }
@@ -92,5 +111,59 @@ class CreditNoteJournalizer implements Journalizer
             'asset_id' => $assetId,
             'lines' => $lines,
         ];
+    }
+
+    /**
+     * The note's tax, split by the posting role each line's own tax code carries.
+     *
+     * Two things make the HEADER figure the authority on the total rather than the lines: the note's
+     * `vat_amount` is what the AR credit was derived from above (`total − vat`), so a lines-derived
+     * total that disagreed by a piaster would emit an unbalanced entry; and a legacy or header-only
+     * note carries no lines to classify at all. So the lines decide the SPLIT and the header decides
+     * the SIZE — any rounding difference lands on the largest role, which is the same role a
+     * single-tax note would have used anyway.
+     *
+     * @return array<string, float>
+     */
+    private function taxByRole(CreditNote $note, float $vat): array
+    {
+        if ($vat <= 0) {
+            return [];
+        }
+
+        $note->loadMissing('items');
+
+        $byRole = [];
+
+        foreach ($note->items as $item) {
+            $lineTax = round((float) ($item->vat_amount ?? 0), 2);
+
+            if ($lineTax == 0.0) {
+                continue;
+            }
+
+            // `vat_payable` is the FLOOR, not a guess — a line with no `tax_code` predates the
+            // catalogue or came from a service that does not classify, and VAT is what it was.
+            // Identical rule and identical wording to InvoiceJournalizer, deliberately.
+            $role = ($item->tax_code ? TaxCode::postingRoleOf((string) $item->tax_code) : null)
+                ?? 'vat_payable';
+
+            $byRole[$role] = ($byRole[$role] ?? 0) + $lineTax;
+        }
+
+        if ($byRole === []) {
+            return ['vat_payable' => $vat];
+        }
+
+        // Reconcile the split to the header, so the entry balances to the receivable being reversed.
+        $split = round(array_sum($byRole), 2);
+
+        if ($split != $vat) {
+            arsort($byRole);
+            $largest = array_key_first($byRole);
+            $byRole[$largest] = round($byRole[$largest] + ($vat - $split), 2);
+        }
+
+        return $byRole;
     }
 }

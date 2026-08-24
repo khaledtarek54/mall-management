@@ -86,7 +86,13 @@ class ApplyDepositToInvoiceService
                 'lease_id' => $lease->id,
                 'tenant_id' => $lease->tenant_id,
                 'invoice_id' => $locked->id,
-                'asset_id' => $lease->unit?->asset_id,
+                // The INVOICE's own column, not `lease->unit->asset_id`. Every sibling settlement
+                // document was moved off that chain after the credit-note fail-open (2026-08-18):
+                // it answers null for an agreement that holds no unit, and `deposit_applications
+                // .asset_id` is nullable, so a null would be stored SILENTLY and the journalizer —
+                // which files BOTH legs from this column — would debit `deposits_held` under no
+                // property while the AR it settles was raised under one.
+                'asset_id' => $locked->asset_id,
                 'amount' => $amount,
                 // Stamped now, never the receipt's date — see PostingDateGuards for why.
                 'entry_date' => $on->toDateString(),

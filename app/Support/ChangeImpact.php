@@ -141,15 +141,20 @@ class ChangeImpact
             self::REFUSED => [
                 'amount' => 'the cash leg; correcting it means voiding the receipt and re-recording',
                 'payment_date' => 'it IS the entry date — the period the cash landed in',
+                // PROMOTED from DERIVED on 2026-08-24, because DERIVED was a promise this registry
+                // cannot keep. DERIVED means "the posted entry is voided and re-posted to match" —
+                // and `LedgerPoster::matches()` compares the line SIGNATURE (account | debit |
+                // credit), the entry date and the asset, never a line's `tenant_id`. Re-pointing a
+                // captured receipt therefore produced an identical signature, `matches()` returned
+                // true, nothing re-posted, and the AR credit line kept the OLD tenant for ever while
+                // this registry said it had been re-derived. A classification that overstates what
+                // the engine does is worse than a strict one.
+                'tenant_id' => 'the AR dimension of the credit leg — void the receipt and re-record it against the right tenant',
             ],
             self::DERIVED => [
                 'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'status' => 'only a received payment posts; refunded/bounced reverses the entry',
                 'method' => 'chooses the cash vs bank account the credit lands in',
-                // Not refused today, and a candidate for promotion: re-pointing a captured receipt
-                // re-books the AR credit against another tenant. The allocation guards make it hard
-                // to reach and nothing legitimate does it.
-                'tenant_id' => 'the AR dimension of the credit leg',
             ],
             self::NEUTRAL => [
                 'currency', 'gateway', 'channel', 'gateway_transaction_id', 'gateway_response',
@@ -235,6 +240,7 @@ class ChangeImpact
                 'transaction_date' => 'it IS the entry date',
                 'method' => 'chooses cash vs bank',
                 'status' => 'a cancelled transaction has no GL effect',
+                'is_opening_balance' => 'a deposit held at cutover posts NOTHING — the liability is already in the opening entry; flipping it is the difference between an entry and no entry',
             ],
             self::NEUTRAL => ['notes', 'created_by_user_id'],
             self::DESCRIPTIVE => ['number' => 'names the entry'],

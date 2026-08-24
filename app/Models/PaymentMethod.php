@@ -192,12 +192,19 @@ class PaymentMethod extends Model
         if ($id !== null) {
             $account = LedgerAccount::find($id);
 
-            if ($account !== null) {
+            // POSTABLE and ACTIVE, not merely present — the same two flags `MoneyAccount`'s bank
+            // tier and `ExpenseCategory`'s category tier already re-check, and this tier did not.
+            // Deactivating a chart account IS the documented way to retire one, and a rail pointing
+            // at a retired or summary account was handed straight to the posting engine, which
+            // refuses it: every document on that rail then committed with its entry stranded in the
+            // log-only sync job. The fall-through exists precisely to prevent that.
+            if ($account !== null && $account->is_postable && $account->is_active) {
                 return $account->id;
             }
-            // The row pointed at an account that has since gone. Falling through to the floor is
-            // the safe answer: the entry still posts and still balances, where throwing would kill
-            // the sync job and leave the document unposted with nothing on screen to say so.
+            // The row pointed at an account that has since gone, been retired, or been made a
+            // summary parent. Falling through to the floor is the safe answer: the entry still posts
+            // and still balances, where throwing would kill the sync job and leave the document
+            // unposted with nothing on screen to say so.
         }
 
         return $accounts->id(

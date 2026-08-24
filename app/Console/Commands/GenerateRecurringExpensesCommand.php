@@ -50,6 +50,21 @@ class GenerateRecurringExpensesCommand extends Command
             $this->line("  bill     {$bill->number} · {$bill->vendor?->name} · {$bill->description} · {$bill->total} (draft)");
         }
 
+        // A schedule that REFUSED is neither booked nor "not due", and it will refuse again on every
+        // run until someone acts — most often because its oldest outstanding period is closed. It is
+        // named here and the command exits non-zero so a scheduled run cannot report success while a
+        // statutory cost silently goes unbooked.
+        if ($result['failures'] !== []) {
+            $this->newLine();
+            $this->error(count($result['failures']).' schedule(s) refused and booked nothing:');
+
+            foreach ($result['failures'] as $scheduleId => $message) {
+                $this->line("  schedule #{$scheduleId}: {$message}");
+            }
+
+            return self::FAILURE;
+        }
+
         return self::SUCCESS;
     }
 }

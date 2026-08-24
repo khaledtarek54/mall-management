@@ -11,7 +11,9 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class DepositTransactionForm
@@ -55,6 +57,10 @@ class DepositTransactionForm
                         ->options(fn () => __('admin.enums.deposit_type'))
                         ->required()
                         ->native(false)
+                        // Live so the cutover toggle below appears/disappears with the type rather
+                        // than only on reload — an opening flag left visible on a refund is the
+                        // combination the model refuses.
+                        ->live()
                         ->disabled($locked),
 
                     Select::make('method')
@@ -82,6 +88,16 @@ class DepositTransactionForm
                         ->minValue(0.01)
                         ->required()
                         ->disabled($locked),
+
+                    // The cutover switch. Visible only on a RECEIPT, because that is the only
+                    // movement that can predate this system: a refund or forfeit of an old deposit
+                    // is our own cash moving and must post (the model refuses the combination).
+                    Toggle::make('is_opening_balance')
+                        ->label(__('admin.fields.is_opening_balance'))
+                        ->helperText(__('admin.helpers.is_opening_deposit'))
+                        ->visible(fn (Get $get) => $get('type') === 'receipt')
+                        ->disabled($locked)
+                        ->columnSpanFull(),
 
                     Textarea::make('notes')
                         ->label(__('admin.fields.notes'))

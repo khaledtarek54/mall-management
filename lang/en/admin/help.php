@@ -8,6 +8,7 @@ return [
         'escalation_index_base_value' => 'The index figure this rent was last measured from. It rolls forward each time the rent steps.',
         'billing_timing' => "Blank means in advance. In arrears bills last month's, on this month's invoice.",
         'does_not_prorate' => 'A part month bills in full. For a flat licence or fixed fee, never rent.',
+        'is_opening_deposit' => 'Money already held at cutover. Records the deposit without posting it — the opening entry carries the liability.',
         'escalation_interval_months' => 'Blank means every year. Enter 24 for biennial, 6 for a half-yearly review.',
         'escalation_index_lag_months' => 'How far back to read. The September index effective 1 January is 4.',
         'property_pinned' => 'Follows the property switcher at the top — this record belongs to the mall you are in.',

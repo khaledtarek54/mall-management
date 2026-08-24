@@ -505,7 +505,26 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
                 // `invoices`, not `invoices.lease.unit` — an invoice carries its own asset_id, and
                 // the old chain matched nothing for a unit-owner invoice. Atomic with
                 // `VoidPaymentService`, which computes the ids this is scoped by.
-                fn ($q) => $q->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $assetIds)),
+                //
+                // GROUPED, deliberately: `(tenant AND received AND …) OR …` binds AND-before-OR, so
+                // an ungrouped second branch would escape the tenant scope itself.
+                fn ($q) => $q->where(fn ($w) => $w
+                    ->whereHas('invoices', fn ($u) => $u->whereIn('invoices.asset_id', $assetIds))
+                    // A receipt with NO allocations at all has no invoice to take a property from,
+                    // and until 2026-08-24 that made it credit nobody could ever draw: a cleared
+                    // SERIES cheque names no invoice (the Egyptian norm), so the money sat in the
+                    // bank and in unearned revenue while `ApplyTenantCreditService`'s per-property
+                    // cap read 0 and refused every draw — leaving the invoice open for the overdue
+                    // sweep and the late-fee run. The property was never unknown: it is on the
+                    // cheque, the same fact `Payment::originatingAssetId()` already files the GL
+                    // entry under. Only for a receipt with no allocations at all — one allocated
+                    // across two properties is a genuinely consolidated receipt and collapsing it
+                    // onto one mall would be a different, wrong answer.
+                    ->orWhere(fn ($c) => $c
+                        ->whereDoesntHave('invoices')
+                        ->whereHas('clearedCheque', fn ($ch) => $ch->whereIn('post_dated_cheques.asset_id', $assetIds))
+                    )
+                ),
             )
             ->with('invoices')
             ->get();

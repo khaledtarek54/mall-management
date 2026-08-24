@@ -100,6 +100,7 @@ class DepositTransaction extends Model
         'transaction_date',
         'method',
         'status',
+        'is_opening_balance',
         'notes',
         'created_by_user_id',
     ];
@@ -107,6 +108,7 @@ class DepositTransaction extends Model
     protected $casts = [
         'transaction_date' => 'date',
         'amount' => 'decimal:2',
+        'is_opening_balance' => 'boolean',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -223,6 +225,15 @@ class DepositTransaction extends Model
             // A forfeit has no payment method at all, and 'bank' is the harmless truth for it.
             if (blank($deposit->method)) {
                 $deposit->method = 'bank';
+            }
+
+            // Only a RECEIPT can be an opening item. A refund or forfeit of a deposit taken before
+            // cutover is this system's own cash moving and MUST post; letting the flag ride on one
+            // would silently suppress a real GL entry, which is the failure the flag exists to
+            // prevent in the other direction. Refuse rather than ignore — a flag that is quietly
+            // dropped reads on screen as one that was honoured.
+            if ($deposit->is_opening_balance && $deposit->type !== 'receipt') {
+                throw new \DomainException(__('admin.errors.deposit_opening_balance_receipt_only'));
             }
 
             // ── A receipt is fixed once the deposit has been DRAWN ON ────────────────────────

@@ -133,6 +133,16 @@ class WithholdingTaxReturnService
         // figure is what the operator is still holding on the tax authority's behalf.
         $remitted = $this->accountMovement('withholding_tax_payable', $start, $end, $assetId, credits: false);
 
+        // **The two sides are read GROSS, and until 2026-08-24 they were not.** `accountMovement()`
+        // returned a NET movement in whichever direction it was asked for, so `remitted` was the
+        // exact negation of `withheldLedger` and the two could never both be positive. The standard
+        // Egyptian flow breaks that arithmetic on the first quarter it happens: Q1's withholding is
+        // paid over in April, i.e. inside Q2, so Q2's return read `remitted 0.00` while the debit
+        // quietly shrank the ledger side — and the tie-out, which compares the DOCUMENTS' gross
+        // withholding against it, reported a difference of exactly the amount remitted. The one
+        // control this screen exists for would have gone red for doing the right thing, on the
+        // number the operator files from. A permanently un-clearable alarm is worse than no alarm.
+
         $difference = round($withheldDocuments - $withheldLedger, 2);
 
         return [
@@ -142,8 +152,8 @@ class WithholdingTaxReturnService
             'withheld_ledger' => $withheldLedger,
             'difference' => $difference,
             'ties_out' => abs($difference) < 0.01,
-            'remitted' => max(0.0, $remitted),
-            'outstanding' => round($withheldLedger - max(0.0, $remitted), 2),
+            'remitted' => round($remitted, 2),
+            'outstanding' => round($withheldLedger - $remitted, 2),
             'suppliers' => array_values($suppliers),
         ];
     }
@@ -203,25 +213,36 @@ class WithholdingTaxReturnService
     }
 
     /**
-     * Net movement on a semantic account role over the period, on the side asked for.
+     * GROSS movement on a semantic account role over the period, on the side asked for.
      *
-     * Reads POSTED and VOID entries ({@see JournalEntry::REPORTABLE_STATUSES}) for the reason
-     * {@see VatReturnService} does: a corrected vendor bill would otherwise take its withholding out
-     * of the period entirely and understate what is owed to the tax authority.
+     * **Gross, not net, and the two are not interchangeable here.** The credit side answers "what was
+     * withheld" and the debit side "what was paid over"; both are real and both can be non-zero in
+     * one quarter. A net figure conflates them — see the note at the call site for the false alarm
+     * that produced.
+     *
+     * Reversal PAIRS are excluded rather than left to cancel, which is what makes a gross read safe.
+     * `LedgerPoster::sync()` corrects a document by voiding its entry and posting a fresh one, so a
+     * corrected vendor bill leaves a `void` original and a `reversal_of_id` counter-entry behind. The
+     * old net read let those two cancel; a gross read would count the original's credit as
+     * withholding that no longer exists AND the reversal's debit as a remittance that never happened.
+     * Dropping both leaves exactly the fresh entry, so the netting intent {@see VatReturnService}
+     * describes is preserved — a correction still cannot take withholding out of the period — while
+     * each side now states its own fact.
      */
     private function accountMovement(string $role, CarbonImmutable $start, CarbonImmutable $end, ?int $assetId, bool $credits): float
     {
         $accountId = $this->accounts->id($role, $assetId);
 
-        $expression = $credits
-            ? 'COALESCE(credit, 0) - COALESCE(debit, 0)'
-            : 'COALESCE(debit, 0) - COALESCE(credit, 0)';
+        $expression = $credits ? 'COALESCE(credit, 0)' : 'COALESCE(debit, 0)';
 
         return round((float) JournalLine::query()
             ->where('ledger_account_id', $accountId)
             ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
             ->whereHas('entry', fn ($q) => $q
-                ->whereIn('status', JournalEntry::REPORTABLE_STATUSES)
+                // The surviving half of a void-and-repost is the fresh entry; the void original and
+                // its reversal are both dropped.
+                ->where('status', 'posted')
+                ->whereNull('reversal_of_id')
                 ->whereDate('entry_date', '>=', $start->toDateString())
                 ->whereDate('entry_date', '<=', $end->toDateString()))
             ->sum(DB::raw($expression)), 2);

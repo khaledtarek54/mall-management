@@ -186,8 +186,17 @@ class BillUnitOwnershipsService
         // A co-owner pays his share of the unit's assessment, not the whole of it.
         $share = (float) ($locked->ownership_share_pct ?? 100) / 100;
 
-        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart, $periodEnd, $locked, $proration): array {
+        $items = $charges->map(function (Charge $charge) use ($multiplier, $share, $periodStart, $periodEnd, $locked, $proration, $windowStart, $windowEnd): array {
             [$coveredStart, $coveredEnd] = MonthlyBillingService::coveredWindow($charge, $periodStart, $periodEnd, 1);
+
+            // Whether THIS row prorates at all (EG-29). The agreement states the method; the charge
+            // states whether it applies — a flat parking fee or signage licence is payable in full
+            // for any month the holding runs into. `CreditUnearnedBillingService` reads the same
+            // definition when a mid-month resale credits the seller, so leaving it out here made the
+            // bill and its own credit price one line by two different rules: the seller was credited
+            // nothing for a flat fee (whole-month) while the buyer was billed the prorated
+            // remainder, and the unit collected more than one month of a monthly fee.
+            $lineProration = $charge->prorationMethodWithin($proration);
 
             // An arrears row prorates against the tenure the owner held in the month it COVERS, not
             // this one — a handover on the 20th of August owes 11/31 of August's صيانة on the
@@ -201,7 +210,15 @@ class BillUnitOwnershipsService
                         ? CarbonImmutable::parse($locked->started_at) : $coveredStart,
                     $locked->ended_at !== null && $locked->ended_at->lt($coveredEnd)
                         ? CarbonImmutable::parse($locked->ended_at) : $coveredEnd,
-                    $proration,
+                    $lineProration,
+                ),
+                // Same window as `$multiplier`, re-measured under THIS row's own method.
+                $lineProration !== $proration => MonthlyBillingService::monthsCovered(
+                    $periodStart,
+                    1,
+                    $windowStart,
+                    $windowEnd,
+                    $lineProration,
                 ),
                 default => $multiplier,
             };

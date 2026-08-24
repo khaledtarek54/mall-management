@@ -148,7 +148,16 @@ class TransferUnitOwnershipService
                     // Same reasoning as the renewal path: a resale copies the seller's schedule, so
                     // dropping the timing would re-bill the buyer a month the seller already paid.
                     'billing_timing' => $row->billing_timing,
+                    // Carried for the same reason (EG-29): a flat fee the seller owed in full for
+                    // any month is still owed in full by the buyer, and dropping the flag makes the
+                    // buyer's first part-month prorate while the seller's credit for the same days
+                    // does not — the bill and its credit priced by two different rules.
+                    'prorate' => $row->prorate,
                     'start_date' => $on->toDateString(),
+                    // The seller's row may be BOUNDED — a levy that runs to a stated end date. Not
+                    // carrying it re-opened the charge unbounded on the buyer, so a cost with an
+                    // agreed finish went on billing them for ever.
+                    'end_date' => $row->end_date,
                     'is_active' => true,
                 ]);
             }

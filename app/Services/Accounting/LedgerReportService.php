@@ -248,12 +248,15 @@ class LedgerReportService
      *
      * Reconcile-by-construction: by double-entry, the change in cash over a period
      * equals the negated sum of every NON-cash account's movement. So we classify each
-     * non-cash account into Operating / Investing / Financing (by the Egyptian code
-     * ranges: 111 = cash & banks · 121 = gross non-current assets → investing · 122 =
-     * accumulated depreciation → operating add-back · 222 = provisions → operating
-     * add-back · 22 = non-current liabilities & equity → financing · everything else →
-     * operating working capital), negate its
-     * movement into that section, and the three sections sum to the actual cash movement.
+     * non-cash account into Operating / Investing / Financing — from the ACCOUNT's own
+     * `cash_flow_section`, resolved through {@see \App\Support\CashFlowSection} (EG-28,
+     * finding S-4), never from its CODE. The six `str_starts_with` prefix checks this
+     * docblock used to describe were right about OUR chart and silently wrong about any
+     * other: a chart numbered differently still SAVES, and a capital purchase and a loan
+     * drawdown then both land in operating with the statement still balancing. Prefixes
+     * survive only in `CashFlowSection::forShippedChart()`, which is a statement about our
+     * chart rather than a rule about charts. Each account's movement is negated into its
+     * section, and the three sections sum to the actual cash movement.
      * `reconciled` asserts that double-entry identity — an integrity/regression guard on
      * this classification code; for balanced books it holds (it is not a data-error check).
      *

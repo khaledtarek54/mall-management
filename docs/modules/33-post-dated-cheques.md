@@ -39,6 +39,26 @@ held ──deposit──▶ deposited ──clear──▶ cleared   (records a 
   copied) and allocates it to `invoice_id` **capped at the invoice balance** (surplus stays as an on-account
   credit), then `recomputeAllocatedInvoices()`. The `cleared_on` date is guarded by `App\Support\PostingDate`
   (not future, period open — the Payment posts to the GL).
+- **A cheque naming NO invoice settles what is open when it clears** (2026-08-24). A series cheque is
+  deliberately not pre-linked — the month's invoice may not exist when the book is handed over — and
+  `lodgeSeries()`'s docblock has always promised that each one "settles whatever is open when it
+  clears, through the normal clear() flow". Until this shipped, `clear()` allocated only
+  `if ($cheque->invoice_id)`, so the promise was kept by nothing: the receipt captured with **zero
+  allocations**, and a wholly unallocated receipt belongs to no property, because
+  `Tenant::creditBalance([$assetId])` attributes credit through the invoices a payment settles. The
+  per-property cap read 0, `ApplyTenantCreditService` refused every draw, `Invoice::saved`'s
+  auto-apply swallowed that refusal as the ordinary case — and the month's invoice stayed open for
+  the overdue sweep and `LateFeeService` to find. **The tenant was chased, and could be charged a
+  late fee, while the mall held their cleared cash.** `PaymentForm` already refuses creating a
+  zero-allocation receipt for exactly this orphaning reason; the cheque path was minting the record
+  that guard exists to prevent. It now settles the tenant's own open invoices **in the cheque's
+  property, oldest due first**, under a locking read (a plain read behind the cheque lock answers
+  from the pre-wait snapshot), capped per invoice and backstopped by
+  `assertInvoicesNotOverAllocated()`. Deliberately **not** scoped to `lease_id`: Voyager applies a
+  receipt at the customer record, and one cheque legitimately covers whatever that tenant owes in
+  that mall. Any surplus stays on account and **is drawable**, because `creditBalance()` now falls
+  back to the cheque's own property for a receipt with no allocations at all — the same fact
+  `Payment::originatingAssetId()` already files the GL entry under. (`ClearedChequeSettlesWhatIsOpenTest`.)
 - **Bounce** reverses nothing (no Payment was made before clearing); the cheque can be re-presented.
 - **Cancel** voids a not-yet-cleared cheque. A **cleared or cancelled cheque is terminal-immutable**.
 - Every transition is lock-safe + idempotent (row-lock + re-check under the lock).

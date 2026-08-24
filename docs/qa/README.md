@@ -13,6 +13,8 @@ the **release sign-off gate** that says "ready for production".
 | [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) | The go-live gate. Every box must be ticked before a production release. Ties together the automated gates + manual QA + UAT + the runbook pre-flight. |
 | [UAT-SCRIPTS.md](UAT-SCRIPTS.md) | End-to-end business scenarios per persona (operator / owner / tenant-web / tenant-mobile) that the **business** signs off — not "does it work" but "is this the workflow we run". |
 | [PRE-STAGING-QA.md](PRE-STAGING-QA.md) | The harness report — ~620 assertions across 26 scenario scripts plus four two-process concurrency races, driving the **real services against real MySQL**. Findings and their fixes in [PRE-STAGING-FINDINGS.md](PRE-STAGING-FINDINGS.md). |
+| [STAGING-FINAL-VERIFICATION.md](STAGING-FINAL-VERIFICATION.md) | The **final pre-staging verification** (2026-08-24) — eight lenses (Yardi · market/large systems · AR posting · AP/GL posting · recent-commit bugs · runtime ops · UI/UX · architecture), 82 findings, every one adversarially verified before being recorded. Read §0 for the market-position verdict. |
+| [POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md) | What that verification found and deliberately did **not** fix, with the reason each can wait — plus §0, the nine MVP-blocking money fixes that shipped, so they are not re-opened from the report. |
 | [scripts/](scripts/README.md) | The runnable harness behind `composer qa` (and `composer qa:baseline`), including `race.sh` — the two-process proof that a lock actually serialises, which sqlite can never give you. |
 
 ## How to use it
