@@ -39,7 +39,7 @@ it('refuses a currency the ledger cannot honour, on every table that can carry o
     expect($asset->fresh()->currency)->toBe('EGP');
 
     $vendor = Vendor::create([
-        'asset_id' => $asset->id, 'name' => 'Nile Facilities', 'type' => 'contractor', 'status' => 'active',
+        'name' => 'Nile Facilities', 'type' => 'contractor', 'status' => 'active',
     ]);
 
     $contract = VendorContract::create([

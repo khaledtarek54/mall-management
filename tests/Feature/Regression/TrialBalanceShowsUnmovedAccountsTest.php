@@ -72,7 +72,7 @@ it('does not list an account twice when it has moved', function () {
 
     $entry = JournalEntry::create([
         'asset_id' => $asset->id, 'entry_date' => '2026-03-10',
-        'description' => 'x', 'status' => 'draft', 'source_type' => 'manual',
+        'status' => 'draft', 'source_type' => 'manual',
     ]);
     JournalLine::create(['journal_entry_id' => $entry->id, 'ledger_account_id' => $debit->id, 'debit' => 500, 'credit' => 0]);
     JournalLine::create(['journal_entry_id' => $entry->id, 'ledger_account_id' => $credit->id, 'debit' => 0, 'credit' => 500]);

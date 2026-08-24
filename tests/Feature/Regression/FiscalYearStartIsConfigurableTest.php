@@ -103,7 +103,6 @@ it('refuses to move the year once an entry is posted', function () {
     JournalEntry::create([
         'asset_id' => makeAsset()->id,
         'entry_date' => '2026-03-15',
-        'description' => 'posted',
         'status' => 'posted',
         'source_type' => 'manual',
     ]);
@@ -121,7 +120,6 @@ it('ignores a draft entry, which has re-dated nothing', function () {
     JournalEntry::create([
         'asset_id' => makeAsset()->id,
         'entry_date' => '2026-03-15',
-        'description' => 'draft',
         'status' => 'draft',
         'source_type' => 'manual',
     ]);

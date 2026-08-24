@@ -74,7 +74,6 @@ it('does not count a DRAFT entry that has not hit the books', function () {
     JournalEntry::create([
         'entry_date' => now()->toDateString(),
         'asset_id' => null,
-        'description' => 'Draft consolidated adjustment',
         'status' => 'draft',
         'source_type' => 'manual',
     ]);

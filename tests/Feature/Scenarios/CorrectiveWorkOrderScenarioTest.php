@@ -143,7 +143,7 @@ it('assigns an external corrective job to a vendor, not a technician', function 
     $order = ppmOrder();
     $item = $order->items()->first();
     $this->wos->markItem($item, FacilityWorkOrderItem::RESULT_FAIL);
-    $vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
+    $vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     $tech = makeUser('operations', [$this->asset->id]);
 
     // A caller passing both must not silently get both — the service nulls the other side.
@@ -162,8 +162,7 @@ it('refuses an internal corrective job that also names a vendor', function () {
     // Module 11 lets a request carry both a staff assignee and a vendor at once, which is
     // exactly why its assignment could never discriminate internal from external. If the
     // classification doesn't constrain who is on the job, it is decorative.
-    $vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
-
+    $vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     expect(fn () => FacilityWorkOrder::create([
         'asset_id' => $this->asset->id, 'title' => 'Bad', 'trade_id' => tradeId('hvac'),
         'scheduled_for' => '2026-07-01', 'work_order_type' => 'cm',
@@ -200,8 +199,7 @@ it('requires a description on a corrective job', function () {
 it('does not impose the CM rules on a preventive order', function () {
     // PPM orders legitimately carry a department and a vendor at once and have no
     // description — the CM rules must not leak onto them.
-    $vendor = Vendor::create(['name' => 'CoolAir', 'trade_id' => tradeId('hvac'), 'status' => 'active']);
-
+    $vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     $ppm = ppmOrder(['vendor_id' => $vendor->id]);
 
     expect($ppm->work_order_type)->toBe(FacilityWorkOrder::TYPE_PPM);

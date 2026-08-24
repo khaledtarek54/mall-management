@@ -48,7 +48,7 @@ beforeEach(function () {
     $this->asset = makeAsset(['code' => 'GRN']);
     $this->warehouse = Warehouse::create(['asset_id' => $this->asset->id, 'name' => 'Main', 'code' => 'W1']);
     $this->item = InventoryItem::create(['sku' => 'FILT', 'name' => 'Filter', 'unit' => 'each', 'unit_cost' => 50]);
-    $this->vendor = Vendor::create(['name' => 'PartsCo', 'category' => 'hvac', 'status' => 'active']);
+    $this->vendor = Vendor::create(['name' => 'PartsCo', 'status' => 'active']);
     $this->buyer = makeUser('operations', [$this->asset->id]);
     $this->manager = makeUser('manager', [$this->asset->id]);
 });

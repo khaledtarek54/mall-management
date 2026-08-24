@@ -103,7 +103,6 @@ it('Note morphs to a noteable and belongs to author', function () {
 
 it('CreditNoteItem belongs to a CreditNote', function () {
     $cn = CreditNote::create([
-        'reference' => 'CN-'.uniqid(),
         'tenant_id' => $this->tenant->id,
         'issue_date' => now(),
         'status' => 'issued',

@@ -91,7 +91,7 @@ it('respects the internal/external XOR', function () {
     $internal = $this->svc->fromTenantRequest($request, [
         'execution_type' => 'internal',
         'assigned_to_user_id' => makeUser('technician', [$this->asset->id])->id,
-        'vendor_id' => Vendor::create(['name' => 'V', 'category' => 'hvac', 'status' => 'active'])->id, // supplied but must be dropped
+        'vendor_id' => Vendor::create(['name' => 'V', 'status' => 'active'])->id, // supplied but must be dropped
     ]);
     expect($internal->vendor_id)->toBeNull();
     expect($internal->assigned_to_user_id)->not->toBeNull();

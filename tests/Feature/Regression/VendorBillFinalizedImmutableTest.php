@@ -15,8 +15,7 @@ use App\Models\VendorBill;
  */
 function immutabilityBill(array $attrs = []): VendorBill
 {
-    $vendor = Vendor::create(['name' => 'V-'.uniqid(), 'category' => 'maintenance', 'status' => 'active']);
-
+    $vendor = Vendor::create(['name' => 'V-'.uniqid(), 'status' => 'active']);
     return VendorBill::create(array_merge([
         'vendor_id' => $vendor->id, 'asset_id' => makeAsset()->id, 'category' => 'maintenance',
         'bill_date' => now()->toDateString(), 'due_date' => now()->addDays(30)->toDateString(),
@@ -30,7 +29,7 @@ it('freezes a finalized bill\'s money + counterparty fields off the form', funct
     expect(fn () => $bill->fresh()->update(['subtotal' => 6000]))->toThrow(DomainException::class);
     expect(fn () => $bill->fresh()->update(['vat_amount' => 500]))->toThrow(DomainException::class);
     expect(fn () => $bill->fresh()->update(['category' => 'utilities']))->toThrow(DomainException::class);
-    $other = Vendor::create(['name' => 'Other', 'category' => 'maintenance', 'status' => 'active']);
+    $other = Vendor::create(['name' => 'Other', 'status' => 'active']);
     expect(fn () => $bill->fresh()->update(['vendor_id' => $other->id]))->toThrow(DomainException::class);
 
     // The amount is unchanged after the refused edits.

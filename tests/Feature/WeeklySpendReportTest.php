@@ -39,7 +39,7 @@ it('sums weekly spend split fixed/variable, ex-VAT, across expenses + bills, sco
         'total' => 1140, 'paid_from' => 'cash', 'expense_date' => $wk->addDay()->toDateString(), 'status' => 'recorded',
     ]);
     // VARIABLE: a utilities vendor bill — total 570 incl. 70 VAT → 500 ex-VAT.
-    $vendor = Vendor::create(['name' => 'PowerCo', 'category' => 'utilities', 'status' => 'active']);
+    $vendor = Vendor::create(['name' => 'PowerCo', 'status' => 'active']);
     VendorBill::create([
         'vendor_id' => $vendor->id, 'asset_id' => $asset->id, 'category' => 'utilities',
         'bill_date' => $wk->addDays(2)->toDateString(), 'due_date' => $wk->addDays(20)->toDateString(),

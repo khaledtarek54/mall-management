@@ -88,7 +88,7 @@ it('refuses to issue a permit with no conditions', function () {
 it('refuses to issue a permit to a contractor who cannot be dispatched', function () {
     $blacklisted = Vendor::create([
         'name' => 'Risky Contracting', 'legal_name' => 'Risky Contracting LLC',
-        'status' => 'blacklisted', 'category' => 'maintenance',
+        'status' => 'blacklisted', 
     ]);
 
     $draft = permit($this, ['vendor_id' => $blacklisted->id]);
@@ -101,7 +101,7 @@ it('refuses to issue a permit to a contractor who cannot be dispatched', functio
 it('issues a permit to a contractor in good standing', function () {
     $vendor = Vendor::create([
         'name' => 'Delta FM', 'legal_name' => 'Delta FM LLC',
-        'status' => 'active', 'category' => 'maintenance',
+        'status' => 'active', 
     ]);
 
     $issued = app(WorkPermitService::class)->issue(permit($this, ['vendor_id' => $vendor->id]));

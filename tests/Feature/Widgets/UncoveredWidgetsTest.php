@@ -62,8 +62,6 @@ it('EnergyConsumptionTrend.getData returns labeled monthly buckets', function ()
         'utility_meter_id' => $meter->id,
         'reading_value' => 1234,
         'reading_date' => now()->subDays(15),
-        'period_start' => now()->subMonth()->startOfMonth(),
-        'period_end' => now()->subMonth()->endOfMonth(),
         'consumption' => 1234,
         'cost' => 1851,
     ]);

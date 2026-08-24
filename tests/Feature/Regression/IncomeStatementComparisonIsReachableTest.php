@@ -46,7 +46,6 @@ function postRevenue(int $assetId, string $on, float $amount): void
     $entry = JournalEntry::create([
         'asset_id' => $assetId,
         'entry_date' => $on,
-        'description' => 'test revenue',
         // Draft first: a line cannot be added to a POSTED entry (debits would stop equalling
         // credits mid-write), which is the guard doing its job.
         'status' => 'draft',

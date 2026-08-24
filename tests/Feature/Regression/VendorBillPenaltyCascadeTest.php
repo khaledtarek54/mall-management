@@ -34,8 +34,7 @@ beforeEach(function () {
 
     $this->from = makeAsset(['code' => 'FROM']);
     $this->to = makeAsset(['code' => 'TO']);
-    $vendor = Vendor::create(['name' => 'SlaCo', 'category' => 'hvac', 'status' => 'active']);
-
+    $vendor = Vendor::create(['name' => 'SlaCo', 'status' => 'active']);
     $this->bill = VendorBill::create([
         'vendor_id' => $vendor->id,
         'asset_id' => $this->from->id,

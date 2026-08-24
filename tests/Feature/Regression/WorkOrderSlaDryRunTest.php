@@ -22,7 +22,7 @@ use Database\Seeders\RolesPermissionsSeeder;
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     $this->asset = makeAsset(['code' => 'DRY']);
-    $this->vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
+    $this->vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
     VendorContract::create([
         'vendor_id' => $this->vendor->id, 'asset_id' => $this->asset->id,

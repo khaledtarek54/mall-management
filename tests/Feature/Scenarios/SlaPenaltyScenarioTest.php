@@ -22,7 +22,7 @@ beforeEach(function () {
     $this->svc = app(AssessSlaPenaltyService::class);
     $this->wos = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'PEN']);
-    $this->vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
+    $this->vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
 });
 

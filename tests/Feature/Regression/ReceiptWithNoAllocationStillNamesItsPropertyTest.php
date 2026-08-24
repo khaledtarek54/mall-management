@@ -158,7 +158,6 @@ it('ignores a VOID property-less entry, and still catches a posted one', functio
     $posted = JournalEntry::create([
         'number' => 'JE-AUDIT-1',
         'entry_date' => now()->toDateString(),
-        'description' => 'Property-less probe',
         'status' => 'posted',
         'asset_id' => null,
     ]);

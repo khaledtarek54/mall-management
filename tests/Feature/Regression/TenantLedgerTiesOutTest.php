@@ -79,7 +79,7 @@ it('nets all four settlement channels, not just cash', function () {
 
     DepositApplication::create([
         'lease_id' => $this->lease->id, 'tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id,
-        'amount' => 20000, 'applied_at' => '2026-01-20', 'entry_date' => '2026-01-20',
+        'amount' => 20000, 'entry_date' => '2026-01-20',
     ]);
     $invoice->refresh()->recomputeTotals();
 

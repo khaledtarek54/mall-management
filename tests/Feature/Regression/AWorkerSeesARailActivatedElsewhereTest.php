@@ -52,7 +52,6 @@ it('accepts a rail another process activated, without waiting for a restart', fu
     //    and finds the rail. Before the fix this threw DomainException.
     $tenant = makeTenant();
     $payment = Payment::create([
-        'asset_id' => makeAsset()->id,
         'tenant_id' => $tenant->id,
         'amount' => 100,
         'method' => 'fawry',
@@ -67,7 +66,6 @@ it('still refuses a value no process ever added', function () {
     // The control. A recovery that re-derived and then accepted anything would satisfy the case
     // above just as well, and would delete the guard.
     expect(fn () => Payment::create([
-        'asset_id' => makeAsset()->id,
         'tenant_id' => makeTenant()->id,
         'amount' => 100,
         'method' => 'carrier_pigeon',

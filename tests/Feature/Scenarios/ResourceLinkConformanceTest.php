@@ -190,7 +190,6 @@ beforeEach(function () {
         'entry_date' => now(),
         'asset_id' => null,
         'status' => 'posted',
-        'description' => 'Consolidated',
     ]);
 
     $this->overdueInvoice = makeInvoice($this->lease, [

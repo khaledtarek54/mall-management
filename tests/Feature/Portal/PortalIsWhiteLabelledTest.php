@@ -136,7 +136,6 @@ it('brands for a handed-over unit owner, and not before the keys change hands', 
         'unit_id' => $unit->id,
         'tenant_id' => $owner->id,
         'status' => UnitOwnershipStatus::Contracted->value,
-        'contract_date' => now()->subMonth()->toDateString(),
     ]);
 
     $this->actingAs(makeTenantUser($owner), 'portal');

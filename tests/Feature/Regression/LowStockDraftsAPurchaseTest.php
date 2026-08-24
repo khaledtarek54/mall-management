@@ -59,7 +59,6 @@ function shortItem($ctx, array $attrs = []): InventoryItem
     StockMovement::create([
         'inventory_item_id' => $item->id,
         'warehouse_id' => $ctx->warehouse->id,
-        'asset_id' => $ctx->asset->id,
         'type' => 'receipt',
         'quantity' => 2,
         'unit_cost' => 100,

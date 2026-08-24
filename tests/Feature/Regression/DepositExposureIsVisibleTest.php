@@ -79,7 +79,6 @@ it('subtracts refunds, forfeits and what was netted against arrears', function (
         'tenant_id' => $lease->tenant_id,
         'invoice_id' => makeInvoice($lease)->id,
         'amount' => 50000,
-        'applied_at' => now(),
         'entry_date' => '2026-02-01',
     ]);
 

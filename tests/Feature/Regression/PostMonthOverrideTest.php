@@ -53,7 +53,6 @@ function billDated(string $date): VendorBill
     return VendorBill::create([
         'vendor_id' => Vendor::create([
             'name' => 'Supplier '.fake()->unique()->numberBetween(1, 99999),
-            'asset_id' => $asset->id,
             'status' => 'active',
         ])->id,
         'asset_id' => $asset->id,

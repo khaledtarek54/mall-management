@@ -37,7 +37,6 @@ beforeEach(function () {
     $this->asset = makeAsset(['code' => 'APREF']);
     $this->vendor = Vendor::create([
         'name' => 'Cool Air Services', 'email' => 'ops@coolair.test',
-        'category' => 'maintenance', 'is_active' => true,
     ]);
 });
 
@@ -72,7 +71,6 @@ it('allows the same reference from a DIFFERENT vendor', function () {
     // refusal above from being a blanket ban.
     $other = Vendor::create([
         'name' => 'Bright Spark Electrical', 'email' => 'service@brightspark.test',
-        'category' => 'maintenance', 'is_active' => true,
     ]);
 
     duplicateRefBill($this->vendor, $this->asset);

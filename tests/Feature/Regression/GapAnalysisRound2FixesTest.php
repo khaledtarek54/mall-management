@@ -49,8 +49,7 @@ beforeEach(function () {
 it('refuses to charge a penalty to a vendor bill belonging to another property', function () {
     $aaa = makeAsset(['code' => 'AAA']);
     $bbb = makeAsset(['code' => 'BBB']);
-    $vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
-
+    $vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     SlaPolicy::create(['asset_id' => $aaa->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
     VendorContract::create([
         'vendor_id' => $vendor->id, 'asset_id' => $aaa->id, 'name' => 'HVAC SLA',
@@ -96,7 +95,7 @@ it('refuses to charge a penalty to a vendor bill belonging to another property',
  */
 it('gives the money back when an applied penalty is waived', function () {
     $asset = makeAsset(['code' => 'WVE']);
-    $vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
+    $vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     SlaPolicy::create(['asset_id' => $asset->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
     VendorContract::create([
         'vendor_id' => $vendor->id, 'asset_id' => $asset->id, 'name' => 'HVAC SLA',

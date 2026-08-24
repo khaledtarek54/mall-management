@@ -20,7 +20,7 @@ function withItem($lease): Invoice
     InvoiceItem::create([
         'invoice_id' => $invoice->id, 'type' => 'base_rent',
         'description' => 'Rent', 'amount' => 10000,
-        'vat_rate' => 0, 'vat_amount' => 0, 'subtotal' => 10000,
+        'vat_rate' => 0, 'vat_amount' => 0, 
     ]);
 
     return $invoice->refresh();

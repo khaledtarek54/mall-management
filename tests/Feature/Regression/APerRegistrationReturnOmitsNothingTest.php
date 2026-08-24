@@ -53,7 +53,6 @@ beforeEach(function () {
         'number' => 'JE-'.uniqid(),
         'asset_id' => null,
         'entry_date' => now()->toDateString(),
-        'description' => 'Head-office insurance premium',
         'status' => 'draft',
         'is_manual' => true,
     ]);

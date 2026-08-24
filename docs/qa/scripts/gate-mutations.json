@@ -509,5 +509,12 @@
     "path": "app/Providers/AppServiceProvider.php",
     "old": "                if ($model instanceof Model) {\n                    ValueSets::guard($model);\n                }",
     "new": "                if (false) {\n                    ValueSets::guard($model);\n                }"
+  },
+  {
+    "name": "FixtureColumnsExist \u2014 a fixture writes a column that does not exist",
+    "gate": "tests/Feature/Scenarios/FixtureColumnsExistConformanceTest.php",
+    "path": "tests/Feature/Regression/ActivityLogRecordsChangesTest.php",
+    "old": "it('records the before and after of a change, in attribute_changes', function () {\n    $vendor = Vendor::create(['name' => 'ProbeCo', 'status' => 'active']);",
+    "new": "it('records the before and after of a change, in attribute_changes', function () {\n    $vendor = Vendor::create(['zz_no_such_column' => 1, 'name' => 'ProbeCo', 'status' => 'active']);"
   }
 ]

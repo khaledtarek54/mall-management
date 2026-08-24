@@ -51,14 +51,13 @@ twice in this project.
 **Result: 73 mutations across 69 gates — every gate but three — and five holes — all four in gates that guarded a REGISTRY, and
 two of them had a live money defect underneath.**
 
-**One gate is switched OFF and it is the only one.** `FixtureColumnsExistConformanceTest` ships
-`->skip()`ed, deliberately, with the reason written out: the gate is correct and mutation-proven, and
-it is off because the tree it landed in had 58 pre-existing ghost keys across ~40 test files. The two
-that were not inert were fixed before it was disabled (a `Charge` fixture writing `billing_frequency`
-where the column is `frequency`, and a `MeterReading` writing `total_cost` where it is `cost`). That
-is an honest deferral rather than a hole — but it means the gate count includes one that never runs,
-which is worth knowing when reading "all gates pass". Every other `->skip()` in the set is
-conditional and fires only when there is genuinely nothing to check.
+**Every gate now runs.** `FixtureColumnsExistConformanceTest` shipped `->skip()`ed on 2026-08-18
+because the tree held 58 pre-existing ghost fixture keys; by the time they were cleared on
+2026-08-24 there were **72**, across 44 files — the list grew while the gate that would have caught
+it was off. All 72 were inert (the column genuinely does not exist, so Eloquent was already dropping
+the key), so they were DELETED rather than renamed: a rename would start storing a value the test
+never had. Every remaining `->skip()` in the set is conditional and fires only when there is
+genuinely nothing to check.
 
 1. `ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
    guards — 10 of 156 registered columns were invisible to it, so a new column of any of those
@@ -155,7 +154,7 @@ Every refusal test is paired with a control that must succeed — a guard that r
 otherwise read as a pass.
 
 
-## The three gates not in the manifest, and why
+## The two gates not in the manifest, and why
 
 Not an oversight — none of the three can be expressed as a string replacement, so each is verified a
 different way and says so here rather than being quietly counted as covered.
@@ -166,7 +165,6 @@ different way and says so here rather than being quietly counted as covered.
 - **`ReconciliationChecksCanFail`** — it IS a mutation harness. It perturbs each of the four
   tenant-facing reconciliation checks and requires each to go red, paired with a control requiring
   all four green on clean data. Auditing it would be auditing an audit.
-- **`FixtureColumnsExist`** — shipped `->skip()`ed on purpose (see above). It cannot fail because it
-  does not run.
-
-Everything else — 69 of 72 gates — is proven by a mutation in `gate-mutations.json`.
+Everything else — **70 of 72 gates** — is proven by a mutation in `gate-mutations.json`.
+`FixtureColumnsExist` joined them on 2026-08-24 when its 72 ghost keys were cleared and it was
+switched on.

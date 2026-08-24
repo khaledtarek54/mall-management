@@ -34,7 +34,7 @@ beforeEach(function () {
     // The nature, not the number: `WH_3_P` carries 3% in the operator's own catalogue.
     $settings->wht_default_tax_code = 'WH_3_P';
 
-    $this->vendor = Vendor::create(['name' => 'SupplyCo', 'category' => 'hvac', 'status' => 'active']);
+    $this->vendor = Vendor::create(['name' => 'SupplyCo', 'status' => 'active']);
 });
 
 /** A bill of `$net` plus 14% VAT — the ordinary Egyptian service bill. */

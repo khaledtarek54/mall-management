@@ -40,7 +40,7 @@ beforeEach(function () {
     $this->apply = app(ApplySlaPenaltyService::class);
     $this->wos = app(FacilityWorkOrderService::class);
     $this->asset = makeAsset(['code' => 'CHG']);
-    $this->vendor = Vendor::create(['name' => 'CoolAir', 'category' => 'hvac', 'status' => 'active']);
+    $this->vendor = Vendor::create(['name' => 'CoolAir', 'status' => 'active']);
     SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
 
     VendorContract::create([
@@ -137,7 +137,7 @@ it('refuses to deduct more than the bill still owes', function () {
 });
 
 it('refuses another vendor\'s bill', function () {
-    $other = Vendor::create(['name' => 'Other', 'category' => 'hvac', 'status' => 'active']);
+    $other = Vendor::create(['name' => 'Other', 'status' => 'active']);
     $bill = VendorBill::create([
         'vendor_id' => $other->id, 'asset_id' => $this->asset->id, 'category' => 'maintenance',
         'status' => 'approved', 'bill_date' => '2026-07-05', 'subtotal' => 5000, 'vat_amount' => 0,

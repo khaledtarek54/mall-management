@@ -20,7 +20,7 @@ use Spatie\Activitylog\Models\Activity;
  * fails CI instead of passing quietly.
  */
 it('records the before and after of a change, in attribute_changes', function () {
-    $vendor = Vendor::create(['name' => 'ProbeCo', 'category' => 'hvac', 'status' => 'active']);
+    $vendor = Vendor::create(['name' => 'ProbeCo', 'status' => 'active']);
     $vendor->update(['name' => 'ProbeCo Renamed']);
 
     $updated = Activity::where('subject_type', MorphMap::alias(Vendor::class))
@@ -36,7 +36,7 @@ it('records the before and after of a change, in attribute_changes', function ()
 
 it('renders a change into something a human can read', function () {
     // The trail is only a control if someone can actually read it in the UI.
-    $vendor = Vendor::create(['name' => 'ProbeCo', 'category' => 'hvac', 'status' => 'active']);
+    $vendor = Vendor::create(['name' => 'ProbeCo', 'status' => 'active']);
     $vendor->update(['status' => 'inactive']);
 
     $updated = Activity::where('subject_type', MorphMap::alias(Vendor::class))

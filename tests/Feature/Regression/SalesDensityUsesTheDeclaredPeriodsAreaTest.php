@@ -37,7 +37,6 @@ beforeEach(function () {
 
     TenantSalesDeclaration::create([
         'lease_id' => $this->lease->id,
-        'tenant_id' => $this->lease->tenant_id,
         'period_start' => '2025-03-01',
         'period_end' => '2025-03-31',
         'declared_sales' => 500000,

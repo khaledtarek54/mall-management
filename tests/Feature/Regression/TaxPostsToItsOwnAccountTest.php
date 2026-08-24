@@ -190,7 +190,6 @@ function vendorBillTaxed(Asset $asset, string $taxCode, float $net, float $tax):
 {
     $vendor = Vendor::create([
         'name' => 'Tax probe vendor '.$taxCode,
-        'category' => 'services',
         'status' => 'active',
     ]);
 

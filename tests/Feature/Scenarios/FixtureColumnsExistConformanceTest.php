@@ -25,6 +25,24 @@ use PhpParser\ParserFactory;
  * reporting 820 "ghosts" that were almost all mis-attribution. A gate that names the wrong file
  * teaches people to ignore gates, so it was not shipped until it walked real AST nodes.
  *
+ * **SWITCHED ON 2026-08-24.** It shipped `->skip()`ed on 2026-08-18 because the tree it landed in
+ * held 58 pre-existing ghost keys across ~40 test files, and turning the build red on someone
+ * else's backlog is how a gate gets deleted rather than obeyed. By the time they were cleared there
+ * were **72**, across 44 files — the list had grown while the gate that would have caught it was
+ * off, which is the argument for not leaving one off.
+ *
+ * Every one was **inert**: the column genuinely does not exist, so Eloquent was already dropping
+ * the key and removing it is behaviour-identical. That is why they were DELETED rather than renamed
+ * to a near neighbour — a rename would start storing a value the test never had, changing what it
+ * proves. `Vendor::category` dominated (25 of 72); `JournalEntry::description` (8) predates the
+ * split into `description_en`/`description_ar`; `InvoiceItem::quantity`/`unit_price` (8 each)
+ * describe a line shape this schema never had.
+ *
+ * The two that were NOT inert were fixed when the gate was written: a `Charge` fixture setting
+ * `billing_frequency` where the column is `frequency`, so the charge silently took the default
+ * rather than the stated one, and a `MeterReading` setting `total_cost` where it is `cost`, so a
+ * widget test's reading had no cost at all.
+ *
  * Scope: `Model::create([...])` and `Model::factory()->create([...])` under `tests/`, resolved
  * against the model's real table. Anything it cannot resolve statically is skipped rather than
  * guessed — a false accusation costs more than a miss.
@@ -124,22 +142,4 @@ it('writes only real columns in test fixtures', function () {
     $ghosts = array_values(array_unique($ghosts));
 
     expect($ghosts)->toBe([], "These fixtures write columns that do not exist. Eloquent drops the key silently, so the test sets up a DIFFERENT state than it claims and passes anyway — the shape that hid the GRNI double-count and the unbillable NSF fee:\n  - ".implode("\n  - ", $ghosts)."\n\nUse the real column name, or delete the key if it was describing an intent the product does not support.");
-})->skip(
-    // SHIPPED SKIPPED, deliberately, 2026-08-18. The gate is correct and mutation-proven — it is
-    // switched off only because the tree it landed in has 58 pre-existing ghosts across ~40 test
-    // files, and turning the build red on someone else's backlog is how a gate gets deleted rather
-    // than obeyed.
-    //
-    // Triaged before switching it off, which is the part that matters: almost all 58 are INERT dead
-    // keys (`vendors.category` dominates — no such column and no near neighbour, so the key was
-    // always doing nothing). Two were NOT inert and are fixed: a Charge fixture set
-    // `billing_frequency` where the column is `frequency`, so the charge silently took the default
-    // rather than the stated one; and a MeterReading fixture set `total_cost` where the column is
-    // `cost`, so a widget test's reading had no cost at all. Both now pass with the truthful name.
-    // A third, a VendorBill `amount`, is knowingly wrong — its own comment says "subtotal ignored".
-    //
-    // To switch on: clear the remaining ghosts (mechanical — rename to the real column, or delete a
-    // key that was describing an intent the schema never had), then remove this skip. Scoped in
-    // docs/gap-analysis/README.md
-    'Correct and mutation-proven; off until the 58 pre-existing ghosts are cleared — see §4.1 of plan 10.'
-);
+});

@@ -130,7 +130,6 @@ it('reads the same closing balance through the reconciliation service itself', f
         'period_end' => now()->endOfMonth()->toDateString(),
         'opening_balance' => 0,
         'closing_balance' => 0,
-        'status' => 'draft',
     ]);
 
     $summary = app(ReconcileBankStatementService::class)->for($statement->fresh());

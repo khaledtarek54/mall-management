@@ -103,7 +103,7 @@ it('loads the lines of a credit note', function () {
         'subtotal' => 1000, 'vat_amount' => 140, 'total' => 1140, 'applied_amount' => 0,
     ]);
     CreditNoteItem::create([
-        'credit_note_id' => $note->id, 'description' => 'Credit line', 'type' => 'base_rent',
+        'credit_note_id' => $note->id, 'description' => 'Credit line', 
         'amount' => 1000, 'vat_rate' => 14, 'vat_amount' => 140, 'total' => 1140,
     ]);
 

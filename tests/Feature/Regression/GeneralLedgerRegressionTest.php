@@ -208,7 +208,7 @@ it('posts a balanced pure-VAT vendor bill with no zero-amount line', function ()
         'asset_id' => makeAsset()->id,
         'category' => 'maintenance', 'status' => 'approved',
         'bill_date' => now()->toDateString(),
-        'amount' => 0, 'vat_amount' => 140, // net 0 (subtotal ignored; total enforced = 140)
+        'vat_amount' => 140, // net 0 (subtotal ignored; total enforced = 140)
     ]);
 
     $entry = $this->poster->post($bill->fresh());

@@ -128,7 +128,6 @@ it('offers the reconciler only its own bank\'s postings', function () {
 
     $statement = BankStatement::create([
         'bank_account_id' => $this->cib->id,
-        'asset_id' => $this->asset->id,
         'period_start' => now()->startOfMonth()->toDateString(),
         'period_end' => now()->endOfMonth()->toDateString(),
         'opening_balance' => 0,
@@ -154,7 +153,6 @@ it('falls back to the rail, then the role, when no bank account is named', funct
     // Null is the normal state and must behave exactly as before — otherwise this change would move
     // every existing balance on the day it deployed.
     $plain = Payment::create([
-        'asset_id' => $this->asset->id,
         'tenant_id' => $this->tenant->id,
         'amount' => 5_000,
         'method' => 'bank_transfer',
@@ -429,7 +427,7 @@ it('sees a bank account registered by another process, with no flush', function 
     ]);
 
     $payment = Payment::create([
-        'asset_id' => $this->asset->id, 'tenant_id' => $this->tenant->id,
+        'tenant_id' => $this->tenant->id,
         'bank_account_id' => $id, 'amount' => 3_000, 'method' => 'bank_transfer',
         'payment_date' => now()->toDateString(), 'status' => 'captured',
     ]);
