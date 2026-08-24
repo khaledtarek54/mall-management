@@ -181,10 +181,23 @@ class MonthEndReadinessService
             return $this->step('books_tie_out', 1, self::ATTENTION, $e->getMessage());
         }
 
+        // The CUMULATIVE tie-outs — the GL's AR/AP control accounts and the deposits-held liability
+        // — are skipped by a month-scoped run, correctly: a ledger balance carries every period ever
+        // posted, so comparing it to one month's documents is meaningless. But this row is labelled
+        // "the books tie out" and an operator closes the period from it, and until 2026-08-25 it went
+        // green having checked SIX things where the console checked EIGHT, with nothing naming the
+        // two that were absent. The question at close is "do my books tie out as things now stand?",
+        // which is exactly the cumulative question — so they are run unscoped and merged in.
+        try {
+            $checks = array_merge($result['checks'], $this->books->cumulativeChecks());
+        } catch (Throwable $e) {
+            return $this->step('books_tie_out', 1, self::ATTENTION, $e->getMessage());
+        }
+
         // A check counts as passed ONLY if it says so. Defaulting a missing/renamed key to "passed"
         // would make this row green for the wrong reason — the exact failure this whole screen
         // exists to prevent — so an unreadable result is treated as a failure, loudly.
-        $failed = collect($result['checks'])->reject(fn (array $c) => ($c['passed'] ?? false) === true);
+        $failed = collect($checks)->reject(fn (array $c) => ($c['passed'] ?? false) === true);
 
         return $this->step(
             'books_tie_out',

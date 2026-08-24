@@ -31,6 +31,33 @@
 > alone, and so does the bank-match candidate picker — that is a **selection**, not a sum. The test
 > is whether you are summing money.
 
+
+> **⚠️ Closing a month checked SIX things while the console checked EIGHT (fixed 2026-08-25).** The
+> month-end close screen renders a readiness row labelled *"the books tie out"*, and an operator
+> closes the accounting period from it. It called `BooksReconciliationService::run('YYYY-MM')`, and a
+> month-scoped run deliberately skips the two **cumulative** tie-outs — the GL's AR/AP control
+> accounts and the deposits-held liability — because a ledger balance carries every period ever
+> posted, so comparing it to one month's documents is not a weaker check but a meaningless one.
+>
+> **The skip was right; going quiet about it was not.** The row went green having never looked at the
+> general ledger, with nothing on the page naming the two checks that were absent. The question asked
+> at close — *"do my books tie out as things now stand?"* — is exactly the cumulative question, so
+> `cumulativeChecks()` was extracted (one definition, two callers: `run()` and the close screen) and
+> the readiness step merges them. Both paths now report the same eight.
+>
+> `ClosingAMonthLooksAtTheLedgerTest` proves it the only way that works: it **breaks the ledger** and
+> asks the READINESS SERVICE, because asserting that `cumulativeChecks()` exists tests the ingredient
+> and not the dish — the first version of that test stayed green with the merge deleted.
+
+> **The control totals now reconcile on their own face (2026-08-25).** `billing:reconcile` prints its
+> totals under *"reconcile these against your books"* and printed AR **gross** — 1,481,825.54 on the
+> seeded portfolio, against 1,477,325.54 in the AR control account. The 4,500 is two unapplied credit
+> notes, which correctly credit AR the moment they are **issued** (Yardi posts a credit memo the same
+> way) and stand against the tenant until applied. Both figures were right and nothing said how they
+> related. The service had already computed `creditOutstanding` and `netAR`, with a comment stating
+> their purpose — *"so the accountant doesn't read AR gross"* — and the renderer dropped them.
+
+
 ## A posted entry is immutable — enforced at the model (2026-08-11)
 
 `JournalPostingService` validates an entry when it **posts** it: every line carries a debit or a

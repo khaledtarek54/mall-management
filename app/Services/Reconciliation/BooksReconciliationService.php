@@ -262,45 +262,10 @@ class BooksReconciliationService
         }
         $checks[] = $this->check('cam_allocations', 'CAM allocations tie to the pool + billed ones have a charge or credit note', $d);
 
-        // 7. GL tie-out: the general ledger's AR/AP control accounts must equal the
-        //    source-derived receivables/payables. GL balances are CUMULATIVE, so this
-        //    only makes sense all-time — skip it for a month-scoped run. Skipped
-        //    entirely when the GL isn't configured/populated (nothing to tie out).
+        // 7-8. The CUMULATIVE tie-outs (GL control accounts, deposits held). Extracted so the
+        //      month-end close screen can run them too — see cumulativeChecks().
         if ($month === null) {
-            $gl = $this->glTieOut();
-            if (($gl['configured'] ?? false) === true) {
-                $d = [];
-                if (abs($gl['ar']['delta']) > self::EPS) {
-                    $d[] = ['ref' => 'Accounts Receivable', 'detail' => "GL {$gl['ar']['gl']} ≠ source AR {$gl['ar']['expected']} (delta {$gl['ar']['delta']})"];
-                }
-                if (abs($gl['ap']['delta']) > self::EPS) {
-                    $d[] = ['ref' => 'Accounts Payable', 'detail' => "GL {$gl['ap']['gl']} ≠ source AP {$gl['ap']['expected']} (delta {$gl['ap']['delta']})"];
-                }
-                $checks[] = $this->check('gl_tie_out', 'General ledger AR/AP ties to source documents', $d);
-
-                // Deep, per-document check (opt-in via --deep): every posting document's entry
-                // must equal its current re-derived state. Catches drift the AR/AP control-account
-                // tie-out can't see — a mis-typed revenue split, wrong VAT, a stale cash/inventory/
-                // deposit/payroll posting — by dry-running sync() over every source. Slower.
-                if ($deep) {
-                    $checks[] = $this->check('gl_in_sync', 'Every posting document\'s ledger entry matches its current state', $this->glDriftDiscrepancies());
-                }
-            }
-
-            // 8. Security deposits: what the operator holds must equal the `deposits_held`
-            //    liability. Cumulative like the AR/AP tie-out above, so all-time only.
-            //
-            //    This exists because the two roads a deposit arrives by are counted in different
-            //    places and nothing compared them. A deposit recorded as a `DepositTransaction`
-            //    posts Dr Bank / Cr Deposits Held; a deposit BILLED posts Dr AR / Cr Deposits Held
-            //    and is settled by a payment. Both credit the same liability, but only the first
-            //    leaves a row in the register — so the register read 390,000 against a 534,000
-            //    liability and no check anywhere would have said so.
-            $checks[] = $this->check(
-                'deposits_tie_out',
-                'Security deposits held tie to the deposits-held liability',
-                $this->depositTieOutDiscrepancies(),
-            );
+            $checks = array_merge($checks, $this->cumulativeChecks($deep));
         }
 
         // Control totals — the figures an accountant reconciles against their own books.
@@ -334,6 +299,68 @@ class BooksReconciliationService
             'checks' => $checks,
             'controlTotals' => $controlTotals,
         ];
+    }
+
+    /**
+     * The tie-outs that are only meaningful ALL-TIME: the GL's AR/AP control accounts and the
+     * deposits-held liability. A general-ledger balance is CUMULATIVE — it carries every period
+     * ever posted — so comparing it to one month's documents is not a weaker check, it is a
+     * meaningless one, which is why `run()` skips these for a month-scoped call.
+     *
+     * Extracted (2026-08-25) because the MONTH-END CLOSE screen ran `run('YYYY-MM')` and therefore
+     * showed a green row labelled "the books tie out" having never looked at the general ledger:
+     * eight checks on the console, six on the screen an accountant actually closes the period from,
+     * with nothing saying which two were absent. The skip was right; going quiet about it was not.
+     *
+     * The question at close — "do my books tie out as things now stand?" — is exactly the
+     * cumulative question, so the close screen runs these unscoped and merges them in.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function cumulativeChecks(bool $deep = false): array
+    {
+        $checks = [];
+
+        // 7. GL tie-out: the general ledger's AR/AP control accounts must equal the
+        //    source-derived receivables/payables. GL balances are CUMULATIVE, so this
+        //    only makes sense all-time — skip it for a month-scoped run. Skipped
+        //    entirely when the GL isn't configured/populated (nothing to tie out).
+        $gl = $this->glTieOut();
+        if (($gl['configured'] ?? false) === true) {
+            $d = [];
+            if (abs($gl['ar']['delta']) > self::EPS) {
+                $d[] = ['ref' => 'Accounts Receivable', 'detail' => "GL {$gl['ar']['gl']} ≠ source AR {$gl['ar']['expected']} (delta {$gl['ar']['delta']})"];
+            }
+            if (abs($gl['ap']['delta']) > self::EPS) {
+                $d[] = ['ref' => 'Accounts Payable', 'detail' => "GL {$gl['ap']['gl']} ≠ source AP {$gl['ap']['expected']} (delta {$gl['ap']['delta']})"];
+            }
+            $checks[] = $this->check('gl_tie_out', 'General ledger AR/AP ties to source documents', $d);
+
+            // Deep, per-document check (opt-in via --deep): every posting document's entry
+            // must equal its current re-derived state. Catches drift the AR/AP control-account
+            // tie-out can't see — a mis-typed revenue split, wrong VAT, a stale cash/inventory/
+            // deposit/payroll posting — by dry-running sync() over every source. Slower.
+            if ($deep) {
+                $checks[] = $this->check('gl_in_sync', 'Every posting document\'s ledger entry matches its current state', $this->glDriftDiscrepancies());
+            }
+        }
+
+        // 8. Security deposits: what the operator holds must equal the `deposits_held`
+        //    liability. Cumulative like the AR/AP tie-out above, so all-time only.
+        //
+        //    This exists because the two roads a deposit arrives by are counted in different
+        //    places and nothing compared them. A deposit recorded as a `DepositTransaction`
+        //    posts Dr Bank / Cr Deposits Held; a deposit BILLED posts Dr AR / Cr Deposits Held
+        //    and is settled by a payment. Both credit the same liability, but only the first
+        //    leaves a row in the register — so the register read 390,000 against a 534,000
+        //    liability and no check anywhere would have said so.
+        $checks[] = $this->check(
+            'deposits_tie_out',
+            'Security deposits held tie to the deposits-held liability',
+            $this->depositTieOutDiscrepancies(),
+        );
+
+        return $checks;
     }
 
     /**
