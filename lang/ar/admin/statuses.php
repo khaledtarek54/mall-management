@@ -241,6 +241,8 @@ return [
                 'IT' => 'تقنية المعلومات',
                 'vehicles' => 'مركبات',
                 'fit-out' => 'تجهيز الوحدة',
+                'generator' => 'مولد كهربائي',
+                'elevator' => 'مصعد',
             ],
             'warehouse' => [
                 'spare_parts' => 'قطع غيار',

@@ -3040,7 +3040,7 @@ class DemoSeeder extends Seeder
     {
         $svc = app(StockMovementService::class);
 
-        $parts = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Parts Store', 'code' => 'PST', 'category' => 'spare parts', 'is_active' => true]);
+        $parts = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Parts Store', 'code' => 'PST', 'category' => 'spare_parts', 'is_active' => true]);
         $consum = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Consumables Store', 'code' => 'CSM', 'category' => 'consumables', 'is_active' => true]);
 
         $catalog = [

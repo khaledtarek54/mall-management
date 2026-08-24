@@ -241,6 +241,8 @@ return [
                 'IT' => 'IT',
                 'vehicles' => 'Vehicles',
                 'fit-out' => 'Fit-out',
+                'generator' => 'Generator',
+                'elevator' => 'Elevator',
             ],
             'warehouse' => [
                 'spare_parts' => 'Spare parts',
