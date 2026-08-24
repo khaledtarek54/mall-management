@@ -44,13 +44,33 @@ function apiResourceModel(string $source): ?object
         return null;
     }
 
-    $class = '\\'.ltrim($m[1], '\\');
+    $named = ltrim($m[1], '\\');
 
-    return class_exists($class) ? new $class : null;
+    // Resolve the SHORT name the way PHP would, which this did not until 2026-08-24.
+    //
+    // Every one of the 17 resources writes `@mixin Invoice`, not `@mixin \App\Models\Invoice` —
+    // so `class_exists('\Invoice')` was false for all of them, every file was skipped at the
+    // `continue` below, and this gate swept ZERO resources and passed. The vacuity failure this
+    // codebase has now shipped four times, in the gate guarding the mobile API contract.
+    $candidates = [$named, 'App\\Models\\'.$named];
+
+    // …and the file's own imports, which is what PHP actually consults for a short name.
+    if (preg_match('/^use\s+([A-Za-z0-9_\\\\]+\\\\'.preg_quote($named, '/').');/m', $source, $u)) {
+        array_unshift($candidates, $u[1]);
+    }
+
+    foreach ($candidates as $candidate) {
+        if (class_exists($candidate)) {
+            return new $candidate;
+        }
+    }
+
+    return null;
 }
 
 it('emits only fields that still exist on the model', function () {
     $problems = [];
+    $swept = 0;
 
     foreach (apiResourceFiles() as $path => $source) {
         $model = apiResourceModel($source);
@@ -58,6 +78,8 @@ it('emits only fields that still exist on the model', function () {
         if (! $model || ! Schema::hasTable($model->getTable())) {
             continue;
         }
+
+        $swept++;
 
         $columns = Schema::getColumnListing($model->getTable());
 
@@ -81,6 +103,10 @@ it('emits only fields that still exist on the model', function () {
                 .class_basename($model::class);
         }
     }
+
+    // The sweep must have RESOLVED resources before reporting none broken. Without this the gate
+    // passed while skipping all 17 — see the note in `apiResourceModel()`.
+    expect($swept)->toBeGreaterThan(12);
 
     expect($problems)->toBe([], "API resources reading something that no longer exists:\n  ".implode("\n  ", $problems));
 })->group('api');

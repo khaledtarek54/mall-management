@@ -341,5 +341,117 @@
     "path": "app/Filament/Admin/Resources/ExpenseCategories/Schemas/ExpenseCategoryForm.php",
     "old": "                    fn ($record) => Rule::unique('expense_categories', 'code')->ignore($record?->id),",
     "new": "                    fn ($record) => Rule::unique('expense_categories', 'code')->ignore($record?->id),\n                ])\n                ->unique(modifyRuleUsing: fn ($rule, $get) => $rule->where('asset_id', $get('asset_id')))\n                ->rules(["
+  },
+  {
+    "name": "PermissionReach \u2014 a permission nothing checks",
+    "gate": "tests/Feature/Scenarios/PermissionReachConformanceTest.php",
+    "path": "database/seeders/RolesPermissionsSeeder.php",
+    "old": "            'units.view' => 'View units',",
+    "new": "            'units.view' => 'View units',\n            'units.teleport' => 'A right nothing checks',"
+  },
+  {
+    "name": "BillableAgreementIsConfigurable \u2014 an agreement loses its charges screen",
+    "gate": "tests/Feature/Scenarios/BillableAgreementIsConfigurableConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/UnitOwnerships/UnitOwnershipResource.php",
+    "old": "UnitOwnershipChargesRelationManager::class,",
+    "new": ""
+  },
+  {
+    "name": "ReorderableColumns \u2014 a custom table page ships a blank-label column",
+    "gate": "tests/Feature/Scenarios/ReorderableColumnsConformanceTest.php",
+    "path": "app/Filament/Concerns/RendersNotificationCentre.php",
+    "old": "->reorderableColumns(false)",
+    "new": "->reorderableColumns(true)"
+  },
+  {
+    "name": "DocumentSeriesOrdering \u2014 an allocator drops its LENGTH ordering",
+    "gate": "tests/Feature/Scenarios/DocumentSeriesOrderingConformanceTest.php",
+    "path": "app/Models/Concerns/AllocatesPartyCode.php",
+    "old": "->orderByRaw('LENGTH(code) DESC, code DESC')",
+    "new": "->orderByDesc('code')"
+  },
+  {
+    "name": "ActivitySubjectLabel \u2014 an audited model loses its English name",
+    "gate": "tests/Feature/Scenarios/ActivitySubjectLabelConformanceTest.php",
+    "path": "lang/en/admin/activity.php",
+    "old": "            'holiday' => 'Holiday',\n",
+    "new": ""
+  },
+  {
+    "name": "DocumentsCarryTheMallLogo \u2014 a PDF template drops the issuer logo",
+    "gate": "tests/Feature/Scenarios/DocumentsCarryTheMallLogoConformanceTest.php",
+    "path": "resources/views/pdf/credit-note.blade.php",
+    "old": "                    @include('partials.issuer-logo')\n",
+    "new": ""
+  },
+  {
+    "name": "DerivedFields \u2014 a form's derivable group loses its classification",
+    "gate": "tests/Feature/Scenarios/DerivedFieldsConformanceTest.php",
+    "path": "app/Support/DerivedFields.php",
+    "old": "        LeaseForm::class => [\n            'lease_term' => [\n",
+    "new": "        LeaseForm::class => [\n            'zz_unclassified' => [\n"
+  },
+  {
+    "name": "Navigation \u2014 a screen is placed that does not exist",
+    "gate": "tests/Feature/Scenarios/NavigationConformanceTest.php",
+    "path": "app/Support/Navigation.php",
+    "old": "        NotificationCenter::class,\n",
+    "new": "        NotificationCenter::class,\n        \\App\\Filament\\Admin\\Pages\\ZzNoSuchPage::class,\n"
+  },
+  {
+    "name": "SavedViewsCoverage \u2014 a list loses its saved-views trait",
+    "gate": "tests/Feature/Scenarios/SavedViewsCoverageConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Assets/Pages/ListAssets.php",
+    "old": "    use SavesTableViews;\n",
+    "new": ""
+  },
+  {
+    "name": "ModelConstantsMatchValueSets \u2014 a shadowing constant drifts from the registry",
+    "gate": "tests/Feature/Scenarios/ModelConstantsMatchValueSetsConformanceTest.php",
+    "path": "app/Models/CustomField.php",
+    "old": "public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'boolean'];",
+    "new": "public const TYPES = ['text', 'textarea', 'number', 'date', 'select', 'boolean'    'zz_not_a_type',\n];"
+  },
+  {
+    "name": "TaxCatalogue \u2014 the standard rate disagrees with the floor",
+    "gate": "tests/Feature/Scenarios/TaxCatalogueConformanceTest.php",
+    "path": "app/Support/Vat.php",
+    "old": "    public const STANDARD_TAX_CODE = 'VAT_14';",
+    "new": "    public const STANDARD_TAX_CODE = 'VAT_ZZ';"
+  },
+  {
+    "name": "PdfDocument \u2014 a template hardcodes the issuing entity",
+    "gate": "tests/Feature/Scenarios/PdfDocumentConformanceTest.php",
+    "path": "resources/views/pdf/credit-note.blade.php",
+    "old": "                    @include('partials.issuer-logo')",
+    "new": "                    <span>Atriom</span>\n                    @include('partials.issuer-logo')"
+  },
+  {
+    "name": "NotificationDeepLink \u2014 a notification points at the other panel",
+    "gate": "tests/Feature/Scenarios/NotificationDeepLinkConformanceTest.php",
+    "path": "app/Support/NotificationTargets.php",
+    "old": "        InvoiceIssuedNotification::class => [\n            'record' => [Invoice::class, 'invoice_id'],\n            'admin' => InvoiceResource::class,",
+    "new": "        InvoiceIssuedNotification::class => [\n            'record' => [Invoice::class, 'invoice_id'],\n            'admin' => \\App\\Filament\\Portal\\Resources\\Invoices\\InvoiceResource::class,"
+  },
+  {
+    "name": "ApiResourceField \u2014 the wire emits a field the model does not have",
+    "gate": "tests/Feature/Scenarios/ApiResourceFieldConformanceTest.php",
+    "path": "app/Http/Resources/Api/V1/DeviceTokenResource.php",
+    "old": "            'platform' => $this->platform,",
+    "new": "            'platform' => $this->platform,\n            'zz_no_such_field' => $this->zz_no_such_field,"
+  },
+  {
+    "name": "ApiResourceField \u2014 the sweep resolves nothing (the original vacuous state)",
+    "gate": "tests/Feature/Scenarios/ApiResourceFieldConformanceTest.php",
+    "path": "tests/Feature/Scenarios/ApiResourceFieldConformanceTest.php",
+    "old": "    foreach ($candidates as $candidate) {",
+    "new": "    foreach ([] as $candidate) {"
+  },
+  {
+    "name": "NotificationLocale \u2014 a bell row is written as resolved prose",
+    "gate": "tests/Feature/Scenarios/NotificationLocaleConformanceTest.php",
+    "path": "app/Notifications/AreaWorkOrderRaisedNotification.php",
+    "old": "            'title' => __('admin.notifications.area_work_order_raised_title', [\n                'area' => $this->order->areaName() ?? '\u2014',\n            ]),",
+    "new": "            'title' => 'Work order raised in '.($this->order->areaName() ?? '\u2014'),"
   }
 ]
