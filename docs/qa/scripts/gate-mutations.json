@@ -299,5 +299,47 @@
     "path": "lang/ar/admin/statuses.php",
     "old": "                'generator' => '\u0645\u0648\u0644\u062f \u0643\u0647\u0631\u0628\u0627\u0626\u064a',\n",
     "new": ""
+  },
+  {
+    "name": "ActivityLogVocabulary \u2014 a foreign key points at a model that does not exist",
+    "gate": "tests/Feature/Scenarios/ActivityLogVocabularyConformanceTest.php",
+    "path": "app/Support/ActivityVocabulary.php",
+    "old": "        'area_id' => Area::class,",
+    "new": "        'area_id' => \\App\\Models\\ZzNoSuchModel::class,"
+  },
+  {
+    "name": "EveryFloorCodeIsOffered \u2014 a floor code leaves the accepted set",
+    "gate": "tests/Feature/Scenarios/EveryFloorCodeIsOfferedConformanceTest.php",
+    "path": "app/Support/ValueSets.php",
+    "old": "        'deposit_transactions.method' => ['cash', 'bank'],",
+    "new": "        'deposit_transactions.method' => ['cash'],"
+  },
+  {
+    "name": "TestHelperUniqueness \u2014 two files declare the same file-scope helper",
+    "gate": "tests/Feature/Scenarios/TestHelperUniquenessConformanceTest.php",
+    "path": "tests/Feature/Scenarios/CategorySuggestionsTest.php",
+    "old": "<?php\n",
+    "new": "<?php\n\nfunction makeInvoice(): void {}\n"
+  },
+  {
+    "name": "PhpExtensions \u2014 a required extension leaves the register",
+    "gate": "tests/Feature/Scenarios/PhpExtensionsConformanceTest.php",
+    "path": "app/Support/PhpExtensions.php",
+    "old": "        'zip' => 'no XLSX export and no owner pack \u2014 and backup:run writes nothing, though that one fails in the CLI',\n",
+    "new": ""
+  },
+  {
+    "name": "AdminSmokeManifest \u2014 the manifest drifts from the panel",
+    "gate": "tests/Feature/Scenarios/AdminSmokeManifestConformanceTest.php",
+    "path": "tests/e2e/filament-admin-manifest.json",
+    "old": "            \"class\": \"AccountMappingResource\",\n            \"slug\": \"account-mappings\",\n",
+    "new": "            \"class\": \"AccountMappingResource\",\n            \"slug\": \"account-mappings-drifted\",\n"
+  },
+  {
+    "name": "UniqueRuleScope \u2014 a unique rule is scoped by a raw client value",
+    "gate": "tests/Feature/Scenarios/UniqueRuleScopeConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/ExpenseCategories/Schemas/ExpenseCategoryForm.php",
+    "old": "                    fn ($record) => Rule::unique('expense_categories', 'code')->ignore($record?->id),",
+    "new": "                    fn ($record) => Rule::unique('expense_categories', 'code')->ignore($record?->id),\n                ])\n                ->unique(modifyRuleUsing: fn ($rule, $get) => $rule->where('asset_id', $get('asset_id')))\n                ->rules(["
   }
 ]

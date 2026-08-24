@@ -48,7 +48,7 @@ gate that stays green is a `HOLE`. It verifies each mutation actually LANDED bef
 result, because a substitution that silently does not apply reports a false PASS, which has happened
 twice in this project.
 
-**Result: 43 mutations across 40 gates, four holes — all four in gates that guarded a REGISTRY, and
+**Result: 49 mutations across 46 gates, four holes — all four in gates that guarded a REGISTRY, and
 two of them had a live money defect underneath.**
 
 **One gate is switched OFF and it is the only one.** `FixtureColumnsExistConformanceTest` ships
@@ -99,11 +99,13 @@ and names the class. Two string mutations against it both passed and neither was
 service they severed had a SECOND entry path, one of which this session had added itself an hour
 earlier.
 
-**Four "holes" in the run were invalid MUTATIONS, not weak gates**, and each looked identical to a
+**Five "holes" in the run were invalid MUTATIONS, not weak gates**, and each looked identical to a
 real one until checked: removing `abort_unless` from an action that also carries `->authorize()`
 (the deliberate double-gate); removing one of seven widened columns from a gate that only asserts
 every catalogue is NAMED; hardcoding an inline English array where the gate detects the realistic
-failure — a screen resolving the rail LANG GROUP; and severing one of two paths to a service. A mutation audit needs its own
+failure — a screen resolving the rail LANG GROUP; severing one of two paths to a service; and — the easiest to miss — REMOVING a scope from a
+unique rule when the gate exists to catch one being ADDED. A mutation has to move the code toward
+the defect, not away from it. A mutation audit needs its own
 scepticism: verify what the gate claims before believing it failed.
 
 Two things worth knowing before adding a mutation:
