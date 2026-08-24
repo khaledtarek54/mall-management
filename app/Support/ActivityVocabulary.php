@@ -6,28 +6,35 @@ use App\Models\AccountingPeriod;
 use App\Models\Area;
 use App\Models\Asset;
 use App\Models\BankAccount;
+use App\Models\BankStatementLine;
+use App\Models\Bin;
 use App\Models\Custody;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\Equipment;
 use App\Models\FacilityWorkOrder;
+use App\Models\FailureCode;
 use App\Models\FixedAsset;
 use App\Models\Floor;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\LedgerAccount;
 use App\Models\MarketingBudget;
+use App\Models\MarketingPost;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
-use App\Models\ServicePlan;
-use App\Models\TaxCode;
+use App\Models\Payment;
 use App\Models\PurchaseRequest;
 use App\Models\RecurringExpense;
-use App\Models\VendorContract;
+use App\Models\ServicePlan;
+use App\Models\StockMovement;
+use App\Models\TaxCode;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
+use App\Models\TenantUser;
 use App\Models\Trade;
 use App\Models\Unit;
 use App\Models\UnitOwnership;
@@ -36,6 +43,7 @@ use App\Models\UtilityMeter;
 use App\Models\UtilityTariff;
 use App\Models\Vendor;
 use App\Models\VendorBill;
+use App\Models\VendorContract;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
@@ -230,6 +238,40 @@ class ActivityVocabulary
      *
      * @var array<string, class-string<Model>>
      */
+    /**
+     * Audited columns that END in `_id` and are deliberately NOT record references, with why.
+     *
+     * Added with the activity-log flip, because "everything ending in `_id` is a foreign key" is
+     * wrong here in three different ways and registering them blindly would have made the trail
+     * worse, not better — `national_id` would have been resolved as a record and rendered as
+     * whichever row happened to share that number.
+     *
+     * `ActivityLogForeignKeysAreAccountedForTest` requires every audited `*_id` column to be in
+     * {@see FOREIGN_KEYS} or here, so the next one forces a decision instead of quietly printing
+     * a bare number in a Changes cell.
+     *
+     * @var array<string, string>
+     */
+    public const NOT_A_REFERENCE = [
+        // Identifiers that are values, not pointers.
+        'national_id' => "An Egyptian national ID NUMBER on an employee — a value, not a pointer. Resolving it would render whichever record happened to share that number.",
+        'tax_id' => 'A tax registration number on a tenant or vendor. Same shape as national_id and the same hazard.',
+        'gateway_transaction_id' => "The payment provider's own reference string — meaningful to them, resolvable by nothing here.",
+
+        // Polymorphic halves. The id alone cannot be resolved: it needs its `*_type`, which is
+        // excluded from the audit as structural, so there is nothing to look the class up in.
+        'noteable_id' => 'The id half of a morph pair; without its `*_type` there is no model to resolve it against.',
+        'source_id' => 'The id half of the GL source morph pair — `source_type` names the class and is audited beside it.',
+        'declared_by_id' => 'The id half of a morph pair (a sales declaration can be declared by a user or a tenant user).',
+
+        // Ambiguous without the row: the target differs per model, so one entry would be wrong
+        // somewhere. `equipment.parent_id` IS registered, keyed by table, which is the pattern to
+        // follow if another of these ever needs resolving.
+        'parent_id' => 'The target differs by model, so a single mapping would be wrong somewhere. Register it per table (`equipment.parent_id`) when a model needs it.',
+        'supersedes_id' => 'Points at another row of the SAME model, which varies by subject; register per table if it needs resolving.',
+        'journal_line_id' => 'A ledger LINE, which has no name of its own — its entry is what a reader follows, and that is audited separately.',
+    ];
+
     private const FOREIGN_KEYS = [
         'accounting_period_id' => AccountingPeriod::class,
         'area_id' => Area::class,
@@ -249,6 +291,41 @@ class ActivityVocabulary
         'head_user_id' => User::class,
         'inventory_item_id' => InventoryItem::class,
         'invoice_id' => Invoice::class,
+        // Added with the activity-log flip: these columns became audited, and an unregistered
+        // *_id renders as a bare number in a Changes cell.
+        'author_id' => User::class,
+        'closed_by_user_id' => User::class,
+        'completed_by_user_id' => User::class,
+        'decided_by_user_id' => User::class,
+        'fault_recorded_by_user_id' => User::class,
+        'finalised_by_user_id' => User::class,
+        'imported_by_user_id' => User::class,
+        'locked_by_user_id' => User::class,
+        'matched_by_user_id' => User::class,
+        'moved_by_user_id' => User::class,
+        'ordered_by_user_id' => User::class,
+        'posted_by_user_id' => User::class,
+        'received_by_user_id' => User::class,
+        'reconciled_by_user_id' => User::class,
+        'recorded_by_user_id' => User::class,
+        'requested_by_user_id' => User::class,
+        'submitted_by_user_id' => User::class,
+        'waived_by_user_id' => User::class,
+        'bank_statement_line_id' => BankStatementLine::class,
+        'billed_invoice_id' => Invoice::class,
+        'bin_id' => Bin::class,
+        'cleared_payment_id' => Payment::class,
+        'facility_work_order_id' => FacilityWorkOrder::class,
+        'failure_cause_id' => FailureCode::class,
+        'failure_problem_id' => FailureCode::class,
+        'failure_remedy_id' => FailureCode::class,
+        'marketing_post_id' => MarketingPost::class,
+        'nsf_fee_invoice_id' => Invoice::class,
+        'participant_area_id' => Area::class,
+        'reversal_of_id' => JournalEntry::class,
+        'source_item_id' => InventoryItem::class,
+        'stock_movement_id' => StockMovement::class,
+        'submitted_by_tenant_user_id' => TenantUser::class,
         'late_fee_invoice_id' => Invoice::class,
         'late_fee_for_invoice_id' => Invoice::class,
         'issued_by_user_id' => User::class,

@@ -398,11 +398,36 @@ resolve in **both** locales, or the build fails. Two traps it encodes:
 
 #### Extension points — adding or changing anything that logs activity
 
+**What is audited is a DENYLIST, not an allowlist** (2026-08-24). `App\Support\ActivityLogging::for($this, 'log_name')`
+is the single seam all 85 audited models take, and it logs **every fillable column** minus
+`ActivityLogging::NEVER`. A model writing its own `->logOnly([...])` is the shape this replaced —
+it meant a column was invisible to the trail until somebody remembered it, `Lease` audited 9 of 52,
+and editing the notes on a lease recorded **nothing at all** (with `dontLogEmptyChanges()`, a save
+in which nothing *watched* moved writes no row, not an empty one). App-wide that was **467 of 1,063
+operator-settable columns invisible — 43%** — and 33 models where a `notes` edit vanished.
+
+Three rules the seam encodes, each learned in the flip itself:
+
+- **Only three things earn a denylist entry**: a value no person set (a scheduled scan's stamp), a
+  value derived from one already audited, and a credential. `password` is FILLABLE on both `User`
+  and `Tenant`, so `ActivityLogging::CREDENTIALS` is what stops hashes reaching `activity_log`.
+- **The floor beats the denylist.** `COVERAGE_FLOOR` records what each model audited before the
+  flip, and `excludedFor()` subtracts it before applying any rule — because inverting an allowlist
+  raises coverage almost everywhere, and that is exactly what hides an entry which *removes* it.
+  Two real cases: `paid_amount`/`balance` excluded as "derived" on all three money documents, and
+  the morph-half rule taking `JournalEntry.source_type`. Only credentials override the floor.
+- **A `_type` suffix is not a morph half.** That rule swallowed `escalation_type` and
+  `percentage_rent_calculation_type` — operator classifications. A morph half is identified by its
+  PAIR: `noteable_type` is structural because `noteable_id` sits beside it.
+
 **Adding a model to the activity log** (`use LogsActivity` + `getActivitylogOptions()`):
 
-1. `useLogName('your_thing')` → add `admin.activity.subjects.your_thing` to **`lang/en/admin.php`
-   AND `lang/ar/admin.php`**.
-2. Every column in `logOnly([...])` needs a label. Check `admin.fields.*` first and **reuse the
+1. `return ActivityLogging::for($this, 'your_thing');` → add `admin.activity.subjects.your_thing`
+   to **`lang/en/admin.php` AND `lang/ar/admin.php`**, and add a `COVERAGE_FLOOR` entry (the gate
+   fails on a model without one, so it cannot later lose coverage unnoticed). A column that is not
+   fillable but still records a decision goes through `alsoLog:` — three models need it
+   (`FacilityWorkOrder::sla_clock`, `TenantRequest::confirmed_at`, `User::email_verified_at`).
+2. Every audited column needs a label. Check `admin.fields.*` first and **reuse the
    key the form already uses** — same word for the same field is the point. Only add a new
    `admin.fields.*` entry if none exists; put it in both locales.
 3. Any column holding an enum-ish string (`status`, `type`, `category`, `method`, `priority`, …)
@@ -411,7 +436,12 @@ resolve in **both** locales, or the build fails. Two traps it encodes:
    the group **the form's `Select` reads from**; do not pick a group because its keys happen to
    match. Values with no catalogue (free text, operator-entered codes) correctly render verbatim.
 4. Any `*_id` column → add it to `ActivityVocabulary::FOREIGN_KEYS` so the diff names the record
-   instead of printing an id. The model must be nameable: `label()` / `displayName()`, or a
+   instead of printing an id — **or to `ActivityVocabulary::NOT_A_REFERENCE` with a reason**, because
+   ending in `_id` does not make a column a pointer: `national_id` and `tax_id` are numbers on a
+   person or a company, `gateway_transaction_id` is the provider's own string, and a morph half has
+   no `*_type` left to resolve against (it is excluded as structural). Registering one of those
+   blindly renders whichever record happened to share the number. A gate requires every audited
+   `*_id` to be in one register or the other. The model must be nameable: `label()` / `displayName()`, or a
    `reference` / `number` / `name` / `code` / `title` column. If it has none, **give it a
    `label()`** (see `AccountingPeriod`). Use a `{log_name}.{field}` key when the column means
    something model-specific (`equipment.parent_id`).
@@ -422,6 +452,12 @@ resolve in **both** locales, or the build fails. Two traps it encodes:
   spatie's `default` and renders as "Other" while being invisible to the log-name filter. Then
   add its `admin.activity.subjects.*` key; a log name needs no model (`settings`).
 - `->event('x')` → add `admin.activity.events.x` in both locales.
+**Bilingual is verified, not assumed.** `Lang::has($key, 'ar', fallback: false)` proves an Arabic
+key EXISTS; it cannot prove somebody did not put an English string in it — the realistic failure
+when 123 labels are written in one pass, and invisible to an English reviewer.
+`ActivityLoggingCoversAtLeastWhatItUsedToTest` therefore RENDERS all 1,034 audited columns in both
+locales and fails on any whose Arabic equals its English or carries no Arabic script.
+
 - `->log('...')` must be a **KEY, not a sentence** — `invoice.voided`, resolved from
   `admin.activity.descriptions.*`, which is **nested** (`__()` reads dots as nesting, so a flat
   `'invoice.voided' => …` key can never be found). Prose written here can never be translated
