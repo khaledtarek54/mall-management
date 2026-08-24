@@ -15,30 +15,33 @@
 >
 > ---
 >
-> ## ✅ ACTED ON — 2026-08-24, the same day
+> ## Where this stands — 2026-08-24, end of day
 >
-> **Every MVP-blocking finding in this report is FIXED**, with regression tests
-> (`ClearedChequeSettlesWhatIsOpenTest`, `CutoverAndChargeTermsSurviveTest`) and the touched suites
-> re-run green: AR-GL-02 · GAP1B-01 · AR-GL-01 · D3-01 · D3-02 · D3-03 · M4B-01 · M4B-02 · M4B-03,
-> plus the small ones (M4B-04, M4B-05, AR-GL-04, D3-05, OPS-02) and the two actively-misleading
-> doc/code claims (M4B-07, D2-06).
+> | | Count | Where it is now |
+> |---|---|---|
+> | ✅ **Fixed** (commit `b428a396`) | **14** | Below, each row marked ✅. 17 new regression tests + 25 existing suites + 8 conformance gates re-run green; `billing:reconcile --deep` still 9/9 on real data |
+> | ⏳ **Waiting** — not MVP-blocking | **19** | [POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md) — the live list, each with the reason it can wait |
+> | 🔑 **Needs a decision, not code** | **6** | [STATUS.md](../STATUS.md) §2/§5, unchanged by this round except where noted |
+> | 📄 **Documentation drift** | **12** | 2 fixed (they were active traps), 10 in the backlog §4 |
+> | ✔️ **Verified clean, nothing to do** | rest | §1 below |
 >
-> **Everything else was judged not MVP-blocking and moved to
-> [POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md)** with the reason it can wait. That document is
-> now the live list; the sections below are kept as the EVIDENCE — what was measured, on what data,
-> and what the adversarial pass could not refute.
+> **The staging answer did not change: nothing blocks the cutover.** What changed is that the money
+> findings which *would* have gone wrong in the first weeks are closed rather than scheduled.
+>
+> The sections below are the EVIDENCE — what was measured, on what data, and what the adversarial
+> pass could not refute. Each row now carries its own state, so no reader has to cross-check.
 
 **Sections:** [0 · Verdict & market position](#0--the-verdict-and-where-atriom-stands-in-the-market) ·
 [1 · What was verified clean](#1--what-was-verified-clean) ·
-[2 · Money defects](#2--money-defects-new-fix-before-real-money) ·
-[3 · Other new defects](#3--other-new-defects) ·
+[2 · Money defects — all fixed](#2--money-defects--all-fixed-commit-b428a396-2026-08-24) ·
+[3 · Other new defects — waiting](#3--other-new-defects--waiting-backlogged) ·
 [4 · Gap analysis: Yardi, market, large systems](#4--gap-analysis--yardi-first-market-second-large-systems-third) ·
 [5 · Architecture & operational deviations](#5--architecture--operational-deviations) ·
-[6 · UI/UX vs the market](#6--uiux-vs-the-market) ·
+[6 · UI/UX — waiting](#6--uiux-vs-the-market--all-waiting-backlog-1) ·
 [7 · Staging/ops readiness](#7--stagingops-readiness) ·
 [8 · Documentation drift](#8--documentation-drift-found-by-this-round) ·
 [9 · Refuted findings](#9--refuted-findings-kept-for-honesty) ·
-[10 · Ordered recommendations](#10--ordered-recommendations)
+[10 · Done vs waiting](#10--ordered-recommendations--what-is-done-what-is-waiting)
 
 ---
 
@@ -47,10 +50,10 @@
 **Nothing found blocks a staging cutover.** Every read-only gate the project ships was executed and
 passed (§1), the AR/AP posting cores verified sound at their foundations, and the go-live blockers
 remain exactly the credentials, infrastructure and client decisions STATUS.md already records. What
-this round adds is **two high-severity money findings** (AR-GL-02, GAP1B-01), a cluster of
-medium-severity latent money defects that should be fixed before the first real month, and a set of
-gap-record blind spots — none of which changes the staging answer, all of which change what the
-first weeks of production should schedule.
+this round added was **two high-severity money findings** (AR-GL-02, GAP1B-01) and a cluster of
+medium-severity latent money defects — **all now fixed** (§2) — plus a set of gap-record blind spots
+and UX gaps that are genuinely fine to carry into the first weeks
+([POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md)).
 
 ### The market position, stated directly
 
@@ -126,12 +129,15 @@ Run live on this workstation (read-only), or re-proven from committed code, duri
 
 ---
 
-## 2 · Money defects (new — fix before real money)
+## 2 · Money defects — ✅ ALL FIXED (commit `b428a396`, 2026-08-24)
 
-None is wrong-money **today**; each is armed by a routine event (an unlinked cheque clearing, a
-renewal, the accountant's C-TAX answer, a non-January fiscal year, a schedule catch-up, cutover).
+None was wrong-money **on the day it was found**; each was armed by a routine event (an unlinked
+cheque clearing, a renewal, the accountant's C-TAX answer, a non-January fiscal year, a schedule
+catch-up, cutover) — which is exactly why they were fixed before staging rather than scheduled.
+Regression tests: `ClearedChequeSettlesWhatIsOpenTest` (10 cases), `CutoverAndChargeTermsSurviveTest`
+(7 cases).
 
-### AR-GL-02 · HIGH — a cleared series cheque mints credit no invoice can ever draw; the tenant can then be late-fee'd while the mall holds their money
+### ✅ AR-GL-02 · HIGH · FIXED — a cleared series cheque minted credit no invoice could ever draw; the tenant could then be late-fee'd while the mall held their money
 `PostDatedChequeService::clear()` allocates only `if ($cheque->invoice_id)`
 (PostDatedChequeService.php:66), and `lodgeSeries()` deliberately does not pre-link — its docblock
 promises *"each cheque settles whatever is open when it clears, through the normal clear() flow"*,
@@ -149,7 +155,7 @@ oldest-first (mirroring `ApplyDepositToInvoiceService::settleOpenAr`), or attrib
 receipt's credit to `Payment::originatingAssetId()`; regression test = clear an unlinked series
 cheque, assert the next invoice settles. *(Independently re-verified by hand in this synthesis.)*
 
-### GAP1B-01 · HIGH — the security-deposit sub-ledger has no opening/cutover path — the one sub-ledger the opening-balance machinery missed
+### ✅ GAP1B-01 · HIGH · FIXED — the security-deposit sub-ledger had no opening/cutover path, the one sub-ledger the opening-balance machinery missed
 Opening AR has `invoices.is_opening_balance` (journalizer skips), opening fixed assets have their
 flag, the trial balance pastes — but the per-lease deposit register has no equivalent. At cutover a
 legacy tenant's held deposit either reads **zero** (`Lease::depositHeld()` sums register rows;
@@ -161,7 +167,7 @@ line. **Fix (S):** mirror the `is_opening_balance` pattern on `DepositTransactio
 journalizer skip + importer/LeaseImporter column). Must land **before data migration**, not before
 staging.
 
-### AR-GL-01 · MEDIUM — `CreditNoteJournalizer` hard-codes `vat_payable`: the 2026-08-19 tax-role grouping never reached the reversal document
+### ✅ AR-GL-01 · MEDIUM · FIXED — `CreditNoteJournalizer` hard-coded `vat_payable`: the 2026-08-19 tax-role grouping never reached the reversal document
 Only three journalizers resolve tax through the tax code's posting role (invoice, vendor bill,
 expense). The credit note unconditionally debits `vat_payable` from the header and never reads its
 items — despite `credit_note_items.tax_code` existing precisely so a reversal carries its supply's
@@ -174,14 +180,14 @@ group the debit side by item tax role exactly as `InvoiceJournalizer` groups the
 stamp `tax_code` in `describeAs()`/`CreditUnearnedBillingService`; add the credit-note case to
 `TaxPostsToItsOwnAccountTest`. Do this **before C-TAX is answered**.
 
-### M4B-01 · MEDIUM — Form 41's "remitted" and its withheld-ledger tie-out are exact negations of each other — any in-period remittance false-alarms the control
+### ✅ M4B-01 · MEDIUM · FIXED — Form 41's "remitted" and its withheld-ledger tie-out were exact negations of each other, so any in-period remittance false-alarmed the control
 `WithholdingTaxReturnService::accountMovement()` computes net movement both ways over the same
 lines, so `remitted ≡ −withheld_ledger`. Booking Q1's remittance in April (the standard flow) makes
 Q2's return read *ties_out ✗, remitted 0.00*. The screen's own docblock prescribes the very booking
 that breaks it. Dormant only while `wht_enabled` is off. **Fix (S)** before withholding is switched
 on: separate reversal-pair-aware credits from genuine remittance debits + one regression test.
 
-### M4B-02 · MEDIUM — year-end close is hardcoded to the calendar year while the fiscal start month is configurable and C-FY is open
+### ✅ M4B-02 · MEDIUM · FIXED — year-end close was hardcoded to the calendar year while the fiscal start month is configurable and C-FY is open
 `YearEndCloseService` sweeps 1 Jan → 31 Dec and keys `closingEntriesFor()` on `whereYear`, while
 `FiscalCalendar` builds a July FY as 1 Jul → 30 Jun and the UI action pairs the two. On any
 non-January install the retained-earnings roll spans halves of two fiscal years and posts
@@ -189,7 +195,7 @@ mid-year. Dormant on the January default; **armed the day the client answers C-F
 else** — and C-FY is on STATUS's pre-first-invoice list. **Fix (S–M):** derive the span from
 `FiscalCalendar::ensureYear()`, date the entry at `ends_on`, add a July-year close test.
 
-### M4B-03 · MEDIUM — one poison schedule aborts the whole nightly recurring-cost run
+### ✅ M4B-03 · MEDIUM · FIXED — one poison schedule aborted the whole nightly recurring-cost run
 `GenerateRecurringExpensesService::generate()` has no per-schedule error isolation. A schedule
 whose catch-up due date lands in a **closed period** throws from the posting-date guard, rolls back
 (so `last_generated_on` never advances and it fails identically every night), **and propagates out
@@ -198,7 +204,7 @@ schedule entry has no `onFailure`). A historical `starts_on` — natural entry f
 is enough to arm it. **Fix (S):** per-schedule try/catch counted into the command report + alert
 (match `SyncLedgerCommand::recordAndAlertFailures`), skip-and-report on a closed due period.
 
-### D3-01/D3-02/D3-03 · MEDIUM ×3 — the charge-copy sites drop the newest charge terms (`prorate`, `billing_timing`) — this codebase's signature enumerate-from-the-diff defect, recommitted
+### ✅ D3-01/D3-02/D3-03 · MEDIUM ×3 · FIXED — the charge-copy sites dropped the newest charge terms (`prorate`, `billing_timing`) — this codebase's signature enumerate-from-the-diff defect, recommitted
 - **D3-01:** `ChargeScheduleService::overlayWindow()`'s relief + resumed rows copy
   name/frequency/VAT but **not `billing_timing`** (nor `prorate`) — granting relief on an
   arrears-billed service charge silently flips its segments to advance, double- or zero-billing the
@@ -220,7 +226,7 @@ is enough to arm it. **Fix (S):** per-schedule try/catch counted into the comman
 `billing_timing` + `prorate` (+ `end_date` on the resale copy); thread
 `prorationMethodWithin()` into `billOne()`; regression test per path.
 
-### Lower-severity money items
+### ✅ Lower-severity money items — all fixed in the same commit
 - **AR-GL-03 · LOW** — the tenant Statement of Account itemizes only payments + credit notes while
   its `total_paid` counts all four channels; a deposit-netted or credit-drawn settlement cannot be
   reconciled from the printed rows — worst on final move-out statements. Fix S.
@@ -238,20 +244,20 @@ is enough to arm it. **Fix (S):** per-schedule try/catch counted into the comman
 
 ---
 
-## 3 · Other new defects
+## 3 · Other new defects — ⏳ WAITING (backlogged)
 
-- **D3-04 · MEDIUM — `TableView::makeDefault()` clears defaults by the view OWNER's id.** A
+- **⏳ D3-04 · MEDIUM — `TableView::makeDefault()` clears defaults by the view OWNER's id.** A
   colleague adopting a shared view silently wipes the owner's stated personal default (the exact
   invariant the migration promises cannot happen); a non-owner's "clear default" cannot escape a
   team default yet toasts success; two shared defaults can coexist with the **oldest** winning.
   Fix M: restrict set-default on shared views to their owner/managers, or add the per-user
   preference row; test where the owner holds a personal default.
-- **UX5-07 · MEDIUM — the Arabic-chrome gate sweeps the ADMIN panel only.** The tenant portal — the
+- **⏳ UX5-07 · MEDIUM — the Arabic-chrome gate sweeps the ADMIN panel only.** The tenant portal — the
   most Arabic-first surface — has no runtime chrome guard (the static blank-label and `__()`
   locale-arg sweeps do cover it; runtime-derived labels, table/filter/action chrome and group
   headings do not). Portal chrome is translated *today*; this is a missing guard, not a present
   defect. Fix S: parameterise the existing sweep over both panels + report-page filter schemas.
-- **D2-09 · LOW — append-only tables with no prune**: `notifications` (fastest grower), `exports`
+- **⏳ D2-09 · LOW — append-only tables with no prune**: `notifications` (fastest grower), `exports`
   (+files on disk), `failed_import_rows`, `failed_jobs`, expired `personal_access_tokens`
   (`sanctum:prune-expired` unscheduled). Only activity_log got EG-34's treatment. Post-staging
   backlog: a small retention registry + one scheduled command.
@@ -321,19 +327,19 @@ deviations are reasoned, written down, and gated by mutation-proven tests.
 | D2-03 | Suite on sqlite, prod on MySQL | **DEFENSIBLE with residual** — the 6-case MySQL tier + QA harness are real and green (2026-08-24) but opt-in and outside the push loop; this class shipped twice before. → run on the staging box (D2-14) |
 | D2-04 | CI paused, direct pushes, no review | **RISK, owner's standing decision** — 72 gates + CVE audit run only when a human remembers (first-ever audit run found 22 advisories incl. 2 HIGH). Mitigation: `gh workflow run ci.yml` before the cutover commit |
 | D2-05 | Single scheduler + database-queue default; money runs are queued jobs | **DEFENSIBLE** — health goes red on dead worker/cron/failed jobs/db-drivers-in-prod; cutover step 3 installs cron+worker. Open half is STATUS §1.2 (off-box alerting) |
-| D2-06 | ~~No morph map~~ | **STALE PREMISE** — enforced alias morph map since 2026-08-15; **CLAUDE.md:152 still asserts "There is no morph map"** (§8) |
+| D2-06 | ~~No morph map~~ | ✅ **FIXED (the doc)** — an enforced alias morph map has existed since 2026-08-15; CLAUDE.md's present-tense denial was an active trap for the next maintainer and is corrected |
 | D2-07 | ~~Session-state property switcher~~ | **STALE PREMISE** — standard URL-scoped Filament tenancy; the one session leak (search following you across malls) was found and fixed 2026-08-24 |
 | D2-08 | Plaintext .env secrets, no vault | **RISK, recorded (STATUS §1.6)** — verified nothing worse exists anywhere |
-| D2-09 | No retention beyond activity_log | **NEW, LOW** — §3 |
-| D2-10 | No admin API | **DEFENSIBLE, unrecorded** — record the decline |
+| D2-09 | No retention beyond activity_log | ⏳ **NEW, LOW** — §3 |
+| D2-10 | No admin API | ⏳ **DEFENSIBLE, unrecorded** — record the decline (backlog §5) |
 | D2-11 | Hand-maintained bilingual lang arrays | **DEFENSIBLE** — eleven fallback-false gates; residual: not every Mailable send site verified to set recipient locale |
 | D2-12 | 9 vendor-class rebindings + 4 upstream contract pins | **DEFENSIBLE** — upgrade cost localized and red-by-design; lock at v4.11.8, installs off the lock |
 | D2-13 | Leading-wildcard LIKE search, unmeasured at scale | **KNOWN-OPEN (H3)** — measure on the posture-B staging box before optimising |
-| D2-14 | Cutover runbook omits the MySQL test tier | **NEW, XS** — the tier exists *for* the first real-MySQL box and skips silently elsewhere; add one line to step 5 |
+| D2-14 | Cutover runbook omits the MySQL test tier | ⏳ **NEW, XS** — the tier exists *for* the first real-MySQL box and skips silently elsewhere; add one line to step 5 |
 
 ---
 
-## 6 · UI/UX vs the market
+## 6 · UI/UX vs the market — ⏳ ALL WAITING (backlog §1)
 
 The 2026-08-23/24 UX push **held up under code verification** — payment against 3 invoices is one
 form with oldest-first auto-allocation and a live unallocated bar; a PDC year is one dialog; lease
@@ -363,19 +369,20 @@ Plus UX5-07 (portal Arabic gate, §3).
 
 **Verdict: staging-ready.** Every claim in the staging docs verified true (OPS-08, §1). Items:
 
-- **OPS-05 · NOTE** — this workstation's DB still carries the 2026-08-23 E2E residue: 5 rows +
+- **⏳ OPS-05 · NOTE** — this workstation's DB still carries the 2026-08-23 E2E residue: 5 rows +
   **716 stale queued jobs** (714 `SyncDocumentToLedger` — redundant; reconcile passes 9/9), which
   is what turns health's queue row red locally. Reseed after the activity-log session finishes.
-- **OPS-06 · MEDIUM (known-open)** — backups: local-only destination, blank archive password/alert
+- **🔑 OPS-06 · MEDIUM (known-open, operator)** — backups: local-only destination, blank archive password/alert
   email, newest archive ~147h old. Exactly STATUS §1.1; posture-A staging expects these red,
   posture-B must treat them as production.
-- **OPS-07 · NOTE (known-open)** — configuration health red on seller tax identity + billing
+- **🔑 OPS-07 · NOTE (known-open, accountant)** — configuration health red on seller tax identity + billing
   contact = A1.1, precisely as documented.
-- **OPS-02 · LOW** — `Health::checkRuntimeDrivers` refuses only the `database` driver; a deployed
-  box on `QUEUE_CONNECTION=sync` (jobs inline in web requests) passes every health row. XS fix.
-- **OPS-03 · LOW** — a staging box built per the docs keeps `EXPORT_QUEUE_CONNECTION=sync`
+- **✅ OPS-02 · LOW · FIXED** — `Health::checkRuntimeDrivers` refused only the `database` driver, so a
+  deployed box on `QUEUE_CONNECTION=sync` (jobs inline in web requests) passed every health row. It
+  now refuses `sync` on a deployed tier, naming what runs inline.
+- **⏳ OPS-03 · LOW** — a staging box built per the docs keeps `EXPORT_QUEUE_CONNECTION=sync`
   (STAGING.md's delta block never names the key; the production runbook does). One-line delta.
-- **D2-14 · LOW** — add `composer test:mysql` (+ optionally the QA harness) to the cutover runbook
+- **⏳ D2-14 · LOW** — add `composer test:mysql` (+ optionally the QA harness) to the cutover runbook
   step 5 — non-destructive, and the tier exists precisely for that box.
 - **PATH note** — `php` is not on this shell's default PATH (Herd's php84 is), which CLAUDE.md
   already warns will bite the Playwright specs that shell out to artisan.
@@ -385,7 +392,9 @@ Plus UX5-07 (portal Arabic gate, §3).
 ## 8 · Documentation drift found by this round
 
 All stale **in the direction of understating the build** — things shipped that the record still
-sells as open. Half a day closes all of it:
+sells as open. **Two were fixed immediately** because they were active traps for the next maintainer
+rather than mere drift; the remaining ten are a half-day pass, tracked in
+[POST-STAGING-BACKLOG.md §4](POST-STAGING-BACKLOG.md#4--documentation-drift).
 
 | Where | Stale claim | Reality |
 |---|---|---|
@@ -395,11 +404,11 @@ sells as open. Half a day closes all of it:
 | gap-analysis §3.2 vs §7 | CPI escalation "Absent by design — O14" | Built 2026-08-19 (`RentIndex`); §7 says so — one document, two states |
 | gap-analysis §3.6 vs §7 | Revenue forecast "nothing projects forward — O10" | `/admin/revenue-forecast` built 2026-08-19; §7 says so |
 | STATUS §4 A3.4/A3.8 | "per property and consolidated — as described" | Consolidated statements unreachable from any surface (GAP1B-02) |
-| **CLAUDE.md:152** | **"There is no morph map"** | Enforced alias morph map since 2026-08-15 (`Relation::enforceMorphMap`), aliases stored, conformance-gated — the instruction file future sessions act on denies it |
+| ✅ **CLAUDE.md:152** | **"There is no morph map"** | **CORRECTED.** An enforced alias morph map has existed since 2026-08-15 (`Relation::enforceMorphMap`, aliases stored, conformance-gated) — and the instruction file future sessions act on denied it, so a reader would compare a morph column against `::class` |
 | STATUS §7 | Technician phone list "shows cost variance" | Cost columns are toggled off by default on every width; the real phone gap is no date/equipment on PM rows (UX5-05) |
 | benchmarks/yardi/03 | "no CAM statement that shows the working" | `CamStatementPdfService` ships; the verdict doc's ✅ row is right |
 | B1 sizing | gap doc says M, STATUS says XS | Reconcile (the WorkOrderProposal pattern arguably shrinks O7 too) |
-| `LedgerReportService::cashFlow()` docblock | Explains the retired code-prefix classification | Code resolves via `CashFlowSection::for()`; the comment is an active trap (M4B-07) |
+| ✅ `LedgerReportService::cashFlow()` docblock | Explained the retired code-prefix classification | **CORRECTED.** The code resolves via `CashFlowSection::for()`; the comment would have led the next maintainer to re-introduce prefix logic the EG-28 invariant bans (M4B-07) |
 | ci.yml header | "five self-enforcing conformance gates" | 72+ |
 
 ---
@@ -415,33 +424,41 @@ sells as open. Half a day closes all of it:
 
 ---
 
-## 10 · Ordered recommendations
+## 10 · Ordered recommendations — what is done, what is waiting
 
-**Before real money (not before staging):**
-1. **AR-GL-02** — settle-on-clear (or property-attributed credit) for unlinked cheques. The series
-   flow is the market norm and the failure charges late fees to a tenant who paid.
-2. **D3-01/02/03** — one grep-derived pass carrying `prorate` + `billing_timing` (+ resale
-   `end_date`) across every `Charge::create` site, + `billOne()` reading the flag.
-3. **AR-GL-01** — credit-note tax-role grouping, *before the accountant answers C-TAX*.
-4. **M4B-03** — recurring-run per-schedule isolation + alert.
-5. **GAP1B-01** — deposit opening-balance flag, *before data migration*.
-6. **M4B-01** — Form 41 remittance-aware tie-out, *before `wht_enabled` goes on*.
-7. **M4B-02** — fiscal-year-aware close, *before C-FY is answered non-January*.
+### ✅ Done — the "before real money" list, closed 2026-08-24 (commit `b428a396`)
 
-**At the staging cutover (ops, XS each):** run `gh workflow run ci.yml` once; add
-`composer test:mysql` + `EXPORT_QUEUE_CONNECTION` to the staging deltas; extend
-`checkRuntimeDrivers` to refuse `sync`; reseed this workstation after the activity-log session
-lands; measure H3 (search LIKE) on the posture-B box.
+Every row that was going to go wrong in the first weeks of production:
 
-**Docs (half a day):** §8's table, plus dispositions for §4.2's six blind spots and the two
-unrecorded declines (admin API, footfall) so the open list is again the only list a reader needs;
-move UX-08/10/12 into ROADMAP or close them there.
+1. ✅ **AR-GL-02** — settle-on-clear for unlinked cheques **and** property-attributed credit for a
+   genuine advance. The series flow is the market norm and the failure charged late fees to a tenant
+   who had paid.
+2. ✅ **D3-01/02/03** — a grep-derived pass carrying `prorate` + `billing_timing` (+ resale
+   `end_date`) across every `Charge::create` site, and `billOne()` now reads the flag.
+3. ✅ **AR-GL-01** — credit-note tax-role grouping, closed *before* the accountant answers C-TAX.
+4. ✅ **M4B-03** — recurring-run per-schedule isolation, logged, named in the command output, and a
+   non-zero exit so a scheduled run cannot report success while a statutory cost goes unbooked.
+5. ✅ **GAP1B-01** — deposit opening-balance flag, closed *before* data migration.
+6. ✅ **M4B-01** — Form 41 remittance-aware tie-out, closed *before* `wht_enabled` goes on.
+7. ✅ **M4B-02** — fiscal-year-aware close, closed *before* C-FY is answered non-January — including
+   the idempotency lookup, which would otherwise have double-rolled retained earnings.
 
-**First-weeks backlog (product):** dunning ladder (1A-16/UX5-02) · collections inline actions
-(UX5-03) · quick-nav (UX5-04) · MallStats drill-downs (UX5-06) · technician phone columns (UX5-05)
-· portal Arabic gate (UX5-07) · invoice send/resend (UX5-09) · saved-view default ownership
-(D3-04) · consolidated-statement decision (GAP1B-02) · leasing-pipeline decision (1A-15) ·
-statement itemization (AR-GL-03) · A2.1 escalated to the accountant as *probably yes, and early*.
+Plus the small ones in the same commit: M4B-04 · M4B-05 · AR-GL-04 · D3-05 · OPS-02 · M4B-07 · D2-06.
+
+**Verification:** 17 new regression tests (2 files) · 25 existing suites re-run · 8 conformance gates
+green · migration applied locally · `billing:reconcile --deep` **9/9 on real data** after the change.
+
+### ⏳ Waiting — and where it lives
+
+Everything below is in **[POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md)**, which is now the live
+list. Nothing here blocks the cutover.
+
+| When | What |
+|---|---|
+| **At the cutover (ops, XS each)** | `gh workflow run ci.yml` once · add `composer test:mysql` and `EXPORT_QUEUE_CONNECTION` to the staging deltas · reseed this workstation · measure H3 (search `LIKE`) on the posture-B box |
+| **Docs (half a day)** | §8's remaining ten rows · dispositions for §4.2's six blind spots and the two unrecorded declines (admin API, footfall) · move UX-08/10/12 into ROADMAP or close them there |
+| **First weeks (product)** | dunning ladder (1A-16/UX5-02, **do this first**) · collections inline actions (UX5-03) · invoice send/resend (UX5-09) · MallStats drill-downs (UX5-06) · technician phone columns (UX5-05) · portal Arabic gate (UX5-07) · quick-nav (UX5-04) · CAM workbench (UX5-01) · saved-view default ownership (D3-04) · statement itemization (AR-GL-03) · retention/prune (D2-09) |
+| **Needs an answer, not code** | A2.1 (tenant-side withholding — **escalate as *probably yes, and early***) · A2.7 (one TRN or one per owner) · GAP1B-02 (consolidated statements: reopen or correct STATUS) · 1A-15 (leasing pipeline: open or decline) · B1 (management fee) · 1A-17 (lease assignment) |
 
 ---
 

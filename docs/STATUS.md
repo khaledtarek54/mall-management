@@ -38,6 +38,17 @@ credential, a piece of infrastructure, or a decision only you can make.
 | Browser suite (Playwright) | **442 passed** | 2026-08-23 |
 | Conformance-gate audit | **69 of 72 gates mutation-proven**; 5 holes found and fixed | 2026-08-24 |
 | Pre-staging findings (F-01 … F-13) | **all closed** | 2026-08-24 |
+| **Final verification** — 8 lenses, 16 agents, every finding adversarially verified | **82 raised · 80 confirmed · 14 fixed · rest backlogged**; nothing blocking | 2026-08-24 |
+
+**The final verification round is done** — [qa/STAGING-FINAL-VERIFICATION.md](qa/STAGING-FINAL-VERIFICATION.md)
+is the evidence (and §0 answers *"where do we stand against Yardi and the market?"*), and
+[qa/POST-STAGING-BACKLOG.md](qa/POST-STAGING-BACKLOG.md) is what it deliberately left for later.
+It closed two HIGH money findings before they could ever bill anyone — a cleared series cheque that
+minted credit no invoice could draw (so a tenant could be late-fee'd while the mall held their cash),
+and the deposit sub-ledger having no cutover path — plus seven armed-but-latent ones, each waiting on
+something routine: a renewal, a resale, the C-TAX answer, a non-January fiscal year, a schedule
+catch-up. **Two rows in this document changed as a result** and are marked below: C3.1 (bins are
+built) and C3.2 (stock transfers work; cross-property is a reasoned decline).
 
 Two things worth knowing about that table:
 
@@ -49,8 +60,10 @@ Two things worth knowing about that table:
   spent credit note read unspent so the same credit could be given away twice. Both fixed. The audit
   is repeatable — `docs/qa/scripts/gate-audit.py`.
 
-**One gate is deliberately switched off:** `FixtureColumnsExist`, pending 58 pre-existing ghost
-fixture keys. It is correct and mutation-proven; it just does not run. Clearing those is mechanical.
+**All 72 gates now run.** `FixtureColumnsExist` was the last one switched off, pending pre-existing
+ghost fixture keys; the 72 of them were cleared and the gate turned back on the same afternoon
+(`7335552f`). This paragraph said otherwise for a few hours, which is how a re-verified document goes
+stale — corrected here rather than left as a footnote.
 
 ---
 
@@ -235,8 +248,8 @@ is blocking** — if the answer is no, the row disappears.
 | **C1.8** | **Generate the lease contract as a PDF**, signature tracked in-system? | Uploading a signed lease works; nothing generates one. | M |
 | **C2.5** | **Recharge a tenant-caused repair to that tenant?** VATable or cost recovery? Parts only, or parts + labour + the vendor's invoice? | Responsibility is recorded; there is no path from a work order to a tenant invoice. | M |
 | **C2.7** | **Must a vendor bill back an externally-bought part before the job closes?** | Recorded; nothing requires a bill. | XS |
-| **C3.1** | **Bins or shelves inside a warehouse?** | A warehouse is the finest grain. | M |
-| **C3.2** | **Inter-mall stock transfers?** | The movement types exist and **nothing creates them** — it looks shipped and is not. Moves value between two properties' books. | M |
+| **C3.1** | ~~**Bins or shelves inside a warehouse?**~~ **BUILT — no longer a question.** | `Bin` shipped 2026-08-18: master data, unique code per warehouse, a write-validated `resolveBinId()`, a bins relation manager and a bin picker on the movement forms. Answering *yes* would commission work that already exists. | — |
+| **C3.2** | **Inter-mall stock transfers?** | **Same-property transfers WORK** — `StockMovementService::transfer()`, reachable from the stock-movements list. **Cross-property is refused by design**, with the reason in the code: value would cross the property boundary with no journal entry, so the documented path is adjust-out + receive-in and each mall's books record the movement. What is open is only whether you want that as ONE atomic action. | M |
 | **C3.6** | **The approval chain for inter-department requests and payments routed through Accounting.** More than one approver for a large spend? | `approval_rules` is a single-level band lookup per module. | M |
 | **C3.8** | **Per service: billed out or absorbed as a unit expense** — plus an annual report either way. | Not distinguished. | M |
 | **C4.1** | **WhatsApp or SMS** to tenants? | Email, in-app bell and push (built, not live). | M |

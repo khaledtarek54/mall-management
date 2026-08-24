@@ -46,6 +46,20 @@ with a real model guard behind it (M4B-05) · vendor-bill badge excludes drafts 
 `Health` refuses `QUEUE_CONNECTION=sync` on a deployed box (OPS-02) · the `cashFlow()` docblock and
 CLAUDE.md's *"there is no morph map"* corrected (M4B-07, D2-06).
 
+**How it was verified**, so nobody has to take the list on trust:
+
+| Check | Result |
+|---|---|
+| New regression tests | `ClearedChequeSettlesWhatIsOpenTest` (10) + `CutoverAndChargeTermsSurviveTest` (7) — **17/17** |
+| Existing suites for every touched path | PDC · PDC series · auto-apply credit · tax-posting · recurring costs · withholding return · year-end close · prorate · renewal · credit notes · CAM true-up · deposits (×5) · unit ownership (×4) · payment guards — **all green** |
+| Conformance gates | ChangeImpact · GlRegistry · PostingDateGuard · FieldHelp · ArabicPanelChrome · TranslationKey · ResourceFormSmoke · UnresolvedClassReference — **8/8** |
+| Migration | applied to the local database (`2026_08_24_880000`) |
+| Books, after the change | `billing:reconcile --deep` **9/9 on real data** — 293 invoices, 11,183,784.59 invoiced, 1,481,825.54 outstanding |
+
+**One deploy note:** the deposit flag is a schema change, so staging needs `php artisan migrate`
+(`./deploy.sh` already runs it). Nothing else in this set requires a data backfill — every fix is
+either behaviour on a path that had none, or a stricter read of columns that already existed.
+
 ---
 
 ## 1 · First weeks of production
