@@ -278,7 +278,7 @@
                         <td style="font-family:monospace;font-size:8pt;">{{ $cn->number }}</td>
                         <td>{{ $cn->issue_date?->format('d/m/Y') ?? '—' }}</td>
                         <td style="font-family:monospace;font-size:8pt;">{{ $cn->invoice?->number ?? '—' }}</td>
-                        <td>{{ $cn->reason ? \App\Support\Translate::orHumanized('admin.enums.credit_note_reason.'.$cn->reason, (string) $cn->reason) : '—' }}</td>
+                        <td>{{ $cn->reason ? \App\Support\Translate::orFallback('admin.enums.credit_note_reason.'.$cn->reason, (string) $cn->reason) : '—' }}</td>
                         <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $cn->applied_amount, 2) }}</td>
                     </tr>
                 @endforeach

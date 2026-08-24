@@ -156,4 +156,22 @@ class ViolationResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['tenant']);
     }
+
+    /** Open breaches — the enforcement worklist. */
+    public static function getNavigationBadge(): ?string
+    {
+        $open = static::getEloquentQuery()->open()->count();
+
+        return $open > 0 ? (string) $open : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('admin.tooltips.violations_open');
+    }
 }

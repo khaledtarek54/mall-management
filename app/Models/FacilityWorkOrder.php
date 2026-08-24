@@ -603,6 +603,26 @@ class FacilityWorkOrder extends Model implements HasMedia
     }
 
     /**
+     * The QUERY twin of {@see isOverdue()} — the same three conditions, asked of a set.
+     *
+     * Written beside it rather than in the caller, for the reason the PM-compliance scopes give:
+     * a predicate asked one way of a record and another way of a table is two definitions of the
+     * same fact, and they drift silently — the record says late, the list says not. `scopeResponseBreached()`
+     * above is the response-SLA equivalent and already had its twin; the resolution SLA did not,
+     * which is why anything wanting a COUNT of breached orders had to restate the condition.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        return $query
+            ->whereNotNull('target_resolution_at')
+            ->whereNotIn('status', self::TERMINAL)
+            ->where('target_resolution_at', '<', now());
+    }
+
+    /**
      * Whole hours past the SLA target; 0 when never late.
      *
      * Lateness stops at completion, not at "now". Measuring to now would keep a finished

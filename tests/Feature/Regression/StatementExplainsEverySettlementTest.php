@@ -162,5 +162,13 @@ it('renders the credits section into the document itself', function () {
     expect($html)->toContain(__('admin.statement.credits_applied'))
         ->and($html)->toContain('80,100.00')
         ->and($html)->toContain('Unearned billing on termination')
+        // `toContain` matched the TAIL of a raw translation key for as long as this test existed:
+        // the reason was rendered through `__('admin.enums.credit_note_reason.'.$reason)`, that key
+        // does not exist (the catalogue holds return/dispute/adjustment/discount/refund/other), and
+        // `__()` returns the KEY — so the tenant's statement printed
+        // "admin.enums.credit_note_reason.Unearned billing on termination" and this assertion was
+        // satisfied by the last five words of it. A coded reason is now translated and a free-text
+        // one is printed verbatim; neither can be a lang key.
+        ->and($html)->not->toContain('admin.enums')
         ->and($html)->toContain('Jul – Sep 2026');
 });

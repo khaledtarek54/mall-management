@@ -133,4 +133,27 @@ class PostDatedChequeResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['tenant']);
     }
+
+    /**
+     * Cheques maturing this week — the ones that need presenting or chasing NOW.
+     *
+     * Seven days rather than the scan's own window: a badge answers "is there anything to do this
+     * week", and `maturingWithin()` is the one definition of the forward slice either way.
+     */
+    public static function getNavigationBadge(): ?string
+    {
+        $maturing = static::getEloquentQuery()->maturingWithin(7)->count();
+
+        return $maturing > 0 ? (string) $maturing : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('admin.tooltips.cheques_maturing');
+    }
 }

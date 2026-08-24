@@ -175,4 +175,27 @@ class FacilityWorkOrderResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['unit', 'area']);
     }
+
+    /**
+     * Jobs past their resolution SLA and still open — the reason a supervisor opens this screen.
+     *
+     * `overdue()` is the query twin of `FacilityWorkOrder::isOverdue()`, written beside it so a
+     * record and a count can never disagree about the same job.
+     */
+    public static function getNavigationBadge(): ?string
+    {
+        $overdue = static::getEloquentQuery()->overdue()->count();
+
+        return $overdue > 0 ? (string) $overdue : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('admin.tooltips.work_orders_overdue');
+    }
 }

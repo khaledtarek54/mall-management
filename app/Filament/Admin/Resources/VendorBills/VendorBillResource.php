@@ -126,4 +126,25 @@ class VendorBillResource extends Resource
     {
         return parent::getGlobalSearchEloquentQuery()->with(['vendor']);
     }
+
+    /** Supplier bills past their due date with money still on them. */
+    public static function getNavigationBadge(): ?string
+    {
+        $overdue = static::getEloquentQuery()
+            ->where('balance', '>', 0)
+            ->whereDate('due_date', '<', now())
+            ->count();
+
+        return $overdue > 0 ? (string) $overdue : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('admin.tooltips.vendor_bills_overdue');
+    }
 }

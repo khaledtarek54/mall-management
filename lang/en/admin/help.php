@@ -263,6 +263,11 @@ return [
     ],
 
     'tooltips' => [
+        'work_orders_overdue' => 'Work orders past their resolution SLA and still open.',
+        'purchase_requests_pending' => 'Purchase requests waiting on an approval.',
+        'cheques_maturing' => 'Post-dated cheques maturing in the next seven days.',
+        'vendor_bills_overdue' => 'Supplier bills past their due date with a balance still on them.',
+        'violations_open' => 'Violations still open.',
         'work_permits_overdue' => 'Permits to work whose validity has passed with no closure recorded — nobody has confirmed the work stopped and the area was made safe.',
         'credit_notes_ready' => 'Credit notes issued with a remaining balance — ready to apply to invoices.',
         'vendor_contracts_expiring' => 'Vendor contracts expiring within 30 days.',

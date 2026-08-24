@@ -109,4 +109,24 @@ class PurchaseRequestResource extends Resource
             abort(403);
         }
     }
+
+    /** Requests waiting on somebody's approval — the queue, not the register. */
+    public static function getNavigationBadge(): ?string
+    {
+        $waiting = static::getEloquentQuery()
+            ->where('status', PurchaseRequest::STATUS_REQUESTED)
+            ->count();
+
+        return $waiting > 0 ? (string) $waiting : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('admin.tooltips.purchase_requests_pending');
+    }
 }
