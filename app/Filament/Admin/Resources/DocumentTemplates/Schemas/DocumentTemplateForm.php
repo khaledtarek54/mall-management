@@ -41,9 +41,10 @@ class DocumentTemplateForm
                         ])
                         ->helperText(__('admin.document_templates_screen.help.key')),
 
-                    // Free, because this screen is portfolio configuration: the null-property row IS
-                    // the house default, and picking a mall is how you override it for that mall.
-                    PropertyField::free(blankMeans: __('admin.document_templates_screen.house_default'))
+                    // A SCOPE control, not a mall picker — see PropertyField::scope(). This screen is
+                    // portfolio configuration: the null-property row IS the house default, and the
+                    // second option is how you override it for the mall you are standing in.
+                    PropertyField::scope(allMeans: __('admin.document_templates_screen.house_default'))
                         ->helperText(__('admin.document_templates_screen.help.asset')),
                 ]),
 

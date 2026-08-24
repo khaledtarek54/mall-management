@@ -308,8 +308,19 @@ it('offers only properties the write guard would accept — for an owner holding
         // Not offered: the owner's OTHER mall, which `assertAssetInScope()` would 403 from here.
         ->and($options)->not->toHaveKey($alsoOwned->id);
 
-    // The agreement itself, stated rather than implied.
+    // The agreement itself, stated rather than implied. The control is now a SCOPE control
+    // (PropertyField::scope), so it carries one non-property option — the blank that means "no
+    // single mall", which is the ordinary case for a portfolio-level owner question and which
+    // CreateOwnerRequest guards only when a property was actually chosen. Every OTHER option must
+    // still be a property the write guard would accept.
+    // NB: toHaveKey()'s second argument is an expected VALUE, not a message.
+    expect(array_key_exists('', $options))->toBeTrue('The portfolio-level scope option is gone — a general owner question can no longer be raised.');
+
     foreach (array_keys($options) as $assetId) {
+        if ($assetId === '') {
+            continue;
+        }
+
         expect(TenantScope::visibleAssetIds())->toContain((int) $assetId);
     }
 });

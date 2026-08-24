@@ -144,11 +144,33 @@ asked for.
   without it the pinned value never reaches the model). Pass an extra lock as
   `$alsoDisabledWhen` — **chaining `->disabled()` after it silently unpins the field**, because
   Filament's `disabled()` overwrites rather than composes.
-- `PropertyField::free()` — the same scoping, still editable and nullable, for the three
-  PORTFOLIO-CONFIGURATION screens registered in `PropertyField::PORTFOLIO_LEVEL` with a reason:
-  the posting map (the blank row is the global default every property inherits), Departments (the
-  one hybrid model — blank is an operator-wide department), and Owner Requests (a general question
-  is about no single mall).
+- `PropertyField::scope()` — a two-option SCOPE control (*"All properties"* / *"&lt;this mall&gt; only"*)
+  for the **five** PORTFOLIO-CONFIGURATION screens registered in `PropertyField::PORTFOLIO_LEVEL`
+  with a reason: the posting map (the blank row is the global default every property inherits),
+  Departments (the one hybrid model — blank is an operator-wide department), Document wording (the
+  blank row is the house wording every mall inherits), Holidays (a national holiday is not a fact
+  about one mall), and Owner Requests (a general question is about no single mall).
+
+  These screens ask a different question from every other property field: not *"which mall does
+  this belong to?"* but *"portfolio, or just this mall?"* — and a null `asset_id` is one of the two
+  valid answers, queried as the fallback tier by all four resolvers. They used to render a free
+  `EntitySelect`. **That was never an isolation leak** — the picker resolves a submitted value's
+  label through the property-scoped `pickable()` query, so on a two-mall install it offered exactly
+  the mall in the switcher and refused the other at validation. The defect was that a SCOPE question
+  wore a PROPERTY PICKER, so an enabled dropdown read as "choose a mall" and was reported as a leak.
+  Stating the two answers means **no screen in the panel offers a property other than the selected
+  one**, which is the rule the pinned fields enforce.
+
+  Three of the five scope their list to `null ∪ visible`, so the two options are exhaustive. **Two
+  do not** — the posting map has no `getEloquentQuery()` at all and owner requests scope to the
+  operator's ASSIGNED set — so an edit page there can open a row filed against a third mall. A
+  two-option toggle would render that as "All properties" and silently re-home it on save, so the
+  row's own property is added as a third option and the control is **disabled**: shown, not adopted.
+  `PropertyScopeControlNeverOffersAnotherMallTest` derives the five from the register and fails on a
+  screen that starts offering a third mall, drops the portfolio row, stops disabling a foreign row,
+  or loses either refusal layer (Filament's own `In` rule over a Radio's options is **pinned as a
+  contract**, because it is upstream behaviour that could change in a release and silently remove a
+  gate — the same reasoning as `FilamentActionDispatchContractTest`).
 - `PropertyField::reportScope()` — the same pin for a page's `$assetId`. `ScopesLedgerReport` also
   gives the property switcher **the last word** after a drill-down URL and a remembered preference,
   so the disabled picker can never name one mall while the rows below it come from another.

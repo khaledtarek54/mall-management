@@ -5,6 +5,8 @@ namespace App\Support\Filament;
 use App\Models\Asset;
 use App\Support\TenantScope;
 use Closure;
+use Filament\Forms\Components\Radio;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The property picker, pinned to the mall the operator is standing in.
@@ -43,13 +45,23 @@ use Closure;
 class PropertyField
 {
     /**
-     * The screens whose property picker stays FREE and nullable, and why.
+     * The screens that take {@see scope()} instead of {@see make()}, and why.
      *
      * Every entry is portfolio CONFIGURATION or a portfolio-level request — a place where "no
      * property" is the normal, meaningful answer rather than an accident of leaving a dropdown
      * alone. `PropertyFieldPinnedConformanceTest` renders every other create form and fails the
      * build on one whose property field is editable, so this list is the only way to opt out and
      * a new one has to be argued for here.
+     *
+     * **These are not unpinned.** Until 2026-08-24 they rendered a free `EntitySelect`, which was
+     * never an isolation leak — the picker resolves a submitted value's label through the
+     * property-scoped `pickable()` query, so on a two-mall install it offered exactly the mall in
+     * the switcher and refused the other at validation. What was wrong is that a SCOPE question
+     * wore a PROPERTY PICKER: it read as "choose a mall", so an enabled dropdown looked like a leak
+     * on the one screen family where it was not one, and that is how it was reported. They now
+     * state the two answers — the house row, or the mall you are standing in — and no screen in the
+     * panel offers a property other than the selected one. `PropertyScopeControlNeverOffersAnotherMallTest`
+     * derives this list and fails on a screen that starts offering a third.
      *
      * @var array<string, string>
      */
@@ -114,11 +126,14 @@ class PropertyField
     }
 
     /**
-     * The FREE picker, for the portfolio-configuration screens registered in {@see PORTFOLIO_LEVEL}.
+     * The FREE picker — now only the All-Properties fallback behind {@see scope()}.
      *
      * Identical scoping (it is still an `EntitySelect`, so it still cannot offer or accept a mall
      * the operator may not see) — it differs only in staying editable and allowing the blank that
-     * means "every property".
+     * means "every property". No screen calls this directly any more: with a mall in the switcher
+     * the five {@see PORTFOLIO_LEVEL} screens render `scope()`, and this is what they fall back to
+     * when there is no selected mall to scope TO, where a two-option toggle would have one live
+     * option and say nothing.
      */
     public static function free(string $name = 'asset_id', ?string $blankMeans = null): EntitySelect
     {
@@ -128,6 +143,103 @@ class PropertyField
             ->placeholder($blankMeans ?? __('admin.fields.property_all'))
             ->native(false)
             ->searchable();
+    }
+
+    /**
+     * The SCOPE control, for the portfolio-configuration screens in {@see PORTFOLIO_LEVEL}.
+     *
+     * These five screens ask a different question from every other property field in the panel.
+     * Elsewhere the field means *"which mall does this record belong to?"* — one right answer, so
+     * {@see make()} shows it and locks it. Here it means *"does this row apply to the whole
+     * portfolio, or only to this mall?"*, and a null `asset_id` is one of the two valid answers:
+     * the house wording every mall inherits, the national holiday, the operator-wide department,
+     * the global posting map. All four resolvers query `whereNull('asset_id')` as their fallback
+     * tier, so the blank is load-bearing and cannot simply be pinned away — doing that would make
+     * the portfolio row unwritable through its own form and force the operator to retype the same
+     * footer, the same Eid, the same chart once per mall.
+     *
+     * What was wrong was never the isolation. `free()` is an {@see EntitySelect}, so it already
+     * could neither offer nor accept a mall outside the operator's visible set — measured, the
+     * dropdown on a two-mall install offered exactly the mall in the switcher, and a crafted
+     * payload naming the other one was refused at validation. The defect was that a SCOPE question
+     * was wearing a PROPERTY PICKER: it read as "choose a mall", so an enabled dropdown looked
+     * like a leak on the one screen family where it was not one.
+     *
+     * So the control states the two answers instead of listing malls. There is no mall to select —
+     * the only property it can ever write is the one in the switcher, which is the rule the rest of
+     * this class enforces by pinning.
+     *
+     * ## The foreign row, and why it is shown rather than hidden
+     *
+     * Three of the five scope their list to `null ∪ visible`, so the two options are exhaustive and
+     * an edit page can only ever load a row this control can describe. **Two do not**: the posting
+     * map has no `getEloquentQuery()` at all (it is `#[PortfolioShared]` accounting config), and
+     * owner requests scope to the operator's ASSIGNED set rather than the selected mall — so both
+     * can open a row filed against a third property. A two-option toggle would render that row as
+     * "All properties", and saving would silently re-home it: a data-loss bug introduced by a UI
+     * fix. Instead the record's own property is added as a third option and the whole control is
+     * DISABLED, so the row shows the truth, cannot be retargeted, and survives a save unchanged.
+     * That is the same answer `make()` gives on edit, for the same reason.
+     *
+     * The `->rules()` guard is the real gate, exactly as it is on every pinned field: the control
+     * is `->dehydrated()`, so its value still arrives in the Livewire payload and a disabled input
+     * is a statement of intent, never a refusal.
+     */
+    public static function scope(string $name = 'asset_id', ?string $allMeans = null): Radio|EntitySelect
+    {
+        // All-Properties plumbing: with no mall in the switcher there is nothing to scope TO, so
+        // fall back to the free picker unchanged rather than offering a toggle with one live option.
+        if (! self::isPinned()) {
+            return self::free($name, $allMeans);
+        }
+
+        $currentId = (int) TenantScope::currentAssetId();
+
+        /** The record's own property when it is a THIRD one — neither blank nor the selected mall. */
+        $foreignIdOf = static function (?Model $record) use ($name, $currentId): ?int {
+            $own = $record?->getAttribute($name);
+
+            return filled($own) && (int) $own !== $currentId ? (int) $own : null;
+        };
+
+        return Radio::make($name)
+            ->label(__('admin.fields.property_applies_to'))
+            ->options(function (?Model $record) use ($currentId, $allMeans, $foreignIdOf): array {
+                $options = [
+                    '' => $allMeans ?? __('admin.fields.property_all'),
+                    (string) $currentId => __('admin.fields.property_this_only', [
+                        'property' => Asset::find($currentId)?->name ?? '',
+                    ]),
+                ];
+
+                if (($foreign = $foreignIdOf($record)) !== null) {
+                    $options[(string) $foreign] = __('admin.fields.property_other', [
+                        'property' => Asset::find($foreign)?->name ?? (string) $foreign,
+                    ]);
+                }
+
+                return $options;
+            })
+            ->disabled(fn (?Model $record): bool => $foreignIdOf($record) !== null)
+            // A disabled input is not submitted; without this an edit of a foreign row would
+            // dehydrate null and re-home it to the house default.
+            ->dehydrated()
+            ->default('')
+            ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '')
+            ->dehydrateStateUsing(fn ($state): ?int => filled($state) ? (int) $state : null)
+            ->rules([
+                fn (?Model $record): Closure => function (string $attribute, $value, Closure $fail) use ($currentId, $foreignIdOf, $record): void {
+                    if (blank($value)) {
+                        return; // the house row
+                    }
+
+                    $allowed = array_values(array_filter([$currentId, $foreignIdOf($record)]));
+
+                    if (! in_array((int) $value, $allowed, true)) {
+                        abort(403);
+                    }
+                },
+            ]);
     }
 
     /**

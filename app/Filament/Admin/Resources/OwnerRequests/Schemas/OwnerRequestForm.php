@@ -47,7 +47,7 @@ class OwnerRequestForm
                     // FREE by design — see PropertyField::PORTFOLIO_LEVEL. A general owner
                     // question is about no single mall, and CreateOwnerRequest guards the
                     // property only when one was actually chosen.
-                    PropertyField::free(blankMeans: '—')
+                    PropertyField::scope(allMeans: '—')
                         ->label(__('admin.tables.owner_request.property')),
                     Select::make('priority')
                         ->label(__('admin.tables.owner_request.priority'))

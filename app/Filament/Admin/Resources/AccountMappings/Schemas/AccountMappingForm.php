@@ -58,7 +58,7 @@ class AccountMappingForm
                     // may see, so an override cannot be aimed at another operator's property.
                     // FREE by design — see PropertyField::PORTFOLIO_LEVEL. The blank row is the
                     // global default every property inherits, not an accident.
-                    PropertyField::free(blankMeans: __('admin.posting_map.global'))
+                    PropertyField::scope(allMeans: __('admin.posting_map.global'))
                         ->helperText(__('admin.helpers.posting_map_property')),
                 ]),
         ]);

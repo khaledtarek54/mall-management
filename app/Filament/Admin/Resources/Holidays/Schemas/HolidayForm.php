@@ -43,7 +43,7 @@ class HolidayForm
             // `PropertyField::make()` pins and requires the field whenever a mall is selected, which
             // would make the ordinary case unreachable through its own form. Registered with its
             // reason in `PropertyField::PORTFOLIO_LEVEL`.
-            PropertyField::free()
+            PropertyField::scope()
                 ->helperText(__('admin.facility.holiday.property_hint')),
 
             Select::make('kind')

@@ -43,11 +43,10 @@ class DepartmentForm
                         ->label(__('admin.tables.department.code'))
                         ->disabled()
                         ->dehydrated(false),
-                    // FREE by design — see PropertyField::PORTFOLIO_LEVEL. Department is the one
-                    // hybrid model: blank = an operator-wide department every mall shares.
-                    PropertyField::free(blankMeans: __('admin.tables.department.global'))
-                        ->label(__('admin.tables.department.scope'))
-                        ->preload(),
+                    // A SCOPE control, not a mall picker — see PropertyField::scope(). Department is
+                    // the one hybrid model: blank = an operator-wide department every mall shares.
+                    PropertyField::scope(allMeans: __('admin.tables.department.global'))
+                        ->label(__('admin.tables.department.scope')),
                     EntitySelect::make('head_user_id')
                         ->label(__('admin.tables.department.head'))
                         ->entity(User::class),
