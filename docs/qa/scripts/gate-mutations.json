@@ -222,5 +222,40 @@
     "path": "app/Filament/Admin/Resources/DepositTransactions/Schemas/DepositTransactionForm.php",
     "old": "->options(fn () => DepositTransaction::methodOptions())",
     "new": "->options(fn () => __('admin.enums.method'))"
+  },
+  {
+    "name": "UnresolvedClassReference \u2014 a named class loses its import",
+    "gate": "tests/Feature/Scenarios/UnresolvedClassReferenceConformanceTest.php",
+    "path": "app/Services/LateFeeService.php",
+    "old": "use App\\Models\\Invoice;\n",
+    "new": ""
+  },
+  {
+    "name": "ReportCatalogue \u2014 a report leaves the catalogue",
+    "gate": "tests/Feature/Scenarios/ReportCatalogueConformanceTest.php",
+    "path": "app/Support/ReportCatalogue.php",
+    "old": "        BalanceSheet::class => ['category' => self::FINANCIAL, 'key' => 'balance_sheet', 'keywords' => ['assets', 'liabilities', 'equity']],\n",
+    "new": ""
+  },
+  {
+    "name": "TranslationKey \u2014 an Arabic key disappears",
+    "gate": "tests/Feature/Scenarios/TranslationKeyConformanceTest.php",
+    "path": "lang/ar/admin/statuses.php",
+    "old": "                'elevator' => '\u0645\u0635\u0639\u062f',\n",
+    "new": ""
+  },
+  {
+    "name": "RelationManagerCrudIsGated \u2014 a relation-manager action loses its gate",
+    "gate": "tests/Feature/Scenarios/RelationManagerCrudIsGatedConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/TaxCodes/RelationManagers/RatesRelationManager.php",
+    "old": "                EditAction::make()\n                    ->authorize(fn () => auth()->user()?->can('tax_codes.edit') ?? false),\n",
+    "new": "                EditAction::make(),\n"
+  },
+  {
+    "name": "SettingsPage \u2014 a setting loses its field",
+    "gate": "tests/Feature/Scenarios/SettingsPageConformanceTest.php",
+    "path": "app/Filament/Admin/Pages/Settings.php",
+    "old": "                    TextInput::make('accounting.activity_log_retention_days')",
+    "new": "                    TextInput::make('accounting.zz_no_such_setting')"
   }
 ]

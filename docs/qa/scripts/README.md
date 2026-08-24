@@ -48,7 +48,7 @@ gate that stays green is a `HOLE`. It verifies each mutation actually LANDED bef
 result, because a substitution that silently does not apply reports a false PASS, which has happened
 twice in this project.
 
-**Result: 32 mutations across 29 gates, four holes — all four in gates that guarded a REGISTRY, and two of them had a live money defect underneath.**
+**Result: 37 mutations across 34 gates, four holes — all four in gates that guarded a REGISTRY, and two of them had a live money defect underneath.**
 
 1. `ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
    guards — 10 of 156 registered columns were invisible to it, so a new column of any of those
@@ -83,11 +83,17 @@ All four holes are the same shape, and it is worth naming: **a gate that reads o
 guards cannot see what the registry omits.** When a gate checks a list, ask where its worklist comes
 from — if the answer is "the list", it can only check the list against itself.
 
-**Three "holes" in the run were invalid MUTATIONS, not weak gates**, and each looked identical to a
+**`ServiceReachability` cannot be expressed as a replacement** and is verified by hand: drop a
+`ZzOrphanProbeService` into `app/Services` that nothing calls, run the gate, delete it. It goes red
+and names the class. Two string mutations against it both passed and neither was a hole — the
+service they severed had a SECOND entry path, one of which this session had added itself an hour
+earlier.
+
+**Four "holes" in the run were invalid MUTATIONS, not weak gates**, and each looked identical to a
 real one until checked: removing `abort_unless` from an action that also carries `->authorize()`
 (the deliberate double-gate); removing one of seven widened columns from a gate that only asserts
-every catalogue is NAMED; and hardcoding an inline English array where the gate detects the
-realistic failure — a screen resolving the rail LANG GROUP. A mutation audit needs its own
+every catalogue is NAMED; hardcoding an inline English array where the gate detects the realistic
+failure — a screen resolving the rail LANG GROUP; and severing one of two paths to a service. A mutation audit needs its own
 scepticism: verify what the gate claims before believing it failed.
 
 Two things worth knowing before adding a mutation:
