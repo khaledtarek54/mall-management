@@ -99,7 +99,7 @@ class RecurringExpense extends Model
      */
     public function label(): string
     {
-        return (string) ($this->description ?: $this->category ?: __('admin.resources.recurring_expense.singular'));
+        return (string) ($this->description ?: $this->category ?: __('admin.recurring_expenses.singular'));
     }
 
     protected $casts = [

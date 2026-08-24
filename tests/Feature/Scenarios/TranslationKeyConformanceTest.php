@@ -698,6 +698,103 @@ it('I: no TENANT PORTAL screen renders a raw translation key, in either locale',
  * the locale's rule table says. This gate requires them of any Arabic string that offers a choice
  * at all.
  */
+it('J: the Arabic catalogue contains Arabic, not English sitting in an ar file', function () {
+    // WHAT EVERY OTHER TEST IN THIS FILE MISSES. A, B and C prove a key EXISTS in Arabic; D, H and
+    // I prove a screen renders no raw KEY. None of them looks at the VALUE, so `'criticality' =>
+    // 'Criticality'` in lang/ar passes all nine — and that is the realistic failure whenever a
+    // batch of labels is written in one pass, because it is invisible to anyone reviewing in
+    // English. It happened here: the activity-log flip added 123 labels at once, and the only
+    // reason it was caught is that its own gate rendered both locales and compared.
+    //
+    // Legitimately identical strings are decided by RULE, not by a list of keys that would go stale:
+    // a value carrying no letters of its own (":number — :total", ":detail") has nothing to
+    // translate, and a bare technical token ("PDF", "VAT") is the same word in both languages.
+    $flatten = function (array $items, string $prefix = '') use (&$flatten): array {
+        $out = [];
+        foreach ($items as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+            if (is_array($value)) {
+                $out += $flatten($value, $path);
+            } else {
+                $out[$path] = (string) $value;
+            }
+        }
+
+        return $out;
+    };
+
+    $load = function (string $locale) use ($flatten): array {
+        $all = [];
+        $base = lang_path($locale);
+
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base)) as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $group = str_replace(['/', '.php'], ['.', ''], str_replace($base.'/', '', $file->getPathname()));
+            $data = require $file->getPathname();
+
+            if (is_array($data)) {
+                $all += $flatten($data, $group);
+            }
+        }
+
+        return $all;
+    };
+
+    // Words that are the same in both languages, so an identical value is correct rather than lazy.
+    $sameInBothLanguages = ['PDF', 'CSV', 'XML', 'JSON', 'VAT', 'SLA', 'IBAN', 'API', 'ID', 'EGP', 'URL', 'QR', 'PIN', 'CAM', 'GRNI', 'NOSI', 'ETA', 'HVAC', 'KPI', 'PO', 'AR', 'AP', 'GL'];
+
+    $translatable = function (string $value) use ($sameInBothLanguages): bool {
+        // Drop :placeholders, then anything that is not a letter. What survives is the string's own
+        // words — if there are none, there is nothing to translate.
+        $bare = preg_replace('/:\w+/', '', $value) ?? '';
+        $letters = preg_replace('/[^\p{L}]+/u', ' ', $bare) ?? '';
+        $words = array_filter(explode(' ', trim($letters)));
+
+        if ($words === []) {
+            return false;
+        }
+
+        foreach ($words as $word) {
+            if (! in_array(strtoupper($word), $sameInBothLanguages, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    $english = $load('en');
+    $arabic = $load('ar');
+
+    $untranslated = [];
+
+    foreach (array_intersect_key($english, $arabic) as $key => $value) {
+        if ($value === '' || ! $translatable($value)) {
+            continue;
+        }
+
+        if ($value === $arabic[$key] || preg_match('/\p{Arabic}/u', $arabic[$key]) !== 1) {
+            $untranslated[$key] = $arabic[$key];
+        }
+    }
+
+    // A sweep that loaded nothing agrees with everything.
+    expect(count($english))->toBeGreaterThan(5000, 'The catalogue sweep found almost nothing — it is checking nothing.');
+
+    expect($untranslated)->toBe(
+        [],
+        count($untranslated).' Arabic entries carry English (or no Arabic script at all): '
+            .implode(', ', array_map(
+                fn ($k, $v) => "{$k} => \"{$v}\"",
+                array_slice(array_keys($untranslated), 0, 30),
+                array_slice($untranslated, 0, 30),
+            )),
+    );
+});
+
 it('selects Arabic plural forms explicitly, never by singular|plural position', function () {
     $offenders = [];
     $checked = 0;
