@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\ProrationMethod;
@@ -24,11 +25,7 @@ class Charge extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['lease_id', 'name', 'type', 'amount', 'frequency', 'prorate', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('charge');
+        return ActivityLogging::for($this, 'charge');
     }
 
     /**

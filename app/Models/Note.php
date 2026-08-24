@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,11 +37,7 @@ class Note extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['channel', 'subject', 'body', 'contacted_at'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('note');
+        return ActivityLogging::for($this, 'note');
     }
 
     public function noteable(): MorphTo

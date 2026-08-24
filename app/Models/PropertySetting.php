@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\PropertySettings;
@@ -35,11 +36,7 @@ class PropertySetting extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'group', 'name', 'payload'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('property_setting');
+        return ActivityLogging::for($this, 'property_setting');
     }
 
     protected static function booted(): void

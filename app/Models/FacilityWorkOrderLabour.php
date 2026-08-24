@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -87,10 +88,7 @@ class FacilityWorkOrderLabour extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('work_order_labour')
-            ->logOnly(['facility_work_order_id', 'trade_id', 'user_id', 'worked_on', 'hours', 'hourly_rate', 'cost', 'notes'])
-            ->logOnlyDirty();
+        return ActivityLogging::for($this, 'work_order_labour');
     }
 
     public function workOrder(): BelongsTo

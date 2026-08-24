@@ -7,6 +7,7 @@ use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -107,11 +108,7 @@ class Expense extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'asset_id', 'category', 'amount', 'vat_amount', 'total', 'paid_from'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('expense');
+        return ActivityLogging::for($this, 'expense');
     }
 
     public function asset(): BelongsTo

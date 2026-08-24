@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -89,13 +90,7 @@ class WorkOrderProposal extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('work_order_proposal')
-            ->logOnly([
-                'facility_work_order_id', 'vendor_id', 'status', 'labour_amount', 'material_amount',
-                'service_amount', 'total_amount', 'scope', 'decision_reason', 'decided_at', 'is_supplementary',
-            ])
-            ->logOnlyDirty();
+        return ActivityLogging::for($this, 'work_order_proposal');
     }
 
     public function workOrder(): BelongsTo

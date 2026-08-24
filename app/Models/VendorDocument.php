@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSupersededDocuments;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -91,11 +92,7 @@ class VendorDocument extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['type', 'reference', 'issuer', 'issued_on', 'expires_on'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('vendor_document');
+        return ActivityLogging::for($this, 'vendor_document');
     }
 
     public function registerMediaCollections(): void

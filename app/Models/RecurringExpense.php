@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\GenerateRecurringExpensesService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
@@ -232,13 +233,6 @@ class RecurringExpense extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly([
-                'description', 'category', 'amount', 'tax_code', 'frequency',
-                'day_of_month', 'starts_on', 'ends_on', 'is_active', 'notes',
-            ])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('recurring_expense');
+        return ActivityLogging::for($this, 'recurring_expense');
     }
 }

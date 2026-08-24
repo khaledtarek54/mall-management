@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\GuardsPostingDate;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -33,11 +34,7 @@ class MarketingSpend extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['marketing_budget_id', 'category', 'amount', 'paid_from', 'receipt_reference'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('marketing_spend');
+        return ActivityLogging::for($this, 'marketing_spend');
     }
 
     protected $fillable = [

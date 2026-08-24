@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -48,11 +49,7 @@ class UtilityTariffRate extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['utility_tariff_id', 'rate_per_unit', 'effective_from', 'note'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('utility_tariff_rate');
+        return ActivityLogging::for($this, 'utility_tariff_rate');
     }
 
     /** @return BelongsTo<UtilityTariff, $this> */

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\DisposeFixedAssetService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -48,11 +49,7 @@ class FixedAssetDisposal extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['fixed_asset_id', 'disposed_on', 'proceeds', 'proceeds_account'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('fixed_asset_disposal');
+        return ActivityLogging::for($this, 'fixed_asset_disposal');
     }
 
     /** @return BelongsTo<FixedAsset, $this> */

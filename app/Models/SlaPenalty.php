@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateNotOperatorTyped;
 use App\Support\Attributes\PropertyOwned;
@@ -90,11 +91,7 @@ class SlaPenalty extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['basis', 'rate', 'hours_over_sla', 'amount', 'status', 'vendor_bill_id', 'waive_reason'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('sla_penalty');
+        return ActivityLogging::for($this, 'sla_penalty');
     }
 
     public function workOrder(): BelongsTo

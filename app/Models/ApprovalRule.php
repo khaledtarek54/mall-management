@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -83,11 +84,7 @@ class ApprovalRule extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['module', 'min_amount', 'max_amount', 'required_permission', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('approval_rule');
+        return ActivityLogging::for($this, 'approval_rule');
     }
 
     public function scopeActive(Builder $query): Builder

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
@@ -125,11 +126,7 @@ class ServicePlan extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'trade_id', 'plan_type', 'trigger_type', 'utility_meter_id', 'usage_threshold', 'frequency_unit', 'frequency_value', 'days_of_week', 'next_due_date', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('service_plan');
+        return ActivityLogging::for($this, 'service_plan');
     }
 
     /** التخصص — what kind of work this is. See {@see Trade}. */

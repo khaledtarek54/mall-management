@@ -92,6 +92,25 @@ final class ActivityLogging
     ];
 
     /**
+     * The entries of {@see NEVER} that nothing may override — not a model's floor, not anything.
+     *
+     * Kept as its own list because the rest of the denylist is a judgement about noise and this is
+     * not: a credential must not exist in a readable audit table, and `password` is FILLABLE on
+     * both User and Tenant, so the flip would have written hashes into activity_log on the first
+     * save without it.
+     *
+     * @var list<string>
+     */
+    public const CREDENTIALS = [
+        'password',
+        'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
+        'api_token',
+    ];
+
+    /**
      * Column SUFFIXES never audited, so the family inherits the decision.
      *
      * A suffix rather than a list because these arrive one per feature and always mean the same
@@ -264,12 +283,29 @@ final class ActivityLogging
     {
         $columns = [...$model->getFillable(), ...array_keys($alsoExcept)];
 
+        // The floor BEATS the denylist, structurally rather than by my curating the denylist
+        // correctly. A rule written to remove noise will eventually name a column some model was
+        // already auditing — the morph-half rule did exactly that to `JournalEntry.source_type`,
+        // caught only because the floor gate existed — and the answer is for the flip to be
+        // incapable of narrowing, not for the next author to notice.
+        //
+        // Credentials are the one thing it cannot override: a hash must not be written down even
+        // if some model once logged it. Nothing in the floor is a credential today, and this is
+        // what keeps that true if one ever appears.
+        $floor = self::COVERAGE_FLOOR[class_basename($model)] ?? [];
+
         $excluded = array_filter(
             $columns,
-            fn (string $column): bool => array_key_exists($column, self::NEVER)
-                || array_key_exists($column, $alsoExcept)
-                || self::matchesNeverSuffix($column)
-                || self::isMorphTypeHalf($column, $columns),
+            fn (string $column): bool => in_array($column, self::CREDENTIALS, true)
+                || (
+                    ! in_array($column, $floor, true)
+                    && (
+                        array_key_exists($column, self::NEVER)
+                        || array_key_exists($column, $alsoExcept)
+                        || self::matchesNeverSuffix($column)
+                        || self::isMorphTypeHalf($column, $columns)
+                    )
+                ),
         );
 
         return array_values(array_unique($excluded));

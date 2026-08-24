@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\StockMovementService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -79,11 +80,7 @@ class StockMovement extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['warehouse_id', 'inventory_item_id', 'type', 'quantity', 'unit_cost', 'reference'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('stock_movement');
+        return ActivityLogging::for($this, 'stock_movement');
     }
 
     public function warehouse(): BelongsTo

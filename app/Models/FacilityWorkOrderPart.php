@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -70,11 +71,7 @@ class FacilityWorkOrderPart extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['source', 'inventory_item_id', 'quantity', 'unit_cost', 'value', 'status', 'required_permission', 'decision_notes'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('work_order_part');
+        return ActivityLogging::for($this, 'work_order_part');
     }
 
     public function workOrder(): BelongsTo

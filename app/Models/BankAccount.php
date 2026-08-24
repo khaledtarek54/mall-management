@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,11 +66,7 @@ class BankAccount extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['name', 'bank_name', 'account_number', 'iban', 'ledger_account_id', 'is_active', 'asset_id'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('bank_account');
+        return ActivityLogging::for($this, 'bank_account');
     }
 
     public function asset(): BelongsTo

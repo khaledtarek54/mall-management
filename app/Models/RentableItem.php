@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\UnitOwnershipStatus;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
@@ -208,10 +209,6 @@ class RentableItem extends Model
      */
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'area_id', 'floor_id', 'code', 'type', 'name', 'status', 'monthly_rate', 'notes'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('rentable_item');
+        return ActivityLogging::for($this, 'rentable_item');
     }
 }

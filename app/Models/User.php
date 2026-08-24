@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Database\Factories\UserFactory;
@@ -76,27 +77,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
      */
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            // `status` is logged on purpose: suspending an account is exactly the kind of change
-            // an auditor comes looking for, and it is the reason the row still exists at all.
-            ->logOnly(['name', 'email', 'email_verified_at', 'status', 'suspended_reason'])
-            ->logOnlyDirty()
-            // Credential churn is not an audit event, and it must be excluded HERE rather
-            // than relied on falling out of logOnly. shouldLogEvent() decides whether to
-            // write a row by diffing getDirty() against THIS list — not against logOnly —
-            // so a password-only save otherwise still created a row (with an empty diff,
-            // because password isn't logged). `updated_at` belongs in the list too: it is
-            // dirty on every save, so leaving it out would keep every such save loggable.
-            ->dontLogIfAttributesChangedOnly([
-                'password',
-                'remember_token',
-                'two_factor_secret',
-                'two_factor_recovery_codes',
-                'two_factor_confirmed_at',
-                'updated_at',
-            ])
-            ->dontLogEmptyChanges()
-            ->useLogName('user');
+        return ActivityLogging::for($this, 'user', alsoLog: ['email_verified_at']);
     }
 
     protected function casts(): array

@@ -7,6 +7,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\PayrollService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -86,11 +87,7 @@ class Payroll extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'asset_id', 'gross_salaries', 'allowances', 'salary_tax', 'social_insurance', 'advance_deductions', 'other_deductions', 'employer_social_insurance', 'net_paid', 'paid_from'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('payroll');
+        return ActivityLogging::for($this, 'payroll');
     }
 
     public function asset(): BelongsTo

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\GrantEmployeeAdvanceService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -52,11 +53,7 @@ class EmployeeAdvance extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['employee_id', 'asset_id', 'type', 'amount', 'advance_date', 'paid_from'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('employee_advance');
+        return ActivityLogging::for($this, 'employee_advance');
     }
 
     public function employee(): BelongsTo

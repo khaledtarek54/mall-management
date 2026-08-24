@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\IsCodeCatalogue;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\ValueSets;
@@ -127,10 +128,6 @@ class ViolationCategory extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['code', 'name_en', 'name_ar', 'default_fine_amount', 'is_active', 'sort_order'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('violation_category');
+        return ActivityLogging::for($this, 'violation_category');
     }
 }

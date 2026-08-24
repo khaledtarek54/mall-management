@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -87,11 +88,7 @@ class OwnerStatement extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['reference', 'owner_statement_run_id', 'user_id', 'status', 'owner_share', 'sent_at'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('owner_statement');
+        return ActivityLogging::for($this, 'owner_statement');
     }
 
     public static function generateReference(): string

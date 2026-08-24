@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentText;
@@ -67,10 +68,6 @@ class DocumentTemplate extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['key', 'asset_id', 'body_en', 'body_ar', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('document_template');
+        return ActivityLogging::for($this, 'document_template');
     }
 }

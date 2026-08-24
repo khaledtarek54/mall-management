@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,11 +65,7 @@ class Area extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'name', 'code', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('area');
+        return ActivityLogging::for($this, 'area');
     }
 
     public function asset(): BelongsTo

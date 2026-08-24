@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,11 +79,7 @@ class LedgerAccount extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['code', 'name_en', 'name_ar', 'type', 'is_postable', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('ledger_account');
+        return ActivityLogging::for($this, 'ledger_account');
     }
 
     public function parent(): BelongsTo

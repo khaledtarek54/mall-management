@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSupersededDocuments;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -106,11 +107,7 @@ class TenantDocument extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['type', 'reference', 'issuer', 'issued_on', 'expires_on', 'coverage_amount'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('tenant_document');
+        return ActivityLogging::for($this, 'tenant_document');
     }
 
     public function registerMediaCollections(): void

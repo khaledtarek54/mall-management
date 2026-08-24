@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
@@ -99,11 +100,7 @@ class LeaseOption extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['type', 'status', 'earliest_notice_date', 'latest_notice_date', 'notice_given_at', 'resolved_at'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('lease_option');
+        return ActivityLogging::for($this, 'lease_option');
     }
 
     /** @return BelongsTo<Lease, $this> */

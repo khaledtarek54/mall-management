@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,10 +64,7 @@ class FailureCode extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('failure_code')
-            ->logOnly(['code', 'type', 'trade_id', 'name_en', 'name_ar', 'is_active', 'sort_order'])
-            ->logOnlyDirty();
+        return ActivityLogging::for($this, 'failure_code');
     }
 
     public function trade(): BelongsTo

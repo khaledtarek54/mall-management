@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -47,11 +48,7 @@ class OwnerRequest extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['recipient', 'assigned_to_user_id', 'status', 'priority', 'subject'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('owner_request');
+        return ActivityLogging::for($this, 'owner_request');
     }
 
     protected $fillable = [

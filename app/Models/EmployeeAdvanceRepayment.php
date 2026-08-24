@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\RecordAdvanceRepaymentService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -43,11 +44,7 @@ class EmployeeAdvanceRepayment extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['employee_advance_id', 'asset_id', 'amount', 'repaid_on', 'method'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('employee_advance_repayment');
+        return ActivityLogging::for($this, 'employee_advance_repayment');
     }
 
     public function advance(): BelongsTo

@@ -9,6 +9,7 @@ use App\Models\Concerns\FacilityWorkOrder\TracksPmCompliance;
 use App\Models\Concerns\HasSearchText;
 use App\Notifications\WorkOrderAssignedNotification;
 use App\Services\NotifyAreaSupervisorsService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\SlaResolver;
@@ -231,11 +232,7 @@ class FacilityWorkOrder extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['service_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'trade_id', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_response_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes', 'sla_clock'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('facility_work_order');
+        return ActivityLogging::for($this, 'facility_work_order', alsoLog: ['sla_clock']);
     }
 
     /** التخصص — what kind of work this is. See {@see Trade}. */

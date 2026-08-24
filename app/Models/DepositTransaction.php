@@ -7,6 +7,7 @@ use App\Models\Concerns\GuardsPostingDate;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -110,11 +111,7 @@ class DepositTransaction extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'lease_id', 'asset_id', 'type', 'amount', 'method'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('deposit_transaction');
+        return ActivityLogging::for($this, 'deposit_transaction');
     }
 
     public function lease(): BelongsTo

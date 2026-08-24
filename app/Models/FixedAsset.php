@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Services\DepreciationService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -79,11 +80,7 @@ class FixedAsset extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'name', 'tag', 'acquisition_cost', 'salvage_value', 'useful_life_months', 'status'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('fixed_asset');
+        return ActivityLogging::for($this, 'fixed_asset');
     }
 
     public function asset(): BelongsTo

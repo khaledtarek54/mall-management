@@ -6,6 +6,7 @@ use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RecordsBankAccount;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\OwnerAccounting\DisbursementService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -131,11 +132,7 @@ class Disbursement extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['reference', 'owner_statement_id', 'user_id', 'amount', 'status', 'paid_on', 'external_reference'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('disbursement');
+        return ActivityLogging::for($this, 'disbursement');
     }
 
     public static function generateReference(): string

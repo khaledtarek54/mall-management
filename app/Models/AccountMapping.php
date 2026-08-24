@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\PostingRoles;
@@ -37,11 +38,7 @@ class AccountMapping extends Model
      */
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['key', 'ledger_account_id', 'asset_id'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('account_mapping');
+        return ActivityLogging::for($this, 'account_mapping');
     }
 
     /**

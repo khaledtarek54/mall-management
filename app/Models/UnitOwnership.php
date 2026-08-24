@@ -11,6 +11,7 @@ use App\Enums\UnitTenureType;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
@@ -183,15 +184,7 @@ class UnitOwnership extends Model implements BillableAgreement
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly([
-                'reference', 'unit_id', 'tenant_id', 'tenure_type', 'status', 'management_mode',
-                'assessment_basis', 'ownership_share_pct', 'participation_pct', 'started_at',
-                'ended_at', 'management_fee_pct', 'fee_basis',
-            ])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('unit_ownership');
+        return ActivityLogging::for($this, 'unit_ownership');
     }
 
     /** @return BelongsTo<Asset, $this> */

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
@@ -135,11 +136,7 @@ class JournalEntry extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'entry_date', 'asset_id', 'source_type', 'source_id'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('journal_entry');
+        return ActivityLogging::for($this, 'journal_entry');
     }
 
     public function lines(): HasMany

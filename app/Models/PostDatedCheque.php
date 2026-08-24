@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
@@ -206,11 +207,7 @@ class PostDatedCheque extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['reference', 'tenant_id', 'invoice_id', 'cheque_number', 'amount', 'cheque_date', 'status'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('post_dated_cheque');
+        return ActivityLogging::for($this, 'post_dated_cheque');
     }
 
     public static function generateReference(): string

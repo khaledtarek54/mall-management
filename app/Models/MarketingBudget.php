@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,11 +27,7 @@ class MarketingBudget extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['accrued_amount', 'spent_amount', 'status'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('marketing_budget');
+        return ActivityLogging::for($this, 'marketing_budget');
     }
 
     protected $fillable = [

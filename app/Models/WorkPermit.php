@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
@@ -132,14 +133,7 @@ class WorkPermit extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('work_permit')
-            ->logOnly([
-                'type', 'status', 'vendor_id', 'contractor_name', 'facility_work_order_id',
-                'unit_id', 'area_id', 'location', 'description', 'conditions',
-                'valid_from', 'valid_to', 'issued_at', 'closed_at', 'closure_notes',
-            ])
-            ->logOnlyDirty();
+        return ActivityLogging::for($this, 'work_permit');
     }
 
     public function asset(): BelongsTo

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Tenant;
+use App\Models\User;
 use App\Support\ActivityLogging;
 use App\Support\ActivityVocabulary;
 
@@ -50,15 +52,13 @@ it('sweeps every audited model, so the floor cannot pass vacuously', function ()
     );
 });
 
-it('labels every column the flipped models now audit, in both languages', function () {
-    // A column audited without a label humanises to an English word in an Arabic cell. Only the
-    // models actually flipped so far are asserted; the rest still carry their own allowlists and
-    // join this list as their tranche lands.
-    $flipped = ['Lease', 'Invoice', 'Payment', 'CreditNote', 'VendorBill', 'Tenant', 'Vendor'];
+it('labels every audited column on every model, in both languages', function () {
+    // A column audited without a label humanises to an English word sitting in an Arabic cell —
+    // the failure this whole vocabulary exists to prevent, and the one the flip could mass-produce.
     $vocabulary = app(ActivityVocabulary::class);
     $missing = [];
 
-    foreach ($flipped as $model) {
+    foreach (array_keys(ActivityLogging::COVERAGE_FLOOR) as $model) {
         $class = 'App\\Models\\'.$model;
         $instance = new $class;
         $logName = $instance->getActivitylogOptions()->logName;
@@ -66,23 +66,81 @@ it('labels every column the flipped models now audit, in both languages', functi
         foreach ($instance->attributesToBeLogged() as $column) {
             foreach (['en', 'ar'] as $locale) {
                 if (! $vocabulary->hasFieldLabel($logName, $column, $locale)) {
-                    $missing[] = "{$model}.{$column} [{$locale}]";
+                    $missing[$column][] = $locale;
                 }
             }
         }
     }
 
-    expect($missing)->toBe([], 'Audited but unlabelled: '.implode(', ', $missing));
+    $report = array_map(fn ($v, $k) => $k.' ['.implode('+', array_unique($v)).']', $missing, array_keys($missing));
+
+    expect($report)->toBe([], count($missing).' audited columns have no label: '.implode(', ', $report));
 });
 
-it('never audits a credential on any model, flipped or not', function () {
-    // Asserted against the POLICY rather than the models, because an unflipped model excludes
-    // these through its old allowlist and would pass with the denylist entry deleted.
-    foreach (['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'] as $secret) {
+it('renders every audited column in real Arabic, not English wearing an ar locale', function () {
+    // `hasFieldLabel(..., 'ar', fallback: false)` proves a key EXISTS in the Arabic file; it cannot
+    // prove somebody put an English string in it. With 123 labels written in one pass that is the
+    // realistic failure, and it is invisible on an English review — so this renders both locales
+    // and compares. An Arabic label identical to its English one, or carrying no Arabic script at
+    // all, is an untranslated string sitting on the operator's own panel.
+    $vocabulary = app(ActivityVocabulary::class);
+    $untranslated = [];
+    $checked = 0;
+
+    foreach (array_keys(ActivityLogging::COVERAGE_FLOOR) as $model) {
+        $instance = new ('App\\Models\\'.$model);
+        $logName = $instance->getActivitylogOptions()->logName;
+
+        foreach ($instance->attributesToBeLogged() as $column) {
+            app()->setLocale('en');
+            $english = $vocabulary->field($logName, $column);
+
+            app()->setLocale('ar');
+            $arabic = $vocabulary->field($logName, $column);
+
+            $checked++;
+
+            if ($english === $arabic || preg_match('/\p{Arabic}/u', $arabic) !== 1) {
+                $untranslated[$column] = $arabic;
+            }
+        }
+    }
+
+    app()->setLocale('en');
+
+    // A sweep that rendered nothing agrees with everything.
+    expect($checked)->toBeGreaterThan(500, 'The bilingual sweep rendered almost nothing — it is checking nothing.');
+
+    expect($untranslated)->toBe([], count($untranslated).' audited columns render English on the Arabic panel: '
+        .implode(', ', array_keys($untranslated)));
+});
+
+it('never audits a credential, and keeps the override that would matter if a floor ever held one', function () {
+    // The plain version of this test could not fail. Deleting `password` from CREDENTIALS left it
+    // green, because `password` is ALSO in NEVER and no model's floor contains it — so the ordinary
+    // branch still excluded it and the override never ran. A test that cannot distinguish the thing
+    // it names is not testing it.
+    //
+    // So assert the two properties that actually hold CREDENTIALS up, both reachable today:
+    // it is a subset of NEVER (either path excludes), and no floor contains a credential (which is
+    // the only condition under which the override would be load-bearing — and the reason it exists
+    // is that the floor otherwise beats the denylist unconditionally).
+    foreach (ActivityLogging::CREDENTIALS as $secret) {
         expect(ActivityLogging::NEVER)->toHaveKey($secret);
     }
 
-    foreach ([App\Models\User::class, App\Models\Tenant::class] as $class) {
+    $inFloor = [];
+    foreach (ActivityLogging::COVERAGE_FLOOR as $model => $floor) {
+        foreach (array_intersect($floor, ActivityLogging::CREDENTIALS) as $secret) {
+            $inFloor[] = "{$model}.{$secret}";
+        }
+    }
+
+    expect($inFloor)->toBe([], 'A credential is in the coverage floor, so some model was auditing it: '.implode(', ', $inFloor));
+
+    // And the end state, on the two models that actually expose the column.
+    foreach ([User::class, Tenant::class] as $class) {
+        expect((new $class)->getFillable())->toContain('password');
         expect((new $class)->attributesToBeLogged())->not->toContain('password');
     }
 });

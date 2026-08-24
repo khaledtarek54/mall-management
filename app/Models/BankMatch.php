@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -37,10 +38,7 @@ class BankMatch extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['bank_statement_line_id', 'journal_line_id', 'matched_at'])
-            ->dontLogEmptyChanges()
-            ->useLogName('bank_match');
+        return ActivityLogging::for($this, 'bank_match');
     }
 
     public function statementLine(): BelongsTo

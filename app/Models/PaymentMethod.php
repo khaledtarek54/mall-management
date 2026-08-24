@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\IsCodeCatalogue;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\Accounting\AccountResolver;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\ValueSets;
@@ -322,10 +323,6 @@ class PaymentMethod extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['code', 'name_en', 'name_ar', 'ledger_account_id', 'for_inbound', 'for_outbound', 'settlement_days', 'is_active', 'sort_order'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('payment_method');
+        return ActivityLogging::for($this, 'payment_method');
     }
 }

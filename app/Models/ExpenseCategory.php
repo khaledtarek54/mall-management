@@ -6,6 +6,7 @@ use App\Models\Concerns\IsCodeCatalogue;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\CostNature;
@@ -246,10 +247,6 @@ class ExpenseCategory extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['code', 'name_en', 'name_ar', 'ledger_account_id', 'cost_nature', 'is_active', 'sort_order'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('expense_category');
+        return ActivityLogging::for($this, 'expense_category');
     }
 }

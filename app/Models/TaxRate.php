@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Model;
@@ -46,11 +47,7 @@ class TaxRate extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['tax_code_id', 'rate', 'effective_from', 'note'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('tax_rate');
+        return ActivityLogging::for($this, 'tax_rate');
     }
 
     protected static function booted(): void

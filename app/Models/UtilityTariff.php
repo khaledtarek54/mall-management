@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use Carbon\CarbonImmutable;
@@ -59,11 +60,7 @@ class UtilityTariff extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['code', 'name_en', 'name_ar', 'utility_type', 'unit_of_measurement', 'provider', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('utility_tariff');
+        return ActivityLogging::for($this, 'utility_tariff');
     }
 
     /** @return HasMany<UtilityTariffRate, $this> */

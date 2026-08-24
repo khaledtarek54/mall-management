@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\PayrollRates;
@@ -58,19 +59,7 @@ class PayrollRate extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly([
-                'effective_from',
-                'employee_social_insurance_rate',
-                'employer_social_insurance_rate',
-                'salary_tax_rate',
-                'insurable_wage_floor',
-                'insurable_wage_ceiling',
-                'note',
-            ])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('payroll_rate');
+        return ActivityLogging::for($this, 'payroll_rate');
     }
 
     protected static function booted(): void

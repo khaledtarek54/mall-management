@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -60,11 +61,7 @@ class InventoryItem extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['sku', 'name', 'category', 'unit', 'unit_cost', 'reorder_level', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('inventory_item');
+        return ActivityLogging::for($this, 'inventory_item');
     }
 
     public function movements(): HasMany

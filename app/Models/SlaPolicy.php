@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,11 +64,7 @@ class SlaPolicy extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'request_type', 'priority', 'resolve_hours', 'respond_hours', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('sla_policy');
+        return ActivityLogging::for($this, 'sla_policy');
     }
 
     public function asset(): BelongsTo

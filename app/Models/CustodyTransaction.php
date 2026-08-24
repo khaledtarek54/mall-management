@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\SettleCustodyService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -45,11 +46,7 @@ class CustodyTransaction extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['custody_id', 'asset_id', 'type', 'amount', 'transaction_date', 'category', 'method'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('custody_transaction');
+        return ActivityLogging::for($this, 'custody_transaction');
     }
 
     public function custody(): BelongsTo

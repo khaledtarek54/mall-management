@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateNotOperatorTyped;
 use App\Support\Attributes\PropertyOwned;
@@ -40,11 +41,7 @@ class DepreciationEntry extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['fixed_asset_id', 'period_month', 'amount'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('depreciation_entry');
+        return ActivityLogging::for($this, 'depreciation_entry');
     }
 
     public function fixedAsset(): BelongsTo

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\SalesExclusions;
@@ -96,11 +97,7 @@ class TenantSalesDeclaration extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['status', 'declared_sales', 'gross_sales', 'calculated_percentage_rent', 'locked_at', 'audit_notes'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('tenant_sales');
+        return ActivityLogging::for($this, 'tenant_sales');
     }
 
     /**

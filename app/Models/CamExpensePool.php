@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Services\SyncCamPoolFromLedgerService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -248,11 +249,7 @@ class CamExpensePool extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['status', 'total_actual_expense', 'total_estimated_collected', 'admin_fee_pct', 'recovery_vat_rate', 'reconciled_at'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('cam_pool');
+        return ActivityLogging::for($this, 'cam_pool');
     }
 
     /** @return BelongsTo<Asset, $this> */

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Services\BillViolationFineService;
 use App\Services\SendViolationNoticeAction;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -113,11 +114,7 @@ class Violation extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'tenant_id', 'category', 'description', 'fine_amount', 'violation_date', 'status', 'notified_at'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('violation');
+        return ActivityLogging::for($this, 'violation');
     }
 
     /**

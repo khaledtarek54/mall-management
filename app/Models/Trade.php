@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,10 +64,7 @@ class Trade extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('trade')
-            ->logOnly(['code', 'name_en', 'name_ar', 'standard_hourly_rate', 'default_nte', 'is_active', 'sort_order'])
-            ->logOnlyDirty();
+        return ActivityLogging::for($this, 'trade');
     }
 
     public function workOrders(): HasMany

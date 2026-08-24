@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InvoiceItemType;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\PostingRoles;
@@ -62,13 +63,7 @@ class ChargeCode extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            // Taxability is logged for the same reason the posting role is: it is an accountant's
-            // ruling, and "when did parking become taxable?" is a question an auditor asks.
-            ->logOnly(['code', 'name_en', 'name_ar', 'posting_role', 'tax_code', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('charge_code');
+        return ActivityLogging::for($this, 'charge_code');
     }
 
     protected static function booted(): void

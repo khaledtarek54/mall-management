@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\TenantRequestType;
 use App\Models\Concerns\IsCodeCatalogue;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\ValueSets;
@@ -236,10 +237,6 @@ class TenantRequestSubcategory extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['request_type', 'code', 'name_en', 'name_ar', 'trade_id', 'is_active', 'sort_order'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('tenant_request_subcategory');
+        return ActivityLogging::for($this, 'tenant_request_subcategory');
     }
 }

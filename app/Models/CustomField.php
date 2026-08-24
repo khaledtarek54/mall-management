@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PortfolioShared;
 use App\Support\CustomFields;
@@ -211,10 +212,6 @@ class CustomField extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['model', 'key', 'label_en', 'label_ar', 'type', 'options', 'is_required', 'is_active', 'sort_order'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('custom_field');
+        return ActivityLogging::for($this, 'custom_field');
     }
 }

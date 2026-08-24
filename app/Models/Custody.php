@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Services\GrantCustodyService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
@@ -59,11 +60,7 @@ class Custody extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['employee_id', 'asset_id', 'reference', 'amount', 'custody_date', 'paid_from'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('custody');
+        return ActivityLogging::for($this, 'custody');
     }
 
     public function employee(): BelongsTo

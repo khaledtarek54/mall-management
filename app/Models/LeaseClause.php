@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Carbon\CarbonImmutable;
@@ -108,10 +109,7 @@ class LeaseClause extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('lease_clause')
-            ->logOnly(['type', 'summary', 'threshold_pct', 'threshold_amount', 'radius_km', 'notice_days', 'applies_from', 'applies_to', 'source_reference'])
-            ->logOnlyDirty();
+        return ActivityLogging::for($this, 'lease_clause');
     }
 
     /** @return BelongsTo<Lease, $this> */

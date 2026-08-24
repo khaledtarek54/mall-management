@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\ActivityLogging;
 use App\Support\ApprovalPolicy;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
@@ -134,12 +135,7 @@ class PurchaseRequest extends Model
     public function getActivitylogOptions(): LogOptions
     {
         // FR-PROC-05: `status` is the point — this IS the status history.
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'status', 'justification', 'warehouse_id', 'vendor_id',
-                'total_value', 'required_permission', 'decision_notes', 'order_reference'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('purchase_request');
+        return ActivityLogging::for($this, 'purchase_request');
     }
 
     /** @return BelongsTo<Asset, $this> */

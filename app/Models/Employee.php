@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Builder;
@@ -75,11 +76,7 @@ class Employee extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'department_id', 'code', 'name', 'position', 'base_salary', 'payment_method', 'status'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('employee');
+        return ActivityLogging::for($this, 'employee');
     }
 
     public function asset(): BelongsTo

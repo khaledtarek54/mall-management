@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Services\MarketingPost\PublishMarketingPostService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\MarketingFeedCache;
@@ -231,11 +232,7 @@ class MarketingPost extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['status', 'title', 'is_featured', 'priority', 'published_at', 'reviewed_by', 'review_notes'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('marketing_post');
+        return ActivityLogging::for($this, 'marketing_post');
     }
 
     // ============ Media ============

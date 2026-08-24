@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\TenantRequestType;
 use App\Models\Concerns\HasSearchText;
 use App\Services\NotifyAreaSupervisorsService;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\SlaResolver;
@@ -86,11 +87,7 @@ class TenantRequest extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'sla_clock', 'valid_from', 'valid_to', 'resolution_notes', 'decision', 'decision_reason', 'csat_rating', 'confirmed_at'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('tenant_request');
+        return ActivityLogging::for($this, 'tenant_request', alsoLog: ['confirmed_at']);
     }
 
     protected $fillable = [

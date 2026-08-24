@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -48,11 +49,7 @@ class BankStatement extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['bank_account_id', 'period_start', 'period_end', 'opening_balance', 'closing_balance'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('bank_statement');
+        return ActivityLogging::for($this, 'bank_statement');
     }
 
     public function bankAccount(): BelongsTo

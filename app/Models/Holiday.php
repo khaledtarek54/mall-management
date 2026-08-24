@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\WorkingCalendar;
@@ -103,10 +104,6 @@ class Holiday extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'date', 'kind', 'opens_at', 'closes_at', 'name_en', 'name_ar', 'is_active'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('holiday');
+        return ActivityLogging::for($this, 'holiday');
     }
 }

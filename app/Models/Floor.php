@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\Occupancy;
@@ -127,10 +128,6 @@ class Floor extends Model
     /** Named log — see RentableItem::getActivitylogOptions() for why this is not optional. */
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['asset_id', 'code', 'name', 'level'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('floor');
+        return ActivityLogging::for($this, 'floor');
     }
 }

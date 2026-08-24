@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyItself;
 use App\Support\Occupancy;
@@ -56,11 +57,7 @@ class Asset extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['name', 'code', 'type', 'city', 'leasable_area_sqm', 'is_active', 'primary_color'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('asset');
+        return ActivityLogging::for($this, 'asset');
     }
 
     protected $fillable = [

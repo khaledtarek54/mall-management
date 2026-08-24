@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Model;
@@ -41,11 +42,7 @@ class VendorContractAmendment extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logOnly(['reference', 'value_delta', 'effective_on', 'reason'])
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges()
-            ->useLogName('vendor_contract_amendment');
+        return ActivityLogging::for($this, 'vendor_contract_amendment');
     }
 
     public function contract(): BelongsTo
