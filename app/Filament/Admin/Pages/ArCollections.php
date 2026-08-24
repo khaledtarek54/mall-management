@@ -6,6 +6,7 @@ use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
+use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Tenant;
 use App\Services\Reports\ReportService;
@@ -215,6 +216,23 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
                     ->color(fn (array $record): ?string => $record['last_payment_at'] ? null : 'danger'),
             ])
             ->recordActions([
+                // The END of the chase (UX5-03). The worklist told you who to call and then left you
+                // to find the payment form yourself — six screens, re-searching the tenant you were
+                // already looking at. This carries the tenant across, so recording what they just
+                // said they paid is: click, type the amount, save (the amount field suggests the
+                // allocation oldest-first on blur).
+                //
+                // A LINK, not a modal: the real payment form guards the posting date, the property
+                // scope, over-allocation and the orphaned-receipt case, and a second slimmed-down
+                // form beside it would be a second set of those guards to keep in step.
+                Action::make('recordPayment')
+                    ->label(__('admin.collections.record_payment'))
+                    ->icon('heroicon-o-banknotes')
+                    ->color('gray')
+                    ->visible(fn (): bool => Auth::user()?->can('payments.create') ?? false)
+                    ->url(fn (array $record): ?string => $record['tenant_id']
+                        ? PaymentResource::getUrl('create', ['tenant' => $record['tenant_id']])
+                        : null),
                 // The chase itself: the statement is what you attach to the call or the email.
                 Action::make('statement')
                     ->label(__('admin.collections.download_statement'))

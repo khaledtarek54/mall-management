@@ -59,10 +59,12 @@ final class DocumentText
         'invoice.payment_instructions',
         'invoice.terms',
         'dunning.overdue_reminder',
+        'dunning.final_notice',
         'dunning.late_fee_applied',
         'receipt.payment_received',
         'lease.expiry_approaching',
         'dunning.overdue_subject',
+        'dunning.final_subject',
         'dunning.late_fee_subject',
         'receipt.payment_subject',
         'lease.expiry_subject',
@@ -93,7 +95,18 @@ final class DocumentText
         // separators.
         'dunning.overdue_reminder' => [
             'floor' => 'admin.notifications.invoice_overdue_reminder_mail',
-            'tokens' => ['number', 'days', 'amount'],
+            'tokens' => ['number', 'days', 'amount', 'notice'],
+        ],
+
+        // The LAST rung of the ladder (1A-16). Registered with **no floor**, which is the whole
+        // design: an install that has not written a final demand simply does not send one — the
+        // notification falls back to the ordinary reminder. A system-composed "FINAL NOTICE" in
+        // wording the operator never chose is the message most likely to start an argument they did
+        // not intend, and unlike every other block here there is no historical key to inherit,
+        // because this document has never existed.
+        'dunning.final_notice' => [
+            'floor' => null,
+            'tokens' => ['number', 'days', 'amount', 'notice'],
         ],
 
         // A penalty notice. Yardi templates this for the reason an operator would give: a late fee
@@ -130,7 +143,12 @@ final class DocumentText
         // rather than trusted: see `forSubject()`.
         'dunning.overdue_subject' => [
             'floor' => 'admin.notifications.invoice_overdue_reminder_subject',
-            'tokens' => ['number'],
+            'tokens' => ['number', 'notice'],
+        ],
+        // No floor, for the reason `dunning.final_notice` has none.
+        'dunning.final_subject' => [
+            'floor' => null,
+            'tokens' => ['number', 'notice'],
         ],
         'dunning.late_fee_subject' => [
             'floor' => 'admin.notifications.late_fee_applied_subject',
@@ -157,6 +175,27 @@ final class DocumentText
     ];
 
     /**
+     * Blocks whose floor is ANOTHER BLOCK rather than a translation key.
+     *
+     * A block normally falls back to the lang key the document always used. The final demand
+     * (1A-16) has no such key, because that document never existed — and giving it the ordinary
+     * reminder's lang key as a floor would be worse than nothing: an operator who has written their
+     * own reminder and no final demand would find the last, sharpest notice reverting to the
+     * system's wording, which is the opposite of what EG-15 is for.
+     *
+     * So it falls back to the block a reader would expect it to sound like. The chain is declared
+     * here rather than being an `if` inside the notification, because the resolver is where every
+     * caller already asks the question, and a chain expressed at one call site is a chain the next
+     * call site does not inherit.
+     *
+     * @var array<string, string>
+     */
+    public const FALLS_BACK_TO = [
+        'dunning.final_notice' => 'dunning.overdue_reminder',
+        'dunning.final_subject' => 'dunning.overdue_subject',
+    ];
+
+    /**
      * The text for `$key` on `$assetId`'s documents, or null when there is nothing to render.
      *
      * @param  array<string, string|int|float>  $tokens
@@ -176,7 +215,15 @@ final class DocumentText
         $floor = self::KEYS[$key]['floor'];
 
         // The floor is a translation key and takes Laravel's own `:token` replacements, not ours.
-        return $floor !== null && Lang::has($floor) ? __($floor, $tokens) : null;
+        if ($floor !== null && Lang::has($floor)) {
+            return __($floor, $tokens);
+        }
+
+        // No floor of its own: fall through to the block this one stands in for. One hop only —
+        // a chain long enough to need a loop is a registry nobody can read.
+        $next = self::FALLS_BACK_TO[$key] ?? null;
+
+        return $next !== null ? self::for($next, $assetId, $tokens) : null;
     }
 
     /**

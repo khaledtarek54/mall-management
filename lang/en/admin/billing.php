@@ -66,6 +66,7 @@ return [
         'last_payment' => 'Last payment',
         'never_paid' => 'Never paid',
         'download_statement' => 'Statement',
+        'record_payment' => 'Record payment',
         'empty' => 'Nothing outstanding — every tenant is settled.',
     ],
     'month_end' => [
@@ -107,6 +108,13 @@ return [
             'period_closed' => 'Once closed, nothing can post into this month without reopening it.',
             'reported_not_closed' => 'An owner statement has been issued for this month while the period is still open. Any correction from here restates a figure the owner is already holding — closing the period is what stops that.',
         ],
+    ],
+
+    'invoices' => [
+        'send_confirm' => 'The tenant will be emailed this invoice with its PDF attached, and it will appear in their portal.',
+        'resend_confirm' => 'This invoice was last sent on :when. The tenant will be emailed it again, with its PDF attached.',
+        'sent' => 'Invoice sent to the tenant.',
+        'send_no_tenant' => 'This invoice has no tenant to send to.',
     ],
 
     'credit_notes' => [

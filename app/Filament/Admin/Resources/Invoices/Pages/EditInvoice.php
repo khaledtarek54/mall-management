@@ -9,6 +9,7 @@ use App\Models\TenantCreditApplication;
 use App\Services\ApplyDepositToInvoiceService;
 use App\Services\ApplyTenantCreditService;
 use App\Services\InvoicePdfService;
+use App\Services\SendInvoiceToTenantService;
 use App\Services\VoidInvoiceService;
 use App\Services\WriteOffInvoiceService;
 use App\Support\Filament\RefreshesRecordState;
@@ -81,6 +82,47 @@ class EditInvoice extends EditRecord
                         $svc->filename($this->record),
                         ['Content-Type' => 'application/pdf'],
                     );
+                }),
+            // UX5-09. Until this shipped, the ONLY invoice a tenant was ever emailed was one the
+            // monthly run raised: a violation fine, a CAM recovery, an NSF fee or anything an
+            // operator typed reached them only if they opened the portal — and there was no way to
+            // re-send the one they say never arrived, so the answer was to download the PDF and mail
+            // it by hand. Labelled by whether it has gone before, because "Send" and "Send again"
+            // are different decisions and the operator is entitled to know which one they are making.
+            Action::make('sendToTenant')
+                ->label(fn () => $this->record->tenant_notified_at
+                    ? __('admin.actions.resend_invoice')
+                    : __('admin.actions.send_invoice'))
+                ->icon('heroicon-o-paper-airplane')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalDescription(fn () => $this->record->tenant_notified_at
+                    ? __('admin.invoices.resend_confirm', [
+                        'when' => $this->record->tenant_notified_at->translatedFormat('d M Y H:i'),
+                    ])
+                    : __('admin.invoices.send_confirm'))
+                // A draft is not a document — the tenant cannot see one anywhere else either, so
+                // offering to email it would be the one surface that leaks it.
+                ->visible(fn () => $this->record->isVisibleToTenant())
+                ->authorize(fn () => Auth::user()?->can('invoices.view') ?? false)
+                ->action(function () {
+                    abort_unless(Auth::user()?->can('invoices.view') ?? false, 403);
+
+                    $sent = app(SendInvoiceToTenantService::class)->send($this->record);
+
+                    if (! $sent) {
+                        Notification::make()
+                            ->warning()
+                            ->title(__('admin.invoices.send_no_tenant'))
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('admin.invoices.sent'))
+                        ->send();
                 }),
             Action::make('paymentLink')
                 ->label(__('admin.actions.payment_link'))

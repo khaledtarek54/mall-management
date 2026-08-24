@@ -42,6 +42,8 @@ return [
         'pdf' => 'PDF',
         'download_receipt' => 'Receipt',
         'download_pdf' => 'Download PDF',
+        'send_invoice' => 'Send to tenant',
+        'resend_invoice' => 'Send again',
         'post_to_ledger' => 'Post to GL now',
         'post_to_ledger_confirm' => 'This posts recent invoices, payments, and other documents to the general ledger. It runs automatically every day; running it now just makes the books current immediately. Safe to run anytime.',
         'export' => 'Export',

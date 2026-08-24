@@ -312,6 +312,23 @@ class Settings extends Page implements HasSchemas
                         ->numeric()
                         ->minValue(0)
                         ->required(),
+                    // 1A-16. 0 = chase once, which is what every install has done since the tenant
+                    // reminder existed — so no tenant receives a message on deploy they would not
+                    // have received yesterday. How hard you chase is a commercial judgement about
+                    // tenants you have to keep, which is why it is off until someone rules on it.
+                    TextInput::make('billing.dunning_followup_days')
+                        ->label(__('admin.settings.fields.dunning_followup_days'))
+                        ->helperText(__('admin.settings.fields.dunning_followup_days_helper'))
+                        ->suffix(__('admin.fields.days'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->required(),
+                    TextInput::make('billing.dunning_max_notices')
+                        ->label(__('admin.settings.fields.dunning_max_notices'))
+                        ->helperText(__('admin.settings.fields.dunning_max_notices_helper'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->required(),
                     TextInput::make('billing.default_security_deposit_months')
                         ->label(__('admin.settings.fields.default_security_deposit_months'))
                         ->helperText(__('admin.settings.fields.default_security_deposit_months_helper'))

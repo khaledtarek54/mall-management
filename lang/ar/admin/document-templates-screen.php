@@ -13,6 +13,8 @@ return [
             'invoice_email_body' => 'بريد الفاتورة — نص التقديم',
             'dunning_overdue_reminder' => 'تذكير التأخر — بريد',
             'dunning_overdue_subject' => 'تذكير التأخر — عنوان الرسالة',
+            'dunning_final_notice' => 'إنذار نهائي — بريد',
+            'dunning_final_subject' => 'إنذار نهائي — عنوان الرسالة',
             'dunning_late_fee_subject' => 'احتساب غرامة تأخير — عنوان الرسالة',
             'receipt_payment_subject' => 'استلام دفعة — عنوان الرسالة',
             'lease_expiry_subject' => 'قرب انتهاء العقد — عنوان الرسالة',

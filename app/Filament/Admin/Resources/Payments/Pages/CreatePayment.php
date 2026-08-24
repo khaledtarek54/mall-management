@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Payments\Pages;
 
 use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Payment;
 use App\Support\PostingDate;
 use Filament\Notifications\Notification;
@@ -15,6 +16,36 @@ class CreatePayment extends CreateRecord
     protected static string $resource = PaymentResource::class;
 
     protected array $allocations = [];
+
+    /**
+     * Open with the tenant already chosen when the collections worklist sent us here (UX5-03).
+     *
+     * The daily loop is "call the tenant → they say they paid → record it", and it cost six screens:
+     * worklist → tenant hub → sidebar → Payments → New → search the SAME tenant again → amount. The
+     * form itself was never the problem; reaching it with the context you already had was. With the
+     * tenant filled, typing the amount fires `suggestAllocations()` on blur and the receipt is
+     * spread oldest-first, which is the whole of the job.
+     *
+     * **The id is re-checked against the reader's own scoped query, not trusted.** It arrives in a
+     * query string, so a hand-typed one could name a tenant in a mall this user cannot see. The
+     * EntitySelect would refuse it at validation anyway — Filament resolves a Select's value by
+     * asking for its LABEL through the scoped query — but prefilling a value the form will later
+     * reject presents as the page being broken rather than as a refusal, so it is dropped here.
+     */
+    protected function fillForm(): void
+    {
+        $this->callHook('beforeFill');
+
+        $tenantId = (int) request()->query('tenant', 0);
+
+        $this->form->fill(
+            $tenantId > 0 && TenantResource::getEloquentQuery()->whereKey($tenantId)->exists()
+                ? ['tenant_id' => $tenantId]
+                : null,
+        );
+
+        $this->callHook('afterFill');
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

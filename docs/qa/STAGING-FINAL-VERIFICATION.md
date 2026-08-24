@@ -19,8 +19,9 @@
 >
 > | | Count | Where it is now |
 > |---|---|---|
-> | ✅ **Fixed** (commit `b428a396`) | **14** | Below, each row marked ✅. 17 new regression tests + 25 existing suites + 8 conformance gates re-run green; `billing:reconcile --deep` still 9/9 on real data |
-> | ⏳ **Waiting** — not MVP-blocking | **19** | [POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md) — the live list, each with the reason it can wait |
+> | ✅ **Fixed** — money (`b428a396`) | **14** | Below, each row marked ✅. 17 new regression tests + 25 existing suites + 8 conformance gates re-run green; `billing:reconcile --deep` still 9/9 on real data |
+> | ✅ **Fixed** — collections (2026-08-25) | **3** | 1A-16/UX5-02 (dunning ladder, ships OFF) · UX5-09 (invoice send/resend) · UX5-03 (inline record-payment). Backlogged first, then built: they were filed as usability, and getting paid is the operator's day |
+> | ⏳ **Waiting** — not MVP-blocking | **16** | [POST-STAGING-BACKLOG.md](POST-STAGING-BACKLOG.md) — the live list, each with the reason it can wait |
 > | 🔑 **Needs a decision, not code** | **6** | [STATUS.md](../STATUS.md) §2/§5, unchanged by this round except where noted |
 > | 📄 **Documentation drift** | **12** | 2 fixed (they were active traps), 10 in the backlog §4 |
 > | ✔️ **Verified clean, nothing to do** | rest | §1 below |
@@ -350,14 +351,14 @@ user's expectation clusters in four places, none staging-blocking:
 
 | ID | Gap | Sev / Effort |
 |---|---|---|
-| UX5-02 | **No dunning cadence** (the UX face of 1A-16) — repeat chasing is entirely manual | MED / M |
-| UX5-03 | **The collections loop has no endpoint** — the worklist row offers only a statement; the tenant hub's Payments tab cannot create; "call → they paid → record it" costs six steps. The payment form itself is excellent once reached | MED / S |
+| ✅ UX5-02 | ~~No dunning cadence~~ **FIXED 2026-08-25** — a configurable follow-up cadence with a ceiling and a final demand; ships OFF (0 = chase once) | — |
+| ✅ UX5-03 · **FIXED 2026-08-25** | ~~The collections loop has no endpoint~~ — the worklist row offers only a statement; the tenant hub's Payments tab cannot create; "call → they paid → record it" costs six steps. The payment form itself is excellent once reached | MED / S |
 | UX5-01 | **No CAM reconciliation workbench** — the year-end is four sequential row actions with no arithmetic shown before commitment (allocations ARE inspectable after). The only unshipped 🟠 UI story | MED / M |
 | UX5-04 | **⌘K reaches records only** — 33 report/utility pages are sidebar-scan-only, while UX-28 advertises the palette | MED / S |
 | UX5-06 | **Dead-end KPIs**: MallStats (the landing row for every money role), MonthlyRevenueTrend, EnergyConsumptionTrend have zero drill-down links. *(ArAging and TenantMix DO link — the finder's list was 40% corrected by the verifier.)* | MED / S |
 | UX5-05 | **Technician on a phone**: PM jobs show **no date at all** (`scheduled_for` is md-only; the SLA clock column is blank on preventive jobs) and no equipment code, with no operator override of `visibleFrom('md')`. Since O3 (tech app) is declined, panel-on-phone IS the tool. The STATUS §7 "shows cost variance" half is stale — those columns are toggled off by default | MED / S |
 | UX5-08 | Tenant 360 lacks the violations tab and sales trend (UX-07's recorded open half) | LOW / S |
-| UX5-09 | **A manually raised invoice notifies nobody**, and there is no send/resend action on the invoice record — the daily "I never received it" conversation ends in a hand-mailed PDF | LOW / S |
+| ✅ UX5-09 · **FIXED 2026-08-25** | ~~A manually raised invoice notifies nobody~~, and there is no send/resend action on the invoice record — the daily "I never received it" conversation ends in a hand-mailed PDF | LOW / S |
 | UX5-10 | No consolidated approvals inbox (per-module badges + tabs only; single-level ladder makes this mild) | LOW / S |
 | UX5-11 | UX-08/UX-10/UX-12 live only in the benchmark doc, absent from ROADMAP "the single prioritized list" — and the drill-down topic already has a CLOSED row there while the benchmark's stays open: the two homes disagree today | NOTE / XS |
 
@@ -457,7 +458,7 @@ list. Nothing here blocks the cutover.
 |---|---|
 | **At the cutover (ops, XS each)** | `gh workflow run ci.yml` once · add `composer test:mysql` and `EXPORT_QUEUE_CONNECTION` to the staging deltas · reseed this workstation · measure H3 (search `LIKE`) on the posture-B box |
 | **Docs (half a day)** | §8's remaining ten rows · dispositions for §4.2's six blind spots and the two unrecorded declines (admin API, footfall) · move UX-08/10/12 into ROADMAP or close them there |
-| **First weeks (product)** | dunning ladder (1A-16/UX5-02, **do this first**) · collections inline actions (UX5-03) · invoice send/resend (UX5-09) · MallStats drill-downs (UX5-06) · technician phone columns (UX5-05) · portal Arabic gate (UX5-07) · quick-nav (UX5-04) · CAM workbench (UX5-01) · saved-view default ownership (D3-04) · statement itemization (AR-GL-03) · retention/prune (D2-09) |
+| **First weeks (product)** | ~~dunning ladder · collections inline actions · invoice send/resend~~ — **all three shipped 2026-08-25**. Remaining: MallStats drill-downs (UX5-06) · technician phone columns (UX5-05) · portal Arabic gate (UX5-07) · quick-nav (UX5-04) · CAM workbench (UX5-01) · saved-view default ownership (D3-04) · statement itemization (AR-GL-03) · retention/prune (D2-09) |
 | **Needs an answer, not code** | A2.1 (tenant-side withholding — **escalate as *probably yes, and early***) · A2.7 (one TRN or one per owner) · GAP1B-02 (consolidated statements: reopen or correct STATUS) · 1A-15 (leasing pipeline: open or decline) · B1 (management fee) · 1A-17 (lease assignment) |
 
 ---

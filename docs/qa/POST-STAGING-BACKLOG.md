@@ -6,8 +6,10 @@
 > then judged **not MVP-blocking**: it does not produce wrong money, does not lose a cost silently,
 > and is not armed by a decision the client is about to make.
 >
-> **The MVP-blocking half is DONE** — nine money fixes shipped 2026-08-24, listed in §0 so nobody
-> re-opens them from the verification report.
+> **The MVP-blocking half is DONE** — nine money fixes shipped 2026-08-24, and the **collections
+> cluster** (dunning ladder · invoice send/resend · inline record-payment) shipped 2026-08-25 after a
+> re-read of this list judged the original call wrong: they were filed as usability, and getting paid
+> is the operator's actual day. Both tranches are in §0 so nobody re-opens them from the report.
 >
 > **This is a backlog, not a second live list.** When a row here is picked up it moves to
 > [ROADMAP.md](../ROADMAP.md) or [STATUS.md](../STATUS.md) and is struck here; when it is declined it
@@ -56,9 +58,31 @@ CLAUDE.md's *"there is no morph map"* corrected (M4B-07, D2-06).
 | Migration | applied to the local database (`2026_08_24_880000`) |
 | Books, after the change | `billing:reconcile --deep` **9/9 on real data** — 293 invoices, 11,183,784.59 invoiced, 1,481,825.54 outstanding |
 
+### The collections cluster — shipped 2026-08-25
+
+Three findings, one workflow: **getting paid**. They were backlogged as "usability, not money" and
+that line was wrong for a system whose operator's day *is* chasing rent — so they were built before
+staging rather than after.
+
+| ID | What was wrong | Fix |
+|---|---|---|
+| **1A-16 / UX5-02** | Each overdue invoice chased its tenant **exactly once, ever** — a tenant three months behind had been written to as often as one three days behind, and nothing recorded how many times anyone had been asked | `invoices.dunning_level` beside the existing date stamp, and a cadence: `dunning_followup_days` (**0 = chase once — the shipped default, so no tenant gets a message on deploy day they would not have got yesterday**) with `dunning_max_notices` as the ceiling. The notice AT the ceiling is a **final demand** — `dunning.final_notice`, which carries no floor and falls back to the ordinary reminder, so the escalation happens in the operator's own words or not at all |
+| **UX5-09** | An invoice raised by any path except the monthly run **notified nobody**, and there was no send or re-send anywhere on the record | `SendInvoiceToTenantService` — one seam both the billing run and the operator's button go through — plus a Send / Send again action that labels itself by whether it has gone before, refuses a draft, and stamps `invoices.tenant_notified_at` so *"I never received it"* has an answer |
+| **UX5-03** | The worklist told you who to call and then left you to find the payment form yourself: six screens, re-searching the tenant you were already looking at | A **Record payment** action on the collections worklist and on the tenant hub's Payments tab, linking to the real payment form with the tenant carried across. A link, not a second slimmer form — the real one owns the posting-date guard, the property scope, the over-allocation backstop and the orphaned-receipt refusal |
+
+Verified: `ChasingATenantIsALadderNotOneEmailTest` (9 cases, including *"still chases exactly once
+when no cadence is configured"* — the assertion that makes this safe to deploy), plus the settings,
+change-impact, authz, translation, wording, page-smoke and draft-visibility gates. The wording gate
+was **extended rather than exempted**: a block may now declare that it falls back to another block
+(`DocumentText::FALLS_BACK_TO`), and the gate follows the chain and requires a real floor at the end
+of it. Dry-run against the demo portfolio: 11 overdue invoices, each correctly at notice #1.
+
 **One deploy note:** the deposit flag is a schema change, so staging needs `php artisan migrate`
-(`./deploy.sh` already runs it). Nothing else in this set requires a data backfill — every fix is
-either behaviour on a path that had none, or a stricter read of columns that already existed.
+(`./deploy.sh` already runs it), and the dunning cadence needs `php artisan settings:migrate` as
+well. Nothing else requires a data backfill — every fix is either behaviour on a path that had none,
+or a stricter read of columns that already existed. `invoices.dunning_level` IS backfilled to 1 for
+anything already chased, so switching the cadence on cannot send a "first reminder" to a tenant who
+has already had one.
 
 ---
 
@@ -68,9 +92,6 @@ Real operator pain, none of it wrong money.
 
 | ID | Gap | Why it can wait | Size |
 |---|---|---|---|
-| **1A-16 / UX5-02** | **No dunning ladder** — each overdue invoice reminds the tenant exactly once, ever. No second notice, final demand, legal-handoff state or per-tenant notice history | Late fees, the aging worklist and the one-shot reminder all work; chasing is manual, which is what the operator does today anyway. **The strongest genuinely-new gap found** — schedule it first | S–M |
-| **UX5-03** | **The collections loop has no endpoint** — the worklist row offers only a statement, and the tenant hub's Payments tab cannot create, so "call → they paid → record it" costs six steps | The payment form itself is excellent once reached | S |
-| **UX5-09** | **A manually raised invoice notifies nobody**, and there is no send/resend on the invoice record | Monthly-run invoices DO notify; portal and PDF both work | S |
 | **UX5-06** | **Dead-end KPIs** — MallStats (every money role's landing widget), MonthlyRevenueTrend and EnergyConsumptionTrend have no drill-down. *(ArAging and TenantMix DO link — verified)* | The numbers are right; the click is missing | S |
 | **UX5-05** | **Technician on a phone**: PM jobs show **no date at all** and no equipment code, with no operator override of `visibleFrom('md')` | O3 (a technician app) is declined, so this is the tool — but a technician can still open the record | S |
 | **UX5-01** | **No CAM reconciliation workbench** — the year-end runs as four sequential row actions with no arithmetic shown before commitment | The engine is at/above Yardi and allocations are inspectable after generation. Only unshipped 🟠 UI story | M |

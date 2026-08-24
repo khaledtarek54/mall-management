@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\PaymentMethod;
 use App\Support\TenantScope;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -12,6 +14,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class TenantPaymentsRelationManager extends RelationManager
 {
@@ -84,7 +87,21 @@ class TenantPaymentsRelationManager extends RelationManager
                         ->when($data['payment_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date))),
             ])
             ->filtersFormColumns(2)
-            ->headerActions([])
+            ->headerActions([
+                // The tenant hub's Payments tab could show a history and not add to it, so "record
+                // what this tenant just paid" meant leaving the record you were looking at and
+                // searching for it again in the Payments resource (UX5-03). It links to the real
+                // form with the tenant carried across rather than opening a second, thinner one:
+                // the payment form owns the posting-date guard, the property scope, the
+                // over-allocation backstop and the orphaned-receipt refusal.
+                Action::make('recordPayment')
+                    ->label(__('admin.collections.record_payment'))
+                    ->icon('heroicon-o-banknotes')
+                    ->visible(fn (): bool => Auth::user()?->can('payments.create') ?? false)
+                    ->url(fn (RelationManager $livewire): string => PaymentResource::getUrl('create', [
+                        'tenant' => $livewire->getOwnerRecord()->getKey(),
+                    ])),
+            ])
             ->recordActions([])
             ->toolbarActions([])
             ->defaultSort('payment_date', 'desc')

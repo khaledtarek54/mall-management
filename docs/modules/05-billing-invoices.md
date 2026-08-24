@@ -1723,3 +1723,55 @@ Registered as a GL source (`LedgerPoster::JOURNALIZERS` + `LedgerRealtimeSync::S
 only the journalizer's arithmetic.
 
 Tests: `tests/Feature/Regression/InvoiceWriteOffTest.php`.
+
+## Chasing an overdue invoice — the dunning ladder (1A-16, 2026-08-25)
+
+`billing:remind-overdue-tenants` filtered on `whereNull(tenant_overdue_notified_at)` and set the
+stamp, so **every overdue invoice chased its tenant exactly once, for the life of the invoice**. A
+tenant three months behind had been written to as often as one three days behind, nothing recorded
+how many times anyone had been asked, and every follow-up was somebody's memory — in a market this
+codebase's own `OpeningInvoiceImporter` describes as arrears-chasing-first.
+
+**Two columns and two settings.** `invoices.dunning_level` is the notice NUMBER, beside the existing
+`tenant_overdue_notified_at`, which is the date of the LAST notice; together they answer *"how many
+times, and when last?"*, which is the whole of the notice history a collections call needs. A
+separate history table would record the same two facts per row and be a second place for them to
+disagree.
+
+- `BillingSettings::dunning_followup_days` — days since the last notice before chasing again.
+  **0 = chase once, and that is how it ships**, so no tenant receives a message on deploy day they
+  would not have received the day before. Same reasoning as `late_fee_recurrence_days`: how hard you
+  chase is a commercial judgement about tenants the operator has to keep working with.
+- `BillingSettings::dunning_max_notices` — the ceiling (default 3, 0 = none). The notice **at** the
+  ceiling is a final demand.
+
+**The ladder is per INVOICE, not per tenant** — each invoice is its own claim with its own age, a
+tenant may be current on one and months behind on another, and a per-tenant counter would send a
+final demand about a bill raised yesterday.
+
+**The final demand is the operator's own words or it does not happen.** `dunning.final_notice` and
+`dunning.final_subject` are registered in `DocumentText` with **no floor** — unlike every other block
+they have no historical lang key to inherit, because the document never existed — and fall back
+through `DocumentText::FALLS_BACK_TO` to the ordinary reminder. Giving them the reminder's lang key
+instead would mean an operator who has customised their reminder and written no final demand finds
+the sharpest notice reverting to system wording. A system-composed *"FINAL NOTICE"* is also the
+message most likely to start an argument nobody intended.
+
+The migration backfills `dunning_level = 1` wherever the stamp is set, so switching the cadence on
+cannot send a "first reminder" to a tenant who has already had one. The level resets when the invoice
+stops being overdue-and-unpaid. (`ChasingATenantIsALadderNotOneEmailTest`.)
+
+## Sending an invoice to its tenant (UX5-09, 2026-08-25)
+
+`InvoiceIssuedNotification` was dispatched from **one place** — `MonthlyBillingService` — so an
+invoice raised by any other path (a violation fine, a CAM recovery, a percentage-rent overage, an NSF
+fee, a one-off an operator typed) reached the tenant only if they happened to open the portal, and
+there was no send or re-send action anywhere on the invoice. The daily *"I never received it"* call
+ended with somebody downloading the PDF and attaching it to their own email.
+
+`SendInvoiceToTenantService` is the seam both paths go through, so there is one answer to "what does
+the tenant get". It **refuses a draft** (`isVisibleToTenant()` — the per-record twin of the
+`visibleToTenant()` scope, derived from the same `TenantVisibility::hiddenFor()` list so a second
+definition of "visible" cannot appear), and it stamps `invoices.tenant_notified_at`, which is the
+fact the next such call is settled against — and the reason re-sending is a first-class action rather
+than something to guard against.

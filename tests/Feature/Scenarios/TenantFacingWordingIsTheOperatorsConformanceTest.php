@@ -129,6 +129,23 @@ it('registers a floor for every key, so nothing ships blank', function () {
             continue;   // the invoice BLOCKS are allowed a null floor; they render nothing at all
         }
 
+        // A block may stand in for ANOTHER block instead of for a lang key — the final demand has no
+        // historical wording to inherit, and giving it the reminder's lang key would make an
+        // operator's own customised reminder revert to system wording at the sharpest moment. The
+        // property this test defends ("nothing ships blank") still has to hold, so the target is
+        // followed and must itself have a real floor.
+        $fallback = DocumentText::FALLS_BACK_TO[$key] ?? null;
+
+        if ($fallback !== null && $spec['floor'] === null) {
+            // `toHaveKey($k, $v)` compares the VALUE against the second argument — it takes no
+            // message — so the existence check is written as a plain boolean.
+            expect(array_key_exists($fallback, DocumentText::KEYS))->toBeTrue("{$key} falls back to a block that is not registered.");
+            expect(DocumentText::KEYS[$fallback]['floor'])->not->toBeNull("{$key} falls back to {$fallback}, which has no floor either — together they would send an empty line.");
+            expect(Lang::has(DocumentText::KEYS[$fallback]['floor']))->toBeTrue("{$key}'s eventual floor names a translation key that does not exist.");
+
+            continue;
+        }
+
         expect($spec['floor'])->not->toBeNull("{$key} would send an empty line on a fresh install.");
         expect(Lang::has($spec['floor']))->toBeTrue("{$key}'s floor names a translation key that does not exist.");
     }

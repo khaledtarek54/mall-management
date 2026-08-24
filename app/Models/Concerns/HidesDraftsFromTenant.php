@@ -24,4 +24,20 @@ trait HidesDraftsFromTenant
 
         return $hidden === [] ? $query : $query->whereNotIn($this->getTable().'.status', $hidden);
     }
+
+    /**
+     * The same question asked of ONE record — "may the tenant see this?".
+     *
+     * Beside the scope and derived from the same `hiddenFor()` list rather than testing
+     * `status !== 'draft'` at the call site, because that is how a second definition of "visible"
+     * gets written: the scope excludes a set, and a hand-rolled predicate somewhere else would keep
+     * only `draft` in mind and let the next hidden status through.
+     *
+     * Asked wherever something is PUSHED to a tenant (an email, a notification) rather than pulled
+     * by one — a push has no query to narrow.
+     */
+    public function isVisibleToTenant(): bool
+    {
+        return ! in_array($this->status, TenantVisibility::hiddenFor($this->getTable()), true);
+    }
 }

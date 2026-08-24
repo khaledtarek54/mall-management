@@ -101,6 +101,8 @@ class Invoice extends Model
         'notes',
         'owner_overdue_notified_at',
         'tenant_overdue_notified_at',
+        'dunning_level',
+        'tenant_notified_at',
     ];
 
     protected $casts = [
@@ -111,6 +113,8 @@ class Invoice extends Model
         'eta_submitted_at' => 'datetime',
         'owner_overdue_notified_at' => 'datetime',
         'tenant_overdue_notified_at' => 'datetime',
+        'dunning_level' => 'integer',
+        'tenant_notified_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'vat_amount' => 'decimal:2',
         'total' => 'decimal:2',

@@ -47,8 +47,9 @@ It closed two HIGH money findings before they could ever bill anyone — a clear
 minted credit no invoice could draw (so a tenant could be late-fee'd while the mall held their cash),
 and the deposit sub-ledger having no cutover path — plus seven armed-but-latent ones, each waiting on
 something routine: a renewal, a resale, the C-TAX answer, a non-January fiscal year, a schedule
-catch-up. **Two rows in this document changed as a result** and are marked below: C3.1 (bins are
-built) and C3.2 (stock transfers work; cross-property is a reasoned decline).
+catch-up. **Three rows in this document changed as a result** and are marked below: C3.1 (bins are
+built), C3.2 (stock transfers work; cross-property is a reasoned decline) and **A3.8 — consolidated
+statements are NOT reachable**, which this document had been promising as shipped.
 
 Two things worth knowing about that table:
 
@@ -210,7 +211,8 @@ A1.1 below, showing up exactly where it should.
 | A1.9 | The **artificial breakpoint** for percentage rent — `(sales − threshold) × rate` | Per lease, with a natural-breakpoint option and monthly-vs-annual cumulation |
 | A1.10 | **Payment terms 7 days** from issue | A per-property setting applied at origination; the lease then carries its own number |
 | A3.2 | **Accrual, revenue at issue.** Straight-line rent (EAS 49) built and **off** | Flip it in Billing settings when your accountant decides |
-| A3.4 / A3.8 | Period close blocks back-dated posting; reporting per property and consolidated | As described |
+| A3.4 | Period close blocks back-dated posting | As described |
+| **A3.8** | **Reporting per property — and CONSOLIDATED is not reachable today.** The books support it (the year-end close already rolls a consolidated bucket) but no screen offers it: the six statements pin their property picker to the mall in the switcher, and All-Properties mode was removed by an earlier decision. A combined P&L for an owner holding both malls is currently two PDFs and a spreadsheet. | Per property, as described. **Consolidated needs a decision** — reopen the All-Properties question (**M**), or accept the per-property split |
 | A5.2 | Payroll withholdings split into their own payable accounts | As described |
 | A6.1 | **Egyptian tax depreciation rates per class** (5 / 10 / 25 / 50%, Law 91/2005 art. 25) | Built and computed; confirm the rates you file at |
 | A6.2 / A9.6 | Monthly depreciation run, bilingual payslips, per-asset useful life and salvage | As described |

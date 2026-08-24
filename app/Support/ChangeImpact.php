@@ -130,6 +130,9 @@ class ChangeImpact
                 'paid_amount', 'credit_applied_amount', 'balance',
                 'eta_submission_id', 'eta_submitted_at', 'eta_response', 'eta_status', 'eta_long_id',
                 'notes', 'owner_overdue_notified_at', 'tenant_overdue_notified_at',
+                // Communication history, not accounting: how many times the tenant was chased, and
+                // when the invoice was last emailed to them. Neither reaches a journal line.
+                'dunning_level', 'tenant_notified_at',
             ],
             self::DESCRIPTIVE => [
                 'number' => 'names the entry ("Invoice INV-…"). Immutable in practice — AllocatesDocumentNumber assigns it in `creating` and nothing rewrites it',

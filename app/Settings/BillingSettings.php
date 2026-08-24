@@ -84,6 +84,35 @@ class BillingSettings extends Settings
     public int $late_fee_recurrence_days = 0;
 
     /**
+     * How many days after the LAST overdue notice before the tenant is chased again, or 0 to chase
+     * once (1A-16 — the dunning ladder).
+     *
+     * Until this existed, `billing:remind-overdue-tenants` filtered on a null stamp and set it, so
+     * **every overdue invoice reminded its tenant exactly once, ever**. A tenant three months behind
+     * had been written to the same number of times as one three days behind, and nothing in the
+     * system could say how often anybody had been asked.
+     *
+     * **0 by default — byte-identical to that behaviour**, for the same reason
+     * `late_fee_recurrence_days` ships 0: how often you chase, and how hard, is a commercial
+     * judgement about tenants the operator has to keep working with. Set it to 14 and an unpaid
+     * invoice is chased fortnightly until `dunning_max_notices` is reached.
+     */
+    public int $dunning_followup_days = 0;
+
+    /**
+     * The most notices one invoice may generate, or 0 for no ceiling.
+     *
+     * A ceiling because an unattended sweep is exactly where "chase every 7 days" becomes forty
+     * emails to a tenant already in a payment dispute, and because the LAST notice is a different
+     * document — `dunning.final_notice`, if the operator has written one, is sent at this number
+     * rather than the ordinary reminder. With no ceiling there is no last notice, so there is no
+     * final demand to write.
+     *
+     * Inert while `dunning_followup_days` is 0.
+     */
+    public int $dunning_max_notices = 3;
+
+    /**
      * Flat fee charged when a post-dated cheque is returned unpaid (Yardi posts an NSF charge).
      *
      * 0 = OFF, and that is how it ships: a fee appearing on invoices after an upgrade would be a

@@ -13,6 +13,8 @@ return [
             'invoice_email_body' => 'Invoice email — covering note',
             'dunning_overdue_reminder' => 'Overdue reminder — email',
             'dunning_overdue_subject' => 'Overdue reminder — subject line',
+            'dunning_final_notice' => 'Final demand — email',
+            'dunning_final_subject' => 'Final demand — subject line',
             'dunning_late_fee_subject' => 'Late fee charged — subject line',
             'receipt_payment_subject' => 'Payment received — subject line',
             'lease_expiry_subject' => 'Lease expiring soon — subject line',
