@@ -6,6 +6,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Services\Accounting\AccountResolver;
+use App\Services\Paymob\PaymobClient;
 use Illuminate\Queue\Failed\FailedJobProviderInterface;
 use Illuminate\Queue\Failed\NullFailedJobProvider;
 use Illuminate\Support\Facades\Cache;
@@ -70,6 +71,7 @@ class Health
             'storage' => self::checkStorage(),
             'two_factor' => self::checkTwoFactor(),
             'browser_origin_policy' => self::checkBrowserOriginPolicy(),
+            'paymob_hmac_rotation' => self::checkPaymobHmacRotation(),
             'accounting' => self::checkAccounting(),
             'withholding_tax' => self::checkWithholdingTax(),
             'books_tie_out' => self::checkBooksTieOut(),
@@ -87,6 +89,57 @@ class Health
         return [
             'status' => $ok ? 'ok' : 'degraded',
             'checks' => $checks,
+        ];
+    }
+
+    /**
+     * A closed rotation window, or a reason it is open. Production only.
+     *
+     * Rotating the Paymob HMAC secret means accepting the OLD one for a few hours, because Paymob
+     * signs with whatever their dashboard holds at that instant and callbacks already in flight
+     * carry the previous signature. That widening is safe for a window and is not safe as a
+     * standing configuration — a second permanently-valid secret is a second thing to leak, and
+     * it is precisely the sort of temporary change nobody remembers to undo.
+     *
+     * So the check reports three states, and only one of them is a failure:
+     *
+     *  - **No previous secret set** — the normal state. OK.
+     *  - **Set, window still open** — a rotation is in progress. OK, with the closing time named,
+     *    because a check that fails during the procedure it exists to support trains people to
+     *    ignore it.
+     *  - **Set, window CLOSED** — the old secret is already being ignored by the verifier, and it
+     *    is still sitting in `.env`. FAIL: the credential has outlived its purpose and step 3 of
+     *    the procedure was never done.
+     *
+     * An unparseable `PAYMOB_HMAC_PREVIOUS_UNTIL` counts as closed, matching the verifier — a typo
+     * in a date must narrow what is accepted, never widen it.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkPaymobHmacRotation(): array
+    {
+        $previous = (string) config('integrations.paymob.hmac_secret_previous');
+
+        if ($previous === '') {
+            return ['ok' => true, 'detail' => 'no rotation in progress'];
+        }
+
+        $until = (string) config('integrations.paymob.hmac_previous_until');
+
+        if (PaymobClient::previousHmacWindowIsOpen()) {
+            return ['ok' => true, 'detail' => "rotation window open until {$until} — clear PAYMOB_HMAC_SECRET_PREVIOUS after it closes"];
+        }
+
+        if (! Deployment::isDeployed()) {
+            return ['ok' => true, 'detail' => 'local/testing — not enforced (stale PAYMOB_HMAC_SECRET_PREVIOUS)'];
+        }
+
+        return [
+            'ok' => false,
+            'detail' => 'PAYMOB_HMAC_SECRET_PREVIOUS is still set but its window closed'
+                .($until === '' ? ' (PAYMOB_HMAC_PREVIOUS_UNTIL is unset)' : " at {$until}")
+                .' — the verifier already ignores it; remove it from the environment '
+                .'(docs/integrations/PAYMOB-SETUP.md §7 step 3).',
         ];
     }
 

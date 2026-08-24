@@ -57,6 +57,7 @@ class FacilityWorkOrdersTable
                         : ($record->sourceItem ? __('admin.facility.cm.from_check').': '.$record->sourceItem->label : null))
                     ->searchable(),
                 TextColumn::make('work_order_type')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fields.work_order_type'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.facility.work_order_types.{$state}"))
@@ -70,6 +71,7 @@ class FacilityWorkOrdersTable
                     ->description(fn (FacilityWorkOrder $record) => $record->trade?->label() ?? '—')
                     ->searchable(),
                 TextColumn::make('asset.name')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fields.property'))
                     ->badge()->color('gray')->toggleable(),
                 // The location for an area-based job, so the technician knows WHERE.
@@ -78,17 +80,20 @@ class FacilityWorkOrdersTable
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('equipment.code')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.equipment.singular'))
                     ->fontFamily('mono')
                     ->description(fn (FacilityWorkOrder $record) => $record->equipment?->name_en)
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('scheduled_for')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fields.scheduled_for'))
                     ->date('d/m/Y')
                     ->sortable()
                     ->color(fn ($state, FacilityWorkOrder $record) => ! $record->isTerminal() && $state && $state->isPast() ? 'danger' : null),
                 TextColumn::make('progress')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fields.progress'))
                     ->state(fn (FacilityWorkOrder $record) => ($record->marked_items_count ?? 0).' / '.($record->items_count ?? 0))
                     ->badge()
@@ -118,6 +123,7 @@ class FacilityWorkOrdersTable
                 // deadline at all, so the column beside this one was blank and the job read as
                 // fine — which is exactly what a job nobody has looked at looks like.
                 TextColumn::make('target_response_at')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.sla.response_target'))
                     ->dateTime('d/m/Y H:i')
                     ->placeholder('—')
@@ -147,6 +153,7 @@ class FacilityWorkOrdersTable
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('penalty.amount')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.penalty.label'))
                     ->money('EGP')
                     ->placeholder('—')
@@ -164,6 +171,7 @@ class FacilityWorkOrdersTable
                 // FR-CM-13 — the answer the operator actually wants out of this: which jobs are
                 // the tenants' fault, and which are ours.
                 TextColumn::make('cost_bearer')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fault.column'))
                     ->badge()
                     ->placeholder(__('admin.facility.fault.not_attributed'))
@@ -215,6 +223,7 @@ class FacilityWorkOrdersTable
                 // and the contractor who keeps coming back to bill twice. Not toggleable-off by
                 // default — a coordinator triaging today's faults is exactly who needs to know.
                 TextColumn::make('repeat_visit')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fields.repeat_visit'))
                     ->badge()
                     ->color('danger')
@@ -236,6 +245,7 @@ class FacilityWorkOrdersTable
                 // so the control is that a proposal should have come first and the enforcement is
                 // that the breach is visible and attributable.
                 TextColumn::make('over_nte')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fields.over_nte'))
                     ->badge()
                     ->color('danger')
@@ -246,6 +256,7 @@ class FacilityWorkOrdersTable
                     ->toggleable(),
 
                 TextColumn::make('pm_compliance')
+                    ->visibleFrom('md')
                     ->label(__('admin.facility.fields.pm_compliance'))
                     ->badge()
                     ->state(fn (FacilityWorkOrder $r): ?string => ($k = $r->pmComplianceState()) === null

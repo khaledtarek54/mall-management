@@ -639,6 +639,17 @@ class Lease extends Model implements BillableAgreement, HasMedia
             ->values();
     }
 
+    /**
+     * Statuses whose invoice claims nothing, so a deposit billed on one is not held.
+     *
+     * A constant rather than two literals: {@see settledDepositBillings()} and the
+     * {@see depositBillings()} relation are the same question asked of one lease and of a page,
+     * and a filter written twice is a filter that drifts.
+     *
+     * @var string[]
+     */
+    public const DEPOSIT_BILLING_EXCLUDED_STATUSES = ['cancelled', 'credited', 'written_off'];
+
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
@@ -650,6 +661,33 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function deposits(): HasMany
     {
         return $this->hasMany(DepositTransaction::class);
+    }
+
+    /**
+     * Deposit money netted against this lease's invoices — one of the four settlement channels.
+     *
+     * Exists so {@see depositHeld()} can be answered from an EAGER LOAD on a list page instead of
+     * a query per row. It summed the same table through `DepositApplication::where('lease_id', …)`
+     * before, which no `with()` can reach.
+     */
+    public function depositApplications(): HasMany
+    {
+        return $this->hasMany(DepositApplication::class);
+    }
+
+    /**
+     * Invoices on this lease that BILLED a security deposit and still claim money.
+     *
+     * The eager-loadable twin of the query inside {@see settledDepositBillings()}, carrying the
+     * identical filter — a deposit is held only to the extent the tenant settled the line, so a
+     * cancelled or credited invoice claims nothing.
+     */
+    public function depositBillings(): HasMany
+    {
+        return $this->hasMany(Invoice::class)
+            ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
+            ->with('items');
     }
 
     /**
@@ -692,7 +730,13 @@ class Lease extends Model implements BillableAgreement, HasMedia
         $held = $recorded->where('type', 'receipt')->sum('amount')
             - $recorded->where('type', 'refund')->sum('amount')
             - $recorded->where('type', 'forfeit')->sum('amount')
-            - DepositApplication::where('lease_id', $this->id)->sum('amount')
+            // Same rule as `deposits` above: use the relation when it is loaded, query when it is
+            // not. On the leases LIST this turns one query per row into one for the page; on a
+            // freshly re-read instance — which is what every money service works from, and what the
+            // refund guard reads — nothing is loaded, so it still asks the database.
+            - (float) ($this->relationLoaded('depositApplications')
+                ? $this->depositApplications->sum('amount')
+                : DepositApplication::where('lease_id', $this->id)->sum('amount'))
             // …plus deposits BILLED and since paid (Voyager's model, 2026-08-18). A deposit charged
             // on an invoice is held only to the extent the tenant has settled that line, which is
             // why this reads the settlement and not the line total: an unpaid deposit invoice is a
@@ -712,12 +756,17 @@ class Lease extends Model implements BillableAgreement, HasMedia
      */
     public function settledDepositBillings(): float
     {
-        $invoices = Invoice::query()
-            ->where('lease_id', $this->id)
-            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
-            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
-            ->with('items')
-            ->get();
+        // The SAME filter either way — an eager-loaded `depositBillings` relation applies it in
+        // the database for the whole page, and an unloaded instance applies it here for one lease.
+        // Written as one constant so the two paths cannot answer differently.
+        $invoices = $this->relationLoaded('depositBillings')
+            ? $this->depositBillings
+            : Invoice::query()
+                ->where('lease_id', $this->id)
+                ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+                ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
+                ->with('items')
+                ->get();
 
         $settled = 0.0;
 

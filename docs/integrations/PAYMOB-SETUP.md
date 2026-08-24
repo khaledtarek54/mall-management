@@ -153,6 +153,77 @@ When you're ready to take real money:
    host for both environments).
 3. Re-test with a real card for a small amount before going wide.
 
+## 7. Rotating the HMAC secret
+
+**Why this needs a procedure rather than an edit.** Paymob signs each callback with whatever secret
+their dashboard holds *at that instant*. The moment you change it there, every callback already in
+flight — and every retry of one Paymob has not had a `200` for — is still signed with the OLD
+secret. The verifier refuses those, and **a refused callback is a payment the tenant made that the
+books never see**. The money is not lost (Paymob has it), but the invoice stays unpaid until
+somebody reconciles by hand.
+
+So the secret is rotated through a window in which BOTH are accepted.
+
+### The three steps
+
+**1 · Open the window** — before touching anything in the Paymob dashboard.
+
+```dotenv
+PAYMOB_HMAC_SECRET=<the secret you are using today, unchanged>
+PAYMOB_HMAC_SECRET_PREVIOUS=<the same secret again>
+PAYMOB_HMAC_PREVIOUS_UNTIL=2026-08-25T18:00:00+02:00   # a few hours out
+```
+
+Deploy. Nothing has changed behaviourally — the same secret is simply accepted twice.
+
+**2 · Rotate** — change the secret in the Paymob dashboard (Account → Profile → HMAC), then:
+
+```dotenv
+PAYMOB_HMAC_SECRET=<the NEW secret>
+PAYMOB_HMAC_SECRET_PREVIOUS=<the OLD secret>
+PAYMOB_HMAC_PREVIOUS_UNTIL=<unchanged>
+```
+
+Deploy. Callbacks signed either way now verify. This is the only moment that needs care: do the
+dashboard change and this deploy close together, and inside the window you set.
+
+**3 · Close the window** — after `PAYMOB_HMAC_PREVIOUS_UNTIL` has passed:
+
+```dotenv
+PAYMOB_HMAC_SECRET=<the NEW secret>
+# PAYMOB_HMAC_SECRET_PREVIOUS and PAYMOB_HMAC_PREVIOUS_UNTIL removed
+```
+
+Deploy.
+
+### What the system does if you forget step 3
+
+Nothing dangerous, and it tells you. `PAYMOB_HMAC_PREVIOUS_UNTIL` is what makes this a rotation
+rather than a permanent second key: **past that moment the old secret is ignored by the verifier
+whatever `.env` still says.** And `atriom:health` gains a `paymob_hmac_rotation` row that:
+
+- says *"no rotation in progress"* when the previous secret is unset — the normal state;
+- stays **OK** while the window is open, naming the closing time (a check that failed during the
+  procedure it exists to support would train you to ignore it);
+- **FAILS in production** once the window has closed and `PAYMOB_HMAC_SECRET_PREVIOUS` is still
+  set — the credential has outlived its purpose and is sitting in the environment for nothing.
+
+A malformed `PAYMOB_HMAC_PREVIOUS_UNTIL` counts as **closed**, not as open-ended: a typo in a date
+must narrow what is accepted, never widen it.
+
+### Verifying the rotation worked
+
+Take one real payment after step 2 and confirm the invoice moves to `paid`. There is no way to test
+the signature without a live callback — the secret is Paymob's side of a shared secret, so a
+self-signed request proves only that our own code agrees with itself. `PaymobHmacRotatesWithoutDroppingACallbackTest`
+covers that half; the live charge is what covers theirs.
+
+> **Still not solved by this:** the credentials live in plaintext `.env` with no vault. That is the
+> other half of the roadmap row and is an infrastructure decision (a secrets manager, or at minimum
+> file permissions and a documented owner), not something the application can fix from inside.
+
+---
+
 ## How it's wired
 
 - `config/integrations.php` reads env, exposes the 7 paymob.* keys.

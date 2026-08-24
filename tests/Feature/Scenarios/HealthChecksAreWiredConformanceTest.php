@@ -38,6 +38,10 @@ const EXPECTED_HEALTH_CHECKS = [
     'demo_accounts',
     'demo_payments',
     'mobile_reset_url',
+    // Rotating the Paymob HMAC secret means accepting the OLD one for a few hours — Paymob signs
+    // with whatever their dashboard holds, so callbacks in flight carry the previous signature.
+    // This row fails in production once that window has closed and the secret is still in `.env`.
+    'paymob_hmac_rotation',
     'php_extensions',
     'queue',
     'runtime_drivers',

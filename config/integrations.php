@@ -44,6 +44,34 @@ return [
         'hmac_secret' => env('PAYMOB_HMAC_SECRET'),
 
         /*
+         * ROTATING THE HMAC SECRET WITHOUT DROPPING A CALLBACK.
+         *
+         * Paymob signs each callback with whatever secret their dashboard holds at that instant.
+         * Change it there and every callback already in flight — plus every retry of one Paymob
+         * has not had a 200 for — is still signed with the OLD secret. With a single accepted
+         * secret those are refused, and a refused callback is a payment the tenant made and the
+         * books never saw.
+         *
+         * So during a rotation both are accepted:
+         *
+         *   1. Set PAYMOB_HMAC_SECRET_PREVIOUS to the CURRENT secret, and
+         *      PAYMOB_HMAC_PREVIOUS_UNTIL to a timestamp a few hours out. Deploy.
+         *   2. Change the secret in the Paymob dashboard, put the new one in
+         *      PAYMOB_HMAC_SECRET. Deploy.
+         *   3. After the window, clear both PREVIOUS vars. Deploy.
+         *
+         * The full procedure is docs/integrations/PAYMOB-SETUP.md §7.
+         *
+         * `PAYMOB_HMAC_PREVIOUS_UNTIL` is what makes this a rotation rather than a permanent second
+         * key: past that moment the old secret is ignored even if somebody left it in `.env`, and
+         * `atriom:health` FAILS in production while it is still set, so a window nobody closed is
+         * reported rather than forgotten. Both default empty, so an install that never rotates
+         * behaves exactly as it did before this existed.
+         */
+        'hmac_secret_previous' => env('PAYMOB_HMAC_SECRET_PREVIOUS'),
+        'hmac_previous_until' => env('PAYMOB_HMAC_PREVIOUS_UNTIL'),
+
+        /*
          * Session creation is serialised per invoice+channel, because opening a
          * Paymob order is check-then-act with a network call in the middle: two
          * simultaneous taps otherwise create two live orders against one debt.

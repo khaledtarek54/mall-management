@@ -53,6 +53,7 @@ class TenantRequestsTable
                     ->limit(40)
                     ->weight('medium'),
                 TextColumn::make('tenant.name')
+                    ->visibleFrom('md')
                     ->label(__('admin.tables.requests.tenant'))
                     // A caller-only intake (no registered tenant) shows who reported it instead of a
                     // blank cell — the whole point of the caller fields (FR-REQ intake).
@@ -70,6 +71,7 @@ class TenantRequestsTable
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('request_type')
+                    ->visibleFrom('md')
                     ->label(__('admin.fields.request_type'))
                     ->badge()
                     ->formatStateUsing(fn ($state) => ($state instanceof TenantRequestType ? $state : TenantRequestType::from((string) $state))->label())
@@ -82,6 +84,7 @@ class TenantRequestsTable
                         default => 'gray',
                     }),
                 TextColumn::make('category')
+                    ->visibleFrom('md')
                     ->label(__('admin.fields.subcategory'))
                     ->badge()
                     ->color('gray')
@@ -90,6 +93,7 @@ class TenantRequestsTable
                         ? TenantRequestSubcategory::labelFor($state, $record->request_type instanceof TenantRequestType ? $record->request_type : null)
                         : null),
                 TextColumn::make('channel')
+                    ->visibleFrom('md')
                     ->label(__('admin.tables.requests.channel'))
                     ->badge()
                     ->color('info')
@@ -122,28 +126,33 @@ class TenantRequestsTable
                         default => 'gray',
                     }),
                 TextColumn::make('department.name')
+                    ->visibleFrom('md')
                     ->label(__('admin.resources.department.singular'))
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('area.name')
+                    ->visibleFrom('md')
                     ->label(__('admin.fields.area'))
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('assignee.name')
+                    ->visibleFrom('md')
                     ->label(__('admin.tables.requests.assigned_to'))
                     ->placeholder(__('admin.fields.unassigned'))
                     ->toggleable(),
                 TextColumn::make('assignedVendor.name')
+                    ->visibleFrom('md')
                     ->label(__('admin.fields.assigned_vendor') ?: 'Vendor')
                     ->badge()
                     ->color('info')
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('submitted_at')
+                    ->visibleFrom('md')
                     ->label(__('admin.tables.requests.submitted'))
                     ->date('d/m/Y')
                     ->sortable(),

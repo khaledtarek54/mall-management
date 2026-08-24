@@ -96,9 +96,20 @@ class LeasesTable
     public static function configure(Table $table): Table
     {
         return $table
-            // `units` is eager-loaded for the multi-unit description below, which walked the
-            // pivot per row: measured at 25 extra queries on a 25-row page, one per lease.
-            ->modifyQueryUsing(fn ($query) => $query->with(['unit', 'tenant', 'deposits', 'units']))
+            // `units` is eager-loaded for the multi-unit description below, which walked the pivot
+            // per row: measured at 25 extra queries on a 25-row page, one per lease.
+            //
+            // `depositApplications` + `depositBillings` are what the deposit-shortfall column needs.
+            // `Lease::depositHeld()` sums both, and both used to be queries it built ITSELF — a
+            // `DepositApplication::where('lease_id', …)` and an `Invoice::query()` — which no
+            // `with()` could reach, so the column cost two more queries per row. The method now
+            // prefers the loaded relation exactly as it already did for `deposits`, and
+            // `DepositHeldIsTheSameFigureLoadedOrNotTest` proves the two paths cannot disagree —
+            // which matters because that figure also backs the refund guard.
+            ->modifyQueryUsing(fn ($query) => $query->with([
+                'unit', 'tenant', 'units',
+                'deposits', 'depositApplications', 'depositBillings',
+            ]))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.lease.reference'))

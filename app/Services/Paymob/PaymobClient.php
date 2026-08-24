@@ -4,6 +4,7 @@ namespace App\Services\Paymob;
 
 use App\Models\Invoice;
 use App\Support\OpsLog;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -216,14 +217,78 @@ class PaymobClient
             $this->boolStr($obj['success'] ?? false),
         ];
 
-        $hmacSecret = (string) config('integrations.paymob.hmac_secret');
-        if ($hmacSecret === '') {
+        $payload = implode('', $fields);
+
+        // FAILS CLOSED. With no secret configured there is nothing to verify against, and treating
+        // that as "verified" would accept any caller who knew the URL.
+        $secrets = self::acceptedHmacSecrets();
+
+        if ($secrets === []) {
             return false;
         }
 
-        $expected = hash_hmac('sha512', implode('', $fields), $hmacSecret);
+        foreach ($secrets as $secret) {
+            // `hash_equals` on every candidate — never `===`, and never short-circuiting on a
+            // partial match. Comparing both is a constant extra hash, not a leak.
+            if (hash_equals(hash_hmac('sha512', $payload, $secret), $signature)) {
+                return true;
+            }
+        }
 
-        return hash_equals($expected, $signature);
+        return false;
+    }
+
+    /**
+     * The HMAC secrets a callback may be signed with right now — usually one, two while rotating.
+     *
+     * Paymob signs with whatever secret their dashboard holds at that instant, so the moment it is
+     * changed there, every callback already in flight (and every retry of one they have not had a
+     * 200 for) is still signed with the OLD secret. A single accepted secret refuses those, and a
+     * refused callback is a payment the tenant made that the books never see.
+     *
+     * The previous secret is accepted only until `hmac_previous_until`. That bound is what makes
+     * this a ROTATION rather than a permanent second key — an operator who forgets step 3 of the
+     * procedure ends up with the old secret ignored rather than honoured indefinitely, and
+     * `atriom:health` reports the unclosed window besides.
+     *
+     * An unparseable `hmac_previous_until` is treated as EXPIRED, not as open-ended: a typo in a
+     * date must narrow what is accepted, never widen it.
+     *
+     * @return array<int, string>
+     */
+    public static function acceptedHmacSecrets(): array
+    {
+        $secrets = [];
+
+        $current = (string) config('integrations.paymob.hmac_secret');
+
+        if ($current !== '') {
+            $secrets[] = $current;
+        }
+
+        $previous = (string) config('integrations.paymob.hmac_secret_previous');
+
+        if ($previous !== '' && self::previousHmacWindowIsOpen()) {
+            $secrets[] = $previous;
+        }
+
+        return $secrets;
+    }
+
+    /** Is the rotation window still open? Absent or unparseable means CLOSED. */
+    public static function previousHmacWindowIsOpen(): bool
+    {
+        $until = (string) config('integrations.paymob.hmac_previous_until');
+
+        if ($until === '') {
+            return false;
+        }
+
+        try {
+            return CarbonImmutable::parse($until)->isFuture();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function boolStr(mixed $value): string
