@@ -48,7 +48,17 @@ gate that stays green is a `HOLE`. It verifies each mutation actually LANDED bef
 result, because a substitution that silently does not apply reports a false PASS, which has happened
 twice in this project.
 
-**Result: 37 mutations across 34 gates, four holes — all four in gates that guarded a REGISTRY, and two of them had a live money defect underneath.**
+**Result: 43 mutations across 40 gates, four holes — all four in gates that guarded a REGISTRY, and
+two of them had a live money defect underneath.**
+
+**One gate is switched OFF and it is the only one.** `FixtureColumnsExistConformanceTest` ships
+`->skip()`ed, deliberately, with the reason written out: the gate is correct and mutation-proven, and
+it is off because the tree it landed in had 58 pre-existing ghost keys across ~40 test files. The two
+that were not inert were fixed before it was disabled (a `Charge` fixture writing `billing_frequency`
+where the column is `frequency`, and a `MeterReading` writing `total_cost` where it is `cost`). That
+is an honest deferral rather than a hole — but it means the gate count includes one that never runs,
+which is worth knowing when reading "all gates pass". Every other `->skip()` in the set is
+conditional and fires only when there is genuinely nothing to check.
 
 1. `ValueSetCoverageConformanceTest`'s hand-written suffix list had drifted behind the registry it
    guards — 10 of 156 registered columns were invisible to it, so a new column of any of those

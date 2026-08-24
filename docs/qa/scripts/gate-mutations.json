@@ -257,5 +257,47 @@
     "path": "app/Filament/Admin/Pages/Settings.php",
     "old": "                    TextInput::make('accounting.activity_log_retention_days')",
     "new": "                    TextInput::make('accounting.zz_no_such_setting')"
+  },
+  {
+    "name": "HandbookData \u2014 a generated dataset drifts from its registry",
+    "gate": "tests/Feature/Scenarios/HandbookDataConformanceTest.php",
+    "path": "docs/visual/.vitepress/data/posting-roles.json",
+    "old": "        \"role\": \"bank\",\n        \"label\": \"Bank\",\n",
+    "new": "        \"role\": \"bank\",\n        \"label\": \"Banque\",\n"
+  },
+  {
+    "name": "GeneratedDocs \u2014 a generated doc block drifts from its registry",
+    "gate": "tests/Feature/Scenarios/GeneratedDocsConformanceTest.php",
+    "path": "docs/PROPERTY-ISOLATION.md",
+    "old": "<!-- GENERATED:isolation-classification \u2014 do not edit by hand; run `php artisan atriom:dump-registries` -->\n",
+    "new": "<!-- GENERATED:isolation-classification \u2014 do not edit by hand; run `php artisan atriom:dump-registries` -->\n| Drifted | row | that | nothing | generated |\n"
+  },
+  {
+    "name": "FieldHelp \u2014 helper text blows the word budget",
+    "gate": "tests/Feature/Scenarios/FieldHelpConformanceTest.php",
+    "path": "app/Support/FieldHelp.php",
+    "old": "    public const WORD_BUDGET = 18;",
+    "new": "    public const WORD_BUDGET = 3;"
+  },
+  {
+    "name": "ManufacturedLabel \u2014 a screen manufactures a label from a column value",
+    "gate": "tests/Feature/Scenarios/ManufacturedLabelConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Expenses/Tables/ExpensesTable.php",
+    "old": "->formatStateUsing(fn (?string $state) => ExpenseCategory::labelFor($state))",
+    "new": "->formatStateUsing(fn (?string $state) => Str::headline((string) $state))"
+  },
+  {
+    "name": "ArabicPanelHasNoEnglishChrome \u2014 a table label is hardcoded English",
+    "gate": "tests/Feature/Scenarios/ArabicPanelHasNoEnglishChromeConformanceTest.php",
+    "path": "app/Filament/Admin/Resources/Expenses/Tables/ExpensesTable.php",
+    "old": "                TextColumn::make('category')\n                    ->label(__('admin.fields.category'))",
+    "new": "                TextColumn::make('category')\n                    ->label('Category')"
+  },
+  {
+    "name": "SeededCategories \u2014 a shipped category value loses its Arabic label",
+    "gate": "tests/Feature/Scenarios/SeededCategoriesReadInArabicConformanceTest.php",
+    "path": "lang/ar/admin/statuses.php",
+    "old": "                'generator' => '\u0645\u0648\u0644\u062f \u0643\u0647\u0631\u0628\u0627\u0626\u064a',\n",
+    "new": ""
   }
 ]
