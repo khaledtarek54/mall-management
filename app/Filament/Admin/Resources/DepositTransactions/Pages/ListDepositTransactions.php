@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\DepositTransactions\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Widgets\DepositHoldingsSummary;
 use App\Support\StatusTabs;
@@ -11,11 +12,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListDepositTransactions extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = DepositTransactionResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Vendors\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Imports\VendorImporter;
 use App\Support\Imports;
@@ -13,11 +14,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListVendors extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = VendorResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(VendorImporter::class)

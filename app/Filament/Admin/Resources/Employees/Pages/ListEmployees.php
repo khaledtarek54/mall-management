@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Employees\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Imports\EmployeeImporter;
 use App\Support\Imports;
@@ -13,11 +14,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListEmployees extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = EmployeeResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(EmployeeImporter::class)

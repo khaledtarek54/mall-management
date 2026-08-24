@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class LeaseInvoicesRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'invoices';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

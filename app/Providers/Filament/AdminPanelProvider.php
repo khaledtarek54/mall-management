@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Actions\KeyboardShortcutsAction;
 use App\Filament\Admin\Pages\Auth\Login;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
@@ -136,6 +137,12 @@ class AdminPanelProvider extends PanelProvider
             // from the sidebar — which is why NavigationConformanceTest discovers every resource
             // and page on disk and then RENDERS this to check they all came out.
             ->navigation(fn (NavigationBuilder $builder): NavigationBuilder => Navigation::build($builder))
+            // The shortcuts this panel already has, said out loud. `⌘S` has saved every form
+            // since the panel was built and nothing told anyone — `⌘K` is used only because the
+            // search field prints its own binding. See the action for the measurement.
+            ->userMenuItems([
+                'keyboardShortcuts' => KeyboardShortcutsAction::make(),
+            ])
             ->sidebarCollapsibleOnDesktop()
             ->middleware([
                 EncryptCookies::class,

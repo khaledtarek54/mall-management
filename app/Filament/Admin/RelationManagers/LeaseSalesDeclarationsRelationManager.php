@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
@@ -28,6 +29,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class LeaseSalesDeclarationsRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'salesDeclarations';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

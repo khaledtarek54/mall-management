@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\ServicePlans\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\ServicePlans\ServicePlanResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -10,11 +11,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListServicePlans extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = ServicePlanResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             CreateAction::make()->visible(fn () => ServicePlanResource::canCreate()),
         ];

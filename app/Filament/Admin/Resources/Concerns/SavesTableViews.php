@@ -229,6 +229,29 @@ trait SavesTableViews
      */
     public function mountSavesTableViews(mixed ...$params): void
     {
+        // A view is a URL, and a URL must be the whole answer — measured, because it was not.
+        //
+        // `App\Support\TableDefaults` persists filters, search and sort in the session for every
+        // table in the panel. Filament restores those only when the corresponding Livewire property
+        // is still empty after the query string has been bound, so a view that NAMES a filter wins.
+        // A view that names none does not: the link arrives with no `filters`, the session refills
+        // them, and the operator opens "All leases" and sees last week's filter set. Proven on
+        // `ListInvoices` — `?tableView=none` came back still carrying `status = draft`.
+        //
+        // That is worst for the menu's "All records" escape, whose entire job is to get back to the
+        // plain list, and which carries `?tableView=none` precisely because an empty query string
+        // is indistinguishable from a bare page load. An escape hatch that does not escape is worse
+        // than none: the operator presses it, the list does not change, and they conclude the
+        // filter is coming from the data.
+        //
+        // So: naming a view — any view, including `none` — clears the remembered state first. The
+        // view then applies whatever it does carry on top of a clean list. Done in `mount` rather
+        // than `booted` because Livewire runs trait `mount` hooks before `booted` ones, and
+        // `bootedInteractsWithTable()` is what reads the session.
+        if (request()->has('tableView')) {
+            $this->forgetRememberedTableState();
+        }
+
         if (request()->query() !== [] || ! Auth::check()) {
             return;
         }
@@ -247,6 +270,27 @@ trait SavesTableViews
             tab: $view->queryParameters()['tab'] ?? null,
             tableView: $view->getKey(),
         ));
+    }
+
+    /**
+     * Drop this list's remembered filters, search and sort so a saved view applies to a clean list.
+     *
+     * The keys are Filament's own — the filter one is namespaced by the Filament tenant, the other
+     * two by the component class — and they are asked of the component rather than rebuilt here, so
+     * an upstream change to the scheme cannot leave this forgetting a key nobody writes any more.
+     *
+     * The COLUMN layout is deliberately not cleared: `bootedSavesTableViews()` rebuilds it from the
+     * view's own stored toggles a moment later, and a view that stored none is documented to open
+     * on the list's defaults rather than on whatever the session held.
+     */
+    protected function forgetRememberedTableState(): void
+    {
+        session()->forget([
+            $this->getTableFiltersSessionKey(),
+            $this->getTableSearchSessionKey(),
+            $this->getTableColumnSearchesSessionKey(),
+            $this->getTableSortSessionKey(),
+        ]);
     }
 
     /** Delete one of this user's own saved views. */

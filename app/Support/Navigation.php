@@ -102,6 +102,7 @@ use App\Filament\Admin\Resources\ViolationCategories\ViolationCategoryResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
+use App\Support\Filament\NavigationItemMemo;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -471,13 +472,19 @@ final class Navigation
     private static function itemsFor(array $screens): array
     {
         $items = [];
+        $memo = app(NavigationItemMemo::class);
 
         foreach ($screens as $screen) {
             if (! self::isVisibleTo($screen)) {
                 continue;
             }
 
-            foreach ($screen::getNavigationItems() as $item) {
+            // Memoised for the request. `filament()->getNavigation()` is called by both the
+            // sidebar and the topbar blades and resolves a fresh NavigationManager each time, so
+            // this method runs FIVE times per page render — and a resource's badge is computed
+            // EAGERLY inside `getNavigationItems()`, which made fifty redundant COUNT queries the
+            // most expensive thing in the panel chrome. See NavigationItemMemo for the measurement.
+            foreach ($memo->for($screen, static fn (): array => $screen::getNavigationItems()) as $item) {
                 $items[] = $item;
             }
         }

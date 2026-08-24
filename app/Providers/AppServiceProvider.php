@@ -24,6 +24,7 @@ use App\Support\Filament\AnnouncingForceDeleteAction;
 use App\Support\Filament\AnnouncingRestoreAction;
 use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\LocalizedNotification;
+use App\Support\Filament\NavigationItemMemo;
 use App\Support\LedgerRealtimeSync;
 use App\Support\MorphMap;
 use App\Support\TableDefaults;
@@ -68,6 +69,12 @@ class AppServiceProvider extends ServiceProvider
         // a fresh, empty vocabulary — the preload would resolve a page and then be thrown away,
         // and the N+1 it exists to prevent would happen anyway. Nothing would look wrong.
         $this->app->singleton(ActivityVocabulary::class);
+
+        // The sidebar is built five times per page render (both the sidebar and the topbar blade
+        // call `filament()->getNavigation()`, and Filament resolves a fresh NavigationManager each
+        // time). `scoped`, never `singleton`: a queue worker outlives the request, and a badge
+        // count memoised across one would be answered from whenever that worker booted.
+        $this->app->scoped(NavigationItemMemo::class);
 
         // `->authorize()` on a Filament action is the SAME layer as `visible()` — both fold into
         // `isHidden()`/`isDisabled()` — and `Action::call()` checks nothing. So the second layer the

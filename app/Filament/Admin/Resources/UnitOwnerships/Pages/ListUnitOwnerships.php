@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\UnitOwnerships\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
 use App\Filament\Imports\ChargeImporter;
 use App\Support\Imports;
@@ -12,11 +13,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListUnitOwnerships extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = UnitOwnershipResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             // The assessment schedules, keyed by ownership reference — the same importer the lease
             // list mounts, because a صيانة assessment IS a `charges` row. Without it a migrating

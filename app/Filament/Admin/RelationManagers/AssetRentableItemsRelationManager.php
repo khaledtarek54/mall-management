@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Models\RentableItem;
 use Filament\Actions\Action;
@@ -24,6 +25,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AssetRentableItemsRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'rentableItems';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

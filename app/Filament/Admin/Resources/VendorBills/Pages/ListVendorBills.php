@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VendorBills\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -10,11 +11,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListVendorBills extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = VendorBillResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];

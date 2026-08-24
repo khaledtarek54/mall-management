@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Actions\LeaseActions;
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\DepositTransaction;
 use App\Models\Lease;
@@ -33,6 +34,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class LeaseDepositsRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'deposits';
 
     /** Memoises {@see self::held()} for the life of one render. */

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Custodies\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Custodies\CustodyResource;
 use App\Models\CustodyTransaction;
 use App\Support\ReportCsv;
@@ -13,11 +14,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListCustodies extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = CustodyResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             // The outstanding-custody schedule as a spreadsheet — grant, settled and cash still
             // in each custodian's hands + totals, the treasury's عهدة register.

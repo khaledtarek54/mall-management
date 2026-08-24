@@ -4,17 +4,21 @@ namespace App\Filament\Admin\Resources\Assets\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Assets\AssetResource;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListAssets extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = AssetResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];

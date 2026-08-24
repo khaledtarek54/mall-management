@@ -780,4 +780,12 @@ return [
         'payment_return_failed' => 'The payment did not go through. You can try again or pick another invoice.',
     ],
 
+
+    'shortcuts' => [
+        'title' => 'Keyboard shortcuts',
+        'description' => 'These work anywhere in the panel. ⌘ on a Mac, Ctrl on Windows and Linux.',
+        'search' => 'Search everything',
+        'save' => 'Save the form you are on',
+        'save_and_new' => 'Save and start another',
+    ],
 ];

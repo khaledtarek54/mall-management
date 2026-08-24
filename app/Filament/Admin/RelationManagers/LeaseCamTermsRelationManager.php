@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\LeaseCamTerm;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -29,6 +30,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class LeaseCamTermsRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'camTerms';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

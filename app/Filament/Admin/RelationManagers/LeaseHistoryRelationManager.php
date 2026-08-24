@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\LeaseEvent;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -23,6 +24,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class LeaseHistoryRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'events';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

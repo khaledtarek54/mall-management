@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\TenantUser;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class PortalUsersRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'users';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Actions\KeyboardShortcutsAction;
 use App\Filament\Portal\Widgets\AccountBalance;
 use App\Filament\Portal\Widgets\OpenTenantRequests;
 use App\Http\Middleware\SetLocale;
@@ -92,6 +93,12 @@ class PortalPanelProvider extends PanelProvider
                 OpenTenantRequests::class,
             ])
             ->sidebarCollapsibleOnDesktop()
+            // The shortcuts this panel already has, said out loud. `⌘S` has saved every form
+            // since the panel was built and nothing told anyone — `⌘K` is used only because the
+            // search field prints its own binding. See the action for the measurement.
+            ->userMenuItems([
+                'keyboardShortcuts' => KeyboardShortcutsAction::make(),
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

@@ -96,7 +96,9 @@ class LeasesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['unit', 'tenant', 'deposits']))
+            // `units` is eager-loaded for the multi-unit description below, which walked the
+            // pivot per row: measured at 25 extra queries on a 25-row page, one per lease.
+            ->modifyQueryUsing(fn ($query) => $query->with(['unit', 'tenant', 'deposits', 'units']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.lease.reference'))
@@ -142,7 +144,22 @@ class LeasesTable
                 // exposure, not reference data; hidden it would be back to where it was.
                 TextColumn::make('deposit_shortfall')
                     ->label(__('admin.tables.lease.deposit_shortfall'))
-                    ->getStateUsing(fn (Lease $record) => $record->depositShortfall())
+                    // `depositHeld()` is TWO queries that cannot be eager-loaded — it sums
+                    // `deposit_applications` by lease id and re-derives settled deposit BILLINGS
+                    // through `InvoiceItemSettlement`, both as their own queries rather than as
+                    // relations. This column used to call it twice per row (once here, once in the
+                    // description), which measured at 100 queries on a 25-row page for one column.
+                    //
+                    // Computed once and stashed on the record for the description to read. NOT
+                    // memoised on the model: `depositHeld()` also backs the refund GUARD in
+                    // LeaseActions ("you cannot refund more than is held"), and a money guard must
+                    // never read a figure cached from earlier in the request. A render-only
+                    // attribute on a row that is never saved cannot reach it.
+                    ->getStateUsing(function (Lease $record): float {
+                        $record->setAttribute('deposit_held_for_display', $record->depositHeld());
+
+                        return $record->depositShortfall();
+                    })
                     ->money('EGP')
                     ->alignRight()
                     ->toggleable()
@@ -150,8 +167,15 @@ class LeasesTable
                     ->icon(fn ($state) => $state > 0 ? Heroicon::OutlinedExclamationTriangle : null)
                     // Held AND agreed underneath, so the shortfall is never a figure to take on
                     // trust — the operator can see the subtraction that produced it.
+                    // Reads what getStateUsing() just computed — Filament resolves the state
+                    // before the description for the same record instance. Falls back to asking
+                    // the model if that ever stops being true, so the figure can be stale-free
+                    // wrong-order-proof rather than silently blank.
                     ->description(fn (Lease $record) => __('admin.tables.lease.deposit_held_of', [
-                        'held' => number_format($record->depositHeld(), 2),
+                        'held' => number_format(
+                            $record->getAttribute('deposit_held_for_display') ?? $record->depositHeld(),
+                            2,
+                        ),
                         'agreed' => number_format((float) $record->security_deposit, 2),
                     ])),
                 TextColumn::make('commencement_date')

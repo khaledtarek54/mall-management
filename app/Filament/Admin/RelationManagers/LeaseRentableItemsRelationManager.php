@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Actions\LeaseActions;
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
 use App\Models\RentableItem;
 use App\Services\AssignRentableItemService;
@@ -31,6 +32,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class LeaseRentableItemsRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'rentableItems';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Floor;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -24,6 +25,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AssetFloorsRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'floors';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

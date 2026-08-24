@@ -90,6 +90,9 @@ class CamExpensePoolForm
                         ->numeric()
                         ->minValue(2020)
                         ->maxValue(2099)
+                        // The only bound in the panel an operator could not infer: 2020–2099 is a
+                        // typo guard on a four-digit year, not a statement about the business.
+                        ->helperText(__('admin.helpers.cam_period_year'))
                         // Clamped: `asset_id` is client-supplied, and a unique rule keyed on
                         // the raw value leaks whether a pool exists for a year in a property
                         // the user cannot see (TenantScope::clampAssetId).

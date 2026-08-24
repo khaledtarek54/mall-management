@@ -65,6 +65,57 @@ class FieldHelp
     ];
 
     /**
+     * Bounded number fields whose limit needs no sentence, and why.
+     *
+     * ## The gap the existing gate could not see
+     *
+     * `FieldHelpConformanceTest` polices the help that EXISTS — its length, its home, whether a hint
+     * icon carries a tooltip. Nothing asked about the help that is MISSING, which is the same shape
+     * as every "a gate can report on a set it has silently stopped collecting" note in CLAUDE.md.
+     * Measured on 2026-08-24 by building all 66 create forms: **673 fields, 75 of them (11%) carry
+     * any guidance at all; 258 are required and 235 of those explain nothing.**
+     *
+     * "Every required field needs help" is the wrong bar and would produce 235 filler sentences —
+     * exactly what {@see WORD_BUDGET} exists to prevent. A field called Name needs no explanation.
+     *
+     * ## The bar that IS right
+     *
+     * **A number the form will REFUSE, where the operator cannot infer the limit.** That is the
+     * failure this catalogue's own rule names: "a first-time operator cannot see the rule that would
+     * have stopped them". A lease term capped at 120 months is a policy nobody can guess; a
+     * percentage capped at 100 is arithmetic. So the gate requires help on any field carrying a
+     * `maxValue()` or a `minValue()` past zero — unless it is registered here with the reason its
+     * bound explains itself.
+     *
+     * Registered by `{resource-directory}.{field}` — the directory under `app/Filament/Admin/
+     * Resources`, which is what a SOURCE sweep can see. Not the resource class basename: keying it
+     * that way meant `FixedAssets` had to be guessed back into `FixedAssetResource`, and three
+     * entries silently matched nothing while looking correct.
+     *
+     * @var array<string, string>
+     */
+    public const SELF_EVIDENT_BOUNDS = [
+        // A percentage bounded 0–100 is arithmetic, not policy.
+        'Invoices.vat_rate' => 'A percentage bounded 0–100 states its own limit; the rate itself is picked from the tax catalogue.',
+        'CreditNotes.vat_rate' => 'A percentage bounded 0–100 states its own limit; the rate itself is picked from the tax catalogue.',
+
+        // A display-order integer. The ceiling is a typo guard, not a rule about the business, and
+        // nothing an operator does depends on knowing whether it is 999 or 9999.
+        'TaxCodes.sort_order' => 'A display-order number; the ceiling is a typo guard, not a rule anyone works to.',
+
+        // "At least one" on a count of something. An asset that lasts zero months and a schedule
+        // that repeats zero times are not values anyone means to enter.
+        'FixedAssets.useful_life_months' => 'A duration must be at least one month; zero is not a value anyone means to enter.',
+        'ServicePlans.frequency_value' => 'A repeat count must be at least one; zero is not a value anyone means to enter.',
+    ];
+
+    /** Does this field's bound explain itself without a sentence? */
+    public static function boundIsSelfEvident(string $resourceDirectory, string $field): bool
+    {
+        return isset(self::SELF_EVIDENT_BOUNDS[$resourceDirectory.'.'.$field]);
+    }
+
+    /**
      * Section descriptions are not field help.
      *
      * A `Section->description()` appears once above a group of fields rather than under each one, so

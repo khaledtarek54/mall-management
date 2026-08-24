@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\LedgerAccounts\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
 use App\Filament\Imports\LedgerAccountImporter;
 use App\Support\Imports;
@@ -13,11 +14,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListLedgerAccounts extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = LedgerAccountResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             // Adopting the accountant's own chart, which on a first deploy otherwise means typing a
             // few hundred accounts into a form (EG-28). Gated on `Imports::allowed()` like every

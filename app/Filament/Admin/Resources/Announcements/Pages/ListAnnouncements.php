@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Announcements\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Models\Announcement;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -11,11 +12,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListAnnouncements extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = AnnouncementResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             CreateAction::make()
                 ->label(__('admin.announcements.compose'))

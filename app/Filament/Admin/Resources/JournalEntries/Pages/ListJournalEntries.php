@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\JournalEntries\Pages;
 
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -12,12 +13,14 @@ use Filament\Resources\Pages\ListRecords;
 class ListJournalEntries extends ListRecords
 {
     use PostsToLedger;
+    use SavesTableViews;
 
     protected static string $resource = JournalEntryResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             $this->postToLedgerAction(),
             CreateAction::make(),

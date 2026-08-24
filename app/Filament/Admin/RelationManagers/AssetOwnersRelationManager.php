@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\User;
 use Filament\Actions\AttachAction;
 use Filament\Actions\DetachAction;
@@ -39,6 +40,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AssetOwnersRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'propertyOwners';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

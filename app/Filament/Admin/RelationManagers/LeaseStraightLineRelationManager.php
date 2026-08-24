@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
 use App\Services\StraightLineRentService;
 use Carbon\CarbonImmutable;
@@ -32,6 +33,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class LeaseStraightLineRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'straightLineAdjustments';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

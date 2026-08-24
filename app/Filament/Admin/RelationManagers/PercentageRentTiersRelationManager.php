@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
 use App\Models\LeasePercentageRentTier;
 use Filament\Actions\CreateAction;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class PercentageRentTiersRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'percentageRentTiers';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string

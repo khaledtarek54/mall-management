@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'cam_period_year' => 'The calendar year this pool reconciles. One pool per property per year.',
         'bank_account_on_document' => 'Leave blank unless you need to tell two bank accounts apart when reconciling.',
         'escalation_index_code' => 'Which published series this rent follows. Enter the figures under Leasing, Rent indices.',
         'escalation_index_base_value' => 'The index figure this rent was last measured from. It rolls forward each time the rent steps.',

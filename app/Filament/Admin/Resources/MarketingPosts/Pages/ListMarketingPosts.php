@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\MarketingPosts\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Models\MarketingPost;
 use App\Support\StatusTabs;
@@ -11,11 +12,14 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListMarketingPosts extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = MarketingPostResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             CreateAction::make()
                 ->label(__('admin.marketing_posts.compose'))

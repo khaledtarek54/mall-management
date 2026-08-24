@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Departments\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -10,6 +11,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListDepartments extends ListRecords
 {
+    use SavesTableViews;
+
     protected static string $resource = DepartmentResource::class;
 
     // The set is no longer fixed (D-6): a mall with its own Security or Tenant Relations team needs
@@ -18,6 +21,7 @@ class ListDepartments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->savedViewActions(),
             GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];

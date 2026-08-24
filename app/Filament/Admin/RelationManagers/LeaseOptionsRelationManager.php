@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
 use App\Models\LeaseOption;
 use App\Models\Unit;
@@ -41,6 +42,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class LeaseOptionsRelationManager extends RelationManager
 {
+    use CountsItsRows;
+
     protected static string $relationship = 'options';
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
