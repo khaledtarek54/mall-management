@@ -2,7 +2,7 @@
 
 **What this is:** the order. Nothing here is new information — every step links to the document that
 owns it. It exists because the three documents that hold the real content are organised by *topic*
-(`STAGING.md` = the box, `GO-LIVE.md` = credentials and decisions, `PRE-STAGING-QA.md` = the gates)
+(`STAGING.md` = the box, `../STATUS.md` = credentials and decisions, `PRE-STAGING-QA.md` = the gates)
 and nothing was organised by *sequence*. On the day, sequence is what you need.
 
 **Read it top to bottom once before starting.** Two of the steps are decisions someone other than
@@ -22,7 +22,7 @@ Two things block, and neither is engineering:
 | | Who answers | Where |
 |---|---|---|
 | The **posture** — demo data or a production restore? Everything downstream forks here | Operator | [STAGING.md §1](STAGING.md) |
-| The **credentials** — backup archive password, alert email, an off-box backup disk, Sentry DSN, ops-log webhook | Operator | [GO-LIVE.md §1](GO-LIVE.md) |
+| The **credentials** — backup archive password, alert email, an off-box backup disk, Sentry DSN, ops-log webhook | Operator | [../STATUS.md §1](../STATUS.md) |
 
 Two more are decisions that do not block the box coming up, but do block the first real month, so
 raise them now rather than discovering them in a month-end review:
@@ -30,11 +30,11 @@ raise them now rather than discovering them in a month-end review:
 - **Price the returned-cheque fee** (`BillingSettings::nsf_fee_amount`, per property). It ships at
   **0** on purpose — a money default the lease may not permit, and Yardi ships its NSF charge unset
   for the same reason. Price it to recover the bank's own returned-cheque charge plus an
-  administrative component. [GO-LIVE §4, C-NSF](GO-LIVE.md).
+  administrative component. [STATUS §4, C-NSF](../STATUS.md).
 - **Rule which supplies carry stamp or schedule tax.** Both families are now commissioned and
   active, and both post to their own accounts. But a tax code taxes nothing until a **charge code**
   points at it, and that is the accountant's ruling — a row, no deploy.
-  [GO-LIVE §4, C-TAX](GO-LIVE.md).
+  [STATUS §4, C-TAX](../STATUS.md).
 
 ---
 
@@ -103,7 +103,7 @@ that it can be restored, and it is scheduled weekly for that reason.
 
 ## 7. Close the demo doors — posture B only
 
-Rotate or delete every seeded account **before the URL is shareable** ([GO-LIVE.md §1](GO-LIVE.md)).
+Rotate or delete every seeded account **before the URL is shareable** ([../STATUS.md §1](../STATUS.md)).
 They all share one password. `atriom:health`'s `demo_accounts` row is red until you do, and on a box
 holding real data that row is not an expected failure.
 

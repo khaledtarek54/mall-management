@@ -6,7 +6,7 @@ The application code is ready; what remains is **config + ops**. Work top to bot
 > Companion docs: [STAGING.md](STAGING.md) (**the staging box** — what it is for, its `.env` deltas, and which health rows are expected red there),
 > [INFRASTRUCTURE.md](INFRASTRUCTURE.md) (**server topology + provisioning** — the box, Cloudflare Tunnel, managed MySQL, backups; overrides some env defaults below),
 > [ETA-PAYMOB-CERTIFICATION.md](../integrations/ETA-PAYMOB-CERTIFICATION.md) (integration cutover),
-> [PAYMENT-LINK-APPLEPAY.md](../integrations/PAYMENT-LINK-APPLEPAY.md), [GO-LIVE.md](GO-LIVE.md), [ROADMAP.md](../ROADMAP.md).
+> [PAYMENT-LINK-APPLEPAY.md](../integrations/PAYMENT-LINK-APPLEPAY.md), [../STATUS.md](../STATUS.md), [ROADMAP.md](../ROADMAP.md).
 
 ---
 

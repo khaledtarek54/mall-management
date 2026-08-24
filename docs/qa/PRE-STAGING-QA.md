@@ -76,7 +76,7 @@ items an operator meets on day one.
 | **F-03** | LOW | Spacing / unit owners | `assessment_basis` was collected, validated, logged — and read by no calculation | ✅ fixed |
 | F-13 | LOW | Owner statements | `finalise()` documented itself as idempotent and raised instead | ✅ fixed |
 | C-01 | CONFIG | Payables | Withholding tax needs two switches | ✅ now a health-check row |
-| C-02 | CONFIG | Receivables | The returned-cheque fee ships at zero | deliberate — a money default Yardi also ships unset; priced per property, [GO-LIVE §4 C-NSF](../operations/GO-LIVE.md) |
+| C-02 | CONFIG | Receivables | The returned-cheque fee ships at zero | deliberate — a money default Yardi also ships unset; priced per property, [STATUS §4 C-NSF](../STATUS.md) |
 
 Full detail, reproduction and suggested fix for each: [`docs/qa/PRE-STAGING-FINDINGS.md`](PRE-STAGING-FINDINGS.md).
 
@@ -209,8 +209,8 @@ These cannot be caught by the test suite; they need the two-process race scripts
 - [x] **F-07** Confirm Budget is intended to be super-admin-only.
 - [x] **C-01** Set `TaxSettings::wht_default_tax_code` (or per-vendor codes) at the same time as
       `wht_enabled` — the switch alone withholds nothing.
-- [ ] **C-02** Price `BillingSettings::nsf_fee_amount` per property — to recover the bank's own returned-cheque charge plus an administrative component. It ships at 0 on purpose ([GO-LIVE §4 C-NSF](../operations/GO-LIVE.md)).
-- [ ] Walk [`docs/GO-LIVE.md`](../operations/GO-LIVE.md) and [`docs/STAGING.md`](../operations/STAGING.md) for the remaining
+- [ ] **C-02** Price `BillingSettings::nsf_fee_amount` per property — to recover the bank's own returned-cheque charge plus an administrative component. It ships at 0 on purpose ([STATUS §4 C-NSF](../STATUS.md)).
+- [ ] Walk [`docs/../STATUS.md`](../STATUS.md) and [`docs/STAGING.md`](../operations/STAGING.md) for the remaining
       credential and configuration rows.
 
 ### Gate 5 — Staging box readiness
@@ -239,7 +239,7 @@ Verified against the clean seeded baseline: read-only reported `OwnerStatementRu
 `--sync` fixed it, read-only then passed everything except `atriom:health` — which is correct on a
 workstation with no queue worker and no cron.
 
-The ordered end-to-end sequence, across this document, `STAGING.md` and `GO-LIVE.md`, is
+The ordered end-to-end sequence, across this document, `STAGING.md` and `../STATUS.md`, is
 [`docs/STAGING-CUTOVER.md`](../operations/STAGING-CUTOVER.md).
 
 ### Gate 7 — Regression cover for what was found ✅
@@ -432,7 +432,7 @@ asymmetry is the real content: output stamp/schedule are **liabilities**, input 
 recoverable would have grown a receivable nobody could ever collect.
 
 What remains is genuinely the accountant's, and is now stated as such in
-[GO-LIVE §4, C-TAX](../operations/GO-LIVE.md): **which supplies carry these taxes.** Activation grants nothing on
+[STATUS §4, C-TAX](../STATUS.md): **which supplies carry these taxes.** Activation grants nothing on
 its own — a tax code taxes a supply only when a charge code points at it, which is a row, not a
 deploy. Pinned by `TaxPostsToItsOwnAccountTest`, mutation-tested.
 

@@ -6,7 +6,7 @@ Verified against the running code 2026-08-16.
 > **Companion docs.** [INFRASTRUCTURE.md](INFRASTRUCTURE.md) provisions the box (nginx vhost, FPM
 > pool, worker, cron, Cloudflare Access). [PRODUCTION-RUNBOOK.md](PRODUCTION-RUNBOOK.md) is the
 > per-release sequence, which `./deploy.sh` runs unchanged on either environment.
-> [GO-LIVE.md](GO-LIVE.md) is the gate for **real money** — none of it blocks staging.
+> [../STATUS.md](../STATUS.md) is the gate for **real money** — none of it blocks staging.
 > This file is the one thing those three do not answer: *is the staging box correct, and which of
 > its red rows are supposed to be red?*
 
@@ -121,7 +121,7 @@ inherits the **stricter** treatment rather than the laxer one:
 
 ## 4. Bring-up
 
-> Ordered end-to-end, across this document, `GO-LIVE.md` and the QA gates:
+> Ordered end-to-end, across this document, `../STATUS.md` and the QA gates:
 > **[STAGING-CUTOVER.md](STAGING-CUTOVER.md)**. This section is step 2 of eight.
 
 Provision the box per [INFRASTRUCTURE.md §10](INFRASTRUCTURE.md), then:
@@ -209,7 +209,7 @@ Recorded so nobody reads a green staging box as a green production one:
 - **Backups are unproven until restored.** `backup:monitor` only checks an archive exists.
   `atriom:backup-verify` replays the newest one into a scratch DB — that is the only evidence.
 - **Opening balances are not loaded**, so no trial balance on staging includes the history that
-  precedes cut-over ([GO-LIVE.md §2, A3.7](GO-LIVE.md)).
+  precedes cut-over ([../STATUS.md §2, A3.7](../STATUS.md)).
 
 ---
 
@@ -231,5 +231,5 @@ writing. Reproduce with the §4 sequence.
   **no detail** to an anonymous caller (detail needs `HEALTH_TOKEN`).
 
 **The one thing this machine could not verify:** `mysqldump` is not on its PATH, so
-`backup_capability` fails here exactly as [GO-LIVE.md §1.1](GO-LIVE.md) describes. Ship the MySQL
+`backup_capability` fails here exactly as [../STATUS.md §1.1](../STATUS.md) describes. Ship the MySQL
 client in the deploy image and re-check on the box itself.

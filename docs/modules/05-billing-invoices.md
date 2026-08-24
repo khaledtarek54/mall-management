@@ -721,7 +721,7 @@ public function runForPeriod(?CarbonImmutable $period = null): array
 - **Suppresses the entire invoice during a lease's fit-out / rent-free grace** — `Lease::periodInFitOut()` (from `rent_commencement_date`) returns true for periods inside the grace, so `generateInvoiceForLease` returns null (nothing bills — rent, service, CAM, levy all held). The single-lease path returns reason `fit_out` so the UI says "in fit-out period". See module 04 § "Fit-out grace".
 - **Honours the lease billing frequency (in advance)** — a `quarterly`/`semiannual`/`annual` lease (`Lease::billingCycleMonths()` = 3/6/12) bills only on a **cycle-start month** (`isBillingCycleStart()`, anchored to the first billable month); on other months `generateInvoiceForLease` returns null. On a cycle-start month the invoice period spans the whole cycle and each **monthly** charge bills × months-in-cycle (a one-off charge bills ×1). A prorated mid-month commencement prorates only the first month → multiplier `factor + (months − 1)`. The single-lease path returns reason `off_cycle` for a mid-cycle month. Monthly leases (cycle = 1) are unchanged.
   - **Final cycle is capped at the expiry month.** A lease whose term isn't a whole number of cycles has its last cycle truncated at `expiry_date`'s month (both `period_end` and the ×months multiplier shrink together), so nothing bills for whole months after the lease ends — the final month bills in full, matching monthly end-of-term. (Caught by the pre-merge adversarial review.)
-  - **Revenue-at-issue (known):** a cycle spanning a year boundary (e.g. quarterly Nov–Jan) recognises the whole cycle's revenue at issue (Nov). This is the system's documented accrual policy — revenue-at-issue, **no** straight-line spread (see `OPEN-QUESTIONS.md A3.2`); the same limitation applies to any advance billing.
+  - **Revenue-at-issue (known):** a cycle spanning a year boundary (e.g. quarterly Nov–Jan) recognises the whole cycle's revenue at issue (Nov). This is the system's documented accrual policy — revenue-at-issue, **no** straight-line spread (see `../STATUS.md A3.2`); the same limitation applies to any advance billing.
   - **Frequency is edit-locked after the first invoice** — cycles are anchored to the commencement, so switching cadence mid-term could strand an unaligned month. The form disables the field once the lease has any invoice; set it at signing.
 - **A charge can bill BEHIND the period it covers (EG-30 / M-2, 2026-08-22).** `charges.billing_timing`
   is nullable and **null means advance**, so every charge written before this bills exactly as it did.
@@ -1331,7 +1331,7 @@ To customize the PDF:
 >   a second copy of the field.
 > - **Blank by default, and the line is omitted when blank.** A placeholder TRN is worse than a
 >   missing one: it looks valid, the tenant files it, and it fails on audit. A go-live gate item
->   ([GO-LIVE §2 A1.1](../operations/GO-LIVE.md)).
+>   ([STATUS §2 A1.1](../STATUS.md)).
 > - **The VAT summary is per RATE** (`InvoicePdfService::vatSummary()`), shown only when an invoice
 >   carries more than one. Base rent is exempt while service charge is standard-rated, so one
 >   Atriom invoice routinely carries both, and a single "VAT: 1,400" line does not tell the tenant's

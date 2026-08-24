@@ -73,7 +73,7 @@ plausibly have chosen.
 
 ### What this document is not
 
-It is not the go-live gate ([`operations/GO-LIVE.md`](../operations/GO-LIVE.md) — configuration,
+It is not the go-live gate ([`../STATUS.md`](../STATUS.md) — configuration,
 credentials and decisions), not the prioritised worklist ([`ROADMAP.md`](../ROADMAP.md)), and not
 the per-module reference ([`modules/`](../modules/)). This answers one question only: *measured
 against the software a mall operator would otherwise buy, what is missing?*
@@ -131,7 +131,7 @@ evidence behind it.
 
 | # | Gap | Module | Blocked on | Effort |
 |---|---|---|---|---|
-| B1 | **Management fee is recorded and charged by nothing** | 32 · 37 | The accountant: which GL account takes management-fee income (it is Eltizam's revenue, not the property's — a guess puts the operator's income in the owner's P&L), and the sinking-fund liability account. [OPEN-QUESTIONS §B2.1/B2.2](../OPEN-QUESTIONS.md) | M |
+| B1 | **Management fee is recorded and charged by nothing** | 32 · 37 | The accountant: which GL account takes management-fee income (it is Eltizam's revenue, not the property's — a guess puts the operator's income in the owner's P&L), and the sinking-fund liability account. [STATUS §B2.1/B2.2](../STATUS.md) | M |
 | B4 | **Live tenant payment rail** | 06 | Paymob certification — external, not code. Ships `PAYMOB_ENABLED=false` | — |
 | B5 | **ETA e-invoicing is FROZEN, not merely live-blocked** | 16 | A signing certificate and production credentials — and, first, lifting the code freeze (`Modules::FROZEN`, 2026-08-22). Off in code and shown nowhere; ships `ETA_MOCK=true` | — |
 

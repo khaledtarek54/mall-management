@@ -291,7 +291,7 @@ identical on screen to a correctly configured 0%.
 
 **`purchase_value` needed a decision**, because a leased unit has no purchase price to sum with, so
 there is no single denominator that includes everybody. The reading chosen — stated here rather than
-left implicit, and logged as **B2.5** in [OPEN-QUESTIONS](../OPEN-QUESTIONS.md) — is that the
+left implicit, and logged as **B2.5** in [STATUS](../STATUS.md) — is that the
 purchase-value owners keep the slice their AREA gives them **collectively** and divide that slice
 among themselves by price. Σ over the cohort is identical either way, so no leased neighbour moves
 and this basis can never itself cause an over-recovery. An owner with no purchase price recorded
@@ -403,7 +403,7 @@ answers, not on engineering.** Both are logged where they will be seen:
 
 | Question | Where | Why it blocks |
 |---|---|---|
-| Which GL account does **management-fee income** post to? | [OPEN-QUESTIONS §B2.1](../OPEN-QUESTIONS.md) · [ACCOUNTANT-BRIEFING ٤.٧ Q-OWN-1](../accounting/ACCOUNTANT-BRIEFING.md) | It is the OPERATOR's revenue, not the property's. Posting it to a guessed account puts Eltizam's income in Jawad's P&L |
+| Which GL account does **management-fee income** post to? | [STATUS §B2.1](../STATUS.md) · [ACCOUNTANT-BRIEFING ٤.٧ Q-OWN-1](../accounting/ACCOUNTANT-BRIEFING.md) | It is the OPERATOR's revenue, not the property's. Posting it to a guessed account puts Eltizam's income in Jawad's P&L |
 | Is there a **sinking fund**, and which **liability** account? | §B2.2 · Q-OWN-2 | Money held for a future obligation is not revenue. Shipping it as income would overstate the P&L and hide a liability |
 
 Two more that change numbers rather than block: whether an owner's صيانة is property revenue or cost

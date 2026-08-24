@@ -17,7 +17,7 @@ are the retailers. Laravel 13 · PHP 8.4 · Filament 4.
 | **2** | [PROJECT-MAP.md](PROJECT-MAP.md) | Where everything lives — the generated census, every route family, the codebase layout, the scheduled automation |
 | **3** | [BUSINESS-RULES.md](BUSINESS-RULES.md) | Every financial rule the system enforces, in plain language, for the operator and accountant to **sign off** |
 | **4** | [PROPERTY-ISOLATION.md](PROPERTY-ISOLATION.md) | The invariant that confines every module to one mall — read before adding a property-owned module |
-| **5** | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | **The only live question list** — what is still unanswered, ordered by deadline, with what ships if nobody answers |
+| **5** | [STATUS.md](STATUS.md) | **Status and what's next — the ONE document.** Where the build is, what blocks go-live (infrastructure, credentials, and the decisions only the client can make), and an ordered next step. Absorbed `OPEN-QUESTIONS.md` and `operations/GO-LIVE.md` on 2026-08-24 |
 | **6** | [ROADMAP.md](ROADMAP.md) | The single prioritised list — what to build next, and what not to rebuild |
 | **7** | [DEMO.md](DEMO.md) | **Showing the system to somebody** — a 30-minute run for a non-accountant, and how to adapt it per audience |
 | **8** | [EGYPT-MARKET-FIT.md](EGYPT-MARKET-FIT.md) | **What the operator can change without a developer**, and what Egyptian law and Egyptian mall practice demand of it — the configurability axis, with the statute research behind it |
@@ -64,7 +64,7 @@ built and still fail that test. It cites the gap analysis where the two touch, a
 
 | Folder | Contents |
 |---|---|
-| **[`operations/`](operations/)** | [GO-LIVE](operations/GO-LIVE.md) — the single gate before real money · [STAGING-CUTOVER](operations/STAGING-CUTOVER.md) — the ordered runbook · [STAGING](operations/STAGING.md) — the box, and which health rows are *supposed* to be red · [PRODUCTION-RUNBOOK](operations/PRODUCTION-RUNBOOK.md) — the per-release sequence · [INFRASTRUCTURE](operations/INFRASTRUCTURE.md) — servers, Cloudflare, backups |
+| **[`operations/`](operations/)** | The launch gate moved to [STATUS.md](STATUS.md) · [STAGING-CUTOVER](operations/STAGING-CUTOVER.md) — the ordered runbook · [STAGING](operations/STAGING.md) — the box, and which health rows are *supposed* to be red · [PRODUCTION-RUNBOOK](operations/PRODUCTION-RUNBOOK.md) — the per-release sequence · [INFRASTRUCTURE](operations/INFRASTRUCTURE.md) — servers, Cloudflare, backups |
 | **[`qa/`](qa/README.md)** | The pre-staging harness ([PRE-STAGING-QA](qa/PRE-STAGING-QA.md) + [findings](qa/PRE-STAGING-FINDINGS.md)), the [release checklist](qa/RELEASE-CHECKLIST.md), UAT scripts, and the runnable [`scripts/`](qa/scripts/README.md) behind `composer qa` |
 | **[`integrations/`](integrations/)** | [Paymob](integrations/PAYMOB.md) · [ETA + Paymob certification](integrations/ETA-PAYMOB-CERTIFICATION.md) · [the public pay link + Apple Pay](integrations/PAYMENT-LINK-APPLEPAY.md) · [push notifications](integrations/PUSH-NOTIFICATIONS.md) |
 | **[`api/`](api/MOBILE-API.md)** | The mobile API a client codes against, plus the generated [`openapi.json`](api/openapi.json) (`composer api-spec`) |

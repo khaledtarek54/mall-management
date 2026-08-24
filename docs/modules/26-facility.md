@@ -146,7 +146,7 @@ Three pieces:
 
 **It ships off.** `SlaSettings::sla_working_clock_priorities` is empty, so every clock runs on bare
 hours exactly as before. Whether "24 hours" means calendar or working hours is a contract term that
-differs by priority, and it is the operator's ruling (GO-LIVE C-SLA).
+differs by priority, and it is the operator's ruling (STATUS.md C-SLA).
 
 **The clock is FROZEN on the job.** `facility_work_orders.sla_clock` is stamped in
 `stampSlaClocks()` alongside the two deadlines, and `daysOverSla()` reads it. Resolving it at read

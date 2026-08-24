@@ -220,5 +220,5 @@ Deeper detail, in order of depth: [OVERVIEW.md](OVERVIEW.md) → the module's ow
 ## What to do with what they say
 
 Write down anything they name that the system does not do, and put it in
-[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) or [ROADMAP.md](ROADMAP.md) the same day. A demo's real
+[STATUS.md](STATUS.md) or [ROADMAP.md](ROADMAP.md) the same day. A demo's real
 output is the list of things somebody expected and did not find.

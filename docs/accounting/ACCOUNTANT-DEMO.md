@@ -157,7 +157,7 @@ them anyway:
   Law 157/2025 makes rent taxable from a date, that is a field and a row, not a release.
 - **Payroll tax brackets are not modelled progressively** yet; we need their confirmed brackets. The
   statutory numbers ARE a dated ladder now, so a January change is enterable in advance.
-- **The open questions are in [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)**, which was re-verified
+- **The open questions are in [../STATUS.md](../STATUS.md)**, which was re-verified
   against the code on 2026-08-23 and is now considerably shorter — two dozen rows closed because the
   system already answered them. Section 1 is what blocks the first real invoice; most of it is theirs.
 
@@ -165,7 +165,7 @@ them anyway:
 
 ## What to do with what they say
 
-Anything they answer goes straight into `docs/OPEN-QUESTIONS.md` **in the meeting** — the row, their
+Anything they answer goes straight into `docs/../STATUS.md` **in the meeting** — the row, their
 answer, the date. The `A·` rows are the accountant's, and they are the single thing between the
 accounting module being correct and being finished.
 

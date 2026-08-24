@@ -334,7 +334,7 @@ a straight aggregation of the schedule model above:
 | **Forecast** | lease-by-lease revenue projection including speculative renewals and re-lets *(Forecast Manager, cited)* |
 
 **Atriom has none of the first three, and no rent roll at all** (verified: no rent-roll report
-exists in `app/`; the term appears only in `docs/OPEN-QUESTIONS.md` and the discovery
+exists in `app/`; the term appears only in `docs/../../STATUS.md` and the discovery
 questionnaire). For a mall operator that is a conspicuous hole, and once a rent schedule exists it
 is a day of work.
 

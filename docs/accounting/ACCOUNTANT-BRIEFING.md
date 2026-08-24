@@ -431,6 +431,6 @@
 | مُلّاك الوحدات (٤.٧): حساب أتعاب الإدارة + حساب صندوق الصيانة / Unit owners (4.7): management-fee income account + sinking-fund liability account — **دول بس اللي واقفين قدام آخر جزء من الميزة / the only blockers on the last piece** | *المحاسب / accountant* | |
 | الموازنة (٤.٩) + ترقيم المستندات (Q-COA-5) + الدمغة وضريبة الجدول (Q-TAX-7) / Budget, numbering, stamp & schedule tax | *المحاسب / accountant* | |
 
-**مرتبط بـ / Related:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) (سجل كل الأسئلة الداخلي) · [BUSINESS-RULES.md](../BUSINESS-RULES.md) (كل قاعدة + مستوى المخاطرة) · [21-general-ledger.md](../modules/21-general-ledger.md) (تفاصيل موديول الأستاذ العام).
+**مرتبط بـ / Related:** [../STATUS.md](../STATUS.md) (سجل كل الأسئلة الداخلي) · [BUSINESS-RULES.md](../BUSINESS-RULES.md) (كل قاعدة + مستوى المخاطرة) · [21-general-ledger.md](../modules/21-general-ledger.md) (تفاصيل موديول الأستاذ العام).
 
 > **للتأكيد بعد الاجتماع / Verify after the meeting:** `php artisan billing:reconcile --deep` — بيعيد اشتقاق المدينون/الدائنون من المستندات المصدرية ويطابقهم على الأستاذ العام ويطبع الإجماليات (مفوتر/محصّل/دائن/مدينون قائمة/ض.ق.م) عشان تراجعهم على دفاترك.

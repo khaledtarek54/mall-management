@@ -101,7 +101,7 @@ default and returns nothing, so every pool that exists reconciles unchanged.
 
 `purchase_value` was the one that needed a decision, because a leased unit has no purchase price to
 sum with. The reading chosen — stated in the service, in module 37 and as **B2.5** in
-`docs/OPEN-QUESTIONS.md` rather than left implicit — is that the purchase-value owners keep the slice
+`docs/../STATUS.md` rather than left implicit — is that the purchase-value owners keep the slice
 their AREA gives them collectively and divide it among themselves by price. Σ over the cohort is
 therefore identical either way, no leased neighbour moves, and this basis can never itself cause an
 over-recovery.

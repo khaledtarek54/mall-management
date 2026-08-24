@@ -9,10 +9,10 @@
 > statements, invoice emailing, payment matching, prepaid credit. **Do not work from them.**
 >
 > ➡️ The live questions — and only those — are in
-> [**docs/OPEN-QUESTIONS.md**](../OPEN-QUESTIONS.md), grouped by who answers.
+> [**docs/../STATUS.md**](../STATUS.md), grouped by who answers.
 >
 > Keep this file as the canonical record of what the client has already told us; as questions in
-> OPEN-QUESTIONS get answered, fold them back here.
+> STATUS.md questions get answered, fold them back here.
 >
 > _Last updated: 2026-06-29._
 
@@ -242,7 +242,7 @@
 
 All open questions now live in **one** hand-out, grouped by who can answer them:
 
-> ➡️ **[docs/OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)** — Accountant/Finance · Owner (Jawad) ·
+> ➡️ **[docs/../STATUS.md](../STATUS.md)** — Accountant/Finance · Owner (Jawad) ·
 > Eltizam operations · ETA/IT · requirement clarifications. (This replaces the earlier two
 > meeting-specific agendas, which have been folded in.)
 

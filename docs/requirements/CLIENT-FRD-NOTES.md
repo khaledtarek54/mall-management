@@ -5,7 +5,7 @@
 > notes into traceable functional requirements (FRs) tagged against the **current build**.
 >
 > Companion to [answers collected](CLIENT-DISCOVERY-ANSWERS.md); all open questions are in the
-> single hand-out [../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md). Reconciled against `app/Models`,
+> single hand-out [../STATUS.md](../STATUS.md). Reconciled against `app/Models`,
 > `database/migrations`, `app/Services`, `app/Filament`, and `docs/modules/*` on 2026-07-03.
 >
 > _Created: 2026-07-03._
@@ -171,7 +171,7 @@ These four decisions steer the FRs below:
 | **Q-G** | Owner / Jawad as one party or two | **Still open (B.3)** — part of the money-flow workshop |
 | **Q-H** | Post-dated cheques | ✅ **BUILT** (module 33). Only *"hold security cheques as their own class"* remains (A7.1, → code XS) |
 
-> ➡️ The live ones are in **[../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)**, which is the single list.
+> ➡️ The live ones are in **[../STATUS.md](../STATUS.md)**, which is the single list.
 
 ---
 
