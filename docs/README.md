@@ -37,6 +37,11 @@ services, screens, **extension points** and gotchas.
 groups them by the money spine · recoveries and variable rent · counterparties · facility and
 operations · cross-cutting.
 
+**Teaching somebody the module rather than changing it?** [`training/`](training/README.md) is the
+people-facing counterpart — a walkthrough per module for a newcomer with no property or accounting
+background, with a hands-on exercise set to run against `LearningSeeder`. It does not restate the
+module docs; it links to them.
+
 ---
 
 ## 3 · What is missing

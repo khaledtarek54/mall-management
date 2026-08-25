@@ -38,6 +38,12 @@
 > two-process proof, which the SQLite suite cannot give).
 
 
+> **New to the business rather than to the code?** Read
+> [`docs/training/LEASING-WALKTHROUGH.md`](../training/LEASING-WALKTHROUGH.md) first — the same module
+> explained for someone with no property or accounting background, field by field and button by
+> button, with 16 hands-on exercises against `LearningSeeder`. This file is the developer's account:
+> invariants, past bugs and extension points.
+
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
 > **⚠️ The lease hub is complete — the Summary landed (2026-08-17, UX-01).** Every tab already made
