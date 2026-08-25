@@ -9,7 +9,9 @@ and nothing was organised by *sequence*. On the day, sequence is what you need.
 the person at the keyboard has to make, and finding that out at step 6 is what turns a cutover into
 a second cutover.
 
-> **The single command:** `php artisan atriom:preflight`. It runs the health check and all three data
+> **The single command:** `php artisan atriom:preflight`. It runs the health check, the configuration
+> checks (`atriom:config-health` — seller TRN, charge-code classification, posting map, an open
+> period) and all three data
 > gates in order and exits non-zero if any fails. Steps 5 and 8 below are both just that command.
 > It is **read-only** unless you pass `--sync`.
 

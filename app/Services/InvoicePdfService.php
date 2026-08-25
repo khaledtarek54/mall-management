@@ -47,6 +47,20 @@ class InvoicePdfService
             // taxable-value split its reader needs. Both shared with the credit note, which is the
             // same kind of document pointing the other way.
             ...IssuingEntity::forView($asset),
+            // **A document may call itself a TAX invoice only when the issuer states a
+            // registration.** The seller particulars beneath the header already printed only when
+            // configured — with a comment saying a document titled "Tax Invoice" must carry the
+            // number or the tenant cannot claim the input VAT — while the title itself printed
+            // unconditionally. An unconfigured install therefore issued documents ASSERTING a tax
+            // character they could not support: not "silently incomplete", which is the posture the
+            // conditional line was chosen for, but confidently wrong, on the one document every
+            // tenant reads monthly and files with their own accountant.
+            //
+            // The KEY travels, not the translated string: every other word in that template is
+            // resolved at render time, and the invoice PDF is rendered in the reader's locale.
+            'documentTitleKey' => IssuingEntity::isTaxRegistered()
+                ? 'admin.pdf.tax_invoice'
+                : 'admin.pdf.invoice',
             'vatSummary' => VatSummary::forItems($invoice->items),
         ];
     }

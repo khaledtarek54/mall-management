@@ -3,7 +3,7 @@
 <html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="UTF-8">
-    <title>{{ __('admin.pdf.tax_invoice') }} {{ $invoice->number }}</title>
+    <title>{{ __($documentTitleKey) }} {{ $invoice->number }}</title>
     <style>
         @page { margin: 32px 36px; }
         * { box-sizing: border-box; }
@@ -185,7 +185,10 @@
                     </div>
                 </td>
                 <td style="width:40%;">
-                    <div class="doc-title">{{ __('admin.pdf.tax_invoice') }}</div>
+                    {{-- "Tax Invoice" only when the issuer is registered; otherwise plainly
+                         "Invoice". Resolved in InvoicePdfService::viewData() so the browser tab
+                         title and the printed heading cannot drift apart. --}}
+                    <div class="doc-title">{{ __($documentTitleKey) }}</div>
                     <div class="doc-meta">
                         <div><strong>{{ $invoice->number }}</strong></div>
                         <div>{{ __('admin.fields.issue_date') }}: {{ $invoice->issue_date->format('d/m/Y') }}</div>

@@ -13,7 +13,6 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Lang;
 
 /**
  * What is not configured yet, and what each gap breaks.
@@ -100,7 +99,7 @@ class ConfigurationHealth extends Page implements HasTable
                     // something untrue about their books — which is exactly what the payroll row did
                     // in its first cut, reporting ":count runs withheld nothing" with a count of 0.
                     // Checks with no `advisory` key are unaffected.
-                    'impact' => self::sentenceFor($check),
+                    'impact' => Checks::sentenceFor($check),
                     'ok' => $check['ok'],
                     'severity' => $check['severity'],
                 ])
@@ -133,36 +132,5 @@ class ConfigurationHealth extends Page implements HasTable
             ->defaultGroup('category')
             ->paginated(false)
             ->emptyStateIcon('heroicon-o-clipboard-document-check');
-    }
-
-    /**
-     * The sentence a check renders, given its state.
-     *
-     * Three keys, not two: `ok` for a passing check, `impact` for a failing BLOCKING one, and an
-     * optional `advisory` for a failing advisory one. The optional third exists because the two
-     * readings can be genuinely different claims — "your books are missing a liability" versus
-     * "nothing is wrong yet, but the first run will withhold nothing" — and a check forced to
-     * borrow the blocking wording states a falsehood in its most ordinary state.
-     *
-     * @param  array{key: string, severity: string, ok: bool, detail: string, count: int}  $check
-     */
-    private static function sentenceFor(array $check): string
-    {
-        $base = "admin.config_health.checks.{$check['key']}";
-        $replace = ['detail' => $check['detail'], 'count' => $check['count']];
-
-        if ($check['ok']) {
-            return __("{$base}.ok", $replace);
-        }
-
-        $advisory = "{$base}.advisory";
-
-        // `fallback: false`. `Lang::has()` falls back to English by default, so the obvious
-        // spelling would render an English sentence inside an Arabic panel — which this project
-        // treats as a defect everywhere else. A locale gap should drop to `impact`, which is
-        // translated, and `TranslationKeyConformanceTest` fails the build on the gap itself.
-        return $check['severity'] === Checks::ADVISORY && Lang::has($advisory, null, false)
-            ? __($advisory, $replace)
-            : __("{$base}.impact", $replace);
     }
 }

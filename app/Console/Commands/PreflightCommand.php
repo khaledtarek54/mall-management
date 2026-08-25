@@ -66,6 +66,14 @@ class PreflightCommand extends Command
      * a box that would not have processed anything anyway, and knowing that changes how you read
      * everything after it.
      *
+     * Configuration SECOND, and it was missing entirely until 2026-08-25. `atriom:health` asks
+     * whether the box is alive; `App\Support\ConfigurationHealth`'s eight checks ask whether the
+     * install is SET UP — and they lived only on `/admin/configuration-health`, so every automated
+     * gate a release passes through could report clean on an install with no seller tax
+     * registration number, an incomplete posting map and no open accounting period. It sits above
+     * the data audits because a document filed against no property is a data defect, while an
+     * unclassified charge code is the reason the next batch of documents will be wrong.
+     *
      * @var array<int, array{command: string, args: array<string, mixed>, why: string}>
      */
     private const STEPS = [
@@ -73,6 +81,11 @@ class PreflightCommand extends Command
             'command' => 'atriom:health',
             'args' => [],
             'why' => 'the box itself — DB, cache, queue worker, scheduler heartbeat, backups, storage, translations',
+        ],
+        [
+            'command' => 'atriom:config-health',
+            'args' => [],
+            'why' => 'what is not SET UP — seller TRN, charge-code classification, posting map, an open period',
         ],
         [
             'command' => 'atriom:audit-charge-schedules',

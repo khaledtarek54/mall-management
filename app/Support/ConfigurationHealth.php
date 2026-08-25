@@ -13,6 +13,7 @@ use App\Models\Vendor;
 use App\Settings\TaxSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Lang;
 
 /**
  * What is not configured yet, and what each gap actually breaks.
@@ -398,6 +399,42 @@ class ConfigurationHealth
             ok: $period !== null && $period->status !== 'closed',
             detail: $period?->status ?? '',
         );
+    }
+
+    /**
+     * The sentence a check renders, given its state.
+     *
+     * Three keys, not two: `ok` for a passing check, `impact` for a failing BLOCKING one, and an
+     * optional `advisory` for a failing advisory one. The optional third exists because the two
+     * readings can be genuinely different claims — "your books are missing a liability" versus
+     * "nothing is wrong yet, but the first run will withhold nothing" — and a check forced to
+     * borrow the blocking wording states a falsehood in its most ordinary state.
+     *
+     * Lives HERE rather than on the page because there are now two renderers — the screen and
+     * `atriom:config-health` — and the impact line is the whole feature. A second copy in the
+     * command would be a second wording of the same finding, free to drift from the one the
+     * operator read on screen.
+     *
+     * @param  array{key: string, severity: string, ok: bool, detail: string, count: int}  $check
+     */
+    public static function sentenceFor(array $check): string
+    {
+        $base = "admin.config_health.checks.{$check['key']}";
+        $replace = ['detail' => $check['detail'], 'count' => $check['count']];
+
+        if ($check['ok']) {
+            return __("{$base}.ok", $replace);
+        }
+
+        $advisory = "{$base}.advisory";
+
+        // `fallback: false`. `Lang::has()` falls back to English by default, so the obvious
+        // spelling would render an English sentence inside an Arabic panel — which this project
+        // treats as a defect everywhere else. A locale gap should drop to `impact`, which is
+        // translated, and `TranslationKeyConformanceTest` fails the build on the gap itself.
+        return $check['severity'] === self::ADVISORY && Lang::has($advisory, null, false)
+            ? __($advisory, $replace)
+            : __("{$base}.impact", $replace);
     }
 
     /** @return array{key: string, category: string, severity: string, ok: bool, detail: string, count: int} */

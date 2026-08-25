@@ -16,6 +16,7 @@
 | its detection is broken is worse than no checklist: it is a green light nobody earned.
 */
 
+use App\Console\Commands\PreflightCommand;
 use App\Filament\Admin\Pages\ConfigurationHealth as Page;
 use App\Models\AccountingPeriod;
 use App\Models\ChargeCode;
@@ -579,4 +580,79 @@ it('does not admit next month as the latest run on the 31st', function () {
     // With the overflow, September is "latest", it carries deductions, and August's breakage is
     // invisible. The bound must exclude September so the broken August is still the latest month.
     expect(healthCheck('payroll_rates_configured')['ok'])->toBeFalse();
+});
+
+/*
+|--------------------------------------------------------------------------
+| ...and a check nobody runs is not a check
+|--------------------------------------------------------------------------
+| Everything above tests the CHECKS. Nothing tested whether anything outside a browser could run
+| them, and nothing could: eight checks, no command, no route, and `atriom:preflight` — the gate
+| `deploy.sh` fires on every release — asked `atriom:health` and the two data audits and stopped.
+| So an install could pass every automated pre-deploy gate with no seller TRN, an incomplete
+| posting map and no open accounting period, and the only thing between that and a real month was
+| somebody remembering to open a page.
+|
+| The same shape `HealthChecksAreWiredConformanceTest` was written for, one layer out: there the
+| risk was a check missing from `run()`, here it is a registry missing from the gate.
+*/
+
+it('puts the configuration checks on the gate the deploy actually runs', function () {
+    // Read off the command's own step list rather than by running it: `atriom:preflight` shells
+    // four commands, one of which reconciles the books, and what is being pinned is the WIRING.
+    $steps = (new ReflectionClass(PreflightCommand::class))
+        ->getConstant('STEPS');
+
+    expect(array_column($steps, 'command'))->toContain('atriom:config-health');
+});
+
+it('exits non-zero on a BLOCKING gap, so the deploy reports it', function () {
+    $settings = app(TaxSettings::class);
+    $settings->seller_tax_registration_number = '';
+    $settings->save();
+
+    $this->artisan('atriom:config-health')
+        ->expectsOutputToContain('seller_tax_identity')
+        ->assertExitCode(1);
+});
+
+it('exits zero when only ADVISORY rows are open', function () {
+    // The rule that keeps the step readable. `billing_contact` is advisory and empty on most
+    // installs for a while; a step that is permanently red is a step people stop reading, which
+    // costs more than the advisory is worth. Paired with the refusal above, so this cannot pass by
+    // the command having no verdict at all.
+    $settings = app(TaxSettings::class);
+    $settings->seller_tax_registration_number = '123-456-789';
+    $settings->seller_billing_email = '';
+    $settings->save();
+
+    expect(collect(ConfigurationHealth::run())
+        ->firstWhere('key', 'billing_contact')['ok'])->toBeFalse();
+
+    $this->artisan('atriom:config-health')->assertExitCode(0);
+});
+
+it('fails on an advisory row under --strict, which is the cutover posture', function () {
+    $settings = app(TaxSettings::class);
+    $settings->seller_tax_registration_number = '123-456-789';
+    $settings->seller_billing_email = '';
+    $settings->save();
+
+    $this->artisan('atriom:config-health', ['--strict' => true])->assertExitCode(1);
+});
+
+it('prints the impact sentence the screen prints, not the raw detail', function () {
+    // The detail is BLANK on several checks — the failure is an absence — so a command printing
+    // `detail` would render the row that matters most as "seller_tax_identity · FAIL · ". Both
+    // renderers resolve through one `sentenceFor()` for that reason, and so a wording fix reaches
+    // the screen and the deploy log together.
+    $settings = app(TaxSettings::class);
+    $settings->seller_tax_registration_number = '';
+    $settings->save();
+
+    $check = healthCheck('seller_tax_identity');
+
+    expect($check['detail'])->toBe('')
+        ->and(ConfigurationHealth::sentenceFor($check))
+        ->toBe(__('admin.config_health.checks.seller_tax_identity.impact', ['detail' => '', 'count' => 0]));
 });

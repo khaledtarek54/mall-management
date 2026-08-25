@@ -303,6 +303,7 @@ return [
 
     'pdf' => [
         'tax_invoice' => 'Tax Invoice',
+        'invoice' => 'Invoice',
         'receipt' => [
             'title' => 'Receipt Voucher',
             'received_from' => 'Received From',

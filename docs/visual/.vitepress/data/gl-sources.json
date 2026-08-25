@@ -77,7 +77,7 @@
             "instead": "reverse the deposit transaction"
         },
         "change_impact": {
-            "derived": 9,
+            "derived": 10,
             "descriptive": 1,
             "neutral": 2
         }
@@ -214,7 +214,7 @@
             "refused": 5,
             "derived": 5,
             "descriptive": 1,
-            "neutral": 17
+            "neutral": 19
         }
     },
     {
@@ -278,8 +278,8 @@
             "instead": "void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice"
         },
         "change_impact": {
-            "refused": 2,
-            "derived": 4,
+            "refused": 3,
+            "derived": 3,
             "descriptive": 1,
             "neutral": 10
         }

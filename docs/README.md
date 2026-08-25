@@ -69,7 +69,7 @@ built and still fail that test. It cites the gap analysis where the two touch, a
 | **[`integrations/`](integrations/)** | [Paymob](integrations/PAYMOB.md) · [ETA + Paymob certification](integrations/ETA-PAYMOB-CERTIFICATION.md) · [the public pay link + Apple Pay](integrations/PAYMENT-LINK-APPLEPAY.md) · [push notifications](integrations/PUSH-NOTIFICATIONS.md) |
 | **[`api/`](api/MOBILE-API.md)** | The mobile API a client codes against, plus the generated [`openapi.json`](api/openapi.json) (`composer api-spec`) |
 
-**The one pre-deploy command:** `php artisan atriom:preflight` — health, both data audits and a
+**The one pre-deploy command:** `php artisan atriom:preflight` — health, the configuration checks, both data audits and a
 deep reconcile, in order.
 
 ---

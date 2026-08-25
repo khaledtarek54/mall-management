@@ -159,9 +159,15 @@ posting map, an open period, and whether the payroll rates were applied to the l
 On this workstation two are red right now: **seller tax identity** and **billing contact** — which is
 A1.1 below, showing up exactly where it should.
 
+**And since 2026-08-25 they are on the GATE, not only on a screen.** `atriom:config-health` runs the
+same eight from the CLI and `atriom:preflight` runs it second, after `atriom:health` — so a release
+can no longer report clean on an install with no seller TRN, an incomplete posting map or no open
+period. Only BLOCKING rows change the exit code; `--strict` fails on the advisories too, which is
+the cutover posture.
+
 | # | Question | What ships if you say nothing | Who |
 |---|---|---|---|
-| **A1.1** | **The operator's tax registration number, registered legal name, and billing-enquiries email.** Settings → Tax. | **Blank.** Every invoice is titled *Tax Invoice* and is not one — the tenant cannot reclaim the VAT. The PDFs omit the line rather than print a placeholder, because a plausible-looking TRN gets filed by the tenant and fails on audit. The name falls back to *"Atriom"*, the software's name, which no tenant has seen on a lease. | Accountant |
+| **A1.1** | **The operator's tax registration number, registered legal name, and billing-enquiries email.** Settings → Tax. | **Blank.** The tenant cannot reclaim the VAT. The PDFs omit the line rather than print a placeholder, because a plausible-looking TRN gets filed by the tenant and fails on audit — and **since 2026-08-25 the invoice does not call itself a *Tax Invoice* either** until this is set; it is titled plainly *Invoice / فاتورة*, so an unconfigured install issues an incomplete document rather than a false one. The name falls back to *"Atriom"*, the software's name, which no tenant has seen on a lease. `atriom:config-health` reports this as BLOCKING, and since the same date it runs inside `atriom:preflight` rather than only on a screen. | Accountant |
 | **A1.x** | **Sign off the tax treatment: which supplies are taxable, at what rate, from when** — including the one Law 157/2025 forces: **is base rent now taxed, and from what date?** | Rent exempt, services at 14%. **All configuration**: `charge_codes.tax_code` is the ruling as a row, the rate is a dated rung at `/admin/tax-codes`, so a rise can be entered in advance and a back-dated invoice keeps the rate in force. No release needed. | Accountant |
 | **C-TAX** | **Which supplies carry stamp tax (ضريبة الدمغة) or schedule tax (ضريبة الجدول)?** | Both families are in the catalogue with their own accounts and posting treatment (output = liability, input = **expense**), and **no charge code points at one**. If a supply IS subject and nothing says so, it is under-taxed on the return. | Accountant |
 | **A4.1** | **The real Egyptian chart of accounts.** *(The file supplied earlier was a Saudi contracting template — zakat, no VAT — and was rejected.)* | A starter Egyptian chart. **Importable now** (EG-28), keyed on `code`, order-independent. Also parked on you: **account code width, 8 vs 10 digits** — the system is width-agnostic, so it is your convention, not our constraint. | Accountant |

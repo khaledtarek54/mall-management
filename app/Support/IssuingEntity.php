@@ -88,6 +88,25 @@ final class IssuingEntity
     }
 
     /**
+     * Is the operator registered for tax — i.e. may a document it issues call itself a TAX invoice?
+     *
+     * The predicate behind {@see InvoicePdfService::viewData()}'s document title, named here rather
+     * than spelled `taxRegistrationNumber() !== ''` at the call site, because it is the same fact
+     * `App\Support\ConfigurationHealth::sellerTaxIdentity()` reports as BLOCKING and the two must
+     * not be able to disagree about what "registered" means.
+     *
+     * The rule it enforces: the invoice template printed the seller's registration number only when
+     * it was set — with a comment above it saying a document titled "Tax Invoice" must carry one —
+     * and then printed the TITLE unconditionally. So an unconfigured install issued documents that
+     * ASSERTED a tax character with nothing behind them, which is the "confidently wrong" state the
+     * conditional line exists to avoid, arriving one line higher up.
+     */
+    public static function isTaxRegistered(): bool
+    {
+        return self::taxRegistrationNumber() !== '';
+    }
+
+    /**
      * The address a counterparty writes to about a bill, or '' when unset.
      *
      * Same contract as {@see taxRegistrationNumber()} — empty means "not configured", and every

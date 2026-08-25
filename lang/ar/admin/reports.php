@@ -302,6 +302,7 @@ return [
 
     'pdf' => [
         'tax_invoice' => 'فاتورة ضريبية',
+        'invoice' => 'فاتورة',
         'receipt' => [
             'title' => 'سند قبض',
             'received_from' => 'استلمنا من',

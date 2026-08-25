@@ -81,6 +81,45 @@ it('omits the line entirely rather than printing a placeholder', function () {
         ->and($html)->not->toContain('123-456-789');
 });
 
+it('does not call itself a TAX invoice until the issuer is registered', function () {
+    // The other half of the rule the seller block already followed. Omitting the NUMBER made an
+    // unconfigured install silently incomplete; printing the TITLE anyway made it confidently
+    // wrong — the document asserted a tax character it could not support, on the one page every
+    // tenant files with their own accountant.
+    $tax = app(TaxSettings::class);
+    $tax->seller_tax_registration_number = '';
+
+    $html = taxInvoiceHtml($this->invoice->fresh());
+
+    // The FULL element, not the words: "Invoice" is a substring of "Tax Invoice" (and «فاتورة» of
+    // «فاتورة ضريبية»), so the obvious `toContain(__('admin.pdf.invoice'))` passes on exactly the
+    // document this test exists to refuse.
+    expect($html)->toContain('<div class="doc-title">'.__('admin.pdf.invoice').'</div>')
+        ->and($html)->not->toContain(__('admin.pdf.tax_invoice'));
+});
+
+it('calls itself a tax invoice once the registration is configured', function () {
+    // The control. A refusal test with no counterpart passes just as happily when the title is
+    // blank, or when the template stopped rendering a title at all.
+    $tax = app(TaxSettings::class);
+    $tax->seller_tax_registration_number = '512-874-336';
+
+    expect(taxInvoiceHtml($this->invoice->fresh()))
+        ->toContain('<div class="doc-title">'.__('admin.pdf.tax_invoice').'</div>');
+});
+
+it('titles the browser tab the same way it titles the page', function () {
+    // Two renders of one decision, which is why the key is derived in the service rather than
+    // spelled twice in the template: a reader who saves the PDF keeps the tab title as the
+    // filename, so the two disagreeing is a document whose name contradicts its heading.
+    $tax = app(TaxSettings::class);
+    $tax->seller_tax_registration_number = '';
+
+    $html = taxInvoiceHtml($this->invoice->fresh());
+
+    expect($html)->toContain('<title>'.__('admin.pdf.invoice').' '.$this->invoice->number.'</title>');
+});
+
 it('splits the taxable value by rate, so the tenant can claim the right input tax', function () {
     $html = taxInvoiceHtml($this->invoice->fresh());
 

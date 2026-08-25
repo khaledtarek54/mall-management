@@ -136,7 +136,7 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache &&
 php artisan storage:link
 php artisan db:seed --class='Database\Seeders\RolesPermissionsSeeder' --force   # see below
 php artisan atriom:rebuild-search         # posture B only — see below
-php artisan atriom:preflight              # health + both data audits + the books reconciliation, in order
+php artisan atriom:preflight              # health + configuration + both data audits + the books reconciliation, in order
 ```
 
 **Re-seed the roles on EVERY upgrade.** A release that adds a screen adds its permissions to

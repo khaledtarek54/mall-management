@@ -228,7 +228,9 @@ expected to be red. On this workstation two rows failed and **both are real stag
 
 **All four are now one command: `php artisan atriom:preflight`.** It runs them in order — health
 first, because if the queue is dead the audits are measuring a box that would not have processed
-anything anyway — and exits non-zero naming the steps that failed. Read-only by default:
+anything anyway; then `atriom:config-health`, which asks the different question of whether the
+install is SET UP (seller TRN, charge-code classification, posting map, an open period) and until
+2026-08-25 lived only on a screen — and exits non-zero naming the steps that failed. Read-only by default:
 `accounting:sync-ledger --all` is behind `--sync` because it **writes**, and a check that silently
 repairs what it is checking cannot tell you the box was broken (the F-08 shape).
 

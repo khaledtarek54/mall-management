@@ -1332,6 +1332,18 @@ To customize the PDF:
 > - **Blank by default, and the line is omitted when blank.** A placeholder TRN is worse than a
 >   missing one: it looks valid, the tenant files it, and it fails on audit. A go-live gate item
 >   ([STATUS §2 A1.1](../STATUS.md)).
+> - **And the document does not call itself a *Tax Invoice* until it is set** (2026-08-25). The
+>   title resolves through `IssuingEntity::isTaxRegistered()` in `InvoicePdfService::viewData()`,
+>   which hands the template a `documentTitleKey` — plainly *Invoice / فاتورة* on an unconfigured
+>   install. Omitting the NUMBER made the document silently *incomplete*, which is the posture that
+>   line was chosen for; printing the TITLE anyway made it *confidently wrong*, asserting a tax
+>   character it could not support on the one page every tenant files with their own accountant.
+>   The KEY travels, not the translated string — the PDF renders in the reader's locale — and the
+>   `<title>` tag and the printed heading read the same variable, because a saved PDF keeps the tab
+>   title as its filename and the two disagreeing is a document whose name contradicts its heading.
+>   **Testing trap:** assert the whole element. *Invoice* is a substring of *Tax Invoice* (and
+>   «فاتورة» of «فاتورة ضريبية»), so `toContain(__('admin.pdf.invoice'))` passes on exactly the
+>   document being refused.
 > - **The VAT summary is per RATE** (`InvoicePdfService::vatSummary()`), shown only when an invoice
 >   carries more than one. Base rent is exempt while service charge is standard-rated, so one
 >   Atriom invoice routinely carries both, and a single "VAT: 1,400" line does not tell the tenant's
