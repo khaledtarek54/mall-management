@@ -189,7 +189,10 @@ final class ConcurrencyPolicy
         'app/Services/CreditNoteService.php' => 11,
         'app/Services/MonthlyBillingService.php' => 2,
         'app/Services/Paymob/PaymobPaymentInitiator.php' => 1,
-        'app/Services/PostDatedChequeService.php' => 5,
+        // 6 since 2026-08-25: clearing a cheque that names no invoice now takes a LOCKING read of
+        // the tenant's open invoices before allocating oldest-first — a plain read there would be
+        // answered from the snapshot taken before this transaction waited on the cheque row.
+        'app/Services/PostDatedChequeService.php' => 6,
         'app/Services/VoidPaymentService.php' => 1,
         'app/Services/WriteOffInvoiceService.php' => 1,
 

@@ -285,6 +285,8 @@ return [
         'is_opening_balance' => 'رصيد افتتاحي',
         'late_fee_invoice_id' => 'فاتورة غرامة التأخير',
         'late_fee_for_invoice_id' => 'غرامة تأخير عن فاتورة',
+        'dunning_level' => 'عدد إشعارات المطالبة',
+        'tenant_notified_at' => 'أُرسلت للمستأجر',
         'credit_applied_amount' => 'الرصيد الدائن المُطبَّق',
         'received_by' => 'استلمها',
         'issued_by_user_id' => 'أصدرها',

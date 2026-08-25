@@ -286,6 +286,8 @@ return [
         'is_opening_balance' => 'Opening balance',
         'late_fee_invoice_id' => 'Late fee invoice',
         'late_fee_for_invoice_id' => 'Late fee charged on',
+        'dunning_level' => 'Notices sent',
+        'tenant_notified_at' => 'Sent to tenant',
         'credit_applied_amount' => 'Credit applied',
         'received_by' => 'Received by',
         'issued_by_user_id' => 'Issued by',

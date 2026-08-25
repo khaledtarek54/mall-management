@@ -125,7 +125,7 @@ it('reminds the tenant about an overdue invoice and stamps tenant_overdue_notifi
     expect($invoice->tenant_overdue_notified_at)->toBeNull();
 
     $this->artisan('billing:remind-overdue-tenants')
-        ->expectsOutputToContain('Reminded tenants on 1 of 1 overdue invoice(s).')
+        ->expectsOutputToContain('Chased 1 of 1 overdue invoice(s).')
         ->assertExitCode(0);
 
     Notification::assertSentTo($invoice->tenant, InvoiceOverdueTenantNotification::class);
@@ -143,7 +143,7 @@ it('is idempotent — re-running does not remind the same tenant twice', functio
     $firstStamp = $invoice->refresh()->tenant_overdue_notified_at;
 
     $this->artisan('billing:remind-overdue-tenants')
-        ->expectsOutputToContain('No new overdue invoices.')
+        ->expectsOutputToContain('No tenant is due a notice.')
         ->assertExitCode(0);
 
     Notification::assertSentToTimes($invoice->tenant, InvoiceOverdueTenantNotification::class, 1);
@@ -156,7 +156,7 @@ it('does NOT remind the tenant about a not-yet-due invoice', function () {
     $invoice = makeInvoice($lease, ['status' => 'issued', 'due_date' => now()->addDays(7), 'balance' => 11400]);
 
     $this->artisan('billing:remind-overdue-tenants')
-        ->expectsOutputToContain('No new overdue invoices.')
+        ->expectsOutputToContain('No tenant is due a notice.')
         ->assertExitCode(0);
 
     Notification::assertNothingSent();
