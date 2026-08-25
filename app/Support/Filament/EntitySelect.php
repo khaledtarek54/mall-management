@@ -192,6 +192,15 @@ class EntitySelect extends Select
      * decided from the preload state, so calling Filament's `preload()` without re-applying would
      * leave the component configured for the opposite answer.
      */
+    /**
+     * How many rows a picker shows on open, before anyone types.
+     *
+     * A starting point, never the whole answer: search reaches every row beyond it. Sized to be
+     * browsable in a dropdown rather than to be a performance limit — the read is bounded either
+     * way, so raising it costs the operator's scrolling and not the server's.
+     */
+    public const AUTO_BROWSE = 50;
+
     public function preload(bool|Closure $condition = true): static
     {
         parent::preload($condition);
@@ -386,7 +395,42 @@ class EntitySelect extends Select
                 $decorate,
             ));
         } else {
-            $select->options([]);
+            // ── ALWAYS SHOW WHAT CAN BE SHOWN (2026-08-25) ───────────────────────────────────
+            //
+            // This branch used to hand Filament a static empty array, so ~85 of the panel's record
+            // pickers opened with NOTHING in them and waited to be typed into. An empty dropdown
+            // reads as "no such record", not as "type to search" — which is why it was reported as
+            // missing data rather than as a bug, and why it survived so long.
+            //
+            // `OptionDisplay::PRELOAD` answered "is this MODEL small", which is the wrong question.
+            // `Invoice` holds thousands portfolio-wide and exactly ONE on the credit-note apply
+            // modal, where the query has already narrowed to a tenant's open invoices. Deciding per
+            // model, or per call site, is also what drifted: four invoice pickers narrowed to a
+            // single tenant and only one had remembered `->preload()`.
+            //
+            // So every picker now opens on the first `AUTO_BROWSE` rows of its own SCOPED, NARROWED
+            // query, ordered the way that picker orders. Bounded, so a 3,000-tenant portfolio costs
+            // one read of 50 rows and not 3,000 — and SEARCH still reaches every row beyond them,
+            // because what you see and what you can find are different questions (the rule
+            // `->suggest()` already states). A dropdown with a search box above a starting list is
+            // what GitHub, Linear and Jira all do; nobody reads it as the complete set.
+            //
+            // Distinct from `->preload()`, which stays what it always was: load the WHOLE narrowed
+            // set, unbounded, for the pickers where browsing every option is the flow.
+            $select
+                // A closure makes Filament treat the list as dynamic, which renders "No options
+                // available." when it comes back empty — the message the static array avoided. The
+                // search prompt says the useful thing instead, exactly as the suggest branch does.
+                ->noOptionsMessage(fn (): string => OptionDisplay::searchPrompt($model))
+                ->options(fn (): array => self::toLabels(
+                    OptionDisplay::options(
+                        $model,
+                        $modifier,
+                        limit: self::AUTO_BROWSE,
+                        scoped: $picker->isScoped(),
+                    ),
+                    $decorate,
+                ));
         }
 
         $select->getOptionLabelUsing(

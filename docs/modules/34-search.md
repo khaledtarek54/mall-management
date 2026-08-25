@@ -16,6 +16,21 @@ both panels, so it has its own registry and its own conformance gate, in the sam
 > could not. No resource had overridden Filament's 50-rows-per-resource limit, so one keystroke could hydrate
 > ~1,750 models across every category. There were **zero** search tests.
 
+
+> **Every picker opens on something (2026-08-25).** ~85 of the panel's 111 record pickers handed
+> Filament a static empty array and waited to be typed into. **An empty dropdown reads as "no such
+> record", not as "type to search"** — reported as missing data rather than as a bug, which is how
+> it survived. Each now opens on the first `EntitySelect::AUTO_BROWSE` (50) rows of its own scoped,
+> narrowed query, and **search still reaches every row beyond them**.
+>
+> `OptionDisplay::PRELOAD` answered *"is this MODEL small"*, which is the wrong question: `Invoice`
+> holds thousands portfolio-wide and exactly one on the credit-note apply modal. Per call site was
+> no better and is what drifted — four invoice pickers narrowed to a single tenant, one preload
+> between them. The bound is what makes this affordable everywhere (~4 queries, ~1.6 ms per picker,
+> measured), and it adapts to context and growth where no registry can. `->preload()` is unchanged:
+> the WHOLE narrowed set, unbounded, where browsing every option is the flow.
+
+
 ## 1. The fold — one comparable form for both sides
 
 `App\Support\Search\SearchText` is the single place a searchable string is normalized. Both sides must go
