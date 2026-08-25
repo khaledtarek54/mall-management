@@ -369,6 +369,14 @@ return [
     ],
 
     'search' => [
+        'empty' => [
+            // The label is DEFINITE and in the nominative («الحسابات البنكية», «المستأجرون»), so any
+            // template that governs it grammatically — «لا توجد …», «لم تُضَف …», «في …» — is wrong for
+            // half the catalogue and right for the other half. Setting it apart with a dash needs no
+            // agreement at all and reads naturally for every one of them.
+            'named' => ':records — لا توجد بيانات بعد',
+            'default' => 'لا يوجد ما يمكن اختياره بعد',
+        ],
         'table_placeholder' => 'ابحث بالاسم أو الرقم أو المرجع…',
 
         /*

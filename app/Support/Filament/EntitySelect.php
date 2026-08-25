@@ -229,6 +229,19 @@ class EntitySelect extends Select
      *     : null)
      * ```
      */
+    /**
+     * Whether this picker narrows what it SHOWS to a suggestion set.
+     *
+     * Exposed so a sweep can tell "suggests nothing yet, and search reaches the rest" apart from
+     * "offers nothing and never will" — two states that render identically and mean opposite
+     * things. Derived from the callback rather than from a list of screen names, so a new
+     * `->suggest()` call site is covered by being one.
+     */
+    public function suggestsASubset(): bool
+    {
+        return $this->suggestUsing !== null;
+    }
+
     public function suggest(?Closure $callback): static
     {
         $this->suggestUsing = $callback;
@@ -419,9 +432,16 @@ class EntitySelect extends Select
             // set, unbounded, for the pickers where browsing every option is the flow.
             $select
                 // A closure makes Filament treat the list as dynamic, which renders "No options
-                // available." when it comes back empty — the message the static array avoided. The
-                // search prompt says the useful thing instead, exactly as the suggest branch does.
-                ->noOptionsMessage(fn (): string => OptionDisplay::searchPrompt($model))
+                // available." when it comes back empty — the message the static array avoided.
+                //
+                // NOT the search prompt, which was this branch's first version and was wrong twice
+                // over (reported from the panel on a Bank Account picker with none in the database):
+                // now that the picker opens on its own narrowed query, an empty list means the query
+                // found NOTHING, not that nobody has searched yet — and the prompt is the SAME
+                // string as the search box's placeholder, so the dropdown rendered what looked like
+                // two identical inputs stacked on each other. The suggest branch keeps the prompt,
+                // where "nothing suggested yet" really is an invitation to type.
+                ->noOptionsMessage(fn (): string => OptionDisplay::emptyMessage($model))
                 ->options(fn (): array => self::toLabels(
                     OptionDisplay::options(
                         $model,

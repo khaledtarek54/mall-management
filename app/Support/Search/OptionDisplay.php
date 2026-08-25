@@ -776,6 +776,37 @@ class OptionDisplay
      * said "Search…". Per-model where a model has something specific worth naming
      * (`admin.search.prompts.tenant`), generic otherwise.
      */
+    /**
+     * What a picker says when it has NOTHING to show — which since 2026-08-25 means exactly that.
+     *
+     * A picker used to open empty and wait to be typed into, so an empty list meant "you have not
+     * searched yet" and the search prompt was the right sentence. Now that every picker opens on
+     * the first rows of its own narrowed query, an empty list means the query genuinely found
+     * nothing — and repeating the prompt is worse than unhelpful: it is the SAME string as the
+     * search box's placeholder, so the dropdown rendered what looked like two identical inputs
+     * stacked on each other. (Reported from the panel on a Bank Account picker with no bank
+     * accounts in the database — the state was correct and everything about how it read was not.)
+     *
+     * Names the record type, because "No options" leaves the operator wondering whether the picker
+     * is broken or the register is empty; "No bank accounts yet" tells them where to go.
+     */
+    public static function emptyMessage(string $model): string
+    {
+        $key = 'admin.search.empty.'.str(class_basename($model))->snake()->toString();
+
+        if (Lang::has($key)) {
+            return __($key);
+        }
+
+        $plural = 'admin.resources.'.str(class_basename($model))->snake()->toString().'.plural';
+
+        // The resource catalogue the whole panel labels from — same word for the same thing, and
+        // already in both languages. Only a model with no resource falls to the generic line.
+        return Lang::has($plural)
+            ? __('admin.search.empty.named', ['records' => __($plural)])
+            : __('admin.search.empty.default');
+    }
+
     public static function searchPrompt(string $model): string
     {
         $key = 'admin.search.prompts.'.str(class_basename($model))->snake()->toString();
@@ -824,9 +855,31 @@ class OptionDisplay
 
         $via = PropertyIsolation::linkageFor($model);
 
-        return $via === null
-            ? $query->whereIn($query->qualifyColumn('asset_id'), $ids)
-            : $query->whereHas($via, fn (Builder $related) => $related->whereIn('asset_id', $ids));
+        if ($via !== null) {
+            return $query->whereHas($via, fn (Builder $related) => $related->whereIn('asset_id', $ids));
+        }
+
+        // ── A NULL PROPERTY MEANS "EVERY MALL" ON SOME MODELS, AND `whereIn` NEVER MATCHES NULL ──
+        //
+        // `PropertyIsolation::portfolioRowsWhenNull()` records the eight models where a null
+        // `asset_id` is portfolio-wide rather than unassigned — the register was already there and
+        // this scope was the one place not asking it. So every one of those rows was invisible to
+        // every picker.
+        //
+        // Measured (2026-08-25): `departments` held 5 rows, all portfolio-wide, and the picker
+        // returned ZERO — on four screens (Employee, work order, service plan, tenant request). The
+        // field was there, it was required on some of them, and it could not be filled. Found by
+        // sweeping all 94 pickers rather than from a report, because a picker that offers nothing
+        // and a table that holds nothing look exactly alike from the panel.
+        //
+        // This is the same trap the financial statements hit (EG-27) and the reason that fix reads
+        // "whereIn never matches NULL" in its own comment. Narrow to the properties in scope OR the
+        // rows that belong to all of them.
+        return PropertyIsolation::portfolioRowsWhenNull($model)
+            ? $query->where(fn (Builder $where) => $where
+                ->whereIn($query->qualifyColumn('asset_id'), $ids)
+                ->orWhereNull($query->qualifyColumn('asset_id')))
+            : $query->whereIn($query->qualifyColumn('asset_id'), $ids);
     }
 
     /**

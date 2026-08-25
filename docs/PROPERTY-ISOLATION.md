@@ -5,6 +5,23 @@
 > reference is a second answer to the same question. This file is what you read before
 > touching a property-owned module.
 
+
+> **⚠️ A picker dropped every portfolio-wide row (fixed 2026-08-25).** `PropertyIsolation::
+> portfolioRowsWhenNull()` records the eight models where a null `asset_id` means *every mall*
+> rather than *unassigned* — and `OptionDisplay::scope()` was the one place not asking it. Since
+> **`whereIn` never matches NULL**, every one of those rows was invisible to every dropdown.
+>
+> Measured: `departments` held 5 rows, all portfolio-wide, and the picker offered **zero** on four
+> screens (Employee · facility work order · service plan · tenant request) — a field that was
+> required on some of them and could not be filled. Same trap as EG-27's financial statements, in a
+> different layer.
+>
+> Found by sweeping all 94 pickers, not from a report: **a picker that offers nothing and a table
+> that holds nothing look identical from the panel**, which is why the gate that now guards it asks
+> each empty picker's own table for a row count — **unscoped**, or the bug answers on its own
+> behalf — and fails only when rows genuinely exist.
+
+
 ## The invariant
 
 > A property-restricted user, with a property selected, can only **read or write** rows belonging to

@@ -379,6 +379,10 @@ return [
      | between an operator trying one field and giving up, and using it.
      */
     'search' => [
+        'empty' => [
+            'named' => 'No :records yet',
+            'default' => 'Nothing to choose from yet',
+        ],
         'table_placeholder' => 'Search by name, number or reference…',
 
         /*
