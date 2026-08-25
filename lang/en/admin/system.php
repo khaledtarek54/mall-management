@@ -379,6 +379,10 @@ return [
      | between an operator trying one field and giving up, and using it.
      */
     'search' => [
+        'no_suggestions' => [
+            'named' => 'No suggestions yet — type to search :records',
+            'default' => 'No suggestions yet — type to search',
+        ],
         'empty' => [
             'named' => 'No :records yet',
             'default' => 'Nothing to choose from yet',

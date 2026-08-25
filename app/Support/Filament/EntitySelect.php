@@ -376,12 +376,26 @@ class EntitySelect extends Select
         // they may type. (Found by opening one in a browser; no test would have said a word.)
         // A suggest callback puts the picker in browse mode: the options closure runs, narrowed to
         // whatever it returns, while SEARCH stays on `$modifier` alone and still reaches the rest.
-        // `noOptionsMessage` becomes the search prompt, because "nothing to suggest yet" is an
-        // invitation to type, not a report that the table is empty.
+        //
+        // ── AND THE MESSAGE MUST NOT BE THE PLACEHOLDER (2026-08-25) ─────────────────────────────
+        //
+        // This said `searchPrompt` — the reasoning being that "nothing to suggest yet" is an
+        // invitation to type. The invitation was right and the STRING was wrong: Filament assigns
+        // `searchPrompt` to the search input's own placeholder (`select.js`: `this.searchInput
+        // .placeholder = this.searchPrompt`), so the dropdown rendered the identical sentence twice,
+        // once in the box and once under it, and read as a broken double input. Reported from the
+        // panel twice before it was measured — the render carries both, `noOptionsMessage:
+        // 'Name, code or number…'` beside `searchPrompt: 'Name, code or number…'`.
+        //
+        // Two states, two sentences, because they call for opposite actions: nothing SUGGESTED (type
+        // — search reaches further) and nothing AT ALL (searching cannot help; go and create one).
+        // The second costs one bounded `exists()`, and only on the path that was already empty.
         if ($suggest !== null) {
             $select
                 ->preload()
-                ->noOptionsMessage(fn (): string => OptionDisplay::searchPrompt($model))
+                ->noOptionsMessage(fn (): string => OptionDisplay::pickable($model, $modifier, scoped: $picker->isScoped())->exists()
+                    ? OptionDisplay::noSuggestionsMessage($model)
+                    : OptionDisplay::emptyMessage($model))
                 ->options(function () use ($select, $model, $modifier, $decorate, $suggest, $picker): array {
                     // Resolved BEFORE handing anything to OptionDisplay: `pickable()` reads a null
                     // return from a modifier as "no narrowing" and falls back to the whole scoped

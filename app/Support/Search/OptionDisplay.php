@@ -790,6 +790,22 @@ class OptionDisplay
      * Names the record type, because "No options" leaves the operator wondering whether the picker
      * is broken or the register is empty; "No bank accounts yet" tells them where to go.
      */
+    /**
+     * What a `->suggest()` picker says when it has nothing to suggest but the table is not empty.
+     *
+     * Deliberately NOT `searchPrompt()`, which Filament assigns to the search input's own
+     * placeholder — using it here printed the same sentence twice, once inside the box and once
+     * under it, and read as a broken duplicate field.
+     */
+    public static function noSuggestionsMessage(string $model): string
+    {
+        $plural = 'admin.resources.'.str(class_basename($model))->snake()->toString().'.plural';
+
+        return Lang::has($plural)
+            ? __('admin.search.no_suggestions.named', ['records' => __($plural)])
+            : __('admin.search.no_suggestions.default');
+    }
+
     public static function emptyMessage(string $model): string
     {
         $key = 'admin.search.empty.'.str(class_basename($model))->snake()->toString();

@@ -369,6 +369,10 @@ return [
     ],
 
     'search' => [
+        'no_suggestions' => [
+            'named' => ':records — لا توجد اقتراحات، اكتب للبحث',
+            'default' => 'لا توجد اقتراحات، اكتب للبحث',
+        ],
         'empty' => [
             // The label is DEFINITE and in the nominative («الحسابات البنكية», «المستأجرون»), so any
             // template that governs it grammatically — «لا توجد …», «لم تُضَف …», «في …» — is wrong for
