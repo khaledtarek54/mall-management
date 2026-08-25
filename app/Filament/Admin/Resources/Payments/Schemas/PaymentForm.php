@@ -181,6 +181,14 @@ class PaymentForm
                                             // longest belongs at the top.
                                             ->reorder('due_date', 'asc');
                                     })
+                                    // Browse, don't guess — the query above narrows to ONE tenant's open invoices,
+                                    // which is bounded by the shape of the business. `Invoice` is rightly absent from
+                                    // `OptionDisplay::PRELOAD` (a portfolio holds thousands) and this is the
+                                    // per-call-site opt-in CLAUDE.md describes. Without it the dropdown opens EMPTY,
+                                    // which reads as "no such record" rather than "type to search" — so it is never
+                                    // reported as a bug. Found in the panel on the credit-note twin (2026-08-25);
+                                    // `CreditNoteForm` had already reached this conclusion and the other three had not.
+                                    ->preload()
                                     // The options are scoped to balance > 0, so an invoice this
                                     // payment already fully PAID (balance now 0) is not in them. On the
                                     // edit page that stored value would otherwise render as a raw id

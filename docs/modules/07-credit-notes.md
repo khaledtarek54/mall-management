@@ -22,6 +22,31 @@
 >
 > *Found by an operator opening a note and asking why the items section was empty.*
 
+
+> **⚠️ "Apply to Invoice" opened an EMPTY dropdown (fixed 2026-08-25).** Reported from the panel on a
+> credit note whose own `invoice_id` already named the invoice, over a tenant with exactly one open
+> invoice, on a database holding two invoices in total.
+>
+> `Invoice` is deliberately absent from `OptionDisplay::PRELOAD` — right for a portfolio holding
+> thousands — and wrong at a call site whose query has already narrowed to **one tenant's open
+> invoices**, a handful bounded by the shape of the business. That is exactly the case CLAUDE.md says
+> opts in per call site with `->preload()`. **An empty dropdown reads as "no such record", not as
+> "type to search"**, which is why it was never reported as a bug: it is indistinguishable from the
+> data being wrong, so the operator goes and checks the data.
+>
+> Enumerated by grep across every `entity(Invoice::class)` call site rather than from the one screen
+> that was reported: **four pickers narrow to a single tenant and only `CreditNoteForm` preloaded**,
+> so the same picker behaved two ways inside one module. The apply modal, the payment allocation
+> repeater and the post-dated cheque form now do too.
+>
+> The modal also **defaults to the invoice the note names** — re-checked against the picker's own
+> query, so a note whose invoice was since settled opens blank rather than pre-filled with an option
+> Filament would refuse at validation. `CreditPickersOfferWhatTheyNarrowedToTest` drives the real
+> page (building the action proves nothing — options resolve when the modal MOUNTS) and pairs the
+> "shows something" assertion with one that another tenant's invoice is still unreachable, because
+> preloading must widen what is SHOWN and never what is REACHABLE.
+
+
 ## 1. Purpose & business context
 
 An Eltizam (mall operator) issues credit notes to tenants (retailers) to adjust invoice balances for reasons like overcharges, partial refunds, or service disputes. A credit note is a debit memo: it reduces the amount a tenant owes, similar to a payment but recorded separately so it survives payment recomputes and never mixes with actual cash flow. Unlike payments (which are external money), credits are internal accounting adjustments that require operator discretion to issue and apply.

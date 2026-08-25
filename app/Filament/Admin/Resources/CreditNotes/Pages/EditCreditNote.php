@@ -135,7 +135,33 @@ class EditCreditNote extends EditRecord
                             ->where('tenant_id', $this->record->tenant_id)
                             ->where('balance', '>', 0)
                             ->whereIn('status', ['issued', 'partially_paid', 'overdue']))
+                        // BROWSE, don't guess. `Invoice` is deliberately absent from
+                        // `OptionDisplay::PRELOAD` — a portfolio holds thousands and loading them
+                        // all into a dropdown is the wrong default. It is the wrong default HERE,
+                        // though: the query above has already narrowed to ONE tenant's OPEN
+                        // invoices, which is bounded by the shape of the business (a handful), and
+                        // that is exactly the case CLAUDE.md says opts in per call site.
+                        //
+                        // Found in the panel (2026-08-25): a credit note whose own `invoice_id`
+                        // already named the invoice opened a picker showing NOTHING, over a tenant
+                        // with exactly one open invoice. An empty dropdown reads as "no such
+                        // record", which is indistinguishable from a bug — and it is the reason
+                        // nobody reports it. `CreditNoteForm` had already reached this conclusion
+                        // and preloaded; the other three had not, so the same picker behaved two
+                        // ways in one module. Yardi shows the open invoices and you pick one.
+                        ->preload()
                         ->required()
+                        // A credit note usually names its invoice when it is raised, and applying it
+                        // to that invoice is overwhelmingly the case. Offered as a DEFAULT, never
+                        // forced: re-checked against the same query the picker uses, so a note whose
+                        // invoice was since settled or cancelled opens blank rather than pre-filled
+                        // with an option the picker would refuse at validation.
+                        ->default(fn () => Invoice::query()
+                            ->whereKey($this->record->invoice_id)
+                            ->where('tenant_id', $this->record->tenant_id)
+                            ->where('balance', '>', 0)
+                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                            ->value('id'))
                         ->live()
                         // Pre-fill the amount with the cap for the chosen invoice (min of note + invoice
                         // balance), so the common "apply all that fits" is one click and never over-applies.
