@@ -96,6 +96,8 @@ it('runs every filter on every relation-manager table without error', function (
                         'pageClass' => $page,
                     ]);
                     $filters = $probe->instance()->getTable()->getFilters();
+                    // Opening the panel is its own path — see FilterSweep::probeFiltersForm().
+                    FilterSweep::probeFiltersForm($probe->instance());
                 } catch (Throwable $e) {
                     $report['failures'][] = $managerClass.' (mount) → '.$e::class.': '.$e->getMessage();
 
@@ -103,7 +105,17 @@ it('runs every filter on every relation-manager table without error', function (
                 }
 
                 foreach ($filters as $name => $filter) {
-                    foreach (FilterSweep::valuesFor($filter) as $value) {
+                    try {
+                        // Same reason as the list sweep: opening a filter and deriving its real
+                        // options are queries in their own right, so they are reported, not skipped.
+                        $values = FilterSweep::valuesFor($filter);
+                    } catch (Throwable $e) {
+                        $report['failures'][] = $managerClass.'::'.$name.' (options) → '.$e::class.': '.$e->getMessage();
+
+                        continue;
+                    }
+
+                    foreach ($values as $value) {
                         try {
                             $component = Livewire::test($managerClass, [
                                 'ownerRecord' => $owner,
@@ -111,6 +123,7 @@ it('runs every filter on every relation-manager table without error', function (
                             ])->filterTable($name, $value);
 
                             $records = $component->instance()->getTableRecords();
+                            $component->instance()->getTable()->getFilterIndicators();
                             $component->assertOk();
 
                             if (FilterSweep::countRecords($records) > 0) {
@@ -135,6 +148,50 @@ it('runs every filter on every relation-manager table without error', function (
     expect($report['passed'])->toBeGreaterThan(20);
 });
 
+it('runs every filter on every table that lives on a PAGE rather than a resource', function () {
+    // A report, a floor plan and the activity log are `Page`s with tables. `listPages()` discovers
+    // `ListRecords` only, so their filters were swept by nobody — the activity log's are the ones
+    // an auditor uses, and the occupancy map's is the only control on the page.
+    $this->seed(DemoSeeder::class);
+
+    $asset = Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->firstOrFail();
+    $this->actingAs(makeUser('super_admin', [$asset->id]));
+
+    $report = FilterSweep::report();
+    $swept = 0;
+
+    $pages = [
+        ...FilterSweep::tablePages('Filament/Admin/Pages', 'App\\Filament\\Admin\\Pages\\'),
+        ...FilterSweep::tablePages('Filament/Admin/Widgets', 'App\\Filament\\Admin\\Widgets\\'),
+    ];
+
+    asTenant($asset, function () use (&$report, &$swept, $pages) {
+        foreach ($pages as $page) {
+            try {
+                $filters = Livewire::test($page)->instance()->getTable()->getFilters();
+            } catch (Throwable $e) {
+                $report['failures'][] = $page.' (mount) → '.$e::class.': '.$e->getMessage();
+
+                continue;
+            }
+
+            if ($filters === []) {
+                continue;
+            }
+
+            $swept++;
+            FilterSweep::sweepPage($page, $report);
+        }
+    });
+
+    expect($report['failures'])->toBe([], "Page-table filter failures:\n".implode("\n", $report['failures']));
+
+    // Assert the sweep found something to sweep — a discovery rule that silently matches nothing
+    // reports a clean run over an empty set, which is this project's most repeated gate defect.
+    expect($swept)->toBeGreaterThanOrEqual(2, 'No page-level table with filters was discovered.');
+    expect($report['passed'])->toBeGreaterThan(3);
+});
+
 it('runs every filter on every portal table without error', function () {
     // The portal pages resolve resource URLs off the CURRENT panel; without
     // this they render against `admin` and blow up on a route that panel
@@ -148,7 +205,13 @@ it('runs every filter on every portal table without error', function () {
     $report = FilterSweep::report();
 
     try {
-        foreach (FilterSweep::listPages('Filament/Portal/Resources', 'App\\Filament\\Portal\\Resources\\') as $page) {
+        $pages = [
+            ...FilterSweep::listPages('Filament/Portal/Resources', 'App\\Filament\\Portal\\Resources\\'),
+            ...FilterSweep::tablePages('Filament/Portal/Pages', 'App\\Filament\\Portal\\Pages\\'),
+            ...FilterSweep::tablePages('Filament/Portal/Widgets', 'App\\Filament\\Portal\\Widgets\\'),
+        ];
+
+        foreach ($pages as $page) {
             FilterSweep::sweepPage($page, $report);
         }
     } finally {

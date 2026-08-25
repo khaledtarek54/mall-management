@@ -3,13 +3,16 @@
 namespace Tests\Support;
 
 use App\Models\Asset;
+use App\Support\Filament\EntitySelectFilter;
 use Database\Seeders\DemoSeeder;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Pages\Page;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Illuminate\Support\Facades\File;
@@ -71,6 +74,35 @@ final class FilterSweep
     }
 
     /**
+     * Every Filament PAGE that renders a table — the tables the list sweep cannot see.
+     *
+     * A report or a floor plan is a `Page`, not a `ListRecords`, so `listPages()` walks straight
+     * past it and its filters are swept by nobody. Two carry filters today (the activity log and
+     * the occupancy map); discovery rather than a list is what covers the third.
+     *
+     * @return array<int, class-string>
+     */
+    public static function tablePages(string $panelDir, string $namespace): array
+    {
+        $pages = collect(File::allFiles(app_path($panelDir)))
+            ->filter(fn ($f) => $f->getExtension() === 'php')
+            ->map(function ($f) use ($panelDir, $namespace) {
+                $rel = str_replace([app_path($panelDir).'/', '.php'], '', $f->getPathname());
+
+                return $namespace.str_replace('/', '\\', $rel);
+            })
+            ->filter(fn (string $c) => class_exists($c)
+                && is_subclass_of($c, Page::class)
+                && is_subclass_of($c, HasTable::class))
+            ->values()
+            ->all();
+
+        sort($pages);
+
+        return $pages;
+    }
+
+    /**
      * A plausible value for one filter, by type.
      *
      * Returns a LIST of values to try — a SelectFilter is only really exercised by
@@ -88,8 +120,21 @@ final class FilterSweep
         if ($filter instanceof SelectFilter) {
             $options = array_keys($filter->getOptions());
 
-            // Relationship-backed selects can legitimately have no options on an
-            // empty DB; still run the blank branch.
+            // `getOptions()` is EMPTY for a select that draws its options from anywhere but its
+            // own array — a `->relationship()` filter, and every `EntitySelectFilter`, whose
+            // options come from the `EntitySelect` built in `getFormField()`. So the sweep used
+            // to run those on `[null]` alone: the blank branch, which returns before any of the
+            // filter's SQL is assembled. Every relationship filter in the panel was walked and
+            // none of them was ever actually applied.
+            //
+            // That is what hid a 1054 on twelve of them at once — `order by floors.floor` — for
+            // as long as they have existed. A sweep that reports on a set it never populates is
+            // this project's signature defect (CLAUDE.md: "when a gate counts, assert it counted
+            // something"), so real keys are pulled from the source the filter itself would offer.
+            if ($options === []) {
+                $options = self::recordValuesFor($filter);
+            }
+
             return $options === [] ? [null] : [...array_slice($options, 0, 8), null];
         }
 
@@ -122,6 +167,32 @@ final class FilterSweep
     }
 
     /**
+     * Real keys for a select whose options are not in its own array.
+     *
+     * Deliberately NOT wrapped in a try/catch: assembling this query is itself part of what the
+     * sweep is testing (`getRelationshipQuery()` is where the ordering column compiles), so a
+     * throw here has to reach the caller's report rather than be swallowed into "no options".
+     *
+     * @return array<int, mixed>
+     */
+    public static function recordValuesFor(SelectFilter $filter): array
+    {
+        if ($filter->queriesRelationships()) {
+            $query = $filter->getRelationshipQuery();
+
+            return $query === null
+                ? []
+                : $query->limit(3)->pluck($query->getModel()->getQualifiedKeyName())->all();
+        }
+
+        if ($filter instanceof EntitySelectFilter && ($model = $filter->getEntityModel()) !== null) {
+            return $model::query()->limit(3)->pluck((new $model)->getKeyName())->all();
+        }
+
+        return [];
+    }
+
+    /**
      * How many rows a table returned. getTableRecords() hands back a paginator
      * normally, but a plain Collection when the table has pagination turned off
      * (several relation managers do) — and Collection has no total().
@@ -137,8 +208,22 @@ final class FilterSweep
         $probe = Livewire::test($pageClass);
         $filters = $probe->instance()->getTable()->getFilters();
 
+        try {
+            self::probeFiltersForm($probe->instance());
+        } catch (Throwable $e) {
+            $report['failures'][] = $pageClass.' (filter panel) → '.$e::class.': '.$e->getMessage();
+        }
+
         foreach ($filters as $name => $filter) {
-            foreach (self::valuesFor($filter) as $value) {
+            try {
+                $values = self::valuesFor($filter);
+            } catch (Throwable $e) {
+                $report['failures'][] = $pageClass.'::'.$name.' (options) → '.$e::class.': '.$e->getMessage();
+
+                continue;
+            }
+
+            foreach ($values as $value) {
                 $label = $pageClass.'::'.$name.' = '.json_encode($value);
 
                 try {
@@ -152,6 +237,12 @@ final class FilterSweep
                     // renders each row through every column formatter, so a
                     // null-unsafe formatStateUsing surfaces here too.
                     $records = $component->instance()->getTableRecords();
+
+                    // The CHIP is a second query, and not the filter's own. Filament resolves the
+                    // active filter's label by re-reading the record it names — a different
+                    // builder, ordered differently — so a filter can return the right rows and
+                    // still 500 the page that shows them. `index.blade.php` calls exactly this.
+                    $component->instance()->getTable()->getFilterIndicators();
 
                     $component->assertOk();
 
@@ -168,6 +259,39 @@ final class FilterSweep
                 }
 
                 $report['passed']++;
+            }
+        }
+    }
+
+    /**
+     * Open the filter panel, the way an operator does.
+     *
+     * Applying a filter and OPENING it are two different code paths, and only the first was ever
+     * swept: `apply()` composes a where clause, while the panel builds the filters form and asks
+     * each Select for its options — an `EntitySelect` browse closure, a relationship query, an
+     * `->options()` callback. A picker that throws there renders as a dropdown that will not open,
+     * which reads as "no such record" rather than as a bug.
+     *
+     * Read off the LIVEWIRE COMPONENT's own `getTableFiltersForm()`, never off
+     * `$filter->getFormField()`. A field built outside a mounted container throws the moment
+     * anything it evaluates reaches for `$container` — the trap CLAUDE.md records for
+     * `getHelperText()` and `Repeater::getLabel()` — and two filters here do exactly that
+     * (`ListUsers::roles`, `ListAccountingPeriods::fiscal_year_id`). Probing the detached field
+     * would report those as broken while missing whatever the real panel does.
+     */
+    public static function probeFiltersForm(object $livewire): void
+    {
+        foreach ($livewire->getTableFiltersForm()->getFlatComponents(withHidden: true) as $component) {
+            if (! $component instanceof Select) {
+                continue;
+            }
+
+            $component->getOptions();
+
+            if ($component->isSearchable()) {
+                // Two characters: enough to reach the search branch, short enough that what is
+                // being tested is the query compiling rather than what the fold matches.
+                $component->getSearchResults('a');
             }
         }
     }

@@ -349,6 +349,24 @@ relation name each fail the specific assertion that claims to cover them.
   `->relationship('tenant')`, and the mismatch is a **fatal at class load**: the filter form is built lazily
   inside the table's Blade, so the page 500s on opening the filter popover and every test that never opens one
   stays green.
+- **That default must be LAZY, and for a year it was not (2026-08-25).** It read `$this->entityModel`, which
+  is null until `->entity()` runs — and every call site in the panel is written
+  `->relationship('floor')->entity(Floor::class)`, so the default was always the fallback: the RELATIONSHIP
+  NAME, used as a column. `order by floors.floor`, a 1054 on **eleven filters at once** (`tenants.tenant` on
+  invoices, payments, credit notes and leases; `units.unit`; `vendors.vendor`; `employees.employee`;
+  `departments.department`; `users.head`; `users.creator`; `floors.floor`). Invisible until somebody PICKED a
+  value, because the dropdown is served by `EntitySelect` and the ordering only compiles when the CHIP goes to
+  name the chosen record — and then, because a table remembers its filters, it 500s the plain page load too.
+  A closure defers the read to `getRelationshipTitleAttribute()`, which Filament already evaluates, so
+  `->entity()` and `->relationship()` compose in either order — the property `EntitySelect` states for the
+  field, now true of its filter half.
+- **The chip is not the option, and `getOptionLabelFromRecordUsing` never reached it.** Filament's own
+  indicator plucks the title-attribute COLUMN raw (`SelectFilter::setUp()`), so a floor would have read "0"
+  (its `level`); and for a filter naming no `->relationship()` it reads `getOptions()`, which is empty here
+  because the options come from the `EntitySelect` — so those rendered **no chip at all**, an applied filter
+  with nothing in the bar to say so or to clear it. `EntitySelectFilter::indicatorLabelsFor()` answers both
+  from the one presenter, through `OptionDisplay::pickable()` — the scoped query, because a chip is a read and
+  an id from another mall must not come back as a name.
 - **`TenantScope::selectableTenantOptions()` was deleted 2026-08-17**, once every tenant picker moved to `EntitySelect`. It was the third of the three divergent tenant scopes and the one that leaked (`orWhereDoesntHave('leases')` offered a tenant who owned a unit in another mall to every property). `selectableAssetOptions()` REMAINS and is still correct — the ledger reports use it for the asset DIMENSION, which is a posting concept rather than a place.
 - `ViolationResource::$recordTitleAttribute` is still `reference`, an accessor. That is safe **because** the
   searchable attributes are explicit — it is used for display only. Do not "simplify" it back into a search key.
