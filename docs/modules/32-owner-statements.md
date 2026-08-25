@@ -79,6 +79,20 @@ draw) and **`due_to_owner` = 21802001** (a liability under 218 "Due to Related P
   so blocking data entry would make co-ownership unenterable — the relation manager shows the
   running total instead, and the draft stays generatable because that is how the shortfall is found.
   Genuine co-owners summing to 100 finalise normally. No GL amount changed.
+- **A run whose PERIOD HAS NOT ENDED cannot be finalised** (2026-08-25). Finalise re-reads the ledger
+  and freezes the figures, and `net_distributable` posts as Dr owner_distributions / Cr due_to_owner —
+  which becomes the cap every disbursement pays against. Freeze it before the last day and the days
+  that follow are money the owner is owed, **accrued nowhere and payable up to a cap that already
+  excludes them**; nothing on the screen says the month is unfinished, and the remedy (Revise) is a
+  manual act somebody has to remember. Found by driving the module on demo data: a **December** run
+  finalised cleanly on **25 August** — a frozen document, addressed to the owner, about a month that
+  had not started — and the August run finalised the same day with six days of rent still to bill.
+  Refused in `FinaliseOwnerStatementRunService` beside its two siblings and for the same reason, with
+  the **draft left free**: generating one mid-month is how an operator sees where the period is
+  heading. It is about the STATEMENT, not about paying — an interim payout is a disbursement, with
+  its own document, approval and cap. The boundary is the period's LAST DAY, not the day after, since
+  that is the day month-end actually runs. (`AnOwnerStatementWaitsForItsPeriodToEndTest`.)
+
 - **`basis` is accrual, and only accrual.** A `cash` constant existed with nothing behind it —
   `LedgerReportService::incomeStatement()` has no basis parameter — so a run stamped `cash` would have
   carried accrual figures under a cash label, which is the one thing a cash-basis reader must not be given.

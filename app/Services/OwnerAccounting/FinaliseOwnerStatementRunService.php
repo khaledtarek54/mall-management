@@ -86,6 +86,30 @@ class FinaliseOwnerStatementRunService
                 ]));
             }
 
+            // A PERIOD THAT HAS NOT ENDED CANNOT BE FROZEN (2026-08-25).
+            //
+            // Finalise re-reads the ledger and freezes the figures, and `net_distributable` is then
+            // posted as Dr owner_distributions / Cr due_to_owner — which becomes the cap every
+            // disbursement pays against. Freeze it before the last day of the period and the days
+            // that follow are money the owner is owed, accrued nowhere and payable up to a cap that
+            // already excludes them. Nothing on the screen says the month is unfinished, and the
+            // remedy (Revise) is a manual act somebody has to remember.
+            //
+            // Measured on the demo portfolio: a run for DECEMBER finalised cleanly on 25 August —
+            // a frozen document, addressed to the owner, about a month that had not started. The
+            // August run finalised the same day, with six days of rent still to bill.
+            //
+            // The DRAFT stays free, exactly as it does for the two refusals above: generating one
+            // mid-month is how an operator sees where the period is heading. And this is about the
+            // STATEMENT, not about paying: an interim payout to an owner is a disbursement, which
+            // has its own document and its own cap.
+            if ($fresh->period_end->isFuture()) {
+                throw new \DomainException(__('admin.owner_statements.errors.period_not_ended', [
+                    'property' => $fresh->asset?->name ?? '',
+                    'ends_on' => $fresh->period_end->toFormattedDateString(),
+                ]));
+            }
+
             // Guard the posting date against a closed period, in the service (not just the form).
             $date = PostingDate::assertOpen($postingDate ?? $fresh->period_end->toDateString(), 'posting_date');
 

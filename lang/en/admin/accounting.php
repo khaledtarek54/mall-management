@@ -414,6 +414,7 @@ return [
         'part_period' => ':pct% of the period',
         'not_sent' => 'Not sent',
         'errors' => [
+            'period_not_ended' => 'This period has not ended yet — :property runs to :ends_on. Finalising freezes the figures and caps what the owner can be paid, so the rest of the period would be owed and unaccounted for. Keep it as a draft, or wait until the period closes.',
             'no_owner' => 'This property has no owner for the statement period, so there is nobody to distribute the net to. Assign the owner on the property record, then regenerate the draft.',
             'ownership_not_whole' => 'The recorded ownership of :property totals :total%, not 100%. The net would be distributed in full to the owners listed, so a part-owner would be paid the whole property\'s net. Record the remaining owners on the property, then regenerate the draft.',
         ],
