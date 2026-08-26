@@ -26,6 +26,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * The leasing floor plan — every unit in a property as a card, grouped by floor,
@@ -47,6 +48,45 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
     protected string $view = 'filament.pages.ledger-report';
 
     public ?int $assetId = null;
+
+    /**
+     * Who may read the mall's occupancy.
+     *
+     * **This page declared no gate at all until 2026-08-26**, and a Filament page with no
+     * `canAccess()` is reachable by every authenticated panel user. It renders, per unit: the unit
+     * code, the NAME OF THE TENANT trading in it (`activeLease.tenant.name` is eager-loaded and
+     * printed on every occupied tile), the status, and a headline vacancy rate for the mall. Its two
+     * neighbours in `Navigation::GROUPS['leasing']` — `RentRoll` and `ExpirationSchedule` — gate on
+     * `reports.view`, and all three are registered side by side in `ReportCatalogue` as LEASING
+     * reports. One of the three was open.
+     *
+     * What that meant in practice: `vendor` — an EXTERNAL maintenance contractor whose entire grant
+     * is five keys wide, under a docblock in `RolesPermissionsSeeder` reading *"NO tenants/leases/
+     * financials/HR/GL — it must not read another party's commercial data"* — could open this page
+     * and read every retailer's name and the mall's vacancy rate. So could `technician`,
+     * `coordinator`, `customer_service`, `marketing` and `hr`.
+     *
+     * It is invisible from the file, which is why it lasted: a missing method looks like nothing at
+     * all, and everything else here is careful about PROPERTY scoping (`isAssetVisible()`, the
+     * `whereRaw('1 = 0')` that keeps the page from falling open) — so the screen reads as one that
+     * had been thought about.
+     *
+     * **The union of two rights, not one.** `reports.view` is how the catalogue's other leasing
+     * reports gate; `units.view` is the underlying register's own right, and `operations` holds it
+     * (the seeder gives that role the unit register deliberately) while holding no reports right —
+     * a floor plan is an operational tool as much as a leasing one, which is why `Navigation` files
+     * it beside the records rather than under Reports. Either claim is honest; holding neither is
+     * exactly the set that should never have had it.
+     *
+     * No `Modules::enabled('reports')` clause, deliberately: this screen is reachable from the
+     * leasing group as well as from the hub, and switching the reports module off should not take
+     * the floor plan away from the people who reach it the other way. Its siblings, which are
+     * reports and nothing else, keep theirs.
+     */
+    public static function canAccess(): bool
+    {
+        return Auth::user()?->canAny(['reports.view', 'units.view']) ?? false;
+    }
 
     public function mount(): void
     {

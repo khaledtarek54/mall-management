@@ -675,6 +675,102 @@ Scoping is **not** "only when a single property is selected". In **All-Propertie
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+### A Filament PAGE with no `canAccess()` is open to everyone (2026-08-26)
+
+`OccupancyMap` declared no `canAccess()` at all, and a page without one is reachable by every
+authenticated panel user. It renders, per unit: the unit code, the **name of the tenant trading in
+it** (`activeLease.tenant.name`, eager-loaded and printed on every occupied tile), the status, and
+a headline vacancy rate. Its two neighbours in `Navigation::GROUPS['leasing']` — `RentRoll` and
+`ExpirationSchedule` — both gate on `reports.view`, and all three sit side by side in
+`ReportCatalogue` as LEASING reports. One of the three was open.
+
+Who could read it: **`vendor`**, an EXTERNAL maintenance contractor whose whole grant is five keys
+(`requests.view`, `requests.view_all`, `facility.view`, `facility.view_all`, `notes.view`) under a
+docblock in `RolesPermissionsSeeder` that says *"NO tenants/leases/financials/HR/GL — it must not
+read another party's commercial data"*. Also `technician`, `coordinator`, `customer_service`,
+`marketing` and `hr`, none of which hold `tenants.view` or `units.view`.
+
+It is invisible from the file — a missing method looks like nothing at all — and everything else on
+that page is careful about PROPERTY scoping (`isAssetVisible()`, a `whereRaw('1 = 0')` so it cannot
+fall open), so the screen reads as one that had been thought about.
+
+**Reflection is the wrong probe.** A `Resource` inherits `canAccess()` from Filament and gates in
+`canViewAny()` instead, so asking which class declares `canAccess()` reports all 66 resources as
+ungated and finds nothing. The check that works is behavioural: **a screen that no role is refused
+is a screen with no lock**, however it is written. `EveryRoleMeetsEveryScreenTest` asserts it and
+`UNIVERSAL_SCREENS` names the three legitimate exceptions (Dashboard, Handbook, Notification
+centre) with the reason each shows the reader only their own things — and fails on a stale entry as
+well as a new one.
+
+The gate is the **union** of `reports.view` and `units.view`, not the siblings' single right:
+`operations` holds the unit register deliberately and no reports right, and a floor plan is an
+operational tool as much as a leasing one — which is why `Navigation` files it beside the records
+rather than under Reports. Holding neither is exactly the set that should never have had it.
+(`AnExternalVendorCannotReadTheOccupancyMapTest`.)
+
+### The role × screen matrix, and what a per-resource authorization test cannot see
+
+`AuthorizationMatrixTest` asks `canView()` / `canCreate()` of a hand-picked set of resources for
+eight of the fourteen roles — the right test for the RULES, and a different claim from "what does
+this role meet in the panel". Measured: the five FRD roles (`technician`, `coordinator`,
+`customer_service`, `vendor`, `mall_admin`) appear **zero** times in it, and they carry the most
+specific written boundaries.
+
+`RoleScreenMatrixShard{1..5}Test` (off `Tests\Support\RoleMatrix`) hits **all 14 roles × all 99
+screens through the real route** and requires exactly 200 or exactly 403 — never a 500, and never a
+200 where `canAccess()` said no. The 500 case is the one nothing else can see: `canAccess()`
+answering true says nothing about whether the page RENDERS, and a widget, badge, column closure or
+filter can reach for something a narrow role does not hold.
+
+Three traps in building it, each of which produced a green-looking result that measured nothing:
+
+- **`AuthenticateSession` logs the second user out.** It stamps the signed-in user's password hash
+  into the session, so swapping `actingAs()` from one role to the next inside one test redirects
+  everything to `/login` and every screen answers **302** — a matrix in which nothing is reachable
+  and nothing is refused. `RoleMatrix::actAs()` flushes the session first.
+- **A refusal costs ~7ms and a render ~200ms**, so the shards must be dealt by role BREADTH
+  (`RoleMatrix::BY_BREADTH`), not alphabetically: `super_admin` (99 screens), `manager` (98),
+  `mall_admin` (97) and `viewer` (96) carry nearly all the cost, and an alphabetical round-robin
+  put three of them in one shard.
+- **The partition guard compares against the SEEDER's role list**, never against `BY_BREADTH` — a
+  gate that reads only the registry it guards cannot see what that registry omits.
+
+### Isolation: what a `PropertyIsolation` gate proves, and what it does not
+
+`PropertyIsolationConformanceTest` checks that a model is CLASSIFIED and a resource SCOPES. That is
+a claim about the code's shape, not about the rows a real operator gets back.
+`ARestrictedOperatorSeesOneMallTest` drives every admin list a restricted `manager` can open,
+resolves each returned row's property through the register (direct `asset_id`, or the
+`#[PropertyOwned(via: …)]` chain, **recursively** — `Charge` is `via: 'lease.unit'` and `Lease` is
+itself `via: 'unit'`, so a one-hop resolver answers null for much of the register), and requires it
+to be their own mall or portfolio-level.
+
+Two things make it mean something rather than pass vacuously:
+
+- **The operator is pinned to the EMPTY mall.** Measured on `DemoSeeder`: of the 37 models carrying
+  a direct `asset_id`, **34 have rows in one property only**. Pinning to the rich mall would ask the
+  question of three models and report it as a sweep over sixty-six.
+- **The perimeter is a separate test, and it is the one that matters.** With a tenant selected most
+  resources scope by the SELECTED property, so a leak needs the operator to reach a mall they do not
+  hold in the first place — which is a question about the URL, not about a query. Every screen is
+  requested under the other mall's tenant segment and must not answer 200. Mutation-proved: with
+  `User::canAccessTenant()` returning true, all 99 open.
+
+### `asTenant()` does not reproduce Filament's own tenancy scope
+
+Filament v4 scopes a tenant-scoped resource with a GLOBAL SCOPE registered in `Panel::boot()`, and
+`Filament::setTenant()` — which `asTenant()` calls — never registers it. Exactly **one** resource of
+66 relies on that auto-scope (`MarketingBudgetResource`, `isScopedToTenant() === true`); the other
+65 scope themselves in `getEloquentQuery()`. So under the Livewire-driven isolation harness that one
+resource looks unscoped while in production it is not — verified over real HTTP: the list compiles
+`asset_id in (?)` and another mall's record is a clean **404**.
+
+That produced a false positive during this sweep, and the lesson is the useful part: **the one
+auto-scoped resource has no coverage in any `asTenant()`-driven isolation test**, so a regression in
+it would be silent. It is excluded from the Livewire sweep BY DERIVATION (`isScopedToTenant()`, so a
+second one is excluded by being one) and covered over the real route instead.
+
+
 ### "All Properties" pseudo-tenant — no longer selectable (property-first UX)
 - **As of the property-first change** ([plans/03-remove-all-properties-mode.md](../PROPERTY-ISOLATION.md)), "All Properties" is **not offered in the switcher** (`User::getTenants()` returns only real malls) and is **not an accessible tenant** — `canAccessTenant()` refuses the pseudo-asset for everyone, so `/admin/ALL` **404s**. The operator always works inside one real mall.
 - The synthetic Asset with `code='ALL'` is still a real DB row (seeded by migration) — **kept** as internal plumbing for a future read-only consolidation surface (Phase B) and as a defensive sentinel. It never appears in property-picker dropdowns (`selectableAssetOptions()` excludes it).
