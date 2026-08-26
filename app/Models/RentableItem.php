@@ -8,6 +8,7 @@ use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\ProjectedState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -188,6 +189,69 @@ class RentableItem extends Model
             ->where('unit_ownerships.status', '!=', UnitOwnershipStatus::Transferred->value)
             ->where($dated)
             ->exists();
+    }
+
+    /**
+     * Is this item spoken for — held OPEN-ENDEDLY by a live agreement?
+     *
+     * The twin of {@see isHeldOn()}, asking the other question. `isHeldOn()` is date-ranged and
+     * answers *"is it occupied on this day"* — the double-let guard. This one answers *"is it off
+     * the market"*, which is what `status` records, and the two genuinely differ: a bay released
+     * effective 30 June is still HELD in April and already AVAILABLE for the operator to re-let
+     * from July. `AssignRentableItemService::release()` has always worked that way and a regression
+     * test pins it.
+     *
+     * So the predicate is the holding with no end date. A closed holding is a tenancy running out;
+     * an open one is a bay nobody can offer.
+     *
+     * "Live" differs by holder for the same reasons `isHeldOn()` gives, so it is asked per holder
+     * rather than flattened — and that is what makes this fix work at all: after `leases:expire`
+     * moves a lease to `expired`, its holdings are still OPEN (nothing closes them), and only the
+     * holder's own liveness says the bay is free.
+     */
+    public function isSpokenFor(): bool
+    {
+        $heldByLease = $this->leases()
+            ->whereIn('leases.status', ['active', 'pending_approval'])
+            ->wherePivotNull('effective_to')
+            ->exists();
+
+        if ($heldByLease) {
+            return true;
+        }
+
+        return $this->ownerships()
+            ->where('unit_ownerships.status', '!=', UnitOwnershipStatus::Transferred->value)
+            ->wherePivotNull('effective_to')
+            ->exists();
+    }
+
+    /**
+     * Re-derive `status` from the holdings — the projection, and the ONE place it is decided.
+     *
+     * `status` is a stored column that is a function of TODAY, which is the shape
+     * {@see ProjectedState} exists for: it goes wrong on a day when nothing happened.
+     * A lease reaching its expiry date is not a write, so nothing fired here — measured, a bay whose
+     * lease expired kept saying `assigned` for ever, and an operator filtering the register for
+     * *Available* to find a free bay could not see it. The bay was re-lettable throughout
+     * (`RentableItemOptions::lettable()` rejects on `isHeldOn()`, never on this column), so the
+     * damage was to the register rather than to the letting — which is exactly why nobody hit it.
+     *
+     * `out_of_service` is never overwritten: it is a manual override, the same rule
+     * `Unit::recomputeStatus()` applies to `maintenance`, and re-asserting it here would be a
+     * second opinion on the same decision.
+     */
+    public function recomputeStatus(): void
+    {
+        if ($this->status === self::STATUS_OUT_OF_SERVICE) {
+            return;
+        }
+
+        $target = $this->isSpokenFor() ? self::STATUS_ASSIGNED : self::STATUS_AVAILABLE;
+
+        if ($this->status !== $target) {
+            $this->update(['status' => $target]);
+        }
     }
 
     /** What an operator reads on a screen: the code, plus the name where one was given. */

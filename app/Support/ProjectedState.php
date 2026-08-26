@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Lease;
+use App\Models\RentableItem;
 use App\Models\Unit;
 
 /**
@@ -59,6 +60,20 @@ final class ProjectedState
             'sweep' => 'leases:expire',
             'stale_when' => 'a future-dated expansion or give-back reaches its effective date, or a '.
                 'lease term ends — none of which is a write, so nothing fires an observer',
+        ],
+
+        'rentable_item.occupancy' => [
+            'model' => RentableItem::class,
+            'column' => 'status',
+            // Asks whether a LIVE agreement holds the item open-endedly, which is the meaning
+            // `status` has always carried (a bay released effective 30 June is available to re-let
+            // from the moment the release is recorded). `out_of_service` is a manual override the
+            // projector deliberately never overwrites.
+            'projector' => 'recomputeStatus',
+            'sweep' => 'leases:expire',
+            'stale_when' => 'the lease holding the item reaches its expiry date — nothing closes the '.
+                'holding row and a lease expiring is not a write, so the item kept reading `assigned` '.
+                'and the register under-reported what was free to let',
         ],
 
         'lease.term' => [

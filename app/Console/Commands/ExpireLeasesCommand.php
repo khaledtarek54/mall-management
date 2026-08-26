@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Lease;
+use App\Models\RentableItem;
 use App\Models\Unit;
 use App\Support\OpsLog;
 use Illuminate\Console\Command;
@@ -52,17 +53,19 @@ class ExpireLeasesCommand extends Command
     protected $signature = 'leases:expire
         {--dry-run : Print what would change without writing}';
 
-    protected $description = 'Expire active leases past their term, and re-project any unit whose occupancy has gone stale.';
+    protected $description = 'Expire active leases past their term, and re-project any unit or rentable item whose occupancy has gone stale.';
 
     public function handle(): int
     {
         $expired = $this->expireLeases();
         $reprojected = $this->reprojectUnits();
+        $items = $this->reprojectRentableItems();
 
         if (! $this->option('dry-run')) {
             OpsLog::info('Lease expiry sweep complete', [
                 'expired' => $expired,
                 'units_reprojected' => $reprojected,
+                'rentable_items_reprojected' => $items,
             ]);
         }
 
@@ -167,6 +170,60 @@ class ExpireLeasesCommand extends Command
 
         if (! $this->option('dry-run')) {
             $this->info("Re-projected {$changed} unit(s) whose occupancy had gone stale.");
+        }
+
+        return $changed;
+    }
+
+    /**
+     * Re-project any rentable item whose STORED status no longer matches its holdings.
+     *
+     * The same projection failure as the units above, on the other kind of space. A bay, kiosk,
+     * signage panel or store is attached to a lease with an OPEN holding (`effective_to` null), and
+     * when that lease reaches its expiry date nothing closes the holding and nothing touches the
+     * item — a lease expiring is not a write. Measured: a bay whose lease ended kept saying
+     * `assigned` for ever, so an operator filtering the rentable-items register for *Available* to
+     * find a free bay could not see it.
+     *
+     * The bay was re-lettable throughout — `RentableItemOptions::lettable()` rejects on
+     * `isHeldOn()`, which reads the holder's liveness, and never on this column — so the damage was
+     * to the register rather than to the letting. That is exactly why it survived: nothing failed,
+     * a screen simply under-reported.
+     *
+     * It belongs in THIS command rather than its own: the staleness is caused by a lease reaching
+     * its expiry date, which is the event this sweep exists to notice, and a second command would
+     * be a second thing to schedule and forget.
+     *
+     * `out_of_service` is never touched — a manual override the projection already refuses to
+     * overwrite, the same rule `maintenance` gets on a unit.
+     *
+     * @return int items whose status changed
+     */
+    private function reprojectRentableItems(): int
+    {
+        $changed = 0;
+
+        RentableItem::query()
+            ->where('status', '!=', RentableItem::STATUS_OUT_OF_SERVICE)
+            ->chunkById(200, function ($items) use (&$changed) {
+                foreach ($items as $item) {
+                    /** @var RentableItem $item */
+                    $before = $item->status;
+
+                    if ($this->option('dry-run')) {
+                        continue;
+                    }
+
+                    $item->recomputeStatus();
+
+                    if ($item->fresh()->status !== $before) {
+                        $changed++;
+                    }
+                }
+            });
+
+        if (! $this->option('dry-run')) {
+            $this->info("Re-projected {$changed} rentable item(s) whose status had gone stale.");
         }
 
         return $changed;

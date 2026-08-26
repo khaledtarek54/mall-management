@@ -106,7 +106,9 @@ class AssignRentableItemService
                 'monthly_rate' => $rate,
             ]);
 
-            $locked->update(['status' => RentableItem::STATUS_ASSIGNED]);
+            // Through the projection rather than a literal, so the assign path, the release path
+            // and the nightly sweep cannot come to disagree about what `status` means.
+            $locked->fresh()->recomputeStatus();
 
             $this->rebuildCharge($holder->fresh(), $from);
         });
@@ -158,10 +160,11 @@ class AssignRentableItemService
                 'effective_to' => $to->toDateString(),
             ]);
 
-            // Free for re-letting only once nobody else holds it the day after.
-            if (! $item->fresh()->isHeldOn($to->addDay())) {
-                $item->update(['status' => RentableItem::STATUS_AVAILABLE]);
-            }
+            // Free for re-letting once no live agreement holds it open-endedly — which is what
+            // `recomputeStatus()` decides, for every path, in one place. A bay released effective
+            // 30 June reads AVAILABLE from the moment the release is recorded: the operator can
+            // let it from July, and that forward-booking meaning is what `status` has always had.
+            $item->fresh()->recomputeStatus();
 
             // The new amount takes effect the day the item stops being held.
             $this->rebuildCharge($holder->fresh(), ChargeScheduleService::billingBoundary($to->addDay()));

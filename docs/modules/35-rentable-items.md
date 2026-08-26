@@ -152,8 +152,42 @@ the question an operator arrives with. Assign / release are actions on the lease
   differ whenever anything was negotiated, and the charge is built from the pivot.
 - **Adding a type** means a `lang` entry in both files; the column is a string, not a DB enum.
 
+- **`status` is a PROJECTION, and it was not swept (2026-08-26).** It is a stored column that is a
+  function of TODAY, which is the shape `App\Support\ProjectedState` exists for: it goes wrong on a
+  day when nothing happened. A bay is attached to a lease with an OPEN holding (`effective_to`
+  null), and when that lease reaches its expiry date nothing closes the holding and nothing touches
+  the item — a lease expiring is not a write. Measured: the bay read `assigned` for ever, so an
+  operator filtering the register for *Available* to find a free bay could not see it. It was in
+  neither `PROJECTIONS` nor `NOT_PROJECTED`, i.e. nobody had decided which it was.
+- **What that did NOT break, which is why it survived.** The bay stayed re-lettable throughout:
+  `RentableItemOptions::lettable()` rejects on `isHeldOn()`, which reads the HOLDER's liveness, and
+  never on this column. Nothing failed and no double-let was possible — a screen simply
+  under-reported, and a failure with no error in it is one nobody reports.
+- **`isHeldOn()` and `isSpokenFor()` are two questions, and the difference is load-bearing.**
+  `isHeldOn($date)` is date-ranged and answers *"is it occupied that day"* — the double-let guard.
+  `isSpokenFor()` asks *"is it off the market"*: held OPEN-ENDEDLY by a live agreement. They
+  genuinely differ, because `release()` marks a bay released effective 30 June as AVAILABLE the
+  moment the release is recorded — the operator can let it from July, and `RentableItemAssignmentTest`
+  pins that. **A projection built on `isHeldOn(today)` would have fought it** and flipped the bay
+  back to `assigned` on the next nightly run. `recomputeStatus()` is the one place the column is
+  decided, and `assign()`, `release()` and the sweep all go through it so they cannot drift.
+- **The sweep is `leases:expire`, not a command of its own** — the staleness is caused by a lease
+  reaching its expiry date, which is the event that command exists to notice, and a second command
+  is a second thing to schedule and forget. `out_of_service` is never overwritten: a manual
+  override, the same rule `maintenance` gets on a unit.
+- **There is no occupancy MAP for rentable items** (checked 2026-08-26). `OccupancyMap` queries
+  `Unit` only; `Occupancy::forUnits()` is units-only; `Floor::areaFigures()` excludes rentable items
+  deliberately (*"a parking bay is not a unit"*); and `ReportCatalogue` registers no parking or
+  utilisation report. What exists is the REGISTER at `/admin/{mall}/rentable-items` — a list with
+  type, status and floor filters. The data a map would need is all there (`floor_id`, `type`,
+  `status`, the holder through the pivot), and the status column had to be trustworthy first.
+
 ## 8. Tests
 
 `tests/Feature/Regression/RentableItemNotLettableAreaTest.php` (the invariant) ·
 `tests/Feature/Regression/RentableItemAssignmentTest.php` (letting, releasing, re-letting, billing
-through the real monthly run, and every refusal with a paired control).
+through the real monthly run, and every refusal with a paired control) ·
+`tests/Feature/Regression/AParkingBayIsFreedWhenItsLeaseEndsTest.php` (the projection: freed on
+expiry, NOT flipped back after a future-dated release, `out_of_service` untouched, an ownership
+holder still counted, and the picker and the register agreeing). Mutation-proved — deleting the
+sweep call turns two of its cases red.
