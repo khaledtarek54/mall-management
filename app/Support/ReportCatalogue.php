@@ -23,6 +23,7 @@ use App\Filament\Admin\Pages\OccupancyCost;
 use App\Filament\Admin\Pages\OccupancyMap;
 use App\Filament\Admin\Pages\OpeningBalances;
 use App\Filament\Admin\Pages\PropertyOverrides;
+use App\Filament\Admin\Pages\RentableItemMap;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\Reports;
 use App\Filament\Admin\Pages\RevenueForecast;
@@ -106,6 +107,7 @@ class ReportCatalogue
         ExpirationSchedule::class => ['category' => self::LEASING, 'key' => 'expiration_schedule', 'keywords' => ['expiry', 'renewals', 'rollover']],
         RevenueForecast::class => ['category' => self::LEASING, 'key' => 'revenue_forecast', 'keywords' => ['forecast', 'projection', 'budget', 'income', 'pipeline']],
         OccupancyMap::class => ['category' => self::LEASING, 'key' => 'occupancy_map', 'keywords' => ['vacancy', 'floor', 'units']],
+        RentableItemMap::class => ['category' => self::LEASING, 'key' => 'rentable_item_map', 'keywords' => ['parking', 'bay', 'kiosk', 'signage', 'storage', 'utilisation', 'موقف', 'كشك']],
         OccupancyCost::class => ['category' => self::LEASING, 'key' => 'occupancy_cost', 'keywords' => ['occupancy cost', 'ocr', 'affordability']],
         SalesAnalytics::class => ['category' => self::LEASING, 'key' => 'sales_analytics', 'keywords' => ['turnover', 'sales', 'percentage rent']],
 
@@ -203,6 +205,7 @@ class ReportCatalogue
         MonthEndClose::class => 'A checklist an operator works through, not a document to receive. Nothing to export.',
         Reports::class => 'The monthly-close dashboard. Its output is a PDF pack rather than a table, so there is no CSV to attach; scheduling the PDF is its own row.',
         OccupancyMap::class => 'A visual floor plan. A CSV of it would answer a different question from the one the screen answers.',
+        RentableItemMap::class => 'The other floor plan, for the same reason: the value is the at-a-glance read of a car park, not a list. The Rentable Items register is where that list already lives, and it exports.',
         Workflows::class => 'A diagram of how the system works, not a report on data.',
     ];
 

@@ -242,6 +242,14 @@ return [
         'select_property' => 'Property',
     ],
 
+    'rentable_item_map' => [
+        'nav_label' => 'Parking & Space Map',
+        'page_title' => 'Parking & Space Map',
+        'subheading' => 'Let: :rate% (:let/:lettable) · :out_of_service out of service',
+        'empty_heading' => 'No bays, stores or signage in this property',
+        'empty_description' => 'Add them on the Rentable Items register, then they appear here by floor.',
+    ],
+
     'occupancy_cost' => [
         'title' => 'Occupancy cost % of sales',
         'nav_label' => 'Occupancy cost %',

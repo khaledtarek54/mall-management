@@ -22,6 +22,7 @@ use App\Filament\Admin\Pages\OccupancyCost;
 use App\Filament\Admin\Pages\OccupancyMap;
 use App\Filament\Admin\Pages\OpeningBalances;
 use App\Filament\Admin\Pages\PropertyOverrides;
+use App\Filament\Admin\Pages\RentableItemMap;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\ReportHub;
 use App\Filament\Admin\Pages\Reports;
@@ -195,6 +196,9 @@ final class Navigation
             // App\Support\ReportCatalogue — which is a statement about what can be exported and
             // delivered, not about where the work happens — so they stay beside the records.
             OccupancyMap::class,
+            // The other floor plan: bays, storage, signage and kiosks. Beside the unit map because
+            // it answers the same question about the rest of the lettable estate.
+            RentableItemMap::class,
             RentRoll::class,
             ExpirationSchedule::class,
         ],

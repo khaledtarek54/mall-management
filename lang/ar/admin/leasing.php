@@ -239,6 +239,14 @@ return [
         'select_property' => 'العقار',
     ],
 
+    'rentable_item_map' => [
+        'nav_label' => 'خريطة المواقف والمساحات',
+        'page_title' => 'خريطة المواقف والمساحات',
+        'subheading' => 'مؤجَّر: :rate% (:let/:lettable) · :out_of_service خارج الخدمة',
+        'empty_heading' => 'لا توجد مواقف أو مخازن أو لوحات في هذا العقار',
+        'empty_description' => 'أضِفها من سجل العناصر المؤجَّرة، ثم تظهر هنا مرتبة بالطابق.',
+    ],
+
     'occupancy_cost' => [
         'title' => 'تكلفة الإشغال كنسبة من المبيعات',
         'nav_label' => 'نسبة تكلفة الإشغال',

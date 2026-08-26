@@ -1161,6 +1161,22 @@ return [
         ],
     ],
 
+    'rentable_item_map' => [
+        'purpose' => 'The floor plan for everything let that is not a shop — parking bays, storage, signage and kiosks, coloured by whether they are earning.',
+        'steps' => [
+            'Scan for free space by colour, or filter to one type.',
+            'Read the holder\'s name on each let item.',
+            'Click through to the item to let it or take it out of service.',
+        ],
+        'affects' => [
+            'Nothing. An item\'s status follows the agreement holding it and is not set here.',
+        ],
+        'rules' => [
+            'Out-of-service items are left out of the utilisation figure rather than counted as free — a bay closed for resurfacing is not lost letting.',
+            'An item is let from the day its agreement takes it and free again the day after it is given back, so a future-dated release shows as free now.',
+        ],
+    ],
+
     'occupancy_cost' => [
         'purpose' => 'What each tenant pays as a share of what they sell — the number that shows who is in trouble before they miss a payment.',
         'steps' => [

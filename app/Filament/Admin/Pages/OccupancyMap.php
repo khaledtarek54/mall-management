@@ -3,27 +3,21 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Pages\Concerns\MapsOneProperty;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Units\UnitResource;
-use App\Models\Asset;
 use App\Models\Unit;
-use App\Support\AssignedAssets;
-use App\Support\Filament\EntitySelect;
-use App\Support\ReportPreferences;
-use App\Support\TenantScope;
+use App\Support\Filament\FloorGrouping;
 use BackedEnum;
 use Filament\Pages\Page;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -41,6 +35,10 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+
+    // The property resolution and the picker — shared with RentableItemMap, so the two maps cannot
+    // disagree about who may see which mall.
+    use MapsOneProperty;
     use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
@@ -90,86 +88,7 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
 
     public function mount(): void
     {
-        // If a specific property is the active tenant, lock the page to it —
-        // the dropdown is only meaningful in "All Properties" mode.
-        if (($tenantAssetId = TenantScope::currentAssetId()) !== null) {
-            $this->assetId = $tenantAssetId;
-
-            return;
-        }
-
-        $requested = (int) request()->query('asset', 0);
-
-        // Never default to (or honor) a property the user isn't assigned to.
-        $this->assetId = $this->isAssetVisible($requested)
-            ? $requested
-            : ($this->visibleAssets()->value('id'));
-
-        ReportPreferences::restore($this);
-    }
-
-    public function isAllPropertiesMode(): bool
-    {
-        return TenantScope::currentAssetId() === null;
-    }
-
-    /**
-     * Properties the current user may view in the map — their assigned set,
-     * or every real property for super_admin / unassigned (back-compat).
-     * The synthetic "All Properties" pseudo-asset is always excluded.
-     *
-     * @return Builder<Asset>
-     */
-    protected function visibleAssets(): Builder
-    {
-        $allowedIds = AssignedAssets::idsForCurrentUser();
-
-        return Asset::query()
-            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
-            ->when($allowedIds !== null, fn ($q) => $q->whereIn('id', $allowedIds))
-            ->orderBy('name');
-    }
-
-    protected function isAssetVisible(?int $assetId): bool
-    {
-        return $assetId
-            ? (clone $this->visibleAssets())->whereKey($assetId)->exists()
-            : false;
-    }
-
-    /**
-     * The property actually being mapped — the selection CLAMPED to the visible
-     * set, falling back to the first one the user may see. A tampered ?asset= or
-     * Livewire value for an unassigned property never resolves.
-     */
-    public function resolvedAssetId(): ?int
-    {
-        return $this->isAssetVisible($this->assetId)
-            ? $this->assetId
-            : $this->visibleAssets()->value('id');
-    }
-
-    /** The property picker — only meaningful when no single property is the active tenant. */
-    public function filtersForm(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
-                Section::make()
-                    ->columns(['sm' => 2, 'lg' => 3])
-                    ->visible(fn (): bool => $this->isAllPropertiesMode() && $this->visibleAssets()->count() > 1)
-                    ->schema([
-                        EntitySelect::make('assetId')
-                            ->label(__('admin.occupancy.select_property'))
-                            ->entity(Asset::class)
-                            ->modifyOptionsQuery(fn ($query) => $query->whereIn('id', $this->visibleAssets()->pluck('id')))
-                            ->live()
-                            // Remembering happens HERE rather than through ReportFilters, because this picker is
-                            // exempt from the shared component (see ReportFilters::EXEMPT) — the
-                            // exemption is about the CONTROL, not about whether the choice is worth
-                            // keeping. Wired at the only other place it can be.
-                            ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
-                    ]),
-            ]);
+        $this->mountPropertyMap();
     }
 
     public static function getNavigationLabel(): string
@@ -255,34 +174,7 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
             // markup this replaced packed ~10 tiles per row (minmax 120px); four
             // wide turned a 50-unit mall into two screenfuls.
             ->contentGrid(['sm' => 2, 'md' => 4, 'lg' => 5, 'xl' => 6, '2xl' => 8])
-            ->groups([
-                Group::make('floor.code')
-                    ->label(__('admin.pdf.floor'))
-                    ->titlePrefixedWithLabel()
-                    // Grouped and ordered by the property's floor REGISTER. This replaced a
-                    // three-clause `orderByRaw` (a CASE for 'ground', then `length()`, then the
-                    // value) that got the common case right — Ground → 1 → 2 → 10 — and then sorted
-                    // a BASEMENT after the tenth floor, because the CASE only knew about the ground
-                    // floor. It was raw SQL on `lower()`/`length()` (the cross-database hazard this
-                    // project has hit twice) and it lived only here, so every other consumer of the
-                    // free-text column still got plain string order.
-                    //
-                    // The register answers it once for everyone: `floors.level` is set when the
-                    // property is set up, and a unit merely points at it. Unfloored units sort last
-                    // — a unit with no floor is not the ground floor.
-                    // A correlated subquery, not a join: the page's own property scoping filters on
-                    // an unqualified `asset_id`, and joining `floors` makes that ambiguous — the
-                    // table has one too. This leaves the base query's shape untouched.
-                    //
-                    // It is raw SQL again, but not the kind that was removed: the old expression
-                    // encoded floor NAMING in SQL (a CASE listing 'ground', 'g', '0') and had to
-                    // grow for every label an operator invented. This encodes only "order by the
-                    // floor's level, unfloored last", and `coalesce` + a scalar subquery behave the
-                    // same on MySQL and SQLite.
-                    ->orderQueryUsing(fn (Builder $query) => $query->orderByRaw(
-                        'coalesce((select level from floors where floors.id = units.floor_id), 9999)'
-                    )),
-            ])
+            ->groups([FloorGrouping::make('units')])
             ->defaultGroup('floor.code')
             ->defaultSort('code')
             ->filters([

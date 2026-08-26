@@ -175,12 +175,32 @@ the question an operator arrives with. Assign / release are actions on the lease
   reaching its expiry date, which is the event that command exists to notice, and a second command
   is a second thing to schedule and forget. `out_of_service` is never overwritten: a manual
   override, the same rule `maintenance` gets on a unit.
-- **There is no occupancy MAP for rentable items** (checked 2026-08-26). `OccupancyMap` queries
-  `Unit` only; `Occupancy::forUnits()` is units-only; `Floor::areaFigures()` excludes rentable items
-  deliberately (*"a parking bay is not a unit"*); and `ReportCatalogue` registers no parking or
-  utilisation report. What exists is the REGISTER at `/admin/{mall}/rentable-items` — a list with
-  type, status and floor filters. The data a map would need is all there (`floor_id`, `type`,
-  `status`, the holder through the pivot), and the status column had to be trustworthy first.
+- **The map is `RentableItemMap` — `/admin/{mall}/rentable-item-map`** (2026-08-26). Until then
+  there was no floor plan for this register at all: `OccupancyMap` queries `Unit` only,
+  `Occupancy::forUnits()` is units-only, `Floor::areaFigures()` excludes these items deliberately
+  (*"a parking bay is not a unit"*), and `ReportCatalogue` had no parking or utilisation entry. The
+  only way to find a free bay was the LIST filtered by status — which under-reported, because the
+  status column had no sweep. **The column was fixed first, on purpose**: a map over an
+  untrustworthy status draws the same wrong answer more convincingly.
+- **A separate page, not a mode of the unit map.** Yardi treats parking as its own space type with
+  its own register, and this codebase already says the same in its own words. Different holders,
+  different pricing, a different vacancy conversation. **What is shared is shared properly**:
+  `MapsOneProperty` resolves the property for BOTH maps (who may map which mall, the `?asset=`
+  clamp, the picker) and `App\Support\Filament\FloorGrouping` orders both by the floor register,
+  so the two can never disagree about access or about where a basement sorts. Both pages — and the
+  concern itself — are registered in `ReportFilters::EXEMPT`, because that gate sweeps file by file.
+- **Gated from the first commit** on `rentable_items.view` OR `reports.view`, the same union its
+  sibling takes. It names the HOLDER on every let tile, which is exactly the commercial data
+  `OccupancyMap` was left open on until the same day.
+- **Out-of-service items leave the DENOMINATOR, they are not counted as vacant.** A bay closed for
+  resurfacing is not lost letting, and counting it as free makes a mall look worse the more
+  diligently it maintains its car park. It is reported separately so it does not simply vanish.
+- **`currentHolderLabel()` is the reading half of `isSpokenFor()`** — the same predicate answered
+  with a name instead of a boolean, so a card can never name a tenant for an item the same page
+  colours as available. Resolved in PHP against the eager-loaded relations, because a floor plan
+  renders every bay at once and a query per card is the N+1 that makes a map feel broken.
+- **Deliberately NOT deliverable** (`ReportCatalogue::NOT_DELIVERABLE`): the value is the
+  at-a-glance read, and the register already exports the list.
 
 ## 8. Tests
 
@@ -189,5 +209,8 @@ the question an operator arrives with. Assign / release are actions on the lease
 through the real monthly run, and every refusal with a paired control) ·
 `tests/Feature/Regression/AParkingBayIsFreedWhenItsLeaseEndsTest.php` (the projection: freed on
 expiry, NOT flipped back after a future-dated release, `out_of_service` untouched, an ownership
-holder still counted, and the picker and the register agreeing). Mutation-proved — deleting the
-sweep call turns two of its cases red.
+holder still counted, and the picker and the register agreeing) ·
+`tests/Feature/Pages/RentableItemMapTest.php` (the map: refused to six roles with a paired control
+on five, scoped at the QUERY under a tampered selection, empty when no property resolves, the holder
+named on a let tile, and the utilisation figure excluding out-of-service). Both mutation-proved —
+deleting the sweep call turns two cases red, deleting the gate turns six red.

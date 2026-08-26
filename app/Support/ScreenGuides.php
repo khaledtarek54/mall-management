@@ -22,6 +22,7 @@ use App\Filament\Admin\Pages\OccupancyCost;
 use App\Filament\Admin\Pages\OccupancyMap;
 use App\Filament\Admin\Pages\OpeningBalances;
 use App\Filament\Admin\Pages\PropertyOverrides;
+use App\Filament\Admin\Pages\RentableItemMap;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\ReportHub;
 use App\Filament\Admin\Pages\Reports;
@@ -250,6 +251,7 @@ class ScreenGuides
         ExpirationSchedule::class => 'expiration_schedule',
         RevenueForecast::class => 'revenue_forecast',
         OccupancyMap::class => 'occupancy_map',
+        RentableItemMap::class => 'rentable_item_map',
         OccupancyCost::class => 'occupancy_cost',
         SalesAnalytics::class => 'sales_analytics',
         ArAging::class => 'ar_aging',

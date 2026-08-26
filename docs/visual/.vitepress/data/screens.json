@@ -438,6 +438,12 @@
         "guide": "rent_roll"
     },
     {
+        "screen": "RentableItemMap",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "rentable_item_map"
+    },
+    {
         "screen": "RentableItemResource",
         "panel": "admin",
         "kind": "resource",

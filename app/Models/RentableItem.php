@@ -254,6 +254,37 @@ class RentableItem extends Model
         }
     }
 
+    /**
+     * Who holds this item RIGHT NOW — the counterparty's name, or null when nobody does.
+     *
+     * The reading half of {@see isSpokenFor()}: the same predicate (a live agreement with an open
+     * holding), answered with a name instead of a boolean, so the map cannot show a holder for a
+     * bay the register calls available or the other way round.
+     *
+     * **Resolved in PHP against the LOADED relations, not with two queries per row.** A floor plan
+     * renders every bay in the property at once — 48 in the demo mall — and a query-per-card is the
+     * N+1 that makes a map feel broken. Callers eager-load `leases.tenant` and `ownerships.tenant`;
+     * without that this still works and simply costs the lazy load.
+     *
+     * A lease is asked first because it is the ordinary case, and an item can only be held
+     * open-endedly by one agreement at a time — `AssignRentableItemService::assign()` refuses a
+     * clash through `isHeldOn()`.
+     */
+    public function currentHolderLabel(): ?string
+    {
+        $lease = $this->leases->first(fn (Lease $lease): bool => $lease->pivot->effective_to === null
+            && in_array($lease->status, ['active', 'pending_approval'], true));
+
+        if ($lease) {
+            return $lease->tenant?->name;
+        }
+
+        $ownership = $this->ownerships->first(fn (UnitOwnership $ownership): bool => $ownership->pivot->effective_to === null
+            && $ownership->status?->isTerminal() !== true);
+
+        return $ownership?->tenant?->name;
+    }
+
     /** What an operator reads on a screen: the code, plus the name where one was given. */
     public function label(): string
     {

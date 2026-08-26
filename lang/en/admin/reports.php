@@ -291,6 +291,7 @@ return [
             'expiration_schedule' => 'Which leases end when, so renewals are opened before they lapse into holdover.',
             'revenue_forecast' => 'Every month the portfolio will bill from the leases already signed — contracted income only, with no assumed renewals.',
             'occupancy_map' => 'The property floor by floor — what is let, what is vacant, what is under fit-out.',
+            'rentable_item_map' => 'Parking, storage, signage and kiosks floor by floor — what is let, to whom, and what is free.',
             'occupancy_cost' => 'Rent and charges as a percentage of a tenant\'s turnover — whether the deal is affordable to them.',
             'sales_analytics' => 'Declared tenant turnover by period and category, and what percentage rent it implies.',
             'vat_return' => 'Output and input VAT for a period, the taxable base split by treatment, and whether the documents tie to the ledger.',

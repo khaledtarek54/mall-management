@@ -13,10 +13,18 @@
 
 use App\Filament\Admin\Pages\OccupancyMap;
 use App\Models\Unit;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Collection;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    // The catalogue, because the page is GATED (`reports.view` or `units.view`) since 2026-08-26.
+    // Without it every role holds nothing, `canAccess()` refuses, and `Livewire::test()` fails to
+    // mount with "Invalid Livewire snapshot structure" — which reads as a Livewire problem rather
+    // than a missing permission. `operations` holds `units.view`, so the scoping assertions below
+    // now run for an operator who genuinely may be here, which is what they were always meant to
+    // prove.
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
     $this->hw = makeAsset(['code' => 'HW']);
     $this->pa = makeAsset(['code' => 'PA']);

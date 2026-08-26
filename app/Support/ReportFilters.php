@@ -53,6 +53,8 @@ class ReportFilters
      */
     public const EXEMPT = [
         'app/Filament/Admin/Pages/OccupancyMap.php' => 'The map is drawn FOR one property, so its picker is required rather than an optional narrowing — an empty value has no rendering. Scoped through visibleAssets().',
+        'app/Filament/Admin/Pages/RentableItemMap.php' => 'The other map, exempt for the same reason and through the same shared concern (MapsOneProperty): it is drawn FOR one property, so an empty value has no rendering.',
+        'app/Filament/Admin/Pages/Concerns/MapsOneProperty.php' => 'Where both maps\' picker now lives. The gate sweeps file by file, so the concern needs its own entry as well as the two pages that use it.',
         'app/Filament/Admin/Pages/Concerns/ScopesLedgerReport.php' => 'The ledger reports take the PINNED control (PropertyField::reportScope) rather than this optional narrowing, and they persist the choice themselves. Their picker used to offer "Consolidated (all)" while reportAssetIds() clamped every pick back to the selected mall.',
         'app/Filament/Admin/Pages/GeneralLedger.php' => 'Uses the ledger scope above, alongside its own account picker.',
     ];
