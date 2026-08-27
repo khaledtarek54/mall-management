@@ -6,8 +6,10 @@ use App\Contracts\DeliverableReport;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
+use App\Models\Asset;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\ActivityVocabulary;
+use App\Support\AssignedAssets;
 use App\Support\Modules;
 use BackedEnum;
 use Carbon\Carbon;
@@ -80,8 +82,49 @@ class ActivityLog extends Page implements DeliverableReport, HasTable
         // refused by the screen, with no way to tell policy from bug. Two truths about one question.
         // The seeder now withholds the key from `mall_admin` explicitly, so the permission and the
         // screen say the same thing and access is unchanged.
+        //
+        // AND THE SCOPE IS CHECKED HERE, not left to the grant (2026-08-26). The reasoning above
+        // rests on "the grant itself stops at the full-portfolio roles" — and that premise was
+        // false. `viewer` and `manager` hold the key and BOTH can be pinned to one mall through the
+        // ordinary property-assignment field on the user form; `AssignedAssets::idsFor()` restricts
+        // anyone with an assignment, whatever their role. Measured: a `viewer` assigned to one mall
+        // opened this page and read a tenant rename that happened in ANOTHER one — exactly the leak
+        // `MALL_ADMIN_WITHHELD` exists to prevent, reached by a different door.
+        //
+        // Asked of the SCOPE rather than of the role list, so it cannot be reopened by a future
+        // grant: a feed that spans every mall is readable by whoever is entitled to every mall.
         return Modules::enabled('activity_log')
-            && (Auth::user()?->can('activity_log.view') ?? false);
+            && (Auth::user()?->can('activity_log.view') ?? false)
+            && static::readerHoldsEveryProperty();
+    }
+
+    /**
+     * Is this reader entitled to the WHOLE portfolio the feed spans?
+     *
+     * "Holds every mall", not "has no assignment". The obvious form —
+     * `! AssignedAssets::isRestricted()` — is wrong in both directions and the control test caught
+     * it: `idsFor()` returns null only for a super admin or an account that was never assigned, and
+     * an unassigned account cannot enter a mall's URL at all (`canAccessTenant()` refuses, the panel
+     * 404s), so that rule collapses to "super admin only" while an auditor legitimately assigned to
+     * EVERY mall would have been refused a feed that shows them nothing they cannot already see.
+     *
+     * Degrades the right way as the portfolio grows: an auditor holding two malls of three loses it
+     * the day the third is registered, which is the moment the feed starts spanning something they
+     * are not entitled to.
+     */
+    protected static function readerHoldsEveryProperty(): bool
+    {
+        $held = AssignedAssets::idsForCurrentUser();
+
+        // Unconstrained — a super admin. Nothing to compare against.
+        if ($held === null) {
+            return true;
+        }
+
+        return Asset::query()
+            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
+            ->whereNotIn('id', $held)
+            ->doesntExist();
     }
 
     public static function shouldRegisterNavigation(): bool
