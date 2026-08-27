@@ -102,6 +102,30 @@ it('maps each model exactly once — two aliases for one model is two truths in 
 });
 
 /**
+ * The log name a model DECLARES, asked of the model rather than grepped out of its source.
+ *
+ * Both tests below used to read `useLogName\('([a-z_]+)'\)` out of the file. That call moved into
+ * `ActivityLogging::for()` on 2026-08-24, so the pattern stopped matching ANY model — and the two
+ * failed in opposite directions, which is why only one of them was noticed:
+ *
+ *  - "names each model once" fell through to `Str::snake(class_basename())` and reported the three
+ *    models whose canonical name is deliberately shorter (`cam_pool`, `work_order_part`,
+ *    `tenant_sales`) as offenders — a red gate over correct code.
+ *  - "agrees with the activity log name" guards its comparison behind the same match, so it went
+ *    VACUOUS: nothing matched, nothing was compared, green for ever.
+ *
+ * One resolver, and the count below is what stops it happening again.
+ */
+function declaredLogName(string $class): ?string
+{
+    if (! method_exists($class, 'getActivitylogOptions')) {
+        return null;
+    }
+
+    return (new $class)->getActivitylogOptions()->logName;
+}
+
+/**
  * The rule is "the model's canonical short name", not "snake_case of the class". Where a model
  * declares a log name, that IS its canonical short name and the alias must match it — otherwise the
  * same model answers to two different words, one in the audit trail and one in the morph columns.
@@ -112,11 +136,7 @@ it('names each model once — the declared log name where there is one, snake_ca
     $offenders = [];
 
     foreach (MorphMap::MAP as $alias => $class) {
-        $source = file_get_contents((new ReflectionClass($class))->getFileName());
-
-        $expected = preg_match("/useLogName\('([a-z_]+)'\)/", $source, $m)
-            ? $m[1]
-            : Str::snake(class_basename($class));
+        $expected = declaredLogName($class) ?? Str::snake(class_basename($class));
 
         if ($alias !== $expected) {
             $offenders[] = "{$class} is '{$alias}', expected '{$expected}'";
@@ -152,15 +172,28 @@ it('makes a model report its alias, not its class name, as its morph type', func
 it('agrees with the activity log name each model declares', function () {
     $mismatched = [];
 
-    foreach (MorphMap::MAP as $alias => $class) {
-        $source = file_get_contents((new ReflectionClass($class))->getFileName());
+    $declared = 0;
 
-        if (preg_match("/useLogName\('([a-z_]+)'\)/", $source, $m) && $m[1] !== $alias) {
-            $mismatched[] = "{$class}: alias '{$alias}' vs log name '{$m[1]}'";
+    foreach (MorphMap::MAP as $alias => $class) {
+        $logName = declaredLogName($class);
+
+        if ($logName === null) {
+            continue;
+        }
+
+        $declared++;
+
+        if ($logName !== $alias) {
+            $mismatched[] = "{$class}: alias '{$alias}' vs log name '{$logName}'";
         }
     }
 
     expect($mismatched)->toBe([]);
+
+    // The control this test spent two days without: it compared nothing at all, because the
+    // pattern it matched on had moved into `ActivityLogging::for()`. A sweep that examines no
+    // model satisfies every assertion after it.
+    expect($declared)->toBeGreaterThan(60, 'Almost no model reported a log name — the sweep is comparing nothing.');
 });
 
 /**
