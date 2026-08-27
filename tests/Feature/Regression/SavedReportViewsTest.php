@@ -120,8 +120,15 @@ it('keeps a private view private and publishes a shared one', function () {
 });
 
 it('never lists a shared view for a report the reader cannot open', function () {
-    // The load-bearing one. Sharing publishes FILTERS; it must not publish the report. `marketing`
+    // The load-bearing one. Sharing publishes FILTERS; it must not publish the report. `leasing`
     // cannot open the VAT return, so a colleague sharing a VAT view must not put it on their hub.
+    //
+    // `leasing` rather than `marketing`, which this used until 2026-08-26: gating `OccupancyMap`
+    // (it had none, and printed every retailer's name) left marketing with ZERO visible reports, so
+    // `ReportHub::canAccess()` — `visibleTo() !== []` — refuses it outright and the mount 403s.
+    // That is correct: an empty hub should not be offered. But it makes marketing useless as the
+    // actor HERE, because this test needs someone who reaches the hub and is still refused one
+    // report on it. Leasing sees four categories and not the VAT return.
     $accountant = makeUser('accounting');
 
     SavedReport::create([
@@ -129,7 +136,7 @@ it('never lists a shared view for a report the reader cannot open', function () 
         'user_id' => $accountant->id, 'is_shared' => true,
     ]);
 
-    $this->actingAs(makeUser('marketing'));
+    $this->actingAs(makeUser('leasing'));
     Filament::setTenant($this->asset);
 
     expect(VatReturn::canAccess())->toBeFalse();

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\ActivityLogging;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -42,8 +43,17 @@ it('returns the public URL from logoUrl/faviconUrl when media is uploaded', func
 });
 
 it('includes primary_color in the activity-log allow-list', function () {
+    // Asked of `ActivityLogging::auditedColumns()`, not of `$options->logAttributes`.
+    //
+    // This read `logAttributes` until 2026-08-26 and had been failing since the denylist flip on
+    // 2026-08-24: `ActivityLogging::for()` composes logFillable() + logOnly($alsoLog) −
+    // logExcept($excluded), so `logAttributes` holds only the few non-fillable columns three models
+    // pass through $alsoLog — for Asset it is EMPTY, while `primary_color` is audited the whole
+    // time. The assertion was reading a list that no longer describes what is logged.
+    //
+    // The identical mistake had blinded two conformance gates. It survived here because CI runs on
+    // demand only, so a red test is silent rather than reported.
     $asset = makeAsset();
-    $options = $asset->getActivitylogOptions();
 
-    expect($options->logAttributes)->toContain('primary_color');
+    expect(ActivityLogging::auditedColumns($asset))->toContain('primary_color');
 });
