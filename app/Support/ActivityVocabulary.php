@@ -13,6 +13,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\Equipment;
+use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
 use App\Models\FailureCode;
 use App\Models\FixedAsset;
@@ -27,13 +28,16 @@ use App\Models\MarketingPost;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\PurchaseRequest;
 use App\Models\RecurringExpense;
+use App\Models\RetailCategory;
 use App\Models\ServicePlan;
 use App\Models\StockMovement;
 use App\Models\TaxCode;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
+use App\Models\TenantRequestSubcategory;
 use App\Models\TenantUser;
 use App\Models\Trade;
 use App\Models\Unit;
@@ -44,6 +48,8 @@ use App\Models\UtilityTariff;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorContract;
+use App\Models\VendorDocumentType;
+use App\Models\ViolationCategory;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
@@ -89,6 +95,74 @@ class ActivityVocabulary
      *
      * @var array<string, string>
      */
+    /**
+     * Columns whose values are CATALOGUE CODES — labelled by the catalogue, never by a lang group.
+     *
+     * A static list of words can never label these, and that is the whole point of the catalogues:
+     * `payment_methods`, `expense_categories`, `tenant_request_subcategories`, `retail_categories`,
+     * `vendor_document_types` and `violation_categories` are rows an operator ADDS without a
+     * deploy. Point one of these columns at `admin.enums.method` and the day the operator adds
+     * Fawry the audit trail prints `admin.enums.method.fawry` on the very screen whose filter lists
+     * it — the failure `IsCodeCatalogue` already states in writing for the panel, arriving in the
+     * log instead.
+     *
+     * `labelFor()` is the right resolver rather than a second lookup here: it reads the ROWS first
+     * (**inactive included**, so retiring a code never blanks the label on a document that carries
+     * it), falls back to the same lang group the forms use, and returns the raw code last. So the
+     * trail says the word the screen says.
+     *
+     * The set is DERIVED, not invented — every entry corresponds to a
+     * `ValueSets::catalogueWidenedColumns()` row whose model is audited, and
+     * `LoggedValuesResolveConformanceTest` fails if one is missing. `vendor_bill_payments.method`
+     * is catalogue-widened and absent because that model is not audited at all.
+     *
+     * @var array<string, class-string>
+     */
+    private const CATALOGUE_VALUES = [
+        'payment.method' => PaymentMethod::class,
+        'deposit_transaction.method' => PaymentMethod::class,
+        'disbursement.method' => PaymentMethod::class,
+        'expense.paid_from' => PaymentMethod::class,
+        'employee_advance.paid_from' => PaymentMethod::class,
+        'employee_advance_repayment.method' => PaymentMethod::class,
+
+        'expense.category' => ExpenseCategory::class,
+        'vendor_bill.category' => ExpenseCategory::class,
+        'recurring_expense.category' => ExpenseCategory::class,
+        'custody_transaction.category' => ExpenseCategory::class,
+
+        'tenant_request.category' => TenantRequestSubcategory::class,
+        'tenant.retail_category' => RetailCategory::class,
+        'vendor_document.type' => VendorDocumentType::class,
+        'violation.category' => ViolationCategory::class,
+    ];
+
+    /**
+     * Audited code columns that are deliberately rendered VERBATIM, with the reason.
+     *
+     * The same family of decision already recorded for `charge_code` and `account_mapping` codes:
+     * an identifier is not a classification. A currency is an **ISO 4217 code** — the operator
+     * types EGP, searches for EGP, and reads EGP on the bank statement; translating it into a word
+     * would make the diff harder to reconcile, not easier, and it is the same three letters in both
+     * languages anyway.
+     *
+     * Registered rather than silently skipped so the decision is reviewable: the alternative is a
+     * gate exemption keyed on a column NAME, which would quietly swallow the next `*_currency`
+     * column that genuinely did need words.
+     *
+     * **Read by the GATE, not by `lookupValue()`.** A column with no vocabulary already falls
+     * through to the raw value, so a runtime branch here would be a check that can never change an
+     * answer — it was written, mutation-tested, found to change nothing, and removed. What this
+     * registry does is make the silence deliberate: without it
+     * `LoggedValuesResolveConformanceTest` reports eleven currency columns as missing words, and
+     * the honest reply is "they are codes", stated once here rather than argued again each time.
+     *
+     * @var array<string, string> column => why the raw value is the honest rendering
+     */
+    private const VERBATIM_VALUES = [
+        'currency' => 'An ISO 4217 code. The operator types, searches and reconciles on EGP — the same three letters in both languages — so a translated word would make the diff harder to tie back to the bank, not easier.',
+    ];
+
     private const VALUE_VOCABULARY = [
         // Both render raw without this: the `admin.statuses.{log_name}` convention only fires
         // for a field literally called `status`.
@@ -128,6 +202,40 @@ class ActivityVocabulary
         // out an automated match: `admin.enums.category` is the RETAIL category list (retail,
         // food_beverage, …), NOT an expense category; and TenantRequest's field is
         // `request_type`, not `type`.
+        // ── Added 2026-08-26, when `auditedColumns()` restored the gate's sight ───────────────
+        // The denylist flip (2026-08-24) widened the trail from 598 columns to 1,034 and the
+        // vocabulary never followed; the gate that should have said so was reading
+        // `logAttributes`, which the flip had emptied. These are the columns that came back into
+        // view. Each is pointed at the group its own FORM renders — checked against the Select,
+        // not matched on key overlap.
+        'cam_pool.expense_basis' => 'admin.cam.expense_bases',
+        'cam_pool.estimate_basis' => 'admin.cam.estimate_bases',
+        'cam_pool.denominator_basis' => 'admin.cam.denominator_bases',
+        'charge.billing_timing' => 'admin.enums.billing_timing',
+        'fixed_asset.method' => 'admin.enums.depreciation_method',
+        'fixed_asset.tax_pool' => 'admin.tax_depreciation.pools',
+        'fixed_asset.funded_from' => 'admin.enums.cash_or_bank',
+        'lease.proration_method' => 'admin.proration_methods',
+        'lease.rent_pricing_basis' => 'admin.enums.rent_pricing_basis',
+        'lease.billing_frequency' => 'admin.billing_frequency',
+        'lease.escalation_type' => 'admin.enums.escalation_type',
+        'lease.percentage_rent_calculation_type' => 'admin.enums.percentage_rent_calculation_type',
+        'lease.percentage_rent_frequency' => 'admin.enums.percentage_rent_frequency',
+        'lease.percentage_rent_billing_frequency' => 'admin.enums.percentage_rent_billing_frequency',
+        'lease_option.rent_basis' => 'admin.lease_options.rent_bases',
+        'ledger_account.cash_flow_section' => 'admin.enums.cash_flow_section',
+        'ledger_account.normal_balance' => 'admin.enums.normal_balance',
+        'marketing_post.type' => 'admin.marketing_posts.types',
+        'owner_statement_run.basis' => 'admin.owner_statements.bases',
+        'payment.channel' => 'admin.enums.payment_channel',
+        // ONE group for both, deliberately: a tenant's trade licence and a vendor's insurance
+        // certificate lapse on the same two-stage clock, and a second list of words for it would be
+        // a second answer to one question — the rule `tenant_request.sla_clock` already follows.
+        'tenant_document.alert_stage' => 'admin.enums.document_alert_stage',
+        'vendor_document.alert_stage' => 'admin.enums.document_alert_stage',
+        'tenant_request.channel' => 'admin.enums.request_channel',
+        'vendor_contract.sla_penalty_basis' => 'admin.facility.penalty.bases',
+
         'account_mapping.key' => 'admin.posting_roles',
         'approval_rule.module' => 'admin.enums.approval_module',
         'asset.type' => 'admin.enums.asset_type',
@@ -254,7 +362,7 @@ class ActivityVocabulary
      */
     public const NOT_A_REFERENCE = [
         // Identifiers that are values, not pointers.
-        'national_id' => "An Egyptian national ID NUMBER on an employee — a value, not a pointer. Resolving it would render whichever record happened to share that number.",
+        'national_id' => 'An Egyptian national ID NUMBER on an employee — a value, not a pointer. Resolving it would render whichever record happened to share that number.',
         'tax_id' => 'A tax registration number on a tenant or vendor. Same shape as national_id and the same hazard.',
         'gateway_transaction_id' => "The payment provider's own reference string — meaningful to them, resolvable by nothing here.",
 
@@ -657,6 +765,12 @@ class ActivityVocabulary
             return null;
         }
 
+        // The catalogue answers first, because for these columns nothing else can: the value may be
+        // a row the operator added after this code shipped.
+        if ($catalogue = self::CATALOGUE_VALUES["{$logName}.{$field}"] ?? null) {
+            return $catalogue::labelFor($value);
+        }
+
         $prefix = self::VALUE_VOCABULARY["{$logName}.{$field}"]
             ?? ($field === 'status' ? "admin.statuses.{$logName}" : null);
 
@@ -667,6 +781,31 @@ class ActivityVocabulary
         $key = self::valueKey($prefix, $value);
 
         return $key === null ? null : __($key);
+    }
+
+    /**
+     * The catalogue that labels this column's values, or null when a lang group does.
+     *
+     * Public for the same reason {@see valueKey()} is: the conformance gate must ask the question
+     * this class answers rather than keep a second copy of the rule.
+     *
+     * @return class-string|null
+     */
+    public static function catalogueFor(string $logName, string $field): ?string
+    {
+        return self::CATALOGUE_VALUES["{$logName}.{$field}"] ?? null;
+    }
+
+    /** Every catalogue-backed column, for the gate that checks the registry is complete. */
+    public static function catalogueValues(): array
+    {
+        return self::CATALOGUE_VALUES;
+    }
+
+    /** Why this column renders verbatim, or null when it should be translated. */
+    public static function verbatimReason(string $field): ?string
+    {
+        return self::VERBATIM_VALUES[$field] ?? null;
     }
 
     /**

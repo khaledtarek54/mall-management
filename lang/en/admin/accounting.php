@@ -435,6 +435,7 @@ return [
         ],
         'bases' => [
             'accrual' => 'Accrual',
+            'cash' => 'Cash',
         ],
         'fields' => [
             'reference' => 'Reference',
@@ -581,6 +582,11 @@ return [
         'basis_stated' => 'A figure typed here',
         'basis_ledger' => 'Posted ledger accounts',
         'basis_billed' => 'What tenants were invoiced',
+        // Value-keyed twins of the three labels above, so the audit trail resolves a stored
+        // basis through the same words the form shows. Same strings, addressed by VALUE.
+        'expense_bases' => ['stated' => 'A figure typed here', 'ledger' => 'Posted ledger accounts'],
+        'estimate_bases' => ['stated' => 'A figure typed here', 'billed' => 'What tenants were invoiced'],
+        'denominator_bases' => ['occupied' => 'Occupied area (tenants trading)', 'gla' => 'Gross leasable area (landlord bears vacancy)', 'fixed' => 'A fixed area'],
         'estimate_charge_codes' => 'Charge codes that are this pool\'s estimate',
         'estimate_charge_codes_help' => 'Which billed lines count as estimates already paid into THIS pool. A CAM pool is normally the service charge; a tax or insurance pool must name its own codes, or it would subtract the tenant\'s service charge from its own recovery.',
         'errors' => [

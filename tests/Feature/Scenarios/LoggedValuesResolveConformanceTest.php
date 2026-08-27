@@ -64,6 +64,21 @@ function loggedCodeColumns(): array
 
             $key = $logName.'.'.$column;
 
+            // A CATALOGUE column is labelled by its rows, not by a lang group — the operator adds
+            // codes without a deploy, so no static list can ever cover it. `IsCodeCatalogue` reads
+            // rows first (inactive included), then the same group the forms use, then the raw code,
+            // and `CatalogueLabelsFollowARenameTest` gates that. Covered by BEING one.
+            if (ActivityVocabulary::catalogueFor($logName, $column) !== null) {
+                continue;
+            }
+
+            // Deliberately verbatim — an identifier, not a classification. Registered with a reason
+            // rather than skipped on a column-name pattern, which would swallow the next one that
+            // genuinely needed words.
+            if (ActivityVocabulary::verbatimReason($column) !== null) {
+                continue;
+            }
+
             // The convention: `status` resolves through `admin.statuses.{log_name}` with no entry.
             $group = $vocabulary[$key]
                 ?? ($column === 'status' && Lang::has("admin.statuses.{$logName}") ? "admin.statuses.{$logName}" : null);
@@ -128,4 +143,51 @@ it('covers EVERY value in the set, in both languages', function () {
 
     expect($gaps)->toBe([], "A value vocabulary does not cover its whole value set:\n  "
         .implode("\n  ", $gaps));
+});
+
+it('routes every catalogue-widened audited column through its catalogue', function () {
+    // The registry is DERIVED, not invented: `ValueSets::catalogueWidenedColumns()` is the
+    // independent source, so a catalogue that grows a column cannot quietly keep rendering it from
+    // a static lang group — which would print `admin.enums.method.fawry` in the trail the first
+    // time an operator added a rail.
+    $audited = [];
+
+    foreach (File::allFiles(app_path('Models')) as $file) {
+        $class = 'App\\Models\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
+
+        if (! class_exists($class) || (new ReflectionClass($class))->isAbstract()) {
+            continue;
+        }
+
+        if (! method_exists($class, 'getActivitylogOptions')) {
+            continue;
+        }
+
+        $model = new $class;
+        $audited[$model->getTable()] = $model->getActivitylogOptions()->logName ?? 'default';
+    }
+
+    $expected = [];
+
+    foreach (ValueSets::catalogueWidenedColumns() as $tableColumn => [$catalogue]) {
+        [$table, $column] = explode('.', $tableColumn, 2);
+
+        // A catalogue-widened column on a model nobody audits has nothing to render in the trail.
+        if (! isset($audited[$table])) {
+            continue;
+        }
+
+        $expected[$audited[$table].'.'.$column] = $catalogue;
+    }
+
+    ksort($expected);
+    $registered = ActivityVocabulary::catalogueValues();
+    ksort($registered);
+
+    expect($registered)->toBe($expected,
+        'ActivityVocabulary::CATALOGUE_VALUES and ValueSets::catalogueWidenedColumns() disagree about which audited columns hold catalogue codes.');
+
+    // The control: the derivation found something. An empty expectation would make the comparison
+    // above pass over an empty registry.
+    expect($expected)->not->toBeEmpty();
 });

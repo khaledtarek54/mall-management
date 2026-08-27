@@ -118,7 +118,10 @@ class FixedAssetForm
                 ->required(),
             Select::make('funded_from')
                 ->label(__('admin.fixed_assets.fields.funded_from'))
-                ->options(['cash' => 'Cash', 'bank' => 'Bank'])
+                // Was `['cash' => 'Cash', 'bank' => 'Bank']` — hardcoded English on both panels,
+                // found while giving this column an audit vocabulary. The trail and the form now
+                // read the same words, in the reader's language.
+                ->options(fn (): array => __('admin.enums.cash_or_bank'))
                 ->default('cash')
                 ->required()
                 ->native(false),
