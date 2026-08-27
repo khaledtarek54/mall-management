@@ -3,6 +3,7 @@
 use App\Settings\AccountingSettings;
 use App\Settings\BillingSettings;
 use App\Settings\CalendarSettings;
+use App\Settings\HousekeepingSettings;
 use App\Settings\IntegrationsSettings;
 use App\Settings\MarketingSettings;
 use App\Settings\ModulesSettings;
@@ -35,6 +36,7 @@ return [
         // read on every taxable supply — and the Settings screen now derives its tabs from here,
         // so an unregistered class is a tab that does not exist.
         TaxSettings::class,
+        HousekeepingSettings::class,
     ],
 
     /*

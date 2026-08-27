@@ -24,6 +24,7 @@ return [
             'tax' => 'Tax',
             'payroll' => 'Payroll',
             'integrations' => 'Integrations',
+            'housekeeping' => 'Housekeeping',
         ],
         // One line per module switch, under Settings → Modules. Kept short on purpose: the field
         // help budget is 18 words (App\Support\FieldHelp), and a switch needs to say what STOPS
@@ -75,6 +76,8 @@ return [
             'leasing_defaults_description' => 'What a new lease form starts from. A starting point only — the operator overwrites it on any lease that differs, and nothing derives from it afterwards.',
             'records_retention' => 'Records retention',
             'records_retention_description' => 'How long the audit trail is kept. Egyptian commercial and tax records are commonly a five-year obligation, and this system never deletes a money document — so the trail should outlive the books it describes.',
+            'housekeeping' => 'What the system generates',
+            'housekeeping_description' => 'How long the by-products of running the system are kept — bell notifications, generated exports, import failure notes, failed jobs and expired API tokens. None of it is money or evidence, and it grows for ever unless a period is set. Set any field to 0 to keep it indefinitely.',
             'document_numbering' => 'Document numbering',
             'document_numbering_description' => 'The letters at the front of each document number. Set these BEFORE go-live: afterwards they are printed on issued documents that cannot be renumbered, and changing one starts a second series rather than renumbering the first.',
             'revenue_recognition_description' => 'How rent is recognised in the books. This does not change what any tenant is invoiced.',
@@ -116,6 +119,16 @@ return [
             'payroll_gratuity_exposure_value' => ':amount across :headcount active employees — what would be owed if everyone left today.',
             'activity_log_retention_days' => 'Keep the activity log for',
             'activity_log_retention_days_help' => 'Older entries are deleted on the 1st of each month. 0 keeps everything. Five years (1825) covers the usual Egyptian statutory period.',
+            'notification_retention_days' => 'Bell notifications',
+            'notification_retention_days_help' => 'The invoice or work order it points at stays. 0 keeps every notification.',
+            'export_retention_days' => 'Generated exports',
+            'export_retention_days_help' => 'Deletes the FILE as well as the record. An export can hold a whole register. 0 keeps them.',
+            'import_retention_days' => 'Import records',
+            'import_retention_days_help' => 'The per-row failure notes go with them. 0 keeps every import.',
+            'failed_job_retention_days' => 'Failed background jobs',
+            'failed_job_retention_days_help' => 'Diagnostic residue after a job has been retried or abandoned. 0 keeps them.',
+            'expired_token_grace_days' => 'Expired API tokens',
+            'expired_token_grace_days_help' => 'Already expired and granting nothing — this only reclaims the rows. 0 keeps them.',
             'document_number_reset' => 'When a series starts again',
             'document_number_reset_help' => 'Set this before your first invoice — it is printed on documents that cannot be renumbered. Yearly is what most accounting systems do.',
             'document_number_reset_options' => [

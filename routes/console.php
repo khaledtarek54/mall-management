@@ -179,6 +179,20 @@ Schedule::command('atriom:prune-activity-log')
     ->name('atriom-clean-activity-log')
     ->withoutOverlapping();
 
+// The five OTHER tables that grow with nothing to prune them (D2-09): notifications, exports and
+// their files, import failures, failed jobs and expired API tokens. EG-34 gave the audit trail a
+// period and stopped there.
+//
+// WEEKLY, not monthly: these turn over far faster than an audit trail and none of them is evidence,
+// so the cost of holding them is storage and — for an export file containing a whole register —
+// exposure. One command rather than five schedule lines, because Laravel's and Sanctum's own
+// pruners take the period as an ARGUMENT and reading a setting here would read it while the
+// schedule is being defined. It is called at run time instead.
+Schedule::command('atriom:prune-transient-data')
+    ->weeklyOn(1, '05:30')
+    ->name('atriom-prune-transient-data')
+    ->withoutOverlapping();
+
 // Daily auto-close pass on resolved maintenance requests older than
 // config('requests.auto_close_after_days') (default 7). Without this
 // resolved tickets accumulate forever — operators occasionally need the

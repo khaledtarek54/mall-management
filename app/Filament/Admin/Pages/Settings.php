@@ -92,6 +92,7 @@ class Settings extends Page implements HasSchemas
                     Tab::make(__('admin.settings.tabs.tax'))->icon('heroicon-o-receipt-percent')->schema($this->taxFields()),
                     Tab::make(__('admin.settings.tabs.payroll'))->icon('heroicon-o-users')->schema($this->payrollFields()),
                     Tab::make(__('admin.settings.tabs.integrations'))->icon('heroicon-o-bolt')->schema($this->integrationsFields()),
+                    Tab::make(__('admin.settings.tabs.housekeeping'))->icon('heroicon-o-trash')->schema($this->housekeepingFields()),
                 ])
                 ->columnSpanFull(),
         ]);
@@ -687,6 +688,45 @@ class Settings extends Page implements HasSchemas
     }
 
     /** @return array<int, mixed> */
+    /**
+     * How long the system keeps what it generates (D2-09).
+     *
+     * A tab of its own rather than more rows under Accounting's "records retention", where
+     * `activity_log_retention_days` lives: that period answers a STATUTORY question (Egyptian book
+     * retention, and the audit trail must outlive the books it describes). These five answer an
+     * operational one, and folding them together would invite an operator to set the audit trail by
+     * the same reasoning they set a failed-jobs table.
+     *
+     * Every field carries the same 0-means-keep-everything note, because the convention is only
+     * useful if it is visible at the field rather than in a docblock.
+     */
+    private function housekeepingFields(): array
+    {
+        $days = fn (string $key) => TextInput::make("housekeeping.{$key}")
+            ->label(__("admin.settings.fields.{$key}"))
+            ->helperText(__("admin.settings.fields.{$key}_help"))
+            ->numeric()
+            ->minValue(0)
+            // The same typo guard the audit-trail field carries: the unit is DAYS and an operator
+            // thinking in years will eventually type one.
+            ->maxValue(10000)
+            ->suffix(__('admin.fields.days'))
+            ->required();
+
+        return [
+            Section::make(__('admin.settings.sections.housekeeping'))
+                ->description(__('admin.settings.sections.housekeeping_description'))
+                ->columns(2)
+                ->components([
+                    $days('notification_retention_days'),
+                    $days('export_retention_days'),
+                    $days('import_retention_days'),
+                    $days('failed_job_retention_days'),
+                    $days('expired_token_grace_days'),
+                ]),
+        ];
+    }
+
     private function integrationsFields(): array
     {
         return [

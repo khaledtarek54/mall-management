@@ -108,6 +108,7 @@ final class ScheduledModules
      * @var array<string, string>
      */
     public const CORE = [
+        'atriom:prune-transient-data' => 'Housekeeping for what the SYSTEM generates — notifications, export files, import failures, failed jobs, expired tokens. It belongs to no module because every module produces some of it, and switching it off would only mean the tables grow silently. Each period is 0-able on the Settings screen, which is the real off switch.',
         'accounting:post-straight-line-rent' => 'The general ledger. A lease that has commenced accrues rent whether or not any optional module is on.',
         'accounting:sync-ledger' => 'The general ledger. Its whole job is to notice documents the real-time hooks missed; gating it on anything would make the books depend on a toggle.',
         'atriom:backup-verify' => 'The restore drill. Nothing about a disabled module makes an unverified backup safer.',
