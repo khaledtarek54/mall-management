@@ -325,6 +325,7 @@ return [
             'footer' => 'This purchase order is issued electronically. Please supply against the reference above.',
         ],
         'billed_to' => 'Billed To',
+        'document_details' => 'Document Details',
         'lease_reference' => 'Lease Reference',
         'ownership_reference' => 'Ownership Reference',
         'billing_period' => 'Billing Period',

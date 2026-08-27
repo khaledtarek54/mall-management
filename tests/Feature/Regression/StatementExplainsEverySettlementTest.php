@@ -23,10 +23,21 @@
 |
 | The draft rule is tested here rather than assumed: this same service renders the PORTAL and the
 | mobile API statement, and `credit_notes.status` DEFAULTS to draft at the column.
+|
+| **The other two channels went unprinted for another nine days (AR-GL-03, 2026-08-26).** Fixing the
+| credit note left the page listing TWO of the four, and the two still missing were applied
+| on-account tenant credit and a netted security deposit. The deposit is the worse omission: on a
+| final move-out statement it is usually the largest single settlement the tenant will ever see, and
+| it is the one they are most likely to query. Both now render in one "Other settlements" section
+| with a KIND column — one table rather than two, because both answer the same question and carry
+| the same four facts.
 */
 
 use App\Models\CreditNote;
+use App\Models\DepositApplication;
 use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\TenantCreditApplication;
 use App\Services\TenantStatementPdfService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\View;
@@ -171,4 +182,150 @@ it('renders the credits section into the document itself', function () {
         // one is printed verbatim; neither can be a lang key.
         ->and($html)->not->toContain('admin.enums')
         ->and($html)->toContain('Jul – Sep 2026');
+});
+
+/** An issued invoice settled by something that is neither a payment nor a credit note. */
+function statementInvoiceSettledOffLedger($ctx, float $total, float $settled): Invoice
+{
+    return makeInvoice($ctx->lease, [
+        'asset_id' => $ctx->asset->id,
+        'status' => 'partially_paid',
+        'issue_date' => '2026-07-01',
+        'period_start' => '2026-07-01',
+        'period_end' => '2026-07-31',
+        'total' => $total,
+        'paid_amount' => $settled,
+        'balance' => $total - $settled,
+    ]);
+}
+
+it('lists applied on-account credit — the third channel', function () {
+    $invoice = statementInvoiceSettledOffLedger($this, 50000, 12000);
+
+    TenantCreditApplication::create([
+        'tenant_id' => $this->tenant->id,
+        'invoice_id' => $invoice->id,
+        'asset_id' => $this->asset->id,
+        'amount' => 12000,
+        'entry_date' => '2026-08-01',
+        'notes' => 'Overpayment from June',
+    ]);
+
+    $data = $this->svc->data($this->tenant);
+
+    expect($data['summary']['total_paid'])->toBe(12000.0)
+        ->and($data['payments'])->toHaveCount(0)
+        ->and($data['credits'])->toHaveCount(0)
+        ->and($data['settlements'])->toHaveCount(1)
+        ->and($data['settlements']->first()['amount'])->toBe(12000.0)
+        ->and($data['settlements']->first()['invoice'])->toBe($invoice->number);
+});
+
+it('lists a netted security deposit — the fourth, and the one a move-out turns on', function () {
+    $invoice = statementInvoiceSettledOffLedger($this, 90000, 90000);
+
+    DepositApplication::create([
+        'lease_id' => $this->lease->id,
+        'tenant_id' => $this->tenant->id,
+        'invoice_id' => $invoice->id,
+        'asset_id' => $this->asset->id,
+        'amount' => 90000,
+        'entry_date' => '2026-08-10',
+        'notes' => 'Deposit netted on move-out',
+    ]);
+
+    $data = $this->svc->data($this->tenant);
+
+    expect($data['settlements'])->toHaveCount(1)
+        ->and($data['settlements']->first()['amount'])->toBe(90000.0);
+
+    // Everything the page accounts for must equal what it says was settled. That equality is the
+    // whole point — a `settlements` key that existed but stayed empty would satisfy a weaker test.
+    $accountedFor = (float) $data['payments']->sum('amount')
+        + (float) $data['credits']->sum('applied_amount')
+        + (float) $data['settlements']->sum('amount');
+
+    expect($accountedFor)->toBe($data['summary']['total_paid']);
+});
+
+it('reconciles a statement settled through all FOUR channels at once', function () {
+    // The case the original defect was found on: a termination where several channels ran together
+    // and the printed lines did not add up to the printed total.
+    $invoice = makeInvoice($this->lease, [
+        'asset_id' => $this->asset->id,
+        'status' => 'paid',
+        'issue_date' => '2026-07-01',
+        'period_start' => '2026-07-01',
+        'period_end' => '2026-07-31',
+        'total' => 100000,
+        'credit_applied_amount' => 20000,
+        'paid_amount' => 100000,
+        'balance' => 0,
+    ]);
+
+    $payment = Payment::create([
+        'tenant_id' => $this->tenant->id,
+        'amount' => 40000,
+        'method' => 'cash',
+        'status' => 'captured',
+        'payment_date' => '2026-08-02',
+    ]);
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => 40000]);
+
+    CreditNote::create([
+        'tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id, 'asset_id' => $this->asset->id,
+        'status' => 'applied', 'issue_date' => '2026-08-03',
+        'subtotal' => 20000, 'total' => 20000, 'applied_amount' => 20000, 'balance' => 0,
+        'reason' => 'Service failure',
+    ]);
+
+    TenantCreditApplication::create([
+        'tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id, 'asset_id' => $this->asset->id,
+        'amount' => 15000, 'entry_date' => '2026-08-04',
+    ]);
+
+    DepositApplication::create([
+        'lease_id' => $this->lease->id, 'tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id,
+        'asset_id' => $this->asset->id, 'amount' => 25000, 'entry_date' => '2026-08-05',
+    ]);
+
+    $data = $this->svc->data($this->tenant);
+
+    $accountedFor = (float) $data['payments']->sum('amount')
+        + (float) $data['credits']->sum('applied_amount')
+        + (float) $data['settlements']->sum('amount');
+
+    expect($data['summary']['total_paid'])->toBe(100000.0)
+        ->and($accountedFor)->toBe(100000.0)
+        // …and each channel is separately visible, not merged into one unexplained figure.
+        ->and($data['payments'])->toHaveCount(1)
+        ->and($data['credits'])->toHaveCount(1)
+        ->and($data['settlements'])->toHaveCount(2);
+});
+
+it('renders the other-settlements section into the document itself', function () {
+    // The data being right is not the same as the page printing it — the credits half of this fix
+    // needed exactly this assertion too.
+    $invoice = statementInvoiceSettledOffLedger($this, 90000, 90000);
+
+    DepositApplication::create([
+        'lease_id' => $this->lease->id, 'tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id,
+        'asset_id' => $this->asset->id, 'amount' => 90000, 'entry_date' => '2026-08-10',
+    ]);
+
+    $html = View::make('tenants.statement', $this->svc->data($this->tenant))->render();
+
+    expect($html)->toContain(__('admin.statement.other_settlements'))
+        ->and($html)->toContain(__('admin.statement.settlement_kinds.deposit'))
+        ->and($html)->toContain('90,000.00');
+});
+
+it('leaves the section off a statement that needs no explaining', function () {
+    // An empty "Other settlements" table on every ordinary statement is noise — the same rule the
+    // credits table follows.
+    statementInvoiceSettledOffLedger($this, 50000, 0);
+
+    $html = View::make('tenants.statement', $this->svc->data($this->tenant))->render();
+
+    expect($html)->not->toContain(__('admin.statement.other_settlements'));
 });

@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Enums\UnitOwnershipStatus;
 use App\Models\Asset;
+use App\Models\DepositApplication;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\TenantCreditApplication;
 use App\Support\IssuingEntity;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -136,6 +138,49 @@ class TenantStatementPdfService
             ->orderByDesc('issue_date')
             ->get();
 
+        // The OTHER two channels (AR-GL-03). `Invoice::recomputeTotals()` settles a balance through
+        // FOUR of them — captured payments, an applied credit note, applied on-account tenant credit
+        // and a netted security deposit — and this page listed the first two. So a statement could
+        // say Total Settled 232,100 against Total Received 152,000 with the difference itemised
+        // nowhere, which is worst on a final move-out statement, where netting the deposit is
+        // usually the largest single settlement the tenant will see.
+        //
+        // ONE section rather than two more tables: both answer the same question a tenant is asking
+        // ("what settled this, if not a payment or a credit note?"), both carry the same four facts,
+        // and a fourth five-column table on a one-page statement buys nothing. The KIND column is
+        // what makes them readable apart.
+        //
+        // Soft-deleted rows are excluded by the models' own `SoftDeletes`, which is what makes a
+        // reversal disappear from the statement as well as from the balance.
+        $settlements = collect()
+            ->concat($tenant->creditApplications()
+                ->with('invoice')
+                ->whereDate('entry_date', '>=', $since)
+                ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
+                ->get()
+                ->map(fn (TenantCreditApplication $row): array => [
+                    'kind' => __('admin.statement.settlement_kinds.tenant_credit'),
+                    'date' => $row->entry_date,
+                    'invoice' => $row->invoice?->number,
+                    'notes' => $row->notes,
+                    'amount' => (float) $row->amount,
+                ]))
+            ->concat(DepositApplication::query()
+                ->with('invoice')
+                ->where('tenant_id', $tenant->getKey())
+                ->whereDate('entry_date', '>=', $since)
+                ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
+                ->get()
+                ->map(fn (DepositApplication $row): array => [
+                    'kind' => __('admin.statement.settlement_kinds.deposit'),
+                    'date' => $row->entry_date,
+                    'invoice' => $row->invoice?->number,
+                    'notes' => $row->notes,
+                    'amount' => (float) $row->amount,
+                ]))
+            ->sortByDesc('date')
+            ->values();
+
         $summary = [
             'outstanding' => (float) $invoicesAll->sum('balance'),
             'overdue' => (float) $invoicesAll
@@ -218,6 +263,7 @@ class TenantStatementPdfService
             'recentInvoices' => $recentInvoices,
             'payments' => $payments,
             'credits' => $credits,
+            'settlements' => $settlements,
         ];
     }
 

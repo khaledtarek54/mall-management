@@ -545,6 +545,13 @@ return [
         'total_received' => 'Total Received',
         'credits_applied' => 'Credits Applied',
         'total_credited' => 'Total Credited',
+        'other_settlements' => 'Other Settlements',
+        'total_other_settlements' => 'Total Other Settlements',
+        'settlement_kind' => 'Settled by',
+        'settlement_kinds' => [
+            'tenant_credit' => 'Credit on account applied',
+            'deposit' => 'Security deposit applied',
+        ],
         'no_open_invoices' => 'No open invoices — property is fully settled.',
         'no_recent_payments' => 'No payments captured in this period.',
         'truncated_note' => 'Showing :shown of :total. Download CSV from the invoices list for the full set.',

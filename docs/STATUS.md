@@ -31,14 +31,35 @@ credential, a piece of infrastructure, or a decision only you can make.
 
 | Check | Result | When |
 |---|---|---|
-| Test suite | **6,416 tests, 6,398 passed, 18 skipped, 0 failed** (26,119 assertions) | 2026-08-24 |
+| Test suite | **6,597 tests, 6,577 passed, 20 skipped, 0 failed** (28,907 assertions) | 2026-08-26 |
 | Pre-staging QA harness (real services, real MySQL) | **1,084 assertions, 0 failed** | 2026-08-24 |
-| MySQL-only tier (locks, enums, column widths, search) | **6/6, 84 assertions** | 2026-08-24 |
+| MySQL-only tier (locks, enums, column widths, search, **every filter on the real driver**) | **9/9, 2,594 assertions** | 2026-08-26 |
 | Concurrency races (two processes, two connections) | **4/4 refused correctly** | 2026-08-23 |
 | Browser suite (Playwright) | **442 passed** | 2026-08-23 |
 | Conformance-gate audit | **69 of 72 gates mutation-proven**; 5 holes found and fixed | 2026-08-24 |
 | Pre-staging findings (F-01 … F-13) | **all closed** | 2026-08-24 |
 | **Final verification** — 8 lenses, 16 agents, every finding adversarially verified | **82 raised · 80 confirmed · 14 fixed · rest backlogged**; nothing blocking | 2026-08-24 |
+
+**Since that round — an authorization pass on 2026-08-26.** Four defects, two of them holes rather
+than gaps, all found by sweeping rather than by report:
+
+- **The occupancy map had no `canAccess()` at all.** A Filament page without one is open to every
+  authenticated user, and that page prints the NAME OF THE TENANT trading in each unit plus the
+  mall's vacancy rate. An external maintenance contractor could read it, along with `technician`,
+  `coordinator`, `customer_service`, `marketing` and `hr`. Its two neighbours in the same navigation
+  group both gate on `reports.view`.
+- **A `viewer` or `manager` pinned to ONE mall could read every mall's activity log.** The screen
+  trusted that the grant "stops at the full-portfolio roles"; both of those roles hold the key and
+  both can be pinned through the ordinary user form.
+- Every filter in the panel 500'd the moment it was used on eleven tables (`order by tenants.tenant`),
+  and a parking bay whose lease had expired still read *assigned* on the register for ever.
+
+**What now stops them recurring** is the more useful half: all 14 roles are swept against all 99
+screens through the real route (200 or 403, never a 500); every admin list is checked for
+cross-property rows for a restricted operator, and every screen is requested under a mall the
+operator does not hold; and a screen that NO role is refused now fails the build unless it is
+registered as universal with a reason. The panel's filters are swept on both database drivers and
+as a property-scoped operator as well as a super admin.
 
 **The final verification round is done** — [qa/STAGING-FINAL-VERIFICATION.md](qa/STAGING-FINAL-VERIFICATION.md)
 is the evidence (and §0 answers *"where do we stand against Yardi and the market?"*), and

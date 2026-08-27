@@ -324,6 +324,7 @@ return [
             'footer' => 'صدر أمر الشراء هذا إلكترونيًا. يُرجى التوريد بموجب المرجع أعلاه.',
         ],
         'billed_to' => 'مفوترة إلى',
+        'document_details' => 'بيانات المستند',
         'lease_reference' => 'مرجع العقد',
         'ownership_reference' => 'مرجع التمليك',
         'billing_period' => 'فترة الفوترة',

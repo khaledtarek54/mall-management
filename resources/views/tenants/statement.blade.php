@@ -292,6 +292,46 @@
         </table>
     @endif
 
+    {{-- The other two settlement channels (AR-GL-03). An invoice's balance falls through FOUR of
+         them and this page listed two, so Total Settled could exceed Total Received with the
+         difference itemised nowhere — worst on a final move-out statement, where netting the
+         deposit is usually the largest single settlement the tenant will ever see.
+
+         One table with a KIND column rather than two more: both answer the same question and carry
+         the same four facts. Rendered only when there are any, for the reason the credits table
+         gives — an empty section on every ordinary statement is noise. --}}
+    @if($settlements->isNotEmpty())
+        <div class="section-title">{{ __('admin.statement.other_settlements') }} ({{ $settlements->count() }})</div>
+        <table class="data">
+            <thead>
+                <tr>
+                    <th style="width:26%;">{{ __('admin.statement.settlement_kind') }}</th>
+                    <th style="width:14%;">{{ __('admin.tables.payment.date') }}</th>
+                    <th style="width:20%;">{{ __('admin.tables.invoice.number') }}</th>
+                    <th style="width:22%;">{{ __('admin.fields.notes') }}</th>
+                    <th class="num" style="width:18%;">{{ __('admin.tables.credit_note.applied') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($settlements as $row)
+                    <tr>
+                        <td>{{ $row['kind'] }}</td>
+                        <td>{{ $row['date']?->format('d/m/Y') ?? '—' }}</td>
+                        <td style="font-family:monospace;font-size:8pt;">{{ $row['invoice'] ?? '—' }}</td>
+                        <td>{{ $row['notes'] ?? '—' }}</td>
+                        <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format($row['amount'], 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="num">{{ __('admin.statement.total_other_settlements') }}</td>
+                    <td class="num" style="color:#2D6B3F;">EGP {{ number_format((float) $settlements->sum('amount'), 2) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    @endif
+
     <div class="section-title">{{ __('admin.statement.recent_payments') }} ({{ $payments->count() }})</div>
     @if($payments->isEmpty())
         <div class="empty">{{ __('admin.statement.no_recent_payments') }}</div>

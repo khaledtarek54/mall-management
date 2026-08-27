@@ -4,10 +4,9 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Support\IssuingEntity;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 use App\Support\VatSummary;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
 
 class InvoicePdfService
 {
@@ -65,38 +64,45 @@ class InvoicePdfService
         ];
     }
 
-    public function build(Invoice $invoice): string
+    /**
+     * The invoice as a PDF, in the language its READER reads.
+     *
+     * `$locale` is resolved rather than trusted ({@see DocumentLocale}): what the operator picked on
+     * the download modal, else the tenant's own stored language, else the current request's. Passing
+     * null is the right call from a queue or a scheduled billing run — there is nobody to ask, and
+     * the tenant's preference is the best answer available.
+     *
+     * The view data is built INSIDE the locale, not before it: `IssuingEntity::forView()` and the
+     * document title key both resolve translated content, so composing them first would produce an
+     * Arabic invoice with an English heading.
+     */
+    public function build(Invoice $invoice, ?string $locale = null): string
     {
-        $data = $this->viewData($invoice);
-        $isRtl = app()->getLocale() === 'ar';
+        return PdfDocument::make('invoices.pdf')
+            ->locale(DocumentLocale::resolve($locale, $invoice->tenant))
+            ->data(fn (): array => $this->viewData($invoice))
+            ->reference($invoice->number)
+            ->watermark(fn (): ?string => $this->watermark($invoice))
+            ->render();
+    }
 
-        $html = View::make('invoices.pdf', $data)->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+    /**
+     * The diagonal stamp across a document that is no longer live, or null for one that is.
+     *
+     * A cancelled invoice and a payable one differed by a small status pill in the corner, so the
+     * printed copies were indistinguishable at arm's length — and a voided invoice mistaken for a
+     * live one is chased, disputed, or paid. Written off is stamped for the same reason from the
+     * other side: the debt is off the books and the document must not read as a demand.
+     *
+     * Resolved in the SERVICE rather than the template because `PdfDocument::watermark()` is page
+     * furniture, and because the string is the status's own label — one vocabulary, so the stamp
+     * cannot say something the chip beside it does not.
+     */
+    private function watermark(Invoice $invoice): ?string
+    {
+        return in_array($invoice->status, ['cancelled', 'written_off'], true)
+            ? __("admin.statuses.invoice.{$invoice->status}")
+            : null;
     }
 
     public function filename(Invoice $invoice): string

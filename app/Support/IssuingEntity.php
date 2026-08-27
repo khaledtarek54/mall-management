@@ -128,7 +128,7 @@ final class IssuingEntity
      * names for one value where a template author would reasonably pick either — and get an
      * undefined variable on ten of the twelve documents. One key, one name.
      *
-     * @return array{issuerName: string, sellerLegalName: string, sellerTrn: string, billingEmail: string}
+     * @return array{issuerName: string, sellerLegalName: string, sellerTrn: string, billingEmail: string, issuerLogo: string|null, issuerAddress: string}
      */
     /**
      * The mall's logo as a LOCAL FILE PATH, or null.
@@ -178,6 +178,33 @@ final class IssuingEntity
             'sellerTrn' => self::taxRegistrationNumber(),
             'billingEmail' => self::billingEmail(),
             'issuerLogo' => self::logoPath($asset),
+            'issuerAddress' => self::addressOf($asset),
         ];
+    }
+
+    /**
+     * The property's address as one line, or '' when it has none.
+     *
+     * Composed here rather than in each template because a blade `@if` chain around commas cannot
+     * punctuate a list whose members may be absent: the invoice header read
+     * "Wahat Road, 6th of October City , 6th of October , Egypt" — a stray space before two commas
+     * and the city twice — and the credit note, receipt and purchase order each carried their own
+     * slightly different copy of the same chain. Filtering the blanks first and joining once is the
+     * only way this stays right when a property has no city, or no country, or neither.
+     */
+    private static function addressOf(?Asset $asset): string
+    {
+        if ($asset === null) {
+            return '';
+        }
+
+        return collect([$asset->address, $asset->city, $asset->country])
+            ->map(fn ($part) => trim((string) $part))
+            ->filter()
+            // A property whose `city` is already spelled out inside `address` should not have it
+            // printed twice, which is what the shipped header did.
+            ->unique(fn (string $part) => mb_strtolower($part))
+            ->reject(fn (string $part, $key) => $key > 0 && mb_stripos((string) $asset->address, $part) !== false)
+            ->implode(', ');
     }
 }

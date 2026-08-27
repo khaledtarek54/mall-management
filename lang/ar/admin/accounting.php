@@ -538,6 +538,13 @@ return [
         'total_received' => 'إجمالي المُحصَّل',
         'credits_applied' => 'إشعارات خصم مُطبَّقة',
         'total_credited' => 'إجمالي الخصومات',
+        'other_settlements' => 'تسويات أخرى',
+        'total_other_settlements' => 'إجمالي التسويات الأخرى',
+        'settlement_kind' => 'سُوِّيت بواسطة',
+        'settlement_kinds' => [
+            'tenant_credit' => 'رصيد دائن مستخدَم',
+            'deposit' => 'خصم من التأمين',
+        ],
         'no_open_invoices' => 'لا توجد فواتير مفتوحة — العقار مسوّى بالكامل.',
         'no_recent_payments' => 'لا توجد مدفوعات خلال هذه الفترة.',
         'truncated_note' => 'عُرض :shown من أصل :total. حمّل CSV من قائمة الفواتير للقائمة الكاملة.',
