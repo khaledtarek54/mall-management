@@ -271,6 +271,43 @@ final class ActivityLogging
     }
 
     /**
+     * The columns this model actually audits — the question every gate over the trail has to ask.
+     *
+     * **`$options->logAttributes` is NOT the answer, and reading it as one is how a gate goes
+     * blind.** Since the denylist flip (2026-08-24) `for()` composes `logFillable()` +
+     * `logOnly($alsoLog)` − `logExcept($excluded)`, so `logAttributes` holds only the handful of
+     * non-fillable columns three models pass through `$alsoLog`. A sweep reading it literally sees
+     * almost nothing while appearing to walk all 85 audited models —
+     * `LoggedValuesResolveConformanceTest` was doing exactly that and its own "am I vacuous?"
+     * assertion is what caught it, finding **1** logged code-valued column where it expected 30.
+     *
+     * Derived from the model's OWN options rather than re-deriving the rule, so a change to what
+     * `for()` composes reaches every caller. Dotted paths and the `*` wildcard are dropped: neither
+     * is a column on this table.
+     *
+     * @return array<int, string>
+     */
+    public static function auditedColumns(Model $model): array
+    {
+        if (! method_exists($model, 'getActivitylogOptions')) {
+            return [];
+        }
+
+        $options = $model->getActivitylogOptions();
+
+        $named = array_filter(
+            $options->logAttributes,
+            fn ($column): bool => is_string($column) && $column !== '*' && ! str_contains($column, '.'),
+        );
+
+        $columns = $options->logFillable
+            ? array_merge($model->getFillable(), $named)
+            : $named;
+
+        return array_values(array_diff(array_unique($columns), $options->logExceptAttributes));
+    }
+
+    /**
      * The exclusions that actually apply to one model — the shared list narrowed to its columns.
      *
      * Narrowed rather than passed whole so that `logExcept()` names only real columns, which keeps

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\ActivityLogging;
 use App\Support\ActivityVocabulary;
 use App\Support\ValueSets;
 use Illuminate\Support\Facades\File;
@@ -48,11 +49,12 @@ function loggedCodeColumns(): array
         $logName = $options->logName ?? 'default';
         $table = $model->getTable();
 
-        foreach ($options->logAttributes ?? [] as $column) {
-            if (! is_string($column) || $column === '*' || str_contains($column, '.')) {
-                continue;
-            }
-
+        // Asked of `ActivityLogging`, not read off `$options->logAttributes`. Since the denylist
+        // flip (2026-08-24) `for()` composes logFillable() + logOnly($alsoLog) − logExcept(), so
+        // `logAttributes` holds only the few non-fillable columns three models pass through
+        // $alsoLog — reading it literally left this sweep walking 85 models and finding ONE column.
+        // The assertion below is what caught it; the fix is to ask the one resolver.
+        foreach (ActivityLogging::auditedColumns($model) as $column) {
             // Only columns whose values are CODES. A free-text column has nothing to resolve.
             $set = ValueSets::allowed($table, $column);
 
