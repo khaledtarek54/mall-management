@@ -100,25 +100,21 @@ class RolesPermissionsSeeder extends Seeder
             'assets.view' => 'View properties',
             'assets.create' => 'Create properties',
             'assets.edit' => 'Edit properties',
-            'assets.delete' => 'Delete properties',
         ],
         'units' => [
             'units.view' => 'View units',
             'units.create' => 'Create units',
             'units.edit' => 'Edit units',
-            'units.delete' => 'Delete units',
         ],
         'tenants' => [
             'tenants.view' => 'View tenants',
             'tenants.create' => 'Create tenants',
             'tenants.edit' => 'Edit tenants',
-            'tenants.delete' => 'Delete tenants',
         ],
         'leases' => [
             'leases.view' => 'View leases',
             'leases.create' => 'Create leases',
             'leases.edit' => 'Edit leases',
-            'leases.delete' => 'Delete leases',
             'leases.terminate' => 'Terminate leases',
             'leases.renew' => 'Renew leases',
             'leases.generate_invoice' => 'Generate invoices from a lease',
@@ -157,7 +153,6 @@ class RolesPermissionsSeeder extends Seeder
             'requests.view' => 'View tenant requests',
             'requests.create' => 'Create tenant requests',
             'requests.edit' => 'Edit tenant requests',
-            'requests.delete' => 'Delete tenant requests',
             'requests.assign' => 'Assign tenant requests to staff or vendors',
             // FR-USR-04 — "sees only work assigned to them". Holding this means you OVERSEE the
             // module; lacking it means you see your own work. A permission rather than a role list
@@ -170,7 +165,6 @@ class RolesPermissionsSeeder extends Seeder
             'tenant_sales.view' => 'View tenant sales declarations',
             'tenant_sales.create' => 'Create tenant sales declarations',
             'tenant_sales.edit' => 'Edit tenant sales declarations',
-            'tenant_sales.delete' => 'Delete tenant sales declarations',
             'tenant_sales.lock' => 'Lock a declaration + generate percentage-rent charge',
             'tenant_sales.dispute' => 'Mark a declaration as disputed',
         ],
@@ -178,7 +172,6 @@ class RolesPermissionsSeeder extends Seeder
             'cam.view' => 'View CAM pools and allocations',
             'cam.create' => 'Create CAM expense pools',
             'cam.edit' => 'Edit CAM expense pools',
-            'cam.delete' => 'Delete CAM expense pools',
             'cam.generate_allocations' => 'Generate per-lease allocations from a pool',
             'cam.bill_allocation' => 'Bill a CAM allocation (creates a true-up charge)',
             'cam.mark_reconciled' => 'Close a pool as fully reconciled',
@@ -187,21 +180,17 @@ class RolesPermissionsSeeder extends Seeder
             'ledger_accounts.view' => 'View the chart of accounts',
             'ledger_accounts.create' => 'Create ledger accounts',
             'ledger_accounts.edit' => 'Edit ledger accounts',
-            'ledger_accounts.delete' => 'Delete ledger accounts',
         ],
         'charge_codes' => [
             'charge_codes.view' => 'View the charge-code catalogue',
             'charge_codes.create' => 'Add a charge code',
             'charge_codes.edit' => 'Edit a charge code’s label or posting account',
-            'charge_codes.delete' => 'Remove an operator-added charge code',
             'rent_indices.view' => 'View the published rent-index register',
             'rent_indices.create' => 'Record a published index figure',
             'rent_indices.edit' => 'Correct a published index figure',
-            'rent_indices.delete' => 'Remove an index figure keyed by mistake',
             'retail_categories.view' => 'View the merchandising mix',
             'retail_categories.create' => 'Add a retail category',
             'retail_categories.edit' => 'Edit a retail category',
-            'retail_categories.delete' => 'Remove a retail category',
             // What the tenant reads on their invoice. Not `settings.manage`: this is wording the
             // operator revises, not a switch that changes how the system behaves.
             'document_templates.view' => 'View the standing wording on tenant-facing documents',
@@ -222,43 +211,33 @@ class RolesPermissionsSeeder extends Seeder
             'recurring_expenses.view' => 'View the recurring cost schedules',
             'recurring_expenses.create' => 'Add a recurring cost schedule',
             'recurring_expenses.edit' => 'Change or switch off a recurring cost schedule',
-            'recurring_expenses.delete' => 'Remove a schedule that has booked nothing',
             'custom_fields.view' => 'View the fields your organisation added to a record type',
             'custom_fields.create' => 'Add a field to a record type',
             'custom_fields.edit' => 'Rename or retire a custom field',
-            'custom_fields.delete' => 'Remove a custom field nobody has answered',
             'violation_categories.view' => 'View the house rules and their standard fines',
             'violation_categories.create' => 'Add a house rule',
             'violation_categories.edit' => 'Edit a house rule or its standard fine',
-            'violation_categories.delete' => 'Remove a house rule',
             'vendor_document_types.view' => 'View the supplier document types',
             'vendor_document_types.create' => 'Add a supplier document type',
             'vendor_document_types.edit' => 'Edit a document type, including whether a lapse blocks site work',
-            'vendor_document_types.delete' => 'Remove a supplier document type',
             'tenant_request_subcategories.view' => 'View what a tenant may report',
             'tenant_request_subcategories.create' => 'Add a reportable problem',
             'tenant_request_subcategories.edit' => 'Edit a reportable problem, including the trade it routes to',
-            'tenant_request_subcategories.delete' => 'Remove a reportable problem',
             'expense_categories.view' => 'View the expense-category catalogue',
             'expense_categories.create' => 'Add an expense category',
             'expense_categories.edit' => 'Edit an expense category, including the account its costs book to',
-            'expense_categories.delete' => 'Remove an expense category',
             'payment_methods.view' => 'View the payment-rail catalogue',
             'payment_methods.create' => 'Add a payment rail',
             'payment_methods.edit' => 'Edit a payment rail, including the account its money lands in',
-            'payment_methods.delete' => 'Remove a payment rail',
             'holidays.view' => 'View the working-calendar holidays',
             'holidays.create' => 'Add a holiday or a short day',
             'holidays.edit' => 'Edit a holiday',
-            'holidays.delete' => 'Remove a holiday',
             'failure_codes.view' => 'View the failure-code library',
             'failure_codes.create' => 'Add a failure code',
             'failure_codes.edit' => 'Edit a failure code',
-            'failure_codes.delete' => 'Remove an unused failure code',
             'trades.view' => 'View the trade register',
             'trades.create' => 'Add a trade',
             'trades.edit' => 'Edit a trade, including its hourly rate',
-            'trades.delete' => 'Remove an unused trade',
             'work_permits.view' => 'View the permit-to-work register',
             'work_permits.create' => 'Draft a permit to work',
             'work_permits.edit' => 'Edit a draft permit',
@@ -268,7 +247,6 @@ class RolesPermissionsSeeder extends Seeder
             'tax_codes.view' => 'View the tax catalogue (rates and the dates they came into force)',
             'tax_codes.create' => 'Add a tax code',
             'tax_codes.edit' => 'Edit a tax code, and add or change a rate on its ladder',
-            'tax_codes.delete' => 'Remove a tax code nothing is billed under',
             // Not a CRUD verb on the catalogue — the right to depart from it on a document.
             // Reference systems all allow this to SOMEONE (Yardi gates it on rights, Odoo lets
             // the line's tax amount be edited, SAP allows a manual tax entry against the code),
@@ -281,13 +259,11 @@ class RolesPermissionsSeeder extends Seeder
             'utility_tariffs.view' => 'View the utility price list (rates and the dates they came into force)',
             'utility_tariffs.create' => 'Add a utility tariff',
             'utility_tariffs.edit' => 'Edit a tariff, and add or change a price on its ladder',
-            'utility_tariffs.delete' => 'Remove a tariff no meter is priced by',
         ],
         'account_mappings' => [
             'account_mappings.view' => 'View the posting map (which account each role posts to)',
             'account_mappings.create' => 'Add a posting-map row or a per-property override',
             'account_mappings.edit' => 'Re-point a posting role at a different account',
-            'account_mappings.delete' => 'Remove a per-property posting override',
         ],
         'journal_entries' => [
             'journal_entries.view' => 'View journal entries',
@@ -355,7 +331,6 @@ class RolesPermissionsSeeder extends Seeder
             'employees.view' => 'View employees',
             'employees.create' => 'Add employees',
             'employees.edit' => 'Edit employees',
-            'employees.delete' => 'Delete employees',
             'employees.grant_advance' => 'Grant an advance / loan to an employee',
             'employees.record_repayment' => 'Record a repayment of an employee advance',
         ],
@@ -363,7 +338,6 @@ class RolesPermissionsSeeder extends Seeder
             'custodies.view' => 'View custodies (عهدة)',
             'custodies.create' => 'Grant a custody',
             'custodies.edit' => 'Edit a custody',
-            'custodies.delete' => 'Delete a custody',
             'custodies.settle' => 'Settle a custody (record an expense / return)',
         ],
         // FR-CM-11 / FR-PROC-02 — the approval ladder. Tiers rather than named roles, so
@@ -379,7 +353,6 @@ class RolesPermissionsSeeder extends Seeder
             'procurement.view' => 'View procurement requests',
             'procurement.create' => 'Raise a procurement request (FR-PROC-01)',
             'procurement.edit' => 'Edit a draft procurement request',
-            'procurement.delete' => 'Delete a procurement request',
             // Deciding and ordering are the same authority: FR-PROC-02 puts approval BEFORE order
             // placement, so whoever may place the order is exactly whoever may approve it.
             'procurement.decide' => 'Approve / reject / order / cancel a procurement request (FR-PROC-02)',
@@ -401,21 +374,18 @@ class RolesPermissionsSeeder extends Seeder
             'rentable_items.view' => 'View parking bays, storage and signage',
             'rentable_items.create' => 'Add a parking bay, store or signage face',
             'rentable_items.edit' => 'Edit a rentable item, or take it out of service',
-            'rentable_items.delete' => 'Delete a rentable item that was never let',
         ],
 
         'unit_ownerships' => [
             'unit_ownerships.view' => 'View the unit-ownership register (unit buyers)',
             'unit_ownerships.create' => 'Record a unit sale',
             'unit_ownerships.edit' => 'Edit a unit ownership',
-            'unit_ownerships.delete' => 'Delete a unit ownership that never billed',
         ],
 
         'areas' => [
             'areas.view' => 'View facility zones (areas)',
             'areas.create' => 'Create facility zones',
             'areas.edit' => 'Edit facility zones + assign supervisors',
-            'areas.delete' => 'Delete facility zones',
         ],
         // FR-REQ-15/16/17 — tenant violations register. `notify` is a dedicated
         // permission (not `.edit`): sending the tenant a formal notice is a distinct
@@ -425,14 +395,12 @@ class RolesPermissionsSeeder extends Seeder
             'violations.view' => 'View tenant violations',
             'violations.create' => 'Record tenant violations',
             'violations.edit' => 'Edit tenant violations',
-            'violations.delete' => 'Delete tenant violations',
             'violations.notify' => 'Send a violation notice to the tenant (FR-REQ-17)',
         ],
         'facility' => [
             'facility.view' => 'View service plans & work orders',
             'facility.create' => 'Create service plans / work orders',
             'facility.edit' => 'Edit service plans / work orders',
-            'facility.delete' => 'Delete service plans / work orders',
             'facility.complete' => 'Complete a work order (tick checklist items, mark done)',
             // FR-CM-12/13. Deliberately NOT granted to operations: recording what you found is
             // engineering, but ruling that a TENANT is financially responsible is a commercial
@@ -449,49 +417,41 @@ class RolesPermissionsSeeder extends Seeder
             'utility_meters.view' => 'View utility meters',
             'utility_meters.create' => 'Create utility meters',
             'utility_meters.edit' => 'Edit utility meters',
-            'utility_meters.delete' => 'Delete utility meters',
         ],
         'vendors' => [
             'vendors.view' => 'View vendors',
             'vendors.create' => 'Create vendors',
             'vendors.edit' => 'Edit vendors',
-            'vendors.delete' => 'Delete vendors',
         ],
         'departments' => [
             'departments.view' => 'View departments',
             'departments.create' => 'Create departments',
             'departments.edit' => 'Edit departments',
-            'departments.delete' => 'Delete departments',
         ],
         'marketing' => [
             'marketing.view' => 'View marketing budgets and spend',
             'marketing.create' => 'Create marketing budgets and spend',
             'marketing.edit' => 'Edit marketing budgets and spend',
-            'marketing.delete' => 'Delete marketing budgets and spend',
         ],
         'owner_requests' => [
             'owner_requests.view' => 'View owner requests',
             'owner_requests.create' => 'Create owner requests',
             'owner_requests.edit' => 'Respond to / edit owner requests',
-            'owner_requests.delete' => 'Delete owner requests',
         ],
         'notes' => [
             'notes.view' => 'View communications log entries',
             'notes.create' => 'Log communications',
             'notes.edit' => 'Edit communications log entries',
-            'notes.delete' => 'Delete communications log entries',
         ],
         'users' => [
             'users.view' => 'View users',
             'users.create' => 'Create users',
             'users.edit' => 'Edit users',
-            'users.delete' => 'Delete users',
         ],
         'roles' => [
             'roles.view' => 'View roles',
             'roles.create' => 'Create custom roles',
             'roles.edit' => 'Edit roles + their permissions',
-            'roles.delete' => 'Delete custom roles',
         ],
         'reports' => [
             'reports.view' => 'View reports',
@@ -513,13 +473,11 @@ class RolesPermissionsSeeder extends Seeder
             'inventory.view' => 'View warehouses, items & stock movements',
             'inventory.create' => 'Create warehouses / items & receive stock',
             'inventory.edit' => 'Edit warehouses / items & record stock movements',
-            'inventory.delete' => 'Delete inventory records',
         ],
         'fixed_assets' => [
             'fixed_assets.view' => 'View the fixed-asset register & depreciation',
             'fixed_assets.create' => 'Register fixed assets',
             'fixed_assets.edit' => 'Edit fixed assets, dispose & post depreciation',
-            'fixed_assets.delete' => 'Delete fixed-asset records',
         ],
         // Mall news (module 27). `send` is its own permission and not folded into `create`, for
         // the same reason `marketing_posts.approve` is separate from `edit`: since notices gained
@@ -540,7 +498,6 @@ class RolesPermissionsSeeder extends Seeder
             'marketing_posts.create' => 'Compose a marketing post',
             'marketing_posts.edit' => 'Edit a marketing post, feature it, or archive it',
             'marketing_posts.approve' => 'Approve or reject a retailer\'s submission, and publish to the mall app',
-            'marketing_posts.delete' => 'Delete a marketing post that never ran',
         ],
         'settings' => [
             'settings.view' => 'View settings',
@@ -629,9 +586,12 @@ class RolesPermissionsSeeder extends Seeder
         // hold every tier, and a ladder whose top rung everyone can reach isn't a ladder.
         // Large spend escalates — which is the whole point of FR-CM-11. Configuring the
         // bands themselves is likewise a policy act, not a management one.
+        // No `.delete` rejection: the whole `{module}.delete` family was RETIRED on 2026-08-26
+        // ({@see \App\Support\DeletionPolicy::retiredDeletePermissions()}), so there is nothing
+        // left here to reject. Deletion is decided by `RoleGatedActions::canDelete()`, which asks
+        // the ROLE and the deletion policy — never a permission.
         $managerPerms = collect($all)
-            ->reject(fn ($p) => str_ends_with($p, '.delete'))
-            ->reject(fn ($p) => in_array($p, ['settings.manage', 'roles.create', 'roles.edit', 'roles.delete']))
+            ->reject(fn ($p) => in_array($p, ['settings.manage', 'roles.create', 'roles.edit']))
             ->reject(fn ($p) => in_array($p, ['approvals.tier_3', 'approvals.manage_rules']))
             // FR-USR-02: import is an ADMIN right. A manager may create records one at a time;
             // rewriting hundreds from a CSV is the thing the FRD reserves for admins.
@@ -854,10 +814,10 @@ class RolesPermissionsSeeder extends Seeder
             'ledger_accounts.view', 'ledger_accounts.create', 'ledger_accounts.edit',
             // The posting map is the accountant's own configuration — it is how a new chart of
             // accounts gets wired up without a developer.
-            'charge_codes.view', 'charge_codes.create', 'charge_codes.edit', 'charge_codes.delete',
+            'charge_codes.view', 'charge_codes.create', 'charge_codes.edit',
             // The tax catalogue is the accountant's too, and for a stronger reason: a rate change
             // is theirs to enter on the day the law says, not a deploy to schedule.
-            'tax_codes.view', 'tax_codes.create', 'tax_codes.edit', 'tax_codes.delete',
+            'tax_codes.view', 'tax_codes.create', 'tax_codes.edit',
             'tax_codes.override',
             // Read-only: an escalation derived from this shows up in their books as a rent
             // change, so they must be able to see the figure it came from without owning it.
@@ -866,9 +826,7 @@ class RolesPermissionsSeeder extends Seeder
             // figure that decides what a tenant is billed, changed by decree on a date somebody
             // outside this building chose.
             'utility_tariffs.view', 'utility_tariffs.create', 'utility_tariffs.edit',
-            'utility_tariffs.delete',
             'account_mappings.view', 'account_mappings.create', 'account_mappings.edit',
-            'account_mappings.delete',
             // The payment-rail catalogue sits with accounting for the same reason the posting map
             // does: what a rail IS, is operations' business, but which account its money lands in
             // is an accounting ruling — and the two live on one row.

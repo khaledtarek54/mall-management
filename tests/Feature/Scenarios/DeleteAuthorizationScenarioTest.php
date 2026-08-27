@@ -43,8 +43,8 @@ use App\Models\Vendor;
 use App\Support\DeletionPolicy;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
@@ -190,28 +190,34 @@ it('disables bulk delete on every resource for every non-super-admin role', func
 // refactor that re-couples delete to the permission table.
 // ---------------------------------------------------------------------------
 
-it('still denies delete to a role even after it is granted the module.delete permission', function () {
-    // `invoices.delete` / `payments.delete` no longer exist — money records are never deletable as
-    // of 2026-07-31 (DeletionPolicy), so granting them here now throws PermissionDoesNotExist.
-    // The property under test is unchanged and still worth pinning: holding {module}.delete does
-    // NOT grant delete, only super_admin does. Demonstrated on a module whose permission survives.
-    $manager = Role::findByName('manager', 'web');
-    $manager->givePermissionTo('tenants.delete');
-    app(PermissionRegistrar::class)->forgetCachedPermissions();
+it('keeps delete on the ROLE, with no {module}.delete permission left to grant', function () {
+    // This test has now been narrowed TWICE by the same decision, which is the interesting part.
+    //
+    // It began as "grant a role {module}.delete and watch delete still be refused". On 2026-07-31
+    // the money-record permissions were retired, so it moved its demonstration to `tenants.delete`.
+    // On 2026-08-26 the remaining forty-three went the same way — nothing had ever consulted them
+    // — so the grant is no longer expressible at all and spatie throws PermissionDoesNotExist.
+    //
+    // The property is unchanged and stronger than before: delete is decided by the super_admin ROLE
+    // through `DeletionPolicy`, and there is now no permission anyone could mistake for granting it.
+    expect(Permission::query()->where('name', 'like', '%.delete')->pluck('name')->all())->toBe([]);
 
-    $user = makeUser('manager');
-    $this->actingAs($user);
+    $this->actingAs(makeUser('manager'));
 
-    // Sanity: the permission is genuinely present...
-    expect($user->can('tenants.delete'))->toBeTrue()
-        // ...yet delete is still gated to super_admin only.
-        ->and(TenantResource::canDelete(new Tenant))->toBeFalse()
-        // ...and it stays false for the money resources, whose permission is gone entirely.
+    expect(TenantResource::canDelete(new Tenant))->toBeFalse()
         ->and(InvoiceResource::canDelete(new Invoice))->toBeFalse()
         ->and(PaymentResource::canDelete(new Payment))->toBeFalse()
         ->and(InvoiceResource::canForceDelete(new Invoice))->toBeFalse()
         // ...and bulk delete remains off.
         ->and(InvoiceResource::canDeleteAny())->toBeFalse();
+
+    // The control: a super admin still deletes what the policy permits — an unreferenced tenant is
+    // `#[DeletableWhenUnused]` and therefore deletable — while a money record stays refused even to
+    // them. A test in which nothing was deletable would satisfy every refusal above.
+    $this->actingAs(makeUser('super_admin'));
+
+    expect(TenantResource::canDelete(new Tenant))->toBeTrue()
+        ->and(InvoiceResource::canDelete(new Invoice))->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------

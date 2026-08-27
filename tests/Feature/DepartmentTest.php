@@ -41,7 +41,10 @@ it('registers department permissions and grants them by role', function () {
     $manager = makeUser('manager');
     $viewer = makeUser('viewer');
 
-    expect($admin->can('departments.delete'))->toBeTrue();
+    // `departments.delete` is gone — the whole {module}.delete family was retired on 2026-08-26
+    // because nothing ever consulted it (see DeletionPolicy::retiredDeletePermissions()). Deleting
+    // a department is decided by the ROLE, and refused outright once it has members.
+    expect($admin->can('departments.delete'))->toBeFalse();
 
     expect($manager->can('departments.view'))->toBeTrue()
         ->and($manager->can('departments.create'))->toBeTrue()

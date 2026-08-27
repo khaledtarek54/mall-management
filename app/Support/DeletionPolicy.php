@@ -329,9 +329,96 @@ class DeletionPolicy
         'post_dated_cheques.delete',
     ];
 
+    /**
+     * The REST of the `{module}.delete` catalogue, retired 2026-08-26.
+     *
+     * The nine above went when the money records became undeletable. These forty-three were left,
+     * and `PermissionReach::NEVER_CHECKED` had carried the standing note about them ever since:
+     * *"either honour them or drop them — what should not continue is a permission that reads as a
+     * right and grants nothing."*
+     *
+     * **Honouring them was never available.** `RoleGatedActions::canDelete()` asks
+     * `DeletionPolicy` and `canDeleteAny()` asks `isSuperAdmin()`; neither consults a permission,
+     * because the operator decided on 2026-07-31 that deletion is super-admin-only project-wide.
+     * Making `holidays.delete` mean something would reverse that decision, not implement it. So the
+     * only consistent direction was to drop them.
+     *
+     * **Nothing anywhere could read them** — verified before removal: outside this file the string
+     * `'{module}.delete'` appeared in no `app/` code at all. So retiring them changes NO access.
+     * What it changes is the roles screen, which rendered forty-three checkboxes that granted
+     * nothing and read as though they granted something.
+     *
+     * A SECOND list rather than an extension of the first, because the 2026-07-31 migration reads
+     * `retiredPermissions()` at RUN time: folding these in would make that migration delete rows it
+     * was not written to delete, and its name would stop describing what it does.
+     *
+     * @var array<int, string>
+     */
+    private const RETIRED_DELETE_PERMISSIONS = [
+        'account_mappings.delete',
+        'areas.delete',
+        'assets.delete',
+        'cam.delete',
+        'charge_codes.delete',
+        'custodies.delete',
+        'custom_fields.delete',
+        'departments.delete',
+        'employees.delete',
+        'expense_categories.delete',
+        'facility.delete',
+        'failure_codes.delete',
+        'fixed_assets.delete',
+        'holidays.delete',
+        'inventory.delete',
+        'leases.delete',
+        'ledger_accounts.delete',
+        'marketing.delete',
+        'marketing_posts.delete',
+        'notes.delete',
+        'owner_requests.delete',
+        'payment_methods.delete',
+        'procurement.delete',
+        'recurring_expenses.delete',
+        'rent_indices.delete',
+        'rentable_items.delete',
+        'requests.delete',
+        'retail_categories.delete',
+        'roles.delete',
+        'tax_codes.delete',
+        'tenant_request_subcategories.delete',
+        'tenant_sales.delete',
+        'tenants.delete',
+        'trades.delete',
+        'unit_ownerships.delete',
+        'units.delete',
+        'users.delete',
+        'utility_meters.delete',
+        'utility_tariffs.delete',
+        'vendor_document_types.delete',
+        'vendors.delete',
+        'violation_categories.delete',
+        'violations.delete',
+    ];
+
     /** @return array<int, string> */
     public static function retiredPermissions(): array
     {
         return self::RETIRED_PERMISSIONS;
+    }
+
+    /** @return array<int, string> */
+    public static function retiredDeletePermissions(): array
+    {
+        return self::RETIRED_DELETE_PERMISSIONS;
+    }
+
+    /**
+     * Every permission that must no longer exist, both waves.
+     *
+     * @return array<int, string>
+     */
+    public static function allRetiredPermissions(): array
+    {
+        return [...self::RETIRED_PERMISSIONS, ...self::RETIRED_DELETE_PERMISSIONS];
     }
 }

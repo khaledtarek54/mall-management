@@ -52,25 +52,29 @@ class PermissionReach
     /**
      * Permissions the application can never consult, with the reason — a stated non-check.
      *
-     * **The whole `{module}.delete` family lives here, and it is a decision worth re-reading.**
-     * `RoleGatedActions::canDelete()` ignores the permission entirely: deletion is super-admin-only
-     * project-wide, and money records are refused even to them ({@see DeletionPolicy}). So a role
-     * granted `leases.delete` cannot delete a lease, and the roles screen says otherwise.
+     * **Empty since 2026-08-26, and that is the point.** It held the whole `{module}.delete`
+     * family for months under a standing note — *either honour them or drop them; what should not
+     * continue is a permission that reads as a right and grants nothing* — and they were dropped.
+     * `RoleGatedActions::canDelete()` never consulted them: deletion is super-admin-only
+     * project-wide ({@see DeletionPolicy}), so making them mean something would have reversed the
+     * operator's decision rather than implemented it.
      *
-     * They are classified rather than removed because removing 31 permissions from the catalogue is
-     * a deliberate RBAC change with its own blast radius, not something a conformance gate should
-     * do as a side effect. Recorded here so the decision is visible instead of implicit: **either
-     * honour them or drop them** — what should not continue is a permission that reads as a right
-     * and grants nothing.
+     * The category stays because it is a real one. A permission the application can NEVER consult
+     * is different from one that is merely unchecked today ({@see EXEMPT}), and the next
+     * such key should be recorded here with its reason rather than argued about from first
+     * principles again.
      *
      * @var array<string, string> permission (or `*.action` wildcard) => why it is never checked
      */
     public const NEVER_CHECKED = [
-        '*.delete' => 'Deletion is super_admin-only project-wide — `RoleGatedActions::canDelete()` '.
-            'checks the ROLE and never the permission, and `DeletionPolicy` refuses money records even '.
-            'to a super admin. So every `{module}.delete` key in the catalogue grants nothing. Kept for '.
-            'now because dropping 31 permissions is an RBAC decision rather than a gate\'s side effect; '.
-            'see this constant\'s docblock.',
+        // RESOLVED 2026-08-26. The `{module}.delete` family is gone: the nine on money records went
+        // on 2026-07-31 and the remaining forty-three were retired by
+        // `2026_08_26_900000_retire_the_rest_of_the_delete_permissions`. See
+        // `DeletionPolicy::retiredDeletePermissions()` for why dropping was the only consistent
+        // direction — honouring them would have reversed the operator's decision that deletion is
+        // super-admin-only, not implemented it. Left EMPTY rather than deleted: a permission the
+        // application can never consult is a real category, and the next one should be recorded
+        // here with its reason rather than argued about from scratch.
     ];
 
     /**

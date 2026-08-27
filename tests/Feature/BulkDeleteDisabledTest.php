@@ -7,8 +7,8 @@ use App\Filament\Admin\Resources\Users\UserResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Vendor;
 use Database\Seeders\RolesPermissionsSeeder;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
@@ -27,14 +27,14 @@ it('disables bulk delete by default on every resource, even with the delete perm
 });
 
 it('restricts delete to super_admin, even when another role holds the delete permission', function () {
-    // Use a still-deletable resource (Vendor): canDelete ignores the {module}.delete permission and
-    // gates on the super_admin ROLE alone. (Money records like Invoice lost their .delete permission
-    // entirely — they are never deletable; see DeletionPolicy.)
-    Role::findByName('viewer', 'web')->givePermissionTo('vendors.delete');
-    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    // `canDelete()` gates on the super_admin ROLE alone. It never consulted `{module}.delete`, which
+    // is why that whole family was retired on 2026-08-26 — so the grant this test used to make is
+    // no longer expressible, and the invariant is stronger for it: there is no permission left that
+    // could be mistaken for granting delete.
+    expect(Permission::query()->where('name', 'like', '%.delete')->exists())->toBeFalse();
 
     $this->actingAs(makeUser('viewer'));
-    expect(VendorResource::canDelete(new Vendor))->toBeFalse(); // holds vendors.delete, still can't delete
+    expect(VendorResource::canDelete(new Vendor))->toBeFalse();
 
     $this->actingAs(makeUser('super_admin'));
     expect(VendorResource::canDelete(new Vendor))->toBeTrue();
