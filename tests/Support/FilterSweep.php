@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Models\Asset;
+use App\Support\AssignedAssets;
 use App\Support\Filament\EntitySelectFilter;
 use Database\Seeders\DemoSeeder;
 use Filament\Forms\Components\DatePicker;
@@ -32,6 +33,15 @@ final class FilterSweep
 {
     /** How many files the admin sweep is split across. Must match the shard files on disk. */
     public const ADMIN_SHARDS = 4;
+
+    /**
+     * How many files the RESTRICTED-operator sweep is split across.
+     *
+     * Fewer than the super_admin sweep because that operator can open fewer lists, and measured
+     * rather than guessed: unsharded it ran 122s, which is above this suite's whole wall-clock — and
+     * Pest parallelises per FILE, so it would have become the floor under every run on its own.
+     */
+    public const RESTRICTED_SHARDS = 2;
 
     /** Every ListRecords page in a panel, discovered from disk. */
     public static function listPages(string $panelDir, string $namespace): array
@@ -344,5 +354,58 @@ final class FilterSweep
         // of them returning rows). Round-robin keeps the shards evenly sized.
         expect($report['passed'])->toBeGreaterThan(intdiv(200, self::ADMIN_SHARDS));
         expect($report['matched'])->toBeGreaterThan(intdiv(60, self::ADMIN_SHARDS));
+    }
+
+    /**
+     * Sweep one shard's share of the admin tables as a PROPERTY-SCOPED operator.
+     *
+     * The four shards above run as `super_admin`, and `AssignedAssets::idsFor()` returns **null**
+     * for a super admin — so every `->when($ids !== null, …)` scoping clause in the panel is SKIPPED
+     * for the whole of that sweep. A filter that composes its own narrowing on top of a property
+     * scope therefore compiles a shorter query there than it ever does in production.
+     *
+     * Same shape as the two gaps this suite has already been bitten by (green on sqlite saying
+     * nothing about MySQL; a relationship filter swept on its blank branch alone): a sweep reporting
+     * on a narrower set than the one it appears to cover.
+     *
+     * ONE extra operator rather than a role × filter matrix. What changes the SQL is whether the
+     * operator is scoped at all, not which of the fourteen roles they hold — and a `manager` is
+     * broad enough to open nearly every list while still being pinned to one mall.
+     */
+    public static function assertRestrictedShard(object $test, int $shard): void
+    {
+        $test->seed(DemoSeeder::class);
+
+        $asset = Asset::query()
+            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
+            ->firstOrFail();
+
+        $operator = makeUser('manager', [$asset->id]);
+        $test->actingAs($operator);
+
+        // The premise, asserted rather than assumed: if this ever returns null the whole file
+        // silently becomes a slower copy of the super_admin sweep.
+        expect(AssignedAssets::idsFor($operator))->toBe([$asset->id],
+            'The operator is not property-scoped, so this sweep exercises the same branch as the shards.');
+
+        $report = self::report();
+        $pages = self::adminPagesForShard($shard, self::RESTRICTED_SHARDS);
+
+        asTenant($asset, function () use (&$report, $pages) {
+            foreach ($pages as $page) {
+                // A list this role cannot open is not a filter failure — the role × screen matrix
+                // reports those. Skipping keeps this file about the QUERY.
+                if (! $page::getResource()::canAccess()) {
+                    continue;
+                }
+
+                self::sweepPage($page, $report);
+            }
+        });
+
+        expect($report['failures'])->toBe([], "Restricted-operator filter failures (shard {$shard}):\n".implode("\n", $report['failures']));
+
+        expect($report['passed'])->toBeGreaterThan(intdiv(200, self::RESTRICTED_SHARDS));
+        expect($report['matched'])->toBeGreaterThan(intdiv(60, self::RESTRICTED_SHARDS));
     }
 }

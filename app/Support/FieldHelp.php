@@ -54,6 +54,7 @@ class FieldHelp
         // TO. Shortening these would lose information and buy no screen space at all.
         'statement_consistent' => 'Rendered as a column ->tooltip(), so it is already one hover away.',
         'match_line' => 'Rendered as a ->modalDescription(); a dialogue has room to explain itself.',
+        'unmatch_line' => 'Its twin, on the same relation manager and for the same reason — a ->modalDescription() on the action that undoes what match_line did.',
 
         // Live feedback rather than explanation. These report the record's STATE — what is locked,
         // what was derived from which tariff, what looks mistyped — and a hint icon is the wrong
@@ -61,6 +62,7 @@ class FieldHelp
         'billing_frequency_locked' => 'Shown only once the lease has been invoiced; the field\'s own hint icon carries the explanation.',
         'percentage_rent_threshold_annual' => 'The field already switches its LABEL and carries a warning ->hint(); a third affordance would be clutter.',
         'percentage_rent_threshold_annual_warning' => 'A conditional warning ->hint() — it appears only when the figure looks mistyped.',
+        'cost_derived' => 'Live feedback with the tariff INTERPOLATED (:rate per :uom) — it reports where this figure came from, so there is nothing to move to a hint icon that would still be true on the next reading.',
         'cost_no_rate' => 'The other half of that live feedback: shown only when the meter has no tariff.',
     ];
 

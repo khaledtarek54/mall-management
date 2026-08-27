@@ -59,6 +59,24 @@ it('sweeps every admin list page exactly once across the shards', function () {
         ->toHaveCount(FilterSweep::ADMIN_SHARDS, 'FilterSweep::ADMIN_SHARDS and the shard files on disk disagree.');
 });
 
+it('sweeps every admin list page exactly once across the RESTRICTED shards too', function () {
+    // The second sweep has its own partition and therefore its own way to lose a page. Same guard,
+    // asked of the other divisor — a page missing from this one is a page whose filters are only
+    // ever run as a super admin, which is the branch that skips every property-scoping clause.
+    $all = FilterSweep::adminPages();
+
+    $covered = [];
+    for ($shard = 1; $shard <= FilterSweep::RESTRICTED_SHARDS; $shard++) {
+        $covered = [...$covered, ...FilterSweep::adminPagesForShard($shard, FilterSweep::RESTRICTED_SHARDS)];
+    }
+    sort($covered);
+
+    expect($covered)->toBe($all, 'The restricted shards do not partition the admin list pages.');
+
+    expect(glob(base_path('tests/Feature/Resources/RestrictedOperatorFilterSweepShard*Test.php')))
+        ->toHaveCount(FilterSweep::RESTRICTED_SHARDS, 'FilterSweep::RESTRICTED_SHARDS and the shard files on disk disagree.');
+});
+
 it('runs every filter on every relation-manager table without error', function () {
     // Relation managers hold ~1 filter in 8 and are NOT reachable from the list
     // pages, so the sweep above never touches them. They are the easiest place
