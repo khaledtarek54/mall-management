@@ -124,6 +124,9 @@ return [
             // في الإنجليزية أيضًا لا العربية وحدها.
             'voided' => 'إلغاء',
             'reversed' => 'عكس',
+            // Raised by AcceptWorkOrderService when a contractor (or an operator on their
+            // behalf) acknowledges a dispatched job — the act the response SLA is measured to.
+            'accepted' => 'مقبول',
         ],
 
         // معنى الوصف المخزَّن في السجل. **الأوصاف مفاتيح لا جُمَل** — السجل يخزّن بيانات وهذا
@@ -132,6 +135,7 @@ return [
         // متداخلة لا مسطّحة: الوصف المخزَّن يُقرأ عبر `__()` التي تعامل النقطة كتداخل في المصفوفة،
         // فالمفتاح الحرفي `'payment.voided' => …` لا يمكن العثور عليه أبدًا.
         'descriptions' => [
+            'facility_work_order' => ['accepted' => 'قبول المقاول للعمل'],
             'invoice' => [
                 'voided' => 'إلغاء فاتورة',
                 // قناتا التسوية اللتان يمكن للمشغّل عكسهما من شاشة الفاتورة. تُقيَّد على الفاتورة

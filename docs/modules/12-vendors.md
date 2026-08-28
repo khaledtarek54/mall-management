@@ -395,6 +395,22 @@ so "who is actually any good" was answered from memory at renewal time.
 > the backlog as a feature to build while the feature was already built — the only way to read a
 > scorecard was to call the service from tinker.
 
+## A vendor contact can be a LOGIN (2026-08-28)
+
+`vendor_contacts` gained `password`, `is_portal_user` and `last_login_at`: a contact may now sign in
+to the contractor portal at `/vendor`. **`is_portal_user` is OFF for every existing row and every new
+contact** — a contact is somebody's phone number until an operator decides otherwise.
+
+**Uniqueness is enforced on the MODEL, not by an index.** Two ordinary contacts may share a
+switchboard address; two LOGINS on one address is an ambiguous identity, and the guard would
+authenticate whichever row it found first. That is "unique among rows that can sign in", which MySQL
+cannot express portably (a stored generated column behaves differently on SQLite, which the suite
+runs on — green here, untested there), so `VendorContact::booted()` is the one choke point every path
+shares: form, importer, console, API.
+
+The portal itself, its scoping rule and what a contractor may do are in
+[12b](12b-VENDOR-PORTAL-DESIGN.md).
+
 ## 6. Filament resources & key fields
 
 > **12b additions not detailed below** (this section predates them): the vendor edit page also carries a **`DocumentsRelationManager`** (compliance certs, private disk) and the contracts RM gained an **`amend`** (change-order) action + Committed/Billed/Remaining columns; and there is a **separate `VendorBillResource`** (`/admin/vendor-bills`) for AP — property-scoped (`asset_id` guarded by `assertAssetInScope` on create+edit), with `approve` / `record_payment` (withholding-tax breakdown) / `cancel_bill` actions, all double-gated. Its **payments relation manager** creates and edits nothing but owns one correction — **`void_payment`** (§5), which states the ledger effect in the confirmation ("the bill's balance re-opens by X and its entry is reversed") and requires a reason. All vendor relation-manager write actions gate the predicate in both `visible()` and `authorize()`.

@@ -34,6 +34,9 @@ return [
         ],
     ],
     'facility' => [
+        'accept_for_contractor' => 'Accept for the contractor',
+        'accept_for_contractor_confirm' => 'Records that the contractor has received this job and starts the agreed response time. Use this when they confirmed by phone rather than in the portal.',
+        'accepted' => 'Job accepted.',
         'comments' => [
             'title' => 'Thread',
             'add' => 'Add a comment',

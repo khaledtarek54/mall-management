@@ -186,6 +186,11 @@ final class ConcurrencyPolicy
         // One row lock on the ownership being sold: two operators transferring the same unit must
         // not each open a buyer tenure, which would leave it owned twice on the same day.
         'app/Services/TransferUnitOwnershipService.php' => 1,
+        // Acceptance is a first-writer-wins stamp: two contacts at one contractor opening the
+        // same job and both pressing accept must not move the SLA clock. The re-read happens
+        // INSIDE the transaction after the lock — a value read before the wait answers from a
+        // pre-commit snapshot under MySQL REPEATABLE READ.
+        'app/Services/AcceptWorkOrderService.php' => 1,
         'app/Services/CreditNoteService.php' => 11,
         'app/Services/MonthlyBillingService.php' => 2,
         'app/Services/Paymob/PaymobPaymentInitiator.php' => 1,

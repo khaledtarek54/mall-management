@@ -124,6 +124,9 @@ return [
             // `admin.activity.events.voided` in its badge — in English too, not just Arabic.
             'voided' => 'Voided',
             'reversed' => 'Reversed',
+            // Raised by AcceptWorkOrderService when a contractor (or an operator on their
+            // behalf) acknowledges a dispatched job — the act the response SLA is measured to.
+            'accepted' => 'Accepted',
         ],
 
         // What a row's stored `description` means. **Descriptions are KEYS, not sentences** —
@@ -133,6 +136,7 @@ return [
         // NESTED, not flat: a stored description is looked up with `__()`, which reads dots as
         // array nesting — a literal `'payment.voided' => …` key can never be found.
         'descriptions' => [
+            'facility_work_order' => ['accepted' => 'Job accepted by the contractor'],
             'invoice' => [
                 'voided' => 'Invoice voided',
                 // The two settlement channels an operator can un-apply from the invoice screen.

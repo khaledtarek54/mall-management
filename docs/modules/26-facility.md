@@ -355,6 +355,33 @@ about who may write and when — which §9 of that design names as the risk wort
 design needs and it is useful on its own.** Everything else the portal wants is a screen over
 something already built.
 
+## Accept is its own act (2026-08-28)
+
+`AcceptWorkOrderService` stamps `acknowledged_at` — the field the response SLA is measured to
+(FR-CM-07: the clock starts at acceptance, so an engineer is not charged for queue time).
+
+**What changed and why it matters more than it looks.** Until now `acknowledged_at` was set as a
+SIDE EFFECT of staff moving the job to `in_progress`. So the response time this system has been
+reporting is *the moment a coordinator got round to updating a column*, not the moment the contractor
+agreed. Letting the contractor stamp it themselves — from `/vendor`, step 3 of
+[12b](12b-VENDOR-PORTAL-DESIGN.md) — is, in that design's words, "the single biggest change in data
+quality, and it costs nothing new to build".
+
+- **Idempotent and lock-safe.** Two contacts at one contractor both pressing accept must not move the
+  clock, and the second must not see an error either — they did what they were asked. The re-read
+  happens INSIDE the transaction after the lock, because a value read before the wait answers from a
+  pre-commit snapshot.
+- **A terminal job cannot be accepted** — there is nothing left to agree to, and stamping the clock
+  afterwards rewrites a response time already reported.
+- **The admin action was ADDED, not replaced.** §9 of the design names the risk that would make the
+  portal a bad idea — contractors who will not log in — in which case `acknowledged_at` stops being
+  filled by staff and starts being filled by nobody, making the SLA *worse* than before. So the
+  operator keeps "Accept for the contractor", and **both sides call the one service**: two ways to
+  accept must not mean two code paths.
+- **WHO accepted is in the activity trail, not a column.** The work order is audited so the stamp is
+  recorded; what a diff cannot say is whether the contractor agreed or a coordinator agreed for them,
+  and that is the whole difference this makes to the SLA figure.
+
 ## 2. Business rules
 
 1. **Property-scoped** (`asset_id`) — all three resources use `BypassesScopingOnAll` +

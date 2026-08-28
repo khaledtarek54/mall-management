@@ -3,6 +3,7 @@
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Models\VendorContact;
 
 return [
 
@@ -48,6 +49,13 @@ return [
             'driver' => 'session',
             'provider' => 'tenant_users',
         ],
+        // Vendor portal (2026-08-28). A contractor's contact signs in here; the Vendor company
+        // is reached via ->vendor. Same shape as `portal`, which is the point — see
+        // docs/modules/12b-VENDOR-PORTAL-DESIGN.md §4.
+        'vendor' => [
+            'driver' => 'session',
+            'provider' => 'vendor_contacts',
+        ],
         // Mobile API — Sanctum token guard authenticating against the Tenant model.
         'tenant-api' => [
             'driver' => 'sanctum',
@@ -80,6 +88,12 @@ return [
         'tenants' => [
             'driver' => 'eloquent',
             'model' => Tenant::class,
+        ],
+        // Vendor-portal logins. The `vendor` guard authenticates a VendorContact; the Vendor
+        // company is reached via ->vendor.
+        'vendor_contacts' => [
+            'driver' => 'eloquent',
+            'model' => VendorContact::class,
         ],
         // Portal logins (req #9 multi-user). The portal guard authenticates a
         // TenantUser; the Tenant company is reached via ->tenant.
@@ -122,6 +136,19 @@ return [
         'tenants' => [
             'provider' => 'tenants',
             'table' => 'tenant_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        // Vendor-portal password reset. Its OWN table, not the tenant one: the reset table is
+        // keyed by email, and a contractor's contact and a retailer's staff member can share an
+        // address (a building manager who is both). Sharing the table would let one reset consume
+        // the other's token. The portal panel MUST name this broker explicitly —
+        // `->authPasswordBroker('vendor_contacts')` — or Filament resolves the default `users`
+        // broker and the reset runs against the ADMIN table, which is the exact bug the tenant
+        // portal shipped with and whose comment sits a few lines below.
+        'vendor_contacts' => [
+            'provider' => 'vendor_contacts',
+            'table' => 'vendor_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

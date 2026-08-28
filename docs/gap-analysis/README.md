@@ -150,7 +150,7 @@ a pivot column, a migration and a backfill.
 | # | Gap | Module | Benchmark | Sev | Effort |
 |---|---|---|---|---|---|
 | O1 | **Lease document generation + e-signature** — a lease only holds an uploaded PDF; nothing generates or signs one. A daily workflow for an operator onboarding continuously | 04 | Re-Leased, Yardi Smart Lease | 🟡 | M–L |
-| O2 | **Vendor self-service portal** — no accept/quote/update/evidence loop; dispatch is an internal column change. **Designed 2026-08-20** — [modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md), deliberately small: three of the four verbs are already services, and the only missing primitive is a comment thread on the work order | 12 · 26 | ServiceChannel (the product *is* this loop) | 🟡 | M |
+| O2 | 🟡 **HALF BUILT 2026-08-28 — the loop's first half ships.** `/vendor` exists: a `VendorContact` signs in, sees only jobs dispatched to them, and **accepts** — which turns `acknowledged_at` from *when a coordinator updated a column* into *when the contractor agreed*, the response SLA's actual meaning. Still open: **quote**, **update** (the thread ships admin-side) and **evidence**, plus the dispatch notification. Design and build order in [modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md) §8 | 12 | ServiceChannel | 🟡 | M |
 | O4 | **Fit-out permit: conditions on the grant** — the decision ships (approve/reject with a mandatory reason, recorded); what is missing is *what was granted* — permitted hours, a security deposit, contractor details, and an audit trail of the permit itself rather than of the request carrying it | 11 | ServiceChannel compliance | 🟡 | M |
 | O7 | **Capex bid / quote comparison** — one vendor per request, no tender, no "three quotes compared" on tier-3 spend. A governance gap owners ask about | 29 | Maximo · Odoo Enterprise | 🟡 | M |
 | F1–F8 | **The facility & operations close-out** — the work order as a cost object, trade as master data, PM compliance, tenant confirmation, failure codes, NTE/proposals, routes, job-plan estimates. Ranked, with reasons, in [§4](#4-facility-vendors-assets--vs-the-fm-standard); benchmarked in [docs/benchmarks/fm/](../benchmarks/fm/) | 26 · 11 · 12 · 22 · 23 · 29 · 30 | Maximo · ServiceChannel | 🟠 | L |
@@ -391,7 +391,7 @@ trade (the first question an owner asks), and a scorecard that compares like wit
 
 | # | Gap | Standard | Sev |
 |---|---|---|---|
-| O2 | **Vendor self-service portal** — dispatch is an internal column change. **Designed**, not built: [modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md) | ServiceChannel (the product *is* this loop) | 🟡 |
+| O2 | 🟡 **HALF BUILT 2026-08-28** — login, panel, scoping rule and **accept** ship; quote, update and evidence do not. [modules/12b](../modules/12b-VENDOR-PORTAL-DESIGN.md) §8 | ServiceChannel | 🟡 |
 | O4 | **Fit-out permit: conditions on the grant** | ServiceChannel compliance | 🟡 |
 | O16 | **Barcode parts issue + guided cycle counts** | every CMMS | 🟡 |
 

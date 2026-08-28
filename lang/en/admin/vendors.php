@@ -2,6 +2,9 @@
 
 return [
     'vendors' => [
+        'portal' => [
+            'email_taken' => 'Another contractor login already uses this email address.',
+        ],
         'compliance' => [
             'hint' => 'A blacklisted/inactive vendor, or one whose insurance (COI) has lapsed, cannot be dispatched to maintenance work.',
             'coi_expires_at' => 'Insurance (COI) expiry',

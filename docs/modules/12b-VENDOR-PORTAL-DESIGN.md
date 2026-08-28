@@ -1,6 +1,6 @@
 # Vendor portal — design, before any code
 
-> **Status: DESIGN — step 1 of §8 is BUILT (2026-08-28), the rest is not.** Written first, at the operator's instruction, and kept
+> **Status: steps 1–3 of §8 are BUILT (2026-08-28) — the useful minimum. Steps 4–6 are not.** Written first, at the operator's instruction, and kept
 > deliberately small. Read [docs/benchmarks/fm/02-servicechannel-contractor-loop.md](../benchmarks/fm/02-servicechannel-contractor-loop.md)
 > §1 and §4 first — this is that loop, minus everything a single-operator mall does not need.
 
@@ -49,7 +49,24 @@ worth doing and why it should stay small.
 ## 4. Authentication — reuse, do not invent
 
 `VendorContact` already exists (name, email, phone, per vendor). It gains what a login needs:
-`password`, `is_portal_user`, `last_login_at`, and the standard reset flow.
+`password`, `is_portal_user`, `last_login_at`, and the standard reset flow. ✅ Built 2026-08-28.
+
+**`last_login_at` is wired, not just added** (`StampVendorLastLogin`) — and that was caught in
+review, not by a gate: the column was created, cast and written by nothing, the same inert shape as
+`tenants.locale`. It matters precisely because of §9: if contractors will not log in, this is how an
+operator finds out before the SLA figures quietly become fiction.
+
+**Its own reset-token table**, not the tenant one. A reset table is keyed by email and one person can
+be both a retailer's staff member and a contractor's contact — a building manager. Sharing a table
+lets one reset consume the other's token, and the symptom is "the link says invalid" for a reason
+nobody can see. `->authPasswordBroker('vendor_contacts')` on the panel is load-bearing: without it
+Filament resolves the default `users` broker and the reset runs against the ADMIN table — exactly
+what the tenant portal shipped with.
+
+**Panel access gates on the login AND the company**, and on `status === active` rather than
+`isDispatchable()`. Dispatchability goes false the day an insurance certificate lapses, and a
+contractor whose COI expired mid-job must still read the thread and hand over evidence: suspending an
+account and suspending dispatches are different decisions.
 
 **Modelled on the tenant portal, which solved this exact problem**: a company (`Vendor`) with several
 people (`VendorContact`), its own guard, its own panel at `/vendor`, and every query scoped to the
@@ -64,8 +81,15 @@ until an operator asks otherwise. Fewer states, fewer bugs.
 
 Three layers, because the first two are UI and only the third is a gate:
 
-1. **The panel's queries** filter to `vendor_id = the signed-in contact's vendor`, and to jobs whose
-   status has actually been dispatched (`open`/`in_progress`), never a draft.
+1. **The panel's queries** filter to `vendor_id = the signed-in contact's vendor`.
+   *(Corrected on build, 2026-08-28: this line also asked for "never a draft" — and
+   `FacilityWorkOrder::STATUSES` has no pre-dispatch state to exclude. `VendorScope::VISIBLE_STATUSES`
+   exists as an allowlist that today equals every status, so it narrows nothing yet; its value is
+   that a status added later is invisible to contractors until someone adds it deliberately. Stated
+   rather than implied, because a security class claiming a protection it does not have is worse than
+   one that claims less.)*
+   With nobody signed in the scope matches **nothing**, never everything — a scope that widens when
+   the guard is empty is how a portal leaks its whole table to an unauthenticated request.
 2. **Every action re-checks ownership server-side**, exactly as `abort_unless` does in the admin
    panel. A narrowed list is not a gate; the Livewire payload still carries an id.
 3. **A foreign id 404s, never 403s** — the `/api/v1` rule. A 403 confirms the job exists.
@@ -97,8 +121,8 @@ already built — which is the argument for doing it in this order.
 | # | Step | Why here |
 |---|---|---|
 | 1 | ~~Work-order comment thread (internal/external), admin side only~~ ✅ **DONE 2026-08-28** — `facility_work_order_comments`, `FacilityWorkOrderComment`, `CommentOnWorkOrderService`, `WorkOrderCommentsRelationManager`, `AWorkOrderHasAThreadTest` | The one missing primitive. Useful on its own even if the portal never ships — and it is now in use on the admin side whether or not the portal follows |
-| 2 | `VendorContact` login + `/vendor` panel + the scoping rule, with its refusal tests | The security model, proven before any feature hangs off it |
-| 3 | The jobs list + **accept** | The highest-value verb: it makes the response SLA real |
+| 2 | ~~`VendorContact` login + `/vendor` panel + the scoping rule, with its refusal tests~~ ✅ **DONE 2026-08-28** — `vendor` guard + `vendor_contacts` provider + its OWN reset-token table, `VendorPanelProvider`, `App\Support\Filament\VendorScope`, `AContractorSeesOnlyTheirOwnJobsTest` (mutation-proved: dropping the vendor filter turns 2 red, gutting the ownership gate turns 1 red) | The security model, proven before any feature hangs off it |
+| 3 | ~~The jobs list + **accept**~~ ✅ **DONE 2026-08-28** — `WorkOrderResource` (list only; no create/edit/delete) + `AcceptWorkOrderService`, idempotent and lock-safe. **The admin-side accept was ADDED, not replaced** — §9's mitigation, and both sides call the one service | The highest-value verb: it makes the response SLA real |
 | 4 | **Evidence** + **update** | Both are surfaces over what exists |
 | 5 | **Quote** | Reuses `WorkOrderProposalService` unchanged; only the author differs |
 | 6 | Dispatch notification to the contractor | Closes the loop |
