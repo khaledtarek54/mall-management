@@ -1,22 +1,33 @@
 # Change impact — spacing · leasing · receivables · payables → the ledger
 
-**Status:** written 2026-08-11, complete the same day, and **REOPENED 2026-08-28 with §11–§14** — a
-final sweep of all 24 posting sources along the axis this plan did not cover: not *may a change reach
-the books* (§3 answered that, and the registry holds) but **what an operator is offered, told and
-refused at the moment they change money.** The sweep found the contract sound and its delivery uneven:
-7 of 24 sources enforce it at the model, 13 of 24 have a named reversal and 5 of those record a
-reason, the ledger panel §6.1 built is mounted on 5 of 24 and never on the screen where the edit
-happens, and two live defects are proved against the running database in §12.3–§12.4. Phases 0–3 shipped — the payables hole, the change-impact
-registry and its gate, the document ↔ ledger trail, and the restatement control. **Every finding in §9
-is closed**, and both §7 decisions are taken on the Yardi standard. Phase 4 (the per-area sweeps) is
-being run by a parallel session along the validation axis, and the registry from Phase 1 is what it
-works from — fixed assets and custody were promoted to REFUSED from it after this plan closed.
+**Status:** written 2026-08-11, complete the same day, **REOPENED 2026-08-28**, and closed again the
+same day. Phases 0–3 shipped originally — the payables hole, the change-impact registry and its gate,
+the document ↔ ledger trail, and the restatement control. Phases 5–9 shipped on the reopening.
 
-**Two things were measured and declined rather than built**, and both are recorded where the next
+**What the reopening was for.** §3 answered *may a change reach the books*, and the registry holds.
+Nothing had swept the other axis: **what an operator is offered, told and refused at the moment they
+change money.** §11–§14 are that sweep and the decisions taken from it; **§15 is what shipped —
+including the two places the sweep itself was wrong**, which is the part worth reading.
+
+**How to read it.** §1–§10 describe the mechanism and were **corrected in place on 2026-08-28** where
+they had gone stale (the payment void status, the ledger panel's reach, the before/after preview,
+F5's missing tick, and the whole Voyager comparison in §10). A document that contradicts itself across
+two sections is worse than one merely out of date, because the reader cannot tell which half is
+current. Where a claim CHANGED rather than merely aged, the old wording is kept beside it in a *was*
+note — the count corrections in §15.1 are recorded rather than edited away for the same reason.
+
+**Every finding in §9 is closed**, and all four §7 decisions are taken on the Yardi standard. Phase 4
+(the per-area sweeps) belongs to the validation axis and is run separately from the registry Phase 1
+built.
+
+**Three things were measured and declined rather than built**, and each is recorded where the next
 person will look: dating `Asset.leasable_area_sqm` (§9 F6 / module 08 — no pool uses that basis, and
-the denominator is already frozen and recorded), and notifying on every ledger re-derive (§9 F3 — it
-would fire on each late fee and each CAM run). Saying so is the point: this plan opened by promising
-to report honestly when the answer is "nothing to do here", and these are the two places it applies.
+the denominator is already frozen and recorded); notifying on every ledger re-derive (§9 F3 — it would
+fire on each late fee and each CAM run, and D4's save toast reaches the one person who caused it
+instead); and a per-lease `auto_apply_credit` flag (§7.2 — worth doing only if the operator meets the
+case). Saying so is the point: this plan opened by promising to report honestly when the answer is
+"nothing to do here".
+
 
 > **The question this answers.** An operator changes something — a unit's area, a lease's rent, an
 > issued invoice, a vendor bill already paid. What happens to the general ledger, and *should that
@@ -222,7 +233,7 @@ Grounded in the code as it stands today, not guessed. **Bold = changes proposed.
 |---|---|---|---|
 | Invoice `issue_date`, `tenant_id`, `lease_id` after issue | **R** — model `updating` guard, "void and re-issue instead" ([Invoice.php:410](../../app/Models/Invoice.php#L410)) | R | |
 | Invoice back to `draft` | **R** — both layers (option removed *and* model guard) | R | |
-| Invoice items / totals after issue | UI-locked, deliberately **not** model-guarded — `LateFeeService`/CAM legitimately rewrite them via `saveQuietly` | D, and **declared as such** | The reasoning is right; it lives in a plan doc rather than a registry |
+| Invoice items / totals after issue | UI-locked, deliberately **not** model-guarded — the CAM true-up legitimately rewrites them via `saveQuietly` | D, and **declared as such** | ✅ **Done** — declared DERIVED in `ChangeImpact::POLICY` with the reasoning inline, where the next reader looks |
 | Cancel an invoice with captured cash | **R** — on every path, in `updating` so the write is refused, not merely reported | R | |
 | Void an ETA-filed invoice | **R** — steers to a credit note | R | The evidence rule, already implemented once |
 | Payment `amount` / `payment_date` after capture | **R** | R | |
@@ -239,7 +250,7 @@ Grounded in the code as it stands today, not guessed. **Bold = changes proposed.
 | **Vendor bill payment — money fields** | ✅ **R** (2026-08-11) | R | Promoted once the void existed. A refusal is only as good as the path it names, so the correction had to ship first |
 | Direct expense — amount / VAT / category / funding source | ✅ **R** (2026-08-11) | R | `recorded` IS posted (there is no draft), so it is immutable from birth; correction is cancel + re-enter. Decided on the Yardi standard, §7.1. Locked at both layers off one predicate |
 | Direct expense — date / property | **D** | D | Each carries its own guard (posting-date, `assertAssetInScope`); re-dating or re-homing a correctly-keyed expense does not restate what was spent — the same split VendorBill makes |
-| Marketing spend, fixed asset cost | **D** — deliberately unlocked, reasons recorded | D | Keep; move the reasons into the registry |
+| Marketing spend, fixed asset cost | **D** — deliberately unlocked | D | ✅ **Done.** The reasons are inline in `ChangeImpact::POLICY`, and §15.2 records the 2026-08-28 attempt to freeze them both — refused by the code, correctly |
 
 ---
 
@@ -251,9 +262,15 @@ The word is used for four different things. The plan should make the vocabulary 
 |---|---|---|---|
 | **Journal entry** | `void()` | posts a balanced reversing entry, links `reversal_of_id`, marks the original `void`. Both remain | no — post another entry |
 | **Invoice** | `VoidInvoiceService::void()` | `status = cancelled` → journalizer returns no effect → the entry is voided. Applied credit notes, tenant credit and netted deposits all return automatically; captured **cash** blocks it; an ETA-filed invoice blocks it | the document stays, cancelled |
-| **Payment** | `VoidPaymentService::void()` | `status = refunded` → AR re-opens on every invoice it settled → the GL leg voids | |
+| **Payment** | `VoidPaymentService::void()` | `status = voided` → AR re-opens on every invoice it settled → the GL leg voids. **`voided`, not `refunded`, since 2026-08-28** — voiding a receipt and refunding one are different acts and the old wording told a tenant their money had gone back (§11) | the row stays, voided |
 | **Vendor bill** | `VendorBillService::cancel()` | `status = cancelled` → AP entry voids. Refuses if payments exist | |
 | **Vendor payment** | `VoidVendorBillPaymentService::void()` | sets `voided_at` → excluded from `paid_amount` (the payable re-opens) → journalizer returns no effect → the AP/bank/withholding legs all reverse. The row stays on the register with its reason | the row stays, voided |
+
+| **Marketing spend · fixed asset · عهدة · advance** | `ReverseMoneyDocumentService::reverse()` | soft-delete → the journalizer reads it as having no effect → the entry is reversed. Offered as **Reverse**, never Delete, and it records a reason | the row stays, trashed |
+
+> **The word is used for four things and §11 names them**: *correct* (تصحيح), *reverse/void* (إلغاء),
+> *refund* (استرداد) — and, unique to a derived ledger, *restate*. Yardi keeps the first three apart;
+> the fourth has no Voyager equivalent, which is why it needed a word and a screen of its own.
 
 **Where the reversal lands.** Original period if open, else today's open period, else refuse. This is
 *stricter than Yardi*, which would put it in the current post month by default — and stricter is a
@@ -276,16 +293,23 @@ Every mechanism above is invisible to the operator. Five concrete surfaces, in o
    a leasing user sees their invoice without seeing which accounts it moved.
    The read model is `App\Support\LedgerTrail`, side-effect free (`wouldChange()` is `sync()`'s dry run
    — no lock, no write), so rendering the panel can never move the books.
+   **Extended 2026-08-28 (D4):** also mounted on the nine money **Edit page headers** — a list is
+   where you audit, the Edit page is where you act — and on the six remaining sources that have a
+   screen. `ChangeImpactConformanceTest` now derives the requirement from Filament's own model→
+   resource registry, so a new money resource cannot ship without it.
 2. ✅ **A source column + drill-through on the journal-entries table.** The resource is resolved through
    `Filament::getModelResource()` — derived from Filament's own registry rather than a hand-kept
    model→resource map, which would be one more list to drift — and a reversing entry reads as
    *"Reversal of JE-…"* instead of showing a source it does not have. `source` and `reversalOf` are
    eager-loaded, so the column costs no query per row.
-3. ✅ **The drift note**, which is item 3 in its useful form: the panel says *"This document has changed
-   since it was posted. The ledger is corrected automatically within a few seconds"*. A per-action
-   before/after preview (*"this will reverse EGP 12,400 and re-post EGP 13,050"*) is still worth having
-   and is deliberately **not** built — `wouldChange()` returns a boolean, and a sibling returning the
-   diff is a separate, larger piece.
+3. ✅ **The drift note** — and, since 2026-08-28, **the figures**. The note began as *"This document
+   has changed since it was posted"*; `LedgerPoster::pendingRestatement()` is the sibling
+   `wouldChange()` never had, so the panel and the save toast both say *"reversed EGP 12,400,
+   re-posted at EGP 13,050"* from ONE call and cannot tell two stories about one pending change.
+   **Four shapes, four sentences** — post · reverse · reverse-and-re-post · **move to another month**,
+   the last because a date-only correction leaves the figure identical on both sides and *"reversed
+   EGP 1,000 and re-posted at EGP 1,000"* reads as a no-op while hiding the only thing that moved.
+   *(This item said "deliberately not built" until the day it was; see §15.4.)*
 4. ✅ **A restatement warning** — `App\Support\ReportedPeriod`. A month is reported once a **finalised
    owner statement covers it**, derived rather than stored: no `reported_at` column to set, forget or
    drift out of step with the statements themselves. Surfaced in three places — on the document (a
@@ -392,7 +416,7 @@ Verified against the source on 2026-08-11, ranked. Everything below was checked 
 | **F2** ✅ **FIXED 2026-08-11** | **High** | **No document ↔ journal-entry surface, in either direction.** No relation manager or ledger panel on Invoice / VendorBill / Payment; no source column or drill-through on the journal-entries table. The data is all there (`source_type`, `source_id`, `reversal_of_id`) | §6.1–6.2 |
 | **F3** ✅ **CLOSED 2026-08-11** — the trail shows the reversal chain and a drift note on the document, and a reported-month restatement raises a real alert. Going further is a **deliberate non-goal**: a notification on EVERY re-derive would fire on each late fee and each CAM run, and an alert that arrives dozens of times a month is one nobody reads. The cases that carry consequence are covered | **Med** | **A re-derive is silent.** A change to a posted document voids and re-posts via a queued job, with a generic description and no notification to the operator who caused it | [LedgerPoster.php:236](../../app/Services/Accounting/LedgerPoster.php#L236) |
 | **F4** ✅ **FIXED 2026-08-11** | **Med** | **A correction can restate a reported month.** The reversal lands in the original period whenever it is open; "reported" (owner statement issued, VAT filed) has no representation | [JournalPostingService.php:339](../../app/Services/Accounting/JournalPostingService.php#L339) |
-| **F5** | **Med** | **The edit policy is asymmetric and undocumented.** Invoice / Payment / CreditNote / VendorBill lock at finalize; Expense, MarketingSpend and FixedAsset deliberately do not. The reasons exist in a plan doc, not a registry, and nothing fails when a new source ships with no policy at all | §3, §4 |
+| **F5** ✅ **FIXED 2026-08-11** — `App\Support\ChangeImpact` is the registry it asks for, and `ChangeImpactConformanceTest` fails the build on an unclassified field, so a new source cannot ship undecided. Marked here 2026-08-28: it was the one finding left without a tick while the header above claimed all of §9 was closed | **Med** | **The edit policy is asymmetric and undocumented.** Invoice / Payment / CreditNote / VendorBill lock at finalize; Expense, MarketingSpend and FixedAsset deliberately do not. The reasons exist in a plan doc, not a registry, and nothing fails when a new source ships with no policy at all | §3, §4 |
 | **F6** ✅ **FIXED 2026-08-11 — and it was worse than filed** | **Low→Med** | **A first CAM reconciliation of a past year divides by today's area.** The *occupied* denominator is time-weighted and every **re-run freezes the shares** ([CamReconciliationService.php:34-56](../../app/Services/CamReconciliationService.php#L34)) — that half is correct and well-guarded. The **GLA** basis reads `Asset.leasable_area_sqm` / a live `sum('area_sqm')` over the zone ([:322](../../app/Services/CamReconciliationService.php#L322)), neither of which is dated. Narrow: it bites only the first reconciliation of a year that ended before a remeasure. **On fixing it, the NUMERATOR turned out to be undated too** — `Lease::totalAreaSqmForPeriod()` time-weighted tenure while reading the current `area_sqm`, so the unit-area register never reached CAM at all. Both now compose through `Unit::areaSqmDaysBetween()` (m²·days). `Asset.leasable_area_sqm` remains undated — and **dating it was measured and declined 2026-08-11**: no pool uses the GLA basis, a property's GLA moves every few years rather than every fit-out, and `denominator_used_sqm` already freezes and records what each pool divided by. See [module 08](../modules/08-cam.md) | ← |
 | **F7** ✅ **FIXED 2026-08-11** | **Low** | **`docs/MONEY-PATHS.md` states the two-channel AR formula** (`captured + credit_applied_amount`) — the invariant has been four channels since the deposit-netting and tenant-credit work. The team's most-read money doc is wrong about the one rule it calls "the one rule" | the retired `MONEY-PATHS.md`; the doc was deleted on 2026-08-19 rather than corrected, because [modules/05–07](../modules/README.md) already state the four-channel rule |
 | **F8** ✅ **FIXED 2026-08-11** | **Low** | **The Yardi money-flow benchmark contradicts itself.** §3 says post month is missing and §5 says write-off is "❌ absent"; §10, re-verified today, marks both **BUILT**. Reconcile the earlier sections or mark them as-written-at-the-time | [02-yardi-money-flow.md](../benchmarks/yardi/02-yardi-money-flow.md) |
@@ -407,18 +431,35 @@ rather than `updated`.
 
 ## 10. How this compares to Voyager, in one table
 
-| Concern | Yardi Voyager | Atriom today | After this plan |
-|---|---|---|---|
-| GL model | posted at transaction time; append-only | derived; re-posted on change | derived, **with a stated contract for when it may re-derive** |
-| Editing a posted document | impossible | refused on AR/AP documents, open on expenses | classified per field, gated mechanically |
-| Correcting one | reverse / credit charge / adjustment | void + re-issue, credit note, write-off, tenant credit | same, plus a vendor-payment void (F1) |
-| Two time coordinates | date + post month | date + post-month override | unchanged — already built |
-| Closing a period | close post month; reopen deliberately | `AccountingPeriod` + close gate + readiness checklist | plus a **reported** state between open and closed |
-| Seeing the GL effect | transaction drills to its GL detail | reports only; documents say nothing | ledger panel on the document, source column on the entry |
-| Enforcement of all this | convention and training | conformance gates on 8 registries | a 9th: `ChangeImpact` |
+> **Re-verified against the code 2026-08-28.** The "Atriom today" column describes the state as it
+> now stands, not as it stood when this plan opened — the old column is preserved in the *was* notes,
+> because a benchmark table that quietly updates itself teaches nothing about what moved.
 
-The accounting core is ahead of the benchmark on control and behind it on visibility. This plan closes
-the visibility gap and writes down the control that is currently carried in people's heads.
+| Concern | Yardi Voyager | Atriom today | Deviation, stated |
+|---|---|---|---|
+| GL model | posted at transaction time; append-only | **derived**; re-posted on change, under `ChangeImpact` | ours is arithmetically stronger (the books cannot drift) and evidentially weaker (§2) |
+| Editing a posted document | impossible | refused per field on **12 of 24** sources; the rest are service-managed with no operator form *(was: "open on expenses")* | matched, where a form exists |
+| Correcting one | reverse / credit charge / adjustment | void + re-issue · credit note · write-off **and its reversal** · tenant credit · vendor-payment void · `ReverseMoneyDocumentService` | matched |
+| Void vs refund vs NSF | three separate acts | three separate statuses since 2026-08-28 *(was: void and refund shared `refunded`)* | matched |
+| A reason on every reversal | required, by reason code | required on all **18** sources that have a named act (14 distinct acts), into the audit trail; the other 6 are undone by reversing their cause | matched; ours is free text, not a code list |
+| Two time coordinates | date + post month | date + post-month override | matched |
+| Closing a period | close post month; reopen deliberately | `AccountingPeriod` + close gate + readiness checklist + a **reported** state | ours adds a tier Voyager has no equivalent for |
+| Editing into a closed period | accepted; correction books to the current post month | **refused**, naming the period and both ways out (`SealedPeriod`) | **stricter than Yardi** — deliberate, and consistent with our reversal-period choice (§5) |
+| Seeing the GL effect | transaction drills to its GL detail | ledger panel on every source that has a screen, both directions, with the pending figures *(was: "reports only; documents say nothing")* | matched |
+| Enforcement of all this | convention and training | conformance gates on 10 registries | ours is mechanical where Voyager's is procedural |
+
+**Where we deliberately differ from Voyager, and why** — the three rows above marked as deviations:
+
+1. **A derived ledger** (§2). Kept: the sweep can prove every entry equals its re-derivation, which
+   Voyager cannot. Everything in §11–§15 exists to make that derivation *visible and consented to*.
+2. **Refusing a closed-period edit** rather than booking the correction forward. Voyager's control is
+   the post month; ours is the period, and we already chose "original period if open" for reversals
+   (§5). Booking August's cost silently into October would contradict a decision already taken.
+3. **A "reported" month** between open and closed. Voyager has no such state — its control is that
+   you *close* the month when you report it. Ours warns and steers to the close (§6.4, §7.4).
+
+The accounting core was ahead of the benchmark on control and behind it on visibility. That gap is
+now closed; what remains different is listed above, and each line is a choice rather than a shortfall.
 
 ---
 
@@ -654,7 +695,7 @@ that is the deviation, stated.**
 | | Option | |
 |---|---|---|
 | **A** ⭐ | The **save toast says it**: *"Saved. This document's ledger entry will be re-posted (August 2026)."* — on any save where `wouldChange()` was true before the write. One seam on the money Edit pages, not per resource | S |
-| **B** | Mount the existing `LedgerEntryAction` panel on **all 24** sources and on the **Edit page** header, not only the list row | S — the factory exists; this is call sites |
+| **B** | Mount the existing `LedgerEntryAction` panel on **every source that has a screen** and on the **Edit page** header, not only the list row | S — the factory exists; this is call sites. *(Written as "all 24" and corrected: twelve of the 24 have no admin screen at all, so the reachable set is twelve — see §15.3.)* |
 | **C** | Both | S–M |
 
 **Recommendation: C.** §6.1 built the panel and §6.3 declined the preview; the missing piece is not new
@@ -700,8 +741,8 @@ same-commit docs update. Ordered so the cheapest audit-visible wins land first a
 | Phase | Work | Decisions | Size | Why this order |
 |---|---|---|---|---|
 | **5 — the live defect** | D3: one closed-period guard over all 24 sources, derived from `SOURCE_DATE_COLUMNS`. A regression test that reproduces §12.3 exactly and goes red without the guard | D3 | S–M | It is the only thing here that can permanently red a `deploy.sh` preflight |
-| **6 — vocabulary** | D2 (`voided` ≠ `refunded`) + D5 (reason required on all ten reversals) + D7 (the 62 refusals in both languages) | D2, D5, D7 | S–M | Cheap, audit-visible, no behaviour change to the books |
-| **7 — visibility** | D4: `LedgerEntryAction` on all 24 sources **and** on Edit page headers; the save toast that names the re-post | D4 | S–M | Turns the machinery §6 built into something an operator meets. Must land before Phase 8 so the refusals it adds are legible |
+| **6 — vocabulary** | D2 (`voided` ≠ `refunded`) + D5 (reason required on all **thirteen** reversals — the sweep first counted ten) + D7 (the 62 refusals in both languages) | D2, D5, D7 | S–M | Cheap, audit-visible, no behaviour change to the books |
+| **7 — visibility** | D4: `LedgerEntryAction` on every source that HAS a screen **and** on Edit page headers; the save toast that names the re-post | D4 | S–M | Turns the machinery §6 built into something an operator meets. Must land before Phase 8 so the refusals it adds are legible |
 | **8 — the lock sweep** | D1(A): promote the 17 unguarded sources' money fields from `DERIVED` to `REFUSED` **where a reversal path already exists**, model-level, off one predicate per source. `Payroll`, `DepositTransaction`, `FixedAsset` first — they are true accounting documents | D1 | M–L | The widest change, and it needs its reversal paths (Phase 9) and its wording (Phase 6) in place first, or it traps operators |
 | **9 — the missing reversals** | Wire `WriteOffInvoiceService::reverse()` to an action (§12.4 — it is built and tested, it needs a button). A named reversal for `FixedAsset`, `MarketingSpend`, `EmployeeAdvance`, `Custody` (Tier 4). Then D6. Extend `ServiceReachability` from classes to the **public methods of money services** | D6 | M | A refusal is only as good as the path it names — the same lesson `VendorBillPayment` taught in §9 F1 |
 
@@ -772,9 +813,9 @@ registry*. Aligned now, which is what makes `ChangeImpactConformanceTest` a witn
 |---|---|---|
 | **D3** ✅ | `App\Support\SealedPeriod` — one wildcard `eloquent.updating` seam over all 24 sources, refusing a change that would strand an entry in a closed period. `LedgerPoster::sealedPeriodBlocking()` is the authoritative predicate, built from the same `effectivePayload()` + `matches()` pair `sync()` uses, so it cannot drift from the engine. Mutation-proved: 5 controls hold, 2 refusals go red | `AClosedPeriodDocumentCannotBeRestatedTest` |
 | **D2** ✅ | `Payment::REVERSED_STATUSES` and a real `voided` status. Voiding a receipt no longer tells the tenant their money was refunded. Existing `refunded` rows are deliberately not migrated — nobody can now say which were genuine | 6 assertions updated |
-| **D5** ✅ | `App\Support\ReversalReason` + `ReversalReasonField` — **13 of 13** reversal acts now record why, into the activity trail rather than an editable `notes`. Log name read off the model's own `getActivitylogOptions()` | 24 new EN+AR keys |
+| **D5** ✅ | `App\Support\ReversalReason` + `ReversalReasonField` — every reversal records why, into the activity trail rather than an editable `notes`. **18 of the 24 sources have a named act** (14 distinct, since `reverse_document` serves four); the other 6 carry a reasoned `NO_REVERSAL` entry. Log name read off the model's own `getActivitylogOptions()`. *The sweep first counted 13 acts — it was counting only the ones that already existed.* | 24 new EN+AR keys |
 | **D7** ✅ | All **62** raw-English refusals are `admin.refusals.*` keys in both languages, with field names resolved through `admin.fields.*` — so the refusal names the field the way the form does | `lang/{en,ar}/admin/refusals.php` |
-| **D4** ✅ | `AnnouncesLedgerRestatement` on nine money Edit pages: the save toast says the entry will be re-posted, and only when it will. `LedgerEntryAction` mounted on those nine Edit **headers** — where the operator acts, not only on the list where they audit | `AMoneyDocumentSaysWhatItDidToTheBooksTest` |
+| **D4** ✅ | `AnnouncesLedgerRestatement` on nine money Edit pages: the save toast says the entry will be re-posted, **with the figures**, and only when it will. `LedgerEntryAction` on those nine Edit **headers** — where the operator acts, not only on the list where they audit — plus the six remaining sources that have a screen (stock movements, owner-statement runs, disbursements, custody transactions, marketing spends, employee advances). **Twelve of the 24 have no admin screen at all**, so "all 24" in D4(B) was never reachable; the gate derives the requirement from Filament's own model→resource registry instead of a count | `AMoneyDocumentSaysWhatItDidToTheBooksTest` |
 | **D6 / §12.4** ✅ | Bad-debt **recovery** now has a button. `ReverseDocumentAction` + `ReverseMoneyDocumentService` give `MarketingSpend`, `FixedAsset`, `Custody` and `EmployeeAdvance` a named reversal with a reason; the marketing spend's bare `DeleteAction` is gone | — |
 | **D1** ◐ | Four genuinely unguarded sources locked via `RefusesRestatementOfCommittedMoney`, which reads `ChangeImpact::refusedFields()` so **the promotion IS the lock**. Three reverted (§15.2); two aligned to guards that already existed (§15.1) | `ChangeImpactConformanceTest`, green |
 
@@ -791,8 +832,16 @@ same lesson §15.2 records, and the reason they were not swept in with the rest.
 
 ~~**A `Reversals` registry with gate teeth**~~ ✅ — `App\Support\Reversals` (`ACTS` + `NO_REVERSAL`,
   each with a reason), gated on `ChangeImpactConformanceTest`: every source classified, every act
-  named must exist in `app/Filament`, every reversal must reach `ReversalReason::record()`, and the
-  shared reason field must stay required and capped.
+  named must exist in `app/Filament`, the shared reason field must stay required and capped, and
+  every source with a screen must mount the ledger panel (derived from Filament's own model→resource
+  registry, so it cannot miss what a hand-kept list omits).
+
+  **One tooth is a threshold and the gate says so**: "every reversal reaches
+  `ReversalReason::record()`" is asserted as a floor on call sites, not per act — an act NAME cannot
+  be tied to the service method it calls by reading text, which the four drafts of the method-level
+  reachability gate demonstrate. What holds per act is that each asks for the reason through the one
+  factory. Recorded because a gate whose name overstates what it checks is how the next person comes
+  to trust it too far.
 
 ~~**`ServiceReachability` at method level**~~ ✅ — and **it took four drafts, which is the finding.**
   Draft 1 searched for `->reverse(` anywhere: matched `SettleCustodyService`'s. Draft 2 narrowed to

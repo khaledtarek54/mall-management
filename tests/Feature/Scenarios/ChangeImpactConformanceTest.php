@@ -23,6 +23,7 @@ use App\Support\ChangeImpact;
 use App\Support\FieldHelp;
 use App\Support\LedgerRealtimeSync;
 use App\Support\Reversals;
+use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\QueryException;
@@ -573,6 +574,12 @@ it('records a reason on every reversal', function () {
         ->map(fn ($f) => $f->getContents())
         ->implode("\n");
 
+    // **A THRESHOLD, and it proves a weaker property than its name suggests** — say so rather than
+    // let a future reader assume otherwise. It catches the seam being abandoned wholesale; it does
+    // NOT prove that act X records a reason, because an act name cannot be tied to the service
+    // method it calls by reading text (four drafts of the method-level reachability gate above are
+    // the evidence for that). What DOES hold per act is the field: every one asks for a reason
+    // through the same factory, asserted directly below.
     expect(substr_count($source, 'ReversalReason::record('))
         ->toBeGreaterThanOrEqual(
             10,
@@ -589,4 +596,43 @@ it('offers the reason field from one place, so it cannot drift', function () {
 
     expect($field->isRequired())->toBeTrue()
         ->and($field->getMaxLength())->toBe(FieldHelp::REVERSAL_REASON_MAX_LENGTH);
+});
+
+it('shows what the document did to the books, wherever the document has a screen', function () {
+    // The third assertion of the twenty-fifth question, and it was promised before it was written.
+    // CHANGE-IMPACT-PLAN §6.1 built `LedgerEntryAction` and mounted it on five tables; D4 extended it
+    // to nine Edit headers and said "all 24 sources" — which was never literally reachable, because
+    // twelve of the 24 have no admin screen at all. Six that DO had neither, so the one question a
+    // DERIVED ledger makes an operator ask — "what happened to my entry?" — had no answer on the
+    // stock register, the owner-statement runs, the disbursements, the custody transactions, the
+    // marketing spends or the employee advances.
+    //
+    // Derived from **Filament's own registry**, not from a list kept here: a gate that reads only the
+    // registry it guards cannot see what that registry omits, which is the failure
+    // `CatalogueWidensItsColumnsConformanceTest` exists for. A source with no resource is exempt by
+    // BEING one — there is nothing to mount the panel on.
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+    $missing = [];
+
+    foreach (LedgerPoster::sources() as $model) {
+        $resource = rescue(fn () => Filament::getModelResource($model), null, false);
+
+        if (! $resource) {
+            continue;
+        }
+
+        $dir = dirname((new ReflectionClass($resource))->getFileName());
+
+        $mounted = collect(File::allFiles($dir))
+            ->filter(fn ($f) => $f->getExtension() === 'php')
+            ->contains(fn ($f) => str_contains($f->getContents(), 'LedgerEntryAction::make()'));
+
+        if (! $mounted) {
+            $missing[] = class_basename($model).' posts to the general ledger and has a screen, but no '
+                .'LedgerEntryAction — an operator cannot see what the document did to the books.';
+        }
+    }
+
+    expect($missing)->toBe([], "\n".implode("\n", $missing));
 });

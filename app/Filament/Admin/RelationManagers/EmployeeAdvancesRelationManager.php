@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Actions\ReverseDocumentAction;
 use App\Models\Employee;
@@ -131,6 +132,12 @@ class EmployeeAdvancesRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                // **What this document did to the books, from the document.** CHANGE-IMPACT-PLAN
+                // §6.1 built the panel and mounted it on five tables; D4 extended it to the Edit
+                // headers. These six sources have an operator screen and had neither — so the one
+                // question a derived ledger makes people ask ("what happened to my entry?") had no
+                // answer here. Read-only and gated on `general_ledger.view`.
+                LedgerEntryAction::make(),
                 // An advance recorded in error. Distinct from a REPAYMENT (below), which is the
                 // employee giving the money back and is its own dated GL source. Refused once any
                 // repayment exists, for the same reason custody is: those rows post on their own and

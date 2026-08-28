@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\OwnerStatementRuns\Tables;
 
+use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Models\Disbursement;
 use App\Models\OwnerStatement;
@@ -99,6 +100,12 @@ class OwnerStatementRunsTable
                         ->mapWithKeys(fn (string $s) => [$s => __("admin.owner_statements.statuses.{$s}")])->all()),
             ])
             ->recordActions([
+                // **What this document did to the books, from the document.** CHANGE-IMPACT-PLAN
+                // §6.1 built the panel and mounted it on five tables; D4 extended it to the Edit
+                // headers. These six sources have an operator screen and had neither — so the one
+                // question a derived ledger makes people ask ("what happened to my entry?") had no
+                // answer here. Read-only and gated on `general_ledger.view`.
+                LedgerEntryAction::make(),
                 // Finalise a draft — posts the distribution accrual (recompute-then-freeze).
                 Action::make('finalise')
                     ->label(__('admin.owner_statements.actions.finalise'))
