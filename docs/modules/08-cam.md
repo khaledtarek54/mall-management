@@ -1036,3 +1036,22 @@ button reappears on a money record.
 |---|---|---|
 | `CamExpensePool` | **Only while unreferenced** — blocked by `allocations` | void the allocations first — they are what tenants were billed from |
 | `CamAllocation` | Deletable (super_admin) | operational: voided through the pool, not removed |
+
+## The document, set in Direction D (2026-08-28)
+
+Built on the shared shell (`resources/views/pdf/layout.blade.php`) and rendered by
+`App\Support\Pdf\PdfDocument`: a full-bleed navy band carrying the mall's identity, everything below
+it white paper with hairlines, and the one figure the reader came for set apart on the accent.
+
+The direction was chosen from four drawn side by side in both languages; the tradeoff accepted with
+it is that this is the heaviest of the four on ink, which is why the band is the ONLY large ink field
+and the accent is spent once per page. See
+[OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference).
+
+**It is written in its reader's language**, resolved through `App\Support\Pdf\DocumentLocale` —
+what the operator picked on the download modal, else the recipient's own stored `locale`, else the
+request's. Blank is the normal state.
+
+**Do NOT add an `@page` rule to the template.** Page geometry belongs to the renderer, which is also
+the thing that knows there is a running footer; a template that sets its own margins leaves no room
+for it and the footer renders nowhere at all.

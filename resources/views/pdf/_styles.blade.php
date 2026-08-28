@@ -100,6 +100,10 @@
         line-height: 1.2;
     }
     .doc-number {
+        /* Bold, not the SemiBold the `bold` keyword resolves to: this and the balance figure are
+           Direction D's two focal points, and the weight is what makes them read as such across a
+           desk. The heavy family exists for these two rules and nothing else. */
+        font-family: {{ \App\Support\Pdf\PdfDocument::FONT }}heavy;
         font-size: 15pt;
         font-weight: bold;
         color: {{ T::REVERSED }};
@@ -365,6 +369,7 @@
     .balance td { padding: 10pt 13pt; vertical-align: middle; }
     .balance .caption { color: {{ T::MUTED }}; font-size: 8.5pt; margin-top: 2pt; }
     .balance .figure {
+        font-family: {{ \App\Support\Pdf\PdfDocument::FONT }}heavy;
         text-align: {{ $end }};
         font-size: 17pt;
         font-weight: bold;

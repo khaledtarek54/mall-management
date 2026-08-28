@@ -137,6 +137,37 @@ it('registers a font that is actually on disk, for both weights', function () {
     }
 });
 
+it('uses every font family it ships', function () {
+    // The other half, and the half that was missing: the gate above proved every registered file is
+    // ON DISK, which a family nothing references satisfies perfectly. `plexsansarabicheavy` was
+    // registered on 2026-08-27 and named by no stylesheet for a day — a 247 KB face checked in,
+    // parsed into mpdf's metric cache on first render, and asserted by a test, doing no work.
+    //
+    // The default family needs no reference (mpdf applies it as `default_font`); every OTHER one has
+    // to be named by something that renders.
+    $stylesheets = collect(File::allFiles(resource_path('views/pdf')))
+        ->map(fn ($f) => File::get($f->getPathname()))
+        ->implode("\n");
+
+    $unused = [];
+
+    foreach (array_keys(PdfDocument::fontData()) as $family) {
+        if ($family === PdfDocument::FONT) {
+            continue;
+        }
+
+        // Named in the stylesheet as `…FONT }}heavy`, i.e. the constant plus its suffix.
+        $suffix = str_replace(PdfDocument::FONT, '', $family);
+
+        if (! str_contains($stylesheets, '::FONT }}'.$suffix)) {
+            $unused[] = $family;
+        }
+    }
+
+    expect($unused)->toBe([], 'These font families are registered with mpdf and shipped in '
+        .'resources/fonts, and nothing renders in them: '.implode(', ', $unused));
+});
+
 /**
  * Files allowed to construct mpdf themselves, and why.
  *

@@ -323,7 +323,13 @@ return [
             'order_total' => 'إجمالي الأمر',
             'footer' => 'صدر أمر الشراء هذا إلكترونيًا. يُرجى التوريد بموجب المرجع أعلاه.',
         ],
-        'billed_to' => 'مفوترة إلى',
+        // «السادة» is how an Egyptian invoice addresses the party it is billed to — the standard
+        // business honorific, and what a retailer's accountant expects to read at the top of the
+        // block. «مفوترة إلى» was a calque of "Billed to": understandable, and visibly translated on
+        // the one document every tenant files. Flagged independently twice before it was changed.
+        // Only the DOCUMENT string moved; `admin.fields.billed_to` and `admin.reports.billed_to`
+        // label a form field and a report column, where the literal reading is right.
+        'billed_to' => 'السادة',
         'document_details' => 'بيانات المستند',
         'language' => 'اللغة',
         'language_hint' => 'المستند يُحرَّر بهذه اللغة، والمبدئي هو لغة المُرسَل إليه.',
