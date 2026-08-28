@@ -22,8 +22,11 @@
 | a closure is evaluated, so the first version of this file measured nothing at all.
 */
 
+use App\Filament\Admin\Resources\Leases\Pages\EditLease;
+use App\Filament\Admin\Resources\Payrolls\Pages\CreatePayroll;
 use App\Filament\Admin\Resources\RentIndices\Pages\CreateRentIndex;
 use App\Models\RentIndex;
+use App\Support\BillingWindow;
 use App\Support\Filament\MonthPicker;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -94,4 +97,52 @@ it('suggests the codes already in use', function () {
 
     expect(Livewire::test(CreateRentIndex::class)->instance()
         ->getSchema('form')->getComponent('code')->getDatalistOptions())->toContain('CPI-EG');
+});
+
+it('mounts every screen the month picker now lives on', function () {
+    // The fix broke the lease page and no test saw it: `MonthPicker` extends `Select`, which has no
+    // `minDate()`, and the field it replaced had one two lines further down. A 500 on
+    // /admin/leases/{id}/edit, reported from the browser.
+    //
+    // `ResourceFormSmokeTest` mounts CREATE pages, so an EDIT page's header ACTION is exactly the
+    // gap it does not cover — the same blind spot already recorded for the vendor edit form.
+    $asset = $this->asset;
+    $lease = makeLease(makeUnit($asset, ['area_sqm' => 110]), makeTenant(), [
+        'status' => 'active',
+        'commencement_date' => '2026-08-01',
+        'expiry_date' => '2029-07-31',
+    ]);
+
+    Livewire::test(EditLease::class, ['record' => $lease->getKey()])
+        ->assertOk()
+        // The action's schema is built when it MOUNTS, which is where the fatal was.
+        ->mountAction('generateInvoice')
+        ->assertOk();
+
+    Livewire::test(CreatePayroll::class)->assertOk();
+    Livewire::test(CreateRentIndex::class)->assertOk();
+});
+
+it('offers exactly the months the billing window allows', function () {
+    // The bound moved from `minDate`/`maxDate` onto the LIST, which is what bounds a Select — so
+    // the picker must still refuse a month the preview screen would refuse.
+    $lease = makeLease(makeUnit($this->asset, ['area_sqm' => 110]), makeTenant(), [
+        'status' => 'active',
+        'commencement_date' => '2026-08-01',
+        'expiry_date' => '2029-07-31',
+    ]);
+
+    $component = Livewire::test(EditLease::class, ['record' => $lease->getKey()])
+        ->mountAction('generateInvoice');
+
+    $page = $component->instance();
+    $options = $page->getSchema($page->getMountedActionSchemaName())
+        ->getComponent('period')->getOptions();
+
+    $months = array_keys($options);
+
+    expect(CarbonImmutable::parse($months[0]))
+        ->toEqual(CarbonImmutable::now()->startOfMonth()->addMonths(BillingWindow::MONTHS_AHEAD))
+        ->and(CarbonImmutable::parse(end($months)))
+        ->toEqual(CarbonImmutable::now()->startOfMonth()->subMonths(BillingWindow::MONTHS_BACK));
 });
