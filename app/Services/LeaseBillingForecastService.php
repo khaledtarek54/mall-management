@@ -126,7 +126,10 @@ class LeaseBillingForecastService
                 continue;
             }
 
-            $invoice = $billed[$cursor->format('Y-m')] ?? null;
+            $invoice = $billed[self::periodKey(
+                CarbonImmutable::instance($plan['period_start']),
+                CarbonImmutable::instance($plan['period_end']),
+            )] ?? null;
 
             $rows[] = [
                 'period_start' => $plan['period_start'],
@@ -194,6 +197,12 @@ class LeaseBillingForecastService
      *
      * @return array<string, Invoice>
      */
+    /** One period, written the same way on both sides of the match. */
+    private static function periodKey(CarbonImmutable $start, CarbonImmutable $end): string
+    {
+        return $start->toDateString().'|'.$end->toDateString();
+    }
+
     /**
      * What an invoiced period ACTUALLY carries, shaped exactly like a plan so the row builder above
      * cannot tell the two apart — one place decides the shape, so a new column added to the plan
@@ -224,8 +233,25 @@ class LeaseBillingForecastService
             // The LINES too, not just the header — the forecast row reads every figure from the
             // invoice once one exists, so the columns cannot disagree with each other.
             ->with('items:id,invoice_id,type,description,amount,vat_amount')
-            ->get(['id', 'number', 'total', 'subtotal', 'vat_amount', 'period_start', 'status'])
-            ->keyBy(fn (Invoice $invoice) => CarbonImmutable::instance($invoice->period_start)->format('Y-m'))
+            ->whereNotNull('period_end')
+            ->get(['id', 'number', 'total', 'subtotal', 'vat_amount', 'period_start', 'period_end', 'status'])
+            // ── KEYED BY THE WHOLE PERIOD, NOT THE MONTH IT STARTS IN (2026-08-28) ──────────
+            //
+            // A month can carry more than one invoice, and `keyBy` keeps the LAST. A SECURITY
+            // DEPOSIT invoice takes the lease's own term as its period — commencement to expiry —
+            // so its `period_start` falls in the commencement month and it was matched as that
+            // month's billing. Measured: a month forecasting 59,960 of rent and service charge
+            // showed 132,000 of deposit and nothing else, so the period read as INVOICED while the
+            // rent had not been billed at all.
+            //
+            // Matching BOTH ends is exact: the billing run raises an invoice whose period is the
+            // row's own period, and a document covering three years is not one of them. It also
+            // does the right thing for a quarterly cycle, where the row and its invoice both span
+            // three months.
+            ->keyBy(fn (Invoice $invoice) => self::periodKey(
+                CarbonImmutable::instance($invoice->period_start),
+                CarbonImmutable::instance($invoice->period_end),
+            ))
             ->all();
     }
 }

@@ -186,6 +186,25 @@
 > (`TheForecastShowsOnlyWhatWillBeBilledTest`, proven by removal.)
 
 
+
+> **⚠️ A security-deposit invoice swallowed the month (fixed 2026-08-28).** The forecast keyed
+> invoices by the MONTH their period starts in, and `keyBy` keeps the last — while a deposit invoice
+> takes the LEASE'S OWN TERM as its period, so its `period_start` lands in the commencement month.
+> Measured: a month forecasting 59,960 of rent and service charge showed 132,000 of deposit and
+> nothing else, and read as **invoiced** while the rent had not been billed at all. Now keyed on the
+> WHOLE period, both ends — exact for a monthly row, exact for a quarterly one, and no match at all
+> for a document covering three years.
+>
+> **⚠️ A charge added into a billed period was silently never collected.** The run refuses to bill a
+> month twice — correctly — so a back-dated charge sits in the schedule and no invoice ever raises
+> it. Measured: a month billed at 44,000, a 14,000 service charge added into it, run answers
+> *skipped*, 14,000 lost. **Not refused** — back-dating is a legitimate act and Yardi does not block
+> it either — but the operator is now told at the moment they do it, with the covering invoice
+> NAMED, because "that period is billed" is not actionable without knowing which document to look
+> at. Silent on an open period, and a cancelled invoice does not count.
+> (`ABilledPeriodSaysSoWhenYouAddAChargeTest`.)
+
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:

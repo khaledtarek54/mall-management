@@ -164,7 +164,28 @@ class LeaseForm
                                 : __('admin.helpers.lease_under_ownership')),
                         EntitySelect::make('additional_unit_ids')
                             ->label(__('admin.fields.additional_units'))
-                            ->helperText(__('admin.fields.additional_units_helper'))
+                            // ── SPACE MOVES THROUGH "CHANGE PREMISES", NOT THROUGH THE FORM ─────
+                            //
+                            // `EditLease::afterSave()` calls `syncUnits()`, which attaches the units
+                            // and NOTHING else. On a rate-priced lease that leaves the rent behind:
+                            // measured, a 110 m² lease at 4,800/m² went to 200 m² and kept billing
+                            // 44,000 where 80,000 was due — silently, with the schedule and the
+                            // forecast both showing the old figure.
+                            //
+                            // It cannot simply re-derive here, and that is the point: re-rating needs
+                            // an EFFECTIVE DATE, which this form has nowhere to put. A form save has
+                            // no "from when", so it could only restate the rent from the beginning of
+                            // the lease — rewriting months that have already been billed.
+                            //
+                            // `LeaseSpaceChangeService` (the Change premises action) takes that date,
+                            // re-derives at it, closes the old charge row and opens the new one. The
+                            // same shape as `service_charge_monthly` above, and for the same reason.
+                            ->disabled(fn (?Lease $record): bool => $record !== null
+                                && in_array($record->status, ['active', 'pending_approval'], true))
+                            ->helperText(fn (?Lease $record): string => $record !== null
+                                && in_array($record->status, ['active', 'pending_approval'], true)
+                                    ? __('admin.fields.additional_units_locked')
+                                    : __('admin.fields.additional_units_helper'))
                             ->entity(Unit::class)
                             // Same reason as the master picker: expansion space is chosen by looking
                             // at what is adjacent and free, not by typing a code you already know.

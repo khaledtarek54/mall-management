@@ -770,6 +770,21 @@
 > and is pinned by its own control. (`AOneOffMustNotEatTheRecurringChargeTest`, proven by removal.)
 
 
+
+> **⚠️ Adding a unit through the form left the rent behind (fixed 2026-08-28).**
+> `EditLease::afterSave()` calls `syncUnits()`, which attaches the units and nothing else: measured,
+> a 110 m² lease at 4,800/m² went to 200 m² and kept billing **44,000 where 80,000 was due**, with
+> the charge schedule and the forecast both still showing the old figure.
+>
+> **Re-deriving there is not the fix, and that is the point.** Re-rating needs an EFFECTIVE DATE and
+> a form save has nowhere to put one, so it could only restate the rent from the start of the lease —
+> rewriting months already billed. `LeaseSpaceChangeService` (Change premises) takes that date,
+> re-derives at it, and closes and reopens the charge row; Yardi treats a premises change as a dated
+> amendment for the same reason. Refused on the WRITE as well as the field, since a disabled input's
+> value still arrives in the Livewire payload. A DRAFT lease stays freely editable.
+> (`SpaceMovesThroughItsOwnActionTest`, proven by removal.)
+
+
 ## The lease abstract — clauses (2026-08-19)
 
 `lease_clauses` holds the legal terms that do not reduce to money, taken from the benchmark's own

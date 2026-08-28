@@ -80,6 +80,27 @@ class EditLease extends EditRecord
     protected function afterSave(): void
     {
         $additional = $this->data['additional_unit_ids'] ?? [];
+
+        // ── THE DISABLED FIELD IS A UI TRUTH, NOT A GATE (2026-08-28) ────────────────────────
+        //
+        // A disabled input's value still arrives in the Livewire payload — the rule this codebase
+        // states for every pinned field — so the refusal has to live here. `syncUnits()` attaches
+        // the units and nothing else: on a rate-priced lease that leaves the rent behind, and a
+        // 110 m² lease at 4,800/m² went to 200 m² still billing 44,000 where 80,000 was due.
+        //
+        // Re-deriving here is not the fix. Re-rating needs an EFFECTIVE DATE and a form save has
+        // none, so it could only restate the rent from the start of the lease — rewriting months
+        // already billed. `LeaseSpaceChangeService` takes that date, re-derives at it, and closes
+        // and reopens the charge row; this refuses and names it.
+        $live = in_array($this->record->status, ['active', 'pending_approval'], true);
+        $current = $this->record->units()->pluck('units.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+        $wanted = collect([$this->record->unit_id, ...$additional])
+            ->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
+
+        if ($live && $current !== $wanted) {
+            throw new \DomainException(__('admin.fields.additional_units_locked'));
+        }
+
         $this->record->syncUnits(
             [$this->record->unit_id, ...$additional],
             $this->record->unit_id,

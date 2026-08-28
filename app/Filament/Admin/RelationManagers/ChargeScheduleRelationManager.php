@@ -424,12 +424,39 @@ class ChargeScheduleRelationManager extends RelationManager
                             Charge::ORIGIN_MANUAL,
                         );
 
+                        // ── SAY IT WHEN A PERIOD HAS ALREADY BEEN BILLED (2026-08-28) ────────
+                        //
+                        // A charge dated into an invoiced period is never raised: the billing run
+                        // refuses to bill a month twice — correctly — so the schedule carries an
+                        // amount that no invoice will ever collect. Measured: a month billed at
+                        // 44,000, a 14,000 service charge added into it, and the run answers
+                        // "skipped". The money is simply lost, silently.
+                        //
+                        // NOT refused. Back-dating a charge is a legitimate act — an omission found
+                        // late — and the schedule row must start on the date it really applies from,
+                        // or the record of what was agreed is wrong. Yardi does not block it either;
+                        // it expects the shortfall to be collected on its own document.
+                        //
+                        // So the operator is told, at the moment they do it, which periods are
+                        // already closed to it and what to do about them.
+                        $alreadyBilled = $lease->invoices()
+                            ->whereNotIn('status', ['cancelled', 'draft'])
+                            ->whereDate('period_end', '>=', $from)
+                            ->whereDate('period_start', '<=', $from)
+                            ->pluck('number');
+
                         Notification::make()
                             ->title(__('admin.charge_schedule.added', [
                                 'type' => self::typeLabel($data['type']),
                                 'amount' => 'EGP '.number_format((float) $data['amount'], 2),
                                 'date' => CarbonImmutable::parse($charge->start_date ?? $data['effective_from'])->format('d/m/Y'),
                             ]))
+                            ->body($alreadyBilled->isNotEmpty()
+                                ? __('admin.charge_schedule.period_already_billed', [
+                                    'invoices' => $alreadyBilled->implode('، '),
+                                ])
+                                : null)
+                            ->when($alreadyBilled->isNotEmpty(), fn ($n) => $n->warning()->persistent())
                             ->success()
                             ->send();
                     }),

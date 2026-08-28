@@ -537,6 +537,7 @@ return [
         'unit_label' => 'Unit',
         'master_unit' => 'Unit (master)',
         'additional_units' => 'Additional units',
+    'additional_units_locked' => 'Locked once the lease is live — use the “Change premises” action, which records the date the space changes and re-rates the rent from it.',
         'additional_units_helper' => 'Optional — extra units this lease also covers (e.g. an adjacent kiosk). All count as occupied.',
         'password' => 'Password',
         'portal_admin' => 'Portal admin',
