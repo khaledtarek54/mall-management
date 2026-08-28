@@ -35,6 +35,9 @@ class PaymentReceiptController extends ApiController
 
         abort_unless($payment->isReceived(), 422, __('api.payment_receipt_not_available'));
 
-        return $this->streamPdf($pdf->build($payment), $pdf->filename($payment));
+        return $this->streamPdf(
+            $pdf->build($payment, $this->documentLocale($request)),
+            $pdf->filename($payment),
+        );
     }
 }

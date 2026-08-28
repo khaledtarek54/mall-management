@@ -660,3 +660,28 @@ button reappears on a money record.
 |---|---|---|
 | `Payment` | **Never deletable** | void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice |
 | `TenantCreditApplication` | Deletable (super_admin) | parent-managed: soft-deleted to reverse an applied tenant credit |
+
+## The document a tenant receives (2026-08-27)
+
+**Language.** The PDF is written in the language its READER reads, not its sender's. It rendered in
+`app()->getLocale()` — the operator's panel language, or `config('app.locale')` for a scheduled run
+— so an operator working in Arabic sent Arabic documents to tenants whose accountants file in
+English. `App\Support\Pdf\DocumentLocale::resolve()` now answers, in order: what the operator picked
+on the download modal → the tenant's own `locale` → the current request → the app default. The
+download button carries the picker (`App\Support\Filament\PdfDownloadAction`), pre-selected to the
+tenant; `/api/v1` takes `?lang=`; the e-mailed copy follows the TENANT, because a tax document is
+addressed to the company and must not vary with which portal login happened to be notified.
+
+**Typesetting.** Built on the shared shell (`resources/views/pdf/layout.blade.php`, `_styles`,
+`_issuer`) and rendered by `App\Support\Pdf\PdfDocument` — the only thing in the app that
+constructs mpdf. It carries a running footer with the document's own reference and `page x of y`,
+and a cancelled or voided one is watermarked. Do NOT add an `@page` rule to the template: page
+geometry belongs to the renderer, and a template that sets its own margins leaves no room for the
+footer, which then renders nowhere at all.
+
+**Free text.** Anything a person typed — a party name, a line description, notes — is fenced with
+`App\Support\Pdf\Bidi::isolate()` so it keeps its own direction inside a document written in the
+other one. Without it an Arabic document renders an English sentence as `.Issued in error`.
+
+See [OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference) for the
+whole rule, and `ADocumentIsWrittenInItsReadersLanguageTest` for what is pinned.

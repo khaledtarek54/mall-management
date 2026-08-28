@@ -4,11 +4,10 @@ namespace App\Services;
 
 use App\Models\FacilityWorkOrder;
 use App\Support\IssuingEntity;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
 
 /**
  * The facility work-log report (module 26, Phase 2 / discovery RPT-1) — a bilingual PDF
@@ -41,61 +40,50 @@ class FacilityWorkLogPdfService
     /**
      * @param  array<int>|null  $assetIds  Restrict to these properties (null = all visible / portfolio)
      */
-    public function build(string $from, string $to, ?array $assetIds, string $scopeLabel): string
+
+    /**
+     * @param  array<int>|null  $assetIds  Restrict to these properties (null = all visible / portfolio)
+     */
+    public function build(string $from, string $to, ?array $assetIds, string $scopeLabel, ?string $locale = null): string
     {
-        $orders = $this->orders($from, $to, $assetIds);
+        return PdfDocument::make('reports.facility-work-log')
+            ->locale(DocumentLocale::resolve($locale))
+            ->data(function () use ($from, $to, $assetIds, $scopeLabel): array {
+                $orders = $this->orders($from, $to, $assetIds);
 
-        $summary = [
-            'total' => $orders->count(),
-            'by_status' => $orders->countBy('status'),
-            // Grouped by the trade RECORD's label rather than by a raw code, so the summary reads
-            // in the reader's language and a renamed trade renames itself here too.
-            'by_category' => $orders->countBy(fn ($o): string => $o->trade?->label() ?? '—'),
-            // The log covers ALL facility work — corrective jobs are work orders too, and a
-            // work log that omitted the faults would be the less useful half. But the reader
-            // has to be able to tell them apart, so the split is stated rather than implied.
-            'by_type' => $orders->countBy('work_order_type'),
-            'done' => $orders->where('status', 'done')->count(),
-        ];
-
-        $isRtl = app()->getLocale() === 'ar';
-
-        $html = View::make('reports.facility-work-log', [
-            'orders' => $orders,
-            'summary' => $summary,
-            'from' => CarbonImmutable::parse($from),
-            'to' => CarbonImmutable::parse($to),
-            'scopeLabel' => $scopeLabel,
-            // Scoped: filtered to ONE mall it carries that mall's logo; across several, or all,
-            // it is a portfolio document and `$scopeLabel` already says which properties it covers.
-            ...IssuingEntity::forViewScopedTo($assetIds),
-        ])->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+                return [
+                    'orders' => $orders,
+                    'summary' => [
+                        'total' => $orders->count(),
+                        'by_status' => $orders->countBy('status'),
+                        // Grouped by the trade RECORD's label rather than by a raw code, so the
+                        // summary reads in the reader's language and a renamed trade renames itself
+                        // here too. It is derived INSIDE the locale for that reason — composed
+                        // before the render it would carry the operator's language into an Arabic
+                        // document.
+                        'by_category' => $orders->countBy(fn ($o): string => $o->trade?->label() ?? '—'),
+                        // The log covers ALL facility work — corrective jobs are work orders too,
+                        // and a work log that omitted the faults would be the less useful half. But
+                        // the reader has to be able to tell them apart, so the split is stated
+                        // rather than implied.
+                        'by_type' => $orders->countBy('work_order_type'),
+                        'done' => $orders->where('status', 'done')->count(),
+                    ],
+                    'from' => CarbonImmutable::parse($from),
+                    'to' => CarbonImmutable::parse($to),
+                    'scopeLabel' => $scopeLabel,
+                    // Scoped: filtered to ONE mall it carries that mall's logo; across several, or
+                    // all, it is a portfolio document and `$scopeLabel` already says which
+                    // properties it covers.
+                    ...IssuingEntity::forViewScopedTo($assetIds),
+                ];
+            })
+            ->reference($scopeLabel.' · '.$from.' – '.$to)
+            ->fontSize(10)
+            // The widest table in the set: it carried the narrowest page margins of any template for
+            // that reason, and the renderer's default would squeeze a column off the edge.
+            ->margins(['left' => 9, 'right' => 9])
+            ->render();
     }
 
     public function filename(string $from, string $to): string

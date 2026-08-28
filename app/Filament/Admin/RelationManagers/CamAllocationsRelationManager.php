@@ -6,11 +6,13 @@ use App\Models\CamAllocation;
 use App\Models\Tenant;
 use App\Services\CamReconciliationService;
 use App\Services\CamStatementPdfService;
+use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -211,20 +213,14 @@ class CamAllocationsRelationManager extends RelationManager
                 // The statement the tenant can audit against (RC-06). Almost every commercial lease
                 // grants a service-charge audit right, and the answer to "show me how you got this"
                 // used to be an invoice line reading "CAM Recovery 2028".
-                Action::make('statement')
+                PdfDownloadAction::make('statement')
                     ->label(__('admin.cam_statement.download'))
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('gray')
-                    ->action(function (CamAllocation $record) {
-                        $svc = app(CamStatementPdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
+                    ->service(CamStatementPdfService::class)
+                    // A CAM allocation belongs to a lease OR a unit ownership, so the party is
+                    // resolved the same way the statement's own header resolves it — an owner is a
+                    // `tenants` row too, and reads in their own language just as a retailer does.
+                    ->recipient(fn (CamAllocation $record) => $record->lease?->tenant ?? $record->unitOwnership?->tenant),
                 Action::make('bill')
                     ->label(__('admin.actions.bill_allocation'))
                     ->icon('heroicon-o-banknotes')

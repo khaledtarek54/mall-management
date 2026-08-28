@@ -5,10 +5,9 @@ namespace App\Services;
 use App\Models\Vendor;
 use App\Services\Reports\WithholdingTaxReturnService;
 use App\Support\IssuingEntity;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
 
 /**
  * شهادة خصم وإضافة — the certificate a supplier needs to reclaim what was withheld from them.
@@ -32,46 +31,28 @@ class WithholdingCertificatePdfService
 {
     public function __construct(private WithholdingTaxReturnService $returns) {}
 
-    public function build(Vendor $vendor, CarbonImmutable $start, CarbonImmutable $end): string
+    /**
+     * The certificate as a PDF, in the language the SUPPLIER reads.
+     *
+     * This is the document the supplier hands to their own accountant to claim the tax already
+     * withheld from them, so the language that matters is theirs, not the payer's clerk's.
+     */
+    public function build(Vendor $vendor, CarbonImmutable $start, CarbonImmutable $end, ?string $locale = null): string
     {
-        $certificate = $this->returns->forVendor($vendor, $start, $end);
-
-        $isRtl = app()->getLocale() === 'ar';
-
-        $html = View::make('vendors.withholding-certificate', [
-            'vendor' => $vendor,
-            'certificate' => $certificate,
-            'start' => $start,
-            'end' => $end,
-            ...IssuingEntity::forView(null),
-        ])->render();
-
-        $tempDir = storage_path('app/mpdf');
-
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 14,
-            'margin_right' => 14,
-            'margin_top' => 14,
-            'margin_bottom' => 16,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return PdfDocument::make('vendors.withholding-certificate')
+            ->locale(DocumentLocale::resolve($locale, $vendor))
+            ->data(fn (): array => [
+                'vendor' => $vendor,
+                'certificate' => $this->returns->forVendor($vendor, $start, $end),
+                'start' => $start,
+                'end' => $end,
+                // Filed per REGISTRATION, not per mall — the issuer is the operator, with no
+                // property letterhead. Same rule the VAT return follows.
+                ...IssuingEntity::forView(null),
+            ])
+            ->reference($vendor->name.' · '.$start->format('d/m/Y').' – '.$end->format('d/m/Y'))
+            ->margins(['left' => 15, 'right' => 15])
+            ->render();
     }
 
     public function filename(Vendor $vendor, CarbonImmutable $start, CarbonImmutable $end): string

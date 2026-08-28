@@ -161,6 +161,7 @@ class ActivityVocabulary
      */
     private const VERBATIM_VALUES = [
         'currency' => 'An ISO 4217 code. The operator types, searches and reconciles on EGP — the same three letters in both languages — so a translated word would make the diff harder to tie back to the bank, not easier.',
+        'locale' => 'A BCP-47 language tag. `en` and `ar` are what the operator picked from the form and what `App\\Support\\Pdf\\DocumentLocale` resolves against — rendering the diff as «الإنجليزية» would leave the reader unable to tie a change back to the value stored on the row, and a language names itself the same way in every language.',
     ];
 
     private const VALUE_VOCABULARY = [

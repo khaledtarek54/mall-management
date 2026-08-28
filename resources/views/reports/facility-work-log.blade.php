@@ -8,7 +8,10 @@
     <meta charset="UTF-8">
     <title>{{ $t('report.title') }}</title>
     <style>
-        @page { margin: 26px 30px; }
+        /* No @page rule: page geometry (size, margins, the band the running footer sits in)
+           belongs to App\Support\Pdf\PdfDocument. A template that set its own margins here
+           silently overrode mpdf's and left no room beneath the body, so the running footer
+           carrying the document reference and `page x of y` rendered nowhere at all. */
         * { box-sizing: border-box; }
         body { color: #0F1419; font-size: 10pt; line-height: 1.5; margin: 0; }
         .header { border-bottom: 2px solid #0F766E; padding-bottom: 12px; margin-bottom: 16px; }

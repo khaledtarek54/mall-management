@@ -17,31 +17,33 @@
     Optional `$issuerCaption` — a document that is ABOUT a property rather than FROM one (an owner
     statement) uses it to say which.
 --}}
+@php use App\Support\Pdf\Bidi; @endphp
+
 @include('partials.issuer-logo')
 
-<div class="issuer-name">{{ $issuerName }}</div>
+<div class="issuer-name">{{ Bidi::isolate($issuerName) }}</div>
 
 <div class="issuer-line" style="margin-top:3pt;">
     @if (! empty($sellerLegalName) && $sellerLegalName !== $issuerName)
-        <div>{{ $sellerLegalName }}</div>
+        <div>{{ Bidi::isolate($sellerLegalName) }}</div>
     @endif
 
     @if (! empty($issuerAddress))
-        <div>{{ $issuerAddress }}</div>
+        <div>{{ Bidi::isolate($issuerAddress) }}</div>
     @endif
 
     @if (! empty($sellerTrn))
         {{-- A document titled "Tax Invoice" must carry the seller's registration number or the
              reader cannot claim the input VAT on it. See IssuingEntity::isTaxRegistered(), which
              is also what decides whether the title may say "Tax" at all. --}}
-        <div><strong>{{ __('admin.pdf.seller_trn') }}</strong> {{ $sellerTrn }}</div>
+        <div><strong>{{ __('admin.pdf.seller_trn') }}</strong> {{ Bidi::isolate($sellerTrn) }}</div>
     @endif
 
     @if (! empty($billingEmail))
-        <div>{{ $billingEmail }}</div>
+        <div>{{ Bidi::isolate($billingEmail) }}</div>
     @endif
 
     @if (! empty($issuerCaption))
-        <div style="margin-top:4pt;">{{ $issuerCaption }}</div>
+        <div style="margin-top:4pt;">{{ Bidi::isolate($issuerCaption) }}</div>
     @endif
 </div>

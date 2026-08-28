@@ -3,11 +3,13 @@
 namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
+use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\CreditNotePdfService;
 use App\Services\CreditNoteService;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
@@ -74,21 +76,11 @@ class EditCreditNote extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('downloadPdf')
+            PdfDownloadAction::make('downloadPdf')
                 ->label(__('admin.actions.download_pdf'))
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->authorize(fn () => Auth::user()?->can('credit_notes.view') ?? false)
-                ->action(function () {
-                    $svc = app(CreditNotePdfService::class);
-                    $pdf = $svc->build($this->record);
-
-                    return response()->streamDownload(
-                        fn () => print ($pdf),
-                        $svc->filename($this->record),
-                        ['Content-Type' => 'application/pdf'],
-                    );
-                }),
+                ->service(CreditNotePdfService::class)
+                ->recipient(fn (CreditNote $record) => $record->tenant)
+                ->authorize(fn () => Auth::user()?->can('credit_notes.view') ?? false),
 
             Action::make('issue')
                 ->label(__('admin.actions.issue_credit_note'))

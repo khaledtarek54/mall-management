@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Employees\Schemas;
 use App\Models\Department;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PropertyField;
+use App\Support\Pdf\DocumentLocale;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -67,6 +68,14 @@ class EmployeeForm
                 ->label(__('admin.employees.fields.phone'))
                 ->tel()
                 ->maxLength(30),
+            // Which language this employee's payslip is written in. Blank means nobody has asked,
+            // and the payslip then follows whoever generates it.
+            Select::make('locale')
+                ->label(__('admin.fields.locale'))
+                ->helperText(__('admin.helpers.employee_locale'))
+                ->options(DocumentLocale::options())
+                ->placeholder(__('admin.fields.locale_unset'))
+                ->native(false),
             Textarea::make('notes')
                 ->label(__('admin.employees.fields.notes'))
                 ->rows(2)

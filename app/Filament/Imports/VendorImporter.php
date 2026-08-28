@@ -5,6 +5,7 @@ namespace App\Filament\Imports;
 use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Support\Filament\CustomFieldsTable;
+use App\Support\Pdf\DocumentLocale;
 use App\Support\PropertyIsolation;
 use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
@@ -95,6 +96,15 @@ class VendorImporter extends Importer
             ImportColumn::make('phone')
                 ->label(__('admin.tables.vendor.phone'))
                 ->rules(['nullable', 'max:50']),
+
+            // Which language this party's documents are issued in. An operator migrating from
+            // another system knows this per record and would otherwise set it by hand afterwards.
+            // Narrower than the column deliberately (see CLAUDE.md on re-listing a value set):
+            // `Rule::in` over the languages we hold a catalogue for, so a spreadsheet typo is
+            // refused at import rather than silently producing English.
+            ImportColumn::make('locale')
+                ->label(__('admin.fields.locale'))
+                ->rules(['nullable', Rule::in(DocumentLocale::supported())]),
 
             ImportColumn::make('address')
                 ->label(__('admin.fields.address'))

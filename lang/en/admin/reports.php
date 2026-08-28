@@ -326,6 +326,8 @@ return [
         ],
         'billed_to' => 'Billed To',
         'document_details' => 'Document Details',
+        'language' => 'Language',
+        'language_hint' => 'The document is written in this language. Defaults to the recipient\'s own.',
         'lease_reference' => 'Lease Reference',
         'ownership_reference' => 'Ownership Reference',
         'billing_period' => 'Billing Period',

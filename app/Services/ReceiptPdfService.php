@@ -5,14 +5,14 @@ namespace App\Services;
 use App\Models\Asset;
 use App\Models\Payment;
 use App\Support\IssuingEntity;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 
 /**
  * Renders a payment RECEIPT VOUCHER (سند قبض) — the printable/downloadable proof handed to a tenant
- * who paid cash/cheque/transfer at the office. Mirrors InvoicePdfService (same Mpdf config + RTL font
- * switch). Strictly READ-ONLY: it renders the payment amount + its invoice allocation and never
+ * who paid cash/cheque/transfer at the office. Typeset through `App\Support\Pdf\PdfDocument`, the one
+ * renderer every issued document shares. Strictly READ-ONLY: it renders the payment amount + its
+ * invoice allocation and never
  * touches AR or the GL. A receipt is a cash-received acknowledgement, NOT a tax invoice — it carries
  * no VAT breakdown.
  */
@@ -52,43 +52,43 @@ class ReceiptPdfService
             'payment' => $payment,
             'tenant' => $payment->tenant,
             'asset' => $asset,
-            'isRtl' => app()->getLocale() === 'ar',
             ...IssuingEntity::forView($asset),
         ];
     }
 
-    public function build(Payment $payment): string
+    /**
+     * The receipt as a PDF, in the language the PAYER reads.
+     *
+     * The proof a tenant screenshots and files, so the language is theirs rather than the
+     * cashier's — see {@see DocumentLocale}.
+     */
+    public function build(Payment $payment, ?string $locale = null): string
     {
-        $data = $this->viewData($payment);
-        $isRtl = $data['isRtl'];
+        return $this->document($payment, $locale)->render();
+    }
 
-        $html = View::make('payments.receipt', $data)->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+    /**
+     * The configured document, before mpdf touches it.
+     *
+     * Split from {@see build()} so a test can read the HTML this service actually produces —
+     * including the locale it resolved — rather than re-wiring the same builder in the test and
+     * proving only that the test agrees with itself. `TaxInvoiceSellerParticularsTest` kept its own
+     * copy of `viewData()` once and reproduced the service's bugs faithfully instead of catching
+     * them; a second copy of the BUILDER is the same mistake one layer out.
+     */
+    public function document(Payment $payment, ?string $locale = null): PdfDocument
+    {
+        return PdfDocument::make('payments.receipt')
+            ->locale(DocumentLocale::resolve($locale, $payment->tenant))
+            ->data(fn (): array => $this->viewData($payment))
+            ->reference($payment->reference)
+            // A payment that failed, bounced or was refunded is not a receipt for anything.
+            // Stamped rather than merely flagged: this is the document a tenant produces to prove
+            // they paid, so one circulating unmarked is the most expensive kind of stale paper in
+            // this system — a returned cheque still reads as settlement at arm's length.
+            ->watermark(fn (): ?string => in_array($payment->status, ['failed', 'bounced', 'refunded'], true)
+                ? __("admin.statuses.payment.{$payment->status}")
+                : null);
     }
 
     public function filename(Payment $payment): string

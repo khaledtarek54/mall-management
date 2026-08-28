@@ -34,6 +34,13 @@ class InvoiceIssuedNotification extends Notification
                 ...IssuingEntity::forView($this->invoice->asset),
             ])
             ->attach(
+                // **The attachment follows the TENANT, the e-mail body follows the READER.**
+                // Laravel already renders a notification under the notifiable's own
+                // `preferredLocale()`, which is right for the message — it is addressed to a person.
+                // The invoice is not: it is a tax document addressed to the COMPANY, filed by their
+                // accountant, and it must not arrive in a different language depending on which of
+                // a tenant's portal logins happened to be notified. `build()` with a null locale
+                // resolves the tenant's own, above the ambient one, which is exactly that rule.
                 Attachment::fromData(fn () => $pdfService->build($this->invoice), $pdfService->filename($this->invoice))
                     ->withMime('application/pdf')
             );

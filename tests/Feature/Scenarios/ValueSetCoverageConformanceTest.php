@@ -52,6 +52,11 @@ const CLASSIFICATION_SUFFIXES = [
     // which is exactly why nobody noticed the sweep could not see them.
     'section', 'timing', 'result', 'recipient', 'decision', 'pool',
     'normal_balance', 'funded_from', 'proceeds_account',
+    // Which language a party reads (2026-08-28). Classification-shaped for the same reason
+    // `currency` is: a small fixed set, and a value outside it does not error — `__()` falls
+    // silently into the fallback language, so a typo'd `fr-CA` leaves the column looking set and
+    // every document rendering in English.
+    'locale',
 ];
 
 /**
@@ -194,7 +199,6 @@ it('resolves every registered set to a non-empty list', function () {
     expect($broken)->toBe([], implode("\n", $broken));
 });
 
-
 it('keeps the suffix list abreast of what ValueSets actually registers', function () {
     // The gate's coverage is bounded by a HAND-WRITTEN list, and nothing checked that list against
     // reality — so it drifted behind the registry and reported full coverage of a set it had
@@ -203,7 +207,7 @@ it('keeps the suffix list abreast of what ValueSets actually registers', functio
     // that shape ships unenforced and silent.
     $unseen = [];
 
-    foreach (array_keys(App\Support\ValueSets::SETS) as $key) {
+    foreach (array_keys(ValueSets::SETS) as $key) {
         if (! str_contains($key, '.')) {
             continue;
         }
@@ -240,7 +244,7 @@ it('keeps every shape exemption honest', function () {
     foreach (array_keys(SHAPE_EXEMPT) as $key) {
         // `toHaveKey($key, $msg)` reads its second argument as the expected VALUE, not a message —
         // the Pest trap this project has already recorded. Assert the boolean instead.
-        expect(array_key_exists($key, App\Support\ValueSets::SETS))
+        expect(array_key_exists($key, ValueSets::SETS))
             ->toBeTrue("{$key} is shape-exempt but no longer registered.");
     }
 

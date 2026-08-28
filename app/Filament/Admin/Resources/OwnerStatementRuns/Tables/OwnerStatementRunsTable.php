@@ -14,6 +14,7 @@ use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\OwnerStatementPdfService;
 use App\Services\OwnerAccounting\ReviseOwnerStatementRunService;
 use App\Support\Filament\BankAccountField;
+use App\Support\Filament\PdfDownloadAction;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -21,6 +22,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -206,24 +208,26 @@ class OwnerStatementRunsTable
                             ->helperText(__('admin.owner_statements.pdf.net_hint')),
                     ]),
 
-                Action::make('download_pdf')
+                PdfDownloadAction::make('download_pdf')
                     ->label(__('admin.owner_statements.actions.download_pdf'))
-                    ->icon('heroicon-o-document-arrow-down')->color('gray')
-                    ->visible(fn (OwnerStatementRun $r) => $r->statements->first() !== null && OwnerStatementRunResource::canViewStatements())
-                    ->authorize(fn (OwnerStatementRun $r) => OwnerStatementRunResource::canViewStatements())
-                    ->action(function (OwnerStatementRun $record) {
-                        abort_unless(OwnerStatementRunResource::canViewStatements(), 403);
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
+                    // This is the document Jawad receives — an account of his own money rendered by
+                    // his managing agent — so it follows HIS language, not the clerk's.
+                    ->recipient(fn (OwnerStatementRun $record) => $record->statements()->first()?->owner)
+                    ->document(function (OwnerStatementRun $record, string $locale): string {
                         $statement = $record->statements()->first();
                         abort_unless($statement !== null, 404);
-                        $svc = app(OwnerStatementPdfService::class);
-                        $pdf = $svc->build($statement);
 
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($statement),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                        return app(OwnerStatementPdfService::class)->build($statement, $locale);
+                    })
+                    ->filename(function (OwnerStatementRun $record): string {
+                        $statement = $record->statements()->first();
+                        abort_unless($statement !== null, 404);
+
+                        return app(OwnerStatementPdfService::class)->filename($statement);
+                    })
+                    ->visible(fn (OwnerStatementRun $r) => $r->statements->first() !== null && OwnerStatementRunResource::canViewStatements())
+                    ->authorize(fn (OwnerStatementRun $r) => OwnerStatementRunResource::canViewStatements()),
 
                 // ── The evidence behind the statement, in one file (RP-08) ─────────────────────
                 // The statement says what the owner is owed; the pack says how each of their malls

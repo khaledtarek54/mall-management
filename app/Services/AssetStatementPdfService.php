@@ -6,10 +6,9 @@ use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Support\IssuingEntity;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
 
 /**
  * Property-level statement of account for the Owner Portal.
@@ -22,12 +21,20 @@ use Mpdf\Output\Destination;
  */
 class AssetStatementPdfService
 {
-    public function build(Asset $asset): string
+    /**
+     * The property statement as a PDF, in the language the OWNER reads.
+     *
+     * No recipient object: the statement is about a property, and the reader is whichever operator
+     * or owner asked for it — so it follows the request's own language, which is the right answer for
+     * a document generated on demand by the person about to read it.
+     */
+    public function build(Asset $asset, ?string $locale = null): string
     {
-        $isRtl = app()->getLocale() === 'ar';
-        $html = View::make('assets.statement', $this->data($asset))->render();
-
-        return $this->render($html, $isRtl);
+        return PdfDocument::make('assets.statement')
+            ->locale(DocumentLocale::resolve($locale))
+            ->data(fn (): array => $this->data($asset))
+            ->reference($asset->name)
+            ->render();
     }
 
     /**
@@ -107,36 +114,6 @@ class AssetStatementPdfService
             'delinquentTenants' => $delinquentTenants,
             ...IssuingEntity::forView($asset),
         ];
-    }
-
-    /** mpdf, and only mpdf. */
-    private function render(string $html, bool $isRtl): string
-    {
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
     }
 
     public function filename(Asset $asset): string

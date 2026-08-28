@@ -4,8 +4,9 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\PayrollLine;
 use App\Services\PayslipPdfService;
-use Filament\Actions\Action;
+use App\Support\Filament\PdfDownloadAction;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -89,22 +90,12 @@ class EmployeePayslipsRelationManager extends RelationManager
             ])
             ->defaultSort('id', 'desc')
             ->recordActions([
-                Action::make('payslip')
+                PdfDownloadAction::make('payslip')
                     ->label(__('admin.payroll_lines.payslip'))
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('gray')
-                    ->authorize(fn (): bool => auth()->user()?->can('payrolls.view') ?? false)
-                    ->action(function (PayrollLine $record) {
-                        abort_unless(auth()->user()?->can('payrolls.view') ?? false, 403);
-
-                        $svc = app(PayslipPdfService::class);
-
-                        return response()->streamDownload(
-                            fn () => print ($svc->build($record)),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
+                    ->service(PayslipPdfService::class)
+                    ->recipient(fn (PayrollLine $record) => $record->employee)
+                    ->authorize(fn (): bool => auth()->user()?->can('payrolls.view') ?? false),
             ])
             ->headerActions([])
             ->emptyStateIcon('heroicon-o-banknotes')

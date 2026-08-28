@@ -5,9 +5,11 @@ namespace App\Filament\Imports;
 use App\Filament\Imports\Concerns\ResolvesVisibleAssetByCode;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Support\Pdf\DocumentLocale;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\Rule;
 
 /**
  * Load the payroll register at cut-over.
@@ -108,6 +110,15 @@ class EmployeeImporter extends Importer
 
             ImportColumn::make('phone')
                 ->rules(['nullable', 'string', 'max:32']),
+
+            // Which language this party's documents are issued in. An operator migrating from
+            // another system knows this per record and would otherwise set it by hand afterwards.
+            // Narrower than the column deliberately (see CLAUDE.md on re-listing a value set):
+            // `Rule::in` over the languages we hold a catalogue for, so a spreadsheet typo is
+            // refused at import rather than silently producing English.
+            ImportColumn::make('locale')
+                ->label(__('admin.fields.locale'))
+                ->rules(['nullable', Rule::in(DocumentLocale::supported())]),
 
             ImportColumn::make('status')
                 ->rules(['nullable', 'string', 'max:32'])

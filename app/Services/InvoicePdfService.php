@@ -72,18 +72,31 @@ class InvoicePdfService
      * null is the right call from a queue or a scheduled billing run — there is nobody to ask, and
      * the tenant's preference is the best answer available.
      *
-     * The view data is built INSIDE the locale, not before it: `IssuingEntity::forView()` and the
+     * The view data is built INSIDE the locale, not before it: `IssuingEntity::forView($asset)` and the
      * document title key both resolve translated content, so composing them first would produce an
      * Arabic invoice with an English heading.
      */
     public function build(Invoice $invoice, ?string $locale = null): string
     {
+        return $this->document($invoice, $locale)->render();
+    }
+
+    /**
+     * The configured document, before mpdf touches it.
+     *
+     * Split from {@see build()} so a test can read the HTML this service actually produces —
+     * including the locale it resolved — rather than re-wiring the same builder in the test and
+     * proving only that the test agrees with itself. `TaxInvoiceSellerParticularsTest` kept its own
+     * copy of `viewData()` once and reproduced the service's bugs faithfully instead of catching
+     * them; a second copy of the BUILDER is the same mistake one layer out.
+     */
+    public function document(Invoice $invoice, ?string $locale = null): PdfDocument
+    {
         return PdfDocument::make('invoices.pdf')
             ->locale(DocumentLocale::resolve($locale, $invoice->tenant))
             ->data(fn (): array => $this->viewData($invoice))
             ->reference($invoice->number)
-            ->watermark(fn (): ?string => $this->watermark($invoice))
-            ->render();
+            ->watermark(fn (): ?string => $this->watermark($invoice));
     }
 
     /**

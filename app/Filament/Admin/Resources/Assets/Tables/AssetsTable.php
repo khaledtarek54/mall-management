@@ -8,7 +8,7 @@ use App\Models\Asset;
 use App\Services\AssetStatementPdfService;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
-use Filament\Actions\Action;
+use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -18,6 +18,7 @@ use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -152,23 +153,15 @@ class AssetsTable
                 // extracts — not on assets.edit, which an owner correctly does not hold. Which
                 // properties they can reach is the table's own scope; this only decides whether the
                 // document may leave the building.
-                Action::make('propertyStatement')
+                PdfDownloadAction::make('propertyStatement')
                     ->label(__('admin.assets.statement.action'))
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('gray')
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
+                    ->service(AssetStatementPdfService::class)
+                    // No `->recipient()`: a property statement is about a mall, not addressed to a
+                    // party, so the picker opens on the language the operator is reading the panel
+                    // in — which for a document generated on demand by its own reader is right.
                     ->visible(fn () => Auth::user()?->can('reports.download') ?? false)
-                    ->authorize(fn () => Auth::user()?->can('reports.download') ?? false)
-                    ->action(function (Asset $record) {
-                        abort_unless(Auth::user()?->can('reports.download') ?? false, 403);
-                        $svc = app(AssetStatementPdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->authorize(fn () => Auth::user()?->can('reports.download') ?? false),
             ])
             // Whoever may read the list may take it away — the gate is the resource's own
             // canViewAny() through `Exports`, never a permission of its own. Vendors and properties

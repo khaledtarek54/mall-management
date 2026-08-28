@@ -10,12 +10,15 @@ use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Models\Vendor;
 use App\Services\Reports\WithholdingTaxReturnService;
 use App\Services\WithholdingCertificatePdfService;
+use App\Support\Filament\PdfDownloadAction;
+use App\Support\Pdf\DocumentLocale;
 use App\Support\WithholdingTax;
 use BackedEnum;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -175,6 +178,16 @@ class WithholdingTaxReturn extends Page implements DeliverableReport, HasSchemas
                     ->required()
                     ->native(false)
                     ->helperText(__('admin.reports.wht_certificate_hint')),
+                // The certificate goes to the SUPPLIER, who hands it to their own accountant to
+                // claim the tax already deducted from them — so the language is theirs, not the
+                // clerk's. Defaulted from the chosen vendor's stored preference, which is why it is
+                // `->live()`-reactive on the picker above rather than a fixed default.
+                Radio::make(PdfDownloadAction::LANGUAGE_FIELD)
+                    ->label(__('admin.pdf.language'))
+                    ->options(DocumentLocale::options())
+                    ->default(fn (): string => DocumentLocale::resolve())
+                    ->required()
+                    ->in(array_keys(DocumentLocale::options())),
             ])
             ->action(function (array $data): StreamedResponse {
                 abort_unless($this->canViewReports(), 403);
@@ -185,6 +198,7 @@ class WithholdingTaxReturn extends Page implements DeliverableReport, HasSchemas
                     $vendor,
                     CarbonImmutable::instance($this->periodStart()),
                     CarbonImmutable::instance($this->periodEnd()),
+                    DocumentLocale::resolve($data[PdfDownloadAction::LANGUAGE_FIELD] ?? null, $vendor),
                 );
 
                 $name = 'wht-certificate-'.$vendor->id.'-'.$this->periodSlug().'.pdf';

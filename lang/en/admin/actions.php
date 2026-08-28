@@ -42,6 +42,7 @@ return [
         'pdf' => 'PDF',
         'download_receipt' => 'Receipt',
         'download_pdf' => 'Download PDF',
+        'download' => 'Download',
         'send_invoice' => 'Send to tenant',
         'resend_invoice' => 'Send again',
         'post_to_ledger' => 'Post to GL now',

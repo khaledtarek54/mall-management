@@ -78,6 +78,11 @@ class Vendor extends Model
         'withholding_tax_code',
         'withholding_exempt',
         'email',
+        // The language this supplier's DOCUMENTS are issued in — the purchase order and the
+        // withholding certificate, both of which they hand to their own accountant. Null means "no
+        // preference stated" and resolves to whoever is producing the document. See
+        // `App\Support\Pdf\DocumentLocale`.
+        'locale',
         'phone',
         'address',
         'city',

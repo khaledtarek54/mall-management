@@ -4,15 +4,15 @@ namespace App\Services;
 
 use App\Models\CreditNote;
 use App\Support\IssuingEntity;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 use App\Support\VatSummary;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
 
 /**
  * Renders a CREDIT NOTE (إشعار دائن) — the printable/downloadable sales-return document a tenant
- * receives when a charge is reduced or refunded. Mirrors InvoicePdfService (same Mpdf config + RTL
- * font switch). Strictly READ-ONLY: it renders the note's line items + derived AR figures and never
+ * receives when a charge is reduced or refunded. Typeset through `App\Support\Pdf\PdfDocument`, the
+ * one renderer every issued document shares. Strictly READ-ONLY: it renders the note's line items +
+ * derived AR figures and never
  * touches AR or the GL.
  *
  * **It is a tax document, and until 2026-08-17 it did not read as one.** The invoice was given the
@@ -26,37 +26,36 @@ use Mpdf\Output\Destination;
  */
 class CreditNotePdfService
 {
-    public function build(CreditNote $note): string
+    /**
+     * The credit note as a PDF, in the language its READER reads.
+     *
+     * Same contract as {@see InvoicePdfService::build()} — this is the same kind of
+     * document pointing the other way, and the two must not answer the language question
+     * differently for one tenant.
+     */
+    public function build(CreditNote $note, ?string $locale = null): string
     {
-        $isRtl = app()->getLocale() === 'ar';
+        return $this->document($note, $locale)->render();
+    }
 
-        $html = View::make('pdf.credit-note', $this->data($note))->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+    /**
+     * The configured document, before mpdf touches it.
+     *
+     * Split from {@see build()} so a test can read the HTML this service actually produces —
+     * including the locale it resolved — rather than re-wiring the same builder in the test and
+     * proving only that the test agrees with itself. `TaxInvoiceSellerParticularsTest` kept its own
+     * copy of `viewData()` once and reproduced the service's bugs faithfully instead of catching
+     * them; a second copy of the BUILDER is the same mistake one layer out.
+     */
+    public function document(CreditNote $note, ?string $locale = null): PdfDocument
+    {
+        return PdfDocument::make('pdf.credit-note')
+            ->locale(DocumentLocale::resolve($locale, $note->tenant))
+            ->data(fn (): array => $this->data($note))
+            ->reference($note->number)
+            ->watermark(fn (): ?string => $note->status === 'void'
+                ? __('admin.statuses.credit_note.void')
+                : null);
     }
 
     /**

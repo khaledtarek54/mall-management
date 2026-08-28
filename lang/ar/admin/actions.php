@@ -42,6 +42,7 @@ return [
         'pdf' => 'PDF',
         'download_receipt' => 'سند قبض',
         'download_pdf' => 'تحميل PDF',
+        'download' => 'تنزيل',
         'send_invoice' => 'إرسال للمستأجر',
         'resend_invoice' => 'إعادة الإرسال',
         'post_to_ledger' => 'ترحيل للأستاذ الآن',

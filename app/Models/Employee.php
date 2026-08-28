@@ -39,6 +39,10 @@ class Employee extends Model
         'base_salary',
         'payment_method',
         'phone',
+        // The language this employee's PAYSLIP is written in. A person reading only Arabic being
+        // handed an English breakdown of their own deductions is the plainest case for it. Null
+        // means "no preference stated". See `App\Support\Pdf\DocumentLocale`.
+        'locale',
         'status',
         'terminated_on',
         'notes',

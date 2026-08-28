@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Invoices\Pages;
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\DepositApplication;
+use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Models\TenantCreditApplication;
 use App\Services\ApplyDepositToInvoiceService;
@@ -12,6 +13,7 @@ use App\Services\InvoicePdfService;
 use App\Services\SendInvoiceToTenantService;
 use App\Services\VoidInvoiceService;
 use App\Services\WriteOffInvoiceService;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
 use App\Support\OpsLog;
 use App\Support\TenantScope;
@@ -68,21 +70,11 @@ class EditInvoice extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('downloadPdf')
+            PdfDownloadAction::make('downloadPdf')
                 ->label(__('admin.actions.download_pdf'))
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->authorize(fn () => Auth::user()?->can('invoices.view') ?? false)
-                ->action(function () {
-                    $svc = app(InvoicePdfService::class);
-                    $pdf = $svc->build($this->record);
-
-                    return response()->streamDownload(
-                        fn () => print ($pdf),
-                        $svc->filename($this->record),
-                        ['Content-Type' => 'application/pdf'],
-                    );
-                }),
+                ->service(InvoicePdfService::class)
+                ->recipient(fn (Invoice $record) => $record->tenant)
+                ->authorize(fn () => Auth::user()?->can('invoices.view') ?? false),
             // UX5-09. Until this shipped, the ONLY invoice a tenant was ever emailed was one the
             // monthly run raised: a violation fine, a CAM recovery, an NSF fee or anything an
             // operator typed reached them only if they opened the portal — and there was no way to

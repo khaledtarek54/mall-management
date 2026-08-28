@@ -10,6 +10,7 @@ use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Support\DemoPayments;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Portal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -141,20 +142,9 @@ class InvoicesTable
             ->filtersFormColumns(2)
             ->recordActions([
                 ViewAction::make(),
-                Action::make('downloadPdf')
-                    ->label(__('admin.actions.pdf'))
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->action(function (Invoice $record) {
-                        $svc = app(InvoicePdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                PdfDownloadAction::make('downloadPdf')
+                    ->service(InvoicePdfService::class)
+                    ->recipient(fn (Invoice $record) => $record->tenant),
                 Action::make('paymentLink')
                     ->label(__('admin.actions.payment_link'))
                     ->icon('heroicon-o-link')

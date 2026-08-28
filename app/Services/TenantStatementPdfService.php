@@ -10,11 +10,10 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\TenantCreditApplication;
 use App\Support\IssuingEntity;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
 
 class TenantStatementPdfService
 {
@@ -32,43 +31,44 @@ class TenantStatementPdfService
      * clock beside a PDF the server built. Either the caller states the window or it gets the
      * documented default; nobody has to guess.
      */
+
+    /**
+     * The statement of account as a PDF, in the language the TENANT reads.
+     *
+     * The longest document this system issues and the one most likely to run to several pages, which
+     * is why {@see PdfDocument} gives it a running footer carrying the tenant's name and `page x of
+     * y`: a loose sheet of somebody's ledger with no name on it cannot be filed or challenged.
+     */
     public function build(
         Tenant $tenant,
         ?array $visibleAssetIds = null,
         $from = null,
         $to = null,
+        ?string $locale = null,
     ): string {
-        $data = $this->data($tenant, $visibleAssetIds, $from, $to);
+        return $this->document($tenant, $visibleAssetIds, $from, $to, $locale)->render();
+    }
 
-        $isRtl = app()->getLocale() === 'ar';
-
-        $html = View::make('tenants.statement', $data)->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+    /**
+     * The configured document, before mpdf touches it.
+     *
+     * Split from {@see build()} so a test can read the HTML this service actually produces —
+     * including the locale it resolved — rather than re-wiring the same builder in the test and
+     * proving only that the test agrees with itself. `TaxInvoiceSellerParticularsTest` kept its own
+     * copy of `viewData()` once and reproduced the service's bugs faithfully instead of catching
+     * them; a second copy of the BUILDER is the same mistake one layer out.
+     */
+    public function document(
+        Tenant $tenant,
+        ?array $visibleAssetIds = null,
+        $from = null,
+        $to = null,
+        ?string $locale = null,
+    ): PdfDocument {
+        return PdfDocument::make('tenants.statement')
+            ->locale(DocumentLocale::resolve($locale, $tenant))
+            ->data(fn (): array => $this->data($tenant, $visibleAssetIds, $from, $to))
+            ->reference($tenant->name);
     }
 
     /**

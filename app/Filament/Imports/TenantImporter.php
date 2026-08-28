@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\Tenant;
 use App\Support\Filament\CustomFieldsTable;
+use App\Support\Pdf\DocumentLocale;
 use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
@@ -54,6 +55,15 @@ class TenantImporter extends Importer
             ImportColumn::make('phone')
                 ->label(__('admin.tables.tenant.phone'))
                 ->rules(['nullable', 'max:50']),
+
+            // Which language this tenant's documents are issued in. An operator migrating from
+            // another system knows this per retailer and would otherwise have to set it by hand on
+            // every record afterwards. Narrower than the column deliberately (see CLAUDE.md on
+            // re-listing a value set): `Rule::in` over the languages we hold a catalogue for, so a
+            // spreadsheet typo is refused at import rather than silently producing English.
+            ImportColumn::make('locale')
+                ->label(__('admin.fields.locale'))
+                ->rules(['nullable', Rule::in(DocumentLocale::supported())]),
 
             ImportColumn::make('contact_person')
                 ->label(__('admin.fields.contact_person'))

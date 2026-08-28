@@ -14,6 +14,14 @@
       · `closing`  — the operator's own words at the foot; omitted, nothing is drawn
       · `masthead` — the whole masthead, for a document whose header is not issuer-and-reference
 --}}
+@php
+    // `App\Support\Pdf\PdfDocument` passes this in, and it is the only production caller. Derived
+    // here as a fallback because a TEST — and any future caller that renders the document without
+    // going through the renderer — has no reason to know the variable exists, and an undefined
+    // `$isRtl` is a fatal rather than a wrong direction. It agrees with the renderer either way:
+    // the renderer sets the app locale before rendering, so this reads the same answer.
+    $isRtl = $isRtl ?? \App\Support\Pdf\DocumentLocale::isRtl();
+@endphp
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
 <head>

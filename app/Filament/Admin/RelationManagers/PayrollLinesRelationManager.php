@@ -8,6 +8,7 @@ use App\Models\Payroll;
 use App\Models\PayrollLine;
 use App\Services\GeneratePayrollService;
 use App\Services\PayslipPdfService;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RecordChanged;
 use App\Support\PayrollRates;
 use App\Support\TenantScope;
@@ -329,22 +330,13 @@ class PayrollLinesRelationManager extends RelationManager
                         $this->refreshOwnerHeader();
                     }),
 
-                Action::make('payslip')
+                PdfDownloadAction::make('payslip')
                     ->label(__('admin.payroll_lines.payslip'))
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->authorize(fn () => auth()->user()?->can('payrolls.view') ?? false)
-                    ->action(function (PayrollLine $record) {
-                        abort_unless(auth()->user()?->can('payrolls.view') ?? false, 403);
-                        $svc = app(PayslipPdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->service(PayslipPdfService::class)
+                    // The recipient is a PERSON. An employee who reads only Arabic being handed an
+                    // English breakdown of their own deductions is the plainest case for this.
+                    ->recipient(fn (PayrollLine $record) => $record->employee)
+                    ->authorize(fn () => auth()->user()?->can('payrolls.view') ?? false),
             ])
             ->defaultSort('id')
             ->emptyStateIcon('heroicon-o-user-group')

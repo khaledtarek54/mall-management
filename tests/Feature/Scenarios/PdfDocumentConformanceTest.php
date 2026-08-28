@@ -63,18 +63,30 @@ function pdfTemplates(): array
         }
     }
 
-    // Follow @extends — the layout is a PDF template too, and is where the RTL defect lived.
-    foreach ($views as $path) {
-        preg_match_all("/@extends\('([^']+)'\)/", File::get($path), $m);
+    // Follow @extends AND @include — a layout and a shared partial are PDF templates too, and are
+    // where the RTL defect lived both times. `@extends` alone was enough while every document
+    // carried its own <style> block; since the stylesheet became ONE `@include`d partial, a gate
+    // that did not follow includes would sweep twelve documents and miss the only file that
+    // actually sets `letter-spacing` for all of them — reporting full coverage of a rule it had
+    // stopped checking anywhere.
+    //
+    // Transitively, because the shell includes the stylesheet and each document extends the shell:
+    // a single pass would reach `pdf.layout` and stop one file short of `pdf._styles`.
+    do {
+        $before = count($views);
 
-        foreach ($m[1] as $name) {
-            $layout = resource_path('views/'.str_replace('.', '/', $name).'.blade.php');
+        foreach ($views as $path) {
+            preg_match_all("/@(?:extends|include)\(\s*'([^']+)'/", File::get($path), $m);
 
-            if (File::exists($layout)) {
-                $views[$name] = $layout;
+            foreach ($m[1] as $name) {
+                $referenced = resource_path('views/'.str_replace('.', '/', $name).'.blade.php');
+
+                if (File::exists($referenced)) {
+                    $views[$name] = $referenced;
+                }
             }
         }
-    }
+    } while (count($views) > $before);
 
     return $views;
 }
@@ -85,8 +97,14 @@ it('discovers the PDF templates it is meant to be sweeping', function () {
     // sweeping zero models.
     $views = pdfTemplates();
 
-    expect(count($views))->toBeGreaterThanOrEqual(19)
+    expect(count($views))->toBeGreaterThanOrEqual(22)
         ->and($views)->toHaveKeys([
+            // The shared shell. Reachable only by following @extends and then @include, and the
+            // stylesheet is where the RTL rule below is now enforced for every document at once —
+            // so if these three ever fall out of the sweep, that rule is being checked nowhere.
+            'pdf.layout',
+            'pdf._styles',
+            'pdf._issuer',
             'invoices.pdf',
             'pdf.credit-note',
             'tenants.statement',
@@ -136,9 +154,36 @@ it('guards letter-spacing and uppercase on $isRtl, so Arabic glyphs stay joined'
     $offenders = [];
 
     foreach (pdfTemplates() as $name => $path) {
+        $source = File::get($path);
+
+        // A variable this template DERIVES from $isRtl is as good a guard as the ternary itself, and
+        // in the shared stylesheet it is a better one: `$track` and `$caps` are defined once at the
+        // top and used by nine rules, where nine copies of the same ternary is what drifts. Collected
+        // per file, so a variable of that name defined some other way elsewhere proves nothing here.
+        preg_match_all('/\$(\w+)\s*=\s*[^;]*isRtl[^;]*;/', $source, $derived);
+        $guardedByVariable = $derived[1];
+
+        // Blade comments span lines: `{{--` on the first, prose on the rest. The original check
+        // skipped only lines CONTAINING the opener, so a comment that discusses `text-transform` on
+        // its second line was read as a declaration — which is a false RED, the failure mode that
+        // gets a gate deleted rather than fixed.
+        $inBladeComment = false;
+
         foreach (file($path) as $i => $line) {
+            if (str_contains($line, '{{--')) {
+                $inBladeComment = ! str_contains($line, '--}}');
+
+                continue;
+            }
+
+            if ($inBladeComment) {
+                $inBladeComment = ! str_contains($line, '--}}');
+
+                continue;
+            }
+
             // Comment lines discuss these properties without setting them.
-            if (str_contains($line, '{{--') || str_starts_with(ltrim($line), '*')) {
+            if (str_starts_with(ltrim($line), '*') || str_starts_with(ltrim($line), '/*') || str_starts_with(ltrim($line), '//')) {
                 continue;
             }
 
@@ -146,15 +191,26 @@ it('guards letter-spacing and uppercase on $isRtl, so Arabic glyphs stay joined'
             // and the real defect sat on a line that already mentioned `$isRtl` — via `text-align`,
             // which was guarded — while `letter-spacing` next to it was not. A line-level check
             // reads as a working gate and would have passed the very bug this file was written for.
-            preg_match_all('/(letter-spacing|text-transform)\s*:\s*([^;}]+)/', $line, $m, PREG_SET_ORDER);
+            //
+            // The value runs to `;` or to the closing brace of the RULE, but a blade echo closes with
+            // `}}` of its own — so `[^;}]+` truncated `{{ $caps }}` to `{{ $caps` and lost the very
+            // token it was about to search for. Matched non-greedily up to a real terminator instead.
+            preg_match_all('/(letter-spacing|text-transform)\s*:\s*(.*?)(?=;|\s*\}(?!\})|$)/', $line, $m, PREG_SET_ORDER);
 
             foreach ($m as [, $property, $value]) {
                 if (str_contains($value, 'isRtl')) {
                     continue;
                 }
 
+                $viaVariable = collect($guardedByVariable)
+                    ->contains(fn (string $variable): bool => str_contains($value, '$'.$variable));
+
+                if ($viaVariable) {
+                    continue;
+                }
+
                 // Values that are already RTL-safe unconditionally.
-                if (preg_match('/^\s*(0|none|inherit)\s*$/', $value)) {
+                if (preg_match('/^\s*(0|none|inherit)\s*$/', trim($value))) {
                     continue;
                 }
 

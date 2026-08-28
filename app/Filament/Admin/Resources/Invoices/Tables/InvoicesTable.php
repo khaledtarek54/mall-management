@@ -20,9 +20,11 @@ use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\TableGroup;
 use App\Support\Modules;
 use App\Support\OpsLog;
+use App\Support\Pdf\DocumentLocale;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -37,6 +39,7 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Field;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -407,20 +410,9 @@ class InvoicesTable
                     ->authorize(fn ($record) => InvoiceResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => InvoiceResource::canEdit($record)),
-                Action::make('downloadPdf')
-                    ->label(__('admin.actions.pdf'))
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->action(function (Invoice $record) {
-                        $svc = app(InvoicePdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                PdfDownloadAction::make('downloadPdf')
+                    ->service(InvoicePdfService::class)
+                    ->recipient(fn (Invoice $record) => $record->tenant),
                 PostMonthAction::make('invoices.edit'),
                 LedgerEntryAction::make(),
                 // ── Dispute a line (MF-07) ────────────────────────────────────────────────────
@@ -625,13 +617,28 @@ class InvoicesTable
                         ->label(__('admin.actions.bulk_download_pdfs'))
                         ->icon('heroicon-o-archive-box-arrow-down')
                         ->color('gray')
-                        ->action(function ($records) {
+                        ->modalWidth('sm')
+                        ->modalSubmitActionLabel(__('admin.actions.download'))
+                        // ONE language for the whole bundle, and no per-recipient default: a
+                        // selection spans tenants who do not read the same language, so there is no
+                        // "the recipient's" to fall back to. The operator's own is the honest
+                        // default and the picker is the answer.
+                        ->schema([
+                            Radio::make(PdfDownloadAction::LANGUAGE_FIELD)
+                                ->label(__('admin.pdf.language'))
+                                ->options(DocumentLocale::options())
+                                ->default(fn (): string => DocumentLocale::resolve())
+                                ->required()
+                                ->in(array_keys(DocumentLocale::options())),
+                        ])
+                        ->action(function ($records, array $data) {
                             $svc = app(InvoicePdfService::class);
+                            $locale = DocumentLocale::resolve($data[PdfDownloadAction::LANGUAGE_FIELD] ?? null);
                             $tmp = tempnam(sys_get_temp_dir(), 'invoices_').'.zip';
                             $zip = new \ZipArchive;
                             $zip->open($tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
                             foreach ($records as $invoice) {
-                                $zip->addFromString($svc->filename($invoice), $svc->build($invoice));
+                                $zip->addFromString($svc->filename($invoice), $svc->build($invoice, $locale));
                             }
                             $zip->close();
 

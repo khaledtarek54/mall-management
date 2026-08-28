@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Support\Pdf\DocumentLocale;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,27 @@ abstract class ApiController extends Controller
         }
 
         return response()->json($payload, $status);
+    }
+
+    /**
+     * The language a streamed document should be written in.
+     *
+     * **The request wins here, and that is the opposite of the panel's default.** On the admin and
+     * portal surfaces a document defaults to the RECIPIENT's stored language, because an operator
+     * is producing a document for somebody else. On the API the caller IS the recipient, and they
+     * have already said what they read — `SetApiLocale` resolves `Accept-Language` into the app
+     * locale on every request. Letting the stored `tenants.locale` column override that would mean
+     * a tenant who switches the mobile app to English keeps receiving Arabic PDFs, with no way to
+     * change it from inside the app.
+     *
+     * `?lang=` is the explicit override for a client that wants one document in the other language
+     * without changing its headers — the API's counterpart to the panel's download picker. Anything
+     * unsupported falls through to the request's own locale rather than failing: an unreadable
+     * parameter should not cost the caller their invoice.
+     */
+    protected function documentLocale(Request $request): string
+    {
+        return DocumentLocale::resolve($request->query('lang'));
     }
 
     /**

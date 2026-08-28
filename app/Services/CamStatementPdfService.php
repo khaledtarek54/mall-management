@@ -7,9 +7,8 @@ use App\Models\CamExpensePool;
 use App\Models\Lease;
 use App\Models\UnitOwnership;
 use App\Support\IssuingEntity;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 
 /**
  * The reconciliation statement a tenant can actually audit (story RC-06).
@@ -34,7 +33,11 @@ use Mpdf\Output\Destination;
  */
 class CamStatementPdfService
 {
-    public function build(CamAllocation $allocation): string
+    /**
+     * The service-charge reconciliation statement, in the language its READER reads — and the reader
+     * is a tenant OR a unit owner, resolved the same way the party block is.
+     */
+    public function build(CamAllocation $allocation, ?string $locale = null): string
     {
         $allocation->loadMissing(['pool.asset', 'lease.tenant', 'lease.unit.asset', 'lease.units']);
 
@@ -63,47 +66,22 @@ class CamStatementPdfService
             ? ($lease->units->pluck('code')->implode(', ') ?: $lease->unit?->code)
             : $ownership?->unit?->code;
 
-        $isRtl = app()->getLocale() === 'ar';
-
-        $html = View::make('cam.statement', [
-            'allocation' => $allocation,
-            'pool' => $pool,
-            'lease' => $lease,
-            'ownership' => $ownership,
-            'agreementReference' => $lease?->reference ?? $ownership?->reference,
-            'unitCodes' => $unitCodes,
-            'tenant' => $tenant,
-            'asset' => $asset,
-            'facts' => $this->facts($allocation),
-            'isRtl' => $isRtl,
-            ...IssuingEntity::forView($asset),
-        ])->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return PdfDocument::make('cam.statement')
+            ->locale(DocumentLocale::resolve($locale, $tenant))
+            ->data(fn (): array => [
+                'allocation' => $allocation,
+                'pool' => $pool,
+                'lease' => $lease,
+                'ownership' => $ownership,
+                'agreementReference' => $lease?->reference ?? $ownership?->reference,
+                'unitCodes' => $unitCodes,
+                'tenant' => $tenant,
+                'asset' => $asset,
+                'facts' => $this->facts($allocation),
+                ...IssuingEntity::forView($asset),
+            ])
+            ->reference($lease?->reference ?? $ownership?->reference)
+            ->render();
     }
 
     /**

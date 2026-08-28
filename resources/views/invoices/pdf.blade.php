@@ -17,6 +17,7 @@
         as a missing instruction rather than an absent one.
 --}}
 @php
+    use App\Support\Pdf\Bidi;
     use App\Support\Pdf\DocumentTheme as T;
 
     [$chipBg, $chipInk] = T::chip($invoice->status);
@@ -27,7 +28,7 @@
 
 @section('document')
     <div class="doc-type">{{ __($documentTitleKey) }}</div>
-    <div class="doc-number">{{ $invoice->number }}</div>
+    <div class="doc-number">{{ Bidi::isolate($invoice->number) }}</div>
     <div style="margin-top:7pt;">
         <span class="chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
             {{ __("admin.statuses.invoice.{$invoice->status}") }}
@@ -43,24 +44,24 @@
         <tr>
             <td style="width:35%;">
                 <div class="label">{{ __('admin.pdf.billed_to') }}</div>
-                <div class="headline">{{ $tenant->name }}</div>
+                <div class="headline">{{ Bidi::isolate($tenant->name) }}</div>
                 <div class="value">
                     @if($tenant->legal_name && $tenant->legal_name !== $tenant->name)
-                        <div>{{ $tenant->legal_name }}</div>
+                        <div>{{ Bidi::isolate($tenant->legal_name) }}</div>
                     @endif
-                    @if($tenant->address)<div>{{ $tenant->address }}</div>@endif
-                    @if($tenant->tax_id)<div>{{ __('admin.pdf.tax_id') }} {{ $tenant->tax_id }}</div>@endif
-                    @if($tenant->email)<div>{{ $tenant->email }}</div>@endif
-                    @if($tenant->phone)<div>{{ $tenant->phone }}</div>@endif
+                    @if($tenant->address)<div>{{ Bidi::isolate($tenant->address) }}</div>@endif
+                    @if($tenant->tax_id)<div>{{ __('admin.pdf.tax_id') }} {{ Bidi::isolate($tenant->tax_id) }}</div>@endif
+                    @if($tenant->email)<div>{{ Bidi::isolate($tenant->email) }}</div>@endif
+                    @if($tenant->phone)<div>{{ Bidi::isolate($tenant->phone) }}</div>@endif
                 </div>
             </td>
             <td style="width:33%;">
                 {{-- A lease OR a unit ownership. --}}
                 <div class="label">{{ $lease ? __('admin.pdf.lease_reference') : __('admin.pdf.ownership_reference') }}</div>
-                <div class="headline">{{ $lease?->reference ?? ($ownership?->reference ?? '—') }}</div>
+                <div class="headline">{{ Bidi::isolate($lease?->reference ?? ($ownership?->reference ?? '—')) }}</div>
                 <div class="value">
                     <div>
-                        {{ __('admin.pdf.unit') }} {{ $unit?->code ?? '—' }}@if($unit?->floor) · {{ __('admin.pdf.floor') }} {{ $unit->floor->code }}@endif
+                        {{ __('admin.pdf.unit') }} {{ Bidi::isolate($unit?->code ?? '—') }}@if($unit?->floor) · {{ __('admin.pdf.floor') }} {{ Bidi::isolate($unit->floor->code) }}@endif
                     </div>
                     @if($unit?->area_sqm)
                         <div>{{ number_format((float) $unit->area_sqm, 1) }} {{ __('admin.pdf.sqm') }}</div>
@@ -106,7 +107,7 @@
         <tbody>
             @foreach($invoice->items as $item)
                 <tr>
-                    <td class="ink">{{ $item->description }}</td>
+                    <td class="ink">{{ Bidi::isolate($item->description) }}</td>
                     <td class="num">{{ number_format((float) $item->amount, 2) }}</td>
                     <td class="num">{{ rtrim(rtrim(number_format((float) $item->vat_rate, 2), '0'), '.') }}%</td>
                     <td class="num ink">{{ number_format((float) $item->total, 2) }}</td>
@@ -118,7 +119,7 @@
     {{-- Taxable value and tax, BY RATE. Suppressed on a single-rate invoice, where the totals block
          below already says it. --}}
     @if(count($vatSummary) > 1)
-        <table class="items" style="margin-top:14pt;">
+        <table class="items secondary" style="margin-top:14pt;">
             <thead>
                 <tr>
                     <th style="width:52%;">{{ __('admin.pdf.vat_summary') }}</th>
@@ -162,7 +163,13 @@
                     @if((float) $invoice->paid_amount > 0)
                         <tr>
                             <td class="k">{{ __('admin.pdf.paid') }}</td>
-                            <td class="v">−{{ $invoice->currency }} {{ number_format((float) $invoice->paid_amount, 2) }}</td>
+                            {{-- The minus sits AFTER the currency, not before it. A leading
+                                 "−" is a bidi-neutral character at the start of the run, so in the
+                                 Arabic document it reordered to the far end and the line read
+                                 "EGP 25,000.00−". Between "EGP" and the digits it is bracketed by
+                                 two left-to-right runs and stays where it was written, in both
+                                 languages, with no markup. --}}
+                            <td class="v">{{ $invoice->currency }} −{{ number_format((float) $invoice->paid_amount, 2) }}</td>
                         </tr>
                         {{-- Settled reads GREEN and outstanding reads as money owed. The shipped
                              template coloured the balance red whatever it was, so a fully paid
@@ -180,7 +187,7 @@
     @if($invoice->notes)
         <div class="panel" style="margin-top:20pt;">
             <div class="label">{{ __('admin.pdf.notes') }}</div>
-            {{ $invoice->notes }}
+            {{ Bidi::isolateLines($invoice->notes) }}
         </div>
     @endif
 
@@ -223,20 +230,24 @@
         <table style="width:100%; border-collapse:collapse; margin-top:20pt;">
             <tr>
                 @if($paymentInstructions)
-                    <td style="vertical-align:top; padding:0; padding-{{ $isRtl ? 'left' : 'right' }}:{{ $terms ? '10pt' : '0' }}; width:{{ $terms ? '50%' : '100%' }};">
+                    {{-- The gutter is a CLASS, not an inline `$isRtl` ternary: a @section body is
+                         evaluated before the layout renders, so it cannot see anything the layout
+                         defines — and reaching for `$isRtl` here was an undefined-variable fatal on
+                         every path that renders this template without the renderer. --}}
+                    <td class="panel-pair{{ $terms ? '' : ' only' }}" style="width:{{ $terms ? '50%' : '100%' }};">
                         <div class="panel accent" style="margin-bottom:0;">
                             <div class="label">{{ __('admin.pdf.payment_instructions') }}</div>
                             {{-- `e()` INSIDE `nl2br`, never after: nl2br would otherwise have its
                                  own <br> escaped. The body is operator-typed. --}}
-                            {!! nl2br(e($paymentInstructions)) !!}
+                            {!! nl2br(e(Bidi::isolateLines($paymentInstructions))) !!}
                         </div>
                     </td>
                 @endif
                 @if($terms)
-                    <td style="vertical-align:top; padding:0; width:{{ $paymentInstructions ? '50%' : '100%' }};">
+                    <td class="panel-pair only" style="width:{{ $paymentInstructions ? '50%' : '100%' }};">
                         <div class="panel" style="margin-bottom:0;">
                             <div class="label">{{ __('admin.pdf.terms') }}</div>
-                            {!! nl2br(e($terms)) !!}
+                            {!! nl2br(e(Bidi::isolateLines($terms))) !!}
                         </div>
                     </td>
                 @endif
@@ -246,11 +257,11 @@
 @endsection
 
 @section('closing')
-    {!! nl2br(e(\App\Support\DocumentText::for(
+    {!! nl2br(e(Bidi::isolateLines(\App\Support\DocumentText::for(
         'invoice.footer',
         $invoice->asset_id,
         ['days' => $invoice->issue_date->diffInDays($invoice->due_date)],
-    ) ?? '')) !!}
+    ) ?? ''))) !!}
     {{-- Printed only when configured, exactly as the seller TRN is. A fabricated address is worse
          than none: it is trusted, written to, and fails silently. --}}
     @if($billingEmail) · {{ __('admin.pdf.footer_queries') }}: {{ $billingEmail }}@endif

@@ -1,189 +1,67 @@
-@php $isRtl = app()->getLocale() === 'ar'; @endphp
-<!DOCTYPE html>
-<html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ __('admin.statement.title') }} {{ $tenant->name }}</title>
-    <style>
-        @page { margin: 32px 36px; }
-        * { box-sizing: border-box; }
-        body {
-            color: #0F1419;
-            font-size: 10pt;
-            line-height: 1.5;
-            margin: 0;
-        }
-        .header {
-            border-bottom: 2px solid #0F766E;
-            padding-bottom: 14px;
-            margin-bottom: 20px;
-        }
-        .header table { width: 100%; border-collapse: collapse; }
-        .brand-name {
-            font-size: 20pt;
-            font-weight: bold;
-            color: #0F1419;
-            letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
-        }
-        .brand-sub { color: #8C8478; font-size: 9pt; }
-        .doc-title {
-            font-size: 16pt;
-            color: #0F766E;
-            text-align: {{ $isRtl ? 'left' : 'right' }};
-            letter-spacing: {{ $isRtl ? '0' : '3px' }};
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-        }
-        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
-        .doc-meta strong { color: #0F1419; }
+{{--
+    The statement of account — every open invoice, every settlement, over a period.
 
-        .label {
-            font-size: 8pt;
-            color: #8C8478;
-            letter-spacing: {{ $isRtl ? '0' : '1.5px' }};
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-            margin-bottom: 4px;
-        }
-        .party-name { font-weight: bold; font-size: 11pt; margin-bottom: 2px; }
-        .party-line { color: #4A4A4A; font-size: 9.5pt; }
+    The longest document this system issues, and the one most likely to run to several pages, which
+    is why the running footer (`App\Support\Pdf\PdfDocument`) carries the tenant's name and
+    `page x of y`: a loose sheet of somebody's ledger with no name on it cannot be filed or
+    challenged.
 
-        .summary {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            background: #F5F0E8;
-            border-left: {{ $isRtl ? '0 none' : '3px solid #0F766E' }};
-            border-right: {{ $isRtl ? '3px solid #0F766E' : '0 none' }};
-        }
-        .summary td {
-            padding: 10px 14px;
-            width: 25%;
-            border-left: {{ $isRtl ? '1px solid rgba(201,169,97,0.2)' : '0 none' }};
-            border-right: {{ $isRtl ? '0 none' : '1px solid rgba(201,169,97,0.2)' }};
-        }
-        .summary td:last-child { border-left: 0 none; border-right: 0 none; }
-        .summary .stat-label {
-            font-size: 8pt;
-            color: #8C8478;
-            letter-spacing: {{ $isRtl ? '0' : '1px' }};
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-        }
-        .summary .stat-value { font-size: 14pt; font-weight: bold; color: #0F1419; margin-top: 4px; }
-        .summary .stat-value.warn { color: #B85C38; }
+    The listings keep their own column widths — each one was measured against real content and the
+    comments beside them record what broke at the previous value. What changed here is the shell:
+    the masthead, palette and type scale are now the shared ones (`pdf.layout`), so this document and
+    the invoices it lists are set in the same voice.
+--}}
+@php
+    use App\Support\Pdf\Bidi;
+    use App\Support\Pdf\DocumentTheme as T;
+@endphp
 
-        .section-title {
-            font-size: 11pt;
-            font-weight: bold;
-            color: #0F1419;
-            margin: 18px 0 8px;
-            padding-bottom: 4px;
-            border-bottom: 1px solid #0F766E;
-            letter-spacing: {{ $isRtl ? '0' : '1px' }};
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-        }
+@extends('pdf.layout', ['title' => __('admin.statement.title').' '.$tenant->name])
 
-        table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        table.data thead th {
-            background: #0F1419;
-            color: #F5F0E8;
-            text-align: {{ $isRtl ? 'right' : 'left' }};
-            /* 8px/10px at 9.5pt could not fit seven columns across A4: widening the status column
-               pushed the wrap into the invoice number, the due date and the paid figure instead.
-               Measured against mPDF's own font metrics, not guessed — see
-               StatementColumnsFitTest. */
-            padding: 6px 6px;
-            font-size: 8pt;
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-            letter-spacing: {{ $isRtl ? '0' : '1px' }};
-            font-weight: normal;
-        }
-        table.data thead th.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
-        table.data tbody td {
-            padding: 6px 6px;
-            border-bottom: 1px solid #E5E0D5;
-            vertical-align: top;
-            font-size: 8.5pt;
-        }
-        table.data tbody td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
-        table.data tbody td.muted { color: #8C8478; }
-        table.data tfoot td {
-            padding: 6px 6px;
-            font-weight: bold;
-            border-top: 2px solid #0F1419;
-            background: #FAFAF8;
-        }
-        table.data tfoot td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
-
-        .status-pill {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 8px;
-            font-size: 7pt;
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-            letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
-        }
-        .status-paid { background: #E5F2E8; color: #2D6B3F; }
-        .status-issued { background: #E8EFF7; color: #1F4F8C; }
-        .status-partially_paid { background: #FBF1DC; color: #9A6F1B; }
-        .status-overdue { background: #F7E0DC; color: #9A2B1B; }
-
-        .empty { color: #8C8478; font-size: 9.5pt; text-align: center; padding: 14px; font-style: italic; }
-
-        .footer {
-            border-top: 1px solid #E5E0D5;
-            padding-top: 8px;
-            margin-top: 18px;
-            font-size: 8pt;
-            color: #8C8478;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <table>
+@section('document')
+    <div class="doc-type">{{ __('admin.statement.title') }}</div>
+    <div class="doc-meta" style="margin-top:4pt;">
+        <table class="pair" style="width:auto; display:inline;">
             <tr>
-                <td style="width:60%;">
-                    @include('partials.issuer-logo')
-                    <div class="brand-name">{{ $issuerName }}</div>
-                    <div class="brand-sub">
-                        @if($asset?->address){{ $asset->address }}@endif
-                        @if($asset?->city), {{ $asset->city }}@endif
-                    </div>
-                </td>
-                <td style="width:40%;">
-                    <div class="doc-title">{{ __('admin.statement.title') }}</div>
-                    <div class="doc-meta">
-                        <div>{{ __('admin.statement.as_of') }}: <strong>{{ $asOf->format('d/m/Y') }}</strong></div>
-                        <div>{{ __('admin.statement.period_label') }}: {{ $since->format('d/m/Y') }} – {{ $asOf->format('d/m/Y') }}</div>
-                    </div>
-                </td>
+                <td class="k">{{ __('admin.statement.as_of') }}</td>
+                <td class="v"><strong>{{ $asOf->format('d/m/Y') }}</strong></td>
+            </tr>
+            <tr>
+                <td class="k">{{ __('admin.statement.period_label') }}</td>
+                <td class="v">{{ $since->format('d/m/Y') }} – {{ $asOf->format('d/m/Y') }}</td>
             </tr>
         </table>
     </div>
+@endsection
 
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+@section('content')
+    <table class="facts gap-l">
         <tr>
-            <td style="width:50%;vertical-align:top;">
+            <td style="width:50%;">
                 <div class="label">{{ __('admin.statement.tenant') }}</div>
-                <div class="party-name">{{ $tenant->name }}</div>
-                @if($tenant->legal_name && $tenant->legal_name !== $tenant->name)
-                    <div class="party-line">{{ $tenant->legal_name }}</div>
-                @endif
-                @if($tenant->tax_id)<div class="party-line">{{ __('admin.pdf.tax_id') }}: {{ $tenant->tax_id }}</div>@endif
-                @if($tenant->email)<div class="party-line">{{ $tenant->email }}</div>@endif
-                @if($tenant->phone)<div class="party-line">{{ $tenant->phone }}</div>@endif
+                <div class="headline">{{ Bidi::isolate($tenant->name) }}</div>
+                <div class="value">
+                    @if($tenant->legal_name && $tenant->legal_name !== $tenant->name)
+                        <div>{{ Bidi::isolate($tenant->legal_name) }}</div>
+                    @endif
+                    @if($tenant->tax_id)<div>{{ __('admin.pdf.tax_id') }} {{ Bidi::isolate($tenant->tax_id) }}</div>@endif
+                    @if($tenant->email)<div>{{ Bidi::isolate($tenant->email) }}</div>@endif
+                    @if($tenant->phone)<div>{{ Bidi::isolate($tenant->phone) }}</div>@endif
+                </div>
             </td>
-            <td style="width:50%;vertical-align:top;">
+            <td class="last" style="width:50%;">
                 <div class="label">{{ __('admin.statement.leases') }}</div>
+                <div class="value">
                 @forelse($tenant->leases->where('status', 'active') as $lease)
-                    <div class="party-line">
-                        <strong>{{ $lease->reference }}</strong> ·
-                        {{ __('admin.pdf.unit') }} {{ $lease->unit?->code ?? '—' }} ·
+                    <div>
+                        <strong>{{ Bidi::isolate($lease->reference) }}</strong> ·
+                        {{ __('admin.pdf.unit') }} {{ Bidi::isolate($lease->unit?->code ?? '—') }} ·
                         {{ $lease->commencement_date->format('d/m/Y') }} – {{ $lease->expiry_date->format('d/m/Y') }}
                     </div>
                 @empty
-                    <div class="party-line muted">—</div>
+                    <div class="muted">—</div>
                 @endforelse
+                </div>
             </td>
         </tr>
     </table>
@@ -230,7 +108,7 @@
             <tbody>
                 @foreach($openInvoices as $inv)
                     <tr>
-                        <td style="font-family:monospace;font-size:8pt;">{{ $inv->number }}</td>
+                        <td class="mono">{{ Bidi::isolate($inv->number) }}</td>
                         {{-- The SPAN, not the first month. This printed "Apr 2026" against a 240,300
                              quarterly invoice covering April–June, so the tenant reads a quarter's
                              rent as one month's and disputes it. Only a single-month period collapses
@@ -239,8 +117,9 @@
                         <td>{{ $inv->due_date->format('d/m/Y') }}</td>
                         <td class="num">{{ number_format((float) $inv->total, 2) }}</td>
                         <td class="num">{{ number_format((float) $inv->paid_amount, 2) }}</td>
-                        <td class="num" style="font-weight:bold;color:{{ $inv->balance > 0 ? '#B85C38' : '#2D6B3F' }};">{{ number_format((float) $inv->balance, 2) }}</td>
-                        <td><span class="status-pill status-{{ $inv->status }}">{{ __("admin.statuses.invoice.{$inv->status}") }}</span></td>
+                        <td class="num {{ $inv->balance > 0 ? 'due' : 'settled' }}">{{ number_format((float) $inv->balance, 2) }}</td>
+                        @php([$chipBg, $chipInk] = T::chip($inv->status))
+                        <td><span class="chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">{{ __("admin.statuses.invoice.{$inv->status}") }}</span></td>
                     </tr>
                 @endforeach
             </tbody>
@@ -250,7 +129,7 @@
                     {{-- Spans the balance AND status columns. The total carries an "EGP " prefix the
                          body cells do not, so it needs more room than the column it sits under — at
                          13% it wrapped to "EGP / 300,500.00" while every row above it fitted. --}}
-                    <td colspan="2" class="num" style="color:#B85C38;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
+                    <td colspan="2" class="num due">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
                 </tr>
             </tfoot>
         </table>
@@ -275,18 +154,18 @@
             <tbody>
                 @foreach($credits as $cn)
                     <tr>
-                        <td style="font-family:monospace;font-size:8pt;">{{ $cn->number }}</td>
+                        <td class="mono">{{ Bidi::isolate($cn->number) }}</td>
                         <td>{{ $cn->issue_date?->format('d/m/Y') ?? '—' }}</td>
-                        <td style="font-family:monospace;font-size:8pt;">{{ $cn->invoice?->number ?? '—' }}</td>
+                        <td class="mono">{{ Bidi::isolate($cn->invoice?->number ?? '—') }}</td>
                         <td>{{ $cn->reason ? \App\Support\Translate::orFallback('admin.enums.credit_note_reason.'.$cn->reason, (string) $cn->reason) : '—' }}</td>
-                        <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $cn->applied_amount, 2) }}</td>
+                        <td class="num settled">{{ number_format((float) $cn->applied_amount, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot>
                 <tr>
                     <td colspan="4" class="num">{{ __('admin.statement.total_credited') }}</td>
-                    <td class="num" style="color:#2D6B3F;">EGP {{ number_format((float) $credits->sum('applied_amount'), 2) }}</td>
+                    <td class="num settled">EGP {{ number_format((float) $credits->sum('applied_amount'), 2) }}</td>
                 </tr>
             </tfoot>
         </table>
@@ -317,16 +196,16 @@
                     <tr>
                         <td>{{ $row['kind'] }}</td>
                         <td>{{ $row['date']?->format('d/m/Y') ?? '—' }}</td>
-                        <td style="font-family:monospace;font-size:8pt;">{{ $row['invoice'] ?? '—' }}</td>
-                        <td>{{ $row['notes'] ?? '—' }}</td>
-                        <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format($row['amount'], 2) }}</td>
+                        <td class="mono">{{ Bidi::isolate($row['invoice'] ?? '—') }}</td>
+                        <td>{{ Bidi::isolateLines($row['notes'] ?? '—') }}</td>
+                        <td class="num settled">{{ number_format($row['amount'], 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot>
                 <tr>
                     <td colspan="4" class="num">{{ __('admin.statement.total_other_settlements') }}</td>
-                    <td class="num" style="color:#2D6B3F;">EGP {{ number_format((float) $settlements->sum('amount'), 2) }}</td>
+                    <td class="num settled">EGP {{ number_format((float) $settlements->sum('amount'), 2) }}</td>
                 </tr>
             </tfoot>
         </table>
@@ -348,22 +227,24 @@
             <tbody>
                 @foreach($payments as $p)
                     <tr>
-                        <td style="font-family:monospace;font-size:8pt;">{{ $p->reference }}</td>
+                        <td class="mono">{{ Bidi::isolate($p->reference) }}</td>
                         <td>{{ $p->payment_date->format('d/m/Y') }}</td>
                         <td>{{ \App\Models\PaymentMethod::labelFor($p->method) }}</td>
-                        <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $p->amount, 2) }}</td>
+                        <td class="num settled">{{ number_format((float) $p->amount, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot>
                 <tr>
                     <td colspan="3" class="num">{{ __('admin.statement.total_received') }}</td>
-                    <td class="num" style="color:#2D6B3F;">EGP {{ number_format((float) $payments->sum('amount'), 2) }}</td>
+                    <td class="num settled">EGP {{ number_format((float) $payments->sum('amount'), 2) }}</td>
                 </tr>
             </tfoot>
         </table>
     @endif
 
-    <div class="footer">{{ __('admin.statement.footer') }}@if($billingEmail) {{ __('admin.statement.footer_queries') }}: {{ $billingEmail }}@endif</div>
-</body>
-</html>
+@endsection
+
+@section('closing')
+    {{ __('admin.statement.footer') }}@if($billingEmail) {{ __('admin.statement.footer_queries') }}: {{ Bidi::isolate($billingEmail) }}@endif
+@endsection

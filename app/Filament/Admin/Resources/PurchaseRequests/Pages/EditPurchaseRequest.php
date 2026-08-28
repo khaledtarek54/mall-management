@@ -6,7 +6,7 @@ use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Models\PurchaseRequest;
 use App\Services\PurchaseOrderPdfService;
-use Filament\Actions\Action;
+use App\Support\Filament\PdfDownloadAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditPurchaseRequest extends EditRecord
@@ -19,21 +19,14 @@ class EditPurchaseRequest extends EditRecord
     {
         return [
             // The PO document, once the request has become an order — parity with the table.
-            Action::make('downloadPo')
+            PdfDownloadAction::make('downloadPo')
                 ->label(__('admin.procurement.actions.download_po'))
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->visible(fn () => in_array($this->record->status, [PurchaseRequest::STATUS_ORDERED, PurchaseRequest::STATUS_RECEIVED], true))
-                ->action(function () {
-                    $svc = app(PurchaseOrderPdfService::class);
-                    $pdf = $svc->build($this->record);
-
-                    return response()->streamDownload(
-                        fn () => print ($pdf),
-                        $svc->filename($this->record),
-                        ['Content-Type' => 'application/pdf'],
-                    );
-                }),
+                ->service(PurchaseOrderPdfService::class)
+                // A PO leaves the building toward a counterparty who never sees the panel: a local
+                // contractor and an international lift maintainer want opposite languages, from
+                // this same button, on the same afternoon.
+                ->recipient(fn (PurchaseRequest $record) => $record->vendor)
+                ->visible(fn () => in_array($this->record->status, [PurchaseRequest::STATUS_ORDERED, PurchaseRequest::STATUS_RECEIVED], true)),
         ];
     }
 

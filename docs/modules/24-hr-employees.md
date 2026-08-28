@@ -504,3 +504,17 @@ double the liability at the moment it crystallises.
 Tests: `tests/Feature/Regression/GratuityAccrualTest.php` — the off-by-default is the first thing
 asserted, and the second tier is proved by a figure straight-line accrual could not produce.
 
+
+## The language a payslip is written in (2026-08-28)
+
+`employees.locale` — nullable, `en` / `ar`, on the employee form and `EmployeeImporter`.
+
+An employee who reads only Arabic being handed an English breakdown of their own deductions is the
+plainest case the document-language work exists for, and the payslip was following whoever generated
+the run. It now follows the employee; **blank is the normal state** and falls back to the generator,
+with the download picker as the override.
+
+Same shape as `vendors.locale` — see [12-vendors](12-vendors.md) and
+[OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference). `Employee` is
+not `Notifiable`, so it carries the column without `HasLocalePreference`; the column is registered in
+`App\Support\ValueSets`.

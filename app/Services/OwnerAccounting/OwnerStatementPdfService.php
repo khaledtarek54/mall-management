@@ -4,9 +4,8 @@ namespace App\Services\OwnerAccounting;
 
 use App\Models\OwnerStatement;
 use App\Support\IssuingEntity;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 
 /**
  * Renders an owner statement (كشف حساب المالك) to a PDF — the deliverable the owner receives:
@@ -15,50 +14,29 @@ use Mpdf\Output\Destination;
  */
 class OwnerStatementPdfService
 {
-    public function build(OwnerStatement $statement): string
+    /**
+     * The owner statement as a PDF, in the language the OWNER reads.
+     *
+     * This is the document Jawad actually receives — an account of his own money rendered by his
+     * managing agent — so it follows his stored language rather than the accounting clerk's.
+     */
+    public function build(OwnerStatement $statement, ?string $locale = null): string
     {
         $statement->loadMissing(['run.asset', 'run.accountingPeriod', 'owner']);
 
-        $isRtl = app()->getLocale() === 'ar';
-
-        $html = View::make('owner-statements.statement', [
-            'statement' => $statement,
-            'run' => $statement->run,
-            'asset' => $statement->run->asset,
-            'owner' => $statement->owner,
-            // No asset: the statement is issued BY the managing agent ABOUT the property, and the
-            // property is already named in the party block. The owner needs to see whose account of
-            // their money this is.
-            // The run's property. This is the document Jawad actually receives, and it rendered
-            // `$asset` in its own party block while the logo beside the issuer name was absent.
-            ...IssuingEntity::forView($statement->run->asset),
-        ])->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10.5,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return PdfDocument::make('owner-statements.statement')
+            ->locale(DocumentLocale::resolve($locale, $statement->owner))
+            ->data(fn (): array => [
+                'statement' => $statement,
+                'run' => $statement->run,
+                'asset' => $statement->run->asset,
+                'owner' => $statement->owner,
+                // The run's property: the statement is issued BY the managing agent ABOUT the
+                // property, and passing the asset is what puts that mall's logo beside the issuer.
+                ...IssuingEntity::forView($statement->run->asset),
+            ])
+            ->reference($statement->reference)
+            ->render();
     }
 
     public function filename(OwnerStatement $statement): string

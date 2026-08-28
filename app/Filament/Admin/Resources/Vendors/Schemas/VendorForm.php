@@ -6,6 +6,7 @@ use App\Models\TaxCode;
 use App\Models\Trade;
 use App\Models\Vendor;
 use App\Support\Filament\CustomFieldsSchema;
+use App\Support\Pdf\DocumentLocale;
 use App\Support\WithholdingTax;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -94,6 +95,15 @@ class VendorForm
                         ->label(__('admin.fields.phone'))
                         ->tel()
                         ->maxLength(50),
+                    // Which language this supplier's purchase orders and withholding certificates
+                    // are issued in. Blank is the honest default — it means nobody has asked, and
+                    // the document then follows whoever is producing it.
+                    Select::make('locale')
+                        ->label(__('admin.fields.locale'))
+                        ->helperText(__('admin.helpers.vendor_locale'))
+                        ->options(DocumentLocale::options())
+                        ->placeholder(__('admin.fields.locale_unset'))
+                        ->native(false),
                     TextInput::make('city')
                         ->label(__('admin.fields.city') ?: 'City')
                         ->maxLength(100),

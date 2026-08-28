@@ -2,8 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Support\Pdf\PdfDocument;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Mpdf\Config\ConfigVariables;
+use Mpdf\Config\FontVariables;
 use Mpdf\HTMLParserMode;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
@@ -62,12 +65,17 @@ class RenderDocPdfCommand extends Command
             'margin_right' => 15,
             'margin_top' => 16,
             'margin_bottom' => 18,
-            // autoScriptToLang + autoArabic let a single document carry Arabic runs inside English
-            // paragraphs — which is exactly how the briefing is written.
-            'default_font' => 'dejavusans',
+            // The same family the issued documents are set in. It matters MORE here than there:
+            // this command's whole reason to exist is a briefing written with Arabic runs inside
+            // English paragraphs, and the previous pairing — DejaVu Sans plus `autoLangToFont`
+            // swapping to mpdf's bundled XB Riyaz for the Arabic — broke the glyph joins on exactly
+            // those runs. One family covers both scripts, so nothing is swapped.
+            'default_font' => PdfDocument::FONT,
+            'fontDir' => [...(new ConfigVariables)->getDefaults()['fontDir'], resource_path('fonts')],
+            'fontdata' => [...(new FontVariables)->getDefaults()['fontdata'], ...PdfDocument::fontData()],
             'default_font_size' => 10,
             'autoScriptToLang' => true,
-            'autoLangToFont' => true,
+            'autoLangToFont' => false,
             'autoArabic' => true,
             'useSubstitutions' => true,
             'tempDir' => $temp,

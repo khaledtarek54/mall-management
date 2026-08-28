@@ -284,6 +284,12 @@ class DemoSeeder extends Seeder
                 'address_street' => 'Wahat Road',
                 'address_building_number' => (string) (100 + $i),
                 'contact_person' => $tenantData['contact'] ?? 'Owner',
+                // The language this retailer's invoices and statements are issued in. Every third
+                // tenant reads Arabic, and the rest have stated nothing — which is the real
+                // distribution and the one that makes the download picker demonstrably do
+                // something. With the column blank everywhere it opens on English for every record
+                // and the feature reads as unbuilt, which is what the demo data is for.
+                'locale' => $i % 3 === 0 ? 'ar' : null,
                 'status' => 'active',
             ]);
 
@@ -2098,6 +2104,7 @@ class DemoSeeder extends Seeder
                 'type' => 'contractor',
                 'tax_id' => 'EG-410-882-001',
                 'email' => 'ops@cool-air.eg',
+                'locale' => 'ar',
                 'phone' => '+201112223344',
                 'city' => 'Cairo',
                 'contact' => ['name' => 'Ahmed Saleh', 'role' => 'Operations Lead', 'phone' => '+201112223344'],
@@ -2157,6 +2164,7 @@ class DemoSeeder extends Seeder
                 'name' => 'PestStop Egypt',
                 'type' => 'service_provider',
                 'email' => 'support@peststop.eg',
+                'locale' => 'ar',
                 'phone' => '+201557788992',
                 'city' => 'Cairo',
                 'contact' => ['name' => 'Tarek Sami', 'role' => 'Operations', 'phone' => '+201557788992'],
@@ -2191,6 +2199,10 @@ class DemoSeeder extends Seeder
                     'tax_id' => $v['tax_id'] ?? null,
                     'phone' => $v['phone'],
                     'city' => $v['city'],
+                    // Which language this supplier's purchase orders and withholding certificates
+                    // are written in. Stated on some and not others, for the reason given on the
+                    // tenant block above.
+                    'locale' => $v['locale'] ?? null,
                 ],
             );
 
@@ -2920,6 +2932,9 @@ class DemoSeeder extends Seeder
                 'base_salary' => $r['salary'],
                 'payment_method' => $r['pay'],
                 'phone' => '+201'.rand(100000000, 999999999),
+                // The language this employee's payslip is written in. Alternating, so the payroll
+                // screen demonstrates both without anyone having to set one by hand.
+                'locale' => $i % 2 === 0 ? 'ar' : null,
                 'status' => 'active',
             ]));
         }

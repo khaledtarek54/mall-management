@@ -131,6 +131,8 @@ return [
         'code' => 'Code',
         'tenant_code' => 'Tenant code',
         'billed_to' => 'Billed to',
+        'locale' => 'Document language',
+        'locale_unset' => 'Not stated',
         'vendor_code' => 'Supplier code',
         'code_auto' => 'Allocated on save',
         'completed_at' => 'Completed at',

@@ -360,11 +360,23 @@ notes (vs cash). `paymentLinkUrl` is a shareable no-login Paymob link (null once
 nothing is owed) — the app can share it or open it in a WebView.
 
 #### 🔒 `GET /me/invoices/{id}/pdf` — streams `application/pdf`
-Bilingual (follows `Accept-Language`), `Content-Disposition: attachment`.
-Ideal for the native share sheet / WhatsApp share.
+Bilingual, `Content-Disposition: attachment`. Ideal for the native share sheet / WhatsApp share.
+
+**Language (CHANGED 2026-08-27).** Follows `Accept-Language`, as before — and now accepts an
+explicit **`?lang=en|ar`** override. Use it when the user asks for one document in the other
+language without changing the app's locale: a tenant whose accountant files in English, a landlord's
+lawyer who asked for the English copy. An unsupported value falls back to `Accept-Language` rather
+than failing — an unreadable parameter should not cost the caller their invoice.
+
+Deliberately, the REQUEST wins here over the `locale` now stored on the tenant record. On the admin
+panel a document defaults to the recipient's stored language, because an operator is producing it
+for somebody else; on the API the caller **is** the recipient and has already said what they read.
+Letting the column override that would mean a tenant who switches the app to English keeps receiving
+Arabic PDFs with no way to change it from inside the app.
 
 #### 🔒 `GET /me/statement`
-Query: **`from`**, **`to`** (YYYY-MM-DD). Omit both for the documented **12-month trailing**
+Query: **`from`**, **`to`** (YYYY-MM-DD), **`lang`** (`en|ar`, CHANGED 2026-08-27 — see the invoice
+PDF above for the rule). Omit both for the documented **12-month trailing**
 window. State the window if you intend to print it: the endpoint used to hard-code the period and
 report nothing about what it covered, so a client printing a range beside the PDF was printing a
 device-clock guess. — Statement of Account PDF
@@ -401,7 +413,8 @@ taken). `receiptAt` is when the captured-payment receipt fired (null until captu
 
 #### 🔒 `GET /me/payments/{id}/receipt` — the receipt voucher (سند قبض) as a PDF
 The same document the admin table and the portal hand out — one service, so all three surfaces
-give the tenant a byte-identical file. RTL follows `Accept-Language`.
+give the tenant a byte-identical file. RTL follows `Accept-Language`, or **`?lang=en|ar`**
+(CHANGED 2026-08-27 — see the invoice PDF above for the rule).
 
 Only for a payment whose money actually **arrived** (`captured` / `reconciled` / `settled`):
 anything else returns **`422`** with a message you can show, because a receipt asserts cash was

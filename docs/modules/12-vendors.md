@@ -787,3 +787,27 @@ button reappears on a money record.
 | `Vendor` | **Only while unreferenced** — blocked by `bills`, `contracts`, `maintenanceRequests`, `documents` | set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills |
 | `VendorBill` | **Never deletable** | cancel the bill |
 | `VendorBillPayment` | **Never deletable** | void the payment — money left the bank (`VoidVendorBillPaymentService`, §5 — the correction this row named before anything implemented it) |
+
+
+## The language a supplier's documents are written in (2026-08-28)
+
+`vendors.locale` — nullable, `en` / `ar`, on the vendor form (Contact) and `VendorImporter`.
+
+Two documents leave the building toward a supplier and neither was answerable to them: the
+**purchase order** and the **withholding-tax certificate**. The certificate is the sharper case —
+withholding is an ADVANCE payment of the supplier's OWN income tax, so this is the page they hand to
+their accountant to claim it back, and it was being written in whichever language the operator's
+panel happened to be set to.
+
+**Blank is the normal state** and means "nobody has asked": the document then follows whoever is
+producing it, and the download picker is the answer. A stated language wins over the operator's and
+loses to an explicit pick — see
+[OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference).
+
+`Vendor` is not `Notifiable`, so it deliberately does NOT implement `HasLocalePreference`:
+`App\Support\Pdf\DocumentLocale` reads a plain `locale` attribute for exactly this case. If vendors
+ever start receiving notifications, adding the interface is what makes Laravel render those in this
+language too.
+
+The column is registered in `App\Support\ValueSets` (derived from `SetLocale::SUPPORTED`), so a
+spreadsheet typo is refused on save rather than silently leaving every document in English.

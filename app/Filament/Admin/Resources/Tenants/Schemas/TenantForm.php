@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Support\EgyptGovernorates;
 use App\Support\Filament\CustomFieldsSchema;
 use App\Support\FormTab;
+use App\Support\Pdf\DocumentLocale;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -103,6 +104,17 @@ class TenantForm
                             ->label(__('admin.fields.whatsapp'))
                             ->tel()
                             ->maxLength(20),
+                        // Which language this tenant's invoices, credit notes, receipts and
+                        // statements are issued in. It is a correspondence fact, not a UI one —
+                        // their accountant files what we send them, whatever language the operator
+                        // happens to be working in. Blank is the honest default: it means nobody has
+                        // asked, and the document then follows whoever is producing it.
+                        Select::make('locale')
+                            ->label(__('admin.fields.locale'))
+                            ->helperText(__('admin.helpers.document_language'))
+                            ->options(DocumentLocale::options())
+                            ->placeholder(__('admin.fields.locale_unset'))
+                            ->native(false),
                         TextInput::make('contact_person')
                             ->label(__('admin.fields.contact_person'))
                             ->maxLength(100),

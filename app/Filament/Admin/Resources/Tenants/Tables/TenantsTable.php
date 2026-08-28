@@ -8,9 +8,9 @@ use App\Models\Tenant;
 use App\Services\TenantStatementPdfService;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\TenantScope;
 use Carbon\Carbon;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -21,6 +21,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -217,24 +218,19 @@ class TenantsTable
                     ->authorize(fn ($record) => TenantResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => TenantResource::canEdit($record)),
-                Action::make('statement')
+                PdfDownloadAction::make('statement')
                     ->label(__('admin.statement.action_label'))
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('gray')
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
+                    // The statement is ABOUT this tenant and goes TO them, so their own language is
+                    // the default.
+                    ->recipient(fn (Tenant $record) => $record)
+                    // Admin surface: scope to visible properties so a restricted operator's
+                    // statement of a shared tenant excludes malls they can't see.
+                    ->document(fn (Tenant $record, string $locale): string => app(TenantStatementPdfService::class)
+                        ->build($record, TenantScope::visibleAssetIds(), null, null, $locale))
+                    ->filename(fn (Tenant $record): string => app(TenantStatementPdfService::class)->filename($record))
                     // Statement is tenant financial data — gate server-side (was ungated).
-                    ->authorize(fn () => auth()->user()?->can('tenants.view') ?? false)
-                    ->action(function (Tenant $record) {
-                        $svc = app(TenantStatementPdfService::class);
-                        // Admin surface: scope to visible properties so a restricted operator's
-                        // statement of a shared tenant excludes malls they can't see.
-                        $pdf = $svc->build($record, TenantScope::visibleAssetIds());
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->authorize(fn () => auth()->user()?->can('tenants.view') ?? false),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

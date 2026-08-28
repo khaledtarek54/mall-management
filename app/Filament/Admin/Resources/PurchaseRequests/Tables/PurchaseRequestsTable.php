@@ -10,6 +10,7 @@ use App\Services\PurchaseOrderPdfService;
 use App\Services\PurchaseRequestService;
 use App\Support\ApprovalPolicy;
 use App\Support\Filament\EntitySelect;
+use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -279,21 +280,11 @@ class PurchaseRequestsTable
 
                 // The Purchase Order document — the whole point of "ordering". Available once the
                 // request has become an order (ordered or received), so there is a PO to render.
-                Action::make('downloadPo')
+                PdfDownloadAction::make('downloadPo')
                     ->label(__('admin.procurement.actions.download_po'))
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->visible(fn (PurchaseRequest $r) => in_array($r->status, [PurchaseRequest::STATUS_ORDERED, PurchaseRequest::STATUS_RECEIVED], true))
-                    ->action(function (PurchaseRequest $record) {
-                        $svc = app(PurchaseOrderPdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->service(PurchaseOrderPdfService::class)
+                    ->recipient(fn (PurchaseRequest $record) => $record->vendor)
+                    ->visible(fn (PurchaseRequest $r) => in_array($r->status, [PurchaseRequest::STATUS_ORDERED, PurchaseRequest::STATUS_RECEIVED], true)),
             ])
             ->defaultSort('id', 'desc')
             ->emptyStateIcon('heroicon-o-shopping-cart')

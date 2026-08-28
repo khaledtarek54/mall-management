@@ -3,10 +3,10 @@
 namespace App\Services\Accounting;
 
 use App\Support\IssuingEntity;
+use App\Support\Pdf\DocumentLocale;
+use App\Support\Pdf\PdfDocument;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Facades\View;
-use Mpdf\Mpdf;
-use Mpdf\Output\Destination;
+use Closure;
 
 /**
  * Renders the financial statements (ميزان المراجعة / قائمة الدخل / قائمة المركز
@@ -17,36 +17,36 @@ class LedgerReportPdfService
 {
     public function __construct(private LedgerReportService $reports) {}
 
-    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
+    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string
     {
-        return $this->render('accounting.pdf.trial-balance', [
+        return $this->render('accounting.pdf.trial-balance', fn (): array => [
             'report' => $this->reports->trialBalance($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds);
+        ], $assetIds, $period, $locale);
     }
 
-    public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
+    public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string
     {
-        return $this->render('accounting.pdf.income-statement', [
+        return $this->render('accounting.pdf.income-statement', fn (): array => [
             'report' => $this->reports->incomeStatement($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds);
+        ], $assetIds, $period, $locale);
     }
 
-    public function balanceSheet(?array $assetIds, CarbonInterface $asOf, string $property): string
+    public function balanceSheet(?array $assetIds, CarbonInterface $asOf, string $property, ?string $locale = null): string
     {
-        return $this->render('accounting.pdf.balance-sheet', [
+        return $this->render('accounting.pdf.balance-sheet', fn (): array => [
             'report' => $this->reports->balanceSheet($assetIds, $asOf),
             'meta' => $this->meta($property, $asOf->format('d/m/Y')),
-        ], $assetIds);
+        ], $assetIds, $asOf->format('d/m/Y'), $locale);
     }
 
-    public function cashFlow(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
+    public function cashFlow(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period, ?string $locale = null): string
     {
-        return $this->render('accounting.pdf.cash-flow', [
+        return $this->render('accounting.pdf.cash-flow', fn (): array => [
             'report' => $this->reports->cashFlow($assetIds, $from, $to),
             'meta' => $this->meta($property, $period),
-        ], $assetIds);
+        ], $assetIds, $period, $locale);
     }
 
     public function filename(string $report, string $period): string
@@ -56,7 +56,13 @@ class LedgerReportPdfService
         return $report.'-'.$period.'-'.now()->format('Ymd').'.pdf';
     }
 
-    /** @return array<string, string> */
+    /**
+     * @return array<string, string>
+     *
+     * Resolved INSIDE the render's locale — `meta['locale']` is what the shared layout reads to set
+     * its own direction, so composing it before the render would hand an Arabic statement the
+     * operator's direction and lay the whole thing out backwards.
+     */
     private function meta(string $property, string $period): array
     {
         return [
@@ -67,42 +73,23 @@ class LedgerReportPdfService
         ];
     }
 
-    /** @param  array<int>|null  $assetIds  the report's property scope; one mall means one letterhead */
-    private function render(string $view, array $data, ?array $assetIds = null): string
+    /**
+     * @param  Closure(): array<string, mixed>  $data
+     * @param  array<int>|null  $assetIds  the report's property scope; one mall means one letterhead
+     */
+    private function render(string $view, Closure $data, ?array $assetIds, string $period, ?string $locale): string
     {
-        $isRtl = app()->getLocale() === 'ar';
-        // One seam for all four statements — they share `accounting.pdf.layout`, so the issuer is
-        // stated here rather than in each of balanceSheet()/incomeStatement()/trialBalance()/
-        // cashFlow().
-        //
-        // Scoped: a statement filtered to ONE mall carries that mall's logo; two or more, or none,
-        // is a portfolio document and carries the operator's identity alone.
-        $html = View::make($view, [...$data, ...IssuingEntity::forViewScopedTo($assetIds)])->render();
-
-        $tempDir = storage_path('app/mpdf');
-        if (! is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 14,
-            'default_font' => $isRtl ? 'xbriyaz' : 'dejavusans',
-            'default_font_size' => 10,
-            'autoScriptToLang' => true,
-            'autoLangToFont' => true,
-            'autoArabic' => true,
-            'useSubstitutions' => true,
-            'tempDir' => $tempDir,
-        ]);
-
-        $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return PdfDocument::make($view)
+            ->locale(DocumentLocale::resolve($locale))
+            // One seam for all four statements — they share `accounting.pdf.layout`, so the issuer
+            // is stated here rather than in each of balanceSheet()/incomeStatement()/
+            // trialBalance()/cashFlow().
+            //
+            // Scoped: a statement filtered to ONE mall carries that mall's logo; two or more, or
+            // none, is a portfolio document and carries the operator's identity alone.
+            ->data(fn (): array => [...$data(), ...IssuingEntity::forViewScopedTo($assetIds)])
+            ->reference($period)
+            ->fontSize(10)
+            ->render();
     }
 }

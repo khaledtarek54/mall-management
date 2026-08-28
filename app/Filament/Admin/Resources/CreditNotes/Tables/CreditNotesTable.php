@@ -10,8 +10,8 @@ use App\Models\Tenant;
 use App\Services\CreditNotePdfService;
 use App\Support\Exports;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\PdfDownloadAction;
 use Carbon\Carbon;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -145,23 +145,10 @@ class CreditNotesTable
                 ViewAction::make()
                     ->visible(fn ($record) => CreditNoteResource::canView($record))
                     ->authorize(fn ($record) => CreditNoteResource::canView($record)),
-                Action::make('downloadPdf')
-                    ->label(__('admin.actions.pdf'))
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    // Gate in BOTH authorize() (UI) and action() (the real gate — mountAction ignores visible()).
-                    ->authorize(fn (CreditNote $record) => CreditNoteResource::canView($record))
-                    ->action(function (CreditNote $record) {
-                        abort_unless(CreditNoteResource::canView($record), 403);
-                        $svc = app(CreditNotePdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                PdfDownloadAction::make('downloadPdf')
+                    ->service(CreditNotePdfService::class)
+                    ->recipient(fn (CreditNote $record) => $record->tenant)
+                    ->authorize(fn (CreditNote $record) => CreditNoteResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => CreditNoteResource::canEdit($record)),
             ])

@@ -158,6 +158,30 @@ final class PdfDocument
         return $this;
     }
 
+    /**
+     * The document as HTML, in its own language — everything {@see render()} does except mpdf.
+     *
+     * Public and separate for the reason `InvoicePdfService::viewData()` is: **mpdf is a renderer
+     * and the DOCUMENT is what anyone wants to assert on.** A test that has to inflate a PDF's
+     * compressed content streams to find out whether the invoice says «فاتورة» will not be written,
+     * and the one that gets written instead asserts on the service's inputs and proves nothing about
+     * what the reader receives.
+     */
+    public function html(): string
+    {
+        $locale = $this->locale ?? DocumentLocale::resolve();
+
+        return DocumentLocale::in($locale, function () use ($locale): string {
+            $data = $this->data instanceof Closure ? ($this->data)() : $this->data;
+
+            // `isRtl` is passed rather than left to each template to derive, so a template cannot
+            // answer the direction question differently from the renderer that set the page up.
+            // Templates that already compute it themselves are unaffected — the locale is set, so
+            // their own `app()->getLocale()` agrees with this.
+            return View::make($this->view, [...$data, 'isRtl' => DocumentLocale::isRtl($locale)])->render();
+        });
+    }
+
     /** The rendered PDF, as bytes. */
     public function render(): string
     {
@@ -165,13 +189,7 @@ final class PdfDocument
 
         return DocumentLocale::in($locale, function () use ($locale): string {
             $isRtl = DocumentLocale::isRtl($locale);
-            $data = $this->data instanceof Closure ? ($this->data)() : $this->data;
-
-            // `isRtl` is passed rather than left to each template to derive, so a template cannot
-            // answer the direction question differently from the renderer that set the page up.
-            // Templates that already compute it themselves are unaffected — the locale is set, so
-            // their own `app()->getLocale()` agrees with this.
-            $html = View::make($this->view, [...$data, 'isRtl' => $isRtl])->render();
+            $html = $this->html();
 
             $mpdf = $this->mpdf($isRtl);
             $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');

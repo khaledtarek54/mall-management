@@ -4,8 +4,9 @@ namespace App\Filament\Portal\Resources\CamAllocations\Tables;
 
 use App\Models\CamAllocation;
 use App\Services\CamStatementPdfService;
-use Filament\Actions\Action;
+use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\ViewAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -79,20 +80,11 @@ class CamAllocationsTable
                 // No authz check here beyond the resource's own tenant scope: this table already
                 // shows only the signed-in tenant's allocations, and the statement contains nothing
                 // the row itself does not.
-                Action::make('statement')
+                PdfDownloadAction::make('statement')
                     ->label(__('admin.cam_statement.download'))
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('gray')
-                    ->action(function (CamAllocation $record) {
-                        $svc = app(CamStatementPdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
+                    ->service(CamStatementPdfService::class)
+                    ->recipient(fn (CamAllocation $record) => $record->lease?->tenant ?? $record->unitOwnership?->tenant),
             ])
             ->defaultSort('cam_expense_pool_id', 'desc')
             ->emptyStateIcon('heroicon-o-receipt-percent')

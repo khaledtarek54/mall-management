@@ -466,3 +466,37 @@ button reappears on a money record.
 | Model | Rule | Instead / why |
 |---|---|---|
 | `Tenant` | **Only while unreferenced** — blocked by `leases`, `invoices`, `payments`, `creditNotes`, `salesDeclarations`, `maintenanceRequests`, `postDatedCheques` | set the tenant to inactive — the history stays queryable and the AR still ties out |
+
+## The document a tenant receives (2026-08-27)
+
+**Language.** The PDF is written in the language its READER reads, not its sender's. It rendered in
+`app()->getLocale()` — the operator's panel language, or `config('app.locale')` for a scheduled run
+— so an operator working in Arabic sent Arabic documents to tenants whose accountants file in
+English. `App\Support\Pdf\DocumentLocale::resolve()` now answers, in order: what the operator picked
+on the download modal → the tenant's own `locale` → the current request → the app default. The
+download button carries the picker (`App\Support\Filament\PdfDownloadAction`), pre-selected to the
+tenant; `/api/v1` takes `?lang=`; the e-mailed copy follows the TENANT, because a tax document is
+addressed to the company and must not vary with which portal login happened to be notified.
+
+**Typesetting.** Built on the shared shell (`resources/views/pdf/layout.blade.php`, `_styles`,
+`_issuer`) and rendered by `App\Support\Pdf\PdfDocument` — the only thing in the app that
+constructs mpdf. It carries a running footer with the document's own reference and `page x of y`,
+and a cancelled or voided one is watermarked. Do NOT add an `@page` rule to the template: page
+geometry belongs to the renderer, and a template that sets its own margins leaves no room for the
+footer, which then renders nowhere at all.
+
+**Free text.** Anything a person typed — a party name, a line description, notes — is fenced with
+`App\Support\Pdf\Bidi::isolate()` so it keeps its own direction inside a document written in the
+other one. Without it an Arabic document renders an English sentence as `.Issued in error`.
+
+**`tenants.locale` is the field behind all of it, and until now nothing could write it.** The
+column shipped 2026-08-12 with the notification preference and was fillable on no model and set by
+no screen, so `preferredLocale()` answered null for every tenant that has ever existed — the
+mechanism was present and inert. It is now on the tenant form (Contact tab, *Document language*), on
+`TenantImporter`, and audited. **Blank is the normal state** and means "nobody has asked": the
+document then follows whoever is producing it. It is a CORRESPONDENCE fact, not a UI one — distinct
+from `tenant_users.locale`, which is a person's reading preference and is what the portal's language
+switcher writes.
+
+See [OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference) for the
+whole rule, and `ADocumentIsWrittenInItsReadersLanguageTest` for what is pinned.

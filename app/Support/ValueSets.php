@@ -9,6 +9,7 @@ use App\Enums\TenantRequestType;
 use App\Enums\UnitManagementMode;
 use App\Enums\UnitOwnershipStatus;
 use App\Enums\UnitTenureType;
+use App\Http\Middleware\SetLocale;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CustomField;
@@ -111,6 +112,21 @@ class ValueSets
         'ledger_accounts.cash_flow_section' => [CashFlowSection::class, 'SECTIONS'],
 
         'document_templates.key' => [DocumentText::class, 'KEY_NAMES'],
+
+        // **Which language a party reads.** Five tables, ONE set — `SetLocale::SUPPORTED` is the
+        // list of languages this app has a catalogue for, and a document written in one it does not
+        // is not a document. Registered because the failure is SILENT in both directions: `__()`
+        // falls through an unknown locale into the fallback language without erroring, and
+        // `DocumentLocale::resolve()` skips the tier entirely — so a typo'd or imported `fr-CA`
+        // leaves the column looking set and every document rendering in English.
+        //
+        // Derived, never re-listed: a third language is one edit to `SetLocale::SUPPORTED`, which is
+        // the whole reason `2026_08_12_260000` made this a string and not an enum.
+        'users.locale' => [SetLocale::class, 'SUPPORTED'],
+        'tenant_users.locale' => [SetLocale::class, 'SUPPORTED'],
+        'tenants.locale' => [SetLocale::class, 'SUPPORTED'],
+        'vendors.locale' => [SetLocale::class, 'SUPPORTED'],
+        'employees.locale' => [SetLocale::class, 'SUPPORTED'],
 
         // What an operator-defined field can hold (D-7 / EG-32). Registered because a mistyped type
         // does not error — `CustomFieldsSchema::input()` falls through its `match` to a plain text

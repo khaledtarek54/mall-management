@@ -21,6 +21,35 @@
 use App\Support\IssuingEntity;
 use Illuminate\Support\Facades\File;
 
+/**
+ * Does this template put the logo beside the issuer name — itself, or through what it composes with?
+ *
+ * The rule used to be a literal `@include('partials.issuer-logo')` in every file, which was right
+ * while every document carried its own header. Since the header became ONE shared partial
+ * (`pdf._issuer`, drawn by `pdf.layout`), a document that extends the shell carries the logo without
+ * ever naming the partial — and a literal check reports the shell's own users as offenders while the
+ * documents that genuinely lack a header still pass. Following the composition is what keeps the
+ * gate pointed at the property rather than at the spelling.
+ */
+function carriesTheIssuerLogo(string $body): bool
+{
+    if (str_contains($body, "@include('partials.issuer-logo')")) {
+        return true;
+    }
+
+    preg_match_all("/@(?:extends|include)\(\s*'([^']+)'/", $body, $m);
+
+    foreach ($m[1] as $name) {
+        $path = resource_path('views/'.str_replace('.', '/', $name).'.blade.php');
+
+        if (File::exists($path) && carriesTheIssuerLogo(File::get($path))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 it('includes the logo partial in every PDF template that names the issuer', function () {
     $offenders = [];
     $checked = 0;
@@ -41,7 +70,7 @@ it('includes the logo partial in every PDF template that names the issuer', func
 
         $checked++;
 
-        if (! str_contains($body, "@include('partials.issuer-logo')")) {
+        if (! carriesTheIssuerLogo($body)) {
             $offenders[] = $relative;
         }
     }
@@ -92,8 +121,22 @@ it('passes a property to the issuer block from every service that has one', func
             continue;
         }
 
+        // COMMENTS STRIPPED FIRST, via PHP's own tokenizer. This sweep greps raw source, so a
+        // docblock that mentions `IssuingEntity::forView()` in prose — describing the seam, three
+        // lines above a call that does pass an asset — reported that service as an offender. A gate
+        // that fires on a sentence is one that gets weakened rather than fixed. Not extracted to a
+        // shared helper: a file-scope function of the same name already exists in another gate, and
+        // two of them is a fatal redeclaration that exits the whole suite with no output.
+        $stripped = '';
+
+        foreach (token_get_all($code) as $token) {
+            $stripped .= is_array($token)
+                ? (in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? ' ' : $token[1])
+                : $token;
+        }
+
         // `forView()` with nothing between the parentheses can never produce a logo.
-        if (preg_match('~IssuingEntity::forView\(\s*\)~', $code)) {
+        if (preg_match('~IssuingEntity::forView\(\s*\)~', $stripped)) {
             $offenders[] = $relative;
         }
     }

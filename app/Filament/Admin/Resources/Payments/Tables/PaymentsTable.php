@@ -13,9 +13,9 @@ use App\Support\Exports;
 use App\Support\Filament\BankAccountColumn;
 use App\Support\Filament\BankAccountFilter;
 use App\Support\Filament\EntitySelectFilter;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\TableGroup;
 use Carbon\Carbon;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -27,6 +27,7 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -177,24 +178,18 @@ class PaymentsTable
                 ViewAction::make()
                     ->visible(fn ($record) => PaymentResource::canView($record))
                     ->authorize(fn ($record) => PaymentResource::canView($record)),
-                Action::make('downloadReceipt')
+                PdfDownloadAction::make('downloadReceipt')
                     ->label(__('admin.actions.download_receipt'))
-                    ->icon('heroicon-o-receipt-percent')
-                    ->color('gray')
-                    // Only a RECEIVED payment (captured/reconciled/settled) has real cash to receipt.
-                    // Gate in BOTH visible() (UI) and action() (the real gate — mountAction ignores visible()).
+                    ->icon(Heroicon::OutlinedReceiptPercent)
+                    ->service(ReceiptPdfService::class)
+                    // The payer's own language is the default; the picker is for the case their
+                    // stored preference cannot know about.
+                    ->recipient(fn (Payment $record) => $record->tenant)
+                    // Only a RECEIVED payment (captured/reconciled/settled) has real cash to
+                    // receipt. Gated in BOTH visible() (the UI) and authorize() (the real gate,
+                    // which `AuthorizedAction::call()` runs at dispatch).
                     ->visible(fn (Payment $record): bool => $record->isReceived())
-                    ->action(function (Payment $record) {
-                        abort_unless($record->isReceived(), 403);
-                        $svc = app(ReceiptPdfService::class);
-                        $pdf = $svc->build($record);
-
-                        return response()->streamDownload(
-                            fn () => print ($pdf),
-                            $svc->filename($record),
-                            ['Content-Type' => 'application/pdf'],
-                        );
-                    }),
+                    ->authorize(fn (Payment $record): bool => $record->isReceived()),
                 EditAction::make()
                     ->visible(fn ($record) => PaymentResource::canEdit($record)),
             ])

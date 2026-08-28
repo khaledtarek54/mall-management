@@ -5,7 +5,10 @@
     <meta charset="UTF-8">
     <title>{{ __('admin.reports.monthly_close_title', ['period' => $report['period']]) }}</title>
     <style>
-        @page { margin: 32px 36px; }
+        /* No @page rule: page geometry (size, margins, the band the running footer sits in)
+           belongs to App\Support\Pdf\PdfDocument. A template that set its own margins here
+           silently overrode mpdf's and left no room beneath the body, so the running footer
+           carrying the document reference and `page x of y` rendered nowhere at all. */
         * { box-sizing: border-box; }
         body {
             color: #0F1419;

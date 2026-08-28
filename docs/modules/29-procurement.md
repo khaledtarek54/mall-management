@@ -296,3 +296,17 @@ be and its test fixed).
 
 **Related:** 22 Inventory (the stock a receipt lands in), 28 Approvals (the value → approver ladder),
 26 Facility Maintenance (the jobs that consume what this buys), 21 General Ledger (GRNI).
+
+## The purchase order document (2026-08-27)
+
+Rebuilt on the shared document shell — see
+[OVERVIEW → Core business rules](../OVERVIEW.md#4-core-business-rules-quick-reference). Two things
+specific to a PO:
+
+- **It is written in the SUPPLIER's language.** The Download PO button carries a language picker
+  defaulting to the vendor's own `vendors.locale` (added 2026-08-28 — see
+  [12-vendors](12-vendors.md)). Blank is the normal state and falls through to the operator's, with
+  the picker as the answer.
+- **It now carries a signature block.** A PO is an instruction a supplier acts on, and the
+  countersigned copy is what settles an argument about what was ordered — the lines were being sent
+  with nowhere to sign them.

@@ -23,7 +23,7 @@ class StatementController extends ApiController
         $tenant = $request->user();
 
         return $this->streamPdf(
-            $pdf->build($tenant, null, $request->date('from'), $request->date('to')),
+            $pdf->build($tenant, null, $request->date('from'), $request->date('to'), $this->documentLocale($request)),
             $pdf->filename($tenant),
         );
     }

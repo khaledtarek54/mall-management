@@ -5,8 +5,10 @@ namespace App\Filament\Portal\Resources\Payments\Pages;
 use App\Filament\Portal\Resources\Payments\PaymentResource;
 use App\Models\Payment;
 use App\Services\ReceiptPdfService;
+use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Support\Icons\Heroicon;
 
 class ViewPayment extends ViewRecord
 {
@@ -17,22 +19,13 @@ class ViewPayment extends ViewRecord
         return [
             // Let the tenant download their receipt voucher (سند قبض). The record is already
             // tenant-scoped by the portal resource; gate on isReceived() in both visible() + action().
-            Action::make('downloadReceipt')
+            PdfDownloadAction::make('downloadReceipt')
                 ->label(__('admin.actions.download_receipt'))
-                ->icon('heroicon-o-receipt-percent')
-                ->color('gray')
+                ->icon(Heroicon::OutlinedReceiptPercent)
+                ->service(ReceiptPdfService::class)
+                ->recipient(fn (Payment $record) => $record->tenant)
                 ->visible(fn (Payment $record): bool => $record->isReceived())
-                ->action(function (Payment $record) {
-                    abort_unless($record->isReceived(), 403);
-                    $svc = app(ReceiptPdfService::class);
-                    $pdf = $svc->build($record);
-
-                    return response()->streamDownload(
-                        fn () => print ($pdf),
-                        $svc->filename($record),
-                        ['Content-Type' => 'application/pdf'],
-                    );
-                }),
+                ->authorize(fn (Payment $record): bool => $record->isReceived()),
         ];
     }
 }

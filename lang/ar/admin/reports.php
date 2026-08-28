@@ -325,6 +325,8 @@ return [
         ],
         'billed_to' => 'مفوترة إلى',
         'document_details' => 'بيانات المستند',
+        'language' => 'اللغة',
+        'language_hint' => 'المستند يُحرَّر بهذه اللغة، والمبدئي هو لغة المُرسَل إليه.',
         'lease_reference' => 'مرجع العقد',
         'ownership_reference' => 'مرجع التمليك',
         'billing_period' => 'فترة الفوترة',

@@ -146,6 +146,14 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         // See App\Enums\PartyType for why both live in one table.
         'party_type',
         'email',
+        // The language this retailer's DOCUMENTS are issued in — the invoice, the credit note, the
+        // receipt, the statement of account. The column shipped 2026-08-12 with the notification
+        // preference and was fillable on nothing and written by no screen, so `preferredLocale()`
+        // answered null for every tenant that has ever existed: the mechanism was present and
+        // inert. `/locale/{locale}` persists the signed-in USER's choice, which is a person's
+        // reading preference and a different fact from the one a company's accountant files under.
+        // Null means "no preference stated" and resolves to whoever is asking.
+        'locale',
         'password',
         'phone',
         'whatsapp',

@@ -12,6 +12,7 @@ use App\Models\Tenant;
 use App\Services\Reports\ReportService;
 use App\Services\TenantStatementPdfService;
 use App\Support\AgingBuckets;
+use App\Support\Filament\PdfDownloadAction;
 use App\Support\Modules;
 use App\Support\ReportFilters;
 use App\Support\TenantScope;
@@ -30,7 +31,6 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Response;
 
 /**
  * AR collections — the worklist, not the report (UX-03).
@@ -234,28 +234,29 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
                         ? PaymentResource::getUrl('create', ['tenant' => $record['tenant_id']])
                         : null),
                 // The chase itself: the statement is what you attach to the call or the email.
-                Action::make('statement')
+                PdfDownloadAction::make('statement')
                     ->label(__('admin.collections.download_statement'))
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('gray')
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
                     ->visible(fn (): bool => Auth::user()?->can('reports.download') ?? false)
                     ->authorize(fn (): bool => Auth::user()?->can('reports.download') ?? false)
-                    ->action(function (array $record) {
-                        abort_unless(Auth::user()?->can('reports.download') ?? false, 403);
-
+                    // This table's rows are ARRAYS, not models, so the tenant is resolved from the
+                    // row on both hooks rather than type-hinted.
+                    ->recipient(fn (array $record) => Tenant::find($record['tenant_id']))
+                    ->document(function (array $record, string $locale): string {
                         $tenant = Tenant::find($record['tenant_id']);
                         abort_unless($tenant !== null, 404);
 
-                        $pdf = app(TenantStatementPdfService::class);
                         // Scoped to what this user may see — a statement is a document about a
                         // tenant, and a restricted user must not assemble one across properties
                         // they cannot read.
-                        $content = $pdf->build($tenant, TenantScope::visibleAssetIds());
+                        return app(TenantStatementPdfService::class)
+                            ->build($tenant, TenantScope::visibleAssetIds(), null, null, $locale);
+                    })
+                    ->filename(function (array $record): string {
+                        $tenant = Tenant::find($record['tenant_id']);
+                        abort_unless($tenant !== null, 404);
 
-                        return Response::streamDownload(
-                            fn () => print ($content),
-                            $pdf->filename($tenant),
-                        );
+                        return app(TenantStatementPdfService::class)->filename($tenant);
                     }),
             ])
             ->recordUrl(fn (array $record): ?string => $record['tenant']

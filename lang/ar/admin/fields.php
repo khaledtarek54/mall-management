@@ -130,6 +130,8 @@ return [
         'code' => 'الكود',
         'tenant_code' => 'كود المستأجر',
         'billed_to' => 'المدين',
+        'locale' => 'لغة المستندات',
+        'locale_unset' => 'غير محددة',
         'vendor_code' => 'كود المورّد',
         'code_auto' => 'يُخصَّص عند الحفظ',
         'completed_at' => 'وقت الإنجاز',

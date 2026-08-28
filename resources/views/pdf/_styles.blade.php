@@ -61,7 +61,10 @@
     .issuer-line strong { color: {{ T::BODY }}; font-weight: bold; }
 
     .doc-type {
-        font-size: 16pt;
+        {{-- Arabic sets smaller than Latin at the same point size — the x-height is lower and there
+             are no caps — so an identical value makes the Arabic title look like a subheading beside
+             the English one. Two sizes, one intended weight on the page. --}}
+        font-size: {{ $isRtl ? '18pt' : '16pt' }};
         font-weight: bold;
         color: {{ T::ACCENT }};
         letter-spacing: {{ $isRtl ? '0' : '0.06em' }};
@@ -118,14 +121,21 @@
     /* A definition row inside a facts column: caption left, value right, so several of them
        line up as a column rather than reading as a paragraph. */
     .facts .pair { width: 100%; border-collapse: collapse; }
-    .facts .pair td { padding: 0 0 1.5pt 0; font-size: 9pt; }
-    .facts .pair td.k { color: {{ T::MUTED }}; text-align: {{ $start }}; white-space: nowrap; }
+    .facts .pair td { padding: 0 0 2pt 0; font-size: 9pt; }
+    .facts .pair td.k {
+        color: {{ T::MUTED }};
+        text-align: {{ $start }};
+        white-space: nowrap;
+        /* Both cells are nowrap, so without a gutter a long value butts straight against its
+           caption — "Billing Period01/08/2026 – 31/08/2026", which is what shipped. */
+        padding-{{ $end }}: 10pt;
+    }
     .facts .pair td.v { color: {{ T::BODY }}; text-align: {{ $end }}; white-space: nowrap; }
 
     /* ── Status chip ─────────────────────────────────────────────────────────────────────── */
     .chip {
         display: inline-block;
-        padding: 2.5pt 7pt;
+        padding: 3pt 8pt;
         border-radius: 2pt;
         font-size: 7.5pt;
         font-weight: bold;
@@ -169,6 +179,15 @@
     /* The second line under an item — what it covers, which period, which charge code. */
     .item-note { color: {{ T::MUTED }}; font-size: 8.5pt; margin-top: 1.5pt; }
 
+    /* A SUPPORTING table — a VAT split, a breakdown that explains the table above rather than
+       standing beside it. Two solid dark bands stacked ten points apart read as two documents;
+       a tinted band under a rule reads as what it is, a note on the figures. */
+    table.items.secondary thead th {
+        background: {{ T::PANEL }};
+        color: {{ T::INK }};
+        border-bottom: 0.8pt solid {{ T::RULE_STRONG }};
+    }
+
     /* ── Totals ──────────────────────────────────────────────────────────────────────────────
        Right-aligned against the items table, not full width: a total that spans the page is a
        banner, and the reader's eye should travel DOWN the figures column it already found. */
@@ -181,23 +200,109 @@
     table.totals td.k { color: {{ T::MUTED }}; text-align: {{ $start }}; }
     table.totals td.v { color: {{ T::BODY }}; text-align: {{ $end }}; white-space: nowrap; }
     table.totals tr.rule td { border-top: 0.4pt solid {{ T::RULE }}; }
-    table.totals tr.grand td {
+
+    /* Every emphasised row states the colour on BOTH cells rather than on the row.
+       mpdf's cascade is an approximation of the real one, and a `tr.grand td` rule did NOT beat the
+       `td.v` rule it outranks in a browser — so the grand total's FIGURE rendered in body grey on a
+       near-black band, which is the least legible thing on the page and the one number the reader
+       came for. Explicit beats clever here. */
+    table.totals tr.grand td.k,
+    table.totals tr.grand td.v {
         background: {{ T::INK }};
         color: {{ T::REVERSED }};
         font-weight: bold;
         font-size: 11.5pt;
         padding: 8pt 9pt;
     }
-    table.totals tr.grand td.k { color: {{ T::REVERSED }}; }
-    table.totals tr.due td {
+    table.totals tr.due td.k,
+    table.totals tr.due td.v {
         color: {{ T::DUE }};
         font-weight: bold;
         border-top: 0.8pt solid {{ T::RULE_STRONG }};
     }
-    table.totals tr.due td.k { color: {{ T::DUE }}; }
     table.totals tr.due td.v { font-size: 11.5pt; }
-    table.totals tr.settled td { color: {{ T::SETTLED }}; font-weight: bold; }
-    table.totals tr.settled td.k { color: {{ T::SETTLED }}; }
+    table.totals tr.settled td.k,
+    table.totals tr.settled td.v {
+        color: {{ T::SETTLED }};
+        font-weight: bold;
+        border-top: 0.8pt solid {{ T::RULE_STRONG }};
+    }
+    table.totals tr.settled td.v { font-size: 11.5pt; }
+
+    /* ── Statement furniture ─────────────────────────────────────────────────────────────────
+       A statement is several LISTINGS under headings, where an invoice is one. These are the
+       pieces that only those documents need — shared because four of them need the same ones
+       (tenant statement, property statement, CAM reconciliation, owner statement) and each had
+       its own copy. */
+    .section-title {
+        font-size: 10pt;
+        font-weight: bold;
+        color: {{ T::INK }};
+        margin-top: 20pt;
+        margin-bottom: 6pt;
+        padding-bottom: 3pt;
+        border-bottom: 0.8pt solid {{ T::RULE_STRONG }};
+    }
+
+    /* The headline figures, as tiles. `border-spacing` rather than white borders between cells:
+       mpdf collapses a zero-width border and the tiles would run together into one band. */
+    table.summary { width: 100%; border-collapse: separate; border-spacing: 5pt 0; }
+    table.summary td { background: {{ T::PANEL }}; padding: 9pt 11pt; vertical-align: top; }
+    .stat-label {
+        font-size: 7pt;
+        color: {{ T::MUTED }};
+        letter-spacing: {{ $track }};
+        text-transform: {{ $caps }};
+        font-weight: bold;
+    }
+    .stat-value { font-size: 12.5pt; font-weight: bold; color: {{ T::INK }}; margin-top: 3pt; white-space: nowrap; }
+    .stat-value.warn { color: {{ T::DUE }}; }
+
+    /* A compact listing — denser than `table.items`, because a statement carries many rows of
+       short facts rather than a handful of priced lines. */
+    table.data { width: 100%; border-collapse: collapse; }
+    table.data thead th {
+        background: {{ T::PANEL }};
+        color: {{ T::INK }};
+        text-align: {{ $start }};
+        padding: 5pt 6pt;
+        font-size: 7.5pt;
+        font-weight: bold;
+        letter-spacing: {{ $track }};
+        text-transform: {{ $caps }};
+        border-bottom: 0.8pt solid {{ T::RULE_STRONG }};
+    }
+    table.data thead th.num { text-align: {{ $end }}; }
+    table.data tbody td {
+        padding: 5pt 6pt;
+        border-bottom: 0.4pt solid {{ T::RULE }};
+        vertical-align: top;
+        font-size: 8.5pt;
+    }
+    table.data tbody td.num { text-align: {{ $end }}; white-space: nowrap; }
+    table.data tbody td.muted { color: {{ T::MUTED }}; }
+    table.data tbody td.due { color: {{ T::DUE }}; font-weight: bold; }
+    table.data tbody td.settled { color: {{ T::SETTLED }}; font-weight: bold; }
+    table.data tfoot td {
+        padding: 6pt;
+        font-weight: bold;
+        color: {{ T::INK }};
+        border-top: 1.2pt solid {{ T::INK }};
+        background: {{ T::PANEL }};
+    }
+    table.data tfoot td.num { text-align: {{ $end }}; white-space: nowrap; }
+    table.data tfoot td.due { color: {{ T::DUE }}; }
+    table.data tfoot td.settled { color: {{ T::SETTLED }}; }
+
+    /* A section with nothing in it says so. Left blank, the reader cannot tell an empty ledger
+       from a document that failed to render one. */
+    .empty {
+        color: {{ T::MUTED }};
+        font-size: 9pt;
+        text-align: center;
+        padding: 12pt;
+        background: {{ T::PANEL }};
+    }
 
     /* ── Panels ──────────────────────────────────────────────────────────────────────────────
        Notes, payment instructions, terms, a tax reference. One treatment, so five different kinds
@@ -212,7 +317,7 @@
     }
     .panel.accent { background: {{ T::ACCENT_TINT }}; border-{{ $start }}-color: {{ T::ACCENT }}; }
     .panel .label { margin-bottom: 3pt; }
-    .panel .mono { font-family: dejavusansmono; font-size: 8.5pt; color: {{ T::ACCENT }}; }
+    .panel .mono { font-family: monospace; font-size: 8.5pt; color: {{ T::ACCENT }}; }
 
     /* A tinted strip of key/value pairs — a period, a reference, a scope. */
     .strip {
@@ -241,8 +346,21 @@
     .signatures { width: 100%; border-collapse: collapse; margin-top: 24pt; }
     .signatures td { width: 50%; padding: 0; padding-{{ $end }}: 24pt; vertical-align: bottom; }
     .signatures td.last { padding-{{ $end }}: 0; }
-    .sig-rule { border-bottom: 0.6pt solid {{ T::RULE_STRONG }}; height: 30pt; }
+    /* The line a supplier signs above. Two things had to go: an EMPTY div's height collapses in
+       mpdf, and `font-size: 0` collapses the line box even with a non-breaking space in it — so the
+       rule rendered nowhere both times. Padding on a block with real content is what reserves the
+       space, which is why the markup carries an `&nbsp;`. */
+    .sig-rule { border-bottom: 0.6pt solid {{ T::RULE_STRONG }}; padding-top: 24pt; }
     .sig-caption { font-size: 8pt; color: {{ T::MUTED }}; padding-top: 4pt; }
+
+    /* A document number, an IBAN, a transaction id — a code the reader will compare character by
+       character against another copy of it. */
+    .mono { font-family: monospace; font-size: 8pt; }
+
+    /* Two panels side by side — payment instructions beside terms. The gutter is on the FIRST
+       cell only, so a single panel spans the full width with no stray padding. */
+    .panel-pair { vertical-align: top; padding: 0; padding-{{ $end }}: 10pt; }
+    .panel-pair.only { padding-{{ $end }}: 0; }
 
     .nowrap { white-space: nowrap; }
     .ink { color: {{ T::INK }}; }
