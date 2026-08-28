@@ -6,6 +6,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
 /**
@@ -28,7 +29,8 @@ use Illuminate\Console\Command;
 class SeedLearningLeaseCommand extends Command
 {
     protected $signature = 'atriom:learning-lease
-        {--fresh : Reset to the empty learning mall first (destroys everything in the database)}';
+        {--fresh : Reset to the empty learning mall first (destroys everything in the database)}
+        {--from= : Commencement date (YYYY-MM-DD); defaults to the start of THIS month so it is billable today}';
 
     protected $description = 'Rebuild the teaching lease (Cilantro · B-02 · 4,800/m²/yr) through the real service';
 
@@ -69,12 +71,26 @@ class SeedLearningLeaseCommand extends Command
 
         // The figures the walkthrough is written around: 4,800/m² × 110 m² ÷ 12 = 44,000, a 7%
         // annual step, and a marketing levy the settings derive at 5% of rent.
+        // ── THE LEASE MUST BE BILLABLE TODAY (2026-08-28) ────────────────────────────────────
+        //
+        // A hardcoded commencement makes the walkthrough undoable the moment the month rolls past
+        // it: `BillingWindow` allows twelve months back and ONE forward, so a lease starting two
+        // months out cannot be billed at all — and `commencement_date` locks the moment the lease
+        // raises its first invoice, so there is no way back either. Found by a learner who reached
+        // the billing step and had every date greyed out with nothing to click.
+        //
+        // Starting THIS month means the first period is always billable on the day the command is
+        // run, whenever that is.
+        $commencement = $this->option('from')
+            ? CarbonImmutable::parse($this->option('from'))
+            : CarbonImmutable::now()->startOfMonth();
+
         $lease = $leases->create([
             'tenant_mode' => 'existing',
             'tenant_id' => $tenant->id,
             'lease' => [
                 'unit_id' => $unit->id,
-                'commencement_date' => '2026-09-01',
+                'commencement_date' => $commencement->toDateString(),
                 'term_months' => 36,
                 'base_rent_rate_per_sqm_year' => $rate,
                 'base_rent_monthly' => $monthly,
