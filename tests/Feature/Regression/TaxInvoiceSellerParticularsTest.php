@@ -94,7 +94,7 @@ it('does not call itself a TAX invoice until the issuer is registered', function
     // The FULL element, not the words: "Invoice" is a substring of "Tax Invoice" (and «فاتورة» of
     // «فاتورة ضريبية»), so the obvious `toContain(__('admin.pdf.invoice'))` passes on exactly the
     // document this test exists to refuse.
-    expect($html)->toContain('<div class="doc-title">'.__('admin.pdf.invoice').'</div>')
+    expect($html)->toContain('<div class="doc-type">'.__('admin.pdf.invoice').'</div>')
         ->and($html)->not->toContain(__('admin.pdf.tax_invoice'));
 });
 
@@ -105,7 +105,7 @@ it('calls itself a tax invoice once the registration is configured', function ()
     $tax->seller_tax_registration_number = '512-874-336';
 
     expect(taxInvoiceHtml($this->invoice->fresh()))
-        ->toContain('<div class="doc-title">'.__('admin.pdf.tax_invoice').'</div>');
+        ->toContain('<div class="doc-type">'.__('admin.pdf.tax_invoice').'</div>');
 });
 
 it('titles the browser tab the same way it titles the page', function () {

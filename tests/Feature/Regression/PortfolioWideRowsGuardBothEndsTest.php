@@ -32,6 +32,7 @@ use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\Holidays\HolidayResource;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Services\TenantStatementPdfService;
+use App\Support\Pdf\DocumentLocale;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -137,6 +138,14 @@ it('scopes the tenant statement downloaded from the Edit page', function () {
         Mockery::on(fn ($subject) => $subject->is($tenant)),
         // The scope, present and narrowed to the one mall this operator holds.
         Mockery::on(fn ($scope) => $scope === [$this->mine->id]),
+        // `from` and `to`: this call site states no window, so the statement takes its own default.
+        null,
+        null,
+        // The LANGUAGE the document is written in (2026-08-27). Matched rather than waved through
+        // with `Mockery::any()`: an unsupported value here would render the document in the fallback
+        // locale silently, which is the exact failure `DocumentLocale` clamps for — and a spy that
+        // accepted anything would not notice the day this call site stops resolving it.
+        Mockery::on(fn ($locale) => in_array($locale, DocumentLocale::supported(), true)),
     )->andReturn('%PDF-1.4 stub');
     $spy->shouldReceive('filename')->andReturn('statement.pdf');
     app()->instance(TenantStatementPdfService::class, $spy);
