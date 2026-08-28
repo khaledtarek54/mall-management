@@ -82,11 +82,12 @@ class ReceiptPdfService
             ->locale(DocumentLocale::resolve($locale, $payment->tenant))
             ->data(fn (): array => $this->viewData($payment))
             ->reference($payment->reference)
+            ->bleed()
             // A payment that failed, bounced or was refunded is not a receipt for anything.
             // Stamped rather than merely flagged: this is the document a tenant produces to prove
             // they paid, so one circulating unmarked is the most expensive kind of stale paper in
             // this system — a returned cheque still reads as settlement at arm's length.
-            ->watermark(fn (): ?string => in_array($payment->status, ['failed', 'bounced', 'refunded'], true)
+            ->watermark(fn (): ?string => $payment->isReversed()
                 ? __("admin.statuses.payment.{$payment->status}")
                 : null);
     }

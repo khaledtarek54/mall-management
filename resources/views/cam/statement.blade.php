@@ -1,99 +1,41 @@
-@php $money = fn ($v) => 'EGP ' . number_format((float) $v, 2); @endphp
-<!DOCTYPE html>
-<html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ __('admin.cam_statement.title') }} {{ $facts['year'] }}</title>
-    <style>
-        /* No @page rule: page geometry (size, margins, the band the running footer sits in)
-           belongs to App\Support\Pdf\PdfDocument. A template that set its own margins here
-           silently overrode mpdf's and left no room beneath the body, so the running footer
-           carrying the document reference and `page x of y` rendered nowhere at all. */
-        * { box-sizing: border-box; }
-        body { color: #0F1419; font-size: 10pt; line-height: 1.5; margin: 0; }
+{{--
+    The service-charge reconciliation statement — the working behind a true-up the tenant (or a unit
+    owner) did not expect, which almost every commercial lease gives them the right to audit.
 
-        .header { border-bottom: 2px solid #0F766E; padding-bottom: 14px; margin-bottom: 20px; }
-        .header table { width: 100%; border-collapse: collapse; }
-        .brand-name { font-size: 20pt; font-weight: bold; letter-spacing: {{ $isRtl ? '0' : '0.5px' }}; }
-        .brand-sub { color: #8C8478; font-size: 9pt; }
-        .doc-title {
-            font-size: 15pt; color: #0F766E;
-            text-align: {{ $isRtl ? 'left' : 'right' }};
-            letter-spacing: {{ $isRtl ? '0' : '2px' }};
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-        }
-        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
-        .doc-meta strong { color: #0F1419; }
+    Set in Direction D on the shared shell.
+--}}
+@php
+    use App\Support\Pdf\Bidi;
+    use App\Support\Pdf\DocumentTheme as T;
 
-        .label {
-            font-size: 8pt; color: #8C8478;
-            letter-spacing: {{ $isRtl ? '0' : '1.5px' }};
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-            margin-bottom: 4px;
-        }
-        .party-name { font-weight: bold; font-size: 11pt; margin-bottom: 2px; }
-        .party-line { color: #4A4A4A; font-size: 9.5pt; }
+    $money = fn ($v) => 'EGP '.number_format((float) $v, 2);
+@endphp
 
-        h2 {
-            font-size: 10pt; color: #0F766E; margin: 22px 0 8px;
-            letter-spacing: {{ $isRtl ? '0' : '1.2px' }};
-            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
-            border-bottom: 1px solid #E5E0D8; padding-bottom: 4px;
-        }
+@extends('pdf.layout', [
+    'title' => __('admin.cam_statement.title').' '.$facts['year'],
+    'issuerCaption' => $asset?->code,
+])
 
-        table.rows { width: 100%; border-collapse: collapse; }
-        table.rows td { padding: 6px 8px; border-bottom: 1px solid #EFEBE4; vertical-align: top; }
-        table.rows td.k { color: #4A4A4A; }
-        table.rows td.v { text-align: {{ $isRtl ? 'left' : 'right' }}; font-weight: bold; white-space: nowrap; }
-        table.rows tr.total td { border-top: 2px solid #0F766E; border-bottom: 0 none; font-size: 11.5pt; padding-top: 10px; }
-        table.rows tr.total td.v { color: #0F766E; }
+@section('document')
+    <div class="doc-type">{{ __('admin.cam_statement.title') }}</div>
+    <div class="doc-number">{{ $facts['year'] }}</div>
+    <div class="doc-meta" style="margin-top:4pt;">
+        <div>{{ __('admin.tables.lease.reference') }} <strong>{{ Bidi::isolate($agreementReference ?? '—') }}</strong></div>
+        <div>{{ __('admin.cam_statement.issued') }} {{ now()->format('d/m/Y') }}</div>
+    </div>
+@endsection
 
-        .note { font-size: 8.5pt; color: #6B6660; margin-top: 6px; }
-        .credit { color: #B45309; }
-        .muted { color: #8C8478; }
-
-        .basis {
-            background: #F5F0E8; padding: 10px 14px; margin-top: 6px;
-            border-{{ $isRtl ? 'right' : 'left' }}: 3px solid #0F766E;
-            font-size: 9pt;
-        }
-        .basis ul { margin: 6px 0 0; padding-{{ $isRtl ? 'right' : 'left' }}: 16px; }
-
-        .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #E5E0D8; font-size: 8.5pt; color: #8C8478; }
-    </style>
-</head>
-<body>
-
-<div class="header">
-    <table>
-        <tr>
-            <td style="width:55%">
-                @include('partials.issuer-logo')
-                <div class="brand-name">{{ $issuerName }}</div>
-                <div class="brand-sub">{{ $asset?->code }}</div>
-            </td>
-            <td style="width:45%">
-                <div class="doc-title">{{ __('admin.cam_statement.title') }}</div>
-                <div class="doc-meta">
-                    <strong>{{ __('admin.cam_statement.period') }}:</strong> {{ $facts['year'] }}<br>
-                    <strong>{{ __('admin.tables.lease.reference') }}:</strong> {{ $agreementReference }}<br>
-                    <strong>{{ __('admin.cam_statement.issued') }}:</strong> {{ now()->format('d/m/Y') }}
-                </div>
-            </td>
-        </tr>
-    </table>
-</div>
-
+@section('content')
 <table style="width:100%; border-collapse:collapse; margin-bottom:6px">
     <tr>
         <td style="width:50%; vertical-align:top">
             <div class="label">{{ __('admin.cam_statement.tenant') }}</div>
-            <div class="party-name">{{ $tenant?->name }}</div>
-            <div class="party-line">{{ $unitCodes }}</div>
+            <div class="headline">{{ $tenant?->name }}</div>
+            <div class="value">{{ $unitCodes }}</div>
         </td>
         <td style="width:50%; vertical-align:top">
             <div class="label">{{ __('admin.cam_statement.premises') }}</div>
-            <div class="party-line">{{ number_format($facts['area_sqm'], 2) }} m²</div>
+            <div class="value">{{ number_format($facts['area_sqm'], 2) }} m²</div>
         </td>
     </tr>
 </table>
@@ -101,7 +43,7 @@
 {{-- 1 · WHAT THE MALL SPENT. A tenant auditing the charge is entitled to know whether this number
      came out of the ledger or was typed in, so the statement says which. --}}
 <h2>{{ __('admin.cam_statement.the_pool') }}</h2>
-<table class="rows">
+<table class="data">
     <tr>
         <td class="k">{{ __('admin.cam_statement.pool_total', ['year' => $facts['year']]) }}</td>
         <td class="v">{{ $money($facts['pool_total']) }}</td>
@@ -133,7 +75,7 @@
     {{-- The gross-up, shown ONLY when one actually changed the number. A no-op line on every
          statement in the mall is noise; a line that moved the tenant's bill is the one thing they
          are most likely to query. --}}
-    <table class="rows" style="margin-top:8px">
+    <table class="data" style="margin-top:8px">
         <tr>
             <td class="k">
                 {{ __('admin.cam_statement.grossed_up', ['pct' => rtrim(rtrim(number_format($facts['gross_up_pct'], 2), '0'), '.')]) }}
@@ -147,7 +89,7 @@
 {{-- 2 · HOW MUCH OF IT IS YOURS. The denominator is the number tenants argue about, so it is
      stated explicitly rather than left implicit in a percentage. --}}
 <h2>{{ __('admin.cam_statement.your_share') }}</h2>
-<table class="rows">
+<table class="data">
     <tr>
         <td class="k">{{ __('admin.cam_statement.your_area') }}</td>
         <td class="v">{{ number_format($facts['area_sqm'], 2) }} m²</td>
@@ -192,7 +134,7 @@
      the mall trains everyone to skip the section that matters on the few where it bites. --}}
 @if ($facts['cap_amount'] !== null)
     <h2>{{ __('admin.cam_statement.the_cap') }}</h2>
-    <table class="rows">
+    <table class="data">
         <tr>
             <td class="k">{{ __('admin.cam_statement.cap_ceiling') }}</td>
             <td class="v">{{ $money($facts['cap_amount']) }}</td>
@@ -239,7 +181,7 @@
 
 {{-- 4 · WHAT YOU ALREADY PAID, AND THE DIFFERENCE. --}}
 <h2>{{ __('admin.cam_statement.settlement') }}</h2>
-<table class="rows">
+<table class="data">
     <tr>
         <td class="k">{{ __('admin.cam_statement.cost_borne') }}</td>
         <td class="v">{{ $money($facts['capped_cost']) }}</td>
@@ -294,7 +236,7 @@
     {{-- 5 · WHAT HAPPENS NEXT. Telling the tenant the new monthly figure on the same document that
          explains why it changed is the difference between a re-estimate and a surprise. --}}
     <h2>{{ __('admin.cam_statement.next_year') }}</h2>
-    <table class="rows">
+    <table class="data">
         <tr>
             <td class="k">
                 {{ __('admin.cam_statement.proposed_estimate', ['year' => $facts['year'] + 1]) }}
@@ -305,9 +247,7 @@
     </table>
 @endif
 
-<div class="footer">
+<div class="closing-note">
     {{ __('admin.cam_statement.footer') }}
 </div>
-
-</body>
-</html>
+@endsection

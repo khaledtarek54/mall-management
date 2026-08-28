@@ -15,7 +15,7 @@
     foreach ($lines as $l) { $total += (float) $l->line_value; }
     $total = round($total, 2);
 
-    [$chipBg, $chipInk] = T::chip($po->status);
+    [$chipBg, $chipInk] = T::bandChip($po->status);
 @endphp
 
 @extends('pdf.layout', ['title' => __('admin.pdf.purchase_order.title').' '.($po->po_number ?? $po->reference)])
@@ -23,8 +23,8 @@
 @section('document')
     <div class="doc-type">{{ __('admin.pdf.purchase_order.title') }}</div>
     <div class="doc-number">{{ Bidi::isolate($po->po_number ?? $po->reference) }}</div>
-    <div style="margin-top:7pt;">
-        <span class="chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
+    <div>
+        <span class="band-chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
             {{ __("admin.procurement.statuses.{$po->status}") }}
         </span>
     </div>

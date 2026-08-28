@@ -23,9 +23,9 @@
 
 @section('document')
     <div class="doc-type">{{ __('admin.wht_certificate.title') }}</div>
-    <div class="doc-meta" style="margin-top:5pt; color:{{ T::BODY }}; font-size:9pt;">
+    <div class="doc-meta" style="margin-top:5pt;">
         <div class="label">{{ __('admin.wht_certificate.period') }}</div>
-        {{ $start->translatedFormat('d/m/Y') }} — {{ $end->translatedFormat('d/m/Y') }}
+        <strong>{{ $start->translatedFormat('d/m/Y') }} — {{ $end->translatedFormat('d/m/Y') }}</strong>
     </div>
 @endsection
 

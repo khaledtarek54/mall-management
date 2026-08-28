@@ -20,7 +20,7 @@
     use App\Support\Pdf\Bidi;
     use App\Support\Pdf\DocumentTheme as T;
 
-    [$chipBg, $chipInk] = T::chip($invoice->status);
+    [$chipBg, $chipInk] = T::bandChip($invoice->status);
     $settled = (float) $invoice->balance <= 0.0 && (float) $invoice->paid_amount > 0.0;
 @endphp
 
@@ -29,8 +29,8 @@
 @section('document')
     <div class="doc-type">{{ __($documentTitleKey) }}</div>
     <div class="doc-number">{{ Bidi::isolate($invoice->number) }}</div>
-    <div style="margin-top:7pt;">
-        <span class="chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
+    <div>
+        <span class="band-chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
             {{ __("admin.statuses.invoice.{$invoice->status}") }}
         </span>
     </div>
@@ -156,7 +156,10 @@
                         <td class="k">{{ __('admin.pdf.vat') }}</td>
                         <td class="v">{{ $invoice->currency }} {{ number_format((float) $invoice->vat_amount, 2) }}</td>
                     </tr>
-                    <tr class="grand">
+                    {{-- The tax-inclusive total, emphasised with a rule and weight rather than a
+                         fill: the balance panel below is the loudest thing on this page, and two
+                         competing blocks would leave the reader unsure which figure to act on. --}}
+                    <tr class="subtotal">
                         <td class="k">{{ __('admin.pdf.total_due') }}</td>
                         <td class="v">{{ $invoice->currency }} {{ number_format((float) $invoice->total, 2) }}</td>
                     </tr>
@@ -171,15 +174,30 @@
                                  languages, with no markup. --}}
                             <td class="v">{{ $invoice->currency }} −{{ number_format((float) $invoice->paid_amount, 2) }}</td>
                         </tr>
-                        {{-- Settled reads GREEN and outstanding reads as money owed. The shipped
-                             template coloured the balance red whatever it was, so a fully paid
-                             invoice announced a debt of 0.00 in the colour of a demand. --}}
-                        <tr class="{{ $settled ? 'settled' : 'due' }}">
-                            <td class="k">{{ __('admin.pdf.balance') }}</td>
-                            <td class="v">{{ $invoice->currency }} {{ number_format((float) $invoice->balance, 2) }}</td>
-                        </tr>
                     @endif
                 </table>
+            </td>
+        </tr>
+    </table>
+
+    {{-- Direction D's signature, and the reason the accent exists: the one figure the reader came
+         for, set apart at a size nothing else on the page competes with. Drawn whether or not
+         anything has been paid — a reader should never have to work out what they owe by
+         subtracting one row from another.
+
+         Settled reads GREEN and outstanding reads as money owed. The shipped template coloured the
+         balance red whatever it was, so a fully paid invoice announced a debt of 0.00 in the colour
+         of a demand. --}}
+    <table class="balance">
+        <tr>
+            <td>
+                <div class="label">{{ __('admin.pdf.balance') }}</div>
+                <div class="caption">
+                    {{ __('admin.fields.due_date') }} {{ $invoice->due_date->format('d/m/Y') }}
+                </div>
+            </td>
+            <td class="figure" @if($settled) style="color:{{ T::SETTLED }};" @endif>
+                {{ $invoice->currency }} {{ number_format((float) $invoice->balance, 2) }}
             </td>
         </tr>
     </table>

@@ -46,7 +46,8 @@ class PurchaseOrderPdfService
                 'vendor' => $request->vendor,
                 ...IssuingEntity::forView($request->asset),
             ])
-            ->reference($request->po_number ?: $request->reference);
+            ->reference($request->po_number ?: $request->reference)
+            ->bleed();
     }
 
     /** Filename off the PO number (falls back to the requisition reference if somehow unordered). */

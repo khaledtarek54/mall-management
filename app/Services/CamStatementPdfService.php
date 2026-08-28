@@ -81,6 +81,7 @@ class CamStatementPdfService
                 ...IssuingEntity::forView($asset),
             ])
             ->reference($lease?->reference ?? $ownership?->reference)
+            ->bleed()
             ->render();
     }
 

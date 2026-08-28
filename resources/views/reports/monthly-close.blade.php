@@ -11,22 +11,22 @@
            carrying the document reference and `page x of y` rendered nowhere at all. */
         * { box-sizing: border-box; }
         body {
-            color: #0F1419;
+            color: #14213D;
             font-size: 10pt;
             line-height: 1.45;
             margin: 0;
         }
         .header {
-            border-bottom: 2px solid #0F766E;
+            border-bottom: 2px solid #14213D;
             padding-bottom: 14px;
             margin-bottom: 22px;
         }
         .header table { width: 100%; border-collapse: collapse; }
-        .brand-name { font-size: 20pt; font-weight: bold; color: #0F1419; }
-        .brand-sub { color: #8C8478; font-size: 8.5pt; }
+        .brand-name { font-size: 20pt; font-weight: bold; color: #14213D; }
+        .brand-sub { color: #7D8595; font-size: 8.5pt; }
         .doc-title {
             font-size: 15pt;
-            color: #0F766E;
+            color: #14213D;
             text-align: {{ $isRtl ? 'left' : 'right' }};
             letter-spacing: {{ $isRtl ? '0' : '3px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
@@ -34,7 +34,7 @@
         .doc-meta {
             text-align: {{ $isRtl ? 'left' : 'right' }};
             font-size: 8.5pt;
-            color: #6B6660;
+            color: #7D8595;
             margin-top: 4px;
         }
         .section {
@@ -43,10 +43,10 @@
         .section h2 {
             font-size: 11pt;
             font-weight: bold;
-            color: #0F1419;
+            color: #14213D;
             margin: 0 0 8px 0;
             padding-bottom: 4px;
-            border-bottom: 1px solid #E5E7EB;
+            border-bottom: 1px solid #EBEEF3;
             letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
         }
         .kpi-grid { width: 100%; border-collapse: collapse; }
@@ -54,37 +54,37 @@
             width: 25%;
             vertical-align: top;
             padding: 10px 12px;
-            background: #FAFAFA;
-            border: 1px solid #E5E7EB;
+            background: #F2F4F8;
+            border: 1px solid #EBEEF3;
         }
         .kpi-label {
             font-size: 8pt;
-            color: #6B6660;
+            color: #7D8595;
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
             letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
         }
         .kpi-value {
             font-size: 14pt;
             font-weight: bold;
-            color: #0F1419;
+            color: #14213D;
             margin-top: 4px;
         }
         .kpi-sub {
             font-size: 8pt;
-            color: #6B6660;
+            color: #7D8595;
             margin-top: 2px;
         }
         table.data { width: 100%; border-collapse: collapse; margin-top: 4px; }
         table.data th, table.data td {
             padding: 6px 8px;
-            border-bottom: 1px solid #F0EEEC;
+            border-bottom: 1px solid #F2F4F8;
             font-size: 9.5pt;
             text-align: {{ $isRtl ? 'right' : 'left' }};
         }
         table.data th {
-            background: #F8F8F7;
+            background: #F2F4F8;
             font-weight: bold;
-            color: #5B564F;
+            color: #7D8595;
             font-size: 8.5pt;
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
             letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
@@ -96,9 +96,9 @@
         .footer {
             margin-top: 24px;
             padding-top: 10px;
-            border-top: 1px solid #E5E7EB;
+            border-top: 1px solid #EBEEF3;
             font-size: 8pt;
-            color: #8C8478;
+            color: #7D8595;
         }
     </style>
 </head>
@@ -170,7 +170,7 @@
                     <td class="num">{{ number_format($row['total'], 2) }}</td>
                 </tr>
             @endforeach
-            <tr style="font-weight: bold; background: #F8F8F7;">
+            <tr style="font-weight: bold; background: #F2F4F8;">
                 <td>{{ __('admin.reports.total') }}</td>
                 <td class="num">{{ number_format($report['invoices']['count']) }}</td>
                 <td class="num">{{ number_format($report['invoices']['total'], 2) }}</td>
@@ -197,7 +197,7 @@
                     <td class="num">{{ number_format($total, 2) }}</td>
                 </tr>
             @endforeach
-            <tr style="font-weight: bold; background: #F8F8F7;">
+            <tr style="font-weight: bold; background: #F2F4F8;">
                 <td>{{ __('admin.reports.total') }}</td>
                 <td class="num">{{ number_format($report['payments']['total'], 2) }}</td>
             </tr>
@@ -241,7 +241,7 @@
                     <td class="num">{{ number_format($row['total'], 2) }}</td>
                 </tr>
             @endforeach
-            <tr style="font-weight: bold; background: #F8F8F7;">
+            <tr style="font-weight: bold; background: #F2F4F8;">
                 <td>{{ __('admin.reports.total') }}</td>
                 <td class="num"></td>
                 <td class="num">{{ number_format($report['outstanding_total'], 2) }}</td>

@@ -5,14 +5,21 @@
     <style> block, a masthead table — and each had its own copy of all of it. This is that opening,
     once. A template now starts at the thing that makes it that document.
 
+    **Direction D's band bleeds to the paper edge**, which is the whole difference between a masthead
+    and a coloured box. That is only possible if the PAGE has no side margins, so every service that
+    renders a template extending this shell calls `PdfDocument::bleed()` and the body below supplies
+    its own margin through `.page-body`. `PdfLayoutBleedsConformanceTest` fails the build if a
+    template extends this and its service forgets — the symptom otherwise is a band that stops 13mm
+    short of the edge, which reads as a rendering fault rather than as a missing call.
+
     `$isRtl` arrives from `App\Support\Pdf\PdfDocument`, which sets the app locale around the whole
     render, so a template that still derives direction itself agrees with the page mpdf set up.
 
     Sections a document fills:
-      · `document` — the right of the masthead: what this is, its number, its state
+      · `document` — the right of the band: what this is, its number, its state
       · `content`  — the body (REQUIRED)
       · `closing`  — the operator's own words at the foot; omitted, nothing is drawn
-      · `masthead` — the whole masthead, for a document whose header is not issuer-and-reference
+      · `masthead` — the whole band, for a document whose header is not issuer-and-reference
 --}}
 @php
     // `App\Support\Pdf\PdfDocument` passes this in, and it is the only production caller. Derived
@@ -34,20 +41,22 @@
     @hasSection('masthead')
         @yield('masthead')
     @else
-        <table class="masthead">
-            <tr>
-                <td class="issuer">@include('pdf._issuer')</td>
-                <td class="document">@yield('document')</td>
-            </tr>
-        </table>
+        <div class="band">
+            <table>
+                <tr>
+                    <td class="issuer">@include('pdf._issuer')</td>
+                    <td class="document">@yield('document')</td>
+                </tr>
+            </table>
+        </div>
     @endif
 
-    <div class="masthead-rule"></div>
+    <div class="page-body">
+        @yield('content')
 
-    @yield('content')
-
-    @hasSection('closing')
-        <div class="closing">@yield('closing')</div>
-    @endif
+        @hasSection('closing')
+            <div class="closing">@yield('closing')</div>
+        @endif
+    </div>
 </body>
 </html>

@@ -20,17 +20,11 @@
 
 @section('document')
     <div class="doc-type">{{ __('admin.statement.title') }}</div>
-    <div class="doc-meta" style="margin-top:4pt;">
-        <table class="pair" style="width:auto; display:inline;">
-            <tr>
-                <td class="k">{{ __('admin.statement.as_of') }}</td>
-                <td class="v"><strong>{{ $asOf->format('d/m/Y') }}</strong></td>
-            </tr>
-            <tr>
-                <td class="k">{{ __('admin.statement.period_label') }}</td>
-                <td class="v">{{ $since->format('d/m/Y') }} – {{ $asOf->format('d/m/Y') }}</td>
-            </tr>
-        </table>
+    {{-- Plain lines, not a `.pair` table: those styles are scoped to `.facts`, so inside the band
+         they resolve to nothing and the two dates run together. --}}
+    <div class="doc-meta" style="margin-top:5pt;">
+        <div>{{ __('admin.statement.as_of') }} <strong>{{ $asOf->format('d/m/Y') }}</strong></div>
+        <div>{{ __('admin.statement.period_label') }} {{ $since->format('d/m/Y') }} – {{ $asOf->format('d/m/Y') }}</div>
     </div>
 @endsection
 

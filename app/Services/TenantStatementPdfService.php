@@ -68,7 +68,8 @@ class TenantStatementPdfService
         return PdfDocument::make('tenants.statement')
             ->locale(DocumentLocale::resolve($locale, $tenant))
             ->data(fn (): array => $this->data($tenant, $visibleAssetIds, $from, $to))
-            ->reference($tenant->name);
+            ->reference($tenant->name)
+            ->bleed();
     }
 
     /**

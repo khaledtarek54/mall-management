@@ -53,6 +53,7 @@ class CreditNotePdfService
             ->locale(DocumentLocale::resolve($locale, $note->tenant))
             ->data(fn (): array => $this->data($note))
             ->reference($note->number)
+            ->bleed()
             ->watermark(fn (): ?string => $note->status === 'void'
                 ? __('admin.statuses.credit_note.void')
                 : null);

@@ -47,7 +47,7 @@ class PayslipPdfService
                 ...IssuingEntity::forView($line->payroll?->asset),
             ])
             ->reference($line->payroll?->number)
-            ->margins(['left' => 15, 'right' => 15]);
+            ->bleed();
     }
 
     public function filename(PayrollLine $line): string

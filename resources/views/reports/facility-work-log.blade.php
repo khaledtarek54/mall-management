@@ -13,27 +13,27 @@
            silently overrode mpdf's and left no room beneath the body, so the running footer
            carrying the document reference and `page x of y` rendered nowhere at all. */
         * { box-sizing: border-box; }
-        body { color: #0F1419; font-size: 10pt; line-height: 1.5; margin: 0; }
-        .header { border-bottom: 2px solid #0F766E; padding-bottom: 12px; margin-bottom: 16px; }
+        body { color: #14213D; font-size: 10pt; line-height: 1.5; margin: 0; }
+        .header { border-bottom: 2px solid #14213D; padding-bottom: 12px; margin-bottom: 16px; }
         .header table { width: 100%; border-collapse: collapse; }
         .brand-name { font-size: 20pt; font-weight: bold; }
-        .doc-title { font-size: 15pt; color: #0F766E; text-align: {{ $isRtl ? 'left' : 'right' }}; }
-        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
-        .summary { background: #F5F0E8; padding: 10px 14px; margin-bottom: 16px; }
+        .doc-title { font-size: 15pt; color: #14213D; text-align: {{ $isRtl ? 'left' : 'right' }}; }
+        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #7D8595; margin-top: 4px; }
+        .summary { background: #F2F4F8; padding: 10px 14px; margin-bottom: 16px; }
         .summary table { width: 100%; border-collapse: collapse; }
         .summary td { padding: 3px 8px; vertical-align: top; }
-        .summary .k { color: #6B6660; font-size: 8.5pt; }
+        .summary .k { color: #7D8595; font-size: 8.5pt; }
         .summary .v { font-weight: bold; font-size: 12pt; }
-        .chips span { display: inline-block; background: #fff; border: 1px solid #E7E1D6; border-radius: 3px; padding: 1px 6px; margin: 2px; font-size: 8.5pt; }
+        .chips span { display: inline-block; background: #fff; border: 1px solid #EBEEF3; border-radius: 3px; padding: 1px 6px; margin: 2px; font-size: 8.5pt; }
         table.log { width: 100%; border-collapse: collapse; }
-        table.log th { background: #0F766E; color: #fff; font-size: 8.5pt; padding: 6px 8px; text-align: {{ $isRtl ? 'right' : 'left' }}; }
-        table.log td { padding: 6px 8px; border-bottom: 1px solid #E7E1D6; font-size: 9pt; }
+        table.log th { background: #14213D; color: #fff; font-size: 8.5pt; padding: 6px 8px; text-align: {{ $isRtl ? 'right' : 'left' }}; }
+        table.log td { padding: 6px 8px; border-bottom: 1px solid #EBEEF3; font-size: 9pt; }
         .st { font-size: 8pt; padding: 1px 6px; border-radius: 3px; }
-        .st-done { background: #DCFCE7; color: #166534; }
-        .st-cancelled { background: #F3F4F6; color: #4B5563; }
-        .st-open, .st-in_progress { background: #DBEAFE; color: #1E40AF; }
-        .empty { color: #8C8478; text-align: center; padding: 24px; }
-        .footer { margin-top: 20px; font-size: 8pt; color: #8C8478; text-align: center; }
+        .st-done { background: #DCEDE4; color: #2E6B4F; }
+        .st-cancelled { background: #F2F4F8; color: #4A5468; }
+        .st-open, .st-in_progress { background: #DDE4F0; color: #14213D; }
+        .empty { color: #7D8595; text-align: center; padding: 24px; }
+        .footer { margin-top: 20px; font-size: 8pt; color: #7D8595; text-align: center; }
     </style>
 </head>
 <body>
@@ -43,7 +43,7 @@
                 <td>
                     @include('partials.issuer-logo')
                     <div class="brand-name">{{ $issuerName }}</div>
-                    <div style="color:#8C8478;font-size:9pt;">{{ $scopeLabel }}</div>
+                    <div style="color:#7D8595;font-size:9pt;">{{ $scopeLabel }}</div>
                 </td>
                 <td>
                     <div class="doc-title">{{ $t('report.title') }}</div>

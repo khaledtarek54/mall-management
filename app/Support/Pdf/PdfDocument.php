@@ -76,11 +76,37 @@ final class PdfDocument
     /** @var Closure(): array<string, mixed>|array<string, mixed> */
     private Closure|array $data = [];
 
+    /** Whether the page carries ink to its own edge. See {@see bleed()}. */
+    private bool $bleeds = false;
+
     private function __construct(private readonly string $view) {}
 
     public static function make(string $view): self
     {
         return new self($view);
+    }
+
+    /**
+     * Let the document paint to the paper edge — required by anything built on `pdf.layout`.
+     *
+     * Direction D's masthead is a full-bleed band, and **that bleed is the whole difference between
+     * a masthead and a coloured box**: inset by a page margin it reads as a box someone drew, not as
+     * the top of the document. mpdf has no per-element bleed, so the only way to reach the edge is
+     * for the PAGE to have no side margin — which is why the shared shell supplies its own through
+     * `.page-body` and why this is opt-in rather than the default.
+     *
+     * It is opt-in because the seven documents NOT on the shared shell still lay themselves out
+     * inside the page margins; turning this on globally would run the payslip, the CAM statement and
+     * the four financial statements edge to edge.
+     *
+     * The BOTTOM margin survives: the running footer lives in it, and a footer that bleeds is a
+     * footer printed off the page on most office printers.
+     */
+    public function bleed(): self
+    {
+        $this->bleeds = true;
+
+        return $this;
     }
 
     /**
@@ -222,9 +248,13 @@ final class PdfDocument
         return new Mpdf([
             'mode' => 'utf-8',
             'format' => 'A4',
-            'margin_left' => $this->margins['left'],
-            'margin_right' => $this->margins['right'],
-            'margin_top' => $this->margins['top'],
+            // A bleeding page has NO side or top margin — the band is painted by the document and
+            // has to reach the paper edge, and `.page-body` supplies the body's own margin. The
+            // bottom is kept whatever happens: the running footer lives in it, and a footer that
+            // bleeds is a footer most office printers clip.
+            'margin_left' => $this->bleeds ? 0 : $this->margins['left'],
+            'margin_right' => $this->bleeds ? 0 : $this->margins['right'],
+            'margin_top' => $this->bleeds ? 0 : $this->margins['top'],
             'margin_bottom' => $this->margins['bottom'],
             // Room for the running footer, which sits below the bottom margin.
             'margin_footer' => 8,
@@ -284,10 +314,17 @@ final class PdfDocument
         $start = $isRtl ? 'right' : 'left';
         $end = $isRtl ? 'left' : 'right';
         $reference = $this->reference !== null ? e($this->reference) : '';
+        // A bleeding page has no side margin, so the footer would run to the paper edge with the
+        // band. It carries the body's own margin instead, which is what keeps it aligned with the
+        // columns above it rather than floating out past them.
+        $inset = $this->bleeds ? '13mm' : '0';
+        $rule = DocumentTheme::RULE;
+        $muted = DocumentTheme::MUTED;
 
         return <<<HTML
-            <table style="width:100%;border-top:0.4pt solid #DDD8CE;padding-top:3mm;
-                          font-family:{$this->fontFamily()};font-size:7.5pt;color:#9A948A;">
+            <table style="width:100%;border-top:0.4pt solid {$rule};padding-top:3mm;
+                          margin-left:{$inset};margin-right:{$inset};
+                          font-family:{$this->fontFamily()};font-size:7.5pt;color:{$muted};">
                 <tr>
                     <td style="text-align:{$start};">{$reference}</td>
                     <td style="text-align:{$end};">{PAGENO} / {nbpg}</td>

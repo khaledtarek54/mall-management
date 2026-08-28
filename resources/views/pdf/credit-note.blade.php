@@ -14,7 +14,7 @@
     use App\Support\Pdf\Bidi;
     use App\Support\Pdf\DocumentTheme as T;
 
-    [$chipBg, $chipInk] = T::chip($note->status);
+    [$chipBg, $chipInk] = T::bandChip($note->status);
     $outstanding = (float) $note->balance > 0.0;
 @endphp
 
@@ -23,8 +23,8 @@
 @section('document')
     <div class="doc-type">{{ __('admin.pdf.credit_note') }}</div>
     <div class="doc-number">{{ Bidi::isolate($note->number) }}</div>
-    <div style="margin-top:7pt;">
-        <span class="chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
+    <div>
+        <span class="band-chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
             {{ __("admin.statuses.credit_note.{$note->status}") }}
         </span>
     </div>

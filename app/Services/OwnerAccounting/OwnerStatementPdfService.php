@@ -36,6 +36,7 @@ class OwnerStatementPdfService
                 ...IssuingEntity::forView($statement->run->asset),
             ])
             ->reference($statement->reference)
+            ->bleed()
             ->render();
     }
 

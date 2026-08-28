@@ -3,6 +3,7 @@
 namespace App\Support\Pdf;
 
 use App\Http\Middleware\SetLocale;
+use App\Support\NotificationLocale;
 use Closure;
 use Illuminate\Support\Facades\App;
 
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\App;
  *     e-mailed by the monthly billing run reached every tenant in the app default, whatever
  *     language they had told us they read.
  *
- * The same defect {@see \App\Support\NotificationLocale} was written for, on the surface that
+ * The same defect {@see NotificationLocale} was written for, on the surface that
  * matters more: a bell entry is a nudge, an invoice is evidence.
  *
  * So a document's language is RESOLVED, from the most specific answer available down to the app

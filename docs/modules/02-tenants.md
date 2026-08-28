@@ -478,8 +478,10 @@ download button carries the picker (`App\Support\Filament\PdfDownloadAction`), p
 tenant; `/api/v1` takes `?lang=`; the e-mailed copy follows the TENANT, because a tax document is
 addressed to the company and must not vary with which portal login happened to be notified.
 
-**Typesetting.** Built on the shared shell (`resources/views/pdf/layout.blade.php`, `_styles`,
-`_issuer`) and rendered by `App\Support\Pdf\PdfDocument` — the only thing in the app that
+**Typesetting.** Set in **Direction D** — a full-bleed navy band carrying the mall's identity,
+the balance in an amber panel of its own — chosen from four directions drawn side by side in both
+languages. Built on the shared shell (`resources/views/pdf/layout.blade.php`, `_styles`, `_issuer`)
+and rendered by `App\Support\Pdf\PdfDocument` — the only thing in the app that
 constructs mpdf. It carries a running footer with the document's own reference and `page x of y`,
 and a cancelled or voided one is watermarked. Do NOT add an `@page` rule to the template: page
 geometry belongs to the renderer, and a template that sets its own margins leaves no room for the

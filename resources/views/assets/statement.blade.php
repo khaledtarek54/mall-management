@@ -10,35 +10,35 @@
            silently overrode mpdf's and left no room beneath the body, so the running footer
            carrying the document reference and `page x of y` rendered nowhere at all. */
         * { box-sizing: border-box; }
-        body { color: #0F1419; font-size: 10pt; line-height: 1.5; margin: 0; }
+        body { color: #14213D; font-size: 10pt; line-height: 1.5; margin: 0; }
 
-        .header { border-bottom: 2px solid #0F766E; padding-bottom: 14px; margin-bottom: 20px; }
+        .header { border-bottom: 2px solid #14213D; padding-bottom: 14px; margin-bottom: 20px; }
         .header table { width: 100%; border-collapse: collapse; }
-        .brand-name { font-size: 20pt; font-weight: bold; color: #0F1419; letter-spacing: {{ $isRtl ? '0' : '0.5px' }}; }
-        .brand-sub { color: #8C8478; font-size: 9pt; }
+        .brand-name { font-size: 20pt; font-weight: bold; color: #14213D; letter-spacing: {{ $isRtl ? '0' : '0.5px' }}; }
+        .brand-sub { color: #7D8595; font-size: 9pt; }
         .doc-title {
-            font-size: 16pt; color: #0F766E;
+            font-size: 16pt; color: #14213D;
             text-align: {{ $isRtl ? 'left' : 'right' }};
             letter-spacing: {{ $isRtl ? '0' : '3px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
         }
-        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
-        .doc-meta strong { color: #0F1419; }
+        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #7D8595; margin-top: 4px; }
+        .doc-meta strong { color: #14213D; }
 
         .label {
-            font-size: 8pt; color: #8C8478;
+            font-size: 8pt; color: #7D8595;
             letter-spacing: {{ $isRtl ? '0' : '1.5px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
             margin-bottom: 4px;
         }
         .party-name { font-weight: bold; font-size: 11pt; margin-bottom: 2px; }
-        .party-line { color: #4A4A4A; font-size: 9.5pt; }
+        .party-line { color: #4A5468; font-size: 9.5pt; }
 
         .summary {
             width: 100%; border-collapse: collapse; margin-bottom: 20px;
-            background: #F5F0E8;
-            border-left: {{ $isRtl ? '0 none' : '3px solid #0F766E' }};
-            border-right: {{ $isRtl ? '3px solid #0F766E' : '0 none' }};
+            background: #F2F4F8;
+            border-left: {{ $isRtl ? '0 none' : '3px solid #14213D' }};
+            border-right: {{ $isRtl ? '3px solid #14213D' : '0 none' }};
         }
         .summary td {
             padding: 10px 14px; width: 25%;
@@ -47,25 +47,25 @@
         }
         .summary td:last-child { border-left: 0 none; border-right: 0 none; }
         .summary .stat-label {
-            font-size: 8pt; color: #8C8478;
+            font-size: 8pt; color: #7D8595;
             letter-spacing: {{ $isRtl ? '0' : '1px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
         }
-        .summary .stat-value { font-size: 14pt; font-weight: bold; color: #0F1419; margin-top: 4px; }
-        .summary .stat-value.warn { color: #B85C38; }
-        .summary .stat-value.good { color: #2D6B3F; }
+        .summary .stat-value { font-size: 14pt; font-weight: bold; color: #14213D; margin-top: 4px; }
+        .summary .stat-value.warn { color: #B4462C; }
+        .summary .stat-value.good { color: #2E6B4F; }
 
         .section-title {
-            font-size: 11pt; font-weight: bold; color: #0F1419;
+            font-size: 11pt; font-weight: bold; color: #14213D;
             margin: 18px 0 8px; padding-bottom: 4px;
-            border-bottom: 1px solid #0F766E;
+            border-bottom: 1px solid #14213D;
             letter-spacing: {{ $isRtl ? '0' : '1px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
         }
 
         table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         table.data thead th {
-            background: #0F1419; color: #F5F0E8;
+            background: #14213D; color: #F2F4F8;
             text-align: {{ $isRtl ? 'right' : 'left' }};
             padding: 8px 10px; font-size: 8.5pt;
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
@@ -73,10 +73,10 @@
             font-weight: normal;
         }
         table.data thead th.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
-        table.data tbody td { padding: 8px 10px; border-bottom: 1px solid #E5E0D5; vertical-align: top; font-size: 9.5pt; }
+        table.data tbody td { padding: 8px 10px; border-bottom: 1px solid #EBEEF3; vertical-align: top; font-size: 9.5pt; }
         table.data tbody td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
-        table.data tbody td.muted { color: #8C8478; }
-        table.data tfoot td { padding: 8px 10px; font-weight: bold; border-top: 2px solid #0F1419; background: #FAFAF8; }
+        table.data tbody td.muted { color: #7D8595; }
+        table.data tfoot td { padding: 8px 10px; font-weight: bold; border-top: 2px solid #14213D; background: #F2F4F8; }
         table.data tfoot td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
 
         .status-pill {
@@ -85,13 +85,13 @@
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
             letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
         }
-        .status-paid { background: #E5F2E8; color: #2D6B3F; }
-        .status-issued { background: #E8EFF7; color: #1F4F8C; }
-        .status-partially_paid { background: #FBF1DC; color: #9A6F1B; }
-        .status-overdue { background: #F7E0DC; color: #9A2B1B; }
+        .status-paid { background: #DCEDE4; color: #2E6B4F; }
+        .status-issued { background: #DDE4F0; color: #14213D; }
+        .status-partially_paid { background: #FBF4E7; color: #8A6212; }
+        .status-overdue { background: #F7DFD8; color: #B4462C; }
 
-        .empty { color: #8C8478; font-size: 9.5pt; text-align: center; padding: 14px; font-style: italic; }
-        .footer { border-top: 1px solid #E5E0D5; padding-top: 8px; margin-top: 18px; font-size: 8pt; color: #8C8478; text-align: center; }
+        .empty { color: #7D8595; font-size: 9.5pt; text-align: center; padding: 14px; font-style: italic; }
+        .footer { border-top: 1px solid #EBEEF3; padding-top: 8px; margin-top: 18px; font-size: 8pt; color: #7D8595; text-align: center; }
     </style>
 </head>
 <body>
@@ -143,7 +143,7 @@
                 <div class="stat-value">
                     {{ $summary['units_occupied'] }} / {{ $summary['units_total'] }}
                     @if($summary['units_total'] > 0)
-                        <span style="font-size:10pt;color:#8C8478;font-weight:normal;">
+                        <span style="font-size:10pt;color:#7D8595;font-weight:normal;">
                             ({{ number_format(($summary['units_occupied'] / $summary['units_total']) * 100, 0) }}%)
                         </span>
                     @endif
@@ -173,7 +173,7 @@
                         <td style="font-weight:bold;">{{ $d['name'] }}</td>
                         <td class="num">{{ $d['count'] }}</td>
                         <td>{{ $d['oldest_due'] ? \Carbon\Carbon::parse($d['oldest_due'])->format('d/m/Y') : '—' }}</td>
-                        <td class="num" style="color:#B85C38;font-weight:bold;">EGP {{ number_format($d['balance'], 2) }}</td>
+                        <td class="num" style="color:#B4462C;font-weight:bold;">EGP {{ number_format($d['balance'], 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -204,7 +204,7 @@
                         <td>{{ $inv->due_date->format('d/m/Y') }}</td>
                         <td class="num">{{ number_format((float) $inv->total, 2) }}</td>
                         <td class="num">{{ number_format((float) $inv->paid_amount, 2) }}</td>
-                        <td class="num" style="font-weight:bold;color:{{ $inv->balance > 0 ? '#B85C38' : '#2D6B3F' }};">{{ number_format((float) $inv->balance, 2) }}</td>
+                        <td class="num" style="font-weight:bold;color:{{ $inv->balance > 0 ? '#B4462C' : '#2E6B4F' }};">{{ number_format((float) $inv->balance, 2) }}</td>
                         <td><span class="status-pill status-{{ $inv->status }}">{{ __("admin.statuses.invoice.{$inv->status}") }}</span></td>
                     </tr>
                 @endforeach
@@ -212,7 +212,7 @@
             <tfoot>
                 <tr>
                     <td colspan="5" class="num">{{ __('admin.statement.total_outstanding') }}</td>
-                    <td class="num" style="color:#B85C38;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
+                    <td class="num" style="color:#B4462C;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
                     <td></td>
                 </tr>
             </tfoot>
@@ -243,14 +243,14 @@
                         <td>{{ $p->payment_date->format('d/m/Y') }}</td>
                         <td>{{ $p->tenant?->name ?? '—' }}</td>
                         <td>{{ \App\Models\PaymentMethod::labelFor($p->method) }}</td>
-                        <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $p->amount, 2) }}</td>
+                        <td class="num" style="color:#2E6B4F;font-weight:bold;">{{ number_format((float) $p->amount, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot>
                 <tr>
                     <td colspan="4" class="num">{{ __('admin.statement.total_received') }}</td>
-                    <td class="num" style="color:#2D6B3F;">EGP {{ number_format((float) $payments->sum('amount'), 2) }}</td>
+                    <td class="num" style="color:#2E6B4F;">EGP {{ number_format((float) $payments->sum('amount'), 2) }}</td>
                 </tr>
             </tfoot>
         </table>

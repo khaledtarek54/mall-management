@@ -96,6 +96,7 @@ class InvoicePdfService
             ->locale(DocumentLocale::resolve($locale, $invoice->tenant))
             ->data(fn (): array => $this->viewData($invoice))
             ->reference($invoice->number)
+            ->bleed()
             ->watermark(fn (): ?string => $this->watermark($invoice));
     }
 

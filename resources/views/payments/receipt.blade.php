@@ -19,7 +19,7 @@
     $onAccount = round((float) $payment->amount - $allocated, 2);
     $receivedBy = $payment->receiver?->name ?? $payment->gateway ?? null;
 
-    [$chipBg, $chipInk] = T::chip($payment->status);
+    [$chipBg, $chipInk] = T::bandChip($payment->status);
 @endphp
 
 @extends('pdf.layout', ['title' => __('admin.pdf.receipt.title').' '.$payment->reference])
@@ -27,8 +27,8 @@
 @section('document')
     <div class="doc-type">{{ __('admin.pdf.receipt.title') }}</div>
     <div class="doc-number">{{ Bidi::isolate($payment->reference) }}</div>
-    <div style="margin-top:7pt;">
-        <span class="chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
+    <div>
+        <span class="band-chip" style="background:{{ $chipBg }}; color:{{ $chipInk }};">
             {{ __("admin.statuses.payment.{$payment->status}") }}
         </span>
     </div>
@@ -97,12 +97,17 @@
     </table>
 
     {{-- The whole point of the document, set as the largest thing on the page. --}}
-    <div class="panel accent" style="padding:12pt 14pt;">
-        <div class="label">{{ __('admin.pdf.receipt.amount_received') }}</div>
-        <div style="font-size:22pt; font-weight:bold; color:{{ T::INK }}; line-height:1.2; margin-top:2pt;">
-            {{ $payment->currency }} {{ number_format((float) $payment->amount, 2) }}
-        </div>
-    </div>
+    <table class="balance" style="margin-top:0;">
+        <tr>
+            <td>
+                <div class="label">{{ __('admin.pdf.receipt.amount_received') }}</div>
+                <div class="caption">{{ $payment->payment_date->format('d/m/Y') }}</div>
+            </td>
+            <td class="figure" style="font-size:20pt;">
+                {{ $payment->currency }} {{ number_format((float) $payment->amount, 2) }}
+            </td>
+        </tr>
+    </table>
 
     @if($payment->invoices->isNotEmpty())
         <div class="label" style="margin-top:20pt; margin-bottom:5pt;">{{ __('admin.pdf.receipt.applied_to') }}</div>

@@ -53,6 +53,7 @@ function carriesTheIssuerLogo(string $body): bool
 it('includes the logo partial in every PDF template that names the issuer', function () {
     $offenders = [];
     $checked = 0;
+    $seen = [];
 
     foreach (File::allFiles(resource_path('views')) as $file) {
         $relative = str_replace(resource_path('views').'/', '', $file->getPathname());
@@ -69,6 +70,7 @@ it('includes the logo partial in every PDF template that names the issuer', func
         }
 
         $checked++;
+        $seen[$relative] = true;
 
         if (! carriesTheIssuerLogo($body)) {
             $offenders[] = $relative;
@@ -76,7 +78,17 @@ it('includes the logo partial in every PDF template that names the issuer', func
     }
 
     // The premise: this found templates at all. A sweep over an empty set passes for ever.
-    expect($checked)->toBeGreaterThan(8, 'The sweep found almost no issuer templates — it is looking at the wrong thing.');
+    //
+    // The floor DROPPED from 8 to 5 on 2026-08-28, and the reason matters more than the number: nine
+    // documents now render their issuer through ONE shared partial, so they no longer name
+    // `$issuerName` themselves and the sweep legitimately sees fewer files. The property is not
+    // weaker — `carriesTheIssuerLogo()` follows @extends into the shell — but a premise assertion
+    // must be moved DELIBERATELY, with the reason, or it becomes the thing that gets edited every
+    // time it goes red. Which is why the shell's own issuer block is named below: it is now the file
+    // that carries the logo for most of the set, and a sweep that stopped seeing it would be
+    // checking almost nothing while still counting above its floor.
+    expect($checked)->toBeGreaterThan(5, 'The sweep found almost no issuer templates — it is looking at the wrong thing.')
+        ->and(array_keys($seen))->toContain('pdf/_issuer.blade.php');
 
     expect($offenders)->toBe([], implode("\n", [
         'These render the issuer name without the mall logo beside it:',

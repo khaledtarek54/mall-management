@@ -51,6 +51,7 @@ class WithholdingCertificatePdfService
                 ...IssuingEntity::forView(null),
             ])
             ->reference($vendor->name.' · '.$start->format('d/m/Y').' – '.$end->format('d/m/Y'))
+            ->bleed()
             ->margins(['left' => 15, 'right' => 15])
             ->render();
     }
