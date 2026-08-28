@@ -77,9 +77,18 @@ was **extended rather than exempted**: a block may now declare that it falls bac
 (`DocumentText::FALLS_BACK_TO`), and the gate follows the chain and requires a real floor at the end
 of it. Dry-run against the demo portfolio: 11 overdue invoices, each correctly at notice #1.
 
-**One deploy note:** the deposit flag is a schema change, so staging needs `php artisan migrate`
-(`./deploy.sh` already runs it), and the dunning cadence needs `php artisan settings:migrate` as
-well. Nothing else requires a data backfill — every fix is either behaviour on a path that had none,
+**One deploy note:** the deposit flag is a schema change, so staging needs `php artisan migrate` —
+and `./deploy.sh` already runs it, which covers the dunning cadence too.
+
+> *Corrected 2026-08-28.* This line used to add "and the dunning cadence needs
+> `php artisan settings:migrate` as well". **There is no such command** — `spatie/laravel-settings`
+> v3 ships `make:setting`, `make:settings-migration`, `settings:discover` and the two cache
+> commands, and nothing else. It was also unnecessary: settings migrations live in
+> `database/settings/` and are applied by the ordinary `migrate`, which is verifiable rather than
+> assumed — `2026_08_25_320000_an_overdue_invoice_is_chased_more_than_once` is recorded in the
+> `migrations` table like any other. A runbook step that cannot run is worse than a missing one:
+> whoever follows it on staging sees a failure, and the natural conclusion is that the cadence did
+> not land when in fact it already had. Nothing else requires a data backfill — every fix is either behaviour on a path that had none,
 or a stricter read of columns that already existed. `invoices.dunning_level` IS backfilled to 1 for
 anything already chased, so switching the cadence on cannot send a "first reminder" to a tenant who
 has already had one.
