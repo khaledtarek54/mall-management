@@ -51,8 +51,11 @@ class WithholdingCertificatePdfService
                 ...IssuingEntity::forView(null),
             ])
             ->reference($vendor->name.' · '.$start->format('d/m/Y').' – '.$end->format('d/m/Y'))
+            // No `->margins()` here: `bleed()` zeroes left/right/top, so a margin set alongside it
+            // is silently discarded and reads as an active 15mm inset to whoever edits it next. The
+            // body's inset comes from `.page-body`. (`PayslipPdfService` hit the same collision and
+            // replaced its margins; this one had kept both.)
             ->bleed()
-            ->margins(['left' => 15, 'right' => 15])
             ->render();
     }
 

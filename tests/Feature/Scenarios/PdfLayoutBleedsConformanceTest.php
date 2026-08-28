@@ -83,6 +83,24 @@ it('bleeds every document whose template extends the shared shell', function () 
     )));
 });
 
+it('gives a bleeding document somewhere for page two to start', function () {
+    // **The property the source-grep above cannot see.** `bleed()` zeroes `margin_top` so the band
+    // reaches the top of page 1, and mpdf sets `y = tMargin` on EVERY new page — so page 2 of a
+    // statement began at y=0, inside the few millimetres most office printers cannot reach. It reads
+    // as "the printer ate the first line" rather than as a missing setting, and the checks above
+    // stayed green throughout because they read source text and never rendered a second page.
+    //
+    // The shell answers it with an mpdf continuation header, which `setAutoTopMargin` then makes
+    // room for. Asserting both halves together is the point: `->bleed()` on its own is now an
+    // incomplete configuration, and this fails if either half is removed.
+    $shell = File::get(resource_path('views/pdf/layout.blade.php'));
+
+    expect($shell)->toContain('<htmlpageheader name="continuation">')
+        ->and($shell)->toContain('<sethtmlpageheader name="continuation" value="on" />')
+        ->and(File::get(app_path('Support/Pdf/PdfDocument.php')))
+        ->toContain("setAutoTopMargin = 'pad'");
+});
+
 it('does not bleed a document that lays itself out inside the page margins', function () {
     // The opposite mistake, and the reason bleeding is opt-in: the seven documents not on the shared
     // shell still expect a page margin, and one of them bleeding would run edge to edge.

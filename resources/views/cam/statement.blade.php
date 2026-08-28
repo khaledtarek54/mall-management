@@ -6,7 +6,6 @@
 --}}
 @php
     use App\Support\Pdf\Bidi;
-    use App\Support\Pdf\DocumentTheme as T;
 
     $money = fn ($v) => 'EGP '.number_format((float) $v, 2);
 @endphp
@@ -42,7 +41,7 @@
 
 {{-- 1 · WHAT THE MALL SPENT. A tenant auditing the charge is entitled to know whether this number
      came out of the ledger or was typed in, so the statement says which. --}}
-<h2>{{ __('admin.cam_statement.the_pool') }}</h2>
+<div class="section-title">{{ __('admin.cam_statement.the_pool') }}</div>
 <table class="data">
     <tr>
         <td class="k">{{ __('admin.cam_statement.pool_total', ['year' => $facts['year']]) }}</td>
@@ -88,7 +87,7 @@
 
 {{-- 2 · HOW MUCH OF IT IS YOURS. The denominator is the number tenants argue about, so it is
      stated explicitly rather than left implicit in a percentage. --}}
-<h2>{{ __('admin.cam_statement.your_share') }}</h2>
+<div class="section-title">{{ __('admin.cam_statement.your_share') }}</div>
 <table class="data">
     <tr>
         <td class="k">{{ __('admin.cam_statement.your_area') }}</td>
@@ -133,7 +132,7 @@
 {{-- 3 · THE CAP. Shown only when one applied — a row reading "cap: none" on every statement in
      the mall trains everyone to skip the section that matters on the few where it bites. --}}
 @if ($facts['cap_amount'] !== null)
-    <h2>{{ __('admin.cam_statement.the_cap') }}</h2>
+    <div class="section-title">{{ __('admin.cam_statement.the_cap') }}</div>
     <table class="data">
         <tr>
             <td class="k">{{ __('admin.cam_statement.cap_ceiling') }}</td>
@@ -180,7 +179,7 @@
 @endif
 
 {{-- 4 · WHAT YOU ALREADY PAID, AND THE DIFFERENCE. --}}
-<h2>{{ __('admin.cam_statement.settlement') }}</h2>
+<div class="section-title">{{ __('admin.cam_statement.settlement') }}</div>
 <table class="data">
     <tr>
         <td class="k">{{ __('admin.cam_statement.cost_borne') }}</td>
@@ -235,7 +234,7 @@
 @if ($facts['proposed_estimate'] !== null && $facts['proposed_estimate'] > 0)
     {{-- 5 · WHAT HAPPENS NEXT. Telling the tenant the new monthly figure on the same document that
          explains why it changed is the difference between a re-estimate and a surprise. --}}
-    <h2>{{ __('admin.cam_statement.next_year') }}</h2>
+    <div class="section-title">{{ __('admin.cam_statement.next_year') }}</div>
     <table class="data">
         <tr>
             <td class="k">

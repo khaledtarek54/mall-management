@@ -196,7 +196,11 @@
                     {{ __('admin.fields.due_date') }} {{ $invoice->due_date->format('d/m/Y') }}
                 </div>
             </td>
-            <td class="figure" @if($settled) style="color:{{ T::SETTLED }};" @endif>
+            {{-- THREE states, not two. The rewrite kept only "settled → green" and let everything
+                 else fall through to the panel's default ink, so an invoice with nothing paid was
+                 drawn exactly like one paid in full — on the loudest block of the page, which is
+                 the one place a demand and a receipt must never look alike. --}}
+            <td class="figure" style="color:{{ $settled ? T::SETTLED : ((float) $invoice->balance > 0 ? T::DUE : T::INK) }};">
                 {{ $invoice->currency }} {{ number_format((float) $invoice->balance, 2) }}
             </td>
         </tr>

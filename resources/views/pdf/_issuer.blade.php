@@ -23,7 +23,7 @@
      cannot produce on the operator's behalf — a logo with a white bounding box would otherwise show
      it, and a dark monochrome one would vanish. --}}
 @if (! empty($issuerLogo))
-    <div class="logo-plate">@include('partials.issuer-logo')</div>
+    <div style="margin-bottom:3mm;"><span class="logo-plate">@include('partials.issuer-logo')</span></div>
 @endif
 
 <div class="issuer-name">{{ Bidi::isolate($issuerName) }}</div>

@@ -13,7 +13,6 @@
     [$chipBg, $chipInk] = T::bandChip($statement->status);
 
     $fmt = fn ($v) => number_format((float) $v, 2).' '.($asset->currency ?? 'EGP');
-    $align = $isRtl ? 'left' : 'right';
     // The frozen per-account breakdown snapshotted at generate time; localized name per row.
     $breakdown = $run->income_breakdown ?? ['revenue' => [], 'expense' => []];
     $rowName = fn ($r) => $isRtl ? ($r['name_ar'] ?? $r['name_en'] ?? $r['code']) : ($r['name_en'] ?? $r['name_ar'] ?? $r['code']);

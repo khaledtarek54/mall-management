@@ -9,7 +9,6 @@
 --}}
 @php
     use App\Support\Pdf\Bidi;
-    use App\Support\Pdf\DocumentTheme as T;
 
     $money = fn ($v) => number_format((float) $v, 2).' '.__('admin.payslip.egp');
 @endphp

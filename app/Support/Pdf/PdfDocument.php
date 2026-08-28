@@ -204,7 +204,13 @@ final class PdfDocument
             // answer the direction question differently from the renderer that set the page up.
             // Templates that already compute it themselves are unaffected — the locale is set, so
             // their own `app()->getLocale()` agrees with this.
-            return View::make($this->view, [...$data, 'isRtl' => DocumentLocale::isRtl($locale)])->render();
+            return View::make($this->view, [
+                ...$data,
+                'isRtl' => DocumentLocale::isRtl($locale),
+                // What the continuation strip on pages 2+ calls this document — the same string the
+                // running footer carries, so a detached sheet names itself twice and agrees.
+                'documentReference' => $this->reference,
+            ])->render();
         });
     }
 
@@ -218,6 +224,19 @@ final class PdfDocument
             $html = $this->html();
 
             $mpdf = $this->mpdf($isRtl);
+
+            // **Without this, every page after the first starts at the physical paper edge.**
+            // `bleed()` zeroes `margin_top` so the band reaches the top of page 1 — and mpdf sets
+            // `y = tMargin` on EVERY new page, so page 2 of a statement began at y=0, inside the
+            // ~5mm most office printers cannot reach. It reads as "the printer ate the first line"
+            // rather than as a missing setting, and the bleed gate could not see it: that gate greps
+            // for `->bleed()` and never renders a second page.
+            //
+            // 'pad' grows the top margin to fit whatever header a page carries. The shell gives
+            // pages 2+ a slim continuation strip and page 1 none, so the margin appears exactly
+            // where it is needed.
+            $mpdf->setAutoTopMargin = 'pad';
+
             $mpdf->SetDirectionality($isRtl ? 'rtl' : 'ltr');
             $mpdf->SetHTMLFooter($this->footer($isRtl));
 
@@ -258,6 +277,11 @@ final class PdfDocument
             'margin_bottom' => $this->margins['bottom'],
             // Room for the running footer, which sits below the bottom margin.
             'margin_footer' => 8,
+            // The continuation strip on pages 2+ is an mpdf HTML HEADER, drawn in the top margin.
+            // With a bleeding page that margin is 0, so `setAutoTopMargin` below grows it to the
+            // header's own height — on the pages that HAVE a header, and only those. Page 1 has
+            // none (the shell activates it after the band), so the band still reaches the edge.
+            'margin_header' => 0,
             'directionality' => $isRtl ? 'rtl' : 'ltr',
             'default_font' => self::FONT,
             'default_font_size' => $this->fontSize,

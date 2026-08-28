@@ -83,12 +83,13 @@
     /* A mall's logo is drawn for white paper. Reversed onto navy an ordinary one disappears or
        shows its bounding box, so it gets a plate of its own rather than a redesign we cannot do on
        the operator's behalf. */
+    /* A SPAN, never a div: mpdf implements no `display: inline-block` at all, so a div carrying
+       this rule is laid out as a block and paints a white bar across the whole navy band. An inline
+       background is the one thing mpdf does honour here — the same reason `.chip` works. */
     .logo-plate {
-        display: inline-block;
         background: {{ T::REVERSED }};
         padding: 2mm 3mm;
         border-radius: 1.5pt;
-        margin-bottom: 3mm;
     }
 
     .doc-type {
@@ -132,6 +133,17 @@
        a paper colour and is unreadable on navy. One override rather than a second class the six
        templates would each have to remember. */
     .band .label { color: {{ T::BAND_MUTED }}; }
+
+    /* The strip that carries the band's identity onto pages 2+. Slim on purpose: repeating the
+       full masthead would double the ink on every multi-page statement, and what a continuation
+       page actually needs is to say which document it belongs to. */
+    .continuation {
+        background: {{ T::INK }};
+        color: {{ T::BAND_MUTED }};
+        padding: 4mm 13mm;
+        font-size: 8pt;
+        text-align: {{ $start }};
+    }
 
     /* ── The body ────────────────────────────────────────────────────────────────────────────
        Supplies the horizontal margin the bleeding page no longer has. */
@@ -277,16 +289,30 @@
         border-bottom: 0.8pt solid {{ T::RULE_STRONG }};
     }
     table.data thead th.num { text-align: {{ $end }}; }
-    table.data tbody td {
+    table.data td {
         padding: 5pt 6pt;
         border-bottom: 0.4pt solid {{ T::RULE }};
         vertical-align: top;
         font-size: 8.5pt;
     }
-    table.data tbody td.num { text-align: {{ $end }}; white-space: nowrap; }
-    table.data tbody td.muted { color: {{ T::MUTED }}; }
-    table.data tbody td.due { color: {{ T::DUE }}; font-weight: bold; }
-    table.data tbody td.settled { color: {{ T::SETTLED }}; font-weight: bold; }
+    table.data td.num { text-align: {{ $end }}; white-space: nowrap; }
+    table.data td.muted { color: {{ T::MUTED }}; }
+    table.data td.due { color: {{ T::DUE }}; font-weight: bold; }
+    table.data td.settled { color: {{ T::SETTLED }}; font-weight: bold; }
+    /* A LEDGER writes label/figure pairs rather than columns: `k` names the thing, `v` is the money.
+       Both ledgers migrated onto `table.data` carrying these cells, and without the pair every
+       figure on a CAM reconciliation printed left-aligned in body weight beside its own label. */
+    table.data td.k { color: {{ T::BODY }}; }
+    table.data td.v {
+        text-align: {{ $end }};
+        color: {{ T::INK }};
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    /* A true-up the mall owes BACK to the tenant. The class survived the migration and its colour
+       did not, so the single most consequential figure on an over-recovered reconciliation was set
+       in the same ink as a demand. */
+    table.data td.credit, .credit { color: {{ T::SETTLED }}; }
     table.data tfoot td {
         padding: 6pt;
         font-weight: bold;
@@ -456,6 +482,7 @@
         border-top: 1.2pt solid {{ T::INK }};
         background: {{ T::PANEL }};
     }
+    .sub td, td.sub { color: {{ T::MUTED }}; font-size: 8.5pt; padding-{{ $start }}: 16pt; }
     .sub { color: {{ T::MUTED }}; font-size: 8.5pt; }
     .basis, .note { color: {{ T::MUTED }}; font-size: 8.5pt; }
     /* The operator's own words at the foot of a ledger — the `.closing` treatment without the

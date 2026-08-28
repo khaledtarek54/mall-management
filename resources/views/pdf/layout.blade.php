@@ -51,6 +51,19 @@
         </div>
     @endif
 
+    {{-- **Pages 2+ get a slim strip, and it is not decoration.** `bleed()` zeroes the page's top
+         margin so the band above can reach the paper edge, and mpdf starts every new page at that
+         margin — so without a header here, page 2 of a statement began at y=0, inside the few
+         millimetres most office printers cannot reach. An mpdf HTML header is drawn in the top
+         margin and `setAutoTopMargin = 'pad'` grows the margin to fit it, on the pages that carry
+         one; `<sethtmlpageheader>` without `show-this-page` activates from the NEXT page, so page 1
+         keeps its full-bleed band and everything after it gets both the space and a strip that says
+         which document the loose sheet belongs to. --}}
+    <htmlpageheader name="continuation">
+        <div class="continuation">{{ $documentReference ?? ($title ?? '') }}</div>
+    </htmlpageheader>
+    <sethtmlpageheader name="continuation" value="on" />
+
     <div class="page-body">
         @yield('content')
 
