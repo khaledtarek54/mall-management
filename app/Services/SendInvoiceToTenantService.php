@@ -34,9 +34,9 @@ use Throwable;
 class SendInvoiceToTenantService
 {
     /**
-     * @return bool  true when the tenant was notified; false when there is nobody to notify.
+     * @return bool true when the tenant was notified; false when there is nobody to notify.
      *
-     * @throws \DomainException  when the invoice is not a document the tenant may see.
+     * @throws \DomainException when the invoice is not a document the tenant may see.
      */
     public function send(Invoice $invoice): bool
     {

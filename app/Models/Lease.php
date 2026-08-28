@@ -18,6 +18,7 @@ use App\Support\Attributes\DeletableWhenUnused;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Support\InvoiceItemSettlement;
+use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -274,7 +275,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
                 $allowed = ['notes', 'metadata', 'updated_at', 'deleted_at'];
                 $blocked = collect($lease->getDirty())->keys()->reject(fn ($k) => in_array($k, $allowed, true));
                 if ($blocked->isNotEmpty()) {
-                    throw new \DomainException("A '{$original}' lease is immutable — reverse or renew it instead.");
+                    throw new \DomainException(__('admin.refusals.immutable_lease', ['status' => Translate::orHumanized("admin.statuses.lease.{$original}", $original)]));
                 }
             }
         });

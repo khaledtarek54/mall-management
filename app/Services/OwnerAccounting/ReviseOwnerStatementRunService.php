@@ -25,7 +25,7 @@ class ReviseOwnerStatementRunService
             $run = OwnerStatementRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
 
             if (! $run->isFinalised()) {
-                throw new \DomainException('Only a finalised owner-statement run can be revised.');
+                throw new \DomainException(__('admin.refusals.run_revise_state'));
             }
 
             // Money-freeze guard. Revise rebuilds the statements from scratch (force-delete +

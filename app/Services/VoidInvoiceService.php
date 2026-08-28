@@ -24,21 +24,21 @@ class VoidInvoiceService
             return $invoice; // already terminal — nothing to do
         }
         if ($invoice->status === 'draft') {
-            throw new \DomainException('A draft invoice is deleted, not voided — voiding is for issued invoices.');
+            throw new \DomainException(__('admin.refusals.invoice_void_draft'));
         }
 
         // A tax invoice already FILED with the Egyptian Tax Authority (eta_status = valid) can't be
         // reversed by an internal void — that would diverge the books from what ETA holds. It must
         // be cancelled at ETA / offset by a credit note through the compliant flow.
         if ($invoice->eta_status === 'valid') {
-            throw new \DomainException('This invoice was filed with the Tax Authority (ETA) and cannot be voided internally — issue a credit note (and an ETA cancellation) instead.');
+            throw new \DomainException(__('admin.refusals.invoice_void_eta_filed'));
         }
 
         // paid_amount = captured cash + reversible non-cash credit (notes + applied tenant credit);
         // the credit halves reverse on cancel, but captured CASH must be refunded first (else it
         // strands on a void invoice). capturedCashPaid() nets out both credit kinds.
         if ($invoice->capturedCashPaid() > 0) {
-            throw new \DomainException('Cannot void an invoice with captured payments — void/refund the payment first, then void the invoice.');
+            throw new \DomainException(__('admin.refusals.invoice_void_has_cash'));
         }
 
         return DB::transaction(function () use ($invoice, $reason) {
@@ -54,10 +54,10 @@ class VoidInvoiceService
             }
             // Re-check the terminal/blocking guards under the lock (state may have moved).
             if ($invoice->eta_status === 'valid') {
-                throw new \DomainException('This invoice was filed with the Tax Authority (ETA) and cannot be voided internally — issue a credit note (and an ETA cancellation) instead.');
+                throw new \DomainException(__('admin.refusals.invoice_void_eta_filed'));
             }
             if ($invoice->capturedCashPaid() > 0) {
-                throw new \DomainException('Cannot void an invoice with captured payments — void/refund the payment first, then void the invoice.');
+                throw new \DomainException(__('admin.refusals.invoice_void_has_cash'));
             }
 
             if ($reason) {

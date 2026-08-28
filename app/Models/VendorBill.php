@@ -425,7 +425,7 @@ class VendorBill extends Model
             if ($bill->purchase_request_id !== null && ($bill->isDirty('purchase_request_id') || $bill->isDirty('asset_id'))) {
                 $prAssetId = PurchaseRequest::whereKey($bill->purchase_request_id)->value('asset_id');
                 if ($prAssetId !== null && (int) $prAssetId !== (int) $bill->asset_id) {
-                    throw new \DomainException('The linked purchase request belongs to a different property than the bill.');
+                    throw new \DomainException(__('admin.refusals.bill_pr_other_property'));
                 }
             }
 
@@ -450,7 +450,7 @@ class VendorBill extends Model
             }
             foreach (['subtotal', 'vat_amount', 'vendor_id', 'category', 'purchase_request_id'] as $field) {
                 if ($bill->isDirty($field)) {
-                    throw new \DomainException('A finalized vendor bill is immutable — cancel and re-enter it instead of editing its amount, vendor, category, or purchase link.');
+                    throw new \DomainException(__('admin.refusals.immutable_vendor_bill'));
                 }
             }
         });

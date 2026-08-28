@@ -13,6 +13,7 @@ use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\Translate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -80,6 +81,37 @@ class Payment extends Model
      * are reached only through the reason-gated Void action, never a bare status edit.
      */
     public const RECEIVED_STATUSES = ['captured', 'reconciled', 'settled'];
+
+    /**
+     * The statuses in which this receipt's money is NOT on the books — it was reversed, and the
+     * journalizer returns no effect for every one of them.
+     *
+     * **Four values, and they are four different events, which is the whole reason for the list.**
+     * `voided` is a receipt that should never have existed (keyed in error, keyed against the wrong
+     * tenant); `refunded` is a receipt that was right and whose money went back; `bounced` is a
+     * cheque the bank returned; `failed` is a gateway attempt that never became money. Yardi, MRI
+     * and Entrata all separate the first two, because a tenant statement showing *refunded* is a
+     * claim that money reached them.
+     *
+     * **`voided` was added 2026-08-28.** `VoidPaymentService` set `refunded` for the whole of its
+     * life, so a cashier who keyed 69,674.50 against the wrong tenant and voided it left a receipt
+     * that the tenant's statement, the general ledger and the audit trail all called *refunded* —
+     * money returned to someone who never received any. Existing rows are deliberately NOT migrated:
+     * nobody can now say which historical reversals were genuine refunds, and inventing that answer
+     * for them would be worse than the ambiguity.
+     *
+     * A LIST, not four literals: `['refunded', 'failed', 'bounced']` was written out in six places
+     * — the void service's already-reversed check, the form's read-only condition, the receipt PDF's
+     * watermark, and three table colour maps — so adding a fifth event would have been six edits,
+     * five of which fail silently by simply not colouring a row.
+     */
+    public const REVERSED_STATUSES = ['voided', 'refunded', 'failed', 'bounced'];
+
+    /** True when this receipt has been reversed and its money is off the books (see REVERSED_STATUSES). */
+    public function isReversed(): bool
+    {
+        return in_array($this->status, self::REVERSED_STATUSES, true);
+    }
 
     /** True when this payment's money is on the books (see RECEIVED_STATUSES). */
     public function isReceived(): bool
@@ -463,7 +495,7 @@ class Payment extends Model
             // mis-addressed one is corrected by voiding and re-recording, like its amount and date.
             foreach (['amount', 'payment_date', 'tenant_id'] as $field) {
                 if ($payment->isDirty($field)) {
-                    throw new \DomainException("A captured payment's {$field} is immutable — void and re-record instead.");
+                    throw new \DomainException(__('admin.refusals.immutable_payment', ['field' => Translate::orHumanized("admin.fields.{$field}", $field)]));
                 }
             }
         });

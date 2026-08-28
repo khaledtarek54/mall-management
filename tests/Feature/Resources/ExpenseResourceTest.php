@@ -46,7 +46,7 @@ it('creates a direct expense (total derived) and cancels it through the UI', fun
     expect((float) $expense->total)->toEqualWithDelta(1140.0, 0.001); // model-derived
 
     Livewire::test(EditExpense::class, ['record' => $expense->getRouteKey()])
-        ->callAction('cancel_expense')
+        ->callAction('cancel_expense', ['reason' => 'duplicate of the supplier bill'])
         ->assertHasNoActionErrors();
 
     expect($expense->fresh()->status)->toBe('cancelled');

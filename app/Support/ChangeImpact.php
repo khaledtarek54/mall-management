@@ -232,15 +232,21 @@ class ChangeImpact
         ],
 
         DepositTransaction::class => [
-            'committed' => 'on creation — a deposit receipt/refund/forfeit is cash moving',
+            'committed' => 'recorded — the deposit is held and on the books (there is no draft)',
+            // ── NOT promoted: this module already had the freeze, on a BETTER predicate.
+            // `DepositTransaction::hasBeenDrawnOn()` fixes a receipt once the pot has been netted
+            // against an invoice, refunded or forfeited — asked of the LEASE, because the deposit is
+            // one pot per lease. A blanket "committed on `recorded`" is broader and breaks a
+            // supported path: re-pointing an UNDRAWN receipt to another lease re-derives its tenant
+            // and property, which `DepositTransactionIntegrityTest` pins.
             self::DERIVED => [
-                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
-                'type' => 'decides the whole recipe — receipt, refund or forfeit post different pairs',
                 'amount' => 'both legs',
-                'asset_id' => 'the books dimension',
-                'lease_id' => 'the lease the liability is held against',
-                'tenant_id' => 'the counterparty',
+                'type' => 'decides which way the deposit moved, so it chooses both legs of the entry',
                 'transaction_date' => 'it IS the entry date',
+                'tenant_id' => 'whose money is being held — the liability is owed to a named party',
+                'lease_id' => 'which tenancy the deposit secures',
+                'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
+                'asset_id' => 'the books dimension',
                 'method' => 'chooses cash vs bank',
                 'status' => 'a cancelled transaction has no GL effect',
                 'is_opening_balance' => 'a deposit held at cutover posts NOTHING — the liability is already in the opening entry; flipping it is the difference between an entry and no entry',
@@ -375,25 +381,33 @@ class ChangeImpact
         ],
 
         Payroll::class => [
-            'committed' => 'anything past draft',
+            'committed' => 'approved — the run is on the books and the payslips are the evidence (Payroll::isPostable)',
+            self::REFUSED => [
+                // ── Corrected 2026-08-28, and the correction is the finding. These were classified
+                // DERIVED while `Payroll::booted()` had frozen all eleven since the module-24
+                // close-out — the REGISTRY was out of step with the code, not the code with the
+                // registry. The 2026-08-28 sweep undercounted the guarded sources (7 of 24) because
+                // it grepped for `static::updating`, and Payroll, Custody and DepositTransaction all
+                // guard in `saving`. **Count a property by asking for it, not by grepping one
+                // spelling of it.**
+                'gross_salaries' => 'the salaries expense debit, and the figure the payslips add up to',
+                'allowances' => 'folded into gross before posting',
+                'salary_tax' => 'withheld and remitted to the tax authority — retyping it misstates what was declared',
+                'social_insurance' => 'withheld and remitted to NOSI — same',
+                'employer_social_insurance' => 'the employer\'s own accrued cost',
+                'advance_deductions' => 'recovers an outstanding advance; retyping it desynchronises the advance ledger',
+                'other_deductions' => 'reduces the net paid',
+                'net_paid' => 'what actually left the bank',
+                'period_month' => 'it IS the entry date — the month the salary expense belongs to',
+                'paid_from' => 'chooses the account the net pay left',
+                'asset_id' => 'the books dimension',
+            ],
             self::DERIVED => [
                 'bank_account_id' => 'names the chart account the cash leg lands in — see App\\Support\\MoneyAccount',
                 'status' => 'a draft or cancelled run posts nothing',
-                'period_month' => 'it IS the entry date — the month the salary expense belongs to',
-                'asset_id' => 'the books dimension',
-                'gross_salaries' => 'the salaries expense debit',
-                'salary_tax' => 'withheld — a credit to the salary-tax liability',
-                'social_insurance' => 'withheld — a credit to the social-insurance liability',
-                'employer_social_insurance' => 'the employer\'s own cost, expensed and accrued',
-                'advance_deductions' => 'recovers an outstanding advance rather than paying cash',
-                'other_deductions' => 'reduces the net paid',
-                'net_paid' => 'what actually leaves the bank',
-                'paid_from' => 'chooses cash vs bank',
             ],
             self::NEUTRAL => [
                 'description', 'approved_by_user_id', 'created_by_user_id', 'approved_at',
-                // Folded into `gross_salaries` by the service before posting.
-                'allowances',
             ],
             self::DESCRIPTIVE => ['number' => 'names the entry'],
         ],
@@ -402,11 +416,20 @@ class ChangeImpact
 
         StockMovement::class => [
             'committed' => 'on creation — a receipt, issue or adjustment is stock moving',
-            self::DERIVED => [
-                'type' => 'decides the recipe entirely; a transfer between warehouses posts nothing',
+            self::REFUSED => [
+                // ── Promoted from DERIVED on 2026-08-28. `DERIVED` was true of the ENGINE and false
+                // of the app: nothing guarded these at the model, so the only thing between an
+                // operator and a restated month was a `disabled()` on a form, which an importer,
+                // the API and a console command all walk past. Yardi does not let a posted document
+                // be edited; you reverse it and re-enter. Enforced by
+                // {@see \App\Models\Concerns\RefusesRestatementOfCommittedMoney}, which reads THIS
+                // list — so the promotion IS the lock.
                 'quantity' => 'value = |quantity| × unit_cost',
                 'unit_cost' => 'the other half of the value',
                 'moved_on' => 'it IS the entry date',
+                'type' => 'decides the recipe entirely; a transfer between warehouses posts nothing',
+            ],
+            self::DERIVED => [
                 'warehouse_id' => 'the entry is dimensioned to the warehouse\'s property, not the movement\'s',
             ],
             self::NEUTRAL => [
@@ -423,10 +446,18 @@ class ChangeImpact
         ],
 
         FixedAsset::class => [
-            'committed' => 'on creation — acquisition is capitalised immediately',
+            'committed' => 'once it has begun depreciating, or been disposed — the schedule and the books both rest on the cost',
+            // ── NOT promoted, and the attempt is worth recording. Re-costing an ACTIVE asset is a
+            // SUPPORTED operation with its own guard: `DepreciationService::assertRecostValid()`
+            // refuses a cost/salvage pair whose base would fall below accumulated depreciation
+            // (gap-analysis F-86), and `FixedAsset`'s `updated` hook exists to re-derive the
+            // schedule from it. Freezing the cost on 2026-08-28 turned a guarded correction into a
+            // dead end and turned four tests red — the exact trap CLAUDE.md states for
+            // `#[NeverDeletable]`: guarding a row a service legitimately writes breaks the workflow
+            // instead of protecting it. The real correction path here is already named and built.
             self::DERIVED => [
-                'acquisition_cost' => 'the capitalised amount',
-                'acquisition_date' => 'it IS the entry date',
+                'acquisition_cost' => 'the capitalised cost, and the basis every depreciation entry already posted was computed from — retyping it leaves the schedule and the asset disagreeing',
+                'acquisition_date' => 'it IS the entry date, and it starts the depreciation clock',
                 'funded_from' => 'chooses the credit — cash, bank or payable',
                 'asset_id' => 'the books dimension',
                 'is_opening_balance' => 'flipping it decides whether the asset posts an acquisition AT ALL. An asset loaded at cut-over was bought before this system existed and its cost is already inside the accountant\'s opening journal entry, so the journalizer returns null. Setting it on a posted asset must void that entry; clearing it must post one. DERIVED rather than REFUSED for the same reason as `invoices.is_opening_balance`: correcting a mis-flagged migration row is legitimate work during a cutover, and the re-derive is exactly the right outcome.',
@@ -475,10 +506,19 @@ class ChangeImpact
         ],
 
         EmployeeAdvance::class => [
-            'committed' => 'on creation — the advance is cash out',
-            self::DERIVED => [
-                'amount' => 'both legs',
+            'committed' => 'on creation — granting an advance pays the employee',
+            self::REFUSED => [
+                // ── Promoted from DERIVED on 2026-08-28. `DERIVED` was true of the ENGINE and false
+                // of the app: nothing guarded these at the model, so the only thing between an
+                // operator and a restated month was a `disabled()` on a form, which an importer,
+                // the API and a console command all walk past. Yardi does not let a posted document
+                // be edited; you reverse it and re-enter. Enforced by
+                // {@see \App\Models\Concerns\RefusesRestatementOfCommittedMoney}, which reads THIS
+                // list — so the promotion IS the lock.
+                'amount' => 'what was advanced, and the balance every repayment is measured against',
                 'advance_date' => 'it IS the entry date',
+            ],
+            self::DERIVED => [
                 'paid_from' => 'chooses cash vs bank',
                 'asset_id' => 'the books dimension, denormalised onto the row so no relation can strand it',
             ],
@@ -486,10 +526,19 @@ class ChangeImpact
         ],
 
         EmployeeAdvanceRepayment::class => [
-            'committed' => 'on creation',
-            self::DERIVED => [
-                'amount' => 'both legs',
+            'committed' => 'on creation — the employee has paid it back',
+            self::REFUSED => [
+                // ── Promoted from DERIVED on 2026-08-28. `DERIVED` was true of the ENGINE and false
+                // of the app: nothing guarded these at the model, so the only thing between an
+                // operator and a restated month was a `disabled()` on a form, which an importer,
+                // the API and a console command all walk past. Yardi does not let a posted document
+                // be edited; you reverse it and re-enter. Enforced by
+                // {@see \App\Models\Concerns\RefusesRestatementOfCommittedMoney}, which reads THIS
+                // list — so the promotion IS the lock.
+                'amount' => 'what was repaid, and what the advance\'s outstanding balance is reduced by',
                 'repaid_on' => 'it IS the entry date',
+            ],
+            self::DERIVED => [
                 'method' => 'chooses cash vs bank',
                 'asset_id' => 'the books dimension',
             ],
@@ -497,22 +546,39 @@ class ChangeImpact
         ],
 
         Custody::class => [
-            'committed' => 'on creation — عهدة granted is cash advanced',
-            self::DERIVED => [
-                'amount' => 'both legs',
+            'committed' => 'once it has been settled against — the grant terms lock, not the grant itself',
+            self::REFUSED => [
+                // Same correction as Payroll directly above: `Custody::booted()` has frozen these
+                // three "once the عهدة has been settled against" since the module-25 close-out, and
+                // the registry said DERIVED. **Once settled, not on grant** — a عهدة keyed at the
+                // wrong figure must stay fixable until it is spent against, which is a better rule
+                // than the blanket one this sweep first reached for and `CustodyGrantTermsLockTest`
+                // caught within the hour.
+                'amount' => 'outstanding is amount − Σ settlements, so lowering it under what is spent makes outstanding NEGATIVE',
                 'custody_date' => 'it IS the entry date',
-                'paid_from' => 'chooses cash vs bank',
-                'asset_id' => 'the books dimension',
+                'paid_from' => 'decides WHICH account was credited, after the cash has already left it',
+            ],
+            self::DERIVED => [
+                'asset_id' => 'the books dimension — moved only with the custodian, which is fixed at grant by its own guard',
             ],
             self::NEUTRAL => ['employee_id', 'reference', 'purpose', 'created_by_user_id'],
         ],
 
         CustodyTransaction::class => [
-            'committed' => 'on creation',
-            self::DERIVED => [
-                'type' => 'spend vs return post opposite pairs',
-                'amount' => 'both legs',
+            'committed' => 'on creation — a spend or return moves the float',
+            self::REFUSED => [
+                // ── Promoted from DERIVED on 2026-08-28. `DERIVED` was true of the ENGINE and false
+                // of the app: nothing guarded these at the model, so the only thing between an
+                // operator and a restated month was a `disabled()` on a form, which an importer,
+                // the API and a console command all walk past. Yardi does not let a posted document
+                // be edited; you reverse it and re-enter. Enforced by
+                // {@see \App\Models\Concerns\RefusesRestatementOfCommittedMoney}, which reads THIS
+                // list — so the promotion IS the lock.
+                'amount' => 'what was spent from (or returned to) the float — the custody\'s outstanding is amount − Σ settlements, so retyping one settlement makes the holder appear to owe money nobody advanced',
                 'transaction_date' => 'it IS the entry date',
+                'type' => 'a spend and a return move the float in opposite directions',
+            ],
+            self::DERIVED => [
                 'category' => 'chooses the expense account a spend books to',
                 'method' => 'chooses cash vs bank on a return',
                 'asset_id' => 'the books dimension',
@@ -521,13 +587,19 @@ class ChangeImpact
         ],
 
         MarketingSpend::class => [
-            'committed' => 'on creation. Deliberately NOT locked — edits fully reconcile through the budget and the GL cascade, so locking would remove a valid correction for no integrity gain',
+            'committed' => 'on creation — a spend posts immediately, there is no draft',
+            // ── NOT promoted, deliberately, and `MarketingSpendStaysDerivedTest` is where the
+            // reasoning lives: a posted spend is the one money document editing does NOT leave a
+            // wrong number on the books. Its entry re-derives from the row, `GuardsPostingDate`
+            // already refuses a move into a closed period, `SealedPeriod` now refuses restating one
+            // whose period has since closed, and the budget's `spent_amount` re-derives through the
+            // same hooks. Freezing it would remove a correction that costs nothing.
             self::DERIVED => [
                 'amount' => 'both legs',
                 'spent_on' => 'it IS the entry date',
+                'marketing_budget_id' => 'the budget it belongs to, and through it the property dimension of the entry',
                 'paid_from' => 'chooses cash vs bank',
                 'category' => 'chooses the expense account',
-                'marketing_budget_id' => 'the budget carries the property — a spend with no property has no place in the per-property books',
             ],
             self::NEUTRAL => ['marketing_post_id', 'description', 'receipt_reference', 'created_by_user_id'],
         ],

@@ -357,7 +357,7 @@ class PurchaseRequest extends Model
             if ($request->warehouse_id !== null && ($request->isDirty('warehouse_id') || $request->isDirty('asset_id'))) {
                 $warehouseAssetId = Warehouse::whereKey($request->warehouse_id)->value('asset_id');
                 if ($warehouseAssetId !== null && (int) $warehouseAssetId !== (int) $request->asset_id) {
-                    throw new \DomainException('The selected warehouse belongs to a different property than the request.');
+                    throw new \DomainException(__('admin.refusals.pr_warehouse_other_property'));
                 }
             }
         });
@@ -374,7 +374,7 @@ class PurchaseRequest extends Model
             if ($request->getOriginal('status') !== self::STATUS_REQUESTED) {
                 foreach (['asset_id', 'warehouse_id', 'justification'] as $frozen) {
                     if ($request->isDirty($frozen)) {
-                        throw new \DomainException('A purchase request cannot change its property, warehouse, or justification after it has been approved.');
+                        throw new \DomainException(__('admin.refusals.pr_locked_after_approval'));
                     }
                 }
             }

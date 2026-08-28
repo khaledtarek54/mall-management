@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Expense;
+use App\Support\ReversalReason;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,15 +14,20 @@ use Illuminate\Support\Facades\DB;
 class ExpenseService
 {
     /** Cancel a recorded expense (idempotent). The next ledger sweep voids its entry. */
-    public function cancel(Expense $expense): Expense
+    public function cancel(Expense $expense, ?string $reason = null): Expense
     {
         if ($expense->status === 'cancelled') {
             return $expense;
         }
 
-        return DB::transaction(function () use ($expense) {
+        return DB::transaction(function () use ($expense, $reason) {
             $expense->status = 'cancelled';
             $expense->save();
+
+            // The trail only: `expenses` carries no `notes` column, so there is nowhere on the
+            // document itself to stamp. That makes the audit row the sole record rather than the
+            // durable one — which is the argument for it, not against it.
+            ReversalReason::record($expense, 'cancelled', $reason);
 
             return $expense->refresh();
         });

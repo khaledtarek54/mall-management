@@ -12,6 +12,7 @@ use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\Translate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -280,11 +281,11 @@ class CreditNote extends Model
                 return; // draft is freely editable (and draft→issued must be allowed)
             }
             if ($note->status === 'draft') {
-                throw new \DomainException('A finalized credit note cannot be returned to draft — void it and issue a new one instead.');
+                throw new \DomainException(__('admin.refusals.credit_note_no_return_to_draft'));
             }
             foreach (['issue_date', 'tenant_id', 'invoice_id'] as $field) {
                 if ($note->isDirty($field)) {
-                    throw new \DomainException("A finalized credit note's {$field} is immutable — void it and issue a new one.");
+                    throw new \DomainException(__('admin.refusals.immutable_credit_note', ['field' => Translate::orHumanized("admin.fields.{$field}", $field)]));
                 }
             }
             // `asset_id` and `lease_id` may each be bound ONCE from null — a standalone note
@@ -294,7 +295,7 @@ class CreditNote extends Model
             // moving it books the reversal into another mall's P&L and another owner's statement.
             foreach (['asset_id', 'lease_id'] as $bindOnce) {
                 if ($note->isDirty($bindOnce) && $note->getOriginal($bindOnce) !== null) {
-                    throw new \DomainException("A finalized credit note's {$bindOnce} is immutable — void it and issue a new one.");
+                    throw new \DomainException(__('admin.refusals.immutable_credit_note', ['field' => Translate::orHumanized("admin.fields.{$bindOnce}", $bindOnce)]));
                 }
             }
 
@@ -340,7 +341,7 @@ class CreditNote extends Model
             // applied note would drop its rows while the invoices keep credit_applied_amount (AR drift)
             // and orphan the note's GL entry. Reverse the application first, then delete.
             if ((float) $note->applied_amount > 0) {
-                throw new \DomainException('Cannot delete a credit note whose credit is still applied — reverse the application first, then delete.');
+                throw new \DomainException(__('admin.refusals.credit_note_still_applied'));
             }
         });
     }

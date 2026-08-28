@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Models\TenantCreditApplication;
 use App\Support\PostingDate;
+use App\Support\ReversalReason;
 use DomainException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -99,9 +100,9 @@ class ApplyTenantCreditService
      * Reverse every credit application on this invoice (soft-delete) — the sweep voids their GL
      * entries, the AR re-opens, and the credit returns to the tenant's available balance.
      */
-    public function reverseForInvoice(Invoice $invoice): float
+    public function reverseForInvoice(Invoice $invoice, ?string $reason = null): float
     {
-        return DB::transaction(function () use ($invoice) {
+        return DB::transaction(function () use ($invoice, $reason) {
             $invoice = Invoice::query()->lockForUpdate()->find($invoice->id);
             if (! $invoice) {
                 return 0.0;
@@ -114,6 +115,11 @@ class ApplyTenantCreditService
             }
 
             $invoice->recomputeTotals();
+
+            // Filed against the INVOICE, not the applications: the applications are soft-deleted by
+            // the loop above and a trail row pointing at a deleted subject is one nobody will find.
+            // The invoice is what the operator was looking at and what re-opened.
+            ReversalReason::record($invoice, 'credit_reversed', $reason);
 
             return round($reversed, 2);
         });

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesRestatementOfCommittedMoney;
 use App\Services\SettleCustodyService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
@@ -26,6 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class CustodyTransaction extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesRestatementOfCommittedMoney;
 
     protected $fillable = [
         'custody_id',
@@ -72,5 +74,15 @@ class CustodyTransaction extends Model
                 $transaction->amount = 0;
             }
         });
+    }
+
+    /**
+     * @see RefusesRestatementOfCommittedMoney — the `committed` sentence in
+     *      App\Support\ChangeImpact::POLICY for this model, as code.
+     */
+    public function isCommittedMoney(): bool
+    {
+        // A spend or a return moves the float the moment it is recorded.
+        return true;
     }
 }

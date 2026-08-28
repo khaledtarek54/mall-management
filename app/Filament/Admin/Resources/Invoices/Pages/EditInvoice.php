@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Invoices\Pages;
 
+use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\DepositApplication;
 use App\Models\Invoice;
@@ -13,6 +15,7 @@ use App\Services\InvoicePdfService;
 use App\Services\SendInvoiceToTenantService;
 use App\Services\VoidInvoiceService;
 use App\Services\WriteOffInvoiceService;
+use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
 use App\Support\OpsLog;
@@ -31,6 +34,7 @@ use Illuminate\Support\Facades\Auth;
 
 class EditInvoice extends EditRecord
 {
+    use AnnouncesLedgerRestatement;
     use RefreshesRecordState;
 
     /**
@@ -70,6 +74,11 @@ class EditInvoice extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // **The ledger panel, on the screen where the edit happens.** The factory has existed
+            // since CHANGE-IMPACT-PLAN §6.1 and was mounted on five LIST tables only — which is
+            // where you audit, not where you act. An operator about to retype a figure could not
+            // see what the document had already done to the books without leaving the page.
+            LedgerEntryAction::make(),
             PdfDownloadAction::make('downloadPdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->service(InvoicePdfService::class)
@@ -231,7 +240,8 @@ class EditInvoice extends EditRecord
                     && (Auth::user()?->can('payments.edit') ?? false))
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.reverse_deposit_application_confirm'))
-                ->action(function (): void {
+                ->schema([ReversalReasonField::make()])
+                ->action(function (array $data): void {
                     abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
 
                     $svc = app(ApplyDepositToInvoiceService::class);
@@ -240,7 +250,7 @@ class EditInvoice extends EditRecord
                     try {
                         foreach (DepositApplication::where('invoice_id', $this->record->id)->get() as $application) {
                             $reversed += (float) $application->amount;
-                            $svc->reverse($application);
+                            $svc->reverse($application, $data['reason'] ?? null);
                         }
                     } catch (\DomainException $e) {
                         // e.g. the GL void lands in a CLOSED period — clean toast, not a 500.
@@ -270,10 +280,11 @@ class EditInvoice extends EditRecord
                     && (Auth::user()?->can('payments.edit') ?? false))
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.reverse_credit_confirm'))
-                ->action(function (): void {
+                ->schema([ReversalReasonField::make()])
+                ->action(function (array $data): void {
                     abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
                     try {
-                        $reversed = app(ApplyTenantCreditService::class)->reverseForInvoice($this->record);
+                        $reversed = app(ApplyTenantCreditService::class)->reverseForInvoice($this->record, $data['reason'] ?? null);
                     } catch (\DomainException $e) {
                         // e.g. the GL void lands in a CLOSED period — clean toast, not a 500
                         // (mirrors apply_credit above).
@@ -285,6 +296,62 @@ class EditInvoice extends EditRecord
                     Notification::make()
                         ->title(__('admin.notifications.credit_reversed', ['amount' => 'EGP '.number_format($reversed, 2)]))
                         ->success()
+                        ->send();
+                }),
+            // **Bad-debt recovery** — the tenant paid after all.
+            //
+            // `WriteOffInvoiceService::reverse()` was written, tested and reachable from nothing but
+            // two test files (found 2026-08-28). Recovery is an ordinary event: a tenant leaves owing
+            // 48,000, it is written off at year-end, and eighteen months later their lawyer settles.
+            // Without this button the only paths were to raise a NEW invoice for money already billed
+            // once — double-counting the revenue — or to book the receipt as miscellaneous income,
+            // which loses the tenant's AR history. Voyager reverses the write-off and receipts against
+            // the re-opened charge; this is that.
+            //
+            // Reverses the write-offs one at a time so a PARTIAL write-off recovers in full: the
+            // service re-opens the invoice on the first one and is a no-op on the rest.
+            Action::make('reverse_write_off')
+                ->label(__('admin.actions.reverse_write_off'))
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('warning')
+                ->visible(fn (): bool => InvoiceWriteOff::where('invoice_id', $this->record->id)->exists()
+                    && (Auth::user()?->can('invoices.void') ?? false))
+                ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.reverse_write_off_confirm'))
+                ->schema([ReversalReasonField::make()])
+                ->action(function (array $data): void {
+                    abort_unless(Auth::user()?->can('invoices.void') ?? false, 403);
+
+                    // Named for the service, not `$svc`: this page resolves four money services and
+                    // two of them have a `reverse()`. A shared variable name makes the call
+                    // ambiguous to anything reading the source — including the method-level
+                    // reachability gate, which then cannot tell whose `reverse()` this is.
+                    $writeOffs = app(WriteOffInvoiceService::class);
+                    $recovered = 0.0;
+
+                    try {
+                        foreach (InvoiceWriteOff::where('invoice_id', $this->record->id)->get() as $writeOff) {
+                            $recovered += (float) $writeOff->amount;
+                            $writeOffs->reverse($writeOff, $data['reason'] ?? null);
+                        }
+                    } catch (\DomainException $e) {
+                        // e.g. the GL void lands in a CLOSED period — a toast, not a 500, exactly as
+                        // its two sibling reversals on this page do.
+                        Notification::make()->danger()->title($e->getMessage())->send();
+
+                        return;
+                    }
+
+                    // The invoice's AR re-opens, so the same three fields the sibling reversals
+                    // refresh have all moved.
+                    $this->refreshFormData(['status', 'paid_amount', 'balance']);
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('admin.notifications.write_off_reversed', [
+                            'amount' => 'EGP '.number_format($recovered, 2),
+                        ]))
                         ->send();
                 }),
             // Void (cancel) an issued invoice — the supported correction now that editing is
@@ -366,12 +433,7 @@ class EditInvoice extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_invoice_confirm'))
-                ->schema([
-                    Textarea::make('reason')
-                        ->label(__('admin.fields.void_reason'))
-                        ->required()
-                        ->maxLength(500),
-                ])
+                ->schema([ReversalReasonField::make()])
                 ->action(function (array $data): void {
                     try {
                         app(VoidInvoiceService::class)->void($this->record, $data['reason'] ?? null);

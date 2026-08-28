@@ -330,7 +330,10 @@ class ValueSets
         'owner_requests.status' => ['open', 'in_progress', 'resolved', 'closed', 'cancelled'],
         'payments.method' => ['card', 'bank_transfer', 'instapay', 'wallet', 'cash', 'cheque', 'other'],
         'payments.status' => [
-            'initiated', 'authorized', 'captured', 'reconciled', 'settled', 'failed', 'refunded', 'bounced',
+            // `voided` (2026-08-28) is a receipt that should never have existed; `refunded` is one
+            // whose money genuinely went back. Collapsing them told tenants money had been returned
+            // when it had not — see Payment::REVERSED_STATUSES.
+            'initiated', 'authorized', 'captured', 'reconciled', 'settled', 'failed', 'refunded', 'bounced', 'voided',
         ],
         'payrolls.paid_from' => ['cash', 'bank'],
         'payrolls.status' => ['draft', 'approved', 'cancelled'],

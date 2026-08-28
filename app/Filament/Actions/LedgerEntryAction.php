@@ -120,11 +120,23 @@ class LedgerEntryAction
         }
 
         if ($trail['posts'] && $trail['drifted']) {
+            // The same figures the save toast quotes, from the same `pendingRestatement()` call —
+            // an operator who reads "reversed 12,400, re-posted 13,050" on the toast and then opens
+            // this panel must not be shown a different story about the same pending change.
+            $pending = $trail['pending'];
+            $money = fn (?float $amount): string => 'EGP '.number_format((float) $amount, 2);
+
             $schema[] = TextEntry::make('ledger_drift')
                 ->label(__('admin.ledger_trail.pending'))
-                ->state($entry
-                    ? __('admin.ledger_trail.pending_changed')
-                    : __('admin.ledger_trail.pending_unposted'))
+                ->state(match (true) {
+                    $pending === null => __('admin.ledger_trail.pending_changed'),
+                    $pending['from'] === null => __('admin.notifications.ledger_will_post', ['amount' => $money($pending['to'])]),
+                    $pending['to'] === null => __('admin.notifications.ledger_will_reverse', ['amount' => $money($pending['from'])]),
+                    default => __('admin.notifications.ledger_will_repost', [
+                        'from' => $money($pending['from']),
+                        'to' => $money($pending['to']),
+                    ]),
+                })
                 ->color('warning');
         }
 

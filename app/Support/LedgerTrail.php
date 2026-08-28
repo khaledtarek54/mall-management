@@ -36,6 +36,7 @@ class LedgerTrail
      *     superseded_by: ?JournalEntry,
      *     history: array<int, JournalEntry>,
      *     drifted: bool,
+     *     pending: array{from: ?float, to: ?float, date: ?string}|null,
      *     restates_reported: bool,
      *     reported_reason: ?string,
      *     post_month: ?CarbonImmutable,
@@ -48,7 +49,7 @@ class LedgerTrail
         if (! $posts) {
             return [
                 'posts' => false, 'entry' => null, 'reversal' => null, 'superseded_by' => null,
-                'history' => [], 'drifted' => false, 'post_month' => null,
+                'history' => [], 'drifted' => false, 'pending' => null, 'post_month' => null,
                 'restates_reported' => false, 'reported_reason' => null,
             ];
         }
@@ -78,7 +79,13 @@ class LedgerTrail
 
         // Derived once: wouldChange() re-builds the document's payload, so asking twice would
         // double the cost of rendering the panel for no new information.
-        $drifted = app(LedgerPoster::class)->wouldChange($source);
+        // The figures, not just the fact. `pendingRestatement()` returns null exactly when
+        // `wouldChange()` is false — same `effectivePayload()` + `matches()` decision — so deriving
+        // BOTH from one call is what stops the panel saying "pending" while the toast says nothing,
+        // or the reverse. Two readers of one question is how §6.3's own `wouldChange()` came to
+        // disagree with `sync()` in the first place.
+        $pending = app(LedgerPoster::class)->pendingRestatement($source);
+        $drifted = $pending !== null;
 
         return [
             'posts' => true,
@@ -90,6 +97,7 @@ class LedgerTrail
             // the ledger. Not an error — it is the system working — but the operator should know
             // the statements are a few seconds behind their edit rather than wrong.
             'drifted' => $drifted,
+            'pending' => $pending,
             'post_month' => PostMonth::isOverridden($source) ? PostMonth::forSource($source) : null,
             // The entry sits in a month an owner has already been given a statement for, and the
             // document has moved since — so correcting it will restate a figure someone is holding.

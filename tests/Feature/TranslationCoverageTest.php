@@ -37,7 +37,7 @@ class TranslationCoverageTest extends TestCase
             // Status enums (mirror the migration enum lists)
             'statuses.lease' => ['draft', 'pending_approval', 'active', 'expired', 'renewed', 'terminated', 'cancelled'],
             'statuses.invoice' => ['draft', 'issued', 'partially_paid', 'paid', 'overdue', 'disputed', 'cancelled', 'credited'],
-            'statuses.payment' => ['initiated', 'authorized', 'captured', 'reconciled', 'settled', 'failed', 'refunded', 'bounced'],
+            'statuses.payment' => ['initiated', 'authorized', 'captured', 'reconciled', 'settled', 'failed', 'refunded', 'bounced', 'voided'],
             'statuses.unit' => ['vacant', 'reserved', 'occupied', 'maintenance'],
             'statuses.tenant' => ['active', 'inactive', 'blacklisted'],
             'statuses.tenant_request' => ['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled'],

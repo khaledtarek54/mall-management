@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesRestatementOfCommittedMoney;
 use App\Services\GrantEmployeeAdvanceService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
@@ -27,6 +28,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class EmployeeAdvance extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesRestatementOfCommittedMoney;
 
     protected $fillable = [
         'employee_id',
@@ -140,5 +142,15 @@ class EmployeeAdvance extends Model
                     ->update(['deleted_at' => null, 'updated_at' => now()]);
             }
         });
+    }
+
+    /**
+     * @see RefusesRestatementOfCommittedMoney — the `committed` sentence in
+     *      App\Support\ChangeImpact::POLICY for this model, as code.
+     */
+    public function isCommittedMoney(): bool
+    {
+        // Granting an advance pays the employee immediately.
+        return true;
     }
 }

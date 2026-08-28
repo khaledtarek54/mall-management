@@ -2,14 +2,16 @@
 
 namespace App\Filament\Admin\Resources\Payments\Pages;
 
+use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\VoidPaymentService;
+use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Actions\RestoreAction;
-use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 
 class EditPayment extends EditRecord
 {
+    use AnnouncesLedgerRestatement;
     use RefreshesRecordState;
 
     /**
@@ -36,6 +39,11 @@ class EditPayment extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // **The ledger panel, on the screen where the edit happens.** The factory has existed
+            // since CHANGE-IMPACT-PLAN §6.1 and was mounted on five LIST tables only — which is
+            // where you audit, not where you act. An operator about to retype a figure could not
+            // see what the document had already done to the books without leaving the page.
+            LedgerEntryAction::make(),
             // Void / refund a captured payment — the supported reversal now that the receipt's
             // money fields are locked. Re-opens the allocated invoices' AR + voids the GL leg.
             Action::make('void_payment')
@@ -47,12 +55,7 @@ class EditPayment extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('payments.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_payment_confirm'))
-                ->schema([
-                    Textarea::make('reason')
-                        ->label(__('admin.fields.void_reason'))
-                        ->required()
-                        ->maxLength(500),
-                ])
+                ->schema([ReversalReasonField::make()])
                 ->action(function (array $data): void {
                     try {
                         app(VoidPaymentService::class)->void($this->record, $data['reason'] ?? null);

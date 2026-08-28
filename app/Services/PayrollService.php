@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 use App\Support\PostingDate;
+use App\Support\ReversalReason;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -25,7 +26,7 @@ class PayrollService
         // Reject a malformed run at the gate: deductions exceeding gross (net < 0)
         // would otherwise approve fine but be silently skipped by the journalizer.
         if ((float) $payroll->net_paid < 0) {
-            throw new \DomainException('Payroll deductions exceed gross salaries; fix the amounts before approving.');
+            throw new \DomainException(__('admin.refusals.payroll_deductions_exceed_gross'));
         }
 
         // Approval is the moment this run becomes GL-postable, dated at its period_month
@@ -75,15 +76,18 @@ class PayrollService
     }
 
     /** Cancel a run (idempotent). The next ledger sweep voids its entry. */
-    public function cancel(Payroll $payroll): Payroll
+    public function cancel(Payroll $payroll, ?string $reason = null): Payroll
     {
         if ($payroll->status === 'cancelled') {
             return $payroll;
         }
 
-        return DB::transaction(function () use ($payroll) {
+        return DB::transaction(function () use ($payroll, $reason) {
+            // `payrolls` has no `notes` column — the audit row is the whole record.
             $payroll->status = 'cancelled';
             $payroll->save();
+
+            ReversalReason::record($payroll, 'cancelled', $reason);
 
             return $payroll->refresh();
         });

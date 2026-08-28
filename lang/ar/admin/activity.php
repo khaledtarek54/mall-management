@@ -131,8 +131,28 @@ return [
         // متداخلة لا مسطّحة: الوصف المخزَّن يُقرأ عبر `__()` التي تعامل النقطة كتداخل في المصفوفة،
         // فالمفتاح الحرفي `'payment.voided' => …` لا يمكن العثور عليه أبدًا.
         'descriptions' => [
-            'invoice' => ['voided' => 'إلغاء فاتورة'],
-            'payment' => ['voided' => 'إلغاء / رد دفعة'],
+            'invoice' => [
+                'voided' => 'إلغاء فاتورة',
+                // قناتا التسوية اللتان يمكن للمشغّل عكسهما من شاشة الفاتورة. تُقيَّد على الفاتورة
+                // نفسها لأن سطور التطبيق تُحذف حذفاً ناعماً عند العكس.
+                'credit_reversed' => 'عكس رصيد مستأجر مُطبَّق',
+                'deposit_reversed' => 'عكس تأمين مخصوم من الفاتورة',
+            ],
+            'payment' => ['voided' => 'إلغاء إيصال'],
+            'vendor_bill' => ['cancelled' => 'إلغاء فاتورة مورّد'],
+            'expense' => ['cancelled' => 'إلغاء مصروف'],
+            'payroll' => ['cancelled' => 'إلغاء مسيّر رواتب'],
+            'deposit_transaction' => ['cancelled' => 'إلغاء حركة تأمين'],
+            'disbursement' => ['cancelled' => 'إلغاء صرفية مالك'],
+            'credit_note' => [
+                'voided' => 'إلغاء إشعار دائن',
+                'reversed' => 'عكس تطبيقات إشعار دائن',
+            ],
+            'invoice_write_off' => ['reversed' => 'عكس إعدام دين'],
+            'fixed_asset' => ['reversed' => 'عكس اقتناء أصل ثابت'],
+            'marketing_spend' => ['cancelled' => 'إلغاء إنفاق تسويقي'],
+            'employee_advance' => ['reversed' => 'عكس سلفة موظف'],
+            'custody' => ['reversed' => 'عكس عهدة'],
             'vendor_bill_payment' => ['voided' => 'إلغاء دفعة مورّد'],
             'employee_advance_repayment' => ['reversed' => 'عكس سداد سلفة'],
             'custody_transaction' => ['reversed' => 'عكس حركة عهدة'],

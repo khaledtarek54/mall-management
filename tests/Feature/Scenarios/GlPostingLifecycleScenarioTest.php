@@ -233,7 +233,7 @@ it('voids a captured payment: the payment entry voids and AR re-opens on the boo
     app(VoidPaymentService::class)->void($payment, 'chargeback');
     sync();
 
-    expect($payment->fresh()->status)->toBe('refunded')
+    expect($payment->fresh()->status)->toBe('voided')
         ->and(voidEntries($payment))->toBe(1)             // the Dr Bank / Cr AR leg is voided
         ->and(entryFor($payment))->toBeNull()             // no live posted entry remains
         ->and((float) $invoice->fresh()->balance)->toBe(5000.0) // AR re-opened

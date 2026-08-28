@@ -8,6 +8,7 @@ use App\Models\OwnerStatement;
 use App\Models\User;
 use App\Support\ApprovalPolicy;
 use App\Support\PostingDate;
+use App\Support\ReversalReason;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,18 +35,18 @@ class DisbursementService
             $statement = OwnerStatement::whereKey($statement->id)->lockForUpdate()->firstOrFail();
 
             if (! in_array($statement->status, [OwnerStatement::STATUS_FINALISED, OwnerStatement::STATUS_SENT], true)) {
-                throw new \DomainException('A disbursement can only be scheduled against a finalised owner statement.');
+                throw new \DomainException(__('admin.refusals.disb_needs_finalised_run'));
             }
 
             $amount = round($amount, 2);
             if ($amount <= 0) {
-                throw new \DomainException('The disbursement amount must be positive.');
+                throw new \DomainException(__('admin.refusals.disb_amount_positive'));
             }
 
             $statement->recomputePaidToDate();
             $remaining = round((float) $statement->owner_share - (float) $statement->paid_to_date, 2);
             if ($amount > $remaining) {
-                throw new \DomainException("The amount exceeds the {$remaining} still owed to the owner.");
+                throw new \DomainException(__('admin.refusals.disb_exceeds_remaining', ['remaining' => $remaining]));
             }
 
             return $statement->disbursements()->create([
@@ -69,16 +70,16 @@ class DisbursementService
             $disbursement = Disbursement::whereKey($disbursement->id)->lockForUpdate()->firstOrFail();
 
             if ($disbursement->status !== Disbursement::STATUS_SCHEDULED) {
-                throw new \DomainException('Only a scheduled disbursement can be approved.');
+                throw new \DomainException(__('admin.refusals.disb_approve_state'));
             }
 
             if (! ApprovalPolicy::canApprove($actor, ApprovalRule::MODULE_DISBURSEMENT, (float) $disbursement->amount)) {
-                throw new \DomainException('You are not authorised to approve a disbursement of this amount.');
+                throw new \DomainException(__('admin.refusals.disb_approve_tier'));
             }
             // And the actor must still hold the tier that was required WHEN it was scheduled — so a
             // later re-band can't let a weaker approver clear a draw the policy reserved for a higher one.
             if ($disbursement->required_permission !== null && ! $actor->can($disbursement->required_permission)) {
-                throw new \DomainException('You lack the approval tier that was required when this was scheduled.');
+                throw new \DomainException(__('admin.refusals.disb_approve_tier_lost'));
             }
 
             $disbursement->update([
@@ -102,7 +103,7 @@ class DisbursementService
             $disbursement = Disbursement::whereKey($disbursement->id)->lockForUpdate()->firstOrFail();
 
             if ($disbursement->status !== Disbursement::STATUS_APPROVED) {
-                throw new \DomainException('Only an approved disbursement can be marked paid.');
+                throw new \DomainException(__('admin.refusals.disb_pay_state'));
             }
 
             // Re-check the cap under lock — another disbursement may have been paid since scheduling.
@@ -110,7 +111,7 @@ class DisbursementService
             $statement->recomputePaidToDate();
             $remaining = round((float) $statement->owner_share - (float) $statement->paid_to_date, 2);
             if ((float) $disbursement->amount > $remaining) {
-                throw new \DomainException("The amount exceeds the {$remaining} still owed to the owner.");
+                throw new \DomainException(__('admin.refusals.disb_exceeds_remaining', ['remaining' => $remaining]));
             }
 
             // Money moved: not future, and the period must be open (guarded in the service).
@@ -130,19 +131,23 @@ class DisbursementService
     }
 
     /** Cancel a not-yet-paid disbursement (a paid one is corrected via a reversing entry, not cancelled). */
-    public function cancel(Disbursement $disbursement, User $actor): Disbursement
+    public function cancel(Disbursement $disbursement, User $actor, ?string $reason = null): Disbursement
     {
-        return DB::transaction(function () use ($disbursement) {
+        return DB::transaction(function () use ($disbursement, $reason) {
             $disbursement = Disbursement::whereKey($disbursement->id)->lockForUpdate()->firstOrFail();
 
             if ($disbursement->isPaid()) {
-                throw new \DomainException('A paid disbursement cannot be cancelled.');
+                throw new \DomainException(__('admin.refusals.disb_paid_no_cancel'));
             }
             if ($disbursement->status === Disbursement::STATUS_CANCELLED) {
                 return $disbursement;
             }
 
             $disbursement->update(['status' => Disbursement::STATUS_CANCELLED]);
+
+            // An owner's payout being called off is exactly the reversal an owner will ask about.
+            // `disbursements` carries no `notes` column, so the trail is the whole record.
+            ReversalReason::record($disbursement, 'cancelled', $reason);
 
             return $disbursement;
         });

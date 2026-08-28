@@ -164,7 +164,7 @@ it('voids a captured payment end-to-end: the invoice AR re-opens and its GL leg 
     app(VoidPaymentService::class)->void($payment, 'bounced cheque');
 
     // Refunded receipt → recomputeTotals sums only CAPTURED payments, so AR re-opens in full.
-    expect($payment->fresh()->status)->toBe('refunded')
+    expect($payment->fresh()->status)->toBe('voided')
         ->and((float) $invoice->fresh()->balance)->toBe(10000.0)
         ->and((float) $invoice->fresh()->paid_amount)->toBe(0.0);
 
@@ -246,7 +246,7 @@ it('is idempotent — voiding an already-cancelled invoice / refunded payment is
     $payment = capturedPayment($lease->tenant_id, 300);
     app(VoidPaymentService::class)->void($payment, 'first refund');
     app(VoidPaymentService::class)->void($payment->fresh()); // no-op
-    expect($payment->fresh()->status)->toBe('refunded');
+    expect($payment->fresh()->status)->toBe('voided');
 });
 
 // ---------------------------------------------------------------------------
@@ -308,7 +308,7 @@ describe('void actions on the Filament edit pages', function () {
             ->assertActionVisible('void_payment')
             ->callAction('void_payment', ['reason' => 'refunded to card'])
             ->assertHasNoActionErrors();
-        expect($captured->fresh()->status)->toBe('refunded');
+        expect($captured->fresh()->status)->toBe('voided');
 
         // Now refunded → the action is gone (nothing left to reverse).
         Livewire::test(EditPayment::class, ['record' => $captured->fresh()->getRouteKey()])

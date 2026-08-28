@@ -10,6 +10,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
+use App\Support\Translate;
 use App\Support\ValueSets;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -125,7 +126,7 @@ class Disbursement extends Model
             $original = $d->getOriginal('status');
             if (in_array($original, [self::STATUS_PAID, self::STATUS_CANCELLED], true)
                 && ($d->isDirty('status') || $d->isDirty('amount') || $d->isDirty('paid_on'))) {
-                throw new \DomainException("A {$original} disbursement is immutable.");
+                throw new \DomainException(__('admin.refusals.immutable_disbursement', ['status' => Translate::orHumanized("admin.statuses.disbursement.{$original}", $original)]));
             }
         });
     }

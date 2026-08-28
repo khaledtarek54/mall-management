@@ -1,20 +1,33 @@
 <?php
 
+use App\Filament\Actions\ReversalReasonField;
 use App\Models\CreditNote;
+use App\Models\Custody;
+use App\Models\CustodyTransaction;
+use App\Models\Employee;
+use App\Models\EmployeeAdvance;
+use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
+use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Payroll;
+use App\Models\StockMovement;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
+use App\Models\Warehouse;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\VendorBillService;
 use App\Support\ChangeImpact;
+use App\Support\FieldHelp;
 use App\Support\LedgerRealtimeSync;
+use App\Support\Reversals;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
@@ -125,6 +138,20 @@ it('records a reason for every decided field, and states when each document comm
  *
  * @return array<class-string, callable(): Model>
  */
+/** One employee for the custody/advance fixtures — named for this file, per the helper-uniqueness gate. */
+function impactEmployee(): Employee
+{
+    return Employee::create([
+        'asset_id' => makeAsset()->id,
+        'name' => 'Impact Employee '.uniqid(),
+        'code' => 'EMP-'.substr(uniqid(), -6),
+        'status' => 'active',
+        'hire_date' => now()->subYear()->toDateString(),
+        'base_salary' => 12000,
+        'payment_method' => 'bank',
+    ]);
+}
+
 function committedFixtures(): array
 {
     return [
@@ -204,6 +231,121 @@ function committedFixtures(): array
                 'status' => 'approved',
                 'bill_date' => now()->toDateString(),
                 'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000, 'balance' => 1000,
+            ]);
+        },
+
+        // ── The nine promoted from DERIVED on 2026-08-28. Each is built in the state its own
+        // `committed` sentence describes, which is what makes the refusal proved rather than
+        // asserted: a fixture in a state the system never reaches proves a guard nobody meets.
+
+        Payroll::class => function () {
+            // APPROVED, not draft — a draft run is meant to be correctable, and the whole point of
+            // the guard is that approval is the line.
+            return Payroll::create([
+                'asset_id' => makeAsset()->id,
+                'period_month' => now()->startOfMonth()->toDateString(),
+                'gross_salaries' => 100000, 'allowances' => 0, 'salary_tax' => 5000,
+                'social_insurance' => 11000, 'employer_social_insurance' => 18000,
+                'advance_deductions' => 0, 'other_deductions' => 0, 'net_paid' => 84000,
+                'paid_from' => 'bank', 'status' => 'approved',
+            ]);
+        },
+
+        Custody::class => function () {
+            // SETTLED against, because that — not the grant — is when a عهدة's terms lock. A fixture
+            // built on grant alone would prove a refusal in a state the app deliberately leaves open.
+            $custody = Custody::create([
+                'employee_id' => impactEmployee()->id,
+                'asset_id' => makeAsset()->id,
+                'amount' => 20000,
+                'custody_date' => now()->toDateString(),
+                'paid_from' => 'bank',
+                'purpose' => 'Site petty cash',
+            ]);
+
+            CustodyTransaction::create([
+                'custody_id' => $custody->id,
+                'asset_id' => $custody->asset_id,
+                'type' => 'expense',
+                'amount' => 500,
+                'transaction_date' => now()->toDateString(),
+                'category' => 'maintenance',
+                'method' => 'cash',
+            ]);
+
+            return $custody;
+        },
+
+        CustodyTransaction::class => function () {
+            // A bare grant, not the settled Custody fixture — that one already carries a transaction
+            // and this must build its own subject.
+            $custody = Custody::create([
+                'employee_id' => impactEmployee()->id,
+                'asset_id' => makeAsset()->id,
+                'amount' => 20000,
+                'custody_date' => now()->toDateString(),
+                'paid_from' => 'bank',
+                'purpose' => 'Site petty cash',
+            ]);
+
+            return CustodyTransaction::create([
+                'custody_id' => $custody->id,
+                'asset_id' => $custody->asset_id,
+                'type' => 'expense',
+                'amount' => 500,
+                'transaction_date' => now()->toDateString(),
+                'category' => 'maintenance',
+                'method' => 'cash',
+            ]);
+        },
+
+        EmployeeAdvance::class => function () {
+            return EmployeeAdvance::create([
+                'employee_id' => impactEmployee()->id,
+                'asset_id' => makeAsset()->id,
+                'type' => 'advance',
+                'amount' => 10000,
+                'advance_date' => now()->toDateString(),
+                'paid_from' => 'bank',
+            ]);
+        },
+
+        EmployeeAdvanceRepayment::class => function () {
+            $advance = committedFixtures()[EmployeeAdvance::class]();
+
+            return EmployeeAdvanceRepayment::create([
+                'employee_advance_id' => $advance->id,
+                'asset_id' => $advance->asset_id,
+                'amount' => 2000,
+                'repaid_on' => now()->toDateString(),
+                'method' => 'cash',
+            ]);
+        },
+
+        StockMovement::class => function () {
+            $asset = makeAsset();
+            $warehouse = Warehouse::create([
+                'asset_id' => $asset->id,
+                'name' => 'Main store '.uniqid(),
+                'code' => 'WH-'.substr(uniqid(), -6),
+                'is_active' => true,
+            ]);
+            $item = InventoryItem::create([
+                'sku' => 'SKU-'.substr(uniqid(), -6),
+                'name' => 'Filter cartridge',
+                'unit' => 'pc',
+                'unit_cost' => 150,
+                'reorder_level' => 1,
+                'is_active' => true,
+            ]);
+
+            return StockMovement::create([
+                'warehouse_id' => $warehouse->id,
+                'inventory_item_id' => $item->id,
+                'type' => 'receipt',
+                'quantity' => 10,
+                'unit_cost' => 150,
+                'moved_on' => now()->toDateString(),
             ]);
         },
     ];
@@ -379,4 +521,72 @@ it('never classifies a source\'s posting-date column as neutral or prospective',
     }
 
     expect($problems)->toBe([], "\n".implode("\n", $problems));
+});
+
+// ────────────── C. Every source can be undone, and the undo records why ──────────────
+
+/**
+ * **The twenty-fifth question a money source must answer.** Every other registry in this project
+ * asks whether a new source is CLASSIFIED; none asked whether it can be UNDONE. The 2026-08-28
+ * sweep found the answer varied without anyone having decided it varied — 13 of 24 had a named
+ * reversal, 5 of those recorded a reason, and `MarketingSpend` offered a bare Delete button on a
+ * document that posts to the general ledger.
+ *
+ * Lives here rather than in a new file because this test already walks all 24 sources, and a second
+ * file walking the same list is a second list to keep in step.
+ */
+it('classifies every posting source as reversible or deliberately not', function () {
+    expect(Reversals::classified())->toEqualCanonicalizing(
+        LedgerPoster::sources(),
+        'Every GL source must name the act that undoes it in App\Support\Reversals::ACTS, or say in '
+        .'NO_REVERSAL why it has none. A source in neither is one nobody decided about; a source in '
+        .'the registry that no longer posts is a stale entry.',
+    );
+});
+
+it('names a reversal act that actually exists in the panel', function () {
+    // The act NAME, not a service method — which is the distinction §12.4 turned on:
+    // `WriteOffInvoiceService::reverse()` was built, tested, and reachable from no button at all,
+    // so a registry pointing at services would have called that source reversible.
+    $source = collect(File::allFiles(app_path('Filament')))
+        ->filter(fn ($f) => $f->getExtension() === 'php')
+        ->map(fn ($f) => $f->getContents())
+        ->implode("\n");
+
+    $missing = [];
+    foreach (Reversals::ACTS as $model => $act) {
+        if (! str_contains($source, "Action::make('{$act}')")
+            && ! str_contains($source, "'{$act}'")) {
+            $missing[] = class_basename($model)." names '{$act}', which no action in app/Filament declares";
+        }
+    }
+
+    expect($missing)->toBe([], "\n".implode("\n", $missing));
+});
+
+it('records a reason on every reversal', function () {
+    // An audit control, not a preference: Yardi, MRI and Entrata all require a reason code on a
+    // reversal, and it is the first thing an auditor asks for. Asserted structurally — every act
+    // must reach `ReversalReason::record()` somewhere, whether from its service or its action.
+    $source = collect(File::allFiles([app_path('Services'), app_path('Filament')]))
+        ->filter(fn ($f) => $f->getExtension() === 'php')
+        ->map(fn ($f) => $f->getContents())
+        ->implode("\n");
+
+    expect(substr_count($source, 'ReversalReason::record('))
+        ->toBeGreaterThanOrEqual(
+            10,
+            'Reversal reasons are recorded through App\Support\ReversalReason so they land in the '
+            .'audit trail rather than in an editable `notes` column. A sharp drop here means an act '
+            .'went back to discarding the reason.',
+        );
+});
+
+it('offers the reason field from one place, so it cannot drift', function () {
+    // `->required()` missing on ONE action is the silent failure this factory exists to prevent: an
+    // optional reason nobody notices is optional until the reversal that matters has an empty one.
+    $field = ReversalReasonField::make();
+
+    expect($field->isRequired())->toBeTrue()
+        ->and($field->getMaxLength())->toBe(FieldHelp::REVERSAL_REASON_MAX_LENGTH);
 });

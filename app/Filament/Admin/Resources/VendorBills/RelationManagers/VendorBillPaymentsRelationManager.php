@@ -2,13 +2,13 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\RelationManagers;
 
+use App\Filament\Actions\ReversalReasonField;
 use App\Models\PaymentMethod;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\VoidVendorBillPaymentService;
 use App\Support\Filament\BankAccountColumn;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -101,12 +101,7 @@ class VendorBillPaymentsRelationManager extends RelationManager
                         'admin.actions.void_vendor_payment_confirm',
                         ['amount' => number_format((float) $record->amount, 2).' EGP'],
                     ))
-                    ->schema([
-                        Textarea::make('reason')
-                            ->label(__('admin.fields.void_reason'))
-                            ->required()
-                            ->maxLength(500),
-                    ])
+                    ->schema([ReversalReasonField::make()])
                     ->action(function (VendorBillPayment $record, array $data): void {
                         abort_unless(self::canVoid($record), 403);
 

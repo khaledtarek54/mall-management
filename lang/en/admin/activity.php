@@ -132,8 +132,29 @@ return [
         // NESTED, not flat: a stored description is looked up with `__()`, which reads dots as
         // array nesting — a literal `'payment.voided' => …` key can never be found.
         'descriptions' => [
-            'invoice' => ['voided' => 'Invoice voided'],
-            'payment' => ['voided' => 'Payment voided / refunded'],
+            'invoice' => [
+                'voided' => 'Invoice voided',
+                // The two settlement channels an operator can un-apply from the invoice screen.
+                // Filed against the INVOICE because the application rows are soft-deleted by the
+                // reversal, and a trail row pointing at a deleted subject is one nobody finds.
+                'credit_reversed' => 'Applied tenant credit reversed',
+                'deposit_reversed' => 'Netted security deposit reversed',
+            ],
+            'payment' => ['voided' => 'Receipt voided'],
+            'vendor_bill' => ['cancelled' => 'Vendor bill cancelled'],
+            'expense' => ['cancelled' => 'Expense cancelled'],
+            'payroll' => ['cancelled' => 'Payroll run cancelled'],
+            'deposit_transaction' => ['cancelled' => 'Deposit transaction cancelled'],
+            'disbursement' => ['cancelled' => 'Owner disbursement cancelled'],
+            'credit_note' => [
+                'voided' => 'Credit note voided',
+                'reversed' => 'Credit note applications reversed',
+            ],
+            'invoice_write_off' => ['reversed' => 'Bad-debt write-off reversed'],
+            'fixed_asset' => ['reversed' => 'Fixed asset acquisition reversed'],
+            'marketing_spend' => ['cancelled' => 'Marketing spend cancelled'],
+            'employee_advance' => ['reversed' => 'Employee advance reversed'],
+            'custody' => ['reversed' => 'Custody float reversed'],
             'vendor_bill_payment' => ['voided' => 'Vendor payment voided'],
             'employee_advance_repayment' => ['reversed' => 'Advance repayment reversed'],
             'custody_transaction' => ['reversed' => 'Custody transaction reversed'],

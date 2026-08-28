@@ -219,6 +219,10 @@ return [
             'refused' => 'That change was not allowed',
             'date_missing' => 'A :field is required — it decides which accounting period this lands in.',
             'period_closed' => 'Accounting period :month is closed, so this cannot be posted to the ledger. Reopen it, or use a date in an open period.',
+            // The other half of the sealed-period rule — App\Support\SealedPeriod. Names the month AND
+            // both ways out, because the operator standing in front of this can act on neither unless
+            // they are told which they are choosing between.
+            'sealed_period_edit' => 'This document is already posted to :month, and that period is closed — changing its amounts would leave the ledger and the document disagreeing. Reverse this document and re-enter it in an open period, or ask an administrator to reopen :month.',
             'future' => 'The date cannot be in the future — money that has not moved yet cannot be recorded as having moved.',
             'post_month_reason_required' => 'Moving a document into another month needs a stated reason.',
             'post_month_not_a_gl_source' => 'That document does not post to the general ledger, so a post month would do nothing.',

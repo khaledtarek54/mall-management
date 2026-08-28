@@ -6,6 +6,7 @@ use App\Models\SlaPenalty;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Support\PostingDate;
+use App\Support\ReversalReason;
 use App\Support\WithholdingTax;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -96,7 +97,7 @@ class VendorBillService
     }
 
     /** Cancel a bill. Refuses if any payment has been recorded (reverse those first). */
-    public function cancel(VendorBill $bill): VendorBill
+    public function cancel(VendorBill $bill, ?string $reason = null): VendorBill
     {
         if ($bill->status === 'cancelled') {
             return $bill;
@@ -105,10 +106,10 @@ class VendorBillService
         // payments have all been voided cancels cleanly — which is what makes this refusal a real
         // instruction rather than a dead end. It was one until VoidVendorBillPaymentService existed.
         if ((float) $bill->paid_amount > 0) {
-            throw new \DomainException('Cannot cancel a bill that has payments. Void them first (Payments → Void payment), then cancel the bill.');
+            throw new \DomainException(__('admin.refusals.bill_cancel_has_payments'));
         }
 
-        return DB::transaction(function () use ($bill) {
+        return DB::transaction(function () use ($bill, $reason) {
             // Release any SLA penalty applied to this bill back to `final`. A cancelled bill owes
             // nothing, so an applied penalty pointing at it would be silently dropped — still owed by
             // the vendor, but no longer chargeable or collectable. Un-applying returns it to the pool
@@ -119,9 +120,12 @@ class VendorBillService
                 app(ApplySlaPenaltyService::class)->detach($penalty);
             }
 
+            // `vendor_bills` has no `notes` column — the audit row is the whole record.
             $bill->status = 'cancelled';
             $bill->save();      // persist the status change (activity-logged)
             $bill->recompute(); // zeroes the balance via the cancelled branch — the single source of truth
+
+            ReversalReason::record($bill, 'cancelled', $reason);
 
             return $bill->refresh();
         });

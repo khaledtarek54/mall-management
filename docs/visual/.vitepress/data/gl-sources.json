@@ -29,7 +29,8 @@
             "instead": null
         },
         "change_impact": {
-            "derived": 4,
+            "refused": 3,
+            "derived": 1,
             "neutral": 4
         }
     },
@@ -45,7 +46,8 @@
             "instead": null
         },
         "change_impact": {
-            "derived": 6,
+            "refused": 3,
+            "derived": 3,
             "neutral": 3
         }
     },
@@ -127,7 +129,8 @@
             "instead": null
         },
         "change_impact": {
-            "derived": 4,
+            "refused": 2,
+            "derived": 2,
             "neutral": 4
         }
     },
@@ -143,7 +146,8 @@
             "instead": null
         },
         "change_impact": {
-            "derived": 4,
+            "refused": 2,
+            "derived": 2,
             "neutral": 3
         }
     },
@@ -296,9 +300,10 @@
             "instead": "cancel the run — payslips and their GL entries follow it"
         },
         "change_impact": {
-            "derived": 12,
+            "refused": 11,
+            "derived": 2,
             "descriptive": 1,
-            "neutral": 5
+            "neutral": 4
         }
     },
     {
@@ -329,7 +334,8 @@
             "instead": "post a correcting movement; the original is what the GL was built from"
         },
         "change_impact": {
-            "derived": 5,
+            "refused": 4,
+            "derived": 1,
             "neutral": 7
         }
     },

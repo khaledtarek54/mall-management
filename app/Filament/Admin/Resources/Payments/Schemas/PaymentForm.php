@@ -128,7 +128,7 @@ class PaymentForm
                                 return $opts->all();
                             })
                             ->disabled(fn (?Payment $record): bool => $record !== null
-                                && in_array($record->status, ['refunded', 'failed', 'bounced'], true))
+                                && $record->isReversed())
                             ->default('captured')
                             ->required()
                             ->native(false),

@@ -2,12 +2,15 @@
 
 namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
+use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\CreditNotePdfService;
 use App\Services\CreditNoteService;
+use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PdfDownloadAction;
 use App\Support\Filament\RefreshesRecordState;
@@ -22,6 +25,7 @@ use Illuminate\Support\Facades\Auth;
 
 class EditCreditNote extends EditRecord
 {
+    use AnnouncesLedgerRestatement;
     use RefreshesRecordState;
 
     /**
@@ -76,6 +80,11 @@ class EditCreditNote extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // **The ledger panel, on the screen where the edit happens.** The factory has existed
+            // since CHANGE-IMPACT-PLAN §6.1 and was mounted on five LIST tables only — which is
+            // where you audit, not where you act. An operator about to retype a figure could not
+            // see what the document had already done to the books without leaving the page.
+            LedgerEntryAction::make(),
             PdfDownloadAction::make('downloadPdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->service(CreditNotePdfService::class)
@@ -227,9 +236,10 @@ class EditCreditNote extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('credit_notes.apply') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.reverse_credit_note_confirm'))
-                ->action(function (): void {
+                ->schema([ReversalReasonField::make()])
+                ->action(function (array $data): void {
                     abort_unless(Auth::user()?->can('credit_notes.apply') ?? false, 403);
-                    $reversed = app(CreditNoteService::class)->reverseAllApplications($this->record);
+                    $reversed = app(CreditNoteService::class)->reverseAllApplications($this->record, $data['reason'] ?? null);
                     $this->refreshFormData(['status', 'applied_amount', 'balance']);
                     Notification::make()
                         ->title(__('admin.notifications.credit_note_reversed', ['amount' => number_format($reversed, 2)]))
@@ -246,9 +256,10 @@ class EditCreditNote extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('credit_notes.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_credit_note_confirm'))
-                ->action(function (): void {
+                ->schema([ReversalReasonField::make()])
+                ->action(function (array $data): void {
                     try {
-                        app(CreditNoteService::class)->void($this->record);
+                        app(CreditNoteService::class)->void($this->record, $data['reason'] ?? null);
                         $this->refreshFormData(['status', 'balance']);
                         Notification::make()
                             ->title(__('admin.notifications.credit_note_voided'))

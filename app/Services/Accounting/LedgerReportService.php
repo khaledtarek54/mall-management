@@ -249,7 +249,7 @@ class LedgerReportService
      * Reconcile-by-construction: by double-entry, the change in cash over a period
      * equals the negated sum of every NON-cash account's movement. So we classify each
      * non-cash account into Operating / Investing / Financing — from the ACCOUNT's own
-     * `cash_flow_section`, resolved through {@see \App\Support\CashFlowSection} (EG-28,
+     * `cash_flow_section`, resolved through {@see CashFlowSection} (EG-28,
      * finding S-4), never from its CODE. The six `str_starts_with` prefix checks this
      * docblock used to describe were right about OUR chart and silently wrong about any
      * other: a chart numbered differently still SAVES, and a capital purchase and a loan

@@ -6,6 +6,7 @@ use App\Models\DepositApplication;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Support\PostingDate;
+use App\Support\ReversalReason;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -114,14 +115,22 @@ class ApplyDepositToInvoiceService
      * Soft-delete, exactly as `TenantCreditApplication` reverses: `LedgerPoster::sync` sees a
      * trashed source, voids its entry, and the next recompute drops the amount from `paid_amount`.
      */
-    public function reverse(DepositApplication $application): void
+    public function reverse(DepositApplication $application, ?string $reason = null): void
     {
-        DB::transaction(function () use ($application): void {
+        DB::transaction(function () use ($application, $reason): void {
             $invoice = $application->invoice;
 
             $application->delete();
 
             $invoice?->fresh()->recomputeTotals();
+
+            // Filed against the INVOICE for the same reason as the tenant-credit reversal: the
+            // application row is soft-deleted here, and un-netting a deposit re-opens the invoice's
+            // AR *and* returns the deposit balance — two consequences the operator will trace back
+            // through the document they were standing on.
+            if ($invoice) {
+                ReversalReason::record($invoice, 'deposit_reversed', $reason);
+            }
         });
     }
 

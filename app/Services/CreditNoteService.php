@@ -6,6 +6,7 @@ use App\Models\CreditNote;
 use App\Models\CreditNoteApplication;
 use App\Models\Invoice;
 use App\Support\PostingDate;
+use App\Support\ReversalReason;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -203,9 +204,9 @@ class CreditNoteService
      *
      * Returns the total amount un-applied.
      */
-    public function reverseAllApplications(CreditNote $note): float
+    public function reverseAllApplications(CreditNote $note, ?string $reason = null): float
     {
-        return DB::transaction(function () use ($note) {
+        return DB::transaction(function () use ($note, $reason) {
             $note = CreditNote::query()->lockForUpdate()->find($note->id);
             if (! $note) {
                 return 0.0;
@@ -234,6 +235,11 @@ class CreditNoteService
                 $note->applied_at = null;
             }
             $note->save();
+
+            // Un-applying a credit re-opens somebody's receivable. Recorded even when nothing moved,
+            // because "the operator pressed reverse and it turned out there was nothing applied" is
+            // itself the answer to a question someone will ask.
+            ReversalReason::record($note, 'reversed', $reason);
 
             return round($reversed, 2);
         }, 3); // retry on deadlock (locks note→invoice vs the cancel path's invoice→note)
@@ -305,11 +311,17 @@ class CreditNoteService
 
             $locked->status = 'void';
             $locked->voided_at = now();
-            if ($reason) {
-                $locked->notes = trim(($locked->notes ? $locked->notes."\n" : '')."Voided: {$reason}");
-            }
+            // `Voided:` rather than the shared `[VOID]` marker — this wording is already on every
+            // credit note voided to date, and changing it would make the same act read two ways
+            // across the register.
+            $locked->notes = ReversalReason::stamp($locked->notes, $reason, 'Voided:');
             $locked->balance = 0;
             $locked->save();
+
+            // The reason was stamped into `notes` alone until 2026-08-28, and `notes` is editable by
+            // whoever can edit the note — so the record of why a credit note was voided could be
+            // erased by the person who voided it. The trail is the copy that cannot.
+            ReversalReason::record($locked, 'voided', $reason);
 
             return $locked->refresh();
         });

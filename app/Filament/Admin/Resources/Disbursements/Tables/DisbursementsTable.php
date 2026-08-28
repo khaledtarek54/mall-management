@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Disbursements\Tables;
 
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\Disbursements\DisbursementResource;
 use App\Models\Disbursement;
 use App\Models\PaymentMethod;
@@ -112,10 +113,11 @@ class DisbursementsTable
                     ->requiresConfirmation()
                     ->visible(fn (Disbursement $d) => ! $d->isPaid() && $d->status !== Disbursement::STATUS_CANCELLED && DisbursementResource::canCancel())
                     ->authorize(fn (Disbursement $d) => DisbursementResource::canCancel())
-                    ->action(function (Disbursement $record): void {
+                    ->schema([ReversalReasonField::make()])
+                    ->action(function (Disbursement $record, array $data): void {
                         abort_unless(DisbursementResource::canCancel(), 403);
                         try {
-                            app(DisbursementService::class)->cancel($record, auth()->user());
+                            app(DisbursementService::class)->cancel($record, auth()->user(), $data['reason'] ?? null);
                         } catch (\DomainException $e) {
                             self::notifyFailure($e);
 

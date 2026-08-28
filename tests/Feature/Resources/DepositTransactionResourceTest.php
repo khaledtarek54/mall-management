@@ -49,7 +49,9 @@ it('creates a deposit receipt (tenant/asset derived) and cancels it through the 
     expect($deposit->asset_id)->toBe($this->asset->id);
 
     Livewire::test(EditDepositTransaction::class, ['record' => $deposit->getRouteKey()])
-        ->callAction('cancel_deposit')
+        // A reason is now REQUIRED on every reversal (D5, 2026-08-28) — an audit control, not a
+        // preference, so the action refuses without one.
+        ->callAction('cancel_deposit', ['reason' => 'keyed against the wrong lease'])
         ->assertHasNoActionErrors();
 
     expect($deposit->fresh()->status)->toBe('cancelled');

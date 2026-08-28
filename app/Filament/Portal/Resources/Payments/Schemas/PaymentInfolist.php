@@ -30,7 +30,7 @@ class PaymentInfolist
                         ->color(fn (string $state): string => match ($state) {
                             'captured', 'reconciled', 'settled' => 'success',
                             'initiated', 'authorized' => 'warning',
-                            'failed', 'bounced', 'refunded' => 'danger',
+                            'failed', 'bounced', 'refunded', 'voided' => 'danger',
                             default => 'gray',
                         }),
                     TextEntry::make('amount')

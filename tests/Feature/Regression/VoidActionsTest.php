@@ -66,7 +66,7 @@ it('refuses to void an invoice already filed with ETA (eta_status = valid)', fun
     expect($invoice->fresh()->status)->not->toBe('cancelled');
 });
 
-it('voids a captured payment: status refunded, the invoice AR re-opens', function () {
+it('voids a captured payment: status voided, the invoice AR re-opens', function () {
     $lease = makeLease(makeUnit(makeAsset()));
     $invoice = makeInvoice($lease, ['total' => 5000, 'balance' => 5000]);
     $payment = Payment::create(['reference' => 'P-'.uniqid(), 'tenant_id' => $lease->tenant_id, 'amount' => 5000, 'method' => 'bank_transfer', 'status' => 'captured', 'payment_date' => now()->toDateString()]);
@@ -75,7 +75,7 @@ it('voids a captured payment: status refunded, the invoice AR re-opens', functio
 
     app(VoidPaymentService::class)->void($payment, 'chargeback');
 
-    expect($payment->fresh()->status)->toBe('refunded')
+    expect($payment->fresh()->status)->toBe('voided')
         ->and((float) $invoice->fresh()->balance)->toBe(5000.0)  // AR re-opened
         ->and((float) $invoice->fresh()->paid_amount)->toBe(0.0);
 });
@@ -110,7 +110,7 @@ it('voids a payment through the edit-page action with a reason', function () {
         ->callAction('void_payment', ['reason' => 'refunded to card'])
         ->assertHasNoActionErrors();
 
-    expect($payment->fresh()->status)->toBe('refunded');
+    expect($payment->fresh()->status)->toBe('voided');
 });
 
 it('voids a credit-applied invoice by UN-APPLYING the original note exactly once (lock-safe, idempotent, no double-count)', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesRestatementOfCommittedMoney;
 use App\Services\RecordAdvanceRepaymentService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
@@ -26,6 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class EmployeeAdvanceRepayment extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesRestatementOfCommittedMoney;
 
     protected $fillable = [
         'employee_advance_id',
@@ -70,5 +72,15 @@ class EmployeeAdvanceRepayment extends Model
                 $repayment->amount = 0;
             }
         });
+    }
+
+    /**
+     * @see RefusesRestatementOfCommittedMoney — the `committed` sentence in
+     *      App\Support\ChangeImpact::POLICY for this model, as code.
+     */
+    public function isCommittedMoney(): bool
+    {
+        // Recording a repayment is the money arriving.
+        return true;
     }
 }

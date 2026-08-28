@@ -150,7 +150,7 @@ class JournalPostingService
             return $entry;
         }
         if ($entry->status === 'void') {
-            throw new \DomainException('Cannot post a voided entry.');
+            throw new \DomainException(__('admin.refusals.je_post_voided'));
         }
 
         $entry->loadMissing('lines.account');
@@ -194,7 +194,7 @@ class JournalPostingService
             return $entry;
         }
         if ($entry->status !== 'posted') {
-            throw new \DomainException('Only a posted entry can be voided.');
+            throw new \DomainException(__('admin.refusals.je_void_state'));
         }
 
         $entry->loadMissing('lines');
@@ -283,7 +283,7 @@ class JournalPostingService
     protected function assertLinesValid(array $lines): void
     {
         if (count($lines) < 2) {
-            throw new \DomainException('A journal entry needs at least two lines.');
+            throw new \DomainException(__('admin.refusals.je_needs_two_lines'));
         }
 
         $debit = 0.0;
@@ -291,25 +291,25 @@ class JournalPostingService
         foreach ($lines as $i => $line) {
             $account = $line['account'] ?? null;
             if (! $account instanceof LedgerAccount) {
-                throw new \DomainException("Line {$i}: unknown ledger account.");
+                throw new \DomainException(__('admin.refusals.je_line_unknown_account', ['line' => $i]));
             }
             if (! $account->is_postable) {
-                throw new \DomainException("Line {$i}: account {$account->code} is a summary account and cannot be posted to.");
+                throw new \DomainException(__('admin.refusals.je_line_summary_account', ['line' => $i, 'code' => $account->code]));
             }
             if (! $account->is_active) {
-                throw new \DomainException("Line {$i}: account {$account->code} is inactive.");
+                throw new \DomainException(__('admin.refusals.je_line_inactive_account', ['line' => $i, 'code' => $account->code]));
             }
 
             $d = round((float) ($line['debit'] ?? 0), 2);
             $c = round((float) ($line['credit'] ?? 0), 2);
             if ($d < 0 || $c < 0) {
-                throw new \DomainException("Line {$i}: amounts cannot be negative.");
+                throw new \DomainException(__('admin.refusals.je_line_negative', ['line' => $i]));
             }
             if ($d > 0 && $c > 0) {
-                throw new \DomainException("Line {$i}: a line is either debit OR credit, not both.");
+                throw new \DomainException(__('admin.refusals.je_line_two_sided', ['line' => $i]));
             }
             if ($d == 0.0 && $c == 0.0) {
-                throw new \DomainException("Line {$i}: a line must have a debit or a credit amount.");
+                throw new \DomainException(__('admin.refusals.je_line_empty', ['line' => $i]));
             }
             $debit += $d;
             $credit += $c;
@@ -318,10 +318,10 @@ class JournalPostingService
         $debit = round($debit, 2);
         $credit = round($credit, 2);
         if ($debit <= 0) {
-            throw new \DomainException('A journal entry must move a non-zero amount.');
+            throw new \DomainException(__('admin.refusals.je_zero_amount'));
         }
         if (abs($debit - $credit) >= 0.005) {
-            throw new \DomainException("Journal entry is not balanced: debit {$debit} ≠ credit {$credit}.");
+            throw new \DomainException(__('admin.refusals.je_unbalanced', ['debit' => $debit, 'credit' => $credit]));
         }
     }
 
@@ -339,7 +339,7 @@ class JournalPostingService
         }
 
         if (! $account) {
-            throw new \DomainException('Journal line references an unknown ledger account.');
+            throw new \DomainException(__('admin.refusals.je_unknown_account'));
         }
 
         return $account;
@@ -361,7 +361,7 @@ class JournalPostingService
             }
         }
 
-        throw new \DomainException('Cannot void: neither the original entry\'s period nor the current period is open. Reopen a period first.');
+        throw new \DomainException(__('admin.refusals.je_void_no_open_period'));
     }
 
     protected function assertOpenPeriodFor(Carbon $date): AccountingPeriod
@@ -369,10 +369,10 @@ class JournalPostingService
         $period = AccountingPeriod::forDate($date);
 
         if (! $period) {
-            throw new \DomainException('No accounting period is defined for '.$date->toDateString().'.');
+            throw new \DomainException(__('admin.refusals.je_no_period', ['date' => $date->toDateString()]));
         }
         if (! $period->isOpen()) {
-            throw new \DomainException('Accounting period '.$date->format('Y-m').' is closed — cannot post.');
+            throw new \DomainException(__('admin.refusals.je_period_closed', ['month' => $date->format('Y-m')]));
         }
 
         return $period;

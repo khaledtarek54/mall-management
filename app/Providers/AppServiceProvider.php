@@ -27,6 +27,7 @@ use App\Support\Filament\LocalizedNotification;
 use App\Support\Filament\NavigationItemMemo;
 use App\Support\LedgerRealtimeSync;
 use App\Support\MorphMap;
+use App\Support\SealedPeriod;
 use App\Support\TableDefaults;
 use App\Support\ValueSets;
 use Filament\Actions\Action as FilamentAction;
@@ -194,6 +195,22 @@ class AppServiceProvider extends ServiceProvider
             foreach ($payload as $model) {
                 if ($model instanceof Model) {
                     ValueSets::guard($model);
+                }
+            }
+        });
+
+        // The second rule about sealed periods, and the one nothing owned. GuardsPostingDate refuses
+        // MOVING an entry into a closed month; this refuses restating one that is already there —
+        // measured on a marketing spend whose amount was retyped after its August close, which
+        // committed the row, refused the re-post, and left permanent books drift under a "Saved ✓".
+        //
+        // `updating` rather than `saving`: a create cannot strand an entry that does not exist yet,
+        // and the date a create carries is GuardsPostingDate's question. Same wildcard reasoning as
+        // the ValueSets listener directly above — see App\Support\SealedPeriod.
+        Event::listen('eloquent.updating: *', function (string $event, array $payload): void {
+            foreach ($payload as $model) {
+                if ($model instanceof Model) {
+                    SealedPeriod::guard($model);
                 }
             }
         });

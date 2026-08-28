@@ -17,6 +17,7 @@ use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\OpsLog;
 use App\Support\PropertySettings;
+use App\Support\Translate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -589,7 +590,7 @@ class Invoice extends Model
                 return; // draft is freely editable (and draft→issued must be allowed)
             }
             if ($invoice->status === 'draft') {
-                throw new \DomainException('An issued invoice cannot be returned to draft — void it or issue a credit note instead.');
+                throw new \DomainException(__('admin.refusals.invoice_no_return_to_draft'));
             }
             // `number` joined this list 2026-08-12. It identifies the tax invoice the tenant is
             // holding — and that the ETA may have seen — so rewriting it silently re-labels a
@@ -603,7 +604,7 @@ class Invoice extends Model
             // statement — the very thing `lease_id` was refused for before it stopped carrying it.
             foreach (['issue_date', 'asset_id', 'tenant_id', 'lease_id', 'unit_ownership_id', 'number'] as $field) {
                 if ($invoice->isDirty($field)) {
-                    throw new \DomainException("A finalized invoice's {$field} is immutable — void and re-issue instead.");
+                    throw new \DomainException(__('admin.refusals.immutable_invoice', ['field' => Translate::orHumanized("admin.fields.{$field}", $field)]));
                 }
             }
         });

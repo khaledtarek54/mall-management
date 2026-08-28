@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\ReversalReasonField;
+use App\Filament\Actions\ReverseDocumentAction;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
@@ -129,6 +131,17 @@ class EmployeeAdvancesRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                // An advance recorded in error. Distinct from a REPAYMENT (below), which is the
+                // employee giving the money back and is its own dated GL source. Refused once any
+                // repayment exists, for the same reason custody is: those rows post on their own and
+                // reversing the grant underneath them would strand their entries.
+                ReverseDocumentAction::make(
+                    can: fn () => auth()->user()?->can('employees.record_repayment') ?? false,
+                    label: 'admin.actions.reverse_advance',
+                    confirm: 'admin.actions.reverse_advance_confirm',
+                    done: 'admin.notifications.advance_reversed',
+                    when: fn (EmployeeAdvance $record) => ! $record->repayments()->exists(),
+                ),
                 Action::make('record_repayment')
                     ->label(__('admin.employees.actions.record_repayment'))
                     ->icon('heroicon-o-arrow-uturn-left')
@@ -214,9 +227,8 @@ class EmployeeAdvancesRelationManager extends RelationManager
                                 ->all())
                             ->required()
                             ->native(false),
-                        Textarea::make('reason')
+                        ReversalReasonField::make()
                             ->label(__('admin.employees.reverse_reason'))
-                            ->required()
                             ->rows(2)
                             ->columnSpanFull(),
                     ])

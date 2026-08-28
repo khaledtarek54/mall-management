@@ -1,0 +1,85 @@
+<?php
+
+/**
+ * **الرفض** — كل استثناء `DomainException` قد يواجهه المشغّل، بلغته.
+ *
+ * On 2026-08-28 **62 of the 259 refusal messages raised by `app/Models` and `app/Services` were
+ * raw English strings** (24%), and they were not spread evenly: they clustered in the money
+ * immutability guards and the posting engine — exactly the sentences an Egyptian accountant working
+ * the panel in Arabic reads most. `bootstrap/app.php` renders a `DomainException` as a toast, so
+ * these are not developer errors; they are the app talking to a person.
+ *
+ * Two things were wrong and only one was visible. The message was English — and it interpolated the
+ * raw COLUMN NAME, so the operator was told *"A captured payment's payment_date is immutable"*, half
+ * a sentence of database schema in the middle of a business rule. Field names now resolve through
+ * `admin.fields.*`, the same catalogue the forms label from, so the refusal names the field the way
+ * the screen does — «تاريخ الدفع», not `payment_date`.
+ *
+ * Keys are grouped by what refused, not by which class raised it: an operator meets the rule, not
+ * the file.
+ */
+
+return [
+    'refusals' => [
+        'immutable_committed_money' => 'هذا المستند مُثبَت في الدفاتر، لذا لا يمكن تعديل :field — قم بعكسه وإعادة إدخاله بدلاً من ذلك.',
+        'not_a_money_document' => 'هذا المستند لا يُرحَّل إلى الأستاذ العام، فليس هناك ما يُعكس.',
+        'immutable_lease' => 'عقد الإيجار في حالة «:status» غير قابل للتعديل — قم بعكسه أو تجديده بدلاً من ذلك.',
+        'immutable_payment' => 'لا يمكن تعديل :field في إيصال مُحصَّل — قم بإلغاء الإيصال وإعادة تسجيله بدلاً من ذلك.',
+        'immutable_invoice' => 'لا يمكن تعديل :field في فاتورة مُصدَرة — قم بإلغائها وإعادة إصدارها بدلاً من ذلك.',
+        'immutable_credit_note' => 'لا يمكن تعديل :field في إشعار دائن مُصدَر — قم بإلغائه وإصدار إشعار جديد.',
+        'immutable_vendor_bill' => 'فاتورة المورّد المعتمدة غير قابلة للتعديل — قم بإلغائها وإعادة إدخالها بدلاً من تعديل المبلغ أو المورّد أو التصنيف أو أمر الشراء المرتبط.',
+        'immutable_disbursement' => 'الصرفية في حالة «:status» غير قابلة للتعديل.',
+        'immutable_cheque' => 'الشيك الآجل في حالة «:status» غير قابل للتعديل.',
+        'invoice_no_return_to_draft' => 'لا يمكن إعادة فاتورة مُصدَرة إلى حالة مسودة — قم بإلغائها أو أصدر إشعاراً دائناً بدلاً من ذلك.',
+        'credit_note_no_return_to_draft' => 'لا يمكن إعادة إشعار دائن مُصدَر إلى حالة مسودة — قم بإلغائه وإصدار إشعار جديد بدلاً من ذلك.',
+        'credit_note_still_applied' => 'لا يمكن حذف إشعار دائن ما زال رصيده مُطبَّقاً — قم بعكس التطبيق أولاً ثم احذفه.',
+        'bill_pr_other_property' => 'أمر الشراء المرتبط يخص عقاراً آخر غير عقار الفاتورة.',
+        'cheque_invoice_other_property' => 'الفاتورة المرتبطة تخص عقاراً آخر غير عقار الشيك.',
+        'cheque_invoice_other_tenant' => 'الفاتورة المرتبطة تخص مستأجراً آخر غير مستأجر الشيك.',
+        'pr_warehouse_other_property' => 'المخزن المختار يخص عقاراً آخر غير عقار الطلب.',
+        'pr_locked_after_approval' => 'لا يمكن تغيير العقار أو المخزن أو المبرر في طلب شراء بعد اعتماده.',
+        'cf_model_not_extensible' => '[:model] ليس نوع سجل يقبل الحقول المخصّصة.',
+        'cf_bad_key' => '[:key] ليس مفتاح حقل صالحاً — استخدم حروفاً صغيرة وأرقاماً وشرطات سفلية، على أن يبدأ بحرف.',
+        'cf_key_immutable' => 'لا يمكن تغيير مفتاح الحقل المخصّص — فكل قيمة مسجَّلة محفوظة تحته. غيّر التسمية بدلاً من ذلك.',
+        'cf_choice_needs_option' => 'حقل الاختيار يحتاج إلى خيار واحد على الأقل.',
+        'cheque_deposit_state' => 'لا يمكن إيداع سوى شيك محفوظ (أو مرتدّ أُعيد تقديمه).',
+        'cheque_clear_state' => 'لا يمكن تحصيل سوى شيك محفوظ أو مُودَع.',
+        'cheque_bounce_state' => 'لا يرتدّ سوى شيك محفوظ أو مُودَع.',
+        'cheque_cleared_cancel' => 'لا يمكن إلغاء شيك تم تحصيله — قم بإلغاء الدفعة الخاصة به بدلاً من ذلك.',
+        'payroll_deductions_exceed_gross' => 'الاستقطاعات تتجاوز إجمالي الرواتب؛ صحّح المبالغ قبل الاعتماد.',
+        'bill_cancel_has_payments' => 'لا يمكن إلغاء فاتورة عليها دفعات. قم بإلغاء الدفعات أولاً (الدفعات ← إلغاء الدفعة) ثم ألغِ الفاتورة.',
+        'payment_void_state' => 'لا يمكن إلغاء سوى إيصال مُحصَّل.',
+        'invoice_void_draft' => 'الفاتورة المسودة تُحذف ولا تُلغى — الإلغاء للفواتير المُصدَرة.',
+        'invoice_void_eta_filed' => 'هذه الفاتورة مُقدَّمة لمصلحة الضرائب ولا يمكن إلغاؤها داخلياً — أصدر إشعاراً دائناً بدلاً من ذلك.',
+        'invoice_void_has_cash' => 'لا يمكن إلغاء فاتورة عليها دفعات مُحصَّلة — ألغِ الإيصال أولاً ثم ألغِ الفاتورة.',
+        'write_off_positive' => 'مبلغ إعدام الدين يجب أن يكون أكبر من صفر.',
+        'disb_needs_finalised_run' => 'لا يمكن جدولة صرفية إلا مقابل كشف مالك مُعتمَد.',
+        'disb_amount_positive' => 'مبلغ الصرفية يجب أن يكون موجباً.',
+        'disb_exceeds_remaining' => 'المبلغ يتجاوز :remaining المتبقية المستحقة للمالك.',
+        'disb_approve_state' => 'لا يمكن اعتماد سوى صرفية مجدولة.',
+        'disb_approve_tier' => 'لا تملك صلاحية اعتماد صرفية بهذا المبلغ.',
+        'disb_approve_tier_lost' => 'لا تملك مستوى الاعتماد الذي كان مطلوباً عند جدولة هذه الصرفية.',
+        'disb_pay_state' => 'لا يمكن تسجيل الدفع إلا لصرفية معتمدة.',
+        'disb_paid_no_cancel' => 'لا يمكن إلغاء صرفية تم دفعها.',
+        'run_finalise_state' => 'لا يمكن اعتماد سوى تشغيلة كشف مالك في حالة مسودة.',
+        'run_revise_state' => 'لا يمكن تعديل سوى تشغيلة كشف مالك معتمدة.',
+        'map_missing' => 'لا يوجد ربط حساب للدور المحاسبي «:role».',
+        'map_account_missing' => 'ربط الحساب «:role» يشير إلى حساب لم يعد موجوداً.',
+        'map_account_not_postable' => 'ربط الحساب «:role» يشير إلى حساب تجميعي (:code) لا يقبل الترحيل.',
+        'je_post_voided' => 'لا يمكن ترحيل قيد ملغى.',
+        'je_void_state' => 'لا يمكن إلغاء سوى قيد مُرحَّل.',
+        'je_needs_two_lines' => 'القيد يحتاج إلى سطرين على الأقل.',
+        'je_line_unknown_account' => 'السطر :line: حساب غير معروف في دليل الحسابات.',
+        'je_line_summary_account' => 'السطر :line: الحساب :code حساب تجميعي ولا يقبل الترحيل.',
+        'je_line_inactive_account' => 'السطر :line: الحساب :code غير نشط.',
+        'je_line_negative' => 'السطر :line: لا يمكن أن تكون المبالغ سالبة.',
+        'je_line_two_sided' => 'السطر :line: السطر إمّا مدين أو دائن، وليس الاثنين معاً.',
+        'je_line_empty' => 'السطر :line: يجب أن يحمل السطر مبلغاً مديناً أو دائناً.',
+        'je_zero_amount' => 'يجب أن يحرّك القيد مبلغاً غير صفري.',
+        'je_unbalanced' => 'القيد غير متوازن: المدين :debit لا يساوي الدائن :credit.',
+        'je_unknown_account' => 'أحد سطور القيد يشير إلى حساب غير معروف في دليل الحسابات.',
+        'je_void_no_open_period' => 'تعذّر الإلغاء: لا فترة القيد الأصلي ولا الفترة الحالية مفتوحة. أعد فتح فترة أولاً.',
+        'je_no_period' => 'لا توجد فترة محاسبية معرّفة للتاريخ :date.',
+        'je_period_closed' => 'الفترة المحاسبية :month مقفلة — لا يمكن الترحيل إليها.',
+    ],
+];

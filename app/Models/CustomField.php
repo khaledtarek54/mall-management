@@ -90,7 +90,7 @@ class CustomField extends Model
             // The model must be one the operator may actually extend. Not a UI concern: the form
             // offers only the register, and this is what a crafted payload or an import meets.
             if (! CustomFields::isExtensible((string) $field->model)) {
-                throw new \DomainException("[{$field->model}] is not a record type that carries custom fields.");
+                throw new \DomainException(__('admin.refusals.cf_model_not_extensible', ['model' => $field->model]));
             }
 
             // Filament reads a dot as NESTING, so `parent.group` would silently become a two-level
@@ -99,18 +99,18 @@ class CustomField extends Model
             // "guard in the model, the form is the UI half" doctrine — an import or a crafted
             // payload meets this one.
             if (! preg_match('/^[a-z][a-z0-9_]*$/', (string) $field->key)) {
-                throw new \DomainException("[{$field->key}] is not a usable field key — use lower-case letters, digits and underscores, starting with a letter.");
+                throw new \DomainException(__('admin.refusals.cf_bad_key', ['key' => $field->key]));
             }
 
             if ($field->exists && $field->isDirty('key')) {
-                throw new \DomainException('A custom field\'s key cannot change — every value already recorded is stored under it. Rename the label instead.');
+                throw new \DomainException(__('admin.refusals.cf_key_immutable'));
             }
 
             // A select with no choices is a dropdown that can never be answered, and `is_required`
             // would then make the whole record unsaveable. Refused here rather than in the form,
             // for the same reason as above.
             if ($field->type === 'select' && $field->options === []) {
-                throw new \DomainException('A choice field needs at least one choice.');
+                throw new \DomainException(__('admin.refusals.cf_choice_needs_option'));
             }
         });
 

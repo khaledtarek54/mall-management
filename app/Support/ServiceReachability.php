@@ -69,6 +69,41 @@ final class ServiceReachability
      *
      * @var array<string, string>
      */
+    /**
+     * **A reachable CLASS is not a reachable METHOD**, and the gap hid a real feature.
+     *
+     * `WriteOffInvoiceService::reverse()` — bad-debt recovery, the tenant paid after all — was 40
+     * lines, fully written, and called by **two test files and nothing else**. This scanner said the
+     * class was reachable, because the `write_off` action calls `write()`; nothing asked about the
+     * other public method. So a written-off debt that was later settled could only be re-billed
+     * (double-counting the revenue) or booked as miscellaneous income (losing the tenant's AR
+     * history), and the service that would have done it correctly sat there looking maintained.
+     *
+     * **Green tests are what hide this shape.** A method with a passing test file reads as used, and
+     * `grep` says it is referenced. That is the same trap the 2026-08-18 class-level sweep found in
+     * `BillUnitOwnershipsService`, one level down.
+     *
+     * Scoped to the services that MOVE MONEY rather than to all of `app/Services`: an unreachable
+     * method on a report builder is dead code, and an unreachable one here is a money operation
+     * nobody can perform. Widen it when a second class of bug argues for it, not before.
+     *
+     * @var array<int, string>
+     */
+    public const MONEY_SERVICE_PATTERNS = [
+        'Void', 'Reverse', 'Cancel', 'WriteOff', 'Apply', 'Settle', 'Record',
+    ];
+
+    /**
+     * Public methods that genuinely have no caller outside their own class and are correct anyway,
+     * each with the reason. Same bar as {@see EXEMPT}: "will be used later" is not a reason.
+     *
+     * @var array<string, string>
+     */
+    public const EXEMPT_METHODS = [
+        // Example shape:
+        // 'App\Services\FooService::bar' => 'Called by name from a queued job payload written before the rename.',
+    ];
+
     public const EXEMPT = [
         // Example shape, kept as documentation rather than an entry:
         // FooService::class => 'Resolved by FQCN string from config/foo.php, which the scanner does not parse.',

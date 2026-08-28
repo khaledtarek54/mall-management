@@ -54,6 +54,7 @@ use App\Services\Accounting\Journalizers\StraightLineRentAdjustmentJournalizer;
 use App\Services\Accounting\Journalizers\TenantCreditApplicationJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillPaymentJournalizer;
+use App\Support\PostingDate;
 use App\Support\PostMonth;
 use App\Support\ReportedPeriod;
 use Illuminate\Database\Eloquent\Model;
@@ -342,6 +343,126 @@ class LedgerPoster
         }
 
         return ! $this->matches($existing, $payload); // differs → would re-post
+    }
+
+    /**
+     * **What a fresh sync would DO to the books, in figures** — the sibling `wouldChange()` was
+     * always missing.
+     *
+     * `wouldChange()` answers yes/no, which is enough to raise an alarm and not enough to tell an
+     * operator anything. CHANGE-IMPACT-PLAN §6.3 asked for *"this will reverse EGP 12,400 and
+     * re-post EGP 13,050"* and deliberately did not build it, on the grounds that a boolean's
+     * sibling is a separate piece. This is that piece.
+     *
+     * Returns null when nothing would move — so a caller can render it unconditionally and stay
+     * silent on a document that is in step, which is the property that keeps the note meaningful
+     * (§9 F3's argument against alerting on every re-derive applies just as much to a note nobody
+     * can learn to ignore).
+     *
+     * `from` is what the live entry carries, `to` what a fresh post would; either may be null:
+     *  - `from` null, `to` set  → nothing is posted yet and a post is due
+     *  - `from` set, `to` null  → the document lost its effect and the entry would be reversed
+     *  - both set               → a reversal followed by a re-post at the new figure
+     *
+     * Sized by DEBITS on both sides. An entry balances, so summing both columns doubles every
+     * figure — the same trap `ScopesLedgerReport::unallocatedNotice()` records for EG-27.
+     *
+     * Read-only: no lock, no write, built from the same `effectivePayload()` + `matches()` pair
+     * `sync()` decides with, so it can never describe a restatement the engine would not make.
+     *
+     * @return array{from: ?float, to: ?float, date: ?string}|null
+     */
+    public function pendingRestatement(Model $source): ?array
+    {
+        $journalizer = $this->journalizerFor($source);
+        if (! $journalizer) {
+            return null;
+        }
+
+        $payload = $this->effectivePayload($source, $journalizer);
+
+        $existing = JournalEntry::query()
+            ->where('source_type', $source->getMorphClass())
+            ->where('source_id', $source->getKey())
+            ->where('status', 'posted')
+            ->with('lines')
+            ->latest('id')
+            ->first();
+
+        if ($payload === null) {
+            return $existing === null ? null : [
+                'from' => round((float) $existing->lines->sum('debit'), 2),
+                'to' => null,
+                'date' => self::dateKey($existing->entry_date),
+            ];
+        }
+
+        if ($existing && $this->matches($existing, $payload)) {
+            return null;
+        }
+
+        return [
+            'from' => $existing === null ? null : round((float) $existing->lines->sum('debit'), 2),
+            'to' => round(collect($payload['lines'])->sum(fn (array $l) => (float) ($l['debit'] ?? 0)), 2),
+            'date' => self::dateKey($payload['entry_date'] ?? null),
+        ];
+    }
+
+    /**
+     * **Would syncing this document RIGHT NOW be refused because its entry belongs to a SEALED
+     * period?** Returns the date whose period is closed, or null when the sync would go through.
+     *
+     * This is the question `App\Support\SealedPeriod` asks in `updating`, and it has to be
+     * answered here because only here are `effectivePayload()` and `matches()` — the two halves of
+     * `sync()`'s own decision — in one place. A second implementation of "would this be refused"
+     * would disagree with the engine the moment either half moved, which is exactly what
+     * `wouldChange()` did until it was folded onto `effectivePayload()`.
+     *
+     * **The three outcomes and why only one is blocked** (the distinction is the whole guard):
+     *
+     *  - **payload is null** → the change REMOVES the document's ledger effect (cancelled, voided,
+     *    refunded, soft-deleted). `sync()` only voids, and `JournalPostingService::reversalPeriod()`
+     *    falls back to today's open period when the original is sealed — so the correction succeeds.
+     *    Never blocked, and blocking it would make a document posted into a now-closed month
+     *    **impossible to void**, which is the opposite of the intent.
+     *  - **payload matches the live entry** → `sync()` no-ops. A status flip from `issued` to `paid`
+     *    moves no line, so the books never hear about it. Never blocked.
+     *  - **payload differs and is non-null** → `sync()` voids (into today, fine) and then re-posts at
+     *    the document's own date, where `assertOpenPeriodFor()` throws. The void rolls back with it,
+     *    so the books stay intact — and the DOCUMENT does not, because it was already committed.
+     *    That is the drift this returns a date for.
+     *
+     * Read-only: no lock, no write, same as {@see wouldChange()}. Safe to call from a model event.
+     */
+    public function sealedPeriodBlocking(Model $source): ?Carbon
+    {
+        $journalizer = $this->journalizerFor($source);
+        if (! $journalizer) {
+            return null;
+        }
+
+        // Reads the model's CURRENT attributes, which inside `updating` are the operator's new
+        // values — the state the ledger would be asked to carry if this save commits.
+        $payload = $this->effectivePayload($source, $journalizer);
+
+        if ($payload === null) {
+            return null; // a void, and a void always finds a period
+        }
+
+        $existing = JournalEntry::query()
+            ->where('source_type', $source->getMorphClass())
+            ->where('source_id', $source->getKey())
+            ->where('status', 'posted')
+            ->latest('id')
+            ->first();
+
+        if ($existing && $this->matches($existing, $payload)) {
+            return null; // nothing would be re-posted
+        }
+
+        $date = self::dateKey($payload['entry_date'] ?? null);
+
+        return $date !== null && PostingDate::isClosed($date) ? Carbon::parse($date) : null;
     }
 
     /**

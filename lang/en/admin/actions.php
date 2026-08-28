@@ -2,6 +2,18 @@
 
 return [
     'actions' => [
+        'reverse' => 'Reverse',
+        'reverse_confirm' => 'The document is reversed and its ledger entry undone by a balanced counter-entry. Both stay on the books; nothing is erased.',
+        'reverse_write_off' => 'Reverse write-off — debt recovered',
+        'reverse_write_off_confirm' => "The written-off debt is put back on the tenant's account and the bad-debt entry is reversed. Use this when the tenant has paid after all.",
+        'cancel_spend' => 'Cancel spend',
+        'cancel_spend_confirm' => 'The spend is cancelled and its ledger entry reversed. The row stays on the budget as a record of what happened.',
+        'reverse_acquisition' => 'Reverse acquisition',
+        'reverse_acquisition_confirm' => 'The asset is retired and its acquisition entry reversed. Use this when the asset was recorded in error — selling it is a disposal, not a reversal.',
+        'reverse_advance' => 'Reverse advance',
+        'reverse_advance_confirm' => 'The advance is reversed and the money returns to the books as never granted. Use this when it was recorded in error; a repayment is recorded separately.',
+        'reverse_custody' => 'Reverse float',
+        'reverse_custody_confirm' => 'The custody float is reversed and its ledger entry undone. Use this when the float was recorded in error; settling it is a different act.',
         'credit_unearned' => 'Credit back what was billed in advance',
         'credit_unearned_helper' => 'Switch off only if the termination date falls inside a closed accounting period.',
         'extend_term' => 'Extend term',

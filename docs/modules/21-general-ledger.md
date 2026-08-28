@@ -58,6 +58,48 @@
 > their purpose — *"so the accountant doesn't read AR gross"* — and the renderer dropped them.
 
 
+## Changing a committed document: what an operator is offered, told and refused (2026-08-28)
+
+The ledger here is a **projection**, not a journal: change a posted document and `LedgerPoster::sync()`
+voids its entry and posts a fresh one. That is arithmetically stronger than Yardi's post-once model
+and evidentially weaker, so *what may reach a posted entry* is a policy — `App\Support\ChangeImpact` —
+and *what an operator sees while it happens* is the other half. The full sweep of all 24 sources,
+the two live defects it found, and the seven decisions taken on the Yardi standard are in
+**[CHANGE-IMPACT-PLAN §11–§15](../accounting/CHANGE-IMPACT-PLAN.md)**. The short version:
+
+**Two sealed-period rules, and only one had an owner.** `GuardsPostingDate` refuses *moving* an entry
+into a closed month. `App\Support\SealedPeriod` (new) refuses *restating* one already there — a
+change that would leave the document committed and the re-post refused, which is permanent
+un-clearable drift that reds `billing:reconcile --deep`, `books_tie_out` and therefore
+`atriom:preflight`. One wildcard `eloquent.updating` seam over all 24 sources, asking
+`LedgerPoster::sealedPeriodBlocking()` — the same `effectivePayload()` + `matches()` pair `sync()`
+uses, so the guard cannot drift from the engine. A change that REMOVES the ledger effect is never
+blocked: a void always finds a period, and blocking it would make a document posted into a
+now-closed month impossible to void.
+
+**Void, refund and NSF are three acts.** `Payment::REVERSED_STATUSES` (`voided` · `refunded` ·
+`bounced` · `failed`). Voiding a receipt used to set `refunded`, so a mis-keyed receipt told the
+tenant their money had gone back. Historical rows are deliberately not migrated.
+
+**Every reversal records why.** `App\Support\ReversalReason` writes it to the activity trail — not to
+`notes`, which whoever caused the reversal can edit — and `App\Support\Reversals` is the registry of
+which named act undoes each source, with `NO_REVERSAL` carrying a reason for the six that are undone
+by reversing their cause instead. `ChangeImpactConformanceTest` gates all of it.
+
+**Twelve of the 24 sources refuse at least one field, and every refusal is proved** by that gate
+dirtying it on a committed fixture. The other twelve are service-managed — several are written by
+services *after* commit, so locking them would break the workflow rather than protect it.
+
+> **The correction worth reading.** The sweep's own headline — *"7 of 24 enforce it at the model"* —
+> was wrong: it grepped `static::updating`, and `Payroll`, `Custody` and `DepositTransaction` guard in
+> `saving`, each with a better predicate than the sweep proposed. Three further promotions were
+> refused by the code, correctly: re-costing an active fixed asset is a **supported** operation with
+> its own guard, a posted marketing spend is **deliberately** not frozen, and re-pointing an undrawn
+> deposit receipt re-derives its tenant and property. **Count a property by asking for it, not by
+> grepping one spelling of it** — and before freezing a column, look for the service that legitimately
+> writes it.
+
+
 ## A posted entry is immutable — enforced at the model (2026-08-11)
 
 `JournalPostingService` validates an entry when it **posts** it: every line carries a debit or a

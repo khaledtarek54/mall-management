@@ -2,8 +2,11 @@
 
 namespace App\Filament\Admin\Resources\Payrolls\Pages;
 
+use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Services\PayrollService;
+use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -12,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 
 class EditPayroll extends EditRecord
 {
+    use AnnouncesLedgerRestatement;
     use RefreshesRecordState;
 
     /**
@@ -38,6 +42,11 @@ class EditPayroll extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // **The ledger panel, on the screen where the edit happens.** The factory has existed
+            // since CHANGE-IMPACT-PLAN §6.1 and was mounted on five LIST tables only — which is
+            // where you audit, not where you act. An operator about to retype a figure could not
+            // see what the document had already done to the books without leaving the page.
+            LedgerEntryAction::make(),
             Action::make('approve')
                 ->label(__('admin.actions.approve_payroll'))
                 ->icon('heroicon-o-check-circle')
@@ -74,10 +83,11 @@ class EditPayroll extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('payrolls.edit') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.cancel_payroll_confirm'))
-                ->action(function (): void {
+                ->schema([ReversalReasonField::make()])
+                ->action(function (array $data): void {
                     // The accounting:sync-ledger sweep voids the ledger entry for a
                     // cancelled run on its next run (PayrollJournalizer).
-                    app(PayrollService::class)->cancel($this->record);
+                    app(PayrollService::class)->cancel($this->record, $data['reason'] ?? null);
                     $this->refreshFormData(['status']);
                     Notification::make()
                         ->title(__('admin.notifications.payroll_cancelled'))

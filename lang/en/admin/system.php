@@ -593,6 +593,16 @@ return [
     ],
 
     'notifications' => [
+        'ledger_will_move_month' => "This document's ledger entry (:amount) will be moved to :month, within a few seconds.",
+        'ledger_will_repost' => "This document's ledger entry will be reversed (:from) and re-posted at :to, within a few seconds.",
+        'ledger_will_post' => 'This document will be posted to the ledger at :amount, within a few seconds.',
+        'ledger_will_reverse' => "This document's ledger entry (:amount) will be reversed, within a few seconds.",
+        'document_reversed' => 'Document reversed.',
+        'write_off_reversed' => 'Write-off reversed — :amount is back on the tenant\'s account.',
+        'spend_cancelled' => 'Spend cancelled.',
+        'acquisition_reversed' => 'Acquisition reversed — the asset is retired and its entry undone.',
+        'advance_reversed' => 'Advance reversed.',
+        'custody_reversed' => 'Custody float reversed.',
         'work_permit_overdue_title' => 'Permits to work left open',
         'work_permit_overdue_body' => ':count permit(s) passed their validity without being closed out. Nobody has recorded that the work stopped and the area was made safe.',
         'tenant_document_expiring_title' => 'Tenant document expiring',

@@ -113,12 +113,19 @@ class CallbackController
         // on the same Paymob page had their capture discarded as "already processed" — the money
         // leaves their account and the invoice stays open.
         //
-        // `captured` and `refunded` stay terminal, and deliberately: a late failure callback must
-        // never un-capture collected money, and a refund is an operator's decision that no gateway
-        // delivery may reverse.
+        // `captured` and every REVERSED status stay terminal, and deliberately: a late failure
+        // callback must never un-capture collected money, and a void or a refund is an operator's
+        // decision that no gateway delivery may reverse.
+        //
+        // Derived from `Payment::REVERSED_STATUSES`, never re-listed. It WAS re-listed as
+        // `['captured', 'failed', 'refunded']`, and when `voided` was split out of `refunded` on
+        // 2026-08-28 this list did not hear about it — so a voided receipt stopped being terminal
+        // and the next gateway delivery resurrected it to `captured`, re-settling an invoice whose
+        // AR had already been re-opened. Caught by `PaymobRetryAfterDeclineTest`, which exists for
+        // exactly this. **Enumerate a set like this by asking the model, not by grepping the diff.**
         $isRetryAfterDecline = $payment->status === 'failed' && $isCapture && ! $sameTxn;
 
-        if (! $isRetryAfterDecline && in_array($payment->status, ['captured', 'failed', 'refunded'], true)) {
+        if (! $isRetryAfterDecline && ($payment->status === 'captured' || $payment->status === 'failed' || $payment->isReversed())) {
             // Skipping is right, but a SUCCESS we decline to record is worth a person's attention —
             // a second successful transaction against an already-captured order is a double charge,
             // and nothing else in the system would ever mention it.
@@ -156,7 +163,7 @@ class CallbackController
                 && $isCapture
                 && ! str_contains((string) $locked->gateway_transaction_id, ":txn:{$txnId}:");
 
-            if (! $locked || (! $lockedIsRetry && in_array($locked->status, ['captured', 'failed', 'refunded'], true))) {
+            if (! $locked || (! $lockedIsRetry && ($locked->status === 'captured' || $locked->status === 'failed' || $locked->isReversed()))) {
                 $alreadyProcessed = true;
 
                 return;

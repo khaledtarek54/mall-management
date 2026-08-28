@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * Void / refund a captured payment — the supported reversal now that a captured payment's
  * money fields are locked (you don't edit the receipt, you refund it).
  *
- * Sets status = 'refunded': the Payment `saved` hook recomputes every invoice this payment
+ * Sets status = 'voided': the Payment `saved` hook recomputes every invoice this payment
  * was allocated to (recomputeTotals sums only CAPTURED payments, so the AR re-opens), and the
  * ledger leg (Dr Bank / Cr AR) is voided by the real-time sync / sweep (the payment
  * journalizer returns no effect for a non-captured payment). The allocation pivot stays as a
@@ -20,11 +20,11 @@ class VoidPaymentService
 {
     public function void(Payment $payment, ?string $reason = null): Payment
     {
-        if (in_array($payment->status, ['refunded', 'failed', 'bounced'], true)) {
+        if ($payment->isReversed()) {
             return $payment; // already reversed
         }
         if (! $payment->isReceived()) {
-            throw new \DomainException('Only a received payment can be voided / refunded.');
+            throw new \DomainException(__('admin.refusals.payment_void_state'));
         }
 
         return DB::transaction(function () use ($payment, $reason) {
@@ -65,7 +65,7 @@ class VoidPaymentService
             if ($reason) {
                 $payment->notes = trim(($payment->notes ? $payment->notes."\n" : '').'[VOID] '.$reason);
             }
-            $payment->status = 'refunded';
+            $payment->status = 'voided';
             $payment->save(); // saved hook re-opens the allocated invoices' AR; sync voids the GL leg
 
             // Record the WHY in the immutable audit trail (notes is a mutable, editable field).

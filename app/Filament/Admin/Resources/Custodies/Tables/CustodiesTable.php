@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Custodies\Tables;
 
+use App\Filament\Actions\ReverseDocumentAction;
 use App\Filament\Admin\Resources\Custodies\CustodyResource;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
@@ -126,6 +127,17 @@ class CustodiesTable
                     ->visible(fn ($record) => CustodyResource::canView($record))
                     ->authorize(fn ($record) => CustodyResource::canView($record)),
                 EditAction::make()->visible(fn (Custody $record) => CustodyResource::canEdit($record)),
+                // A float recorded in error. Distinct from SETTLING it, which is the normal end of a
+                // عهدة and returns the unspent balance; this says the grant should not have happened.
+                // Refused once anything has been spent against it — those transactions are their own
+                // GL sources and reversing the float underneath them would strand their entries.
+                ReverseDocumentAction::make(
+                    can: fn (Custody $record) => CustodyResource::canEdit($record),
+                    label: 'admin.actions.reverse_custody',
+                    confirm: 'admin.actions.reverse_custody_confirm',
+                    done: 'admin.notifications.custody_reversed',
+                    when: fn (Custody $record) => ! $record->transactions()->exists(),
+                ),
             ])
             ->emptyStateIcon('heroicon-o-banknotes')
             ->emptyStateHeading(__('admin.empty.custodies.heading'))

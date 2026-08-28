@@ -116,21 +116,23 @@ it('never un-captures a payment when a later callback reports failure', function
         ->and((float) $this->invoice->fresh()->balance)->toBe(0.0);
 });
 
-it('never resurrects a refunded payment', function () {
+it('never resurrects a voided payment', function () {
     $payment = seedInitiatedPayment($this->invoice, orderId: 700200);
 
     postPaymobCallback(700200, 333, success: true)->assertOk();
-    app(VoidPaymentService::class)->void($payment->fresh(), 'Refunded at the counter');
+    app(VoidPaymentService::class)->void($payment->fresh(), 'Reversed at the counter');
 
-    expect($payment->fresh()->status)->toBe('refunded')
+    // `voided` since 2026-08-28. What this test is about is unchanged: an operator's reversal is
+    // not overruled by a later gateway delivery.
+    expect($payment->fresh()->status)->toBe('voided')
         ->and((float) $this->invoice->fresh()->balance)->toBe(1200.0);
 
-    // A refund is an operator's decision. A gateway delivery does not overrule it.
+    // A reversal is an operator's decision. A gateway delivery does not overrule it.
     postPaymobCallback(700200, 444, success: true)
         ->assertOk()
         ->assertJson(['skipped' => 'already_processed']);
 
-    expect($payment->fresh()->status)->toBe('refunded')
+    expect($payment->fresh()->status)->toBe('voided')
         ->and((float) $this->invoice->fresh()->balance)->toBe(1200.0);
 });
 

@@ -2,9 +2,12 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\Pages;
 
+use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\ReversalReasonField;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Models\PaymentMethod;
 use App\Services\VendorBillService;
+use App\Support\Filament\AnnouncesLedgerRestatement;
 use App\Support\Filament\BankAccountField;
 use App\Support\Filament\RefreshesRecordState;
 use App\Support\PostingDate;
@@ -24,6 +27,7 @@ use Illuminate\Validation\ValidationException;
 
 class EditVendorBill extends EditRecord
 {
+    use AnnouncesLedgerRestatement;
     use RefreshesRecordState;
 
     /**
@@ -73,6 +77,11 @@ class EditVendorBill extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // **The ledger panel, on the screen where the edit happens.** The factory has existed
+            // since CHANGE-IMPACT-PLAN §6.1 and was mounted on five LIST tables only — which is
+            // where you audit, not where you act. An operator about to retype a figure could not
+            // see what the document had already done to the books without leaving the page.
+            LedgerEntryAction::make(),
             Action::make('approve')
                 ->label(__('admin.actions.approve_bill'))
                 ->icon('heroicon-o-check-circle')
@@ -223,9 +232,10 @@ class EditVendorBill extends EditRecord
                     && Auth::user()?->can('vendor_bills.edit'))
                 ->authorize(fn () => Auth::user()?->can('vendor_bills.edit') ?? false)
                 ->requiresConfirmation()
-                ->action(function (): void {
+                ->schema([ReversalReasonField::make()])
+                ->action(function (array $data): void {
                     try {
-                        app(VendorBillService::class)->cancel($this->record);
+                        app(VendorBillService::class)->cancel($this->record, $data['reason'] ?? null);
                         $this->refreshFormData(['status', 'balance']);
                         Notification::make()
                             ->title(__('admin.notifications.vendor_bill_cancelled'))

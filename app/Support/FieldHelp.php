@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Filament\Actions\ReversalReasonField;
+
 /**
  * Where a piece of field guidance belongs, and how long it may be.
  *
@@ -40,6 +42,14 @@ class FieldHelp
      * "Optional." is inside any budget and tells the operator nothing.
      */
     public const WORD_BUDGET = 18;
+
+    /**
+     * How long a reversal reason may be — {@see ReversalReasonField}.
+     *
+     * 500 characters is a sentence or two, which is what a reason is; the field existed at that cap
+     * on the two actions that had one, and it lives here so the other eleven cannot pick their own.
+     */
+    public const REVERSAL_REASON_MAX_LENGTH = 500;
 
     /**
      * Long helper strings that stay long, and why.

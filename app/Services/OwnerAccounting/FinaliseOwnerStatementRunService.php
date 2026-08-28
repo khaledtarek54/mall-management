@@ -51,7 +51,7 @@ class FinaliseOwnerStatementRunService
             $fresh = OwnerStatementRun::whereKey($fresh->id)->lockForUpdate()->firstOrFail();
 
             if (! $fresh->isDraft()) {
-                throw new \DomainException('Only a draft owner-statement run can be finalised.');
+                throw new \DomainException(__('admin.refusals.run_finalise_state'));
             }
 
             // A statement with no owner is not a statement. `rebuildStatements()` distributes

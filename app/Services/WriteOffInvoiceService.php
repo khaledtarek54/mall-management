@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Support\PostingDate;
+use App\Support\ReversalReason;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\Auth;
@@ -72,7 +73,7 @@ class WriteOffInvoiceService
                 : $remaining;
 
             if ($amount <= 0) {
-                throw new DomainException('A write-off amount must be greater than zero.');
+                throw new DomainException(__('admin.refusals.write_off_positive'));
             }
 
             // Never write off more than is left — that would credit AR below the debt and put the
@@ -134,9 +135,9 @@ class WriteOffInvoiceService
      * stay on the record — an auditor can see the debt was written off and later recovered, which
      * a deleted row would hide.
      */
-    public function reverse(InvoiceWriteOff $writeOff): void
+    public function reverse(InvoiceWriteOff $writeOff, ?string $reason = null): void
     {
-        DB::transaction(function () use ($writeOff) {
+        DB::transaction(function () use ($writeOff, $reason) {
             /** @var Invoice|null $invoice */
             $invoice = $writeOff->invoice;
 
@@ -150,6 +151,11 @@ class WriteOffInvoiceService
                 $invoice->saveQuietly();
                 $invoice->recomputeTotals();
             }
+
+            // Filed against the WRITE-OFF, which is the document being undone and is only
+            // soft-deleted — so unlike the credit and deposit reversals the subject survives and
+            // the trail row stays reachable from it.
+            ReversalReason::record($writeOff, 'reversed', $reason);
         });
     }
 }

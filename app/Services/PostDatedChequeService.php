@@ -26,7 +26,7 @@ class PostDatedChequeService
             $cheque = PostDatedCheque::whereKey($cheque->id)->lockForUpdate()->firstOrFail();
 
             if (! in_array($cheque->status, [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_BOUNCED], true)) {
-                throw new \DomainException('Only a held (or re-presented, bounced) cheque can be deposited.');
+                throw new \DomainException(__('admin.refusals.cheque_deposit_state'));
             }
 
             $cheque->update(['status' => PostDatedCheque::STATUS_DEPOSITED]);
@@ -42,7 +42,7 @@ class PostDatedChequeService
             $cheque = PostDatedCheque::whereKey($cheque->id)->lockForUpdate()->firstOrFail();
 
             if (! in_array($cheque->status, [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_DEPOSITED], true)) {
-                throw new \DomainException('Only a held or deposited cheque can be cleared.');
+                throw new \DomainException(__('admin.refusals.cheque_clear_state'));
             }
 
             // Money moved: not future, and the period must be open (the Payment will post to the GL).
@@ -172,7 +172,7 @@ class PostDatedChequeService
             $cheque = PostDatedCheque::whereKey($cheque->id)->lockForUpdate()->firstOrFail();
 
             if (! in_array($cheque->status, [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_DEPOSITED], true)) {
-                throw new \DomainException('Only a held or deposited cheque can bounce.');
+                throw new \DomainException(__('admin.refusals.cheque_bounce_state'));
             }
 
             // No Payment was made before clearing, so a bounce reverses nothing — the tenant's
@@ -189,7 +189,7 @@ class PostDatedChequeService
             $cheque = PostDatedCheque::whereKey($cheque->id)->lockForUpdate()->firstOrFail();
 
             if ($cheque->status === PostDatedCheque::STATUS_CLEARED) {
-                throw new \DomainException('A cleared cheque cannot be cancelled (void its payment instead).');
+                throw new \DomainException(__('admin.refusals.cheque_cleared_cancel'));
             }
             if ($cheque->status === PostDatedCheque::STATUS_CANCELLED) {
                 return $cheque;

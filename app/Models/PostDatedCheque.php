@@ -8,6 +8,7 @@ use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\Translate;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -167,13 +168,13 @@ class PostDatedCheque extends Model
                 $invoiceAssetId = $invoice?->asset_id;
                 if ($invoiceAssetId !== null && (int) $invoiceAssetId !== (int) $cheque->asset_id) {
                     // Property leak: clearing would move another mall's AR + GL.
-                    throw new \DomainException('The linked invoice belongs to a different property than the cheque.');
+                    throw new \DomainException(__('admin.refusals.cheque_invoice_other_property'));
                 }
                 if ($invoice !== null && (int) $invoice->tenant_id !== (int) $cheque->tenant_id) {
                     // Same-property but cross-TENANT: clearing would settle another tenant's invoice
                     // with this tenant's payment, contaminating the per-tenant AR sub-ledger + owner
                     // statements (the exact class Payment::assertInvoicesShareTenant guards).
-                    throw new \DomainException('The linked invoice belongs to a different tenant than the cheque.');
+                    throw new \DomainException(__('admin.refusals.cheque_invoice_other_tenant'));
                 }
             }
         });
@@ -200,7 +201,7 @@ class PostDatedCheque extends Model
             }
 
             if ($cheque->isDirty('status') || $cheque->isDirty('amount') || $cheque->isDirty('cleared_payment_id')) {
-                throw new \DomainException("A {$original} post-dated cheque is immutable.");
+                throw new \DomainException(__('admin.refusals.immutable_cheque', ['status' => Translate::orHumanized("admin.statuses.post_dated_cheque.{$original}", $original)]));
             }
         });
     }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MarketingBudgets\RelationManagers;
 
+use App\Filament\Actions\ReverseDocumentAction;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Models\MarketingBudget;
 use App\Models\MarketingPost;
@@ -10,7 +11,6 @@ use App\Support\Filament\EntitySelect;
 use App\Support\ReportCsv;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -167,9 +167,17 @@ class MarketingSpendsRelationManager extends RelationManager
                 EditAction::make()->after(fn () => $this->warnIfOverBudget())
                     ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('marketing.edit') ?? false),
-                DeleteAction::make()
-                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false)
-                    ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false),
+                // Was a bare `DeleteAction` on a GL-posting document: no reason asked, nothing
+                // recorded but the row leaving the list. The mechanism is unchanged — a soft-delete,
+                // which the sweep reads as "no ledger effect" and reverses the entry for — but it is
+                // now called what it is and it records why. See ReverseDocumentAction.
+                ReverseDocumentAction::make(
+                    can: fn () => auth()->user()?->can('marketing.edit') ?? false,
+                    label: 'admin.actions.cancel_spend',
+                    confirm: 'admin.actions.cancel_spend_confirm',
+                    done: 'admin.notifications.spend_cancelled',
+                    event: 'cancelled',
+                )->after(fn () => $this->warnIfOverBudget()),
             ])
             ->defaultSort('spent_on', 'desc');
     }

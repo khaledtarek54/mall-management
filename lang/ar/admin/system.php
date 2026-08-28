@@ -578,6 +578,16 @@ return [
     ],
 
     'notifications' => [
+        'ledger_will_move_month' => 'سيُنقل قيد هذا المستند (:amount) إلى :month، خلال ثوانٍ.',
+        'ledger_will_repost' => 'سيُعكس قيد هذا المستند (:from) ويُعاد ترحيله بمبلغ :to، خلال ثوانٍ.',
+        'ledger_will_post' => 'سيُرحَّل هذا المستند إلى الأستاذ بمبلغ :amount، خلال ثوانٍ.',
+        'ledger_will_reverse' => 'سيُعكس قيد هذا المستند (:amount)، خلال ثوانٍ.',
+        'document_reversed' => 'تم عكس المستند.',
+        'write_off_reversed' => 'تم عكس الإعدام — عاد مبلغ :amount إلى حساب المستأجر.',
+        'spend_cancelled' => 'تم إلغاء الإنفاق.',
+        'acquisition_reversed' => 'تم عكس الاقتناء — سُحب الأصل وأُلغي قيده.',
+        'advance_reversed' => 'تم عكس السلفة.',
+        'custody_reversed' => 'تم عكس العهدة.',
         'work_permit_overdue_title' => 'تصاريح عمل لم تُغلق',
         'work_permit_overdue_body' => 'انتهت صلاحية :count تصريح دون إغلاقها. لم يُسجّل أحد أن العمل توقف وأن الموقع أصبح آمنًا.',
         'tenant_document_expiring_title' => 'مستند مستأجر يقترب من الانتهاء',

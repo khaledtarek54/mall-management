@@ -97,9 +97,11 @@ it('the received scope (what the collections widgets + statements + reconciliati
 it('a received payment (any of captured/reconciled/settled) can be voided', function () {
     foreach (['captured', 'reconciled', 'settled'] as $status) {
         [$invoice, $payment] = receivedTestInvoiceAndPayment($status);
-        app(VoidPaymentService::class)->void($payment, 'test refund');
+        app(VoidPaymentService::class)->void($payment, 'keyed against the wrong tenant');
 
-        expect($payment->fresh()->status)->toBe('refunded')
+        // `voided`, not `refunded` (2026-08-28) — voiding a receipt and refunding one are different
+        // acts. See Payment::REVERSED_STATUSES.
+        expect($payment->fresh()->status)->toBe('voided')
             ->and((float) $invoice->fresh()->balance)->toBe(1000.0);
     }
 });

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Actions\ReversalReasonField;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use App\Models\ExpenseCategory;
@@ -182,9 +183,11 @@ class CustodyTransactionsRelationManager extends RelationManager
                     ->modalHeading(__('admin.custodies.actions.reverse'))
                     ->modalDescription(__('admin.custodies.reverse_modal_description'))
                     ->schema([
-                        Textarea::make('reason')
+                        // The module's own wording over the shared field: everything that makes it a
+                        // reversal reason (required, capped, and the sentence about the audit trail)
+                        // stays in one place.
+                        ReversalReasonField::make()
                             ->label(__('admin.custodies.reverse_reason'))
-                            ->required()
                             ->rows(2)
                             ->columnSpanFull(),
                     ])

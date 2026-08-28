@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
+use App\Models\Concerns\RefusesRestatementOfCommittedMoney;
 use App\Services\StockMovementService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
@@ -34,6 +35,7 @@ use Spatie\Activitylog\Support\LogOptions;
 class StockMovement extends Model
 {
     use HasFactory, HasSearchText, LogsActivity, RefusesDeletionOfCommittedRecords, SoftDeletes;
+    use RefusesRestatementOfCommittedMoney;
 
     /** Positive movements ADD stock; negative movements REMOVE it. */
     public const TYPES = ['receipt', 'consumption', 'adjustment', 'transfer_in', 'transfer_out'];
@@ -128,5 +130,15 @@ class StockMovement extends Model
                 }
             }
         });
+    }
+
+    /**
+     * @see RefusesRestatementOfCommittedMoney — the `committed` sentence in
+     *      App\Support\ChangeImpact::POLICY for this model, as code.
+     */
+    public function isCommittedMoney(): bool
+    {
+        // A receipt, issue or adjustment IS the stock moving.
+        return true;
     }
 }

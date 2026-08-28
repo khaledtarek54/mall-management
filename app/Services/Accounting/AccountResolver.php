@@ -41,15 +41,15 @@ class AccountResolver
             ->first();
 
         if (! $mapping) {
-            throw new \DomainException("No account mapping for role '{$key}'.");
+            throw new \DomainException(__('admin.refusals.map_missing', ['role' => $key]));
         }
 
         $account = $mapping->account;
         if (! $account) {
-            throw new \DomainException("Account mapping '{$key}' points to a missing account.");
+            throw new \DomainException(__('admin.refusals.map_account_missing', ['role' => $key]));
         }
         if (! $account->is_postable) {
-            throw new \DomainException("Account mapping '{$key}' points to a non-postable account ({$account->code}).");
+            throw new \DomainException(__('admin.refusals.map_account_not_postable', ['role' => $key, 'code' => $account->code]));
         }
 
         return $this->cache[$cacheKey] = $account;

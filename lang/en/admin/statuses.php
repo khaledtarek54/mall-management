@@ -49,6 +49,9 @@ return [
             'failed' => 'Failed',
             'refunded' => 'Refunded',
             'bounced' => 'Bounced',
+            // A receipt that should never have existed — distinct from `refunded`, where the
+            // money genuinely went back. See Payment::REVERSED_STATUSES.
+            'voided' => 'Voided',
         ],
         'unit' => [
             'vacant' => 'Vacant',
