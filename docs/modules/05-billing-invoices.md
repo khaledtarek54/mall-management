@@ -205,6 +205,21 @@
 > (`ABilledPeriodSaysSoWhenYouAddAChargeTest`.)
 
 
+
+> **⚠️ A manual invoice prefilled the whole escalation ladder (fixed 2026-08-28).** The form filtered
+> the lease's charges on `is_active` and frequency, and on nothing about **when**. A lease carries
+> one charge row per escalation step — 44,000 from 2026, 47,080 from 2027, 50,375.60 from 2028 — and
+> every one is active and monthly, so picking the lease pulled **all** of them onto one document.
+> Measured: a two-month invoice of **148,528.38**, three years of rent and marketing on one page,
+> and the late-fee run then charged 2% of that figure.
+>
+> The billing engine has always billed **one amount per type per month**; the prefill now asks the
+> same question through the same resolver (`ChargeScheduleService::rowInForce()`), so the form and
+> the run cannot answer differently. The second test asks for a LATER period and expects the later
+> step — asserting the first row only would pass on a prefill that simply took whichever came first.
+> (`AManualInvoicePrefillsOneMonthTest`, proven by restoring the old filter.)
+
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:

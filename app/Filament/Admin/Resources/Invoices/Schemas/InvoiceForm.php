@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\TaxCode;
 use App\Models\Tenant;
+use App\Services\ChargeScheduleService;
 use App\Support\CatalogueTaxRate;
 use App\Support\Filament\EntitySelect;
 use App\Support\FormTab;
@@ -511,9 +512,25 @@ class InvoiceForm
             return;
         }
 
+        // ── ONE ROW PER TYPE — THE ONE IN FORCE ON THIS INVOICE'S DATE (2026-08-28) ─────────
+        //
+        // The filter was `is_active` + frequency and nothing about WHEN. A lease carries one charge
+        // row per escalation step — 44,000 from 2026, 47,080 from 2027, 50,375.60 from 2028 — and
+        // every one of them is active and monthly, so a manual invoice for a single month prefilled
+        // ALL of them. Measured: a two-month invoice came out at 148,528.38, three years of rent and
+        // marketing on one document, and the late-fee run then charged 2% of it.
+        //
+        // The billing engine has always billed one amount per type per month; this is the same rule,
+        // asked through the same resolver so the form and the run cannot answer differently.
+        $on = CarbonImmutable::parse($get('period_start') ?: ($get('issue_date') ?: 'today'));
+        $schedule = app(ChargeScheduleService::class);
+
         $charges = $lease->charges
             ->where('is_active', true)
-            ->whereIn('frequency', ['monthly', 'one_time']);
+            ->whereIn('frequency', ['monthly', 'one_time'])
+            ->unique('type')
+            ->map(fn ($charge) => $schedule->rowInForce($lease, $charge->type, $on))
+            ->filter();
 
         if ($charges->isEmpty()) {
             return;
