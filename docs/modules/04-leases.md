@@ -750,6 +750,26 @@
 > 352 that do not. (`AChargeCannotStartBeforeItsLeaseTest`, proven by removal.)
 
 
+
+> **⚠️ A one-off could REPLACE the recurring charge it was meant to top up (fixed 2026-08-28).**
+> Found by an operator following a correction through the panel: a service charge invoiced at 11,000
+> should have been 14,000, so the 3,000 shortfall was added as a **one-time charge of the same type**
+> — and October went from 14,000 to **3,000**. The month under-billed by 14,000, silently.
+>
+> `ChargeScheduleService::setAmount()` **restates**: it closes the row in force and opens a new one.
+> Right for a rent change or an escalation step, catastrophic for a one-off, because the schedule
+> holds **one row per type per month** by design (`Charge`'s overlap guard refuses two) — so a
+> one-time row of a live type cannot sit beside the recurring one, only in its place. Where a later
+> row happens to exist the damage is one month; where none does — the ordinary case — the recurring
+> charge simply **ends for the rest of the term**.
+>
+> Refused in the Add-charge action, naming the remedy: bill the top-up under its **own charge code**
+> (`other`), which is what Yardi does and what the code exists for — the tenant then reads a line
+> that says what it is, instead of a service charge that changed size for one month. The refusal is
+> scoped to `one_time` only: restating a recurring charge is the ordinary act this screen exists for
+> and is pinned by its own control. (`AOneOffMustNotEatTheRecurringChargeTest`, proven by removal.)
+
+
 ## The lease abstract — clauses (2026-08-19)
 
 `lease_clauses` holds the legal terms that do not reduce to money, taken from the benchmark's own

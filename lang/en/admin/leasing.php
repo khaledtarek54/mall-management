@@ -142,6 +142,7 @@ return [
     ],
 
     'charge_schedule' => [
+        'one_time_would_replace' => 'This lease already bills :type on that date, and the schedule holds one row per charge type per month — so a one-off here would REPLACE the recurring charge, not add to it. Bill the extra under its own code (Other) so the tenant can see what it is.',
         'add' => 'Add charge',
         'add_hint' => 'A recurring or one-off charge on this lease, using a code from the charge-code catalogue. Rent, the marketing levy and parking are not listed — they are maintained by their own actions, and a second row beside them would double-bill.',
         'vat_from_catalogue' => 'Catalogue: :rate%',

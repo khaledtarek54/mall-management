@@ -371,11 +371,37 @@ class ChargeScheduleRelationManager extends RelationManager
                         // saying this particular charge is not taxed, which is a different claim.
                         $rate = ($data['vat_rate'] ?? '') === '' ? null : (float) $data['vat_rate'];
 
-                        $charge = app(ChargeScheduleService::class)->setAmount(
+                        $from = CarbonImmutable::parse($data['effective_from']);
+                        $schedule = app(ChargeScheduleService::class);
+
+                        // ── A ONE-OFF MAY NOT LAND ON A TYPE THAT IS ALREADY RUNNING (2026-08-28) ──
+                        //
+                        // `setAmount()` RESTATES: it closes the row in force and opens a new one.
+                        // That is right for a rent change or an escalation step, and catastrophic
+                        // for a one-off, because the schedule holds ONE row per type per month by
+                        // design (`Charge`'s overlap guard refuses two) — so a one-time 3,000 added
+                        // over a live 14,000 service charge does not sit BESIDE it, it REPLACES it.
+                        //
+                        // Measured on the teaching lease: October went from 14,000 to 3,000 and the
+                        // month under-billed by 14,000, silently. Where no later row exists it is
+                        // worse — the recurring charge simply ends, for the rest of the term.
+                        //
+                        // A one-off top-up of an existing charge belongs under its OWN code, which
+                        // is what Yardi does and what `other` is in the catalogue for: the tenant
+                        // then reads a line that says what it is, instead of a service charge that
+                        // silently changed size for one month.
+                        if (($data['frequency'] ?? null) === 'one_time'
+                            && $schedule->rowInForce($lease, $data['type'], $from) !== null) {
+                            throw new \DomainException(__('admin.charge_schedule.one_time_would_replace', [
+                                'type' => self::typeLabel($data['type']),
+                            ]));
+                        }
+
+                        $charge = $schedule->setAmount(
                             $lease,
                             $data['type'],
                             (float) $data['amount'],
-                            CarbonImmutable::parse($data['effective_from']),
+                            $from,
                             [
                                 'name' => self::typeLabel($data['type']),
                                 'frequency' => $data['frequency'],
