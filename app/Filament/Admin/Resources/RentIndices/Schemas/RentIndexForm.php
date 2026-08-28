@@ -2,7 +2,8 @@
 
 namespace App\Filament\Admin\Resources\RentIndices\Schemas;
 
-use Carbon\CarbonImmutable;
+use App\Models\RentIndex;
+use App\Support\Filament\MonthPicker;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -19,17 +20,32 @@ class RentIndexForm
                 // Upper-cased on the way in so `egy_cpi` and `EGY_CPI` cannot become two indices
                 // that look identical in a dropdown and never match each other.
                 ->dehydrateStateUsing(fn (?string $state) => strtoupper(trim((string) $state)))
+                // ── THE CODES ALREADY IN USE, OFFERED (2026-08-28) ──────────────────────────
+                //
+                // An index is a SERIES: every reading of one index carries the same code, and the
+                // escalation looks the base month and the review month up under it. Type the code
+                // differently the second time and you have created a second index of one reading
+                // each — and the rent then never escalates, silently, because the review month's
+                // reading is filed under a name the lease does not know.
+                //
+                // Reported from the panel by exactly that route: CPI-EG and EGY_CPI, one reading
+                // each. Free text is still right — the codes belong to whoever publishes them, and
+                // a closed list could not accept a new series — so the existing ones are SUGGESTED
+                // rather than enforced.
+                ->datalist(fn (): array => RentIndex::query()
+                    ->distinct()->orderBy('code')->pluck('code')->all())
                 ->helperText(__('admin.fields.index_code_helper')),
 
-            DatePicker::make('period')
+            // A MONTH, so a month is what it asks for. A `DatePicker` here opened a calendar of
+            // days and made the operator click one, on a field where the day has never meant
+            // anything — and the value was then normalised behind their back.
+            MonthPicker::make('period')
                 ->label(__('admin.fields.index_period'))
                 ->required()
-                ->native(false)
-                ->displayFormat('M Y')
-                // Normalised to the first of the month: the figure describes a MONTH, and two rows
-                // for the same month dated the 1st and the 15th would defeat the unique key that
-                // keeps one value per period.
-                ->dehydrateStateUsing(fn ($state) => $state ? CarbonImmutable::parse($state)->startOfMonth()->toDateString() : null)
+                // An index series runs years back; the reading being entered is almost always a
+                // recent one, so the window is wide but opens on the near months.
+                ->monthsBack(120)
+                ->monthsAhead(3)
                 ->helperText(__('admin.fields.index_period_helper')),
 
             TextInput::make('value')

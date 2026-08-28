@@ -4,8 +4,8 @@ namespace App\Filament\Admin\Resources\Payrolls\Schemas;
 
 use App\Models\Payroll;
 use App\Support\Filament\BankAccountField;
+use App\Support\Filament\MonthPicker;
 use App\Support\Filament\PropertyField;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -40,11 +40,14 @@ class PayrollForm
                         ->searchable()
                         ->preload(),
 
-                    DatePicker::make('period_month')
+                    // A payroll run is FOR a month — the day was never part of the answer, and a
+                    // calendar of days asks the operator to invent one.
+                    MonthPicker::make('period_month')
                         ->label(__('admin.fields.payroll_month'))
                         ->required()
-                        ->default(now()->startOfMonth())
-                        ->native(false)
+                        ->default(now()->startOfMonth()->toDateString())
+                        ->monthsBack(36)
+                        ->monthsAhead(1)
                         ->disabled($locked),
 
                     Select::make('paid_from')

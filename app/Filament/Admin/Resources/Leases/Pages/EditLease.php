@@ -11,13 +11,13 @@ use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use App\Support\BillingRefusal;
 use App\Support\BillingWindow;
+use App\Support\Filament\MonthPicker;
 use App\Support\Filament\RefreshesRecordState;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -154,12 +154,14 @@ class EditLease extends EditRecord
             ->modalDescription(__('admin.actions.generate_invoice_description'))
             ->modalSubmitActionLabel(__('admin.actions.generate'))
             ->schema([
-                DatePicker::make('period')
+                // The billing period IS a month — `format('Y-m-01')` said so already, by forcing
+                // whatever day was clicked back to the first.
+                MonthPicker::make('period')
                     ->label(__('admin.actions.billing_period'))
                     ->helperText(__('admin.actions.billing_period_helper'))
-                    ->displayFormat('F Y')
-                    ->format('Y-m-01')
                     ->required()
+                    ->monthsBack(24)
+                    ->monthsAhead(1)
                     ->default(now()->startOfMonth()->toDateString())
                     // The same window the Billing Run Preview offers. This picker carried no bounds
                     // at all, so one screen refused to PREVIEW a month the other would happily
