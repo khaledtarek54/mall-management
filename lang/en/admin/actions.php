@@ -228,6 +228,8 @@ return [
         'no_charges_body' => 'This lease has no active charges that apply to the selected period.',
         'fit_out_title' => 'In fit-out / rent-free period',
         'fit_out_body' => 'This lease is still in its rent-free fit-out grace for :period, so nothing is billed. Billing starts once the grace ends.',
+        'lease_ended_title' => 'The lease had ended',
+        'lease_ended_body' => 'No part of :period falls inside this lease, which ended on :date. Renew or extend it if the tenant is still trading.',
         'run_in_progress_title' => 'Billing run in progress',
         'run_in_progress_body' => 'A billing run for this period is already running. Please try again in a moment.',
         'off_cycle_title' => 'Not a billing month',

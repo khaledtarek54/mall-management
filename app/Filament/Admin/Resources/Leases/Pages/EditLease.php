@@ -9,9 +9,9 @@ use App\Filament\Admin\Widgets\LeaseSummary;
 use App\Models\Lease;
 use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
+use App\Support\BillingRefusal;
 use App\Support\BillingWindow;
 use App\Support\Filament\RefreshesRecordState;
-use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -186,86 +186,16 @@ class EditLease extends EditRecord
                     return;
                 }
 
-                // A refusal, not a failure — say which of the three it is, because "this lease
-                // cannot be billed" is useless without telling the operator whether to change the
-                // status, wait for commencement, or stop billing an ended lease.
-                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'lease_not_billable') {
-                    $why = match (true) {
-                        $record->status !== 'active' => __('admin.actions.not_billable_status', [
-                            'status' => Translate::orHumanized('admin.statuses.lease.'.$record->status, (string) $record->status),
-                        ]),
-                        $record->expiry_date && $period->greaterThan(CarbonImmutable::instance($record->expiry_date)->endOfMonth()) => __('admin.actions.not_billable_expired', ['date' => $record->expiry_date->format('d/m/Y')]),
-                        default => __('admin.actions.not_billable_not_started', [
-                            'date' => $record->commencement_date?->format('d/m/Y') ?? '—',
-                        ]),
-                    };
-
-                    Notification::make()
-                        ->title(__('admin.actions.not_billable_title', ['period' => $period->format('F Y')]))
-                        ->body($why)
-                        ->warning()
-                        ->send();
-
-                    return;
-                }
-
-                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'already_billed') {
-                    Notification::make()
-                        ->title(__('admin.actions.already_billed_title'))
-                        ->body(__('admin.actions.already_billed_body', ['period' => $period->format('F Y')]))
-                        ->warning()
-                        ->send();
-
-                    return;
-                }
-
-                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'no_applicable_charges') {
-                    Notification::make()
-                        ->title(__('admin.actions.no_charges_title'))
-                        ->body(__('admin.actions.no_charges_body'))
-                        ->warning()
-                        ->send();
-
-                    return;
-                }
-
-                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'fit_out') {
-                    Notification::make()
-                        ->title(__('admin.actions.fit_out_title'))
-                        ->body(__('admin.actions.fit_out_body', ['period' => $period->format('F Y')]))
-                        ->warning()
-                        ->send();
-
-                    return;
-                }
-
-                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'off_cycle') {
-                    Notification::make()
-                        ->title(__('admin.actions.off_cycle_title'))
-                        ->body(__('admin.actions.off_cycle_body', [
-                            'period' => $period->format('F Y'),
-                            'frequency' => __('admin.billing_frequency.'.$record->billing_frequency),
-                        ]))
-                        ->warning()
-                        ->send();
-
-                    return;
-                }
-
-                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'run_in_progress') {
-                    Notification::make()
-                        ->title(__('admin.actions.run_in_progress_title'))
-                        ->body(__('admin.actions.run_in_progress_body'))
-                        ->warning()
-                        ->send();
-
-                    return;
-                }
+                // A refusal, not a failure. The wording lives in App\Support\BillingRefusal
+                // because the Billing forecast tab raises invoices through the same service and
+                // was rendering the raw reason CODE — so the same refusal was a paragraph of
+                // advice here and an untranslated key one tab away.
+                $refusal = BillingRefusal::explain($record, $period, $result);
 
                 Notification::make()
-                    ->title(__('admin.actions.generation_failed'))
-                    ->body(__('admin.actions.generation_failed_body'))
-                    ->danger()
+                    ->title($refusal['title'])
+                    ->body($refusal['body'])
+                    ->status($refusal['danger'] ? 'danger' : 'warning')
                     ->send();
             });
     }

@@ -20,7 +20,6 @@ return [
         'bill_period' => 'Bill this period',
         'bill_period_heading' => 'Raise the invoice for :period?',
         'bill_period_description' => 'Creates a real receivable and posts it to the general ledger. Only the period due now can be raised here.',
-        'bill_period_refused' => 'Nothing was billed',
         'status_invoiced' => 'Invoiced · :number',
         'window' => 'Forecast',
         'window_value' => ':from – :to · :count invoices · EGP total :total',
@@ -52,6 +51,12 @@ return [
             'no_applicable_charges' => 'No charges apply',
             'lease_ended' => 'Lease had ended',
             'already_billed' => 'Already billed',
+            // The lease itself is out of scope for this period — it is not active, has not
+            // commenced yet, or its term has already ended. The lease Edit page says WHICH of
+            // the three; this is the shared wording for the surfaces that do not.
+            'lease_not_billable' => 'Not billable this period',
+            'run_in_progress' => 'A billing run is in progress',
+            'exception' => 'Generation failed',
             'unknown' => 'Not billing',
         ],
     ],

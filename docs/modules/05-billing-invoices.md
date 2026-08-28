@@ -1,6 +1,37 @@
 # Billing & Invoices
 > Generate and track monthly invoices for leased retail units, including VAT compliance, proration, payment reconciliation, and overdue notifications.
 
+> **⚠️ 2026-08-28 — "Nothing was billed" now says WHY, and there is one wording.**
+> Reported from the panel: pressing *Bill this period* on a lease's Billing forecast tab answered
+> **"Nothing was billed"** over the literal string `admin.billing_preview.reason.lease_not_billable`.
+>
+> `generateForLease()` answers a refusal as a machine CODE, and `admin.billing_preview.reason.*` is
+> the SHORT vocabulary a preview table CELL renders — it had wording for the codes a *plan* can
+> produce and none for the three `generateForLease()` adds on top of one (`lease_not_billable`,
+> `run_in_progress`, `exception`). The forecast tab routed those into it anyway.
+>
+> The deeper defect is why that was possible: the lease's own **Generate Invoice** action turned the
+> same codes into words with a seven-branch ladder of its own — a title and a paragraph of advice
+> per code, including a three-way reading of `lease_not_billable` (wrong status / term ended / not
+> yet commenced). **One machine code, two independent translations**, and only one was updated when
+> the vocabulary grew. Both now go through `App\Support\BillingRefusal::explain()`.
+>
+> Two more defects fell out of putting it in one place. **`not_billable_expired` reads "…so :period
+> falls after its term" and its only call site passed `date`** — so the operator read the literal
+> `:period` mid-sentence, in both languages. And every branch formatted the month with
+> `format('F Y')`, which is not localised, so an Arabic refusal said «لا يمكن إصدار فاتورة لهذا
+> العقد عن **August 2026**». The billing-window refusal three lines above that ladder had used
+> `->locale(app()->getLocale())->isoFormat('MMMM YYYY')` correctly the whole time.
+>
+> **Why no gate caught it.** `TranslationKeyConformanceTest` resolves an interpolated key to its
+> PREFIX — `admin.billing_preview.reason` exists in both catalogues, so every LEAF under it is
+> invisible, in every locale. `BillingRefusalVocabularyConformanceTest` checks the leaves and
+> derives the vocabulary from `MonthlyBillingService`'s own source rather than from a list beside
+> it. Its first version was itself too weak, and mutation testing said so: one fixture per *code*
+> never reached the expired branch, so deleting the `:period` fill left it green. It now runs one
+> case per refusal an operator can actually be shown, and asserts that case list covers every code
+> the service emits. (`ABillingRefusalNamesItsCauseTest`.)
+
 > **⚠️ 2026-08-16 — how far ahead an operator may bill now has ONE answer.**
 > The Billing Run Preview offered the last 12 months plus the next one; the lease's own **Generate
 > Invoice** picker carried **no bounds at all** and `generateForLease()` no future check — so the
@@ -875,6 +906,15 @@ same argument so **what gets posted is exactly what was previewed**. Tests:
 Generates a single invoice for one lease for a given month. Used by the Filament UI to issue an invoice for a specific lease on demand.
 
 **Return:** `['status' => 'created'|'skipped'|'failed', 'reason' => string (optional), 'invoice' => Invoice|null]`
+
+**The reason vocabulary** — eight codes, and the caller must not word them itself. `run_in_progress`,
+`lease_not_billable`, `already_billed`, `exception` come from this method; `fit_out`, `off_cycle`,
+`no_applicable_charges`, `lease_ended` come from the plan it delegates to. Turn one into words with
+`App\Support\BillingRefusal::explain($lease, $period, $result)`, which answers `title` / `body` /
+`danger` in the reader's language — never `__('admin.billing_preview.reason.'.$reason)`, which is the
+short badge vocabulary a preview table cell uses and does not cover the four this method adds.
+`BillingRefusalVocabularyConformanceTest` derives the codes from this file and fails on one with no
+wording in either language, and on a screen that calls `generateForLease()` without the presenter.
 
 **Behavior:**
 - Checks idempotency (skips if already billed)

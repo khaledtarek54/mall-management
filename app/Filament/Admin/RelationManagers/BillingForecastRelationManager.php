@@ -7,6 +7,7 @@ use App\Models\ChargeCode;
 use App\Models\Lease;
 use App\Services\LeaseBillingForecastService;
 use App\Services\MonthlyBillingService;
+use App\Support\BillingRefusal;
 use App\Support\BillingWindow;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -212,10 +213,17 @@ class BillingForecastRelationManager extends RelationManager
             return;
         }
 
+        // The same wording the lease's own Generate Invoice action gives, from the one presenter.
+        // This read `__('admin.billing_preview.reason.'.$reason)` — the SHORT vocabulary a preview
+        // TABLE CELL uses, which covers the codes a plan can produce and none of the three
+        // `generateForLease()` adds on top of one, so refusing an inactive lease printed the literal
+        // key `admin.billing_preview.reason.lease_not_billable` under "Nothing was billed".
+        $refusal = BillingRefusal::explain($lease, $period, $result);
+
         Notification::make()
-            ->title(__('admin.forecast.bill_period_refused'))
-            ->body(__('admin.billing_preview.reason.'.($result['reason'] ?? 'unknown')))
-            ->warning()
+            ->title($refusal['title'])
+            ->body($refusal['body'])
+            ->status($refusal['danger'] ? 'danger' : 'warning')
             ->send();
 
         $this->cachedForecast = null;
