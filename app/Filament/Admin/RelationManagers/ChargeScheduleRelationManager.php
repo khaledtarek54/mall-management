@@ -307,7 +307,34 @@ class ChargeScheduleRelationManager extends RelationManager
                         DatePicker::make('effective_from')
                             ->label(__('admin.charge_schedule.from'))
                             ->helperText(__('admin.charge_schedule.add_effective_hint'))
-                            ->default(now()->startOfMonth())
+                            // The panel's own picker, not the browser's. Every other date field in
+                            // the admin is `->native(false)` (352 of them); these two were the
+                            // exception, so the Add-charge modal opened a control that looked and
+                            // behaved like nothing else in the system.
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            // ── A CHARGE CANNOT START BEFORE THE LEASE DOES (2026-08-28) ─────────
+                            //
+                            // Nothing can be owed under a contract that has not begun. Billing
+                            // already knows this — `planInvoiceForLease()` clamps the window to the
+                            // commencement date, so a charge dated earlier bills NOTHING for those
+                            // months (measured: a lease commencing 1 Sept with a charge from 1 Aug
+                            // billed 0.00 in August and 11,000 in September).
+                            //
+                            // So no money was ever at risk, and that is precisely what made it worth
+                            // guarding: the form ACCEPTED a date it would silently ignore. The
+                            // operator sets August, reads the August run, finds nothing, and goes
+                            // looking for a fault in the billing — the value looked stored and had
+                            // no effect, which is this codebase's most repeated defect.
+                            //
+                            // The floor is COMMENCEMENT (possession), not rent commencement: a
+                            // tenant fitting out before rent starts is still consuming security and
+                            // power, so a service charge from the day they took the keys is real.
+                            //
+                            // Deliberately NO ceiling at expiry. A lease in HOLDOVER has an expiry
+                            // date in the past on purpose and is still billing, so an upper bound
+                            // would block adding a charge to exactly the leases that need one.
+                            ->minDate(fn (): ?string => $this->lease()?->commencement_date?->toDateString())
                             ->required(),
                         TextInput::make('vat_rate')
                             ->label(__('admin.fields.tax_percent'))
@@ -399,7 +426,11 @@ class ChargeScheduleRelationManager extends RelationManager
                         DatePicker::make('from')
                             ->label(__('admin.charge_schedule.end_from'))
                             ->helperText(__('admin.charge_schedule.end_from_hint'))
-                            ->default(now()->startOfMonth())
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            // Same floor, same reason: a charge cannot stop billing before the
+                            // lease it belongs to started.
+                            ->minDate(fn (): ?string => $this->lease()?->commencement_date?->toDateString())
                             ->required(),
                     ])
                     ->action(function (Charge $record, array $data): void {

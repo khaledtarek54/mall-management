@@ -303,6 +303,15 @@ class FacilityWorkOrder extends Model implements HasMedia
         return $this->belongsTo(Department::class);
     }
 
+    /**
+     * The job's conversation, oldest first — the primitive this module lacked until 2026-08-28.
+     * `notes` remains what it always was: the operator's own single field. This is the thread.
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(FacilityWorkOrderComment::class)->orderBy('created_at');
+    }
+
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class);

@@ -732,6 +732,24 @@
 
 
 
+
+> **A charge cannot start before its lease does (2026-08-28).** The Add-charge modal defaulted to the
+> current month and accepted it on a lease commencing the month AFTER. **No money was at risk** —
+> `planInvoiceForLease()` already clamps the billable window to the commencement date, measured: a
+> lease commencing 1 September with a charge from 1 August billed **0.00 in August** and 11,000 in
+> September. That is exactly what made it worth guarding: the form accepted a date it would silently
+> ignore, so the operator sets August, reads the August run, finds nothing, and goes looking for a
+> fault in the billing.
+>
+> The floor is **commencement (possession)**, not rent commencement — a tenant fitting out before
+> rent starts is still consuming security and power, so a service charge from the day they took the
+> keys is real. **No ceiling at expiry, deliberately**: a lease in HOLDOVER has an expiry date in the
+> past on purpose and is still billing, so an upper bound would block adding a charge to exactly the
+> leases that most often need one. Both pickers in the schedule tab also gained `->native(false)` —
+> they were the only two date fields in the admin panel rendering the browser's own control against
+> 352 that do not. (`AChargeCannotStartBeforeItsLeaseTest`, proven by removal.)
+
+
 ## The lease abstract — clauses (2026-08-19)
 
 `lease_clauses` holds the legal terms that do not reduce to money, taken from the benchmark's own
