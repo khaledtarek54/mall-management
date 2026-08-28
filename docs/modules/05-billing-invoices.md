@@ -117,6 +117,24 @@
 >
 > Pinned by `RebillAfterVoidTest`, which carries the control that the guard is not now too broad.
 
+
+> **An invoiced period reads from its invoice, in every column (2026-08-28).** The billing forecast's
+> reasoning was already right — *"where the period has already been invoiced, the ACTUAL figure is
+> the truth about it"* — and was applied to ONE figure: `total` came from the invoice while the
+> lines, the net and the VAT beside it stayed the plan.
+>
+> So a period whose charge was corrected AFTER it was billed rendered a row built from two truths:
+> reported from the panel as a service charge reading **14,000** against an invoice total of
+> **58,740** that had been raised at **11,000**. Neither number was wrong; they simply could not be
+> reconciled by anyone reading the row — the same defect as control totals that will not add up to
+> the ledger.
+>
+> `actuals()` shapes the invoice exactly like a plan, so the row builder cannot tell them apart and
+> a column added to the plan later cannot quietly go on forecasting a period that has already been
+> billed. A **cancelled** invoice is still ignored: that period genuinely does need billing.
+> (`AnInvoicedPeriodReadsFromItsInvoiceTest`, proven by restoring the mixed row.)
+
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:

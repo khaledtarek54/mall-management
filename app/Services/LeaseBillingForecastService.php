@@ -118,12 +118,26 @@ class LeaseBillingForecastService
                 'cycle_months' => $plan['cycle_months'],
                 'billable' => $plan['billable'],
                 'reason' => $plan['reason'],
-                'items' => $plan['items'],
-                'subtotal' => $plan['subtotal'],
-                'vat_amount' => $plan['vat_amount'],
-                // Where the period has already been invoiced, the ACTUAL figure is the truth about
-                // it; the plan is only a prediction of a thing that has already happened.
-                'total' => $invoice ? (float) $invoice->total : $plan['total'],
+                // ── AN INVOICED PERIOD READS FROM ITS INVOICE, IN EVERY COLUMN (2026-08-28) ──
+                //
+                // The reasoning below was already right and was applied to ONE figure: `total` came
+                // from the invoice while the lines, the net and the VAT beside it stayed the plan.
+                // So a period whose charge was corrected AFTER it was billed rendered a row of four
+                // columns from two different truths — reported from the panel as a service charge
+                // reading 14,000 against an invoice total of 58,740 that was raised at 11,000.
+                //
+                // The plan is a prediction; once the document exists there is nothing left to
+                // predict. Reading the whole row from it also makes the difference VISIBLE, which is
+                // the useful part: the operator sees what was actually billed and can decide whether
+                // the shortfall needs collecting.
+                ...($invoice
+                    ? self::actuals($invoice)
+                    : [
+                        'items' => $plan['items'],
+                        'subtotal' => $plan['subtotal'],
+                        'vat_amount' => $plan['vat_amount'],
+                        'total' => $plan['total'],
+                    ]),
                 'invoice_number' => $invoice?->number,
                 // So the screen can link the figure to the document that produced it.
                 'invoice_id' => $invoice?->getKey(),
@@ -164,12 +178,37 @@ class LeaseBillingForecastService
      *
      * @return array<string, Invoice>
      */
+    /**
+     * What an invoiced period ACTUALLY carries, shaped exactly like a plan so the row builder above
+     * cannot tell the two apart — one place decides the shape, so a new column added to the plan
+     * cannot quietly go on reading the forecast for periods that have already been billed.
+     *
+     * @return array<string, mixed>
+     */
+    private static function actuals(Invoice $invoice): array
+    {
+        return [
+            'items' => $invoice->items->map(fn ($item): array => [
+                'type' => $item->type,
+                'description' => $item->description,
+                'amount' => (float) $item->amount,
+                'vat_amount' => (float) $item->vat_amount,
+            ])->all(),
+            'subtotal' => (float) $invoice->subtotal,
+            'vat_amount' => (float) $invoice->vat_amount,
+            'total' => (float) $invoice->total,
+        ];
+    }
+
     private function invoicesByPeriodMonth(Lease $lease): array
     {
         return $lease->invoices()
             ->whereNotIn('status', ['cancelled'])
             ->whereNotNull('period_start')
-            ->get(['id', 'number', 'total', 'period_start', 'status'])
+            // The LINES too, not just the header — the forecast row reads every figure from the
+            // invoice once one exists, so the columns cannot disagree with each other.
+            ->with('items:id,invoice_id,type,description,amount,vat_amount')
+            ->get(['id', 'number', 'total', 'subtotal', 'vat_amount', 'period_start', 'status'])
             ->keyBy(fn (Invoice $invoice) => CarbonImmutable::instance($invoice->period_start)->format('Y-m'))
             ->all();
     }
