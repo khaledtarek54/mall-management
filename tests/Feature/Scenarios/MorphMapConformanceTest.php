@@ -229,6 +229,11 @@ it('knows every polymorphic column, including the ones no application code owns'
     expect($found)->toBe([
         'activity_log.causer_type',
         'activity_log.subject_type',
+        // The work order's comment thread (2026-08-28, vendor-portal step 1). Three kinds of
+        // party write on a job — staff, a contractor's contact once the portal ships, and a
+        // tenant on a job raised from their request — so the author morphs, exactly as the
+        // tenant-request thread's does.
+        'facility_work_order_comments.author_type',
         'journal_entries.source_type',
         'media.model_type',
         'model_has_permissions.model_type',

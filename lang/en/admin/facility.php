@@ -34,6 +34,20 @@ return [
         ],
     ],
     'facility' => [
+        'comments' => [
+            'title' => 'Thread',
+            'add' => 'Add a comment',
+            'body' => 'Comment',
+            'internal' => 'Internal',
+            'is_internal' => 'Internal — staff only',
+            'is_internal_helper' => 'Internal comments are never shown to the contractor.',
+            'make_public' => 'Share with the contractor',
+            'make_internal' => 'Make internal',
+            'author_staff' => 'staff',
+            'author_contractor' => 'contractor',
+            'closed' => 'This job is closed — its thread cannot be added to.',
+            'empty' => 'A comment cannot be empty.',
+        ],
         'route' => [
             'title' => 'Route',
             'add_stop' => 'Add a machine',

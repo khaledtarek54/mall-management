@@ -446,6 +446,7 @@ class ValueSets
         'rentable_item_holdings.holder_type' => 'A morph alias. MorphMap owns it.',
         'stock_movements.source_type' => 'A morph alias. MorphMap owns it.',
         'tenant_request_comments.author_type' => 'A morph alias. MorphMap owns it.',
+        'facility_work_order_comments.author_type' => 'A morph alias. MorphMap owns it.',
         'tenant_sales_declarations.declared_by_type' => 'A morph alias. MorphMap owns it.',
         'model_has_permissions.model_type' => 'A morph alias on spatie\'s own pivot. Not ours to constrain.',
         'model_has_roles.model_type' => 'A morph alias on spatie\'s own pivot. Not ours to constrain.',

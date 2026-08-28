@@ -40,6 +40,7 @@ use App\Models\Equipment;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FacilityWorkOrder;
+use App\Models\FacilityWorkOrderComment;
 use App\Models\FacilityWorkOrderItem;
 use App\Models\FacilityWorkOrderLabour;
 use App\Models\FacilityWorkOrderPart;
@@ -281,6 +282,7 @@ class MorphMap
         'tenant_document' => TenantDocument::class,
         'tenant_request' => TenantRequest::class,
         'tenant_request_comment' => TenantRequestComment::class,
+        'facility_work_order_comment' => FacilityWorkOrderComment::class,
         'tenant_sales' => TenantSalesDeclaration::class,
         'tenant_user' => TenantUser::class,
         'unit' => Unit::class,

@@ -33,6 +33,11 @@
  * `use` statement — do not fully-qualify it inline, which is how the two above read as deliberate.
  */
 
+use App\Models\Invoice;
+use App\Models\Tenant;
+use App\Models\User;
+use Composer\Autoload\ClassLoader;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 it('resolves every class named by symbol under app/', function () {
@@ -314,4 +319,100 @@ it('resolves every class named by symbol under app/', function () {
     expect($checked)->toBeGreaterThan(1_000, 'the reference sweep matched almost nothing — it is not reading the code');
 
     expect($unresolved)->toBe([], "these names resolve to a class that does not exist — add the missing `use`:\n  ".implode("\n  ", $unresolved));
+});
+
+// ─────────────── The fifth form: an IMPORT that names nothing (2026-08-28) ───────────────
+
+/**
+ * **The four forms above resolve a REFERENCE through the import map. Nothing checked the map.**
+ *
+ * An import naming a class that does not exist is silent in every way this gate previously looked:
+ * `php -l` passes (a `use` statement is not resolved at parse time), the four reference forms find
+ * the short name in `$uses` and resolve it to the FQCN the import declared, and the FQCN is never
+ * asked whether it exists. The one place it bites is a **trait** — `use SomeTrait;` inside a class
+ * body — which this file's own comment waved through as *"harmless (it names a real trait)"*.
+ *
+ * That assumption failed on 2026-08-28. `FacilityWorkOrderComment` imported
+ * `Spatie\Activitylog\Traits\LogsActivity`; the real path is
+ * `Spatie\Activitylog\Models\Concerns\LogsActivity`. The symptom was the worst this suite has:
+ * **pest exited 1 with ZERO bytes on both streams** — no test names, no error, nothing — because a
+ * missing trait is a fatal at CLASS LOAD, before any reporting exists. CLAUDE.md documents that
+ * symptom for two other causes; this is the third, and the only one with no gate.
+ *
+ * **Checked without executing anything.** `ClassLoader::findFile()` answers from the composer map,
+ * so a `class_exists()` autoload cannot drag a Pest test file into the process — which is exactly
+ * what happened on the first attempt at this check. PHP INTERNALS (`DomainException`, `Throwable`,
+ * `ZipArchive`) have no file and are always present, so they are accepted by the `false`-argument
+ * existence calls rather than by a list of names nobody would maintain.
+ *
+ * **THE RECOVERY COMMAND, because this gate cannot always report its own finding.** A missing trait
+ * is a fatal at class load, so if ANYTHING in the process loads the broken model first — the sibling
+ * test in this very file does, and so does any gate that reflects over `app/Models` — the process
+ * dies before an assertion can run and you get the zero-byte exit again. When that happens:
+ *
+ *     vendor/bin/pest tests/Feature/Scenarios/UnresolvedClassReferenceConformanceTest.php \
+ *         --filter='never imports a class that does not exist'
+ *
+ * Run alone it names the file, the line and the symbol. That is the same shape as the recovery
+ * CLAUDE.md documents for a duplicated test helper — a path-scoped run that loads only what it
+ * needs — and it turns a bisect into one command.
+ *
+ * Measured when written: **11,180 imports under `app/`, one unresolvable** — `use App\Models;`, a
+ * legitimate NAMESPACE import used as `Models\Tenant::class`. A namespace resolves to no file and
+ * never will, so the check skips a symbol that is a prefix of a class that does exist.
+ */
+it('never imports a class that does not exist', function () {
+    /** @var ClassLoader $loader */
+    $loader = require base_path('vendor/autoload.php');
+
+    $exists = function (string $symbol) use ($loader): bool {
+        if ($loader->findFile($symbol) !== false) {
+            return true;
+        }
+
+        // A PHP internal — no file, always loaded. The `false` argument is what keeps this from
+        // autoloading (and from executing a test file, which the first draft did).
+        return class_exists($symbol, false)
+            || interface_exists($symbol, false)
+            || trait_exists($symbol, false)
+            || enum_exists($symbol, false);
+    };
+
+    $isNamespacePrefix = function (string $symbol) use ($loader): bool {
+        // `use App\Models;` imports a NAMESPACE, used as `Models\Tenant::class`. Legal, resolves to
+        // no file, and would otherwise be the gate's only false positive.
+        foreach ([Tenant::class, User::class, Invoice::class] as $known) {
+            if (Str::startsWith($known, $symbol.'\\')) {
+                return true;
+            }
+        }
+
+        return $loader->findFile($symbol.'\\'.Str::afterLast($symbol, '\\')) !== false;
+    };
+
+    $problems = [];
+
+    foreach (File::allFiles(app_path()) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        foreach (file($file->getPathname()) as $index => $line) {
+            // Plain single imports only. Aliased, grouped, `use function` and `use const` forms are
+            // deliberately out of scope: the defect this exists for is a mistyped class path, and
+            // widening the pattern buys noise rather than coverage.
+            if (! preg_match('/^use\s+([A-Za-z0-9_\\\\]+)\s*;\s*$/', $line, $m)) {
+                continue;
+            }
+
+            if ($exists($m[1]) || $isNamespacePrefix($m[1])) {
+                continue;
+            }
+
+            $problems[] = $file->getRelativePathname().':'.($index + 1)
+                .' imports ['.$m[1].'], which resolves to no class, interface, trait or enum.';
+        }
+    }
+
+    expect($problems)->toBe([], "\n".implode("\n", $problems));
 });

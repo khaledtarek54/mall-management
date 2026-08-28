@@ -2,6 +2,8 @@
 
 return [
     'fields' => [
+        'author_type' => 'Author type',
+        'is_internal' => 'Internal only',
         'sla_clock' => 'SLA clock',
         'trade' => 'Trade',
         'for_inbound' => 'Accepts money in',

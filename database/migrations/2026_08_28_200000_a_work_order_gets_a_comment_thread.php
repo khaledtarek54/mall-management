@@ -48,8 +48,16 @@ return new class extends Migration
             $table->timestamps();
 
             // The thread is always read in one direction: this job's comments, oldest first.
-            $table->index(['facility_work_order_id', 'created_at']);
-            $table->index(['author_type', 'author_id']);
+            //
+            // **Named explicitly, because the derived name is 67 characters and MySQL's identifier
+            // limit is 64.** `facility_work_order_comments` + `facility_work_order_id` + `created_at`
+            // + `_index` overflows it, and the failure is a hard 1059 on the ALTER — after the CREATE
+            // has already succeeded, so the table lands and the migration does not record, leaving a
+            // half-applied state that then fails on the retry with "table already exists". SQLite
+            // has no such limit, so the suite would never have seen it: the same
+            // green-here-fatal-there class CLAUDE.md records for enums and `select tbl.*, x, *`.
+            $table->index(['facility_work_order_id', 'created_at'], 'fwoc_order_created_index');
+            $table->index(['author_type', 'author_id'], 'fwoc_author_index');
         });
     }
 

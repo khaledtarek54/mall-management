@@ -2,6 +2,8 @@
 
 return [
     'fields' => [
+        'author_type' => 'نوع الكاتب',
+        'is_internal' => 'داخلي فقط',
         'sla_clock' => 'مؤشر الخدمة',
         'trade' => 'التخصص',
         'for_inbound' => 'يستقبل تحصيلًا',

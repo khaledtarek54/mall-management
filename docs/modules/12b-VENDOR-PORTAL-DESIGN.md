@@ -1,6 +1,6 @@
 # Vendor portal — design, before any code
 
-> **Status: DESIGN. Nothing here is built.** Written first, at the operator's instruction, and kept
+> **Status: DESIGN — step 1 of §8 is BUILT (2026-08-28), the rest is not.** Written first, at the operator's instruction, and kept
 > deliberately small. Read [docs/benchmarks/fm/02-servicechannel-contractor-loop.md](../benchmarks/fm/02-servicechannel-contractor-loop.md)
 > §1 and §4 first — this is that loop, minus everything a single-operator mall does not need.
 
@@ -85,8 +85,8 @@ scoped to *their dispatches*, which may span malls.
 
 ## 7. The one thing that does not exist yet
 
-**A work order has no comment thread.** `TenantRequest` has `TenantRequestComment` with an
-`is_internal` flag; the work order has `notes`, a single field. "Update" needs a thread, and it needs
+**A work order had no comment thread** — ✅ **built 2026-08-28.** `TenantRequest` has
+`TenantRequestComment` with an `is_internal` flag; the work order had `notes`, a single field. "Update" needs a thread, and it needs
 the same internal/external split so the operator can write something the contractor must not read.
 
 That is the only new domain object the portal requires. Everything else is a screen over something
@@ -96,7 +96,7 @@ already built — which is the argument for doing it in this order.
 
 | # | Step | Why here |
 |---|---|---|
-| 1 | Work-order comment thread (internal/external), admin side only | The one missing primitive. Useful on its own even if the portal never ships |
+| 1 | ~~Work-order comment thread (internal/external), admin side only~~ ✅ **DONE 2026-08-28** — `facility_work_order_comments`, `FacilityWorkOrderComment`, `CommentOnWorkOrderService`, `WorkOrderCommentsRelationManager`, `AWorkOrderHasAThreadTest` | The one missing primitive. Useful on its own even if the portal never ships — and it is now in use on the admin side whether or not the portal follows |
 | 2 | `VendorContact` login + `/vendor` panel + the scoping rule, with its refusal tests | The security model, proven before any feature hangs off it |
 | 3 | The jobs list + **accept** | The highest-value verb: it makes the response SLA real |
 | 4 | **Evidence** + **update** | Both are surfaces over what exists |

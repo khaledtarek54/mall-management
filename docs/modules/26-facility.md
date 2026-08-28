@@ -322,6 +322,39 @@ page someone at 2am for a hand dryer, and that is how an alert channel stops bei
 
 Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
 
+## A work order has a thread (2026-08-28)
+
+`facility_work_order_comments` — author (morph), `body`, `is_internal` — with
+`CommentOnWorkOrderService`, `WorkOrderCommentsRelationManager` on the work order, and
+`AWorkOrderHasAThreadTest`.
+
+**What it replaced.** `facility_work_orders.notes`: one field, no author, no timestamp, last writer
+wins. So the conversation a job actually generates — access arranged for Sunday, part on
+back-order, the tenant refused entry — either overwrote itself or lived in somebody's WhatsApp.
+`TenantRequest` has had exactly this since module 11; the work order, which generates *more*
+conversation because a third party executes it, had nothing. `notes` stays as it was: the
+operator's own single field, not a thread.
+
+**Three rules, each with a reason:**
+
+- **`is_internal` defaults to FALSE.** A comment is a conversation until someone says otherwise.
+  Defaulting to internal would make the vendor portal silent by accident and nothing would error —
+  the contractor would simply never hear anything, which is the hardest failure to notice.
+- **Flipping `is_internal` is a DISCLOSURE, not an edit.** It publishes a staff note to a party
+  outside the company, so the action confirms and is gated in both `visible()` and `authorize()` —
+  the same treatment the tenant thread gives its own toggle.
+- **A terminal job's thread is closed.** A done or cancelled work order is immutable; a thread that
+  still accepted messages would be the one mutable part of a record an auditor reads as settled.
+
+**Why a single-action service rather than a `create()` at the call site.** There will be two authors
+and two panels: staff in `/admin`, and a contractor in `/vendor` at step 3 of
+[12b](12b-VENDOR-PORTAL-DESIGN.md). Two code paths writing one row is how the two come to disagree
+about who may write and when — which §9 of that design names as the risk worth avoiding.
+
+**This is step 1 of the vendor portal, built first because it is the only new domain object that
+design needs and it is useful on its own.** Everything else the portal wants is a screen over
+something already built.
+
 ## 2. Business rules
 
 1. **Property-scoped** (`asset_id`) — all three resources use `BypassesScopingOnAll` +

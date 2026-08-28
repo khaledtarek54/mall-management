@@ -180,6 +180,7 @@ final class ActivityLogging
         'ExpenseCategory' => ['code', 'cost_nature', 'is_active', 'ledger_account_id', 'name_ar', 'name_en', 'sort_order'],
         'FacilityWorkOrder' => ['acknowledged_at', 'area_id', 'asset_id', 'assigned_to_user_id', 'completed_at', 'cost_bearer', 'equipment_id', 'execution_type', 'fault_notes', 'fault_party', 'parent_work_order_id', 'priority', 'scheduled_for', 'service_plan_id', 'sla_clock', 'status', 'target_resolution_at', 'target_response_at', 'tenant_request_id', 'title', 'trade_id', 'unit_id', 'vendor_id', 'work_order_type'],
         'FacilityWorkOrderLabour' => ['cost', 'facility_work_order_id', 'hourly_rate', 'hours', 'notes', 'trade_id', 'user_id', 'worked_on'],
+        'FacilityWorkOrderComment' => ['author_id', 'author_type', 'body', 'facility_work_order_id', 'is_internal'],
         'FacilityWorkOrderPart' => ['decision_notes', 'inventory_item_id', 'quantity', 'required_permission', 'source', 'status', 'unit_cost', 'value'],
         'FailureCode' => ['code', 'is_active', 'name_ar', 'name_en', 'sort_order', 'trade_id', 'type'],
         'FixedAsset' => ['acquisition_cost', 'asset_id', 'name', 'salvage_value', 'status', 'tag', 'useful_life_months'],

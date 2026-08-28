@@ -13,6 +13,7 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            'facility_work_order_comment' => 'تعليق على أمر عمل',
             'work_order_proposal' => 'عرض سعر لأمر عمل',
             'failure_code' => 'كود عطل',
             'holiday' => 'إجازة',

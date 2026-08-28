@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\FacilityWorkOrders;
 
 use App\Filament\Admin\RelationManagers\ServiceChecklistRelationManager;
+use App\Filament\Admin\RelationManagers\WorkOrderCommentsRelationManager;
 use App\Filament\Admin\RelationManagers\WorkOrderLabourRelationManager;
 use App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager;
 use App\Filament\Admin\RelationManagers\WorkOrderProposalsRelationManager;
@@ -85,6 +86,7 @@ class FacilityWorkOrderResource extends Resource
     {
         return [
             ServiceChecklistRelationManager::class,
+            WorkOrderCommentsRelationManager::class,
             WorkOrderPartsRelationManager::class,
             WorkOrderLabourRelationManager::class,
             WorkOrderProposalsRelationManager::class,

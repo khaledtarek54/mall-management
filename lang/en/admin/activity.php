@@ -13,6 +13,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'facility_work_order_comment' => 'Work order comment',
             'work_order_proposal' => 'Work order quote',
             'failure_code' => 'Failure code',
             'holiday' => 'Holiday',

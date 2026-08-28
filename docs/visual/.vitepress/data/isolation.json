@@ -228,6 +228,12 @@
         "note": null
     },
     {
+        "model": "FacilityWorkOrderComment",
+        "label": "Facility Work Order Comment",
+        "classification": "owned",
+        "note": "workOrder"
+    },
+    {
         "model": "FacilityWorkOrderItem",
         "label": "Facility Work Order Item",
         "classification": "owned",
