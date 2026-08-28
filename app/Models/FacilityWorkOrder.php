@@ -8,6 +8,7 @@ use App\Models\Concerns\FacilityWorkOrder\RecordsFailuresAndRepeats;
 use App\Models\Concerns\FacilityWorkOrder\TracksPmCompliance;
 use App\Models\Concerns\HasSearchText;
 use App\Notifications\WorkOrderAssignedNotification;
+use App\Notifications\WorkOrderDispatchedNotification;
 use App\Services\NotifyAreaSupervisorsService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\DeletionAllowed;
@@ -762,6 +763,27 @@ class FacilityWorkOrder extends Model implements HasMedia
         }
     }
 
+    /**
+     * **Bell the CONTRACTOR when a job is dispatched to them** (vendor-portal step 6).
+     *
+     * Only PORTAL contacts: a contact with no login cannot act on it, and a bell they can never see
+     * is not a notification. Throwable-guarded like its technician-side sibling — a notify hiccup
+     * must never break the write that dispatched the job.
+     */
+    private static function notifyContractor(self $order): void
+    {
+        try {
+            VendorContact::query()
+                ->where('vendor_id', $order->vendor_id)
+                ->where('is_portal_user', true)
+                ->get()
+                ->each
+                ->notify(new WorkOrderDispatchedNotification($order));
+        } catch (\Throwable $e) {
+            Log::warning('Work-order dispatched notification failed', ['error' => $e->getMessage()]);
+        }
+    }
+
     protected static function booted(): void
     {
 
@@ -869,11 +891,25 @@ class FacilityWorkOrder extends Model implements HasMedia
             // move this to a post-commit fan-out (as GeneratePreventiveWorkOrdersService does for
             // WorkOrderRaisedNotification) so a rollback can't strand an external side-effect.
             app(NotifyAreaSupervisorsService::class)->notifyWorkOrder($order);
+
+            // The contractor's half of the same event. Dispatching used to be an internal column
+            // change — `vendor_id` was set and the contractor found out by phone, or did not, which
+            // is also what made `acknowledged_at` meaningless: you cannot measure a response time
+            // from a moment the other party was never told about.
+            if ($order->vendor_id !== null) {
+                self::notifyContractor($order);
+            }
         });
 
         static::updated(function (self $order) {
             if ($order->wasChanged('assigned_to_user_id') && $order->assigned_to_user_id !== null) {
                 self::notifyAssignee($order);
+            }
+
+            // RE-dispatched to a different contractor. `wasChanged` rather than `isDirty`, and a
+            // null check, so clearing the vendor tells nobody — there is no one to tell.
+            if ($order->wasChanged('vendor_id') && $order->vendor_id !== null) {
+                self::notifyContractor($order);
             }
         });
     }

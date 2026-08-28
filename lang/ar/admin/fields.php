@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'submitted_by_vendor_contact_id' => 'أرسله (المقاول)',
         'author_type' => 'نوع الكاتب',
         'is_internal' => 'داخلي فقط',
         'sla_clock' => 'مؤشر الخدمة',

@@ -68,6 +68,7 @@ use App\Notifications\VendorContractRenewalDueNotification;
 use App\Notifications\VendorDocumentExpiringNotification;
 use App\Notifications\ViolationNoticeNotification;
 use App\Notifications\WorkOrderAssignedNotification;
+use App\Notifications\WorkOrderDispatchedNotification;
 use App\Notifications\WorkOrderRaisedNotification;
 use App\Notifications\WorkOrderResponseSlaBreachedNotification;
 use App\Notifications\WorkOrderSlaBreachedNotification;
@@ -226,6 +227,18 @@ final class NotificationTargets
             'record' => [FacilityWorkOrder::class, 'work_order_id'],
             'admin' => FacilityWorkOrderResource::class,
             'portal' => null,
+        ],
+        // The CONTRACTOR's half of a dispatch — and the first row here whose reader is on NEITHER
+        // panel this registry knows about.
+        WorkOrderDispatchedNotification::class => [
+            'record' => [FacilityWorkOrder::class, 'work_order_id'],
+            'admin' => null,
+            'portal' => null,
+            'why' => 'Its reader is a VendorContact on the `/vendor` panel, which this registry has '
+                .'no key for — `admin` and `portal` are the only two destinations it models. A '
+                .'deep link into either would send a contractor to a screen they cannot open, so '
+                .'the bell deliberately carries none and the jobs list is one click away. If a '
+                .'third destination key is ever added, this is the row that wants it.',
         ],
         WorkOrderAssignedNotification::class => [
             'record' => [FacilityWorkOrder::class, 'work_order_id'],

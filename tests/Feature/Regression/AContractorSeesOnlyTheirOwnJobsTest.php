@@ -17,12 +17,14 @@ use App\Filament\Vendor\Resources\WorkOrders\Pages\ListWorkOrders;
 use App\Models\FacilityWorkOrder;
 use App\Models\Vendor;
 use App\Models\VendorContact;
+use App\Notifications\WorkOrderDispatchedNotification;
 use App\Services\AcceptWorkOrderService;
 use App\Services\FacilityWorkOrderService;
 use App\Support\Filament\VendorScope;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -245,4 +247,93 @@ it('does not try to stamp a login on a guard that has no such column', function 
     event(new Login('web', $admin, false));
 
     expect(true)->toBeTrue(); // reaching here IS the assertion — the listener must not throw
+});
+
+// ───────────── Steps 4–6: evidence · update · quote · the dispatch bell ─────────────
+
+it('posts an update that is never internal', function () {
+    // `is_internal` is the OPERATOR's tool for writing something the contractor must not read.
+    // Offering a contractor the toggle would let them post a note their own client cannot see,
+    // which is nonsense on a job the client is paying for — so the portal does not offer it and the
+    // call site hard-codes false.
+    $job = vendorJob($this->mine);
+
+    $this->actingAs($this->contact, 'vendor');
+    Filament::setCurrentPanel(Filament::getPanel('vendor'));
+
+    Livewire::test(ListWorkOrders::class)
+        ->mountAction(TestAction::make('update')->table($job))
+        ->setActionData(['body' => 'Access arranged for Sunday 09:00'])
+        ->callMountedAction()
+        ->assertHasNoActionErrors();
+
+    $comment = $job->fresh()->comments()->sole();
+
+    expect($comment->is_internal)->toBeFalse()
+        ->and($comment->author->is($this->contact))->toBeTrue()
+        ->and($comment->body)->toBe('Access arranged for Sunday 09:00');
+});
+
+it('sends a quote recorded as the CONTRACTOR s, not an operator s', function () {
+    // `submitted_by_user_id` has always meant "our staff member keyed this on their behalf" — the
+    // model's own docblock says so. A VendorContact id in that column would name a random admin.
+    $job = vendorJob($this->mine);
+
+    $this->actingAs($this->contact, 'vendor');
+    Filament::setCurrentPanel(Filament::getPanel('vendor'));
+
+    Livewire::test(ListWorkOrders::class)
+        ->mountAction(TestAction::make('quote')->table($job))
+        ->setActionData([
+            'is_supplementary' => false,
+            'labour_amount' => 4000, 'material_amount' => 1500, 'service_amount' => 0,
+            'scope' => 'Replace compressor contactor',
+        ])
+        ->callMountedAction()
+        ->assertHasNoActionErrors();
+
+    $quote = $job->fresh()->proposals()->sole();
+
+    expect($quote->submitted_by_vendor_contact_id)->toBe($this->contact->id)
+        ->and($quote->submitted_by_user_id)->toBeNull()
+        ->and($quote->wasSelfSubmitted())->toBeTrue()
+        // The service defaults the vendor from the job — a portal payload must never be able to
+        // file a quote under another company's name.
+        ->and($quote->vendor_id)->toBe($this->mine->id);
+});
+
+it('bells every portal contact when a job is dispatched, and nobody who cannot sign in', function () {
+    Notification::fake();
+
+    $withLogin = $this->contact;
+    $without = VendorContact::create([
+        'vendor_id' => $this->mine->id, 'name' => 'Yard foreman',
+        'email' => 'yard@coolair.test', 'is_portal_user' => false,
+    ]);
+
+    vendorJob($this->mine);
+
+    Notification::assertSentTo($withLogin, WorkOrderDispatchedNotification::class);
+    // A bell they can never see is not a notification.
+    Notification::assertNotSentTo($without, WorkOrderDispatchedNotification::class);
+});
+
+it('bells the new contractor when a job is RE-dispatched, and not on an unrelated edit', function () {
+    Notification::fake();
+
+    $job = vendorJob($this->theirs);
+
+    $rival = VendorContact::create([
+        'vendor_id' => $this->theirs->id, 'name' => 'Rival desk',
+        'email' => 'desk@rival.test', 'password' => 'x', 'is_portal_user' => true,
+    ]);
+
+    // An edit that does not change the vendor must tell nobody — otherwise every save re-pings a
+    // contractor who already knows.
+    $job->update(['title' => 'Fix chiller (revised)']);
+    Notification::assertNotSentTo($this->contact, WorkOrderDispatchedNotification::class);
+
+    $job->update(['vendor_id' => $this->mine->id]);
+    Notification::assertSentTo($this->contact, WorkOrderDispatchedNotification::class);
+    Notification::assertNotSentTo($rival, WorkOrderDispatchedNotification::class);
 });

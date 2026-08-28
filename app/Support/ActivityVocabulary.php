@@ -47,6 +47,7 @@ use App\Models\UtilityMeter;
 use App\Models\UtilityTariff;
 use App\Models\Vendor;
 use App\Models\VendorBill;
+use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorDocumentType;
 use App\Models\ViolationCategory;
@@ -419,6 +420,9 @@ class ActivityVocabulary
         'recorded_by_user_id' => User::class,
         'requested_by_user_id' => User::class,
         'submitted_by_user_id' => User::class,
+        // Its twin, and the pair is the point: one names OUR staff member who keyed a quote in,
+        // the other the CONTRACTOR's person who sent it. See WorkOrderProposal's docblock.
+        'submitted_by_vendor_contact_id' => VendorContact::class,
         'waived_by_user_id' => User::class,
         'bank_statement_line_id' => BankStatementLine::class,
         'billed_invoice_id' => Invoice::class,

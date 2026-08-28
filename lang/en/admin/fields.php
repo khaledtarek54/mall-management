@@ -2,6 +2,7 @@
 
 return [
     'fields' => [
+        'submitted_by_vendor_contact_id' => 'Sent by (contractor)',
         'author_type' => 'Author type',
         'is_internal' => 'Internal only',
         'sla_clock' => 'SLA clock',

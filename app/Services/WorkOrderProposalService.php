@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FacilityWorkOrder;
 use App\Models\User;
+use App\Models\VendorContact;
 use App\Models\WorkOrderProposal;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,7 @@ class WorkOrderProposalService
      * error, and accepting it would let an approved proposal rewrite the estimate of a job whose
      * actuals are already in.
      */
-    public function submit(FacilityWorkOrder $order, array $data, ?User $actor = null): WorkOrderProposal
+    public function submit(FacilityWorkOrder $order, array $data, User|VendorContact|null $actor = null): WorkOrderProposal
     {
         if ($order->isTerminal()) {
             throw new DomainException(__('admin.facility.errors.proposal_order_terminal'));
@@ -38,7 +39,14 @@ class WorkOrderProposalService
             // to get wrong — but a quote from somebody else is legitimate and may state its own.
             'vendor_id' => $data['vendor_id'] ?? $order->vendor_id,
             'status' => WorkOrderProposal::STATUS_SUBMITTED,
-            'submitted_by_user_id' => ($actor ?? auth()->user())?->getKey(),
+            // WHICH column depends on WHO: an operator keyed it, or the contractor sent it. The
+            // two mean different things (see WorkOrderProposal's docblock), so the service routes
+            // rather than coercing one into the other — passing a VendorContact id into
+            // `submitted_by_user_id` would name a random admin.
+            'submitted_by_user_id' => $actor instanceof VendorContact
+                ? null
+                : ($actor ?? auth()->user())?->getKey(),
+            'submitted_by_vendor_contact_id' => $actor instanceof VendorContact ? $actor->getKey() : null,
             'submitted_at' => now(),
         ]));
 

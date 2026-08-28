@@ -26,11 +26,16 @@ use Spatie\Activitylog\Support\LogOptions;
  * contractor deliver what they quoted?"* — the question the loop exists to answer — instead of two
  * unrelated sets of numbers about the same work.
  *
- * ## Recorded BY the operator, for now
+ * ## Who sent it — two columns, two questions
  *
- * ServiceChannel's provider submits their own. That portal is gap O2 and is not built, so this is
- * entered on the contractor's behalf exactly as a vendor bill is. `submitted_by_user_id` is
- * therefore an operator, and says so.
+ * `submitted_by_user_id` is an OPERATOR: our staff member keyed this on the contractor's behalf,
+ * exactly as a vendor bill is. `submitted_by_vendor_contact_id` is the CONTRACTOR: they sent it
+ * themselves from `/vendor` (step 5 of the portal design, built 2026-08-28). Exactly one is set;
+ * both null is a legacy row from before either was recorded.
+ *
+ * Two nullable columns rather than a morph, because they answer different questions rather than
+ * offering two types for one — and the difference is the point: a transcribed quote carries whatever
+ * the phone call carried, and an operator reading it should be able to tell.
  */
 #[DeletionAllowed(reason: 'a quote keyed against the wrong job is ordinary cleanup — nothing posts, and the work order simply re-reads its estimate. A DECIDED proposal is refused by the service instead, because that one is a record of an answer somebody gave')]
 #[PropertyOwned(via: 'workOrder')]
@@ -58,7 +63,7 @@ class WorkOrderProposal extends Model
     protected $fillable = [
         'facility_work_order_id', 'vendor_id', 'status', 'is_supplementary',
         'labour_amount', 'material_amount', 'service_amount', 'total_amount',
-        'scope', 'decision_reason', 'submitted_by_user_id', 'submitted_at',
+        'scope', 'decision_reason', 'submitted_by_user_id', 'submitted_by_vendor_contact_id', 'submitted_at',
         'decided_by_user_id', 'decided_at',
     ];
 
@@ -106,6 +111,18 @@ class WorkOrderProposal extends Model
     public function submittedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'submitted_by_user_id');
+    }
+
+    /** The contractor's own person, when they sent the quote themselves rather than phoning it in. */
+    public function submittedByContact(): BelongsTo
+    {
+        return $this->belongsTo(VendorContact::class, 'submitted_by_vendor_contact_id');
+    }
+
+    /** True when this quote arrived from the contractor rather than being transcribed by staff. */
+    public function wasSelfSubmitted(): bool
+    {
+        return $this->submitted_by_vendor_contact_id !== null;
     }
 
     public function decidedBy(): BelongsTo

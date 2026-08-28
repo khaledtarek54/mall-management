@@ -1,6 +1,6 @@
 # Vendor portal — design, before any code
 
-> **Status: steps 1–3 of §8 are BUILT (2026-08-28) — the useful minimum. Steps 4–6 are not.** Written first, at the operator's instruction, and kept
+> **Status: BUILT (2026-08-28) — all six steps of §8. The loop is closed.** Written first, at the operator's instruction, and kept
 > deliberately small. Read [docs/benchmarks/fm/02-servicechannel-contractor-loop.md](../benchmarks/fm/02-servicechannel-contractor-loop.md)
 > §1 and §4 first — this is that loop, minus everything a single-operator mall does not need.
 
@@ -123,13 +123,24 @@ already built — which is the argument for doing it in this order.
 | 1 | ~~Work-order comment thread (internal/external), admin side only~~ ✅ **DONE 2026-08-28** — `facility_work_order_comments`, `FacilityWorkOrderComment`, `CommentOnWorkOrderService`, `WorkOrderCommentsRelationManager`, `AWorkOrderHasAThreadTest` | The one missing primitive. Useful on its own even if the portal never ships — and it is now in use on the admin side whether or not the portal follows |
 | 2 | ~~`VendorContact` login + `/vendor` panel + the scoping rule, with its refusal tests~~ ✅ **DONE 2026-08-28** — `vendor` guard + `vendor_contacts` provider + its OWN reset-token table, `VendorPanelProvider`, `App\Support\Filament\VendorScope`, `AContractorSeesOnlyTheirOwnJobsTest` (mutation-proved: dropping the vendor filter turns 2 red, gutting the ownership gate turns 1 red) | The security model, proven before any feature hangs off it |
 | 3 | ~~The jobs list + **accept**~~ ✅ **DONE 2026-08-28** — `WorkOrderResource` (list only; no create/edit/delete) + `AcceptWorkOrderService`, idempotent and lock-safe. **The admin-side accept was ADDED, not replaced** — §9's mitigation, and both sides call the one service | The highest-value verb: it makes the response SLA real |
-| 4 | **Evidence** + **update** | Both are surfaces over what exists |
-| 5 | **Quote** | Reuses `WorkOrderProposalService` unchanged; only the author differs |
-| 6 | Dispatch notification to the contractor | Closes the loop |
+| 4 | ~~**Evidence** + **update**~~ ✅ **DONE 2026-08-28** — the `evidence` collection with `appendFiles()` (never replace: the completion gate reads it, and a replace would erase what an earlier decision rested on) and the step-1 thread, contractor-side and **always public** | Both are surfaces over what exists |
+| 5 | ~~**Quote**~~ ✅ **DONE 2026-08-28** — and *"only the author differs"* was truer than this row knew: `submitted_by_user_id` is a FK to `users` and means *the operator who keyed it*, so a `VendorContact` there would name a random admin. `submitted_by_vendor_contact_id` sits beside it | Reuses `WorkOrderProposalService`; the approval ladder, the NTE rise and every refusal are unchanged |
+| 6 | ~~Dispatch notification to the contractor~~ ✅ **DONE 2026-08-28** — `WorkOrderDispatchedNotification` to every PORTAL contact (a bell someone can never see is not a notification), on create and on re-dispatch, `wasChanged('vendor_id')` so an ordinary edit re-pings nobody | Closes the loop |
 
-**Steps 1–3 are the useful minimum.** If the portal stopped there it would still have converted
+**Steps 1–3 were the useful minimum, and 4–6 followed the same day.** The whole of it converts
 dispatch from an internal column change into an agreement with a timestamp, which is the substance
-of the ServiceChannel loop. 4–6 are worth doing and are not the point.
+of the ServiceChannel loop.
+
+### Two things the build changed about this design
+
+- **§5's "never a draft" was not buildable as written** — `FacilityWorkOrder::STATUSES` has no
+  pre-dispatch state. `VendorScope::VISIBLE_STATUSES` is an allowlist that today equals every status,
+  so it narrows nothing; its value is that a status added later stays invisible to contractors until
+  someone adds it deliberately. Corrected in §5 rather than left to imply a protection that is absent.
+- **§8 step 5's "only the author differs" understated the work.** The author could not be
+  represented: `submitted_by_user_id` is a FK to `users`. Two nullable columns now answer two
+  questions — which of OUR staff transcribed it, and which of THEIR people sent it — because an
+  operator reading a quote should be able to tell a phone call from a submission.
 
 ## 9. What would make this a bad idea
 

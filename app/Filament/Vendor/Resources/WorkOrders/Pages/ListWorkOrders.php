@@ -5,8 +5,15 @@ namespace App\Filament\Vendor\Resources\WorkOrders\Pages;
 use App\Filament\Vendor\Resources\WorkOrders\WorkOrderResource;
 use App\Models\FacilityWorkOrder;
 use App\Services\AcceptWorkOrderService;
+use App\Services\CommentOnWorkOrderService;
+use App\Services\WorkOrderProposalService;
 use App\Support\Filament\VendorScope;
+use DomainException;
 use Filament\Actions\Action;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Columns\TextColumn;
@@ -89,6 +96,134 @@ class ListWorkOrders extends ListRecords
                             ->success()
                             ->title(__('vendor.jobs.accepted'))
                             ->send();
+                    }),
+                // ── EVIDENCE (step 4). A surface over the `evidence` collection built 2026-08-19,
+                // and the reason the portal is worth having for a job already done: the photographs
+                // reach the operator from the person who took them, rather than arriving on
+                // WhatsApp and being re-uploaded by a coordinator who was not there.
+                //
+                // Allowed on a job the contractor has ACCEPTED and on one already done — evidence
+                // often arrives after the fact, and refusing it then would push it back to WhatsApp,
+                // which is the behaviour this replaces. Refused on `cancelled`: there is nothing to
+                // evidence.
+                Action::make('evidence')
+                    ->label(__('vendor.jobs.evidence'))
+                    ->icon('heroicon-o-camera')
+                    ->color('gray')
+                    ->visible(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record)
+                        && $record->status !== 'cancelled')
+                    ->authorize(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record))
+                    ->schema([
+                        SpatieMediaLibraryFileUpload::make('evidence')
+                            ->label(__('vendor.jobs.evidence'))
+                            ->collection('evidence')
+                            ->multiple()
+                            // APPEND, never replace. A contractor adding a second photograph must
+                            // not silently delete the first — the operator's completion gate reads
+                            // this collection, and a replace would let a later upload erase the
+                            // evidence an earlier decision rested on.
+                            ->appendFiles()
+                            ->image()
+                            ->helperText(__('vendor.jobs.evidence_helper')),
+                    ])
+                    ->action(function (FacilityWorkOrder $record): void {
+                        // The upload component writes the media; this only refuses an unauthorised
+                        // dispatch. 404, not 403 — same rule as accept.
+                        VendorScope::assertOwned($record);
+
+                        Notification::make()->success()->title(__('vendor.jobs.evidence_attached'))->send();
+                    }),
+
+                // ── UPDATE (step 4). The thread built in step 1, from the contractor's side.
+                // A contractor's comment is ALWAYS public — `is_internal` is the operator's tool for
+                // writing something the contractor must not read, and offering them the toggle would
+                // let them post a note their own client cannot see, which is nonsense on a job the
+                // client is paying for.
+                Action::make('update')
+                    ->label(__('vendor.jobs.update'))
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('gray')
+                    ->visible(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record)
+                        && ! $record->isTerminal())
+                    ->authorize(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record))
+                    ->schema([
+                        Textarea::make('body')
+                            ->label(__('vendor.jobs.update_body'))
+                            ->required()
+                            ->rows(4)
+                            ->maxLength(2000)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (FacilityWorkOrder $record, array $data): void {
+                        VendorScope::assertOwned($record);
+
+                        app(CommentOnWorkOrderService::class)->comment(
+                            $record,
+                            VendorScope::contact(),
+                            (string) $data['body'],
+                            // Never internal. See above.
+                            isInternal: false,
+                        );
+
+                        Notification::make()->success()->title(__('vendor.jobs.update_posted'))->send();
+                    }),
+
+                // ── QUOTE (step 5). `WorkOrderProposalService` unchanged except for WHO submitted:
+                // an operator keying it on the phone writes `submitted_by_user_id`, a contractor
+                // sending it writes `submitted_by_vendor_contact_id`. The approval ladder, the NTE
+                // rise and every refusal are the same service the admin side uses — a second path
+                // would be a second set of rules about money.
+                Action::make('quote')
+                    ->label(__('vendor.jobs.quote'))
+                    ->icon('heroicon-o-banknotes')
+                    ->color('primary')
+                    ->modalDescription(__('vendor.jobs.quote_confirm'))
+                    ->visible(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record)
+                        && ! $record->isTerminal())
+                    ->authorize(fn (FacilityWorkOrder $record): bool => VendorScope::owns($record))
+                    ->schema([
+                        Toggle::make('is_supplementary')
+                            ->label(__('vendor.jobs.quote_supplementary'))
+                            ->helperText(__('vendor.jobs.quote_supplementary_helper'))
+                            ->default(false)
+                            ->columnSpanFull(),
+                        TextInput::make('labour_amount')->label(__('vendor.jobs.quote_labour'))
+                            ->numeric()->minValue(0)->default(0)->prefix('EGP'),
+                        TextInput::make('material_amount')->label(__('vendor.jobs.quote_material'))
+                            ->numeric()->minValue(0)->default(0)->prefix('EGP'),
+                        TextInput::make('service_amount')->label(__('vendor.jobs.quote_service'))
+                            ->numeric()->minValue(0)->default(0)->prefix('EGP')
+                            ->helperText(__('vendor.jobs.quote_amounts_helper')),
+                        Textarea::make('scope')
+                            ->label(__('vendor.jobs.quote_scope'))
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (FacilityWorkOrder $record, array $data): void {
+                        VendorScope::assertOwned($record);
+
+                        try {
+                            app(WorkOrderProposalService::class)->submit(
+                                $record,
+                                // `vendor_id` is NOT taken from the form: the service defaults it to
+                                // the contractor already on the job, and letting a portal payload
+                                // state one would let a contractor file a quote against another
+                                // company's name.
+                                collect($data)->only([
+                                    'is_supplementary', 'labour_amount', 'material_amount',
+                                    'service_amount', 'scope',
+                                ])->all(),
+                                VendorScope::contact(),
+                            );
+                        } catch (DomainException $e) {
+                            // A refusal is a message, not a 500 — "a quote for nothing is not a
+                            // quote" is the one a contractor will actually meet.
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()->title(__('vendor.jobs.quote_sent'))->send();
                     }),
             ])
             ->toolbarActions([])

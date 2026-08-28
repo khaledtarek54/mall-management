@@ -408,6 +408,15 @@ cannot express portably (a stored generated column behaves differently on SQLite
 runs on — green here, untested there), so `VendorContact::booted()` is the one choke point every path
 shares: form, importer, console, API.
 
+**A quote now records WHO sent it, in two columns rather than one.**
+`work_order_proposals.submitted_by_user_id` has always meant *our staff member keyed this on the
+contractor's behalf* — the model's docblock said so while anticipating this portal — and
+`submitted_by_vendor_contact_id` means *the contractor sent it themselves*. Two nullable columns
+because they answer two questions, not two types for one; a morph would be right if the author were a
+single question (which is why the work-order thread's author IS a morph). The difference is the
+point: a transcribed quote carries whatever the phone call carried, and an operator reading it should
+be able to tell.
+
 The portal itself, its scoping rule and what a contractor may do are in
 [12b](12b-VENDOR-PORTAL-DESIGN.md).
 
