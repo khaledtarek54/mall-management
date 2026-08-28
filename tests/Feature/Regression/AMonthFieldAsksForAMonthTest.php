@@ -59,7 +59,17 @@ it('renders a calendar with no days in it', function () {
         ->and($blade)->toContain('fi-fo-date-time-picker-month-select')
         ->and($blade)->toContain('fi-fo-date-time-picker-year-input')
         // Either control commits, or the panel opens and nothing can be chosen at all.
-        ->and(substr_count($blade, 'selectDate(1)'))->toBe(2);
+        ->and(substr_count($blade, 'selectDate(1)'))->toBe(2)
+        // ── THE YEAR IS READ OFF THE EVENT (2026-08-28) ─────────────────────────────────
+        //
+        // Upstream binds the year with `x-model.debounce`, so the model LAGS the input and
+        // `change` fires before the debounce lands. Committing on the model's value stored the
+        // year before the edit: typing 2026 saved 2025. Reported from the panel.
+        //
+        // Asserted on the source, and stated plainly as such: the race lives entirely in
+        // Alpine, so no PHP test can observe it. This pins the shape of the fix so it cannot
+        // be quietly simplified back into the bug.
+        ->and($blade)->toContain('focusedYear = $event.target.value');
 });
 
 it('is a DatePicker, so the date bounds still work', function () {

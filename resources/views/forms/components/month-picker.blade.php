@@ -189,7 +189,23 @@
                                 type="number"
                                 inputmode="numeric"
                                 x-model.debounce="focusedYear"
-                                x-on:change="$nextTick(() => selectDate(1))"
+                                {{--
+                                    The year is READ OFF THE EVENT, not off the model.
+
+                                    Upstream binds it with `x-model.debounce`, so the model lags the
+                                    input — and `change` fires before the debounce lands. Committing
+                                    on the model's value therefore stored the year BEFORE the edit:
+                                    typing 2026 saved 2025. Reported from the panel, and invisible in
+                                    any PHP test, because the whole race is in Alpine.
+
+                                    Assigning from `$event.target.value` first makes the commit read
+                                    what the operator actually typed; the debounced model then
+                                    settles on the same value a moment later.
+                                --}}
+                                x-on:change="
+                                    focusedYear = $event.target.value
+                                    $nextTick(() => selectDate(1))
+                                "
                                 class="fi-fo-date-time-picker-year-input"
                             />
                         </div>
