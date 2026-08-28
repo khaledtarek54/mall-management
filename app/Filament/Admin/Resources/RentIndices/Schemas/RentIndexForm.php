@@ -42,10 +42,6 @@ class RentIndexForm
             MonthPicker::make('period')
                 ->label(__('admin.fields.index_period'))
                 ->required()
-                // An index series runs years back; the reading being entered is almost always a
-                // recent one, so the window is wide but opens on the near months.
-                ->monthsBack(120)
-                ->monthsAhead(3)
                 ->helperText(__('admin.fields.index_period_helper')),
 
             TextInput::make('value')

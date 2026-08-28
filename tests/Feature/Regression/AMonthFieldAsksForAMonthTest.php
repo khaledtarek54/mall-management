@@ -9,17 +9,17 @@
 | normalised to the 1st behind their back — so what they picked and what was stored differed,
 | silently, on a field where the day had never been part of the answer.
 |
-| Filament's `DatePicker` has no month-only mode, and the panel already answered this correctly
-| elsewhere: `BillingRunPreview` picks its period from a Select of months. `MonthPicker` is that
-| idiom once, so a month field looks and behaves the same everywhere.
+| `MonthPicker` is Filament's own date picker with the day grid taken out. Its panel already carried
+| a month select and a year input above that grid, so the header stays, the days go, and either
+| control commits. Everything else is upstream's: the panel, the Alpine component, the keyboard
+| handling, and `minDate`/`maxDate` — which matters, because the lease's billing period is bounded
+| by `BillingWindow` and a first attempt built this on `Select` instead, where those methods do not
+| exist. That shipped a 500 on /admin/leases/{id}/edit.
 |
-| Three fields are genuinely months — a rent-index reading, a payroll run, and a billing period
-| (which proved it by forcing `format('Y-m-01')` on whatever day was clicked). Invoice, bank
+| Three fields are genuinely months — a rent-index reading, a payroll run, and the lease's billing
+| period, which proved it by forcing `format('Y-m-01')` onto whatever day was clicked. Invoice, bank
 | statement and sales-declaration periods are NOT: a part-month invoice really does start on the
-| 16th, and turning those into month pickers would lose a real date.
-|
-| Driven through the real pages: a Filament component outside a mounted container throws the moment
-| a closure is evaluated, so the first version of this file measured nothing at all.
+| 16th, and converting those would lose a real date.
 */
 
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
@@ -31,6 +31,7 @@ use App\Support\Filament\MonthPicker;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\DatePicker;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -44,36 +45,69 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
-/** The period field as the rent-index form builds it. */
-function periodField()
-{
+it('renders a calendar with no days in it', function () {
+    $view = resource_path('views/forms/components/month-picker.blade.php');
+
+    expect($view)->toBeReadableFile();
+
+    $blade = file_get_contents($view);
+
+    // The day grid and its weekday labels are gone…
+    expect($blade)->not->toContain('fi-fo-date-time-picker-calendar-day')
+        ->and($blade)->not->toContain('daysInFocusedMonth')
+        // …and the month/year header — the part that makes it still a PICKER — stays.
+        ->and($blade)->toContain('fi-fo-date-time-picker-month-select')
+        ->and($blade)->toContain('fi-fo-date-time-picker-year-input')
+        // Either control commits, or the panel opens and nothing can be chosen at all.
+        ->and(substr_count($blade, 'selectDate(1)'))->toBe(2);
+});
+
+it('is a DatePicker, so the date bounds still work', function () {
+    // The first attempt built this on `Select`, which has no minDate() — and the lease page, whose
+    // period is bounded by the billing window, 500'd. The type is the fix.
     $page = Livewire::test(CreateRentIndex::class)->instance();
+    $field = $page->getSchema('form')->getComponent('period');
 
-    return $page->getSchema('form')->getComponent('period');
-}
-
-it('is a month picker, not a date picker', function () {
-    expect(periodField())->toBeInstanceOf(MonthPicker::class);
+    expect($field)->toBeInstanceOf(MonthPicker::class)
+        ->and($field)->toBeInstanceOf(DatePicker::class)
+        ->and($field->getView())->toBe('forms.components.month-picker');
 });
 
-it('offers months, never a day', function () {
-    $options = periodField()->getOptions();
+it('mounts every screen it now lives on', function () {
+    // `ResourceFormSmokeTest` mounts CREATE pages, so an EDIT page's header ACTION is exactly the
+    // gap it does not cover — and that is where the 500 was.
+    $lease = makeLease(makeUnit($this->asset, ['area_sqm' => 110]), makeTenant(), [
+        'status' => 'active',
+        'commencement_date' => '2026-08-01',
+        'expiry_date' => '2029-07-31',
+    ]);
 
-    expect($options)->not->toBeEmpty();
+    Livewire::test(EditLease::class, ['record' => $lease->getKey()])
+        ->assertOk()
+        // An action's schema is built when it MOUNTS, which is where the fatal was.
+        ->mountAction('generateInvoice')
+        ->assertOk();
 
-    // Every key is the first of a month — there is no way to express the 14th.
-    foreach (array_keys($options) as $value) {
-        expect(CarbonImmutable::parse($value)->day)->toBe(1);
-    }
+    Livewire::test(CreatePayroll::class)->assertOk();
+    Livewire::test(CreateRentIndex::class)->assertOk();
 });
 
-it('opens on this month, newest first', function () {
-    // A period is filled far more often for a recent month than an old one, so a list that opened
-    // on 2016 would make the common case the longest scroll.
-    $keys = array_keys(periodField()->getOptions());
+it('keeps the billing window on the lease period', function () {
+    $lease = makeLease(makeUnit($this->asset, ['area_sqm' => 110]), makeTenant(), [
+        'status' => 'active',
+        'commencement_date' => '2026-08-01',
+        'expiry_date' => '2029-07-31',
+    ]);
 
-    expect($keys[0])->toBe(CarbonImmutable::now()->addMonths(3)->startOfMonth()->toDateString())
-        ->and(CarbonImmutable::parse($keys[0]))->toBeGreaterThan(CarbonImmutable::parse(end($keys)));
+    $component = Livewire::test(EditLease::class, ['record' => $lease->getKey()])
+        ->mountAction('generateInvoice');
+
+    $page = $component->instance();
+    $field = $page->getSchema($page->getMountedActionSchemaName())->getComponent('period');
+
+    // One screen must not refuse to PREVIEW a month the other would happily BILL.
+    expect(CarbonImmutable::parse($field->getMinDate()))->toEqual(BillingWindow::earliest())
+        ->and(CarbonImmutable::parse($field->getMaxDate()))->toEqual(BillingWindow::latest());
 });
 
 it('stores the first of the month', function () {
@@ -97,52 +131,4 @@ it('suggests the codes already in use', function () {
 
     expect(Livewire::test(CreateRentIndex::class)->instance()
         ->getSchema('form')->getComponent('code')->getDatalistOptions())->toContain('CPI-EG');
-});
-
-it('mounts every screen the month picker now lives on', function () {
-    // The fix broke the lease page and no test saw it: `MonthPicker` extends `Select`, which has no
-    // `minDate()`, and the field it replaced had one two lines further down. A 500 on
-    // /admin/leases/{id}/edit, reported from the browser.
-    //
-    // `ResourceFormSmokeTest` mounts CREATE pages, so an EDIT page's header ACTION is exactly the
-    // gap it does not cover — the same blind spot already recorded for the vendor edit form.
-    $asset = $this->asset;
-    $lease = makeLease(makeUnit($asset, ['area_sqm' => 110]), makeTenant(), [
-        'status' => 'active',
-        'commencement_date' => '2026-08-01',
-        'expiry_date' => '2029-07-31',
-    ]);
-
-    Livewire::test(EditLease::class, ['record' => $lease->getKey()])
-        ->assertOk()
-        // The action's schema is built when it MOUNTS, which is where the fatal was.
-        ->mountAction('generateInvoice')
-        ->assertOk();
-
-    Livewire::test(CreatePayroll::class)->assertOk();
-    Livewire::test(CreateRentIndex::class)->assertOk();
-});
-
-it('offers exactly the months the billing window allows', function () {
-    // The bound moved from `minDate`/`maxDate` onto the LIST, which is what bounds a Select — so
-    // the picker must still refuse a month the preview screen would refuse.
-    $lease = makeLease(makeUnit($this->asset, ['area_sqm' => 110]), makeTenant(), [
-        'status' => 'active',
-        'commencement_date' => '2026-08-01',
-        'expiry_date' => '2029-07-31',
-    ]);
-
-    $component = Livewire::test(EditLease::class, ['record' => $lease->getKey()])
-        ->mountAction('generateInvoice');
-
-    $page = $component->instance();
-    $options = $page->getSchema($page->getMountedActionSchemaName())
-        ->getComponent('period')->getOptions();
-
-    $months = array_keys($options);
-
-    expect(CarbonImmutable::parse($months[0]))
-        ->toEqual(CarbonImmutable::now()->startOfMonth()->addMonths(BillingWindow::MONTHS_AHEAD))
-        ->and(CarbonImmutable::parse(end($months)))
-        ->toEqual(CarbonImmutable::now()->startOfMonth()->subMonths(BillingWindow::MONTHS_BACK));
 });

@@ -46,8 +46,6 @@ class PayrollForm
                         ->label(__('admin.fields.payroll_month'))
                         ->required()
                         ->default(now()->startOfMonth()->toDateString())
-                        ->monthsBack(36)
-                        ->monthsAhead(1)
                         ->disabled($locked),
 
                     Select::make('paid_from')

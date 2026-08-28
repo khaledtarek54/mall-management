@@ -160,15 +160,14 @@ class EditLease extends EditRecord
                     ->label(__('admin.actions.billing_period'))
                     ->helperText(__('admin.actions.billing_period_helper'))
                     ->required()
-                    // The same window the Billing Run Preview offers — expressed as the LIST, which
-                    // is what bounds a Select. It carried no bounds at all before that, so one
-                    // screen refused to PREVIEW a month the other would happily BILL: a receivable
-                    // raisable years early, posting revenue into a period that may not exist and
-                    // dating an e-invoice into the future. The list is the UI half; the closure
-                    // below is the gate.
-                    ->monthsBack(BillingWindow::MONTHS_BACK)
-                    ->monthsAhead(BillingWindow::MONTHS_AHEAD)
-                    ->default(now()->startOfMonth()->toDateString()),
+                    ->default(now()->startOfMonth()->toDateString())
+                    // The same window the Billing Run Preview offers. This picker carried no bounds
+                    // at all, so one screen refused to PREVIEW a month the other would happily
+                    // BILL — a receivable raisable years early, posting revenue into a period that
+                    // may not exist and dating an e-invoice into the future. The bounds are the UI
+                    // half; the closure below is the gate.
+                    ->minDate(BillingWindow::earliest())
+                    ->maxDate(BillingWindow::latest()),
                 Toggle::make('prorate')
                     ->label(__('admin.actions.prorate_first_period'))
                     ->helperText(__('admin.actions.prorate_helper'))
