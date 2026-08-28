@@ -135,6 +135,26 @@
 > (`AnInvoicedPeriodReadsFromItsInvoiceTest`, proven by restoring the mixed row.)
 
 
+
+> **⚠️ A stopped charge kept appearing in the forecast (fixed 2026-08-28).** `planInvoiceForLease()`
+> reads `$lease->charges` and had **no `is_active` filter of its own** — it relied entirely on
+> `generateForLease()` having narrowed the relation first with `loadMissing(is_active)`. And
+> `loadMissing` means *"load it IF it is not loaded"*, so **whoever loads the relation first decides
+> what the planner sees**. The forecast service loaded it unfiltered one call earlier, and the
+> planner reused that collection: a charge ended through *End charge* went on being forecast for
+> ever while the run correctly ignored it.
+>
+> **Both lines looked right on their own.** The planner's `loadMissing` is correct — it must not
+> re-query for each of a thousand leases in a run — and a bare `loadMissing('charges')` reads as a
+> harmless eager-load. Only the ORDER made them wrong, and neither file mentioned the other.
+>
+> Now asked **inside the plan**, where what-applies is decided, so it holds on every path instead of
+> the paths someone remembered to prepare; the forecast's own load is narrowed too. The paired test
+> asserts the forecast and the planner name the **same** charges — asserting the forecast alone
+> would pass on a forecast that had drifted the other way.
+> (`TheForecastShowsOnlyWhatWillBeBilledTest`, proven by removal.)
+
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:

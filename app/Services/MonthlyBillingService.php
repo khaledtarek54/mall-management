@@ -522,6 +522,21 @@ class MonthlyBillingService
         // service is not knowable until October.
         $applicableCharges = $lease->charges->filter(
             function (Charge $c) use ($periodStart, $periodEnd, $fullCycleMonths, $isFinalCycle) {
+                // ── A STOPPED CHARGE BILLS NOTHING, WHOEVER LOADED IT (2026-08-28) ───────────
+                //
+                // `generateForLease()` narrows the relation with `loadMissing(is_active)` before it
+                // gets here, and that was the ONLY thing keeping an inactive charge off an invoice
+                // — `loadMissing` means "load it IF it is not loaded", so any caller that had
+                // already loaded `charges` unfiltered handed this method a collection including
+                // stopped rows. This method is PUBLIC and the forecast is one such caller: a
+                // charge ended through "End charge" went on appearing in the forecast for ever.
+                //
+                // Asked here, where the plan decides what applies, so it holds on every path
+                // rather than on the paths someone remembered to prepare.
+                if (! $c->is_active) {
+                    return false;
+                }
+
                 [$from, $to] = self::coveredWindow($c, $periodStart, $periodEnd, $fullCycleMonths, $isFinalCycle);
 
                 return $this->chargeAppliesToPeriod($c, $from, $to);

@@ -55,7 +55,23 @@ class LeaseBillingForecastService
      */
     public function forecast(Lease $lease, ?CarbonImmutable $from = null, int $horizonMonths = self::HORIZON_MONTHS): array
     {
-        $lease->loadMissing('charges');
+        // ── THE FORECAST MUST NOT SHOW A CHARGE THE BILLING RUN WILL NOT RAISE (2026-08-28) ──
+        //
+        // `MonthlyBillingService` narrows to `is_active` charges with `loadMissing()`, which means
+        // "load it IF it is not loaded" — so whoever loads the relation FIRST decides what the
+        // planner sees. This loaded it unfiltered, one call earlier, and the planner then reused
+        // that collection: a stopped charge went on appearing in the forecast for ever, while the
+        // billing run correctly ignored it.
+        //
+        // Reported from the panel: a one-off ended through "End charge" (is_active = 0) kept
+        // showing in October's forecast. The screen said the tenant would be billed for something
+        // the run would never raise — which is worse than a wrong figure, because it is a figure
+        // nobody can reconcile against the invoice when it arrives.
+        //
+        // Filtered here rather than by making the planner re-load: `loadMissing` is right in the
+        // planner (it must not re-query for every one of a thousand leases in a run), so the fix
+        // belongs where the unfiltered load happens.
+        $lease->loadMissing(['charges' => fn ($query) => $query->where('is_active', true)]);
 
         // Start at whichever comes later: this month, or the month the lease first bills. A forecast
         // that opens on a month already behind us is a report, and there is one of those already.
