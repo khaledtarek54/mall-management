@@ -220,6 +220,26 @@
 > (`AManualInvoicePrefillsOneMonthTest`, proven by restoring the old filter.)
 
 
+
+> **🔴 A billed security deposit silenced the rent for the WHOLE TERM (fixed 2026-08-28).**
+> `alreadyBilledForMonth()` keeps `STANDALONE_ITEM_TYPES` — the one-off invoice types that must not
+> suppress a month's recurring invoice — under a docblock stating the rule in writing: *"anything
+> that raises its own invoice dated into a billed month belongs here, and belongs here in the same
+> commit that starts raising it."*
+>
+> `security_deposit` was never added. It is the **fifth** instance of that class and the only one
+> costing more than a month: `BillSecurityDepositService` dates its invoice to the **lease's own
+> term** — commencement to expiry — so the overlap test matched **every month of the lease**.
+> Measured on a three-year lease: the deposit was billed and then **no rent invoice was raised for
+> any month of the term**, reported as an ordinary `skipped` and indistinguishable in the run
+> summary from a lease billed correctly. Eight invoices appeared the moment the type was registered.
+>
+> Found while preparing a termination exercise and noticing the lease had nothing to terminate —
+> not by any test, because every billing test bills a lease that has never had a deposit raised on
+> it. (`ADepositInvoiceDoesNotSuppressTheRentTest`, whose second case bills four months across two
+> years, since a single month would pass on a one-month bug.)
+
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:

@@ -103,6 +103,7 @@ class LeaseClausesRelationManager extends RelationManager
 
             DatePicker::make('applies_from')
                 ->label(__('admin.fields.clause_applies_from'))
+                ->helperText(__('admin.lease_clauses.help.applies_from'))
                 ->native(false)
                 ->displayFormat('d/m/Y'),
 

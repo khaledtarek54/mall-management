@@ -977,6 +977,20 @@ class MonthlyBillingService
     private const STANDALONE_ITEM_TYPES = [
         'percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine',
         'nsf_fee', 'late_fee',
+        // ── AND THE WORST OF THE FAMILY (2026-08-28) ────────────────────────────────────────
+        //
+        // `security_deposit` is the FIFTH instance of the class the docblock below names, and the
+        // only one that costs more than a month. `BillSecurityDepositService` dates its invoice to
+        // the LEASE'S OWN TERM — commencement to expiry — so the overlap test matched every month
+        // of the lease, and a lease whose deposit had been billed answered `already_billed` for the
+        // whole term. Measured: a three-year lease billed its deposit and then raised no rent
+        // invoice for any month of 2026 or 2027, reported as an ordinary `skipped` in the run
+        // summary and indistinguishable from a lease correctly billed.
+        //
+        // Found by preparing a termination exercise and noticing the lease had no invoices to
+        // terminate — not by any test, because every billing test bills a lease that has never had
+        // a deposit invoice raised against it.
+        'security_deposit',
     ];
 
     /**

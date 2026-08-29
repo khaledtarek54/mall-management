@@ -9,6 +9,9 @@ return [
     ],
 
     'lease_clauses' => [
+        'help' => [
+            'applies_from' => 'A clause can start after the lease does — exclusivity from year two, say. Blank means from commencement.',
+        ],
         'title' => 'Clauses',
         'type_helper' => 'Co-tenancy and kick-out can cost money if their trigger fires — those two are badged apart.',
         'summary_helper' => 'The term in your own words. The signed contract stays the source of truth for the wording.',
