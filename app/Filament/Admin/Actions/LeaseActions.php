@@ -837,8 +837,24 @@ class LeaseActions
                 ->modalHeading(fn (Lease $record) => __('admin.actions.terminate_modal_heading', ['ref' => $record->reference]))
                 ->modalDescription(fn (Lease $record) => __('admin.actions.terminate_modal_description', ['unit' => $record->unit?->code ?? '—']))
                 ->modalSubmitActionLabel(__('admin.actions.terminate_submit'))
+                // ── fillForm() SETS THE WHOLE STATE, SO A FIELD LEFT OUT LOSES ITS DEFAULT ─────
+                //
+                // This named `termination_date` and `cancel_open_invoices` and stopped there, so
+                // `credit_unearned` arrived as null — and a Toggle reads null as OFF, silently
+                // overriding its own `->default(true)`.
+                //
+                // The cost is money the tenant does not owe. Reported from the panel: a lease
+                // invoiced three months past its termination date opened this modal with the credit
+                // switched off, so terminating would leave 173,250 billed for a period the tenant
+                // will not occupy — and the operator sees an off toggle, not a bug, so they have no
+                // reason to touch it.
+                //
+                // Every field with a default is named here now. Proven by probe toggles: three
+                // `->default(true)` fields all arrived false, and only the one this array mentioned
+                // arrived true.
                 ->fillForm([
                     'termination_date' => now()->toDateString(),
+                    'credit_unearned' => true,
                     'cancel_open_invoices' => true,
                 ])
                 ->schema([
