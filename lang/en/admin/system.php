@@ -502,6 +502,7 @@ return [
         'lease_expiry_before_commencement' => 'A lease cannot end (:expiry) before it starts (:commencement). Check the year — a lease with a backwards term never bills again, and its charges end before they begin.',
         'option_notice_window_inverted' => 'The notice window closes (:latest) before it opens (:earliest). As written the option could never be exercised — it would read as closed on every day it was supposed to be open.',
         'negative_security_deposit' => 'A security deposit cannot be negative. Enter 0 for a deposit-free lease.',
+        'negative_lease_amount' => 'A :field cannot be negative. Check the figure — a negative one is not billed at all, so the lease would look priced and raise nothing.',
         'work_order_needs_evidence' => 'Attach at least one photo or document before marking this job done.',
         'account_mapping_duplicate' => '“:role” is already mapped in this scope. Edit the existing row instead — a second one would be ignored, because the ledger reads the first and would keep posting to the old account.',
         'account_mapping_global_undeletable' => '“:role” is a global default and cannot be removed — nothing falls back behind it, so every posting that asks for it would start failing. Re-point it at another account instead.',

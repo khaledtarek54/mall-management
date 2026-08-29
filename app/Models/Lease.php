@@ -206,6 +206,29 @@ class Lease extends Model implements BillableAgreement, HasMedia
             }
         });
 
+        // ── Rent and service charge cannot be negative ─────────────────────────────────────────
+        // The same situation as the deposit above and a worse consequence, so the same answer.
+        // `minValue(0)` on the form and `min:0` on the importer, with nothing behind either — and
+        // `LeaseCreationService` writes its schedule rows under `if ($rent > 0)` / `if ($service >
+        // 0)`, so a negative figure produces a lease with NO base-rent row, no marketing levy and
+        // nothing to bill, for the whole of its term, while its own screen shows the figure that
+        // was typed. That is the shape this codebase has now been bitten by three times: a lease
+        // that looks configured and bills nothing.
+        //
+        // ZERO stays legal — a rent-free fit-out period, a kiosk let on percentage rent alone, a
+        // service charge folded into the rent are all real. Only below zero is refused, and
+        // refused rather than clamped, for the reason the deposit guard gives: turning -5,000 into
+        // 0 hides the typo instead of reporting it.
+        static::saving(function (self $lease) {
+            foreach (['base_rent_monthly', 'service_charge_monthly'] as $column) {
+                if ($lease->{$column} !== null && (float) $lease->{$column} < 0) {
+                    throw new \DomainException(__('admin.errors.negative_lease_amount', [
+                        'field' => __('admin.fields.'.$column),
+                    ]));
+                }
+            }
+        });
+
         // ── Rate-priced rent is DERIVED, from every writer ─────────────────────────────────────
         // A lease priced per m² must never carry a monthly figure that disagrees with its own rate
         // and area. Enforced here rather than in the form so an import, a service or a future
