@@ -415,6 +415,12 @@ class LeaseActions
                         ->options(fn (): array => self::lettableItemOptions($record))
                         ->native(false)
                         ->searchable()
+                        // An empty list here means every bay, sign and store in the property is
+                        // either out of service or already let — including to THIS lease. Filament's
+                        // own "No options" leaves the operator unable to tell that from a broken
+                        // screen, which is the distinction the pickers elsewhere learned to draw.
+                        ->noSearchResultsMessage(__('admin.rentable_items.none_free'))
+                        ->placeholder(__('admin.rentable_items.none_free_placeholder'))
                         ->required()
                         ->helperText(__('admin.helpers.assign_rentable_item')),
                     DatePicker::make('effective_from')

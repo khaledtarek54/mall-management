@@ -21,6 +21,26 @@
 > would be offering a value the write guard then refuses.
 
 
+
+> **⚠️ The picker offered what the service refuses (fixed 2026-08-28).** The options query excluded
+> the holder's OWN holdings from the clash test, under a comment saying that re-assigning a bay it
+> already holds should read as *"you have this"* rather than *"someone has this"*. But
+> `AssignRentableItemService::assign()` refuses exactly that — *"This lease already holds P-101.
+> Give it back first if you need to change the date or the rate."* — so the intent was never
+> realised and the comment described behaviour that did not exist.
+>
+> Reported from the panel: a lease holding all three of a property's items was offered all three,
+> and picking one failed on submit. **A picker whose value the write guard rejects is the worst
+> kind**, because the operator has already decided by the time they are told no. The clash test now
+> has no exception, and the service's refusal stays as the backstop for a crafted submit — the
+> picker is UI, not a gate.
+>
+> The list answers **"free NOW"**, which is the question an assignment starting today is asking: a
+> bay released effective the 31st is still held on the 29th and correctly stays out. That caught my
+> own test first, which expected it back the moment the release was recorded.
+> (`APickerNeverOffersWhatTheGuardRefusesTest`, proven by restoring the exception.)
+
+
 ## The holder is an AGREEMENT, not a lease (2026-08-19)
 
 `lease_rentable_item` is now **`rentable_item_holdings`**, keyed on a polymorphic

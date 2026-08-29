@@ -47,9 +47,22 @@ class RentableItemOptions
             ->where('status', '!=', RentableItem::STATUS_OUT_OF_SERVICE)
             ->orderBy('code')
             ->get()
-            // The holder's OWN current holdings are excluded from the clash test, so re-assigning
-            // a bay it already holds reads as "you have this" rather than "someone has this".
-            ->reject(fn (RentableItem $item) => $item->isHeldOn(null, ignore: self::identity($holder)))
+            // ── THE PICKER MUST NOT OFFER WHAT THE SERVICE REFUSES (2026-08-28) ─────────────
+            //
+            // This excluded the holder's OWN holdings from the clash test, under a comment saying
+            // that re-assigning a bay it already holds should read as "you have this" rather than
+            // "someone has this". `AssignRentableItemService::assign()` refuses exactly that —
+            // "This lease already holds P-101. Give it back first if you need to change the date or
+            // the rate." — so the intent was never realised and the comment described behaviour
+            // that did not exist.
+            //
+            // Reported from the panel: a lease holding all three items was offered all three, and
+            // picking one failed on submit. A picker whose value the write guard rejects is the
+            // worst kind, because the operator has already decided by the time they are told no.
+            //
+            // The whole test now, no exception: an item this holder has is not on offer, and the
+            // refusal message stays as the backstop for a crafted submit.
+            ->reject(fn (RentableItem $item) => $item->isHeldOn(null))
             // ── THE OPTION SAYS WHAT KIND OF THING IT IS (2026-08-28) ───────────────────────
             //
             // The label was the code and the rate. A mall lets bays, signage, storage and kiosks

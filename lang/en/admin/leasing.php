@@ -142,6 +142,8 @@ return [
     ],
 
     'rentable_items' => [
+        'none_free' => 'Nothing free to let — every bay, sign and store here is out of service or already held, this lease included. Give one back first to change its date or rate.',
+        'none_free_placeholder' => 'Select an item',
         'option' => ':type — :item · :rate',
     ],
 
