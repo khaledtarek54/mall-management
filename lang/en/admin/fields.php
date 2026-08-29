@@ -284,7 +284,7 @@ return [
         'escalation_amount' => 'Annual increase',
         'has_percentage_rent' => 'Percentage rent applies',
         'holdover_from' => 'Holdover from',
-        'holdover_rate_pct' => 'Holdover uplift %',
+        'holdover_rate_pct' => 'Holdover rate (% of last rent)',
         'next_escalation_date' => 'Next increase',
         'previous_lease_id' => 'Previous lease',
         'unit_ownership_id' => 'Unit ownership',

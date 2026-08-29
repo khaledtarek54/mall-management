@@ -794,7 +794,20 @@ class LeaseActions
                         ->helperText(__('admin.actions.holdover_rate_hint'))
                         ->suffix('%')
                         ->numeric()
-                        ->minValue(1)
+                        // A PERCENTAGE OF THE LAST RENT, so 100 is the floor and not 1.
+                        //
+                        // `$lastRent * $rate / 100` — 150 means 150%, which is the shipped default
+                        // and what the hint above says. At `minValue(1)` an operator reading the
+                        // label as an UPLIFT types 50 for "half as much again" and HALVES the rent
+                        // instead: 25,000 where 75,000 was meant. That reading was available,
+                        // because `admin.fields.holdover_rate_pct` called it an "uplift %" until
+                        // 2026-08-29 and it is the label the audit trail prints.
+                        //
+                        // 100 is the floor because holding over is a penalty for staying past the
+                        // term — a rate below it would price overstaying BELOW renewing, which is
+                        // the opposite of what the clause is for. A genuinely reduced wind-down
+                        // rent is a rent change or a relief, not a holdover.
+                        ->minValue(100)
                         ->required(),
                     DatePicker::make('effective_from')
                         ->label(__('admin.actions.holdover_from'))
