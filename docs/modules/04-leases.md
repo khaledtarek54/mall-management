@@ -1447,6 +1447,41 @@ Genuinely *different* rates for different units in one lease still need the work
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+### The 2026-08-29/30 lifecycle sweep — ten defects, all found by driving the panel
+
+A full tenancy was run end to end on the demo books — let, re-priced, abated, deposit billed and
+received, terminated, settled — and every screen, action and tab was driven in a browser
+(`tools/leasing-sweep.mjs`). The suite was green throughout; none of these was visible to it.
+
+They share a shape worth naming: **not one is a broken component.** Each sits at the seam between
+two pieces that are individually correct, and each fails SILENTLY — a lease that bills nothing
+looks exactly like a lease with nothing due, which is why they survived.
+
+| What broke | The seam |
+|---|---|
+| Terminate opened with "credit back unearned rent" OFF | `fillForm()` sets the WHOLE state, so a field it omits loses its own `->default()` |
+| A deposit invoice suppressed every month of rent for the term | `security_deposit` missing from `STANDALONE_ITEM_TYPES`, and the deposit invoice is dated to the whole term |
+| A renewal's service charge reached the lease and not the schedule | `renew()` CARRIES rows; a stated figure with no row to carry produced none |
+| The holdover rate was labelled as its own inverse | Code computes `rent × pct / 100`; `admin.fields.*` called it an "uplift %" — threefold, and undercharging |
+| A negative rent produced a lease that bills nothing | `if ($rent > 0)` writes the schedule rows; the model had no guard |
+| A deposit could be billed twice | `depositShortfall()` answers "are we short", which is not "should we ask again" |
+| The lease history said nothing about the day it ended | Only the final account and a break option ever wrote a `termination` event |
+| A tenancy owing more than its deposit could not be settled | "Is there anything to settle" was asked AFTER the arrears consumed the deposit |
+| A lease under notice stopped billing immediately | `status = 'terminated'` and every charge deactivated on the day notice was given |
+| The termination re-opened closed rungs of the rent ladder | A blanket `update()` of `end_date`, invisible while the same statement deactivated everything |
+
+**Two of these were introduced by the fix before them**, and both surfaced only on real data — the
+ladder one because `atriom:audit-charge-schedules` reported every schedule unambiguous at the moment
+the billing run refused one, and that disagreement pointed at the new code rather than at the books.
+
+**What the sweep also proved correct**, by hand against Yardi's rules: all four proration methods
+(and a full month = exactly 1.0 under each), all four escalation types including a percentage collar
+that correctly does NOT apply to an amount-stated step, five CPI scenarios including "the index has
+not published, so wait rather than invent", both percentage-rent bases at and around the breakeven,
+straight-line rent netting to exactly zero over the term, and all four billing frequencies.
+
+---
+
 ### Bug: Renewal silently drops multi-unit leases' additional units (FIXED)
 
 **Issue:** `LeaseRenewalService::renew()` previously carried only leases.unit_id, dropping additional units from multi-unit leases.
