@@ -6,6 +6,40 @@ layer** — the structured manual testing + UAT that automation can't judge
 (does the workflow *feel* right end-to-end? does the business accept it?) — and
 the **release sign-off gate** that says "ready for production".
 
+
+## `tools/screen-watch.mjs` — walk screens in a real browser and report what breaks
+
+**Why it exists.** Every defect found while working through the modules in late August 2026 surfaced
+from the SCREEN, never from the suite: a 500 on a lease page after a component swap, a picker that
+opened empty, a forecast row built from two different truths, a year input that saved the year
+before the edit. Pest drives services and mounts components — a fatal in a render, a missing method
+on a chained call, or an Alpine race lives past all of it.
+
+The full Playwright suite covers this and takes ~25 minutes, which is why nobody runs it mid-task.
+This is the same idea aimed at whatever is being worked on right now.
+
+```bash
+node tools/screen-watch.mjs                              # the default sweep
+node tools/screen-watch.mjs /admin/AW/leases/1/edit      # named screens
+node tools/screen-watch.mjs --actions /admin/AW/leases/1/edit
+```
+
+It reports four things, each named against the screen it came from: **HTTP ≥ 400**, **console
+errors**, **uncaught JS**, and a **rendered exception** — because a page can answer 200 and still be
+an error page, which is how `BadMethodCallException` reached a browser.
+
+**`--actions` is the half that earns it.** An action builds its schema when it MOUNTS, so a record
+page renders perfectly and blows up the moment somebody clicks — exactly what happened when
+`MonthPicker` lost `minDate()`. The sweep opens each header action and checks the modal.
+
+**It deliberately does not drive pickers.** `20-functional-create.spec.js` established the honest
+pattern years earlier: fill what can be filled and let the error listener be the assertion.
+Precisely automating a Filament combobox is brittle enough to cost more than it finds — measured
+here, three failed attempts at selectors before the approach was abandoned.
+
+Measured on the whole panel: **100 screens, clean**, in about a minute.
+
+
 ## What's here
 
 | File | Purpose |
