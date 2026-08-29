@@ -128,10 +128,13 @@ it('prefills additional_unit_ids from the non-master pivot rows on edit', functi
 it('frees a removed unit when it is dropped from the edit form', function () {
     $master = makeUnit($this->asset, ['code' => 'R-01', 'status' => 'vacant']);
     $extra = makeUnit($this->asset, ['code' => 'R-02', 'status' => 'vacant']);
-    $lease = makeLease($master, null, ['status' => 'active']);
+    // DRAFT, because the form only owns the premises before the lease is live. On a running
+    // lease the same edit is refused and pointed at "Change premises" — see the test below.
+    $lease = makeLease($master, null, ['status' => 'draft']);
     $lease->syncUnits([$master->id, $extra->id], $master->id);
 
-    expect($extra->fresh()->status)->toBe('occupied');
+    // `reserved`, not `occupied` — a DRAFT lease holds a unit off the market without it trading.
+    expect($extra->fresh()->status)->toBe('reserved');
 
     Livewire::test(EditLease::class, ['record' => $lease->getRouteKey()])
         ->assertFormSet(['additional_unit_ids' => [$extra->id]])
@@ -141,14 +144,14 @@ it('frees a removed unit when it is dropped from the edit form', function () {
 
     expect($lease->units()->pluck('units.id')->all())->toBe([$master->id])
         ->and($extra->fresh()->status)->toBe('vacant')   // freed
-        ->and($master->fresh()->status)->toBe('occupied');
+        ->and($master->fresh()->status)->toBe('reserved');
 });
 
 it('swaps the additional unit on edit — old freed, new occupied', function () {
     $master = makeUnit($this->asset, ['code' => 'W-01', 'status' => 'vacant']);
     $old = makeUnit($this->asset, ['code' => 'W-02', 'status' => 'vacant']);
     $new = makeUnit($this->asset, ['code' => 'W-03', 'status' => 'vacant']);
-    $lease = makeLease($master, null, ['status' => 'active']);
+    $lease = makeLease($master, null, ['status' => 'draft']);
     $lease->syncUnits([$master->id, $old->id], $master->id);
 
     Livewire::test(EditLease::class, ['record' => $lease->getRouteKey()])
@@ -161,8 +164,30 @@ it('swaps the additional unit on edit — old freed, new occupied', function () 
     expect($ids)->toContain($master->id, $new->id)
         ->and($ids)->not->toContain($old->id)
         ->and($old->fresh()->status)->toBe('vacant')
-        ->and($new->fresh()->status)->toBe('occupied');
+        ->and($new->fresh()->status)->toBe('reserved');
 });
+
+it('refuses a premises change on a LIVE lease and names the action that does it', function () {
+    $master = makeUnit($this->asset, ['code' => 'L-01', 'status' => 'vacant']);
+    $extra = makeUnit($this->asset, ['code' => 'L-02', 'status' => 'vacant']);
+    $lease = makeLease($master, null, ['status' => 'active']);
+    $lease->syncUnits([$master->id, $extra->id], $master->id);
+
+    // `syncUnits()` attaches units and nothing else, so on a rate-priced lease this leaves the
+    // rent behind — a 110 m² lease at 4,800/m² went to 200 m² still billing 44,000 where 80,000
+    // was due. Re-deriving here cannot be the fix either: re-rating needs an EFFECTIVE DATE and a
+    // form save has none, so it could only restate the rent from the start of the term, rewriting
+    // months already billed. `LeaseSpaceChangeService` takes that date; this refuses and names it.
+    Livewire::test(EditLease::class, ['record' => $lease->getRouteKey()])
+        ->fillForm(['additional_unit_ids' => []])
+        ->call('save');
+
+    // Refused, and the premises are untouched — a half-applied change is the one outcome worse
+    // than either answer.
+    expect($lease->fresh()->units()->pluck('units.id')->all())
+        ->toContain($master->id, $extra->id)
+        ->and($extra->fresh()->status)->toBe('occupied');
+})->throws(DomainException::class);
 
 /*
 |--------------------------------------------------------------------------
