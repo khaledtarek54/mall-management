@@ -2,8 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
+use App\Models\Lease;
 use App\Models\LeaseEvent;
+use Filament\Actions\ActionGroup;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -39,6 +42,17 @@ class LeaseHistoryRelationManager extends RelationManager
         return $schema->components([]);
     }
 
+    /** The lease this tab hangs off — the actions below act on it, not on an event row. */
+    protected function leaseRecord(): Lease
+    {
+
+        /** @var Lease $record */
+        $record = $this->getOwnerRecord();
+
+        return $record;
+
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -49,7 +63,22 @@ class LeaseHistoryRelationManager extends RelationManager
             ->emptyStateHeading(__('admin.lease_events.empty'))
             ->emptyStateDescription(__('admin.lease_events.empty_hint'))
             ->emptyStateIcon('heroicon-o-clock')
-            ->columns([
+            // ── THE ACTIONS THAT WRITE THIS TABLE (2026-08-28) ──────────────────────────────
+            //
+            // Every one of these records a lease EVENT, which is the row this tab exists to show —
+            // `LeaseSpaceChangeService`, `LeaseExtensionService`, `ConvertLeaseToHoldoverService`,
+            // `SettleMoveOutService` and the renewal all write one. Until now they were reachable only
+            // from the header menus, so an operator reading a lease's history had to leave it to add to
+            // it. Composed BY NAME from `LeaseActions`, never redefined, so a change to an action reaches
+            // both places.
+            ->headerActions([
+                ActionGroup::make(LeaseActions::forOwner($this->leaseRecord(), [
+                    'changePremises', 'renew', 'extendTerm', 'convertToHoldover', 'terminate', 'finalAccount',
+                ]))
+                    ->label(__('admin.actions.groups.lifecycle'))
+                    ->icon('heroicon-o-arrow-path')
+                    ->button(),
+            ])->columns([
                 TextColumn::make('effective_date')
                     ->label(__('admin.lease_events.effective'))
                     ->date('d/m/Y')

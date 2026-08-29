@@ -129,7 +129,6 @@ class ChargeScheduleRelationManager extends RelationManager
     {
         return $table
             // Changing the rent is what this tab is FOR — the schedule is the record of it.
-            ->headerActions(LeaseActions::forOwner($this->leaseRecord(), ['changeRent']))
             // CHRONOLOGICAL by default — the schedule reads as one timeline, so "what changes
             // next, across every charge" is answerable at a glance. Grouping by type is one click
             // away (below) for when you want to read a single ladder instead.
@@ -243,7 +242,21 @@ class ChargeScheduleRelationManager extends RelationManager
                         ->map(fn ($t) => self::typeLabel($t))
                         ->all()),
             ])
+            // ── ONE headerActions() CALL, OR THE OTHER ONE IS INVISIBLE (2026-08-28) ────────
+            //
+            // This table declared `headerActions()` TWICE. The second call replaces the first — it
+            // is a setter, not an append — so `changeRent` was written on this tab and rendered
+            // nowhere, from the day it was added. Found while adding `grantRelief` beside it: the
+            // new action did not appear either, and neither did the old one.
+            //
+            // Exactly the failure `LeaseActions` records in its own docblock — "an action missing
+            // from a group is defined and rendered nowhere" — arriving through a different door.
+            //
+            // Both belong here because both write ROWS INTO THIS TABLE: `LeaseRentChangeService`
+            // restates the rent and `LeaseReliefService` overlays a relief window on it. An operator
+            // reading the schedule should not have to go back to a header menu to change it.
             ->headerActions([
+                ...LeaseActions::forOwner($this->leaseRecord(), ['changeRent', 'grantRelief']),
                 Action::make('addCharge')
                     ->label(__('admin.charge_schedule.add'))
                     ->icon('heroicon-o-plus')

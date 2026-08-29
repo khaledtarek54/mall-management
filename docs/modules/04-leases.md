@@ -785,6 +785,24 @@
 > (`SpaceMovesThroughItsOwnActionTest`, proven by removal.)
 
 
+
+> **⚠️ `headerActions()` declared twice renders only the second (fixed 2026-08-28).**
+> `ChargeScheduleRelationManager` called it once with `changeRent` and again with `addCharge`, and
+> the second call REPLACES the first — it is a setter, not an append. So `changeRent` was written on
+> that tab and rendered **nowhere**, from the day it was added, and the duplication is invisible in
+> review because both calls read correctly on their own. Exactly the failure `LeaseActions`'s own
+> docblock records — *"an action missing from a group is defined and rendered nowhere"* — arriving
+> through a different door. Found while adding a second action beside it, when neither appeared.
+>
+> **An action now lives where its RESULT is shown**, so the operator can work from the tab or from
+> the header: `changeRent` and `grantRelief` on the **charge schedule** (both write rows into it),
+> and the premises and lifecycle actions on **lease history** (every one writes an event, which is
+> the row that tab exists to show). Nothing MOVED — the header keeps all twelve, because a tab is a
+> second door and not a replacement. `EveryLeaseActionIsReachableFromItsTabTest` builds each table
+> and asks what it will actually render, since reading the source is what let a duplicate
+> `headerActions()` look correct for months.
+
+
 ## The lease abstract — clauses (2026-08-19)
 
 `lease_clauses` holds the legal terms that do not reduce to money, taken from the benchmark's own
