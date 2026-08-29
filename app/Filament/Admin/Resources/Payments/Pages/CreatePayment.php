@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Payments\Pages;
 
+use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Payment;
@@ -26,23 +27,50 @@ class CreatePayment extends CreateRecord
      * tenant filled, typing the amount fires `suggestAllocations()` on blur and the receipt is
      * spread oldest-first, which is the whole of the job.
      *
+     * **`?invoice=` goes one step further and fills the ALLOCATION too**, because the other half of
+     * the same loop is "the tenant paid THIS invoice" — reached from the lease's Invoices tab,
+     * which until 2026-08-29 offered no action at all and left the operator to leave the lease,
+     * open the Payments resource and find the same document by number. Filling the tenant without
+     * the allocation would be a worse answer than not filling anything: `suggestAllocations()`
+     * spreads oldest-first, so a receipt raised to settle one invoice would quietly land on
+     * another.
+     *
      * **The id is re-checked against the reader's own scoped query, not trusted.** It arrives in a
      * query string, so a hand-typed one could name a tenant in a mall this user cannot see. The
      * EntitySelect would refuse it at validation anyway — Filament resolves a Select's value by
      * asking for its LABEL through the scoped query — but prefilling a value the form will later
      * reject presents as the page being broken rather than as a refusal, so it is dropped here.
+     * The invoice is checked the same way and through the SAME scoped query the allocation
+     * repeater's own picker uses, so the two can never disagree about what is reachable.
      */
     protected function fillForm(): void
     {
         $this->callHook('beforeFill');
 
         $tenantId = (int) request()->query('tenant', 0);
+        $invoiceId = (int) request()->query('invoice', 0);
 
-        $this->form->fill(
-            $tenantId > 0 && TenantResource::getEloquentQuery()->whereKey($tenantId)->exists()
-                ? ['tenant_id' => $tenantId]
-                : null,
-        );
+        $state = [];
+
+        // A named invoice carries its own tenant, so it wins: the two cannot disagree, and a
+        // hand-edited pair naming an invoice that is not that tenant's would otherwise prefill a
+        // receipt the over-allocation guard has to refuse later.
+        $invoice = $invoiceId > 0
+            ? InvoiceResource::getEloquentQuery()->whereKey($invoiceId)->first()
+            : null;
+
+        if ($invoice !== null) {
+            $state['tenant_id'] = $invoice->tenant_id;
+            $state['amount'] = round((float) $invoice->balance, 2);
+            $state['allocations'] = [[
+                'invoice_id' => $invoice->getKey(),
+                'allocated_amount' => round((float) $invoice->balance, 2),
+            ]];
+        } elseif ($tenantId > 0 && TenantResource::getEloquentQuery()->whereKey($tenantId)->exists()) {
+            $state['tenant_id'] = $tenantId;
+        }
+
+        $this->form->fill($state ?: null);
 
         $this->callHook('afterFill');
     }

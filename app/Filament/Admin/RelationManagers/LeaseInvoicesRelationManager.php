@@ -3,6 +3,10 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
+use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Models\Invoice;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -88,7 +92,39 @@ class LeaseInvoicesRelationManager extends RelationManager
             ])
             ->filtersFormColumns(2)
             ->headerActions([])
-            ->recordActions([])
+            // ── A LIST YOU CANNOT ACT ON IS A DEAD END ──────────────────────────────────────────
+            //
+            // This tab had NO actions at all — not even a way to open the document. An operator
+            // looking at the invoice they wanted to settle had to leave the lease, open the
+            // Payments resource and find the same document by number, which is the six-screen
+            // loop UX5-03 removed from the collections worklist and never removed from here. The
+            // Billing forecast tab beside it has linked to the invoice since it shipped.
+            //
+            // Both link to the REAL screens rather than opening thinner copies here, for the
+            // reason the tenant hub's own record-payment action states: the payment form owns the
+            // posting-date guard, the property scope, the over-allocation backstop and the
+            // orphaned-receipt refusal, and a second form would own none of them.
+            ->recordActions([
+                Action::make('open')
+                    ->label(__('admin.actions.open'))
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->url(fn (Invoice $record): string => InvoiceResource::getUrl('edit', ['record' => $record])),
+
+                Action::make('recordPayment')
+                    ->label(__('admin.collections.record_payment'))
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    // Offered only where there is something to settle. A DRAFT has not been
+                    // raised, and a settled or cancelled document has nothing to receive against —
+                    // an action that refuses the moment it is pressed is a worse answer than one
+                    // that is not offered, which is the rule `billDeposit` follows too.
+                    ->visible(fn (Invoice $record): bool => (float) $record->balance > 0
+                        && ! in_array($record->status, ['draft', 'cancelled', 'written_off'], true)
+                        && (auth()->user()?->can('payments.create') ?? false))
+                    ->url(fn (Invoice $record): string => PaymentResource::getUrl('create', [
+                        'invoice' => $record->getKey(),
+                    ])),
+            ])
             ->toolbarActions([])
             ->defaultSort('issue_date', 'desc')
             ->paginated([10, 25]);
