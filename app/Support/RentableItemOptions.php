@@ -50,8 +50,26 @@ class RentableItemOptions
             // The holder's OWN current holdings are excluded from the clash test, so re-assigning
             // a bay it already holds reads as "you have this" rather than "someone has this".
             ->reject(fn (RentableItem $item) => $item->isHeldOn(null, ignore: self::identity($holder)))
+            // ── THE OPTION SAYS WHAT KIND OF THING IT IS (2026-08-28) ───────────────────────
+            //
+            // The label was the code and the rate. A mall lets bays, signage, storage and kiosks
+            // from ONE list, so "SGN-A · EGP 8,000.00" told the operator which kind only through a
+            // code they had chosen themselves — and a signage licence and a parking bay read
+            // identically to anyone who inherited the register.
+            //
+            // The STATUS is deliberately not shown: this query already offers only what is lettable
+            // — out-of-service excluded, anything currently held rejected — so every option is
+            // available by construction, and printing "available" on all of them would be a column
+            // of one value. Naming a status here would also invite the wrong question, which is
+            // whether an occupied bay should be offered at all. It should not, and it is not.
             ->mapWithKeys(fn (RentableItem $item) => [
-                $item->id => $item->label().' · EGP '.number_format((float) $item->monthly_rate, 2),
+                $item->id => __('admin.rentable_items.option', [
+                    // The SAME group the resource's own table and form label the type from — a second
+                    // spelling here would drift from the screen the operator just came off.
+                    'type' => __('admin.enums.rentable_item_type.'.$item->type),
+                    'item' => $item->label(),
+                    'rate' => 'EGP '.number_format((float) $item->monthly_rate, 2),
+                ]),
             ])
             ->all();
     }

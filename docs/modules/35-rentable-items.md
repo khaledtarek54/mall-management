@@ -6,6 +6,21 @@
 > Benchmark: [docs/benchmarks/yardi/09-yardi-space-and-parking.md](../benchmarks/yardi/09-yardi-space-and-parking.md).
 
 
+
+> **The option says what KIND of thing it is (2026-08-28).** A mall lets bays, signage, storage and
+> kiosks from one register, and the assign picker read `SGN-A · EGP 8,000.00` — which tells the
+> operator what kind only through a code they chose themselves. Anyone who inherited the register
+> could not tell a signage licence from a parking bay. It now names the type, from **the same lang
+> group the resource's own table and form use**, so a second spelling cannot drift from the screen
+> the operator just came off.
+>
+> **The STATUS is deliberately still absent**, which answers the question that came with it: the
+> query already offers only what is lettable — out-of-service excluded, anything currently held
+> rejected — so every option is available by construction and printing "available" on all of them
+> would be a column of one value. An occupied bay is not a choice, and a picker that offered one
+> would be offering a value the write guard then refuses.
+
+
 ## The holder is an AGREEMENT, not a lease (2026-08-19)
 
 `lease_rentable_item` is now **`rentable_item_holdings`**, keyed on a polymorphic

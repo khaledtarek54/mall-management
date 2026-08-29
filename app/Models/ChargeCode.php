@@ -46,6 +46,12 @@ class ChargeCode extends Model
 
     private const VAT_MEMO = 'atriom.charge_codes.vat';
 
+    /**
+     * Labels, memoised PER LOCALE — a PDF service and a queued notification both switch language
+     * mid-request, so one map would answer in whichever ran first.
+     */
+    private const LABEL_MEMO = 'atriom.charge_codes.labels';
+
     protected $fillable = [
         'code',
         'name_en',
@@ -85,6 +91,10 @@ class ChargeCode extends Model
     {
         app()->forgetInstance(self::ROLE_MEMO);
         app()->forgetInstance(self::VAT_MEMO);
+
+        foreach (['en', 'ar'] as $locale) {
+            app()->forgetInstance(self::LABEL_MEMO.'.'.$locale);
+        }
     }
 
     public function scopeActive(Builder $query): Builder
@@ -110,15 +120,42 @@ class ChargeCode extends Model
      */
     public static function labelFor(string $type): string
     {
+        // ── THE ROW WINS, THEN THE TRANSLATION (2026-08-28) ─────────────────────────────────
+        //
+        // This asked the lang file FIRST and fell back to the catalogue, which is the opposite of
+        // every other code catalogue in the app (`IsCodeCatalogue::labelFor()` reads its rows and
+        // only then the group). The consequence: an operator renaming a SHIPPED code changed
+        // nothing anywhere it is displayed.
+        //
+        // Reported from the panel. `parking` is named "Parking & rentable items" in the catalogue —
+        // it bills bays, signage, storage and kiosks — and every screen went on calling it
+        // "Parking" from the lang key, so a signage licence appeared on the billing forecast under
+        // a heading naming car parks.
+        //
+        // The lang key stays as the FLOOR: a fresh install has no catalogue rows, and a code an
+        // accountant adds has no lang key and would otherwise render as
+        // `admin.enums.invoice_item_type.chiller_charge`.
+        // Memoised per locale: the billing forecast asks once per line per period, so a query per
+        // call turned one screen into scores of them for a table of twelve rows.
+        $memo = self::LABEL_MEMO.'.'.app()->getLocale();
+
+        $labels = app()->has($memo)
+            ? app($memo)
+            : tap(
+                static::query()->get()->mapWithKeys(fn (self $c) => [$c->code => $c->label()])->all(),
+                fn (array $map) => app()->instance($memo, $map),
+            );
+
+        if (filled($labels[$type] ?? null)) {
+            return $labels[$type];
+        }
+
         $key = "admin.enums.invoice_item_type.{$type}";
         $translated = __($key);
 
-        if ($translated !== $key) {
-            return $translated;
-        }
-
-        return static::query()->where('code', $type)->first()?->label()
-            ?? str($type)->replace('_', ' ')->title()->toString();
+        return $translated === $key
+            ? str($type)->replace('_', ' ')->title()->toString()
+            : $translated;
     }
 
     /**
