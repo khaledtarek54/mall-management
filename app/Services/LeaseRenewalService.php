@@ -237,6 +237,50 @@ class LeaseRenewalService
                 ]);
             }
 
+            // ── A RENEWAL'S RENT AND SERVICE CHARGE ARE NEGOTIATED TERMS, NOT COPIES ─────────
+            //
+            // The loop above CARRIES rows, so `new_rent` and `new_service_charge` reached the
+            // schedule only by amending a row the original already had. When the original had
+            // none of that type, the figure was written to `leases.*_monthly` and the schedule
+            // got nothing — and the schedule is what bills.
+            //
+            // Measured on demo lease #4, renewed at 110,000 rent + 12,000 service charge: the
+            // lease record read 12,000, the schedule held no service-charge row at all, and the
+            // first invoice came out at 115,500 instead of 127,500. 144,000 a year, on a lease
+            // whose own screen shows the right figure — so the operator has nothing to notice.
+            //
+            // Base rent is the worse half and fails the same way: an original whose rent row had
+            // been closed (a lease that ran to the end of a stepped ladder, an operator who
+            // deactivated it) carries no row, and the renewal then bills the marketing levy alone.
+            //
+            // The renewal terms are the authority here, exactly as they are on the lease record.
+            // Rows are only ADDED — a carried row already has the new amount from the `match()`
+            // above, so this can never overwrite a term the loop just set.
+            $stated = ['base_rent' => $newRent, 'service_charge' => $newServiceCharge];
+
+            foreach ($stated as $type => $amount) {
+                if ($amount <= 0 || $renewal->charges()->where('type', $type)->exists()) {
+                    continue;
+                }
+
+                Charge::create([
+                    'lease_id' => $renewal->id,
+                    'name' => $type === 'base_rent' ? 'Base Rent' : 'Service Charge',
+                    'type' => $type,
+                    'amount' => $amount,
+                    'currency' => $renewal->currency ?? 'EGP',
+                    'frequency' => 'monthly',
+                    // Null on both, so `Charge::resolvedVatRate()` asks the catalogue for the date
+                    // being billed — the same shape LeaseCreationService writes. A rate frozen here
+                    // would stop a VAT change ever reaching the renewal (EG-01).
+                    'vat_applicable' => null,
+                    'vat_rate' => null,
+                    'start_date' => $commencement,
+                    'end_date' => null,
+                    'is_active' => true,
+                ]);
+            }
+
             // Resync the marketing levy to the renewal's (possibly escalated) rent
             // so it's 5% of the NEW base rent, not the copied original amount.
             if ($newRent > 0) {
