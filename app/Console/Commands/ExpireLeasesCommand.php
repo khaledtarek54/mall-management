@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Lease;
+use App\Models\LeaseEvent;
 use App\Models\RentableItem;
 use App\Models\Unit;
 use App\Support\OpsLog;
@@ -119,8 +120,22 @@ class ExpireLeasesCommand extends Command
                 // `hasExpiredTerm()` — the one definition, shared with RentEscalationService, so
                 // the sweep and the guard against acting on an un-swept lease cannot drift apart.
                 if ($lease && $lease->status === 'active' && $lease->hasExpiredTerm()) {
+                    // A lease under NOTICE ends as `terminated`, not `expired`. Both reach this
+                    // sweep the same way — the termination writes its date to `expiry_date` and
+                    // leaves the lease active so it keeps billing until then — but they are
+                    // different facts, and a report of early exits must not read as a term that
+                    // simply ran its course.
+                    //
+                    // DERIVED from the lease's own history rather than a second column: the
+                    // termination already records an immutable event, and a flag beside it would
+                    // be a second answer to the same question.
+                    $terminated = $lease->events()
+                        ->where('type', LeaseEvent::TYPE_TERMINATION)
+                        ->whereDate('effective_date', '<=', $lease->expiry_date)
+                        ->exists();
+
                     // The observer re-projects the units off the back of this status change.
-                    $lease->update(['status' => 'expired']);
+                    $lease->update(['status' => $terminated ? 'terminated' : 'expired']);
                     $updated++;
                 }
             });

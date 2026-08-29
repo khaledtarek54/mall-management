@@ -44,20 +44,46 @@ class LeaseTerminationService
                 ? CarbonImmutable::parse($lease->expiry_date)->toDateString()
                 : null;
 
+            // ── A TERMINATION DATED IN THE FUTURE IS NOTICE, AND A LEASE UNDER NOTICE STILL BILLS ──
+            //
+            // The field offers any date from commencement onward and has no upper bound, which is
+            // right — a tenant gives notice months before they go, and recording it the day they
+            // hand it in is the whole point. What was wrong is what happened next: the status went
+            // to `terminated` and EVERY charge row was deactivated immediately, so two independent
+            // blockers stopped the billing at once — `isBillableForPeriod()` refuses a lease that
+            // is not `active`, and the planner skips an inactive charge row.
+            //
+            // Measured: a lease terminated on 30 August effective 30 November stopped billing in
+            // September. Three months of rent the tenant genuinely owes, never invoiced, with
+            // nothing on any screen to say a lease had gone quiet.
+            //
+            // Under notice the lease stays ACTIVE and the charge rows stay live with an `end_date`
+            // — the schedule is date-ranged, so they stop themselves on the day. `leases:expire`
+            // then closes the lease and frees the unit, exactly as it does for a term that runs
+            // out, and it reads the termination event to close it as `terminated` rather than
+            // `expired`. Yardi's model: notice given, then moved out; two states, not one.
+            $underNotice = $terminationDate->isAfter(CarbonImmutable::today());
+
             $existingNotes = $lease->notes ? rtrim($lease->notes)."\n\n" : '';
             $stamp = $terminationDate->format('Y-m-d');
             $reasonLine = $reason !== '' ? "Terminated on {$stamp}: {$reason}" : "Terminated on {$stamp}.";
             $lease->update([
-                'status' => 'terminated',
+                // `expiry_date` moves either way — that IS when the tenancy ends, and it is what
+                // `leases:expire` and every projection read.
+                'status' => $underNotice ? $lease->status : 'terminated',
                 'expiry_date' => $terminationDate,
                 'notes' => $existingNotes.$reasonLine,
             ]);
 
-            // 2. Unit status is recomputed by LeaseObserver from step 1.
+            // 2. Unit status is recomputed by LeaseObserver from step 1. Under notice the lease is
+            //    still active, so the unit stays occupied until the day — which is true.
 
-            // 3. Deactivate charges (so monthly billing won't generate further invoices)
+            // 3. Close the charge rows ON the termination date. `is_active` is only dropped once
+            //    that date has passed: a live row with an `end_date` bills up to it and no further
+            //    (MonthlyBillingService skips a charge whose `end_date` precedes the period), so
+            //    the flag is about a row that is finished, not one that is going to be.
             Charge::where('lease_id', $lease->id)->update([
-                'is_active' => false,
+                'is_active' => $underNotice,
                 'end_date' => $terminationDate,
             ]);
 
