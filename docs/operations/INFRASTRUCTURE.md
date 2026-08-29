@@ -57,23 +57,83 @@ and session lookup to the managed DB. **Non-negotiable in this topology** (see [
 
 ## 2. Components, sizing & cost
 
-| Component | Spec | ~Monthly | Notes |
-|---|---|---|---|
-| Hetzner Cloud VPS (app) | 8 GB / 4 vCPU (CX32 or CPX31) | **~€9–14** | Nuremberg/Falkenstein — closest to DO FRA1. Full root. |
-| Aiven Managed MySQL 8.4 | free tier (staging) → paid node (prod) | **$0 → ~$15+** | Amsterdam, TLS required. Free = testing; paid adds HA + backups. DO FRA1 = drop-in prod alternative. |
-| Hetzner Object Storage | S3-compatible, ~1 TB incl. | **~€6** | App file storage via Laravel `s3` driver. |
-| Hetzner Storage Box (BX11) | 1 TB, SFTP/restic | **~€4** | Independent DB + media backups. |
-| Cloudflare | Free plan + Tunnel | **$0** | WAF/DDoS/TLS/tunnel all free. |
-| Domain | — | ~$10 / yr | Managed at Cloudflare (DNS + proxy). |
+§1 is the **finished** shape. It does not have to be bought at once, and on a first staging box most
+of it should not be: every managed component in it exists to protect data a posture-A staging box
+does not have yet ([STAGING.md §1](STAGING.md)). Three phases, each additive — nothing below is
+rebuilt at the next step, only moved off the box.
 
-**All-in ≈ $40–50/mo** for both environments. *Verify current pricing at signup — these drift.*
+*Prices verified August 2026 and they drift — Hetzner adjusted on 15 June 2026. Re-check at signup.*
 
-**Sizing rationale:** 8 GB is the comfortable floor for prod+staging sharing one box now that MySQL
-is off-box (buffer pool no longer competes for RAM). Start at CX32 (~€9); jump to CPX31 (AMD) if
-PHP-FPM saturates CPU during demos/exports.
+### Phase 1 — staging only (~€4/mo)
 
-**DB choice:** Aiven's free single-node tier hosts the staging/test DB at €0; promote to a paid Aiven
-plan (or DO Managed MySQL, FRA1) for production so you get a standby + PITR. See [§6](#6-managed-mysql-aiven-amsterdam).
+| Component | Spec | ~Monthly |
+|---|---|---|
+| Hetzner Cloud VPS | **CX22** — 2 vCPU / 4 GB / 40 GB, Falkenstein or Nuremberg | **€3.79** |
+| MySQL 8.4 | **on the box** | €0 |
+| Redis | on the box — not optional, see [§5](#5-redis--driver-overrides-required) | €0 |
+| Uploads + backup archives | the box's own disk | €0 |
+| Cloudflare | Free plan + Tunnel + Access on the staging hostname | €0 |
+| Domain | at Cloudflare | ~$10 / yr |
+| **All-in** | | **~€3.79/mo** |
+
+**4 GB needs 4 GB of swap, and that is a requirement rather than a tuning note.** `npm run build`
+compiles the app assets *and* the VitePress handbook, and that peak alongside MySQL, Redis and FPM
+is what OOM-kills a 4 GB box mid-deploy — leaving both panels serving unstyled HTML, which is the
+same symptom as a skipped build and is diagnosed as one. Set `innodb_buffer_pool_size` to ~512 MB
+while you are there; the default is small enough that MySQL will not fight the build, but the
+default is not what an unattended `apt` install always leaves you.
+
+### Phase 2 — production joins the same box (~€30–40/mo)
+
+The box becomes two environments per [§3](#3-one-box-two-environments-native-separation). Resize
+CX22 → **CX32** (4 vCPU / 8 GB, **€6.80**) — a reboot, no migration; RAM and CPU resize both ways,
+disk only grows. Then move off the box the three things whose loss is now unacceptable:
+
+| Add | ~Monthly | What it buys |
+|---|---|---|
+| Managed MySQL — Aiven paid node, or DO Managed MySQL FRA1 | **~$15–25** | A standby + PITR, and the two-user grant wall in [§3](#the-db-safety-wall-critical) that makes a misfired `migrate:fresh` unable to reach production |
+| Object storage, bucket per env | **~€6** | `FILESYSTEM_DISK=s3` — uploads survive the box |
+| Off-box backup target (Storage Box + restic) | **~€4** | `BACKUP_DISKS="backups,s3"`; a second failure domain |
+
+**Do not defer this past the day real data lands.** In phase 1 the database, the uploads and the
+archives are all on one disk, so anything that takes the box — hardware, or the account problems in
+[§2.1](#21-provider-risk-hetzner-specifically) — is total loss. That is correct for demo data and
+indefensible for a tenant's signed lease.
+
+### Phase 3 — split, when something actually pushes
+
+See [§11](#11-scaling--offload-path-designed-in-used-later). Nothing here is scheduled; each row is
+a response to a measured pressure, not a milestone.
+
+### 2.1 Provider risk (Hetzner specifically)
+
+The hardware and network are not the weak point — Hetzner has run its own data centres since 1997,
+and the price is 3–5× under DigitalOcean or Vultr for the same specs, which is why this box is
+worth the caveats. **The risk is commercial, and two of the three land specifically on an
+Egypt-based buyer.** Each has a cheap mitigation; take all three.
+
+| Risk | Mitigation |
+|---|---|
+| **Suspension on an unpaid invoice.** Reported to happen with little warning. An Egyptian company paying a German provider by card meets international declines, FX limits and bank blocks routinely — and the consequence here is a stopped box, not a dunning email | **Prepay the account and keep a balance.** Second card on file. Put a *monitored ops mailbox* on the account, never a personal address |
+| **Capacity restrictions.** Since June 2026 Hetzner has limited new cloud-server creation for new customers and, at random, some existing ones | **Provision now**, while it is only staging. Having the box in the account before production day is worth more than the €4 |
+| **Object Storage degradation** — a hel1 incident took ~31 days to fully mitigate in H1 2026 | Never let it hold the **only** off-box backup copy. Put that copy on the Storage Box (a different system) or another vendor — Backblaze B2, Cloudflare R2. This is [§7](#7-backups)'s own failure-domain rule, applied to the provider |
+
+**Contabo was evaluated and rejected — it is not cheaper.** Cloud VPS S (4 vCPU / 8 GB) is ~$11.31
+against CX32's €6.80 for the same CPU and RAM; its only advantage is disk size, which is not this
+system's constraint. What it costs is the thing this workload is most sensitive to: a Filament list
+page issues 130–400 queries ([§11](#11-scaling--offload-path-designed-in-used-later) measures it),
+and Contabo's documented high disk latency and inconsistent CPU do not make pages uniformly slower,
+they make them *randomly* slow — which is the complaint nobody can reproduce. It is a real company
+(Munich, 2003); it is the wrong fit here, and doubly so in phase 1 with MySQL on the same disk.
+
+**If a payment-related suspension is unacceptable to the operator**, the answer is DigitalOcean
+Frankfurt — roughly 3× the all-in cost, and it deletes the Aiven vendor entirely by putting managed
+MySQL in the same console. That is a defensible purchase, not a downgrade of this plan.
+
+**Not yet answered: data residency.** This system holds Egyptian tenants' tax cards, national IDs,
+signed leases and employee payroll, and Egypt's PDPL has cross-border transfer rules. Hosting in
+Germany may be fine or may need consent or licensing — that is a question for the operator's
+counsel, and it is far cheaper to ask before the box exists than after real data is on it.
 
 ---
 
@@ -231,6 +291,19 @@ Only DB-backed relational data now leaves the box. After changing drivers, re-ru
 
 ## 6. Managed MySQL (Aiven, Amsterdam)
 
+> **Phase 1 runs MySQL ON the box and this whole section waits.** A deliberate deviation from the
+> topology in §1, stated rather than implied: a posture-A staging box holds demo data, so the
+> standby and PITR a managed node exists to provide are protecting nothing. **What the deviation
+> costs** is that staging then never rehearses the real connection path — TLS-required, a
+> non-3306 port, `MYSQL_ATTR_SSL_CA`, and ~15 ms of network per query — which is exactly what the
+> cut-over rehearsal is for. So phase 2 moves **both** environments onto the managed service, not
+> production alone; a staging box on a different DB topology than production is a rehearsal of
+> something else. One thing gets *harder* at that moment and is easy to miss: `mysqldump` is on
+> the box for free today and is not there once MySQL leaves, so `apt install mysql-client` (or
+> `DB_DUMP_BINARY_PATH`) becomes a phase-2 step or `backup_capability` goes red and no backup is
+> ever taken. [STAGING-CUTOVER.md §1](STAGING-CUTOVER.md) records that this has failed on every
+> box so far.
+
 **Provisioned:** Aiven for **MySQL 8.4**, region *Europe – Netherlands (DigitalOcean: Amsterdam)*,
 single node. ~15 ms to Hetzner DE — a touch further than Frankfurt but well within tolerance.
 Endpoint is a host + non-standard port (e.g. `:18332`) with **TLS required** (`ssl-mode=REQUIRED`).
@@ -268,6 +341,14 @@ different failure domain, and they double as staging refresh data.
 ---
 
 ## 7. Backups
+
+> **Phase 1 is `BACKUP_DISKS=backups` — local only — and that is acceptable for exactly one
+> reason: posture A holds demo data.** A copy on the same disk as the database is not a backup, it
+> is a second file that dies with the box. The moment real data lands, the off-box copy below is
+> not a hardening step, it is the difference between an incident and a closure. Put that copy on a
+> **different vendor or a different system** from the app's object storage — [§2.1](#21-provider-risk-hetzner-specifically)
+> records a month-long Object Storage degradation, and a backup sharing a failure domain with the
+> thing it backs up is the same mistake as keeping it on the same disk.
 
 Two layers. The **in-app layer now exists in code**; the off-box layer below is still an
 operator task.
@@ -329,8 +410,17 @@ rather than running a second `mysqldump` with its own credentials.
 
 ## 8. App file storage (Hetzner Object Storage, S3)
 
-S3-compatible → Laravel's built-in `s3` driver. Add the SDK once:
-`composer require league/flysystem-aws-s3-v3`. Separate bucket per env.
+> **Phase 2. Phase 1 keeps files on the box** (`FILESYSTEM_DISK=local`), which needs no bucket and
+> no credentials — every private collection already declares `useDisk('local')`, so uploads, signed
+> leases and tenant documents work unchanged.
+
+S3-compatible → Laravel's built-in `s3` driver. **The SDK is NOT installed** — verified against
+`vendor/` on 2026-08-29, and it has been a documented-but-unperformed step for as long as this
+section has existed. `composer require league/flysystem-aws-s3-v3` **first**: without it a write to
+the `s3` disk throws rather than falling back to local, which means it also blocks
+`BACKUP_DISKS="backups,s3"` — [STATUS §1.1](../STATUS.md) calls that the highest-consequence
+go-live row. Separate bucket per env. `AWS_ENDPOINT` is what makes a non-Amazon provider work; unset,
+the SDK builds an `amazonaws.com` hostname and valid credentials fail as though they were wrong.
 
 ```
 FILESYSTEM_DISK=s3
@@ -358,10 +448,18 @@ AWS_USE_PATH_STYLE_ENDPOINT=true
 
 ---
 
-## 10. Provisioning order (first build)
+## 10. Provisioning order
 
-1. Create Hetzner VPS (Ubuntu 24.04, Germany), add SSH key, create sudo user, apply [§9](#9-server-hardening).
-2. `apt` base + `ondrej/php` PPA → PHP 8.4 (+ `-fpm -mysql -redis -mbstring -xml -curl -zip -gd -bcmath -intl -exif`), nginx, redis-server, composer, restic, cloudflared.
+Two tracks, matching [§2](#2-components-sizing--cost). **Phase 1 is the whole of a first staging
+box** — steps 4, 5 and 11 below do not exist yet, which is most of the cost and most of the
+credentials.
+
+### Phase 1 — the staging box
+
+1. Create Hetzner **CX22** (Ubuntu 24.04, Falkenstein/Nuremberg), add SSH key, create sudo user,
+   apply [§9](#9-server-hardening). **Add 4 GB of swap** — see [§2](#2-components-sizing--cost);
+   without it `npm run build` OOMs mid-deploy and the panels serve unstyled HTML.
+2. `apt` base + `ondrej/php` PPA → PHP 8.4 (+ `-fpm -mysql -redis -mbstring -xml -curl -zip -gd -bcmath -intl -exif`), nginx, redis-server, **mysql-server**, composer, cloudflared.
    **Install them for FPM as well as CLI, and prove it over HTTP.** `composer install` runs under
    `php-cli`; the money columns render under `php-fpm`. A box with `intl` in one and not the other
    installs cleanly, schedules cleanly, passes `atriom:health` from the console — and throws on
@@ -369,16 +467,42 @@ AWS_USE_PATH_STYLE_ENDPOINT=true
    extensions and what each costs; `/health` reports the ones missing from the SAPI that answered
    the request, which is the only reading that settles it. `composer check-platform-reqs` is the
    cheap CLI half.
-3. Create system users `atriom-prod` / `atriom-staging` + `/var/www/atriom-{prod,staging}`.
-4. Provision Aiven Managed MySQL (Amsterdam) → two DBs + two users ([§6](#6-managed-mysql-aiven-amsterdam)); allowlist the VPS IP. Download the CA cert — TLS is mandatory.
-5. Create Hetzner Object Storage buckets + Storage Box; drop restic credentials.
-6. Per env: clone repo → `composer install --no-dev --optimize-autoloader` → write `.env`
-   ([§5](#5-redis--driver-overrides-required)/[§6](#6-managed-mysql-aiven-amsterdam)/[§8](#8-app-file-storage-hetzner-object-storage-s3)) → `key:generate` →
-   `migrate --force` (prod) / `migrate:fresh --seed` (staging) → `config/route/view:cache`.
-7. FPM pools ([§3](#php-fpm-pool-prod-staging--smaller-caps-so-it-cant-starve-prod)) + nginx vhosts + worker units + per-env cron; enable + start.
-8. `cloudflared` tunnel + DNS + config ([§4](#4-cloudflare-tunnel-the-only-public-entry)); enable service.
-9. Cloudflare: WAF, rate-limits, Access on staging.
-10. Backup cron ([§7](#7-backups)) + run the runbook's **pre-flight gates** ([PRODUCTION-RUNBOOK.md §7](PRODUCTION-RUNBOOK.md)).
+3. Create system user `atriom-staging` + `/var/www/atriom-staging`. Create the local
+   `atriom_staging` DB + `stg_u` user — the grant discipline in
+   [§3](#the-db-safety-wall-critical) starts now, not when prod arrives, because it is the thing
+   that stops a `migrate:fresh` reaching the wrong database later.
+4. Set `innodb_buffer_pool_size` ≈ 512 MB so MySQL does not compete with the asset build.
+5. Clone → `composer install --no-dev --optimize-autoloader` → write `.env` from
+   [STAGING.md §2](STAGING.md) (Redis drivers per [§5](#5-redis--driver-overrides-required) —
+   **still mandatory**: health fails a deployed box on the `database` *or* `sync` driver) →
+   `key:generate` → `migrate:fresh --seed` → `npm ci && npm run build` → `config/route/view:cache`.
+6. FPM pool + nginx vhost on `127.0.0.1:8081` + worker unit + cron
+   ([§3](#3-one-box-two-environments-native-separation)); enable + start. **The cron and the worker
+   are the step that gets silently forgotten** — around thirty behaviours are inert without them and
+   none fails loudly ([STAGING-CUTOVER.md §3](STAGING-CUTOVER.md)).
+7. `cloudflared` tunnel + DNS + config ([§4](#4-cloudflare-tunnel-the-only-public-entry)); enable
+   service. This is also what makes the default `TRUSTED_PROXIES=*` safe — nginx binds loopback and
+   no inbound port is open, so nothing can reach the app directly to forge `X-Forwarded-For`. It
+   closes [STATUS §1.6](../STATUS.md) by topology rather than by configuration.
+8. Cloudflare: WAF, rate-limits, **Access on the staging hostname**.
+9. `php artisan backup:run` then `atriom:backup-verify`, and `atriom:preflight`. Read the expected-red
+   rows in [STAGING.md §5](STAGING.md) before treating anything as a blocker.
+
+### Phase 2 — production joins the box
+
+10. Resize CX22 → CX32 (reboot). Add system user `atriom-prod`, its FPM pool (12 kids; drop staging
+    to 4 so it cannot starve prod), its vhost on `:8080`, worker, cron, and the second tunnel ingress.
+11. Provision managed MySQL → two DBs + two users ([§6](#6-managed-mysql-aiven-amsterdam)); allowlist
+    the VPS IP; download the CA cert — TLS is mandatory. **Install `mysql-client`** now that
+    `mysqldump` is no longer on the box.
+12. `composer require league/flysystem-aws-s3-v3`, create the object-storage buckets + Storage Box,
+    set `FILESYSTEM_DISK=s3` and `BACKUP_DISKS="backups,s3"` ([§8](#8-app-file-storage-hetzner-object-storage-s3)).
+13. Give each env its own Redis keyspace (`REDIS_PREFIX`/`REDIS_DB`/`REDIS_CACHE_DB`). Sharing one is
+    not merely untidy: the two environments then share `Cache::lock()` names, so staging's billing run
+    can hold the lock that stops production double-billing, and neither box shows an error.
+14. Work [STATUS §1](../STATUS.md) — backup password, alert email, Sentry DSN, `HEALTH_TOKEN`, 2FA
+    roles, demo-account rotation — then the runbook's **pre-flight gates**
+    ([PRODUCTION-RUNBOOK.md §7](PRODUCTION-RUNBOOK.md)).
 
 **Each release** thereafter is **`./deploy.sh`** at the repo root, which is
 [PRODUCTION-RUNBOOK.md §2](PRODUCTION-RUNBOOK.md) in one command: `git pull` →
@@ -398,16 +522,23 @@ nothing here has to be rebuilt:
 
 | Pressure | Move |
 |---|---|
-| DB engine load (already off-box) | Resize the managed node up; move off the free tier to get a standby/read-replica for HA. |
+| Real data arrives on the box | **Phase 2** — [§2](#2-components-sizing--cost). Not optional and not a growth step: it is what makes the loss of one machine survivable. |
+| DB engine load (once off-box) | Resize the managed node up; move off the free tier to get a standby/read-replica for HA. |
 | App box CPU/RAM contention | Resize the Hetzner VPS (vertical); it reboots in minutes. |
 | Staging noise affecting prod | Split **staging** to its own cheap Hetzner VPS — copy `/var/www/atriom-staging` + its `.env`, add a tunnel ingress rule, done. Same-provider, no data migration. |
 | Prod needs isolation/HA | Move prod to its own box the same way; keep DB shared or split. |
 | Want reproducible infra | Lift each env into a Docker Compose stack (the native layout maps 1:1 to services); the compose file becomes the new "copy to a bigger box" unit. |
 
 **Maintainability notes:** keep the two environments byte-identical except `.env`; patch the OS via
-`unattended-upgrades`; treat `deploy.sh` + this doc as the source of truth. Because MySQL is already
-managed and files are already in object storage, the app box stays **stateless** — you can rebuild it
-from these steps and lose nothing.
+`unattended-upgrades`; treat `deploy.sh` + this doc as the source of truth.
+
+**The statelessness is a phase-2 property, not a standing one.** Once MySQL is managed and files are
+in object storage, the app box holds nothing that is not in git — so it can be rebuilt from these
+steps, or re-provisioned at another provider, and nothing is lost. That is what makes the provider
+risk in [§2.1](#21-provider-risk-hetzner-specifically) survivable, and it is what turns leaving
+Hetzner into a re-provision rather than a migration. **In phase 1 none of it is true**: the database,
+the uploads and the archives are all on one disk. Correct for demo data; the reason phase 2 is
+gated on real data rather than on load.
 
 ---
 

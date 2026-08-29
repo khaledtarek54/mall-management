@@ -58,6 +58,13 @@ APP_ENV=staging                  # NOT production — see §3 for what this swit
 APP_DEBUG=false                  # still false: staging is reachable, and stack traces name paths
 APP_URL=https://staging.<domain>
 
+DB_CONNECTION=mysql              # PHASE 1: MySQL is ON THIS BOX (INFRASTRUCTURE.md §2/§6)
+DB_HOST=127.0.0.1                # phase 2 replaces these four with the managed endpoint,
+DB_PORT=3306                     # a non-3306 port and MYSQL_ATTR_SSL_CA — TLS is mandatory there
+DB_DATABASE=atriom_staging
+DB_USERNAME=stg_u                # ZERO grant on the production DB — INFRASTRUCTURE.md §3
+DB_PASSWORD=…
+
 MAIL_MAILER=log                  # or mailersend + MAIL_ALWAYS_TO — see below
 MAIL_ALWAYS_TO=ops@…             # redirects EVERY outgoing mail; ignored on production by design
 
@@ -74,6 +81,11 @@ QUEUE_CONNECTION=redis
 
 BACKUP_DISKS=backups             # staging is disposable on posture A; on posture B, treat as prod
 ```
+
+**On phase 1, `BACKUP_DISKS=backups` is the whole backup and the database is on the same disk as
+the archive.** That is defensible on posture A and on nothing else — see
+[INFRASTRUCTURE.md §7](INFRASTRUCTURE.md). It is also why `mysqldump` resolves for free here and
+becomes a real deploy step the day MySQL moves off-box.
 
 **Mail is the one with teeth.** Demo data is full of `@*.test` addresses. Pointed at a live
 provider they hard-bounce, burn the sending quota and cost the domain reputation. `MAIL_ALWAYS_TO`
