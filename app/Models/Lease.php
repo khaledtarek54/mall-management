@@ -801,6 +801,60 @@ class Lease extends Model implements BillableAgreement, HasMedia
     }
 
     /**
+     * The part of a BILLED security deposit the tenant has been asked for and not yet paid.
+     *
+     * The sibling question to {@see settledDepositBillings()}, and the one nothing answered.
+     * `depositShortfall()` is `agreed − held`, which is the right answer to *"are we short?"* — an
+     * unpaid deposit invoice is a receivable, not money in the bank — and the WRONG answer to
+     * *"should we ask again?"*, which is what the billing action gates on.
+     *
+     * Measured on the demo books: lease #3 carried an open 164,999.91 deposit invoice, the modal
+     * reported "held 0.00 of 164,999.91", and billing again produced a SECOND invoice for the same
+     * deposit. The tenant then owes 329,999.82 of security and the GL credits `deposits_held`
+     * twice — precisely the outcome `BillSecurityDepositService` says it exists to prevent
+     * (*"no second billing path"*), one step earlier in the flow than the guard it wrote.
+     *
+     * Same filter and same two paths as its twin, so an eager-loaded page and a re-read instance
+     * cannot answer differently.
+     */
+    public function depositBilledOutstanding(): float
+    {
+        $invoices = $this->relationLoaded('depositBillings')
+            ? $this->depositBillings
+            : Invoice::query()
+                ->where('lease_id', $this->id)
+                ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+                ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
+                ->with('items')
+                ->get();
+
+        $outstanding = 0.0;
+
+        foreach ($invoices as $invoice) {
+            // `outstanding` is the presenter's OWN figure, derived from `paid_amount` like every
+            // other per-line number — never re-derived here, which would be a second answer to a
+            // question one class already owns.
+            $outstanding += (float) InvoiceItemSettlement::for($invoice)
+                ->where('type', 'security_deposit')
+                ->sum('outstanding');
+        }
+
+        return round(max($outstanding, 0), 2);
+    }
+
+    /**
+     * What still has to be ASKED for — the shortfall less what is already on an open invoice.
+     *
+     * Two questions, two methods, deliberately: the leases list shows `depositShortfall()` because
+     * a deposit that has been billed and not paid is still a deposit we do not hold, and the
+     * billing action reads this one because raising a second invoice for it is a double ask.
+     */
+    public function depositUnbilledShortfall(): float
+    {
+        return round(max($this->depositShortfall() - $this->depositBilledOutstanding(), 0), 2);
+    }
+
+    /**
      * Agreed, less held — never negative.
      *
      * This is the number that was missing everywhere: a lease says 180,000, the bank has 150,000,

@@ -48,12 +48,25 @@ class BillSecurityDepositService
             // the same outstanding figure and each raise an invoice for it.
             $locked = Lease::query()->lockForUpdate()->findOrFail($lease->getKey());
 
-            $outstanding = $locked->depositShortfall();
+            // What is still UNASKED, not what is unheld. `depositShortfall()` is `agreed − held`,
+            // and an unpaid deposit invoice is a receivable rather than money in the bank — so it
+            // stays in the shortfall, correctly, and asking again for the same money is a SECOND
+            // ask. Measured on lease #3: an open 164,999.91 deposit invoice, and this method
+            // happily raised another one for the same amount, which is the "landlord ends up
+            // holding twice the deposit" outcome the docblock above says this service prevents.
+            $outstanding = $locked->depositUnbilledShortfall();
 
             if ($outstanding <= 0) {
-                throw new DomainException(__('admin.deposits.nothing_outstanding', [
-                    'held' => number_format($locked->depositHeld(), 2),
-                ]));
+                $billed = $locked->depositBilledOutstanding();
+
+                throw new DomainException($billed > 0
+                    ? __('admin.deposits.already_billed', [
+                        'billed' => number_format($billed, 2),
+                        'held' => number_format($locked->depositHeld(), 2),
+                    ])
+                    : __('admin.deposits.nothing_outstanding', [
+                        'held' => number_format($locked->depositHeld(), 2),
+                    ]));
             }
 
             $amount = round((float) ($data['amount'] ?? $outstanding), 2);

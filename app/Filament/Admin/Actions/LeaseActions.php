@@ -274,7 +274,9 @@ class LeaseActions
                 ->label(__('admin.deposits.bill'))
                 ->icon('heroicon-o-shield-check')
                 ->color('primary')
-                ->visible(fn (Lease $record) => $record->depositShortfall() > 0
+                // UNBILLED shortfall, not the shortfall: an action offered for money already on
+                // an open invoice is an invitation to bill the same deposit twice.
+                ->visible(fn (Lease $record) => $record->depositUnbilledShortfall() > 0
                     && in_array($record->status, ['active', 'pending_approval'], true)
                     && LeaseResource::canEdit($record))
                 ->authorize(fn () => auth()->user()?->can('invoices.create') ?? false)
@@ -283,17 +285,28 @@ class LeaseActions
                 ->schema([
                     Placeholder::make('outstanding')
                         ->label(__('admin.deposits.outstanding'))
-                        ->content(fn (Lease $record) => 'EGP '.number_format($record->depositShortfall(), 2)
-                            .' — '.__('admin.tables.lease.deposit_held_of', [
-                                'held' => number_format($record->depositHeld(), 2),
-                                'agreed' => number_format((float) $record->security_deposit, 2),
-                            ])),
+                        ->content(function (Lease $record): string {
+                            $line = 'EGP '.number_format($record->depositUnbilledShortfall(), 2)
+                                .' — '.__('admin.tables.lease.deposit_held_of', [
+                                    'held' => number_format($record->depositHeld(), 2),
+                                    'agreed' => number_format((float) $record->security_deposit, 2),
+                                ]);
+
+                            // "held 0.00 of 164,999.91" is true and misleading on its own when the
+                            // whole deposit is already sitting on an open invoice — it reads as
+                            // "nobody has asked for this yet".
+                            $billed = $record->depositBilledOutstanding();
+
+                            return $billed > 0
+                                ? $line.' · '.__('admin.deposits.already_billed_note', ['billed' => number_format($billed, 2)])
+                                : $line;
+                        }),
                     TextInput::make('amount')
                         ->label(__('admin.fields.amount'))
                         ->prefix('EGP')
                         ->numeric()
                         ->required()
-                        ->default(fn (Lease $record) => $record->depositShortfall())
+                        ->default(fn (Lease $record) => $record->depositUnbilledShortfall())
                         ->helperText(__('admin.deposits.amount_helper')),
                     DatePicker::make('issue_date')
                         ->label(__('admin.fields.issue_date'))

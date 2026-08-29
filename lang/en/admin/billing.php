@@ -180,6 +180,8 @@ return [
         'billed' => 'Deposit invoice raised',
         'billed_body' => ':number for :amount. It is now on the tenant\'s statement.',
         'nothing_outstanding' => 'This lease\'s deposit is fully held (:held). There is nothing to bill.',
+        'already_billed' => 'The deposit on this lease is already billed — :billed is outstanding on an open invoice, and :held is held. Chase that invoice rather than raising a second one.',
+        'already_billed_note' => 'already billed: :billed on an open invoice',
         'exceeds_outstanding' => 'That is more than the deposit still outstanding (max EGP :max). Billing more would leave the landlord holding — and owing back — more than the lease agreed.',
         'errors' => [
             'receipt_in_use' => 'This deposit has already been drawn on — netted against an invoice, refunded or forfeited — so the receipt behind it is fixed. Changing it would leave the tenant credited with money no longer recorded as received. Record a further receipt, refund or forfeit instead.',
