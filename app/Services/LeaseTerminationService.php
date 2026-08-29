@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\LeaseEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -39,6 +40,10 @@ class LeaseTerminationService
 
         return DB::transaction(function () use ($lease, $terminationDate, $reason, $cancelOpenInvoices, $creditUnearned) {
             // 1. Lease itself
+            $contractedExpiry = $lease->expiry_date
+                ? CarbonImmutable::parse($lease->expiry_date)->toDateString()
+                : null;
+
             $existingNotes = $lease->notes ? rtrim($lease->notes)."\n\n" : '';
             $stamp = $terminationDate->format('Y-m-d');
             $reasonLine = $reason !== '' ? "Terminated on {$stamp}: {$reason}" : "Terminated on {$stamp}.";
@@ -85,6 +90,8 @@ class LeaseTerminationService
             // that state is unreachable and deliberately has no test — a test over an impossible
             // input is green over dead code. The guard stays because the rule it expresses is the
             // safe one: never wipe a receivable that cannot be proven unearned.
+            $cancelledNumbers = [];
+
             if ($cancelOpenInvoices) {
                 Invoice::where('lease_id', $lease->id)
                     ->whereIn('status', ['draft', 'issued', 'partially_paid', 'overdue'])
@@ -97,11 +104,13 @@ class LeaseTerminationService
                     // EditInvoice, InvoicesTable) refuses it; the operator must handle a
                     // reported invoice through the proper ETA flow. Nulls stay cancellable.
                     ->where(fn ($q) => $q->whereNull('eta_status')->orWhere('eta_status', '!=', 'valid'))
-                    ->each(function (Invoice $invoice) {
+                    ->each(function (Invoice $invoice) use (&$cancelledNumbers) {
                         $invoice->update([
                             'status' => 'cancelled',
                             'balance' => 0,
                         ]);
+
+                        $cancelledNumbers[] = $invoice->number;
                     });
             }
 
@@ -122,6 +131,45 @@ class LeaseTerminationService
             if ($creditUnearned) {
                 $credits = app(CreditUnearnedBillingService::class)->forTermination($lease->fresh(), $terminationDate);
             }
+
+            // ── THE LEASE'S OWN HISTORY MUST RECORD THAT IT ENDED ───────────────────────────────
+            //
+            // `lease_events` has carried a `termination` type since it shipped, and only two
+            // services ever wrote one: `ExerciseLeaseOptionService` (a break option) and
+            // `SettleMoveOutService` (the final account). The ordinary Terminate button wrote
+            // none — so a lease that ended and was never settled, which is every lease with no
+            // deposit to return, has an append-only history showing its extensions and its
+            // abatements and nothing at all about the day it ended.
+            //
+            // Measured on demo lease #3 after terminating it: the history read
+            // `rent_modification · abatement · extension` and stopped. The activity trail says
+            // only "lease updated".
+            //
+            // The final account still records its OWN event and must — they are two acts, not
+            // one. This says the tenancy ended on a date; that one says the account was struck
+            // and freezes the figures. `SettleMoveOutService`'s payload carries `settlement: true`
+            // and this one does not, which is how a reader tells them apart.
+            //
+            // The payload is what a later reader cannot reconstruct: which documents were
+            // withdrawn because they covered a period nobody occupied, and what was credited back
+            // on the one that straddled the date. The invoices themselves are `cancelled` and the
+            // credit notes exist, but nothing else says they happened BECAUSE of this termination.
+            app(RecordLeaseEventService::class)->record(
+                $lease,
+                LeaseEvent::TYPE_TERMINATION,
+                $terminationDate,
+                $reason !== '' ? $reason : __('admin.lease_events.termination_default_reason'),
+                [
+                    'cancelled_invoices' => $cancelledNumbers,
+                    'credit_notes' => collect($credits)->pluck('number')->all(),
+                    'credited_total' => round((float) collect($credits)->sum('total'), 2),
+                    // The contracted end, captured BEFORE step 1 overwrote `expiry_date` with the
+                    // termination date. It is still derivable from `commencement_date + term_months`,
+                    // but a reader of the history should not have to reconstruct it.
+                    'contracted_expiry' => $contractedExpiry,
+                ],
+                $data['document_reference'] ?? null,
+            );
 
             $fresh = $lease->fresh();
             // Surfaced on the model rather than returned, so the existing `terminate(): Lease`

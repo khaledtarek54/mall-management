@@ -48,6 +48,7 @@ return [
         'no_options' => 'No options recorded',
     ],
     'lease_events' => [
+        'termination_default_reason' => 'Lease terminated',
         'title' => 'Lease history',
         'empty' => 'No commercial changes recorded yet.',
         'empty_hint' => 'A rent change, a relief, an expansion or a holdover conversion each add a line here.',
