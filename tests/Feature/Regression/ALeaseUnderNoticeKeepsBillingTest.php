@@ -143,3 +143,50 @@ it('still expires a lease whose term merely ran out', function (): void {
 
     expect($lease->fresh()->status)->toBe('expired');
 });
+
+it('leaves an already-closed rung of the rent ladder closed', function (): void {
+    $lease = leaseBillingMonthly();
+
+    // The state every escalating lease is in: a closed rung and the one that succeeded it.
+    $closed = $lease->charges()->where('type', 'base_rent')->first();
+    $closed->update(['end_date' => CarbonImmutable::today()->subMonths(2)->endOfMonth()]);
+
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
+        'amount' => 44_000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'start_date' => CarbonImmutable::today()->subMonth()->startOfMonth(), 'is_active' => true,
+    ]);
+
+    $leaving = CarbonImmutable::today()->addMonths(3)->endOfMonth();
+
+    app(LeaseTerminationService::class)->terminate($lease, [
+        'termination_date' => $leaving,
+        'reason' => 'notice given',
+    ]);
+
+    // A blanket `update()` writes the termination date over EVERY row, which is invisible while
+    // they are all being deactivated in the same statement — and the moment they stay live it
+    // RE-OPENS the closed rung, so two rows cover the same month and the billing run throws.
+    expect($closed->fresh()->end_date->toDateString())
+        ->toBe(CarbonImmutable::today()->subMonths(2)->endOfMonth()->toDateString());
+
+    // The claim is the billing, not the column.
+    $period = CarbonImmutable::today()->addMonth()->startOfMonth();
+    $result = app(MonthlyBillingService::class)->generateForLease($lease->fresh(), $period);
+
+    expect($result['invoice'])->not->toBeNull()
+        ->and(round((float) $result['invoice']->subtotal, 2))->toBe(44_000.0);
+});
+
+it('deactivates the whole schedule once the tenancy is actually over', function (): void {
+    $lease = leaseBillingMonthly();
+    $lease->charges()->first()->update(['end_date' => CarbonImmutable::today()->subMonths(2)->endOfMonth()]);
+
+    app(LeaseTerminationService::class)->terminate($lease, [
+        'termination_date' => CarbonImmutable::today(),
+        'reason' => 'left today',
+    ]);
+
+    // Closed rungs included: once the tenancy is over nothing on it is live.
+    expect($lease->fresh()->charges()->where('is_active', true)->count())->toBe(0);
+});

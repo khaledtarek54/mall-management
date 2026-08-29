@@ -82,10 +82,26 @@ class LeaseTerminationService
             //    that date has passed: a live row with an `end_date` bills up to it and no further
             //    (MonthlyBillingService skips a charge whose `end_date` precedes the period), so
             //    the flag is about a row that is finished, not one that is going to be.
-            Charge::where('lease_id', $lease->id)->update([
-                'is_active' => $underNotice,
-                'end_date' => $terminationDate,
-            ]);
+            //
+            //    A ROW THAT ALREADY CLOSED IS LEFT ALONE. The blanket `update()` here wrote the
+            //    termination date over EVERY row, which was invisible while they were all being
+            //    deactivated in the same statement — and the moment they stay live it re-opens the
+            //    closed rungs of a rent ladder. Measured on demo lease #6: `base_rent 50,000`
+            //    closed on 31/07/2026 had its end date pushed to 30/11/2026, overlapping the
+            //    51,500 row that succeeded it, and the billing run threw for every month after.
+            //
+            //    So only rows that would otherwise run PAST the termination are closed at it. This
+            //    is the same rule `ChargeScheduleService` keeps — one row per type covers any
+            //    period — and the reason `atriom:audit-charge-schedules` exists.
+            Charge::where('lease_id', $lease->id)
+                ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>', $terminationDate->toDateString()))
+                ->update(['end_date' => $terminationDate]);
+
+            // Deactivation is the other half and applies to the WHOLE schedule: once the tenancy is
+            // over, nothing on it is live any more, closed rungs included.
+            if (! $underNotice) {
+                Charge::where('lease_id', $lease->id)->update(['is_active' => false]);
+            }
 
             // 4. Cancel open invoices if requested — but only fully unpaid
             // ones. A partially-paid invoice that we silently cancelled would
