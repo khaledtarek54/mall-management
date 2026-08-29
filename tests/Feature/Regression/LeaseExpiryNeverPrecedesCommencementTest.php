@@ -2,6 +2,7 @@
 
 use App\Models\Charge;
 use App\Services\LeaseTerminationService;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 
 /**
@@ -68,8 +69,17 @@ it('allows an ordinary early termination', function () {
         'reason' => 'break option exercised',
     ]);
 
-    expect($terminated->status)->toBe('terminated')
-        ->and($terminated->expiry_date->toDateString())->toBe('2027-06-30');
+    // `expiry_date` is the assertion that holds under both models — it moves to the leaving date
+    // whether that date has passed or not, and it is what this control is really about: that
+    // terminate() accepts an ordinary date rather than refusing everything.
+    //
+    // The STATUS depends on which of the two this is. A date in the future is NOTICE: the lease
+    // stays active and keeps billing until the tenant actually goes, and `leases:expire` closes it
+    // on the day. A date today or past ends it immediately.
+    expect($terminated->expiry_date->toDateString())->toBe('2027-06-30')
+        ->and($terminated->status)->toBe(
+            CarbonImmutable::parse('2027-06-30')->isAfter(CarbonImmutable::today()) ? 'active' : 'terminated'
+        );
 });
 
 it('refuses a direct model write that inverts the dates (API / import / console)', function () {

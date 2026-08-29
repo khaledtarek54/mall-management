@@ -77,7 +77,11 @@ it('adds an additional unit through the edit form and occupies it', function () 
 
     $master = makeUnit($asset, ['code' => 'A-01', 'status' => 'vacant']);
     $extra = makeUnit($asset, ['code' => 'A-02', 'status' => 'vacant']);
-    $lease = makeLease($master, null, ['status' => 'active']);
+    // DRAFT: the edit form owns the premises only before the lease is live. On a running lease the
+    // same edit is refused and pointed at "Change premises", which takes the effective date the
+    // re-rating needs — `syncUnits()` attaches units and nothing else, so on a rate-priced lease
+    // the form would leave the rent behind.
+    $lease = makeLease($master, null, ['status' => 'draft']);
 
     Livewire::test(EditLease::class, ['record' => $lease->getRouteKey()])
         ->assertFormSet(['additional_unit_ids' => []])      // none yet (prefill)
@@ -85,8 +89,9 @@ it('adds an additional unit through the edit form and occupies it', function () 
         ->call('save')
         ->assertHasNoFormErrors();
 
+    // `reserved`, not `occupied` — a draft lease holds a unit off the market without it trading.
     expect($lease->units()->pluck('units.id')->all())->toContain($extra->id)
-        ->and($extra->fresh()->status)->toBe('occupied');   // additional unit now occupied
+        ->and($extra->fresh()->status)->toBe('reserved');
 });
 
 it('lists additional units in the leases table', function () {
