@@ -124,9 +124,14 @@ it('never edits a row in place — every write goes through the schedule service
     // prevent: overwriting a row instead of closing it and opening the next.
     //
     // The screen was action-less until 2026-08-11, when adding and ending a charge landed on it
-    // (nothing else could put an accountant's own charge code on a lease). So the assertion is no
-    // longer "no actions" — it is that the only actions present are the two that route through the
-    // service, and that nothing edits or deletes a row.
+    // (nothing else could put an accountant's own charge code on a lease), and `changeRent` and
+    // `grantRelief` joined them on 2026-08-29 — they were reachable only from the page header, so
+    // an operator looking at the schedule they wanted to change had to leave it to change it.
+    //
+    // So the assertion is not "no actions" and not a count. It is that every action present routes
+    // through a SERVICE that closes a row and opens the next — `ChargeScheduleService::setAmount()`
+    // for all four — and that nothing on a ROW edits or deletes it in place. An editable amount
+    // here would reintroduce exactly the drift that service exists to prevent.
     CarbonImmutable::setTestNow('2026-06-10');
     $lease = ladderLease();
 
@@ -140,7 +145,9 @@ it('never edits a row in place — every write goes through the schedule service
         ->map(fn ($a) => $a->getName())
         ->all();
 
-    expect($names($table->getHeaderActions()))->toBe(['addCharge'])
+    expect($names($table->getHeaderActions()))->toBe(['changeRent', 'grantRelief', 'addCharge'])
+        // The half that carries the invariant: one row action, and it ENDS a row rather than
+        // rewriting it. An `edit` or `delete` appearing here is the regression.
         ->and($names($table->getActions()))->toBe(['endCharge']);
 });
 

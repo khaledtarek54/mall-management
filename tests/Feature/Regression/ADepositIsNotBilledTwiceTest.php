@@ -25,7 +25,13 @@ use App\Services\BillSecurityDepositService;
  * control tests keep it that way: settling the invoice raises `depositHeld()` and closes the
  * shortfall, so the two together say the deposit is asked for exactly once.
  */
-function depositLease(float $deposit): Lease
+/**
+ * A lease whose deposit has been agreed and NOT yet received — deliberately not the existing
+ * `depositLease()` in DepositAppliedToArTest, which records the receipt as part of its setup and
+ * therefore cannot express the case this file is about. A distinct name, because two test files
+ * declaring one file-scope helper is a FATAL redeclaration that `--parallel` hides.
+ */
+function leaseAwaitingItsDeposit(float $deposit): Lease
 {
     $lease = Lease::factory()->create([
         'status' => 'active',
@@ -51,7 +57,7 @@ function depositLease(float $deposit): Lease
 }
 
 it('bills a deposit that has never been asked for', function (): void {
-    $lease = depositLease(150_000);
+    $lease = leaseAwaitingItsDeposit(150_000);
 
     expect($lease->depositUnbilledShortfall())->toBe(150_000.0);
 
@@ -61,7 +67,7 @@ it('bills a deposit that has never been asked for', function (): void {
 });
 
 it('refuses a second invoice while the first is still open', function (): void {
-    $lease = depositLease(150_000);
+    $lease = leaseAwaitingItsDeposit(150_000);
     app(BillSecurityDepositService::class)->bill($lease);
 
     $lease = $lease->fresh();
@@ -76,7 +82,7 @@ it('refuses a second invoice while the first is still open', function (): void {
 });
 
 it('bills only the part that was never asked for', function (): void {
-    $lease = depositLease(150_000);
+    $lease = leaseAwaitingItsDeposit(150_000);
     app(BillSecurityDepositService::class)->bill($lease, ['amount' => 60_000]);
 
     $lease = $lease->fresh();
@@ -89,7 +95,7 @@ it('bills only the part that was never asked for', function (): void {
 });
 
 it('lets a CANCELLED deposit invoice be re-billed', function (): void {
-    $lease = depositLease(150_000);
+    $lease = leaseAwaitingItsDeposit(150_000);
     $invoice = app(BillSecurityDepositService::class)->bill($lease);
 
     // A cancelled invoice claims nothing — the same rule `settledDepositBillings()` applies, so a
