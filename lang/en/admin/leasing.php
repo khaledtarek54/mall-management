@@ -307,6 +307,8 @@ return [
         'empty_description' => 'This report needs leases with percentage rent, because those are the ones that declare sales.',
     ],
     'move_out' => [
+        'nothing_to_settle' => 'There is no deposit held on this lease, and no deduction to make — there is nothing to settle.',
+        'deductions_exceed_deposit' => 'The deductions (:deducted) exceed the deposit still held (:held) — the arrears have already consumed it. Bill the excess instead; it is still owed, it just cannot come out of the deposit.',
         'title' => 'Final account',
         'heading' => 'Final account — :ref',
         'description' => 'Everything owed in both directions on the day the tenancy ended. Settling disposes of the deposit and freezes this statement on the lease history.',

@@ -78,6 +78,26 @@ class SettleMoveOutService
         // reasonably concluded that nothing had happened. A final account is one act; it commits
         // whole or not at all.
         return DB::transaction(function () use ($lease, $deductions, $settlementDate, $data) {
+            // ── "IS THERE ANYTHING TO SETTLE" IS ASKED BEFORE THE ARREARS, NOT AFTER ────────────
+            //
+            // This check used to live below, against the deposit as it stood AFTER the arrears had
+            // consumed it — so it could not tell "this lease never held a deposit" from "the
+            // deposit went where it was supposed to go". A tenant who leaves owing MORE than their
+            // deposit, which is the ordinary outcome of a bad exit and the case the whole feature
+            // exists for, ends with `held = 0` and was refused, rolling back the settlement that
+            // had just been carried out correctly.
+            //
+            // Measured on demo lease #3: 176,443.55 of arrears against 164,999.91 held. The
+            // service applied the deposit across five invoices, left 11,443.64 of residual debt,
+            // and then threw "There is no deposit held on this lease to settle" — so that lease
+            // could never be closed at all.
+            $heldAtEntry = round((float) $lease->depositHeld(), 2);
+            $deducted = round((float) $deductions->sum('amount'), 2);
+
+            if ($heldAtEntry <= 0 && $deducted <= 0) {
+                throw new InvalidArgumentException(__('admin.move_out.nothing_to_settle'));
+            }
+
             // Net the arrears off the deposit FIRST (story MF-03, scenario S8) — this is the act
             // that was missing, and without it the statement reported a net position the settlement
             // never carried out.
@@ -91,18 +111,21 @@ class SettleMoveOutService
             // they consumed, so the refund below cannot spend the same money twice.
             $statement = $this->statements->for($lease->fresh(), $settlementDate);
             $held = (float) $statement['deposit_held'];
-            $deducted = round((float) $deductions->sum('amount'), 2);
 
+            // A deduction cannot be funded by a deposit the arrears have already spent. Refused
+            // rather than clamped, and the message says what to do instead — the damage is still
+            // owed, it is simply a receivable now rather than something the deposit can cover.
             if ($deducted > $held) {
-                throw new InvalidArgumentException(
-                    'The deductions exceed the deposit held — a deposit cannot fund more than it holds. Bill the excess instead.'
-                );
+                throw new InvalidArgumentException(__('admin.move_out.deductions_exceed_deposit', [
+                    'held' => number_format($held, 2),
+                    'deducted' => number_format($deducted, 2),
+                ]));
             }
 
-            if ($held <= 0 && $deducted <= 0) {
-                throw new InvalidArgumentException('There is no deposit held on this lease to settle.');
-            }
-
+            // `$held` of zero is a valid OUTCOME here and no longer a refusal: it means the arrears
+            // took all of it, which is what the deposit is for. Nothing is refunded and nothing is
+            // forfeited, and the statement below is still written — an exit that leaves a debt is
+            // exactly the one a landlord most needs a settled record of.
             $refundable = round($held - $deducted, 2);
             $forfeit = null;
             $refund = null;
