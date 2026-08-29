@@ -61,6 +61,7 @@ class LeaseOptionsRelationManager extends RelationManager
         return $schema->columns(2)->components([
             Select::make('type')
                 ->label(__('admin.fields.type'))
+                ->helperText(__('admin.lease_options.help.option_type'))
                 ->options(collect(LeaseOption::TYPES)
                     ->mapWithKeys(fn (string $t) => [$t => __("admin.lease_options.types.{$t}")])->all())
                 ->required()
@@ -68,6 +69,7 @@ class LeaseOptionsRelationManager extends RelationManager
                 ->native(false),
             Select::make('status')
                 ->label(__('admin.fields.status'))
+                ->helperText(__('admin.lease_options.help.option_status'))
                 ->options(collect(LeaseOption::STATUSES)
                     ->mapWithKeys(fn (string $s) => [$s => __("admin.lease_options.statuses.{$s}")])->all())
                 ->default('open')
@@ -78,6 +80,7 @@ class LeaseOptionsRelationManager extends RelationManager
             // and the scan alerts on each boundary separately.
             DatePicker::make('earliest_notice_date')
                 ->label(__('admin.lease_options.earliest_notice_date'))
+                ->helperText(__('admin.lease_options.help.earliest_notice_date'))
                 ->native(false),
             DatePicker::make('latest_notice_date')
                 ->label(__('admin.lease_options.latest_notice_date'))
@@ -88,6 +91,7 @@ class LeaseOptionsRelationManager extends RelationManager
 
             TextInput::make('term_months')
                 ->label(__('admin.fields.term_months'))
+                ->helperText(__('admin.lease_options.help.option_term_months'))
                 ->numeric()
                 ->integer()
                 ->minValue(1)
@@ -95,6 +99,7 @@ class LeaseOptionsRelationManager extends RelationManager
                 ->visible(fn (Get $get) => in_array($get('type'), ['renewal', 'expansion'], true)),
             Select::make('rent_basis')
                 ->label(__('admin.lease_options.rent_basis'))
+                ->helperText(__('admin.lease_options.help.rent_basis'))
                 ->options(collect(LeaseOption::RENT_BASES)
                     ->mapWithKeys(fn (string $b) => [$b => __("admin.lease_options.rent_bases.{$b}")])->all())
                 ->native(false)
@@ -102,6 +107,7 @@ class LeaseOptionsRelationManager extends RelationManager
                 ->visible(fn (Get $get) => in_array($get('type'), ['renewal', 'expansion'], true)),
             TextInput::make('uplift_percent')
                 ->label(__('admin.lease_options.rent_bases.uplift_percent'))
+                ->helperText(__('admin.lease_options.help.uplift_percent'))
                 ->numeric()
                 ->suffix('%')
                 ->minValue(0)
@@ -109,12 +115,14 @@ class LeaseOptionsRelationManager extends RelationManager
                 ->visible(fn (Get $get) => $get('rent_basis') === 'uplift_percent'),
             TextInput::make('fixed_rent')
                 ->label(__('admin.lease_options.rent_bases.fixed'))
+                ->helperText(__('admin.lease_options.help.fixed_rent'))
                 ->numeric()
                 ->prefix('EGP')
                 ->minValue(0)
                 ->visible(fn (Get $get) => $get('rent_basis') === 'fixed'),
             TextInput::make('penalty_amount')
                 ->label(__('admin.lease_options.penalty_amount'))
+                ->helperText(__('admin.lease_options.help.penalty_amount'))
                 ->numeric()
                 ->prefix('EGP')
                 ->minValue(0)
@@ -131,6 +139,7 @@ class LeaseOptionsRelationManager extends RelationManager
 
             DatePicker::make('notice_given_at')
                 ->label(__('admin.fields.notice_given_at'))
+                ->helperText(__('admin.lease_options.help.notice_given_at'))
                 ->native(false),
             Textarea::make('notes')
                 ->label(__('admin.fields.notes'))
@@ -232,9 +241,11 @@ class LeaseOptionsRelationManager extends RelationManager
                             ->required(),
                         Textarea::make('reason')
                             ->label(__('admin.actions.change_rent_reason'))
+                            ->helperText(__('admin.lease_options.help.option_reason'))
                             ->rows(2),
                         TextInput::make('document_reference')
                             ->label(__('admin.lease_events.document'))
+                            ->helperText(__('admin.lease_options.help.document_reference'))
                             ->maxLength(255),
                     ])
                     ->action(function (LeaseOption $record, array $data) {

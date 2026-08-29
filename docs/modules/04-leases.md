@@ -803,6 +803,22 @@
 > `headerActions()` look correct for months.
 
 
+
+> **The two hardest tabs explained nothing (2026-08-28).** Measured across the lease's tab forms:
+> **24 of 51 fields carried help**, and the two worst were the two whose every field is a legal or
+> arithmetic concept — **Options** (12 of 15 bare) and **CAM cap terms** (7 of 11). An operator was
+> asked for `uplift_percent`, `base_year_amount` and `compounding` with nothing but the label. Now
+> **42 of 51**; the remaining nine are table filters and self-evident fields, which is the bar
+> `FieldHelp` sets deliberately — *"every required field needs help" is the wrong bar*.
+>
+> **How the measurement was nearly faked.** The first pass built the page and asked each field for
+> `getHelperText()`, reporting 27 of 48 bare. Every one of the 48 had actually THROWN — the trap
+> CLAUDE.md already records for `FieldHelpConformanceTest`, whose own first version *"reported 11%
+> of 673 fields carry help while measuring nothing at all"*. The number was manufactured by a
+> swallowed exception. Read from source, the way the gate does, it was 41 of 50 on the main form —
+> the lease form was never the stale one.
+
+
 ## The lease abstract — clauses (2026-08-19)
 
 `lease_clauses` holds the legal terms that do not reduce to money, taken from the benchmark's own

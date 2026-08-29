@@ -58,6 +58,7 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->helperText(__('admin.helpers.cam_effective_year')),
             Select::make('cap_type')
                 ->label(__('admin.fields.cam_cap_type'))
+                ->helperText(__('admin.lease_cam_terms.help.cap_type'))
                 ->options(fn () => __('admin.enums.cam_cap_type'))
                 ->required()
                 ->native(false)
@@ -90,6 +91,7 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->maxValue(100),
             TextInput::make('cap_absolute_amount')
                 ->label(__('admin.fields.cam_cap_absolute_amount'))
+                ->helperText(__('admin.lease_cam_terms.help.cap_absolute_amount'))
                 ->prefix('EGP')
                 ->numeric()
                 ->minValue(0)
@@ -98,6 +100,7 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->required(fn (Get $get) => in_array($get('cap_type'), ['absolute', 'both'], true)),
             TextInput::make('base_year')
                 ->label(__('admin.fields.cam_base_year'))
+                ->helperText(__('admin.lease_cam_terms.help.base_year'))
                 ->numeric()
                 ->minValue(2000)
                 ->maxValue(2099)
@@ -105,6 +108,7 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->required(fn (Get $get) => in_array($get('cap_type'), ['yoy', 'both'], true)),
             TextInput::make('base_year_amount')
                 ->label(__('admin.fields.cam_base_year_amount'))
+                ->helperText(__('admin.lease_cam_terms.help.base_year_amount'))
                 ->prefix('EGP')
                 ->numeric()
                 ->minValue(0)
@@ -114,6 +118,7 @@ class LeaseCamTermsRelationManager extends RelationManager
             // Operators enter percent (5); stored as a fraction (0.05).
             TextInput::make('yoy_pct')
                 ->label(__('admin.fields.cam_yoy_pct'))
+                ->helperText(__('admin.lease_cam_terms.help.yoy_pct'))
                 ->suffix('%')
                 ->numeric()
                 ->minValue(0)
@@ -125,10 +130,12 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->dehydrateStateUsing(fn ($state) => ($state === null || $state === '') ? null : round((float) $state / 100, 6)),
             Toggle::make('compounding')
                 ->label(__('admin.fields.cam_compounding'))
+                ->helperText(__('admin.lease_cam_terms.help.compounding'))
                 ->default(true)
                 ->visible(fn (Get $get) => in_array($get('cap_type'), ['yoy', 'both'], true)),
             Textarea::make('notes')
                 ->label(__('admin.fields.notes'))
+                ->helperText(__('admin.lease_cam_terms.help.cam_notes'))
                 ->rows(2)
                 ->maxLength(1000)
                 ->columnSpanFull(),

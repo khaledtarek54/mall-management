@@ -67,7 +67,32 @@ return [
             'termination' => 'Termination',
         ],
     ],
+    'lease_cam_terms' => [
+        'help' => [
+            'cap_type' => 'Absolute caps the amount. Year-on-year caps the RISE. Both applies whichever binds first.',
+            'cap_absolute_amount' => 'The most this tenant pays for CAM in a year, whatever the mall actually spent.',
+            'base_year' => 'The year the year-on-year cap measures from. Usually the first full year of the lease.',
+            'base_year_amount' => 'What CAM cost that base year. Every later cap is a percentage on top of this.',
+            'yoy_pct' => 'How much CAM may rise each year — the "no more than 5% a year" clause.',
+            'compounding' => 'On: each year rises on the year before. Off: every rise is measured from the base year.',
+            'cam_notes' => 'The clause in the tenant own words, for whoever reconciles this years from now.',
+        ],
+    ],
+
     'lease_options' => [
+        'help' => [
+            'option_type' => 'What the tenant may do — renew, break, take more space, give some back, or match an offer.',
+            'option_status' => 'Open until the tenant acts. Exercised, lapsed or waived closes it and frees the space.',
+            'earliest_notice_date' => 'The window opens here. Notice before it is too early and does not bind the landlord.',
+            'option_term_months' => 'How long the new term runs if the option is exercised. Blank keeps the current term.',
+            'rent_basis' => 'How the new rent is set: a fixed figure, an uplift on today, market, or the index.',
+            'uplift_percent' => 'The rise on the rent in force when exercised — the "renews at 110%" clause.',
+            'fixed_rent' => 'The monthly rent agreed now for the option term, whatever the rent is when exercised.',
+            'penalty_amount' => 'What the tenant pays to break early — usually a few months rent.',
+            'notice_given_at' => 'The day the tenant gave notice. It must fall inside the window above.',
+            'option_reason' => 'Why it was waived or lapsed. Read years later by whoever asks what happened to it.',
+            'document_reference' => 'The letter or email that proves notice was given. The evidence if the date is ever disputed.',
+        ],
         'rent_basis' => 'Rent basis',
         'title' => 'Options & critical dates',
         'types' => [
