@@ -731,6 +731,25 @@ class LeaseForm
                             ->label(__('admin.sections.percentage_rent'))
                             ->live()
                             ->columnSpanFull(),
+                        // WHETHER THEY DECLARE is a different clause from whether they PAY on it.
+                        //
+                        // A mall collects turnover from tenants who owe no percentage rent — for
+                        // sales per m², for the occupancy-cost ratio that says which tenant is in
+                        // trouble, and to price a renewal at all — and many leases oblige the
+                        // disclosure without charging on it. Yardi keeps "Sales Reporting Required"
+                        // as its own field for the same reason.
+                        //
+                        // A NULLABLE three-state, not a tick: null means "follow the clause above",
+                        // which is what every lease says until somebody rules otherwise, and is why
+                        // a lease that gains percentage rent later starts being chased on its own.
+                        // A plain boolean backfilled from today's flag would freeze that answer —
+                        // the `charges.vat_applicable` bug, written up in CLAUDE.md.
+                        Select::make('requires_sales_reporting')
+                            ->label(__('admin.fields.requires_sales_reporting'))
+                            ->options(fn () => __('admin.enums.requires_sales_reporting'))
+                            ->placeholder(__('admin.enums.requires_sales_reporting_default'))
+                            ->helperText(__('admin.helpers.requires_sales_reporting'))
+                            ->columnSpanFull(),
                         Select::make('percentage_rent_calculation_type')
                             ->label(__('admin.fields.percentage_rent_calculation_type'))
                             ->options(fn () => __('admin.enums.percentage_rent_calculation_type'))

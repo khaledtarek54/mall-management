@@ -404,6 +404,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'escalation_interval_months',
         'next_escalation_date',
         'has_percentage_rent',
+        'requires_sales_reporting',
         'percentage_rent_threshold',
         'percentage_rent_rate',
         'percentage_rent_calculation_type',
@@ -471,6 +472,7 @@ class Lease extends Model implements BillableAgreement, HasMedia
         'percentage_rent_threshold' => 'decimal:2',
         'percentage_rent_rate' => 'decimal:2',
         'has_percentage_rent' => 'boolean',
+        'requires_sales_reporting' => 'boolean',
         'has_marketing_levy' => 'boolean',
         'marketing_levy_rate' => 'decimal:2',
         'possession_date' => 'date',
@@ -909,10 +911,44 @@ class Lease extends Model implements BillableAgreement, HasMedia
      * "go and chase these" link; the reverse would send someone to a page that appears to
      * contradict the number they clicked.
      */
+    /**
+     * Must this tenant DECLARE their turnover?
+     *
+     * A separate lease term from whether they PAY percentage rent on it. `has_percentage_rent` was
+     * answering both, and they are different clauses: a mall collects turnover from tenants who owe
+     * no percentage rent — for sales per m², for the occupancy-cost ratio that says which tenant is
+     * in trouble, and to price a renewal at all — and many leases oblige the disclosure without
+     * charging on it. Yardi keeps "Sales Reporting Required" as its own field for exactly this.
+     *
+     * **NULL IS THE NORMAL STATE and means "follow the percentage-rent clause".** Compared with
+     * `=== null`, never cast: `(bool) null` is false, which would silently exempt every lease that
+     * has not been ruled on — the cast that froze `charges.vat_applicable` and is written up in
+     * CLAUDE.md as the worse half of that bug. An explicit `false` is a real answer and keeps its
+     * meaning: a percentage-rent lease the operator has excused from monthly filing.
+     *
+     * Kept beside {@see scopeOwingSalesDeclaration()}, which expresses the same rule in SQL, so the
+     * predicate and the query cannot drift.
+     */
+    public function requiresSalesReporting(): bool
+    {
+        if ($this->requires_sales_reporting !== null) {
+            return (bool) $this->requires_sales_reporting;
+        }
+
+        return (bool) $this->has_percentage_rent;
+    }
+
     public function scopeOwingSalesDeclaration($query, CarbonImmutable $periodStart)
     {
         return $query->where('status', 'active')
-            ->where('has_percentage_rent', true)
+            // The DUTY to declare, not the charge — see `requiresSalesReporting()`. Null follows
+            // the percentage-rent clause, so this reads exactly as it always did until an operator
+            // states otherwise on a lease.
+            ->where(fn ($q) => $q
+                ->where('requires_sales_reporting', true)
+                ->orWhere(fn ($inner) => $inner
+                    ->whereNull('requires_sales_reporting')
+                    ->where('has_percentage_rent', true)))
             ->whereNotNull('commencement_date')
             ->whereDate('commencement_date', '<=', $periodStart->endOfMonth())
             ->whereDoesntHave('salesDeclarations', fn ($q) => $q->whereDate('period_start', $periodStart));

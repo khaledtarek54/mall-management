@@ -15,9 +15,14 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * What this tenant has declared in sales, and the percentage rent it produced.
  *
- * Only shown on a lease that actually has percentage rent — on a fixed-rent lease the table would
- * be permanently empty, which reads as "they have not declared" rather than "there is nothing to
- * declare". That distinction is the whole reason `has_percentage_rent` exists.
+ * Only shown on a lease that OWES a declaration — on a lease with no reporting duty the table
+ * would be permanently empty, which reads as "they have not declared" rather than "there is nothing
+ * to declare".
+ *
+ * The duty, not the charge. `has_percentage_rent` answered both until 2026-08-30 and they are
+ * different clauses: a mall collects turnover from tenants who owe no percentage rent, and this tab
+ * is where those declarations live. `requiresSalesReporting()` follows the percentage-rent clause
+ * unless the lease states otherwise, so nothing moved for a lease nobody has ruled on.
  *
  * "Have they declared this month?" is a lease question — the chase is per lease, the breakpoint is
  * on the lease, and the resulting overage bills to that lease. It was only answerable from the
@@ -44,7 +49,7 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
      */
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
-        return $ownerRecord instanceof Lease && (bool) $ownerRecord->has_percentage_rent;
+        return $ownerRecord instanceof Lease && $ownerRecord->requiresSalesReporting();
     }
 
     public function table(Table $table): Table

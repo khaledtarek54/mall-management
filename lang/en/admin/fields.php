@@ -283,6 +283,7 @@ return [
         'default_fine_amount' => 'Standard fine',
         'escalation_amount' => 'Annual increase',
         'has_percentage_rent' => 'Percentage rent applies',
+        'requires_sales_reporting' => 'Sales reporting',
         'holdover_from' => 'Holdover from',
         'holdover_rate_pct' => 'Holdover rate (% of last rent)',
         'next_escalation_date' => 'Next increase',

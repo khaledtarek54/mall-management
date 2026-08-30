@@ -154,6 +154,11 @@ return [
     ],
 
     'enums' => [
+        'requires_sales_reporting' => [
+            '1' => 'مطلوب — يقرّ المستأجر شهريًا',
+            '0' => 'غير مطلوب',
+        ],
+        'requires_sales_reporting_default' => 'حسب بند الإيجار النسبي',
         'billing_timing' => [
             'advance' => 'مقدمًا',
             'arrears' => 'متأخرًا',

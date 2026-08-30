@@ -155,6 +155,11 @@ return [
     ],
 
     'enums' => [
+        'requires_sales_reporting' => [
+            '1' => 'Required — the tenant declares every month',
+            '0' => 'Not required',
+        ],
+        'requires_sales_reporting_default' => 'Follow the percentage-rent clause',
         'billing_timing' => [
             'advance' => 'In advance',
             'arrears' => 'In arrears',

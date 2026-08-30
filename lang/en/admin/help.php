@@ -2,6 +2,7 @@
 
 return [
     'helpers' => [
+        'requires_sales_reporting' => 'Leave unset unless the lease says otherwise. A mall may require turnover from a tenant who pays no percentage rent.',
         'reversal_reason' => 'This is recorded permanently in the audit trail.',
         'cam_period_year' => 'The calendar year this pool reconciles. One pool per property per year.',
         'bank_account_on_document' => 'Leave blank unless you need to tell two bank accounts apart when reconciling.',

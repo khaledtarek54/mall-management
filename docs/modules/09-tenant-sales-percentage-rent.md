@@ -98,6 +98,30 @@
 
 > **File-first submission (2026-07):** Tenants no longer type a sales figure. On both the mobile app and the web portal they **attach their sales report** (image/PDF). `declared_sales` is nullable and is **entered by staff** in the admin panel after reviewing the attachment, then Lock bills the percentage rent. The report file lives in the Spatie `sales_report` media collection on a **private** disk (it can carry commercial turnover figures) and is streamed only through authenticated, tenant-scoped endpoints.
 
+## Declaring turnover and paying on it are two clauses (2026-08-30)
+
+`has_percentage_rent` did both jobs: it decided the CHARGE and it decided who gets chased for a
+declaration (`Lease::scopeOwingSalesDeclaration`, read by `sales:scan-missing-declarations` and by
+the estimator). They are different clauses. A mall collects turnover from tenants who owe no
+percentage rent — for sales per m², for the occupancy-cost ratio that says which tenant is in
+trouble, and to price a renewal at all — and many leases oblige the disclosure without charging on
+it. Yardi keeps *Sales Reporting Required* as its own field for exactly this.
+
+`leases.requires_sales_reporting` is that field, and `Lease::requiresSalesReporting()` is the ONE
+reader; `scopeOwingSalesDeclaration()` expresses the same rule in SQL and is pinned against it,
+because those two drifted apart once already on the billing paths.
+
+**NULLABLE, and null is the normal state — "follow the percentage-rent clause".** Nothing an
+install does today changes. A plain boolean backfilled from the current flag would FREEZE the
+answer: a lease that gains percentage rent later would never start being chased, silently. That is
+the `charges.vat_applicable` bug, which is also why the column is compared with `=== null` and
+never cast — `(bool) null` is false, and would exempt every lease nobody has ruled on.
+
+**The duty moves the declarations tab; it does NOT move the ladder or the working.** A breakpoint
+ladder and a computed working are about a CHARGE, and offering them on a lease that only reports
+would invent a clause. `PercentageRentTiersRelationManager` and the `working` action stay on
+`has_percentage_rent`.
+
 ## 1. Purpose & business context
 
 In Egyptian malls, tenants (Eltizam = operator retail stores) often pay rent via **two components**:

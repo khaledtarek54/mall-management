@@ -282,6 +282,7 @@ return [
         'default_fine_amount' => 'الغرامة المعتادة',
         'escalation_amount' => 'قيمة الزيادة السنوية',
         'has_percentage_rent' => 'يشمل إيجارًا نسبيًا',
+        'requires_sales_reporting' => 'الإفصاح عن المبيعات',
         'holdover_from' => 'بداية الإشغال الممتد',
         'holdover_rate_pct' => 'نسبة الإشغال الممتد',
         'next_escalation_date' => 'تاريخ الزيادة القادمة',
