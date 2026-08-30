@@ -6,12 +6,10 @@ use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Support\Filament\EntitySelectFilter;
-use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -102,26 +100,10 @@ class EmployeesTable
                 ViewAction::make()
                     ->visible(fn ($record) => EmployeeResource::canView($record))
                     ->authorize(fn ($record) => EmployeeResource::canView($record)),
-                Action::make('terminate')
-                    ->label(__('admin.employees.actions.terminate'))
-                    ->icon('heroicon-o-user-minus')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->visible(fn (Employee $record) => $record->status === 'active' && EmployeeResource::canEdit($record))
-                    ->authorize(fn (Employee $record) => EmployeeResource::canEdit($record))
-                    ->schema([
-                        DatePicker::make('terminated_on')
-                            ->label(__('admin.employees.fields.terminated_on'))
-                            ->default(now())
-                            ->required()
-                            ->native(false),
-                    ])
-                    ->action(function (array $data, Employee $record): void {
-                        // Server-side re-check (authz can't see form tampering of a terminal flip).
-                        abort_unless(EmployeeResource::canEdit($record) && $record->status === 'active', 403);
-                        $record->update(['status' => 'terminated', 'terminated_on' => $data['terminated_on']]);
-                        Notification::make()->title(__('admin.employees.terminated'))->success()->send();
-                    }),
+
+                // ── The list FINDS; the record ACTS ─────────────────────────────────────
+                // Defined once in App\Filament\Admin\Actions\EmployeeActions and composed onto this
+                // record's own page, so opening the record is enough to act on it.
                 EditAction::make()->visible(fn (Employee $record) => EmployeeResource::canEdit($record)),
             ])
             ->emptyStateIcon('heroicon-o-identification')

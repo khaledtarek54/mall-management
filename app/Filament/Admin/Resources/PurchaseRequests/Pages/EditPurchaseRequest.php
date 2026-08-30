@@ -2,15 +2,29 @@
 
 namespace App\Filament\Admin\Resources\PurchaseRequests\Pages;
 
+use App\Filament\Admin\Actions\PurchaseRequestActions;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Models\PurchaseRequest;
 use App\Services\PurchaseOrderPdfService;
 use App\Support\Filament\PdfDownloadAction;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Resources\Pages\EditRecord;
 
 class EditPurchaseRequest extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * The columns these acts rewrite underneath the form. Only fields the form actually RENDERS
+     * belong here; the re-read itself happens either way, which is what keeps a render-time state
+     * closure honest.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     use GuardsAssetInScope;
 
     protected static string $resource = PurchaseRequestResource::class;
@@ -18,6 +32,8 @@ class EditPurchaseRequest extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...PurchaseRequestActions::all(),
             // The PO document, once the request has become an order — parity with the table.
             PdfDownloadAction::make('downloadPo')
                 ->label(__('admin.procurement.actions.download_po'))

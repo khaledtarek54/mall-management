@@ -7,18 +7,11 @@ use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Models\DepreciationEntry;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
-use App\Services\DisposeFixedAssetService;
 use App\Support\CategorySuggestions;
-use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
@@ -152,46 +145,11 @@ class FixedAssetsTable
                 ViewAction::make()
                     ->visible(fn ($record) => FixedAssetResource::canView($record))
                     ->authorize(fn ($record) => FixedAssetResource::canView($record)),
-                Action::make('dispose')
-                    ->label(__('admin.fixed_assets.actions.dispose'))
-                    ->icon('heroicon-o-archive-box-x-mark')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    // Only active assets, and only if the user may edit.
-                    ->visible(fn (FixedAsset $record) => $record->status === 'active' && FixedAssetResource::canEdit($record))
-                    ->authorize(fn (FixedAsset $record) => FixedAssetResource::canEdit($record))
-                    ->schema([
-                        DatePicker::make('disposed_on')
-                            ->label(__('admin.fixed_assets.fields.disposed_on'))
-                            ->default(now())
-                            ->required()
-                            ->native(false),
-                        TextInput::make('proceeds')
-                            ->label(__('admin.fixed_assets.fields.proceeds'))
-                            ->helperText(__('admin.fixed_assets.proceeds_hint'))
-                            ->numeric()
-                            ->minValue(0)
-                            ->default(0)
-                            ->prefix('EGP'),
-                        Select::make('proceeds_account')
-                            ->label(__('admin.fixed_assets.fields.proceeds_account'))
-                            ->options(fn () => __('admin.enums.cash_or_bank'))
-                            ->default('cash')
-                            ->native(false)
-                            // Only matters when money actually came in.
-                            ->visible(fn (Get $get) => (float) $get('proceeds') > 0),
-                        Textarea::make('notes')
-                            ->label(__('admin.fixed_assets.fields.notes'))
-                            ->rows(2)
-                            ->columnSpanFull(),
-                    ])
-                    ->action(function (array $data, FixedAsset $record): void {
-                        // Server-side re-check (authorize can't see form tampering of a terminal record).
-                        abort_unless(FixedAssetResource::canEdit($record) && $record->status === 'active', 403);
-                        app(DisposeFixedAssetService::class)->dispose($record, $data);
-                        Notification::make()->title(__('admin.fixed_assets.disposed'))->success()->send();
-                    }),
+
                 // Disposed assets are terminal — read-only (no edit).
+                // ── The list FINDS; the record ACTS ─────────────────────────────────────
+                // Defined once in App\Filament\Admin\Actions\FixedAssetActions and composed onto this
+                // record's own page, so opening the record is enough to act on it.
                 EditAction::make()->visible(fn (FixedAsset $record) => FixedAssetResource::canEdit($record) && $record->status === 'active'),
                 // **Recorded in error**, which is a different act from DISPOSAL directly above.
                 // Disposing books proceeds and a gain or loss because the company sold something;

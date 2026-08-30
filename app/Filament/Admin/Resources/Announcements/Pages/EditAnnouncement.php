@@ -2,9 +2,11 @@
 
 namespace App\Filament\Admin\Resources\Announcements\Pages;
 
+use App\Filament\Admin\Actions\AnnouncementActions;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Filament\Admin\Resources\Announcements\Pages\Concerns\TranslatesDeliveryChoice;
 use App\Models\Announcement;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Resources\Pages\EditRecord;
 
 /**
@@ -18,6 +20,18 @@ use Filament\Resources\Pages\EditRecord;
  */
 class EditAnnouncement extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * The columns these acts rewrite underneath the form. Only fields the form actually RENDERS
+     * belong here; the re-read itself still happens either way, which is what keeps a render-time
+     * state closure honest.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     use TranslatesDeliveryChoice;
 
     protected static string $resource = AnnouncementResource::class;
@@ -59,5 +73,13 @@ class EditAnnouncement extends EditRecord
         $record = $this->record;
 
         $record->broadcast();
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...AnnouncementActions::all(),
+        ];
     }
 }

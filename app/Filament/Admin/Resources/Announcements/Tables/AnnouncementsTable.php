@@ -5,15 +5,12 @@ namespace App\Filament\Admin\Resources\Announcements\Tables;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Models\Announcement;
 use App\Models\User;
-use App\Services\SendAnnouncementAction;
 use App\Support\Filament\EntitySelectFilter;
-use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -132,45 +129,12 @@ class AnnouncementsTable
                     ->visible(fn ($record) => AnnouncementResource::canView($record))
                     ->authorize(fn ($record) => AnnouncementResource::canView($record)),
 
+                // ── The list FINDS; the record ACTS ─────────────────────────────────────
+                // Defined once in App\Filament\Admin\Actions\AnnouncementActions and composed onto this
+                // record's own page, so opening the record is enough to act on it.
                 EditAction::make()
                     ->visible(fn ($record) => AnnouncementResource::canEdit($record))
                     ->authorize(fn ($record) => AnnouncementResource::canEdit($record)),
-
-                // Broadcast a draft, or a scheduled notice ahead of its time.
-                //
-                // Gated TWICE on one named predicate: `visible()` shapes the UI, `abort_unless`
-                // inside `action()` is the gate. `visible()` is not an authorization check — it is
-                // a statement of intent that happens to also disable the action on the version we
-                // ship, and an upstream release could quietly change that for every such action at
-                // once.
-                Action::make('send')
-                    ->label(__('admin.announcements.actions.send'))
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('primary')
-                    ->requiresConfirmation()
-                    ->modalHeading(__('admin.announcements.actions.send'))
-                    // Naming the audience in the confirmation, not just "are you sure": this is a
-                    // one-way push to every retailer in the mall, and there is no unsend.
-                    ->modalDescription(fn ($record) => __('admin.announcements.actions.send_confirm', [
-                        'property' => $record->asset?->name ?? '—',
-                    ]))
-                    ->visible(fn ($record) => ! $record->isSent() && AnnouncementResource::canSend())
-                    ->authorize(fn ($record) => AnnouncementResource::canSend())
-                    ->action(function ($record) {
-                        abort_unless(AnnouncementResource::canSend(), 403);
-                        // Re-checked against the record, not the button: a second operator may
-                        // have sent it while this page was open. The service's own sent_at guard
-                        // makes the race harmless; this is what makes the operator's feedback
-                        // honest rather than reporting a send that was a no-op.
-                        abort_if($record->isSent(), 403);
-
-                        $reached = app(SendAnnouncementAction::class)->handle($record);
-
-                        Notification::make()
-                            ->title(__('admin.announcements.sent_toast', ['count' => $reached]))
-                            ->success()
-                            ->send();
-                    }),
 
                 // Only a super_admin can delete one (canDelete = isSuperAdmin).
                 DeleteAction::make()->visible(fn ($record) => AnnouncementResource::canDelete($record)),

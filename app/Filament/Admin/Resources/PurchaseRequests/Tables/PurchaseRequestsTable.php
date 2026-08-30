@@ -7,18 +7,12 @@ use App\Models\ApprovalRule;
 use App\Models\PurchaseRequest;
 use App\Models\Vendor;
 use App\Services\PurchaseOrderPdfService;
-use App\Services\PurchaseRequestService;
-use App\Support\ApprovalPolicy;
-use App\Support\Filament\EntitySelect;
 use App\Support\Filament\PdfDownloadAction;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -26,23 +20,6 @@ use Filament\Tables\Table;
 
 class PurchaseRequestsTable
 {
-    /** Two questions, both required: may you decide at all, and does your tier cover the value? */
-    private static function canDecide(PurchaseRequest $record): bool
-    {
-        return (auth()->user()?->can(PurchaseRequestService::DECIDE_PERMISSION) ?? false)
-            && ApprovalPolicy::canApprove(auth()->user(), ApprovalRule::MODULE_PURCHASE_REQUEST, (float) $record->total_value);
-    }
-
-    private static function canReceive(): bool
-    {
-        return auth()->user()?->can(PurchaseRequestService::RECEIVE_PERMISSION) ?? false;
-    }
-
-    private static function notifyFailure(\Throwable $e): void
-    {
-        Notification::make()->title($e->getMessage())->danger()->send();
-    }
-
     public static function configure(Table $table): Table
     {
         return $table
@@ -98,135 +75,6 @@ class PurchaseRequestsTable
                 ViewAction::make()
                     ->visible(fn ($record) => PurchaseRequestResource::canView($record))
                     ->authorize(fn ($record) => PurchaseRequestResource::canView($record)),
-                // FR-PROC-02 — approval, and it is what unlocks ordering.
-                Action::make('approve')
-                    ->label(__('admin.procurement.actions.approve'))
-                    ->icon('heroicon-o-check-circle')->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED
-                        && self::canDecide($r)
-                        && (int) $r->requested_by_user_id !== (int) auth()->id())
-                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
-                    ->schema([Textarea::make('notes')->label(__('admin.procurement.fields.notes'))->rows(2)])
-                    ->action(function (PurchaseRequest $record, array $data): void {
-                        try {
-                            app(PurchaseRequestService::class)->approve($record, $data['notes'] ?? null);
-                        } catch (\DomainException $e) {
-                            static::notifyFailure($e);
-
-                            return;
-                        }
-                        Notification::make()->title(__('admin.procurement.notices.approved'))->success()->send();
-                    }),
-
-                Action::make('reject')
-                    ->label(__('admin.procurement.actions.reject'))
-                    ->icon('heroicon-o-x-circle')->color('danger')
-                    ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED && self::canDecide($r))
-                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
-                    ->schema([Textarea::make('reason')->label(__('admin.procurement.reject_reason'))->required()->rows(2)])
-                    ->action(function (PurchaseRequest $record, array $data): void {
-                        try {
-                            app(PurchaseRequestService::class)->reject($record, $data['reason']);
-                        } catch (\DomainException $e) {
-                            static::notifyFailure($e);
-
-                            return;
-                        }
-                        Notification::make()->title(__('admin.procurement.notices.rejected'))->success()->send();
-                    }),
-
-                // Only ever reachable from `approved` — the transition matrix is FR-PROC-02.
-                Action::make('order')
-                    ->label(__('admin.procurement.actions.order'))
-                    ->icon('heroicon-o-paper-airplane')->color('info')
-                    // Same two-question gate as approve/reject: the tier must cover the value.
-                    // The service re-checks it (assertMayDecideValue), so this is honest-UI parity
-                    // — a low-tier decider no longer sees an Order button they can't action (M29-3).
-                    ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_APPROVED
-                        && self::canDecide($r))
-                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
-                    ->schema([
-                        EntitySelect::make('vendor_id')
-                            ->label(__('admin.procurement.fields.vendor'))
-                            // Vendors are a SHARED catalog (PropertyIsolation), so unscoped —
-                            // matching FacilityWorkOrderForm.
-                            ->entity(Vendor::class),
-                        TextInput::make('order_reference')
-                            ->label(__('admin.procurement.fields.order_reference'))->maxLength(100),
-                    ])
-                    ->action(function (PurchaseRequest $record, array $data): void {
-                        try {
-                            $ordered = app(PurchaseRequestService::class)->order($record, $data['vendor_id'] ?? null, $data['order_reference'] ?? null);
-                        } catch (\DomainException $e) {
-                            static::notifyFailure($e);
-
-                            return;
-                        }
-                        // Feedback with the resulting state: the PO number now exists + who it went
-                        // to, so the operator knows the PO is ready to download and send.
-                        Notification::make()
-                            ->title(__('admin.procurement.notices.ordered'))
-                            ->body(__('admin.procurement.notices.ordered_body', [
-                                'po' => $ordered->po_number,
-                                // vendor is optional on an order — the picker isn't required.
-                                'vendor' => optional($ordered->vendor)->name ?? '—',
-                            ]))
-                            ->success()
-                            ->send();
-                    }),
-
-                // FR-PROC-04 — this is the action that puts stock on the shelf, linked (FR-WH-02).
-                Action::make('receive')
-                    ->label(__('admin.procurement.actions.receive'))
-                    ->icon('heroicon-o-inbox-arrow-down')->color('success')
-                    ->requiresConfirmation()
-                    ->modalDescription(__('admin.procurement.receive_hint'))
-                    ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_ORDERED && static::canReceive())
-                    ->authorize(fn () => static::canReceive())
-                    ->action(function (PurchaseRequest $record): void {
-                        try {
-                            $received = app(PurchaseRequestService::class)->receive($record);
-                        } catch (\DomainException $e) {
-                            static::notifyFailure($e);
-
-                            return;
-                        }
-                        // Feedback with resulting state: how many stockable lines landed where, so
-                        // the operator sees stock actually moved (not just "received").
-                        $stockedCount = $received->stockableLines()->whereNotNull('stock_movement_id')->count();
-                        Notification::make()
-                            ->title(__('admin.procurement.notices.received'))
-                            ->body($stockedCount > 0
-                                ? __('admin.procurement.notices.received_body', [
-                                    'count' => $stockedCount,
-                                    'warehouse' => optional($received->warehouse)->name ?? '—',
-                                ])
-                                : __('admin.procurement.notices.received_services'))
-                            ->success()
-                            ->send();
-                    }),
-
-                Action::make('cancel')
-                    ->label(__('admin.procurement.actions.cancel'))
-                    ->icon('heroicon-o-no-symbol')->color('gray')
-                    // Cancelling unwinds a commitment (an approved+ordered purchase), so it carries
-                    // the same authority as approving it — the tier, not just the base permission.
-                    // The service enforces it (assertMayDecideValue); this keeps the button honest
-                    // for a low-tier decider (M29-3).
-                    ->visible(fn (PurchaseRequest $r) => ! $r->isTerminal() && self::canDecide($r))
-                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
-                    ->schema([Textarea::make('reason')->label(__('admin.procurement.cancel_reason'))->required()->rows(2)])
-                    ->action(function (PurchaseRequest $record, array $data): void {
-                        try {
-                            app(PurchaseRequestService::class)->cancel($record, $data['reason']);
-                        } catch (\DomainException $e) {
-                            static::notifyFailure($e);
-
-                            return;
-                        }
-                        Notification::make()->title(__('admin.procurement.notices.cancelled'))->success()->send();
-                    }),
 
                 // authorize(), not just visible(): visible() is a display gate, not a dispatch
                 // gate (mountAction checks isDisabled(), never isVisible()), so without this the
@@ -237,6 +85,9 @@ class PurchaseRequestsTable
                 // action does not mount), so this is defence-in-depth + consistency rather than a
                 // live-exploit fix: it keeps the gate holding if a future Filament decouples mount
                 // from visibility (the framework's documented `mountAction` checks isDisabled()).
+                // ── The list FINDS; the record ACTS ─────────────────────────────────────
+                // Defined once in App\Filament\Admin\Actions\PurchaseRequestActions and composed onto this
+                // record's own page, so opening the record is enough to act on it.
                 EditAction::make()
                     ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED
                         && PurchaseRequestResource::canEdit($r))

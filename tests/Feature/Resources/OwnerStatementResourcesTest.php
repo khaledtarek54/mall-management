@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\Disbursements\Pages\ListDisbursements;
 use App\Filament\Admin\Resources\OwnerStatementRuns\Pages\ListOwnerStatementRuns;
+use App\Filament\Admin\Resources\OwnerStatementRuns\Pages\ViewOwnerStatementRun;
 use App\Models\AccountingPeriod;
 use App\Models\Disbursement;
 use App\Models\OwnerStatementRun;
@@ -124,7 +125,8 @@ it('sends a finalised statement to the owner (marks it sent + bells the owner)',
     $this->actingAs(makeUser('manager', [$this->asset->id]));
 
     asTenant($this->asset, function () use ($run) {
-        Livewire::test(ListOwnerStatementRuns::class)->callTableAction('send', $run);
+        // The acts moved to the run's own View page on 2026-08-30 — the list FINDS, the record ACTS.
+        Livewire::test(ViewOwnerStatementRun::class, ['record' => $run->getRouteKey()])->callAction('send');
     });
 
     expect($run->statements->first()->fresh()->status)->toBe('sent')

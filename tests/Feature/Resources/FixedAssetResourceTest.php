@@ -102,9 +102,10 @@ it('disposes an asset and stops future depreciation', function () {
     $this->actingAs(makeUser('accounting', [$asset->id]));
 
     asTenant($asset, function () use ($fa) {
-        Livewire::test(ListFixedAssets::class)
-            ->callTableAction('dispose', $fa, data: ['disposed_on' => now()->toDateString(), 'proceeds' => 250])
-            ->assertHasNoTableActionErrors();
+        // The act moved to the asset's own page on 2026-08-30 — the list FINDS, the record ACTS.
+        Livewire::test(EditFixedAsset::class, ['record' => $fa->getRouteKey()])
+            ->callAction('dispose', data: ['disposed_on' => now()->toDateString(), 'proceeds' => 250])
+            ->assertHasNoActionErrors();
     });
 
     expect($fa->fresh()->status)->toBe('disposed');
@@ -124,9 +125,12 @@ it('forbids disposing for a role without fixed_assets.edit', function () {
     // viewer can view but not edit → the dispose action is hidden/unauthorized.
     $this->actingAs(makeUser('viewer', [$asset->id]));
 
+    // The act lives on the asset's own page now, and a viewer holds fixed_assets.view without
+    // fixed_assets.edit — so the page itself is refused and the act has no surface to be
+    // dispatched from. The refusal moved one layer out, and got stricter for it.
     asTenant($asset, function () use ($fa) {
-        Livewire::test(ListFixedAssets::class)
-            ->assertTableActionHidden('dispose', $fa);
+        Livewire::test(EditFixedAsset::class, ['record' => $fa->getRouteKey()])
+            ->assertForbidden();
     });
 
     expect($fa->fresh()->status)->toBe('active');

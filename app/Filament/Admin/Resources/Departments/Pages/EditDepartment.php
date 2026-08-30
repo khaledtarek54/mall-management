@@ -2,11 +2,15 @@
 
 namespace App\Filament\Admin\Resources\Departments\Pages;
 
+use App\Filament\Admin\Actions\DepartmentActions;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Resources\Pages\EditRecord;
 
 class EditDepartment extends EditRecord
 {
+    use RefreshesRecordState;
+
     protected static string $resource = DepartmentResource::class;
 
     // No Delete header action. A department that routed a request or held a member is referenced
@@ -30,5 +34,13 @@ class EditDepartment extends EditRecord
         );
 
         return $data;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...DepartmentActions::all(),
+        ];
     }
 }

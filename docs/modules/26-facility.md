@@ -71,9 +71,10 @@ engineers complete.
 > from a screen, this one only from a command, while CAM's pool and a lease's billing both put the
 > same act behind a button.
 >
-> Two actions now: **Generate due work orders** on the header (the whole sweep, exactly as the
-> nightly run does it) and **Generate now** per row, which is what an operator wants when THIS plan
-> is the one failing. `GeneratePreventiveWorkOrdersService::runFor()` routes through the same private
+> Two actions now: **Generate due work orders** on the LIST header (the whole sweep, exactly as the
+> nightly run does it) and **Generate now** on the plan's own Edit page (moved off the row
+> 2026-08-30 — the list FINDS, the record ACTS; `App\Filament\Admin\Actions\ServicePlanActions`),
+> which is what an operator wants when THIS plan is the one failing. `GeneratePreventiveWorkOrdersService::runFor()` routes through the same private
 > path the sweep uses — the trigger type decides which — so a manual generation cannot take a
 > different route from the automatic one and raise a different work order. Both report what happened:
 > a generation that raised nothing is a RESULT, not a silence.

@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\Assets\AssetResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
+use App\Filament\Admin\Resources\UnitOwnerships\Pages\EditUnitOwnership;
 use App\Filament\Admin\Resources\UnitOwnerships\Pages\ListUnitOwnerships;
 use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
 use App\Models\Charge;
@@ -247,9 +248,11 @@ it('opens the resale certificate and the transfer modal', function () {
         ->mountAction(TestAction::make('resaleCertificate')->table($ownership))
         ->assertActionMounted(TestAction::make('resaleCertificate')->table($ownership));
 
-    Livewire::test(ListUnitOwnerships::class)
-        ->mountAction(TestAction::make('transfer')->table($ownership))
-        ->assertActionMounted(TestAction::make('transfer')->table($ownership));
+    // `transfer` moved to the ownership's own page on 2026-08-30 (the list FINDS, the record
+    // ACTS); `resaleCertificate` above is a DOWNLOAD and stayed beside the row it copies.
+    Livewire::test(EditUnitOwnership::class, ['record' => $ownership->getRouteKey()])
+        ->mountAction(TestAction::make('transfer'))
+        ->assertActionMounted(TestAction::make('transfer'));
 
     Filament::setTenant(null, isQuiet: true);
 });

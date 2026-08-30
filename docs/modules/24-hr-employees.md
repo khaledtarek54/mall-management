@@ -126,7 +126,9 @@ unchanged and the GL tie-out is untouched.
 2. **Unique staff code per property** (DB composite unique + form rule).
 3. **NOT-NULL money** — blank `base_salary` coerces to 0 in the model.
 4. **Terminate** flips `status → terminated` + stamps `terminated_on` (gated on
-   `employees.edit`, server-side re-checked).
+   `employees.edit`, server-side re-checked). It lives on the employee's own Edit page — moved off
+   the list row 2026-08-30, the list FINDS and the record ACTS
+   (`App\Filament\Admin\Actions\EmployeeActions`).
 5. **Advances/loans post to the GL** (see §3.5). No advance may be **granted to a
    terminated employee**; a **repayment can't exceed outstanding** (lock-safe re-check in
    `RecordAdvanceRepaymentService`, so concurrent repayments can't drive the receivable

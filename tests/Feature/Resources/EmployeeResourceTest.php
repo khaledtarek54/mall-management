@@ -2,7 +2,7 @@
 
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Admin\Resources\Employees\Pages\CreateEmployee;
-use App\Filament\Admin\Resources\Employees\Pages\ListEmployees;
+use App\Filament\Admin\Resources\Employees\Pages\EditEmployee;
 use App\Models\Employee;
 use App\Settings\ModulesSettings;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -105,9 +105,10 @@ it('terminates an employee via the action', function () {
     $this->actingAs(makeUser('hr', [$asset->id]));
 
     asTenant($asset, function () use ($employee) {
-        Livewire::test(ListEmployees::class)
-            ->callTableAction('terminate', $employee, data: ['terminated_on' => now()->toDateString()])
-            ->assertHasNoTableActionErrors();
+        // The act moved to the employee's own page on 2026-08-30 — the list FINDS, the record ACTS.
+        Livewire::test(EditEmployee::class, ['record' => $employee->getRouteKey()])
+            ->callAction('terminate', data: ['terminated_on' => now()->toDateString()])
+            ->assertHasNoActionErrors();
     });
 
     expect($employee->fresh()->status)->toBe('terminated');
@@ -120,9 +121,12 @@ it('forbids terminating for a read-only role', function () {
 
     $this->actingAs(makeUser('viewer', [$asset->id]));
 
+    // The act lives on the employee's own page now, and a viewer holds employees.view without
+    // employees.edit — so the refusal lands one layer EARLIER than it used to: the page itself is
+    // refused, and there is no surface on which the act could be dispatched at all.
     asTenant($asset, function () use ($employee) {
-        Livewire::test(ListEmployees::class)
-            ->assertTableActionHidden('terminate', $employee);
+        Livewire::test(EditEmployee::class, ['record' => $employee->getRouteKey()])
+            ->assertForbidden();
     });
 
     expect($employee->fresh()->status)->toBe('active');

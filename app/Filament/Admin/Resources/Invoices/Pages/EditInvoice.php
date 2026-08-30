@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Invoices\Pages;
 
 use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Actions\ReversalReasonField;
+use App\Filament\Admin\Actions\InvoiceActions;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\DepositApplication;
 use App\Models\Invoice;
@@ -35,6 +36,7 @@ use Illuminate\Support\Facades\Auth;
 class EditInvoice extends EditRecord
 {
     use AnnouncesLedgerRestatement;
+    use RefreshesRecordState;
     use RefreshesRecordState;
 
     /**
@@ -74,6 +76,8 @@ class EditInvoice extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...InvoiceActions::all(),
             // **The ledger panel, on the screen where the edit happens.** The factory has existed
             // since CHANGE-IMPACT-PLAN §6.1 and was mounted on five LIST tables only — which is
             // where you audit, not where you act. An operator about to retype a figure could not

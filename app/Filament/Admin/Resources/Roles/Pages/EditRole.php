@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Roles\Pages;
 
+use App\Filament\Admin\Actions\RoleActions;
 use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Support\AccessControlAudit;
+use App\Support\Filament\RefreshesRecordState;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -11,11 +13,15 @@ use Spatie\Permission\PermissionRegistrar;
 
 class EditRole extends EditRecord
 {
+    use RefreshesRecordState;
+
     protected static string $resource = RoleResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...RoleActions::all(),
             DeleteAction::make()
                 ->visible(fn () => ! array_key_exists($this->record->name, RolesPermissionsSeeder::ROLES))
                 // Deleting a role cascades to a mass revoke (model_has_roles +

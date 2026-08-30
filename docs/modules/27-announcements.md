@@ -155,9 +155,10 @@ List (tabs: All · Sent · Scheduled · Draft) → Create → View → Edit.
 - **`delivery` is a choice, not the `status` column.** `TranslatesDeliveryChoice` maps it, once, for
   both pages.
 - **Table** carries the read rate (`reads_count / recipients_count`, via `withCount`, deliberately
-  not stored) and a **Send now** row action gated twice on `canSend()` — `visible()` for the UI,
-  `abort_unless` inside `action()` for the gate — with a confirmation naming the property, because
-  there is no unsend.
+  not stored). **Send now** moved off the row on 2026-08-30 to the announcement's own Edit page
+  (`App\Filament\Admin\Actions\AnnouncementActions`) — the list FINDS, the record ACTS — still gated
+  twice on `canSend()` (`visible()` for the UI, `abort_unless` inside `action()` for the gate) with a
+  confirmation naming the property, because there is no unsend.
 - **`RecipientsRelationManager`** on the View page: who was sent it, who opened it, when, and which
   portal login. Read-only by construction.
 - **Permissions:** `announcements.view` · `.create` · `.edit` · `.send` (`RolesPermissionsSeeder`).

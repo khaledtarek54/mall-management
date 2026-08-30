@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\MarketingPosts\Pages;
 
+use App\Filament\Admin\Actions\MarketingPostActions;
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
@@ -10,6 +12,18 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditMarketingPost extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * The columns these acts rewrite underneath the form. Only fields the form actually RENDERS
+     * belong here; the re-read itself happens either way, which is what keeps a render-time state
+     * closure honest.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     protected static string $resource = MarketingPostResource::class;
 
     /**
@@ -31,6 +45,8 @@ class EditMarketingPost extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...MarketingPostActions::all(),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),

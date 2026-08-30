@@ -14,7 +14,7 @@
  * stop being displayed.
  */
 
-use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
+use App\Filament\Admin\Resources\Invoices\Pages\EditInvoice;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Paymob\PaymobPaymentInitiator;
@@ -133,9 +133,11 @@ it('refuses to rotate for a user without invoices.edit, even dispatched directly
 
     $before = $this->invoice->payment_link_token;
 
-    Livewire::test(ListInvoices::class)
-        ->mountAction(TestAction::make('regeneratePaymentLink')->table($this->invoice))
-        ->callMountedAction();
+    // The act lives on the invoice's own page now, and a viewer holds invoices.view without
+    // invoices.edit — so the refusal lands one layer EARLIER: the page itself is refused and the
+    // act has no surface to be dispatched from at all.
+    Livewire::test(EditInvoice::class, ['record' => $this->invoice->getRouteKey()])
+        ->assertForbidden();
 
     expect($this->invoice->fresh()->payment_link_token)->toBe($before);
 });
@@ -146,8 +148,8 @@ it('lets a manager rotate it', function () {
 
     $before = $this->invoice->payment_link_token;
 
-    Livewire::test(ListInvoices::class)
-        ->mountAction(TestAction::make('regeneratePaymentLink')->table($this->invoice))
+    Livewire::test(EditInvoice::class, ['record' => $this->invoice->getRouteKey()])
+        ->mountAction(TestAction::make('regeneratePaymentLink'))
         ->callMountedAction();
 
     expect($this->invoice->fresh()->payment_link_token)->not->toBe($before);

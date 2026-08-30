@@ -1,9 +1,8 @@
 <?php
 
+use App\Filament\Admin\Actions\CamExpensePoolActions;
 use App\Filament\Admin\RelationManagers\CamAllocationsRelationManager;
 use App\Filament\Admin\Resources\CamExpensePools\Pages\EditCamExpensePool;
-use App\Filament\Admin\Resources\CamExpensePools\Pages\ListCamExpensePools;
-use App\Filament\Admin\Resources\CamExpensePools\Tables\CamExpensePoolsTable;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Services\CamReconciliationService;
@@ -58,9 +57,9 @@ afterEach(fn () => Filament::setTenant(null, isQuiet: true));
  */
 function callCamAction(string $name, CamExpensePool $pool): void
 {
-    $component = Livewire::test(ListCamExpensePools::class)->instance();
-
-    $action = $component->getTable()->getAction($name);
+    // The acts moved to the pool's own page on 2026-08-30 — the list FINDS, the record ACTS —
+    // so the gate is asserted against the registry both surfaces compose, not against a screen.
+    $action = collect(CamExpensePoolActions::all())->first(fn ($a) => $a->getName() === $name);
     expect($action)->not->toBeNull("action [{$name}] not found on the CAM pools table");
 
     $action->record($pool)->call();
@@ -76,11 +75,13 @@ function camActAs(string $role): void
 it('refuses a read-only VIEWER generating allocations, even dispatched directly', function () {
     // viewer holds cam.view (list renders) but NOT cam.generate_allocations.
     camActAs('viewer');
-    expect(CamExpensePoolsTable::canGenerate($this->pool))->toBeFalse();
+    expect(CamExpensePoolActions::canGenerate($this->pool))->toBeFalse();
 
-    Livewire::test(ListCamExpensePools::class)
-        ->mountAction(TestAction::make('generateAllocations')->table($this->pool))
-        ->callMountedAction();
+    // The acts live on the pool's own page now, and a viewer holds cam.view without cam.edit —
+    // so the refusal lands one layer EARLIER than it used to: the page itself is refused, and the
+    // act has no surface to be dispatched from at all.
+    Livewire::test(EditCamExpensePool::class, ['record' => $this->pool->getRouteKey()])
+        ->assertForbidden();
 
     expect($this->pool->fresh()->allocations()->count())->toBe(0)
         ->and($this->pool->fresh()->status)->toBe('draft'); // never bumped to reconciling
@@ -89,11 +90,10 @@ it('refuses a read-only VIEWER generating allocations, even dispatched directly'
 it('refuses a read-only OWNER marking a pool reconciled, even dispatched directly', function () {
     $this->pool->update(['status' => 'reconciling']);
     camActAs('owner');
-    expect(CamExpensePoolsTable::canMarkReconciled($this->pool))->toBeFalse();
+    expect(CamExpensePoolActions::canMarkReconciled($this->pool))->toBeFalse();
 
-    Livewire::test(ListCamExpensePools::class)
-        ->mountAction(TestAction::make('markReconciled')->table($this->pool))
-        ->callMountedAction();
+    Livewire::test(EditCamExpensePool::class, ['record' => $this->pool->getRouteKey()])
+        ->assertForbidden();
 
     expect($this->pool->fresh()->status)->toBe('reconciling')  // not flipped to reconciled
         ->and($this->pool->fresh()->reconciled_at)->toBeNull();
@@ -104,10 +104,10 @@ it('refuses re-opening a RECONCILED pool via generateAllocations — even for an
     // set status=reconciling, so dispatching it on a reconciled pool re-opened it.
     $this->pool->update(['status' => 'reconciled', 'reconciled_at' => now()]);
     camActAs('accounting'); // holds every cam.* perm — only the STATUS blocks it
-    expect(CamExpensePoolsTable::canGenerate($this->pool))->toBeFalse();
+    expect(CamExpensePoolActions::canGenerate($this->pool))->toBeFalse();
 
-    Livewire::test(ListCamExpensePools::class)
-        ->mountAction(TestAction::make('generateAllocations')->table($this->pool))
+    Livewire::test(EditCamExpensePool::class, ['record' => $this->pool->getRouteKey()])
+        ->mountAction(TestAction::make('generateAllocations'))
         ->callMountedAction();
 
     expect($this->pool->fresh()->status)->toBe('reconciled'); // stayed sealed

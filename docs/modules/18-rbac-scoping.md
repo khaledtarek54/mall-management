@@ -557,8 +557,10 @@ happens to block a given Livewire entrypoint (see the correction at the end of t
 ### Cloning a role
 
 Building a narrow role meant ticking the right boxes out of ~200 across 40 collapsed sections. In
-practice nobody did — they handed out `manager`. The **Clone role** action on the roles table copies
-a source role's whole permission set into a new name, which is then narrowed by unticking. The clone
+practice nobody did — they handed out `manager`. The **Clone role** action copies a source role's
+whole permission set into a new name, which is then narrowed by unticking. It sits on the role's own
+Edit page (moved off the list row 2026-08-30 — the list FINDS, the record ACTS;
+`App\Filament\Admin\Actions\RoleActions`). The clone
 is written to the access-control trail (`AccessControlAudit`) like any other grant, so a role does
 not appear in the audit from nowhere fully armed.
 

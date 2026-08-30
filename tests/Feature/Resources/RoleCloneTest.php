@@ -13,6 +13,7 @@
 | else's whole permission set), so it goes into the same access-control trail as an edit.
 */
 
+use App\Filament\Admin\Resources\Roles\Pages\EditRole;
 use App\Filament\Admin\Resources\Roles\Pages\ListRoles;
 use App\Support\MorphMap;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -32,9 +33,10 @@ it('copies every permission from the source role', function () {
     $expected = $source->permissions()->pluck('name')->sort()->values()->all();
 
     asTenant($this->asset, function () use ($expected) {
-        Livewire::test(ListRoles::class)
-            ->callTableAction('clone', Role::findByName('accounting', 'web'), ['name' => 'accounting_lite'])
-            ->assertHasNoTableActionErrors();
+        // The act moved to the role's own page on 2026-08-30 — the list FINDS, the record ACTS.
+        Livewire::test(EditRole::class, ['record' => Role::findByName('accounting', 'web')->getRouteKey()])
+            ->callAction('clone', data: ['name' => 'accounting_lite'])
+            ->assertHasNoActionErrors();
 
         $clone = Role::findByName('accounting_lite', 'web');
 
@@ -49,8 +51,8 @@ it('audits the clone as a permission grant', function () {
     $this->actingAs(makeUser('super_admin', [$this->asset->id]));
 
     asTenant($this->asset, function () {
-        Livewire::test(ListRoles::class)
-            ->callTableAction('clone', Role::findByName('leasing', 'web'), ['name' => 'leasing_junior']);
+        Livewire::test(EditRole::class, ['record' => Role::findByName('leasing', 'web')->getRouteKey()])
+            ->callAction('clone', data: ['name' => 'leasing_junior']);
 
         $clone = Role::findByName('leasing_junior', 'web');
 

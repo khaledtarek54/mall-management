@@ -5,19 +5,14 @@ namespace App\Filament\Admin\Resources\Departments\Tables;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Models\Department;
 use App\Models\User;
-use App\Services\DepartmentMessageService;
 use App\Support\Filament\EntitySelectFilter;
-use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Textarea;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 
 class DepartmentsTable
 {
@@ -83,31 +78,10 @@ class DepartmentsTable
                 ViewAction::make()
                     ->visible(fn ($record) => DepartmentResource::canView($record))
                     ->authorize(fn ($record) => DepartmentResource::canView($record)),
-                // Inter-department messaging (FR DEPT-2): notify this
-                // department's members via the bell.
-                Action::make('message')
-                    ->label(__('admin.actions.message'))
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('info')
-                    ->modalHeading(fn (Department $record) => __('admin.actions.message_heading', ['dept' => $record->name]))
-                    ->schema([
-                        Textarea::make('body')
-                            ->label(__('admin.actions.message'))
-                            ->required()
-                            ->rows(4),
-                    ])
-                    ->visible(fn ($record) => DepartmentResource::canEdit($record))
-                    // Fans a notification out to every member of the department — gate it, don't
-                    // merely hide the button.
-                    ->authorize(fn ($record) => DepartmentResource::canEdit($record))
-                    ->action(function (Department $record, array $data) {
-                        $count = app(DepartmentMessageService::class)->send($record, Auth::user(), $data['body']);
 
-                        Notification::make()
-                            ->title(__('admin.actions.message_sent', ['count' => $count]))
-                            ->success()
-                            ->send();
-                    }),
+                // ── The list FINDS; the record ACTS ─────────────────────────────────────
+                // Defined once in App\Filament\Admin\Actions\DepartmentActions and composed onto this
+                // record's own page, so opening the record is enough to act on it.
                 EditAction::make()->visible(fn ($record) => DepartmentResource::canEdit($record)),
             ]);
         // No delete / bulk-delete / trashed filter — departments are a fixed set.

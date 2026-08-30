@@ -4,26 +4,17 @@ namespace App\Filament\Admin\Resources\MarketingPosts\Tables;
 
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Models\MarketingPost;
-use App\Services\MarketingPost\ApproveMarketingPostService;
-use App\Services\MarketingPost\ArchiveMarketingPostService;
-use App\Services\MarketingPost\PublishMarketingPostService;
-use App\Services\MarketingPost\RejectMarketingPostService;
-use DomainException;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Textarea;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 
 /**
  * The register + the review queue.
@@ -156,108 +147,11 @@ class MarketingPostsTable
                     ->visible(fn (MarketingPost $r) => MarketingPostResource::canView($r))
                     ->authorize(fn (MarketingPost $r) => MarketingPostResource::canView($r)),
 
+                // ── The list FINDS; the record ACTS ─────────────────────────────────────
+                // Defined once in App\Filament\Admin\Actions\MarketingPostActions and composed onto this
+                // record's own page, so opening the record is enough to act on it.
                 EditAction::make()
                     ->visible(fn (MarketingPost $r) => MarketingPostResource::canEdit($r)),
-
-                // ---- The review queue's two verdicts.
-                Action::make('approve')
-                    ->label(__('admin.marketing_posts.actions.approve'))
-                    ->icon('heroicon-o-check-badge')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->modalDescription(__('admin.marketing_posts.actions.approve_confirm'))
-                    ->visible(fn (MarketingPost $r) => $r->isAwaitingReview() && MarketingPostResource::canApprove())
-                    ->authorize(fn (MarketingPost $r) => $r->isAwaitingReview() && MarketingPostResource::canApprove())
-                    ->action(function (MarketingPost $r) {
-                        // The refusals inside the service (no artwork, window already over) are
-                        // DomainExceptions — they render as a toast via bootstrap/app.php rather
-                        // than an error page. Caught here only to keep the operator on the queue.
-                        try {
-                            app(ApproveMarketingPostService::class)->handle($r, Auth::user());
-                        } catch (DomainException $e) {
-                            Notification::make()->danger()->title($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        Notification::make()->success()
-                            ->title(__('admin.marketing_posts.notices.approved'))->send();
-                    }),
-
-                Action::make('reject')
-                    ->label(__('admin.marketing_posts.actions.reject'))
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (MarketingPost $r) => $r->isAwaitingReview() && MarketingPostResource::canApprove())
-                    ->authorize(fn (MarketingPost $r) => $r->isAwaitingReview() && MarketingPostResource::canApprove())
-                    ->schema([
-                        Textarea::make('reason')
-                            ->label(__('admin.marketing_posts.actions.reject_reason'))
-                            ->helperText(__('admin.marketing_posts.actions.reject_reason_hint'))
-                            // Required at the form layer AND in the service. The service's copy is
-                            // the one that binds (the API and the portal reach it too); this one
-                            // just fails faster and in the right place.
-                            ->required()
-                            ->rows(3),
-                    ])
-                    ->action(function (MarketingPost $r, array $data) {
-                        try {
-                            app(RejectMarketingPostService::class)->handle($r, Auth::user(), $data['reason'] ?? '');
-                        } catch (DomainException $e) {
-                            Notification::make()->danger()->title($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        Notification::make()->success()
-                            ->title(__('admin.marketing_posts.notices.rejected'))->send();
-                    }),
-
-                // ---- Operator-composed content goes live without a queue step.
-                Action::make('publish')
-                    ->label(__('admin.marketing_posts.actions.publish'))
-                    ->icon('heroicon-o-megaphone')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (MarketingPost $r) => ! $r->isPublished() && ! $r->isAwaitingReview()
-                        && MarketingPostResource::canApprove())
-                    ->authorize(fn (MarketingPost $r) => ! $r->isPublished() && ! $r->isAwaitingReview()
-                        && MarketingPostResource::canApprove())
-                    ->action(function (MarketingPost $r) {
-                        try {
-                            app(PublishMarketingPostService::class)->handle($r, Auth::user());
-                        } catch (DomainException $e) {
-                            Notification::make()->danger()->title($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        Notification::make()->success()
-                            ->title(__('admin.marketing_posts.notices.published'))->send();
-                    }),
-
-                // ---- The retirement path. Offered far more prominently than delete, because it
-                // keeps the campaign and its numbers (see ArchiveMarketingPostService).
-                Action::make('archive')
-                    ->label(__('admin.marketing_posts.actions.archive'))
-                    ->icon('heroicon-o-archive-box')
-                    ->color('gray')
-                    ->requiresConfirmation()
-                    ->modalDescription(__('admin.marketing_posts.actions.archive_confirm'))
-                    ->visible(fn (MarketingPost $r) => $r->isPublished() && MarketingPostResource::canEdit($r))
-                    ->authorize(fn (MarketingPost $r) => $r->isPublished() && MarketingPostResource::canEdit($r))
-                    ->action(function (MarketingPost $r) {
-                        try {
-                            app(ArchiveMarketingPostService::class)->handle($r, Auth::user());
-                        } catch (DomainException $e) {
-                            Notification::make()->danger()->title($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        Notification::make()->success()
-                            ->title(__('admin.marketing_posts.notices.archived'))->send();
-                    }),
 
                 DeleteAction::make()
                     ->visible(fn (MarketingPost $r) => MarketingPostResource::canDelete($r)),

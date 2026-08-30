@@ -377,9 +377,13 @@ Two things did need fixing, both found by writing the test first:
 `TransferUnitOwnershipService` — Yardi's change-of-ownership. It closes the seller's tenure, opens
 the buyer's, keeps the unit's history, and returns the **resale (estoppel) certificate**.
 
-**Where an operator does it (added 2026-08-18):** two row actions on the ownership register —
-**Resale certificate** (read-only, gated on `unit_ownerships.view`, "as at" any date) and **Transfer
-ownership** (gated on `unit_ownerships.edit`, hidden once the tenure is terminal). The transfer modal
+**Where an operator does it (added 2026-08-18; split across two surfaces 2026-08-30):**
+**Resale certificate** is a DOWNLOAD and stays on the register row beside the tenure it copies
+(read-only, gated on `unit_ownerships.view`, "as at" any date). **Transfer ownership** is a write and
+moved to the ownership's own Edit page (`App\Filament\Admin\Actions\UnitOwnershipActions`, gated on
+`unit_ownerships.edit`, hidden once the tenure is terminal). Both read the same
+`UnitOwnershipsTable::certificateSummary()`, so the figure the operator confirms against is one
+definition rather than two. The transfer modal
 shows the outstanding figure live as the date moves, so the arrears refusal is visible before it
 fires rather than after. Until then the service had no caller outside its tests: a unit could be
 resold in the real world and there was no way to record it.

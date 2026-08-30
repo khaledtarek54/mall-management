@@ -2,13 +2,26 @@
 
 namespace App\Filament\Admin\Resources\PostDatedCheques\Pages;
 
+use App\Filament\Admin\Actions\PostDatedChequeActions;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 
 class EditPostDatedCheque extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * The columns these acts rewrite underneath the form. Only fields the form RENDERS belong
+     * here; the re-read happens either way, which is what keeps a render-time closure honest.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     use GuardsAssetInScope;
 
     protected static string $resource = PostDatedChequeResource::class;
@@ -28,5 +41,13 @@ class EditPostDatedCheque extends EditRecord
         }
 
         return $data;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...PostDatedChequeActions::all(),
+        ];
     }
 }

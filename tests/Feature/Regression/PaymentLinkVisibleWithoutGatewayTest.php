@@ -44,7 +44,7 @@ it('offers the pay link beside the revoke action when the gateway is OFF', funct
     // The shipped default, and the state the bug was reported from.
     config(['integrations.paymob.enabled' => false]);
 
-    Livewire::test(ListInvoices::class)
+    Livewire::test(EditInvoice::class, ['record' => $this->invoice->getRouteKey()])
         ->assertActionVisible(TestAction::make('paymentLink')->table($this->invoice))
         ->assertActionVisible(TestAction::make('regeneratePaymentLink')->table($this->invoice));
 
@@ -62,7 +62,7 @@ it('still offers it once the invoice is settled — the URL keeps disclosing it'
 
     expect($this->invoice->isPayable())->toBeFalse();
 
-    Livewire::test(ListInvoices::class)
+    Livewire::test(EditInvoice::class, ['record' => $this->invoice->getRouteKey()])
         ->assertActionVisible(TestAction::make('paymentLink')->table($this->invoice))
         ->assertActionVisible(TestAction::make('regeneratePaymentLink')->table($this->invoice));
 });
@@ -130,7 +130,12 @@ it('lets a read-only viewer READ the link but not revoke it', function () {
     expect(auth()->user()->can('invoices.view'))->toBeTrue()
         ->and(auth()->user()->can('invoices.edit'))->toBeFalse();
 
+    // Since 2026-08-30 the split spans two SURFACES, which makes it stricter rather than looser:
+    // reading the URL is a read and stayed on the list, while revoking is a write and moved to the
+    // invoice's own page — a page a viewer cannot open at all.
     Livewire::test(ListInvoices::class)
-        ->assertActionVisible(TestAction::make('paymentLink')->table($this->invoice))
-        ->assertActionHidden(TestAction::make('regeneratePaymentLink')->table($this->invoice));
+        ->assertTableActionVisible('paymentLink', $this->invoice);
+
+    Livewire::test(EditInvoice::class, ['record' => $this->invoice->getRouteKey()])
+        ->assertForbidden();
 });

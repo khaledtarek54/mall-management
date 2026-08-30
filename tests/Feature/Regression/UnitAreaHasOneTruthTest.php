@@ -1,7 +1,6 @@
 <?php
 
 use App\Filament\Admin\Resources\Units\Pages\EditUnit;
-use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Models\UnitArea;
 use App\Services\RemeasureUnitService;
 use Carbon\CarbonImmutable;
@@ -128,8 +127,9 @@ it('gives the operator a working path — the Remeasure action records a dated r
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($this->asset);
 
-    Livewire::test(ListUnits::class)
-        ->callTableAction('remeasure', $this->unit, [
+    // The act moved to the unit's own page on 2026-08-30 — the list FINDS, the record ACTS.
+    Livewire::test(EditUnit::class, ['record' => $this->unit->getRouteKey()])
+        ->callAction('remeasure', data: [
             'area_sqm' => 320,
             'effective_from' => CarbonImmutable::now()->toDateString(),
             'reason' => 'Wall moved during fit-out',

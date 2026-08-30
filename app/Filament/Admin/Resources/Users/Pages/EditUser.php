@@ -2,13 +2,27 @@
 
 namespace App\Filament\Admin\Resources\Users\Pages;
 
+use App\Filament\Admin\Actions\UserActions;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Support\AccessControlAudit;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditUser extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * The columns these acts rewrite underneath the form. Only fields the form actually RENDERS
+     * belong here; the re-read itself still happens either way, which is what keeps a render-time
+     * state closure honest.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     protected static string $resource = UserResource::class;
 
     /** @var array<int, string> role names held before this save */
@@ -20,6 +34,8 @@ class EditUser extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...UserActions::all(),
             DeleteAction::make(),
         ];
     }

@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\UnitOwnerships\Pages;
 
+use App\Filament\Admin\Actions\UnitOwnershipActions;
 use App\Filament\Admin\Resources\UnitOwnerships\UnitOwnershipResource;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
@@ -10,6 +12,18 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditUnitOwnership extends EditRecord
 {
+    use RefreshesRecordState;
+
+    /**
+     * The columns these acts rewrite underneath the form. Only fields the form actually RENDERS
+     * belong here; the re-read itself still happens either way, which is what keeps a render-time
+     * state closure honest.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['status'];
+    }
+
     protected static string $resource = UnitOwnershipResource::class;
 
     /**
@@ -32,6 +46,8 @@ class EditUnitOwnership extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The record hub: what you can DO to this record lives here, not on the list.
+            ...UnitOwnershipActions::all(),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),

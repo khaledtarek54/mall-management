@@ -130,8 +130,9 @@ favour, and cancel-then-re-lodge costs one click. Tests: `ChequeNumberIsUniquePe
 ## 4. Filament surface
 
 `PostDatedChequeResource` (Accounting nav) — the register with a **Matured & uncleared** filter, a create form
-(property + tenant + optional invoice + cheque details), and **Deposit / Clear / Bounce / Cancel** row actions
-(dual-gated). Property-scoped via the AnnouncementResource pattern (`BypassesFilamentTenantAutoScope` + manual
+(property + tenant + optional invoice + cheque details). **Deposit / Clear / Bounce / Charge NSF fee / Cancel**
+moved off the row on 2026-08-30 and onto the cheque's own Edit page — the list FINDS, the record ACTS — defined
+once in `App\Filament\Admin\Actions\PostDatedChequeActions` (still dual-gated). Property-scoped via the AnnouncementResource pattern (`BypassesFilamentTenantAutoScope` + manual
 `getEloquentQuery` + `assertAssetInScope` on create/edit). Permissions `post_dated_cheques.{view,create,edit,delete}`;
 **Clear additionally requires `payments.create`** (it records a Payment).
 

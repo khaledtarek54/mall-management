@@ -3,22 +3,15 @@
 namespace App\Filament\Admin\Resources\Roles\Tables;
 
 use App\Filament\Admin\Resources\Roles\RoleResource;
-use App\Support\AccessControlAudit;
 use Database\Seeders\RolesPermissionsSeeder;
-use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 class RolesTable
 {
@@ -77,63 +70,13 @@ class RolesTable
                     // CheckboxLists are dehydrated(false) and only EditRole::afterSave
                     // gathers + syncs them (and audits the diff). A modal EditAction
                     // would no-op the permission change AND skip the audit.
+                    // ── The list FINDS; the record ACTS ─────────────────────────────────────
+                    // Defined once in App\Filament\Admin\Actions\RoleActions and composed onto this
+                    // record's own page, so opening the record is enough to act on it.
                     EditAction::make()
                         ->visible(fn ($record) => RoleResource::canEdit($record))
                         ->url(fn ($record): string => RoleResource::getUrl('edit', ['record' => $record])),
 
-                    // Start a new role from an existing one. Building "accounting, but without the
-                    // credit-note rights" meant ticking ~200 boxes across 40 collapsed sections and
-                    // getting none of them wrong — so in practice nobody made a custom role, they
-                    // over-granted an existing one. Cloning makes the narrow role the easy path.
-                    Action::make('clone')
-                        ->label(__('admin.roles.actions.clone'))
-                        ->icon('heroicon-o-document-duplicate')
-                        ->color('gray')
-                        ->visible(fn () => RoleResource::canCreate())
-                        ->authorize(fn () => RoleResource::canCreate())
-                        ->schema([
-                            TextInput::make('name')
-                                ->label(__('admin.fields.role_name'))
-                                ->required()
-                                ->maxLength(125)
-                                // Same shape as RoleForm — a role name is a permission-system key,
-                                // not a display label.
-                                ->regex('/^[a-z0-9_]+$/')
-                                ->helperText(__('admin.fields.role_name_helper'))
-                                ->unique(table: 'roles', column: 'name')
-                                ->default(fn (Role $record) => Str::of($record->name)->append('_copy')->value()),
-                        ])
-                        ->action(function (Role $record, array $data): void {
-                            abort_unless(RoleResource::canCreate(), 403);
-
-                            // Re-resolved through the Eloquent query rather than used as returned:
-                            // Role::create() gives back Spatie's CONTRACT, which the audit sink
-                            // (rightly) will not accept as a subject to log against.
-                            Role::create([
-                                'name' => $data['name'],
-                                'guard_name' => $record->guard_name,
-                            ]);
-
-                            /** @var Role $clone Spatie types its statics as the CONTRACT; this is the model. */
-                            $clone = Role::query()->where('name', $data['name'])
-                                ->where('guard_name', $record->guard_name)
-                                ->firstOrFail();
-
-                            $permissions = $record->permissions()->pluck('name')->all();
-                            $clone->syncPermissions($permissions);
-                            app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-                            // A new role carrying someone else's whole permission set is a privilege
-                            // event, so it goes in the same trail as an edit — otherwise the audit
-                            // shows a role appearing from nowhere fully armed.
-                            AccessControlAudit::log($clone, 'permission_granted', $permissions);
-
-                            Notification::make()
-                                ->title(__('admin.roles.notices.cloned', ['name' => $clone->name]))
-                                ->body(__('admin.roles.notices.cloned_body', ['count' => count($permissions)]))
-                                ->success()
-                                ->send();
-                        }),
                 ]),
             ])
             ->toolbarActions([
