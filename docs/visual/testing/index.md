@@ -152,5 +152,19 @@ sudo atriom-qa-reset
 
 Needs SSH to the box; ask whoever set it up. Reset whenever the data stops making sense to you.
 
+It is a wrapper around three commands, and the third one matters:
+
+```bash
+php artisan migrate:fresh --force
+php artisan db:seed --class='Database\Seeders\LearningSeeder' --force
+php artisan db:seed --class='Database\Seeders\PlaceholderIssuerIdentitySeeder' --force
+```
+
+`migrate:fresh` wipes the **settings** too, not just the records you created — so without that third
+line the box would come back with **no tax registration**, every invoice would stop calling itself
+a *Tax Invoice*, and the [money cycle](/testing/cycle)'s step 6 would be wrong. The placeholder is a
+separate seeder on purpose: it turns a *blocking* configuration check green, so it must never be
+something you get by accident from asking for demo data, and it **refuses to run on production**.
+
 <div class="plain"><b>This box holds no real data.</b> Every tenant, lease and figure is invented.
 Nothing you do here reaches a real retailer, a real bank, or the tax authority.</div>
