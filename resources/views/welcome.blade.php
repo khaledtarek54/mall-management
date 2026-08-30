@@ -762,6 +762,7 @@
     <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="m8 12 2.7 2.7L16 9.5"/></symbol>
     <symbol id="ic-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
     <symbol id="ic-dot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+    <symbol id="ic-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 5.5h3M10.75 18.5h2.5"/></symbol>
     <symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5z"/><path d="M14 2.5v5h5"/></symbol>
 </svg>
 
@@ -960,14 +961,14 @@
                     </a>
                 @endforeach
 
-                {{-- The API has no page to open, so it is a card and not a link. --}}
+                {{-- The app is installed, not opened from here, so it is a card and not a link. --}}
                 <div class="surface-card static reveal" style="transition-delay:180ms">
-                    <span class="label">{{ __('landing.surfaces.api.label') }}</span>
-                    <h3>{{ __('landing.surfaces.api.title') }}</h3>
-                    <p>{{ __('landing.surfaces.api.body') }}</p>
+                    <span class="label">{{ __('landing.surfaces.mobile.label') }}</span>
+                    <h3>{{ __('landing.surfaces.mobile.title') }}</h3>
+                    <p>{{ __('landing.surfaces.mobile.body') }}</p>
                     <span class="go">
-                        <svg aria-hidden="true"><use href="#ic-doc"/></svg>
-                        {{ __('landing.surfaces.api.action') }}
+                        <svg aria-hidden="true"><use href="#ic-phone"/></svg>
+                        {{ __('landing.surfaces.mobile.action') }}
                     </span>
                 </div>
             </div>

@@ -151,7 +151,7 @@ return [
             ],
             'hr_payroll' => [
                 'title' => 'HR & payroll',
-                'body' => 'Employees, payroll runs on a dated ladder of statutory rates, advances and their repayment, and العهدة — cash advanced to a person and settled back.',
+                'body' => 'Employees, payroll runs on a dated ladder of statutory rates, advances and their repayment, and staff cash custody — money advanced to a named person and settled back.',
             ],
             'marketing' => [
                 'title' => 'Marketing',
@@ -189,11 +189,11 @@ return [
             'body' => 'A contractor sees exactly the jobs dispatched to them, and can do four things: accept, update, file evidence, and quote. Marking a job finished is deliberately not one of them — that is the operator\'s decision.',
             'action' => 'Open the vendor portal',
         ],
-        'api' => [
-            'label' => 'For the mobile app',
-            'title' => 'Tenant API',
-            'body' => 'A versioned REST API behind token authentication, carrying invoices, statements, payments, notifications, requests and sales declarations — with a generated OpenAPI contract for the app team.',
-            'action' => 'Documented for the app team',
+        'mobile' => [
+            'label' => 'For the retailer on the move',
+            'title' => 'Tenant mobile app',
+            'body' => 'The retailer\'s own app for iOS and Android: leases and invoices, paying by card, the statement of account, declaring the month\'s sales with a photo of the return, and raising a maintenance request and following it — with a push notification when something needs them.',
+            'action' => 'iOS and Android',
         ],
     ],
 
@@ -214,11 +214,11 @@ return [
                 'body' => 'The instrument this market actually runs on. Lodge a series against a lease, watch maturity, clear or bounce — with a standing check for the tenant who is about to run out of cheques while the lease runs on.',
             ],
             'owners' => [
-                'title' => 'Unit owners and صيانة',
+                'title' => 'Unit owners and their maintenance charge',
                 'body' => 'The buyer who trades from a shop he owns holds no lease, and is billed maintenance against the ownership instead. Resale is recorded; the previous owner\'s tenure stays where it belongs.',
             ],
             'custody' => [
-                'title' => 'العهدة',
+                'title' => 'Staff cash custody',
                 'body' => 'Cash advanced to a named person and settled back against what they spent — a first-class part of the ledger, not a spreadsheet beside it.',
             ],
             'calendar' => [

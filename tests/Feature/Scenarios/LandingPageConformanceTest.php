@@ -30,6 +30,17 @@
 | D — **It names no credential.** A public page must not carry a demo login, a seeded password or
 |     anything out of the environment. The demo accounts are documented in CLAUDE.md and the docs
 |     tree, which are for people who already hold the repository.
+|
+| E — **Neither language bleeds into the other.** Reported from the live staging box: the ENGLISH
+|     page carried «العهدة» twice and «صيانة» once, because the copy used the Arabic domain terms
+|     the way this project's own documentation writes them. In a doc that is precision; on a page
+|     written for an English reader it is untranslated leakage, and it is invisible to every
+|     existing gate — `TranslationKeyConformanceTest` checks that Arabic is PRESENT in `lang/ar`,
+|     never that it is ABSENT from `lang/en`. Two teeth, because they fail differently: the
+|     catalogue check names the offending key, and the rendered check catches a literal written
+|     straight into the Blade. The language switcher is the one legitimate exception — an endonym
+|     is the target language's own name — and it is admitted by CARRYING `lang="ar"`, which is
+|     also just correct HTML for a foreign-language run, rather than by being on a list.
 */
 
 use App\Http\Middleware\SetLocale;
@@ -148,4 +159,61 @@ it('D2: the view carries no credential in its source either', function () {
     foreach (['@mall.test', '@atriomwalk.test', 'DEMO_USER_PASSWORD', 'DB_PASSWORD'] as $needle) {
         expect($source)->not->toContain($needle);
     }
+})->group('conformance');
+
+it('E: the English catalogue carries no Arabic', function () {
+    $flatten = function (array $items, string $prefix = '') use (&$flatten): array {
+        $out = [];
+        foreach ($items as $key => $value) {
+            $path = $prefix === '' ? (string) $key : "{$prefix}.{$key}";
+            $out += is_array($value) && $value !== [] ? $flatten($value, $path) : [$path => $value];
+        }
+
+        return $out;
+    };
+
+    $english = $flatten(require lang_path('en/landing.php'));
+
+    expect($english)->not->toBeEmpty('the catalogue loaded nothing, so this proved nothing');
+
+    $leaked = array_filter(
+        $english,
+        fn (string $value): bool => preg_match('/\p{Arabic}/u', $value) === 1,
+    );
+
+    expect($leaked)->toBe([], 'Arabic in the English catalogue: '.implode(', ', array_keys($leaked)));
+})->group('conformance');
+
+it('E2: the rendered English page carries Arabic only in the language switcher', function () {
+    $html = $this->withSession(['locale' => 'en'])->get('/')->assertOk()->getContent();
+
+    // Sanity: the switcher IS there and IS Arabic, so the exemption below is not vacuous.
+    expect($html)->toContain('lang="ar"');
+
+    // Drop every element that DECLARES itself Arabic — which is what a foreign-language run is
+    // supposed to carry — then nothing Arabic may remain.
+    $stripped = preg_replace('/<([a-z]+)\b[^>]*\blang="ar"[^>]*>.*?<\/\1>/su', ' ', $html) ?? $html;
+    $stripped = preg_replace('/<(script|style)\b[^>]*>.*?<\/\1>/su', ' ', $stripped) ?? $stripped;
+
+    preg_match_all('/[\p{Arabic}]+/u', strip_tags($stripped), $found);
+
+    expect(array_values(array_unique($found[0])))->toBe(
+        [],
+        'Arabic on the English page, outside anything marked lang="ar": '.implode(' · ', array_unique($found[0])),
+    );
+})->group('conformance');
+
+it('E3: the Arabic page carries no untranslated English body copy', function () {
+    // The mirror. Latin DOES legitimately appear on the Arabic page — the brand, «iOS»,
+    // «Paymob», document references, figures — so this cannot ban Latin outright. What it can
+    // ban is a whole SENTENCE of English, which is what an untranslated string looks like.
+    $html = $this->withSession(['locale' => 'ar'])->get('/')->assertOk()->getContent();
+
+    $stripped = preg_replace('/<([a-z]+)\b[^>]*\blang="en"[^>]*>.*?<\/\1>/su', ' ', $html) ?? $html;
+    $stripped = preg_replace('/<(script|style)\b[^>]*>.*?<\/\1>/su', ' ', $stripped) ?? $stripped;
+
+    // Six or more consecutive Latin words is prose, not a product name or a reference.
+    preg_match_all('/\b(?:[A-Za-z][a-z\x27]*+[ ,]+){5,}[A-Za-z][a-z\x27]*+/u', strip_tags($stripped), $found);
+
+    expect(array_values(array_unique($found[0])))->toBe([], 'English prose on the Arabic page');
 })->group('conformance');
