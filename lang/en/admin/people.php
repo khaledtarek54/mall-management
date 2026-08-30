@@ -185,6 +185,7 @@ return [
         // Shown only after the submitted password has already been verified — so it names the
         // real reason without telling an attacker anything they did not just prove they knew.
         'account_suspended' => 'This account has been suspended. Contact your administrator to restore access.',
+        'turnstile_failed' => 'We could not confirm you are human. Please complete the check and try again.',
     ],
 
 ];
