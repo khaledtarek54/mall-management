@@ -26,6 +26,7 @@ percentage-rent on tenant sales, maintenance, vendor management, marketing budge
 | **Eltizam** | The **operator** — manages malls, performs the work. **Live customer (deal closed 2026-06-27).** | Admin app `/admin` (User + roles) |
 | **Jawad** | An **owner** customer — owns a property, gets oversight + raises owner-requests | Admin app `/admin`, scoped to owned properties (no separate portal) |
 | **Tenants** | The **retailers / F&B / service shops** leasing units | Tenant portal `/portal` + mobile app |
+| **Contractors** | The **external vendors** dispatched to maintenance work | Vendor portal `/vendor` (`VendorContact`) |
 | **PropEzy** | A competitor (the benchmark verdicts live in [`docs/gap-analysis/`](gap-analysis/README.md)) | — |
 
 **Status:** all original requirements built + validated; a large Pest suite (**live counts are generated into [PROJECT-MAP.md](PROJECT-MAP.md)** — never hand-typed here, which is how this line drifted before) + a Playwright E2E suite; production-ready, in a live pilot with Eltizam. Being extended per the **Eltizam FRD** into facility management — see [ROADMAP.md](ROADMAP.md).
@@ -34,13 +35,18 @@ percentage-rent on tenant sales, maintenance, vendor management, marketing budge
 
 ## 2. Architecture at a glance
 
-Three authenticated surfaces over one MySQL source-of-truth:
+**Four** authenticated surfaces over one MySQL source-of-truth — it read *three* here for two days
+after the vendor portal shipped on 2026-08-28, and the public landing page said three as well:
 
 | Surface | Path | Auth guard | Identity model |
 |---|---|---|---|
 | **Admin app** (operator + owners) | `/admin` | `web` (session) | `User` + spatie roles |
 | **Tenant portal** | `/portal` | `portal` (session) | `TenantUser` (multi-user per tenant) |
+| **Vendor portal** (contractors) | `/vendor` | `vendor` (session) | `VendorContact` (own reset-token table) |
 | **Mobile API** | `/api/v1/*` | `tenant-api` (Sanctum) | `Tenant` (company login) |
+
+The landing page at `/` now **derives** its tiles from `Filament::getPanels()` rather than listing
+them, so a fifth panel cannot ship unadvertised (`LandingPageConformanceTest`).
 
 - **Stack:** Laravel 13 · PHP 8.4 · Filament 4 · MySQL (prod/local) / SQLite `:memory:` (tests) · Pest 4 + ParaTest. Packages: spatie **permission / settings / activitylog / medialibrary**, Laravel **Sanctum**, **Paymob** (card payments). *(**ETA** e-invoicing is built but FROZEN — see [modules/16](modules/16-eta-einvoicing.md).)*
 - **Multi-property tenancy (property-first):** the admin panel's Filament "tenant" is an **`Asset` (property)**; resource *tables* auto-scope to the selected property via `App\Support\TenantScope`. The operator always works **inside one real mall** — the switcher no longer offers the "All Properties" pseudo-asset, and `/admin/ALL` 404s (see [PROPERTY-ISOLATION.md](PROPERTY-ISOLATION.md)). The `Asset::ALL_PROPERTIES_CODE` pseudo-asset + its consolidation plumbing are **kept** for a future read-only portfolio surface. See [`18-rbac-scoping`](modules/18-rbac-scoping.md).
