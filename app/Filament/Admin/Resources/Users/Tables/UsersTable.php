@@ -187,7 +187,9 @@ class UsersTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('id')
+            // A→Z. This opened in signup order, so finding a colleague meant searching for
+            // someone you could already see was there — a register is read by name.
+            ->defaultSort('name')
             ->emptyStateIcon('heroicon-o-users')
             ->emptyStateHeading(__('admin.empty.users.heading'))
             ->emptyStateDescription(__('admin.empty.users.description'))

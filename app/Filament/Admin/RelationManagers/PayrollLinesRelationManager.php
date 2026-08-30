@@ -74,6 +74,10 @@ class PayrollLinesRelationManager extends RelationManager
                 TextColumn::make('employee.name')
                     ->label(__('admin.payroll_lines.fields.employee'))
                     ->description(fn (PayrollLine $record) => $record->employee?->code)
+                    // Sortable so Filament builds the relation join itself. Without it a
+                    // `defaultSort('employee.name')` falls through to a bare
+                    // `order by employee.name` with nothing joined, which is a 500.
+                    ->sortable()
                     ->weight('medium'),
                 TextColumn::make('allowances')
                     ->label(__('admin.payroll_lines.fields.allowances'))
@@ -338,7 +342,9 @@ class PayrollLinesRelationManager extends RelationManager
                     ->recipient(fn (PayrollLine $record) => $record->employee)
                     ->authorize(fn () => auth()->user()?->can('payrolls.view') ?? false),
             ])
-            ->defaultSort('id')
+            // A→Z by employee. A payroll run is read to find one person's line, and insertion
+            // order is not a thing anyone can search by eye.
+            ->defaultSort('employee.name')
             ->emptyStateIcon('heroicon-o-user-group')
             ->emptyStateHeading(__('admin.payroll_lines.empty.heading'))
             ->emptyStateDescription(__('admin.payroll_lines.empty.description'));

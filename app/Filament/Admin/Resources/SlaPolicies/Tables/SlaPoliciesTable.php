@@ -45,7 +45,10 @@ class SlaPoliciesTable
 
                         : (TenantRequestType::tryFrom($state)?->label() ?? $state))
 
-                    ->badge(),
+                    ->badge()
+                    // Sortable because it is what the list opens on — a header the reader
+                    // cannot click is a sort they cannot undo.
+                    ->sortable(),
                 TextColumn::make('priority')
                     ->label(__('admin.facility.fields.priority'))
                     ->badge()
@@ -84,7 +87,19 @@ class SlaPoliciesTable
                     ->authorize(fn ($record) => SlaPolicyResource::canView($record)),
                 EditAction::make()->visible(fn (SlaPolicy $record) => SlaPolicyResource::canEdit($record)),
             ])
-            ->defaultSort('asset_id')
+            // Grouped by the KIND of request the override governs.
+            //
+            // It sorted by `asset_id`, which ordered the rows by whichever sequence the malls
+            // happened to be created in. Worse than arbitrary here: `SlaPolicy` is
+            // `#[PropertyOwned]` with no portfolio tier, so the list only ever shows ONE mall's
+            // rows — every value in that column is identical and the sort decided nothing at all,
+            // leaving the rows in primary-key order behind a join that bought nothing.
+            //
+            // `request_type` is the column that tells these rows apart; it was added for exactly
+            // that reason ("without this column they read as duplicates"). Priority would be the
+            // other candidate and cannot be a column sort — its order is severity, not the
+            // alphabet, and `FIELD()` is MySQL-only.
+            ->defaultSort('request_type')
             ->emptyStateIcon('heroicon-o-clock')
             ->emptyStateHeading(__('admin.empty.sla_policies.heading'))
             ->emptyStateDescription(__('admin.empty.sla_policies.description'))

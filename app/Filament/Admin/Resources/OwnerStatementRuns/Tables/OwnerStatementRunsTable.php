@@ -92,7 +92,10 @@ class OwnerStatementRunsTable
                     ->color(fn (OwnerStatementRun $r) => $r->statements->first()?->sent_at ? 'success' : 'gray'),
                 TextColumn::make('version')->label(__('admin.owner_statements.fields.version'))->alignRight()->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('id', 'desc')
+            // Newest PERIOD first, not newest keyed. A run for an earlier month can be raised
+            // later — a revision, or a catch-up — so insertion order and period order genuinely
+            // differ, and it is the period the owner asks about.
+            ->defaultSort('period_end', 'desc')
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.owner_statements.fields.status'))

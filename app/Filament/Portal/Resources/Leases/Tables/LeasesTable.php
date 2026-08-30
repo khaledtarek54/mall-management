@@ -59,7 +59,10 @@ class LeasesTable
                         return $media->toResponse(request());
                     }),
             ])
-            ->defaultSort('id', 'desc')
+            // Most recently commenced first — the same order the operator's own lease list uses.
+            // This sorted by insertion, so a tenant and the operator could be looking at the same
+            // two tenancies in two different orders.
+            ->defaultSort('commencement_date', 'desc')
             ->emptyStateIcon('heroicon-o-document-text')
             ->emptyStateHeading(__('admin.portal.lease.empty_heading'))
             ->emptyStateDescription(__('admin.portal.lease.empty_description'));

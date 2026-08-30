@@ -135,7 +135,10 @@ class MarketingPostsTable
                 DeleteAction::make()
                     ->visible(fn (MarketingPost $r) => MarketingPostResource::canDelete($r)),
             ])
-            ->defaultSort('id', 'desc')
+            // Featured first, then priority, then newest — `feedOrder()`, the SAME scope the
+            // operator's list and the shopper's feed use. This sorted by insertion, so the
+            // tenant's own copy of the feed put a pinned campaign wherever it happened to land.
+            ->modifyQueryUsing(fn ($query) => $query->feedOrder())
             ->emptyStateIcon('heroicon-o-sparkles')
             ->emptyStateHeading(__('admin.marketing_posts.portal.empty_heading'))
             ->emptyStateDescription(__('admin.marketing_posts.portal.empty_description'));

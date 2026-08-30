@@ -86,7 +86,11 @@ class CamAllocationsTable
                     ->service(CamStatementPdfService::class)
                     ->recipient(fn (CamAllocation $record) => $record->lease?->tenant ?? $record->unitOwnership?->tenant),
             ])
-            ->defaultSort('cam_expense_pool_id', 'desc')
+            // The most recent service-charge year first. `cam_expense_pool_id` sorted by the
+            // order the pools were created in, which is close to year order until the operator
+            // back-fills an old one — and this is the tenant's own screen, where "which year am
+            // I looking at" is the first question.
+            ->defaultSort('pool.period_year', 'desc')
             ->emptyStateIcon('heroicon-o-receipt-percent')
             ->emptyStateHeading(__('admin.empty.portal_cam_allocations.heading'))
             ->emptyStateDescription(__('admin.empty.portal_cam_allocations.description'));

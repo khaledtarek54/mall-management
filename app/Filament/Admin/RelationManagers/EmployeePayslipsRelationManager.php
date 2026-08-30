@@ -88,7 +88,10 @@ class EmployeePayslipsRelationManager extends RelationManager
                     ->alignRight()
                     ->weight('bold'),
             ])
-            ->defaultSort('id', 'desc')
+            // Most recent PAY PERIOD first. A March run can be generated in May, so sorting by
+            // insertion claimed a chronology the periods do not have — on the screen someone
+            // opens to answer "was I paid for March?".
+            ->defaultSort('payroll.period_month', 'desc')
             ->recordActions([
                 PdfDownloadAction::make('payslip')
                     ->label(__('admin.payroll_lines.payslip'))
