@@ -442,6 +442,26 @@ Schedule::call(fn () => Health::stampHeartbeat())
     ->name('atriom-scheduler-heartbeat')
     ->withoutOverlapping();
 
+/*
+|--------------------------------------------------------------------------
+| Operational status → Discord
+|--------------------------------------------------------------------------
+|
+| Posts only when the SET of failing health checks changes, in either
+| direction. Every fifteen minutes is a compromise between noticing a dead
+| queue worker quickly and not being a second scheduler-liveness signal: the
+| heartbeat above is what reports a dead cron, and this command cannot, since a
+| dead cron would stop it too.
+|
+| It is deliberately NOT `everyMinute()`. `Health::run()` touches the database,
+| cache, queue and disk, and a monitor whose own cost is noticeable is one that
+| gets turned off.
+*/
+Schedule::command('atriom:notify-status')
+    ->everyFifteenMinutes()
+    ->name('atriom-notify-status')
+    ->withoutOverlapping();
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // Turning a module off stops its scheduled work.
 //

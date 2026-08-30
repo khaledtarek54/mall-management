@@ -22,7 +22,19 @@ use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes;
  * `backup:monitor` still reporting a stale or missing backup via its exit code.
  */
 $backupAlertEmail = env('BACKUP_ALERT_EMAIL');
-$backupAlertChannels = $backupAlertEmail ? ['mail'] : [];
+$backupDiscordWebhook = env('BACKUP_DISCORD_WEBHOOK_URL', env('DISCORD_WEBHOOK_URL'));
+
+/*
+ * Alert on EVERY configured channel, not the first one that happens to be set. A backup that
+ * failed is the one notification this system cannot afford to lose, and mail and a webhook fail
+ * independently — a bounced sender and a rotated webhook are different outages. Neither
+ * configured means neither is registered, which is spatie's own "notify nobody" and leaves
+ * `backup:monitor`'s exit code as the only signal.
+ */
+$backupAlertChannels = array_values(array_filter([
+    $backupAlertEmail ? 'mail' : null,
+    $backupDiscordWebhook ? 'discord' : null,
+]));
 
 return [
 
@@ -313,7 +325,7 @@ return [
         ],
 
         'discord' => [
-            'webhook_url' => '',
+            'webhook_url' => $backupDiscordWebhook ?: '',
 
             /*
              * If this is an empty string, the name field on the webhook will be used.
