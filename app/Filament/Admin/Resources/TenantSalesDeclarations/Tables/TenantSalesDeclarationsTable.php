@@ -18,13 +18,6 @@ use Filament\Tables\Table;
 
 class TenantSalesDeclarationsTable
 {
-    protected static function isAnnualLease(TenantSalesDeclaration $record): bool
-    {
-        $lease = $record->lease;
-
-        return $lease instanceof Lease && $lease->percentage_rent_frequency === 'annual';
-    }
-
     public static function configure(Table $table): Table
     {
         return $table
@@ -61,7 +54,7 @@ class TenantSalesDeclarationsTable
                     ->money('EGP', divideBy: 1)
                     // Mark annual (cumulative) leases: a bare figure on an annual lease is a running
                     // total's share and can't be understood without the "View working" breakdown.
-                    ->description(fn (TenantSalesDeclaration $record) => self::isAnnualLease($record)
+                    ->description(fn (TenantSalesDeclaration $record) => SalesDeclarationActions::isAnnualLease($record)
                         ? __('admin.tables.tenant_sales.annual_cumulative')
                         : null)
                     ->color(fn ($state) => $state > 0 ? 'success' : 'gray')

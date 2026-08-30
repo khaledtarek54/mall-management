@@ -254,4 +254,11 @@ class SalesDeclarationActions
 
         return $entries;
     }
+
+    public static function isAnnualLease(TenantSalesDeclaration $record): bool
+    {
+        $lease = $record->lease;
+
+        return $lease instanceof Lease && $lease->percentage_rent_frequency === 'annual';
+    }
 }
