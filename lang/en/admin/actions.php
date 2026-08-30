@@ -252,6 +252,7 @@ return [
         'message_heading' => 'Message the :dept department',
         'message_sent' => 'Message sent to :count member(s)',
         'lock_declaration' => 'Lock',
+        'declare_sales' => 'Declare sales',
         'lock_declaration_confirm' => 'Locking finalizes the declaration and generates a percentage-rent charge on the lease for the next billing run.',
         'view_sales_working' => 'View working',
         'view_sales_working_heading' => 'Percentage rent working — :period',

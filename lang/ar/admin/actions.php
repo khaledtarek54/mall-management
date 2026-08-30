@@ -251,6 +251,7 @@ return [
         'message_heading' => 'مراسلة قسم :dept',
         'message_sent' => 'تم إرسال الرسالة إلى :count عضو',
         'lock_declaration' => 'تثبيت',
+        'declare_sales' => 'إقرار مبيعات',
         'lock_declaration_confirm' => 'تثبيت الإقرار يُنهي المراجعة ويُنشئ رسم نسبة الإيجار على العقد للدورة الفوترية القادمة.',
         'view_sales_working' => 'عرض الاحتساب',
         'view_sales_working_heading' => 'احتساب نسبة الإيجار — :period',

@@ -198,7 +198,7 @@ class SalesDeclarationActions
         return $record->status === 'locked' && (auth()->user()?->can('tenant_sales.lock') ?? false);
     }
 
-    protected static function hasPercentageRent(TenantSalesDeclaration $record): bool
+    public static function hasPercentageRent(TenantSalesDeclaration $record): bool
     {
         $lease = $record->lease;
 

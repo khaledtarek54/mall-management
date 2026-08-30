@@ -14,6 +14,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class TenantSalesDeclarationsTable
@@ -51,13 +52,24 @@ class TenantSalesDeclarationsTable
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('calculated_percentage_rent')
                     ->label(__('admin.tables.tenant_sales.percentage_rent'))
-                    ->money('EGP', divideBy: 1)
+                    // A DASH where there is no clause, never 0.00 — the two mean opposite things
+                    // and rendered identically. `0.00` on a percentage lease says "computed, and
+                    // the turnover did not reach the breakpoint"; on a lease that only REPORTS its
+                    // sales there is no computation at all. An accountant reading the register for
+                    // percentage rent cannot tell those apart from a column of zeroes, which is
+                    // what made the reporting-duty split worth a column here as well as a filter.
+                    ->formatStateUsing(fn (?string $state, TenantSalesDeclaration $record): string => SalesDeclarationActions::hasPercentageRent($record)
+                        ? 'EGP '.number_format((float) $state, 2)
+                        : '—')
+                    ->tooltip(fn (TenantSalesDeclaration $record): ?string => SalesDeclarationActions::hasPercentageRent($record)
+                        ? null
+                        : __('admin.tables.tenant_sales.reporting_only'))
                     // Mark annual (cumulative) leases: a bare figure on an annual lease is a running
                     // total's share and can't be understood without the "View working" breakdown.
                     ->description(fn (TenantSalesDeclaration $record) => SalesDeclarationActions::isAnnualLease($record)
                         ? __('admin.tables.tenant_sales.annual_cumulative')
                         : null)
-                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray')
+                    ->color(fn ($state, TenantSalesDeclaration $record) => SalesDeclarationActions::hasPercentageRent($record) && $state > 0 ? 'success' : 'gray')
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
@@ -84,6 +96,20 @@ class TenantSalesDeclarationsTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.tenant_sales')),
+                // "Show me the percentage rent" and "show me who has declared" are two different
+                // jobs on one register, and since a lease may now report without charging they no
+                // longer select the same rows. Without this the accountant reading for the charge
+                // has to read past declarations that can never produce one.
+                TernaryFilter::make('has_percentage_rent')
+                    ->label(__('admin.filters.percentage_rent_clause'))
+                    ->placeholder(__('admin.filters.all'))
+                    ->trueLabel(__('admin.filters.percentage_rent_clause_true'))
+                    ->falseLabel(__('admin.filters.percentage_rent_clause_false'))
+                    ->queries(
+                        true: fn ($query) => $query->whereHas('lease', fn ($q) => $q->where('has_percentage_rent', true)),
+                        false: fn ($query) => $query->whereHas('lease', fn ($q) => $q->where('has_percentage_rent', false)),
+                        blank: fn ($query) => $query,
+                    ),
             ])
             ->defaultSort('period_start', 'desc')
             ->recordActions([

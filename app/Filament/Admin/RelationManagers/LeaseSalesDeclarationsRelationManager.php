@@ -92,6 +92,20 @@ class LeaseSalesDeclarationsRelationManager extends RelationManager
                     ->placeholder('—')
                     ->toggleable(),
             ])
+            ->headerActions([
+                // The tab could show a history and not add to it, so recording this month meant
+                // leaving the lease and finding it again in the register's picker. It links to the
+                // REAL form with the lease carried across rather than opening a thinner one here:
+                // that form owns the derived net, the dated VAT deduction, the live charge preview
+                // and the one-declaration-per-month rule, and a second one would own none of them.
+                Action::make('declare')
+                    ->label(__('admin.actions.declare_sales'))
+                    ->icon('heroicon-o-plus')
+                    ->visible(fn (): bool => TenantSalesDeclarationResource::canCreate())
+                    ->url(fn (RelationManager $livewire): string => TenantSalesDeclarationResource::getUrl('create', [
+                        'lease' => $livewire->getOwnerRecord()->getKey(),
+                    ])),
+            ])
             ->recordActions([
                 Action::make('open')
                     ->label(__('admin.actions.open'))

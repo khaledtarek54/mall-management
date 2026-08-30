@@ -161,6 +161,7 @@ return [
             'target' => 'مهلة الحل',
         ],
         'tenant_sales' => [
+            'reporting_only' => 'هذا العقد يُفصح عن مبيعاته لكن لا يوجد به بند إيجار نسبي.',
             'tenant' => 'المستأجر',
             'unit' => 'الوحدة',
             'period' => 'الفترة',
@@ -230,6 +231,9 @@ return [
     ],
 
     'filters' => [
+        'percentage_rent_clause' => 'بند الإيجار النسبي',
+        'percentage_rent_clause_true' => 'يُحتسب عليه إيجار نسبي',
+        'percentage_rent_clause_false' => 'إفصاح عن المبيعات فقط',
         'deposit_outstanding' => 'تأمين غير مُحصَّل',
         'without_options' => 'بدون خيارات مسجَّلة',
         'lease_type' => 'نوع العقد',

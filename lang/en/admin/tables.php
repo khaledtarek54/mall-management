@@ -161,6 +161,7 @@ return [
             'target' => 'SLA Target',
         ],
         'tenant_sales' => [
+            'reporting_only' => 'This lease reports its turnover but has no percentage-rent clause.',
             'tenant' => 'Tenant',
             'unit' => 'Unit',
             'period' => 'Period',
@@ -230,6 +231,9 @@ return [
     ],
 
     'filters' => [
+        'percentage_rent_clause' => 'Percentage-rent clause',
+        'percentage_rent_clause_true' => 'Charges percentage rent',
+        'percentage_rent_clause_false' => 'Reports turnover only',
         'deposit_outstanding' => 'Deposit outstanding',
         'without_options' => 'No options recorded',
         'lease_type' => 'Lease type',
