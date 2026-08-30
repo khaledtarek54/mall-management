@@ -464,6 +464,7 @@ return [
     ],
 
     'errors' => [
+        'option_notice_outside_window' => 'Notice was served on :served, outside this option’s window (:from to :to). An option may only be exercised on a notice served inside its window — correct the notice date, or the option has lapsed.',
         'work_permit_window_inverted' => 'A permit must end after it begins.',
         'work_permit_not_draft' => 'Only a draft permit can be issued.',
         'work_permit_needs_conditions' => 'State the conditions before issuing. A permit with no conditions is a note, not a control.',

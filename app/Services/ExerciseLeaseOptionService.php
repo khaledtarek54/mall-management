@@ -76,6 +76,30 @@ class ExerciseLeaseOptionService
             ? CarbonImmutable::parse($data['notice_given_at'])->startOfDay()
             : ($option->notice_given_at ? CarbonImmutable::instance($option->notice_given_at) : $today);
 
+        // ── THE NOTICE WINDOW IS A CONTRACTUAL TERM, AND NOTHING WAS CHECKING IT ────────────────
+        //
+        // `windowIsOpen()` has been on the model since options shipped and NO caller ever asked it
+        // — built, correct and unreachable, the shape this repo names for services that run and
+        // bill nobody.
+        //
+        // Measured: a break option whose window opens on 30/12/2026 was exercised on 30/08/2026,
+        // four months early, and the system recorded a termination and priced its 250,000 penalty.
+        // The tenant's answer is that their notice was served outside the window the lease grants
+        // and is therefore void — so the mall has a termination on its books that the contract does
+        // not support. The window CLOSING was refused only by accident: `status === 'lapsed'` is
+        // set by a scheduled sweep, so an option the sweep has not yet reached passed both ways.
+        //
+        // Judged on the date NOTICE WAS SERVED, exactly as `$noticeGiven` is derived above: a
+        // notice served inside the window and keyed a week late is valid, and refusing it on
+        // today's date would push the operator to falsify the date.
+        if (! $option->windowIsOpen($noticeGiven)) {
+            throw new InvalidArgumentException(__('admin.errors.option_notice_outside_window', [
+                'served' => $noticeGiven->format('d/m/Y'),
+                'from' => $option->earliest_notice_date?->format('d/m/Y') ?? '—',
+                'to' => $option->latest_notice_date?->format('d/m/Y') ?? '—',
+            ]));
+        }
+
         return DB::transaction(function () use ($option, $lease, $noticeGiven, $today, $data): LeaseOption {
             $projectedRent = $option->projectedRent((float) $lease->base_rent_monthly);
 
