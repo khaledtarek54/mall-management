@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\LeaseEventNarrative;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Models\LeaseOption;
@@ -118,11 +119,18 @@ class ExerciseLeaseOptionService
                     // Effective when the option BITES, which for a renewal is the day after the
                     // current term ends — not the day notice was served.
                     $this->effectiveFrom($option, $lease),
-                    $data['reason'] ?? __('admin.lease_options.exercised_reason', [
-                        'type' => __("admin.lease_options.types.{$option->type}"),
-                        'date' => $noticeGiven->format('d/m/Y'),
-                    ]),
+                    // A SENTENCE THE OPERATOR TYPED, or NOTHING — never a sentence we compose.
+                    //
+                    // This translated at WRITE time and stored the result, so an option exercised
+                    // while the panel was in English left an English row that no later reader could
+                    // ever see in Arabic. The rule this repo states for the activity log and the
+                    // journal applies here identically: a row stores DATA, and prose is resolved on
+                    // READ. Everything the sentence said — the type, the notice date, the rent
+                    // before and after — is already in the payload below, so the reader composes it
+                    // and one wording fix reaches every row ever written.
+                    $data['reason'] ?? null,
                     array_filter([
+                        LeaseEventNarrative::KEY => 'option_exercised',
                         'option_id' => $option->id,
                         'option_type' => $option->type,
                         'rent_basis' => $option->rent_basis,

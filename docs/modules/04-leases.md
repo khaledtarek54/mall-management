@@ -330,6 +330,33 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ A lease event's REASON is a key, resolved at read time (2026-08-30).**
+> `App\Support\LeaseEventNarrative` is the lease timeline's twin of `JournalNarrative`, under the
+> rule both obey: **a row stores DATA, never PROSE.** Ten services composed their sentence through
+> `__()` at WRITE time and stored the result, so a timeline row was frozen in whichever language that
+> particular run happened to be in — measured on the demo books, **8 of 9 stored reasons were English**
+> and the ninth was Arabic only because that one run was. An operator reading the lease history in
+> Arabic saw English, and no lang edit could ever reach a row already written.
+>
+> - **The `reason` COLUMN stays and is still the floor.** It is now nullable: an event carrying a
+>   narrative key stores no prose at all, but operator-typed prose still goes here and still WINS
+>   over the key — a termination the operator explained in their own words must read back in their
+>   own words. Every pre-existing row keeps its frozen sentence, because `LeaseEvent` refuses updates
+>   by design; a blank timeline cell would be worse than a stale one.
+> - **`RecordLeaseEventService` accepts EITHER**, and refuses neither-nor: the *"a lease event needs a
+>   reason — that is the point of recording it"* guard now passes when a narrative key is stamped, so
+>   the check still bites on an event that explains nothing.
+> - **The same three traps this codebase has hit before.** `__()` reads dots as NESTING (the
+>   narratives are nested under `admin.leasing.lease_events.narratives`, not keyed by a literal
+>   `option.exercised`); a missing placeholder must render an em dash rather than a leftover
+>   `:notice_given_at` on a lease document; and `Lang::has()` FALLS BACK to English, so the parity
+>   check passes `fallback: false` or it only ever catches keys missing from both.
+> - **The gate reads the reason ARGUMENT, not the file.** `SettleMoveOutService` legitimately calls
+>   `__()` several times for refusals and transaction notes — those are correct at write time — so the
+>   sweep is windowed to the argument that becomes `lease_events.reason`. Mutation-proved in both
+>   directions: dropping one Arabic narrative and re-composing prose in one service each turn it red.
+>   (`LeaseEventNarrativeIsAKeyNotProseTest`.)
+
 > **⚠️ A field offering values its column refuses reads as a button that does nothing (2026-08-18).**
 > The lease's "Record deposit movement" modal took its METHOD options from `admin.enums.method` — the
 > PAYMENT methods (card, bank_transfer, instapay, wallet, cheque) — while

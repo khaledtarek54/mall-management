@@ -2,9 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Support\LeaseEventNarrative;
 use App\Filament\Admin\Actions\LeaseActions;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
+use Carbon\CarbonImmutable;
 use App\Models\LeaseEvent;
 use Filament\Actions\ActionGroup;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -110,6 +112,12 @@ class LeaseHistoryRelationManager extends RelationManager
                     ->placeholder('—'),
                 TextColumn::make('reason')
                     ->label(__('admin.lease_events.reason'))
+                    // The operator's own words when they typed some; otherwise composed HERE from
+                    // the payload, in the READER's language. Storing the sentence froze it in
+                    // whichever language the panel happened to be in when the button was pressed —
+                    // the failure `ActivityVocabulary` and `JournalNarrative` already exist to
+                    // prevent, arriving through a third door.
+                    ->state(fn (LeaseEvent $record): ?string => LeaseEventNarrative::resolve($record))
                     ->wrap()
                     ->limit(120),
                 TextColumn::make('document_reference')

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\LeaseEventNarrative;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
@@ -31,7 +32,10 @@ class RecordLeaseEventService
         Lease $lease,
         string $type,
         CarbonImmutable $effectiveDate,
-        string $reason,
+        // NULLABLE since the narratives moved into the payload: a service that composes its
+        // sentence at read time has no prose to pass, and an empty string would be indistinguishable
+        // from an operator who typed nothing.
+        ?string $reason,
         array $payload = [],
         ?string $documentReference = null,
         ?int $userId = null,
@@ -40,20 +44,27 @@ class RecordLeaseEventService
             throw new InvalidArgumentException("'{$type}' is not a lease event type.");
         }
 
-        $reason = trim($reason);
+        $reason = trim((string) $reason);
 
-        // A blank reason is the failure mode this table exists to prevent: rows that record that
-        // *something* changed, which is what the activity log already says. Refuse loudly at the
-        // service so the gap shows up in development rather than as an empty timeline in year two.
-        if ($reason === '') {
-            throw new InvalidArgumentException('A lease event needs a reason — that is the point of recording it.');
+        // A row that says only "something changed" is the failure this table exists to prevent —
+        // that is what the activity log already gives. So an event must be EXPLICABLE, and there
+        // are now two ways to be: the operator typed a reason, or the service stamped a narrative
+        // key the reader composes from (see LeaseEventNarrative — a row stores data, not prose).
+        //
+        // Checking for prose alone would refuse every service that moved to a key, which is what
+        // the first version of that change hit; checking for neither would let an unexplained row
+        // through, which is the original defect. Both, or refuse.
+        if ($reason === '' && blank($payload[LeaseEventNarrative::KEY] ?? null)) {
+            throw new InvalidArgumentException('A lease event needs a reason or a narrative key — that is the point of recording it.');
         }
 
         return LeaseEvent::create([
             'lease_id' => $lease->id,
             'type' => $type,
             'effective_date' => $effectiveDate->toDateString(),
-            'reason' => $reason,
+            // NULL, not '' — a reader tells "the operator said nothing" from "the operator typed
+            // an empty box" by asking `filled()`, and an empty string answers that question wrong.
+            'reason' => $reason !== '' ? $reason : null,
             'document_reference' => $documentReference !== null && trim($documentReference) !== ''
                 ? trim($documentReference)
                 : null,
@@ -74,8 +85,12 @@ class RecordLeaseEventService
         ?float $amountFrom,
         ?float $amountTo,
         iterable $opened = [],
+        string $narrative = 'rent_changed',
     ): array {
         return array_filter([
+            // The narrative rides with the figures it describes, so both callers of this builder
+            // get it from one place — see LeaseEventNarrative for why a row stores a key.
+            LeaseEventNarrative::KEY => $narrative,
             'charge_type' => $chargeType,
             'amount_from' => $amountFrom,
             'amount_to' => $amountTo,

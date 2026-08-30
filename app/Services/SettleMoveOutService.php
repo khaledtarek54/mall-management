@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\LeaseEventNarrative;
 use App\Models\DepositTransaction;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
@@ -171,8 +172,11 @@ class SettleMoveOutService
                 $lease,
                 LeaseEvent::TYPE_TERMINATION,
                 $settlementDate,
-                $data['reason'] ?? __('admin.move_out.default_reason'),
+                // The operator'''s words, or none — the narrative key below is what a reader
+                // composes from, in THEIR language.
+                $data['reason'] ?? null,
                 [
+                    LeaseEventNarrative::KEY => 'move_out_settled',
                     'settlement' => true,
                     'deposit_contractual' => (float) $statement['contractual_deposit'],
                     'deposit_held' => $held,

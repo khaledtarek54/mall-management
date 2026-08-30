@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\LeaseEventNarrative;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
@@ -85,6 +86,7 @@ class LeaseReliefService
                 ChargeScheduleService::billingBoundary($from),
                 $data['reason'],
                 [
+                    LeaseEventNarrative::KEY => 'relief_granted',
                     'charge_type' => $type,
                     'window_from' => ChargeScheduleService::billingBoundary($from)->toDateString(),
                     'window_to' => $to->endOfMonth()->toDateString(),

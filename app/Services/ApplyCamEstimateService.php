@@ -104,11 +104,15 @@ class ApplyCamEstimateService
                 $lease,
                 LeaseEvent::TYPE_RENT_MODIFICATION,
                 $effectiveFrom,
-                __('admin.cam.estimate_event_reason', [
-                    'year' => $allocation->pool->period_year,
-                    'amount' => number_format((float) $proposed, 2),
-                ]),
-                RecordLeaseEventService::scheduleChangePayload('service_charge', $previous, (float) $proposed),
+                // Translated at WRITE time and stored, so the sentence froze in whichever language
+                // the run happened to be in. The reader composes it now.
+                null,
+                RecordLeaseEventService::scheduleChangePayload(
+                    'service_charge',
+                    $previous,
+                    (float) $proposed,
+                    narrative: 'cam_estimate_applied',
+                ),
             );
 
             return true;

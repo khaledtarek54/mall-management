@@ -144,9 +144,11 @@ class LeaseRentChangeService
                 $lease,
                 LeaseEvent::TYPE_RENT_MODIFICATION,
                 $effectiveFrom,
+                // The operator's words, or none — the narrative in the payload is what a reader
+                // composes from, in THEIR language. This built an English sentence and stored it.
                 isset($data['reason']) && trim((string) $data['reason']) !== ''
                     ? trim((string) $data['reason'])
-                    : 'Rent changed from '.number_format($previousRent, 2).' to '.number_format($newRent, 2).'.',
+                    : null,
                 RecordLeaseEventService::scheduleChangePayload('base_rent', $previousRent, $newRent, [$opened]),
                 $data['document_reference'] ?? null,
             );

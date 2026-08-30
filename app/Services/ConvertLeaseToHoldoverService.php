@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\LeaseEventNarrative;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
@@ -156,6 +157,7 @@ class ConvertLeaseToHoldoverService
                 $effectiveFrom,
                 $data['reason'],
                 [
+                    LeaseEventNarrative::KEY => 'converted_to_holdover',
                     'charge_type' => 'base_rent',
                     'amount_from' => $lastRent,
                     'amount_to' => $holdoverRent,

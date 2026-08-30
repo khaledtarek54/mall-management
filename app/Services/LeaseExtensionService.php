@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\LeaseEventNarrative;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Support\LeaseTerm;
@@ -79,6 +80,7 @@ class LeaseExtensionService
                 effectiveDate: $current->addDay(),   // the day the further term begins
                 reason: $data['reason'],
                 payload: [
+                    LeaseEventNarrative::KEY => 'term_extended',
                     'previous_expiry_date' => $current->toDateString(),
                     'new_expiry_date' => $new->toDateString(),
                     'previous_term_months' => (int) $lease->getOriginal('term_months'),

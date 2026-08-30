@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\LeaseEventNarrative;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
@@ -200,8 +201,13 @@ class LeaseTerminationService
                 $lease,
                 LeaseEvent::TYPE_TERMINATION,
                 $terminationDate,
-                $reason !== '' ? $reason : __('admin.lease_events.termination_default_reason'),
+                // The operator's words, or none. Translating a default here stored the sentence
+                // in whichever language this run happened to be in — measured: an Arabic row on an
+                // otherwise English history. The narrative key in the payload is what a reader
+                // composes from.
+                $reason !== '' ? $reason : null,
                 [
+                    LeaseEventNarrative::KEY => 'lease_terminated',
                     'cancelled_invoices' => $cancelledNumbers,
                     'credit_notes' => collect($credits)->pluck('number')->all(),
                     'credited_total' => round((float) collect($credits)->sum('total'), 2),
