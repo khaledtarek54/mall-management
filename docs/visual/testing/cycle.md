@@ -6,8 +6,12 @@ One ordered pass from an empty unit to balanced books. **Every step tells you th
 expect** — because a tester who cannot check a number by hand can only report crashes, and crashes
 are what the automated suite already catches.
 
-Do it as `manager@mall.test`. A mismatch is a bug: **write it down and keep going**, unless you are
-blocked.
+Do it as `manager@mall.test`, **in Plaza Annex** — switch to it with the property picker at the top
+of the panel before you start. Plaza Annex is empty, so every figure you see below is one you
+caused. (Atriom Walk is the mall with history; go there when you want to see what a thing looks
+like once it has months behind it.)
+
+A mismatch is a bug: **write it down and keep going**, unless you are blocked.
 
 <div class="plain">If a step's <i>business</i> reasoning is unfamiliar, the linked handbook page
 explains it properly. Read it — judging whether a number is right needs knowing what it is for.</div>
@@ -20,18 +24,18 @@ the rent, the service charge and the term, and everything downstream derives fro
 
 **Do:**
 1. **Tenants → New.** Create *Test Retailer One*.
-2. **Leases → New.** Tenant *Test Retailer One*, unit **A-01**, starting the **1st of this month**,
+2. **Leases → New.** Tenant *Test Retailer One*, unit **PA-01**, starting the **1st of this month**,
    12-month term. Add two charges: **base rent 12,000/month**, **service charge 3,000/month**.
-3. Open **Units** and find A-01.
+3. Open **Units** and find PA-01.
 
 **Expect:**
 - The tenant gets a code like `TN-0000004` **automatically**. You cannot type one — codes are
   allocated by the system so two people creating tenants at once cannot collide.
 - The lease saves and gets a reference.
-- **A-01 is now `occupied`**, not vacant. Nobody typed that: the unit's status is derived from the
+- **PA-01 is now `occupied`**, not vacant. Nobody typed that: the unit's status is derived from the
   leases holding it.
 
-**Now try to break it.** Create a *second* lease on **A-01** for the same dates.
+**Now try to break it.** Create a *second* lease on **PA-01** for the same dates.
 
 > *Expect:* **refused**, with a message saying the unit is already let. Not a crash, and definitely
 > not a success — double-letting a shop is the single worst thing a leasing system can do.
@@ -147,7 +151,7 @@ you are testing.</div>
 <p class="sub">The business: leases rarely start on the 1st. A tenant opening mid-month owes part of
 that month, and the clause in their contract decides how the part is worked out.</p>
 
-**Do:** create a second lease on **A-02** starting **mid-month** (say the 16th), then generate its
+**Do:** create a second lease on **PA-02** starting **mid-month** (say the 16th), then generate its
 first invoice.
 
 **Expect** a **part month**, not a full one. This box's rule is `actual`:
@@ -160,6 +164,22 @@ Check both lines yourself, and check that **VAT is 14% of the prorated service c
 full one. Then check the same rule is used in reverse: end that lease mid-month and confirm the
 credit for the unused days uses the **same** method. A bill and its credit computed by different
 rules is a real defect and it is easy to miss.
+
+## 7b · Check the wall between the malls
+
+<p class="sub">The business: an operator working one mall must never see another's data. Malls have
+different owners, and a leak is a confidentiality breach, not a display bug. <b>This is the most
+serious bug class in the system.</b></p>
+
+**Do:** switch to **Atriom Walk** and confirm none of what you just built appears — not the tenant,
+not the lease, not the invoices. Then switch back and confirm none of Atriom Walk's 303 invoices
+appear in Plaza Annex. Then open a record in one mall, copy the URL, switch property, and paste it.
+
+**Expect:** each mall shows only its own rows, everywhere — lists, reports, dropdowns, search. The
+pasted URL from the other mall must **not** open.
+
+> Check this as you go, in every area, not once here. A dropdown that offers a record from the
+> other mall is as much a leak as a list that shows one.
 
 ## 8 · Where to go next
 

@@ -341,8 +341,8 @@ not have by typing its URL.
 ### Property isolation
 *What it is:* an operator restricted to one mall must never see another's data.
 
-**Check:** with more than one property on the box, switch properties and confirm every list
-changes. Try reaching another property by editing the URL.
+**Check:** this box has **two** malls — Atriom Walk and Plaza Annex. Switch between them and
+confirm every list changes. Try reaching a record in the other mall by editing the URL.
 **Wrong if:** any list, report, picker or dropdown offers or shows a record from a property you are
 not in. **This is the single most serious bug class in the system** — report anything suspicious
 even if you are not sure.

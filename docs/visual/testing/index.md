@@ -65,20 +65,44 @@ A Cloudflare Turnstile checkbox on the sign-in form is expected.
 | `manager@mall.test` | manager | **Your main account.** The day-to-day operator. |
 | `leasing@mall.test` | leasing | Leases and tenants, no money screens |
 | `accounting@mall.test` | accounting | Invoices, payments, the ledger |
+| `operations@mall.test` | operations | Maintenance, work orders, vendors |
+| `marketing@mall.test` | marketing | Campaigns, budget, the shopper feed |
+| `hr@mall.test` | hr | Employees and payroll |
 | `viewer@mall.test` | viewer | Read-only |
-| `owner@atriom.test` | owner | The landlord's view |
-| `zara@atriomwalk.test` | *portal* | A retailer's own login |
+| `owner@atriom.test` | owner | The landlord's view — scoped to what they own |
+
+**Tenant portal** (`/portal`) — use these two together, they are the pair that matters:
+
+| Login | Who | |
+|---|---|---|
+| `tenant1@atriomwalk.test` | Cilantro — **admin** | Can act: pay, raise requests |
+| `staff1@atriomwalk.test` | Cilantro — **read-only** | Must see the same data and be able to change **nothing** |
+
+Also `tenant2@` (Magrabi Optical) and `tenant3@` (Buffalo Burger) — useful for checking one tenant
+never sees another's data.
 
 ## What is on the box
 
-**A deliberately empty mall.** One property (*Atriom Walk*), **12 vacant units**, **3 tenants who
-lease nothing**, and no leases, invoices, payments or accounting entries at all.
+**Two malls, and the difference between them is the whole point.** Switch between them with the
+property picker at the top of the panel.
 
-That is on purpose. With a mall mid-life, every number on every screen was put there by somebody
-else and **you cannot tell what your own action changed**. Here, every figure you see is one you
-caused.
+| | | |
+|---|---|---|
+| **Atriom Walk** `AW` | 50 units · 33 leases · 303 invoices · a full ledger | **The reference.** A mall mid-life. Come here to see what *correct* looks like, and to test reports and accounting against real volume. |
+| **Plaza Annex** `PA` | 8 units, **all vacant**, no leases | **Yours.** Build your own cycle here. |
 
-Units: `A-01` (60 m²), `A-02` (75 m²), `A-03` (90 m²), `A-04` (120 m²), and eight more.
+Work in **Plaza Annex** for anything you create. With a mall mid-life, every number on every screen
+was put there by somebody else and **you cannot tell what your own action changed**. In Plaza Annex
+every figure is one you caused — and Atriom Walk is next door when you need to see how a thing
+looks once it has history.
+
+Plaza Annex units are `PA-01` … `PA-08` (85 m² up to 120 m²).
+
+<div class="rule"><span class="lbl">Two malls is not a convenience</span>
+It is the only way <b>property isolation</b> can be tested at all — and that is the most serious bug
+class in this system. An operator working in Plaza Annex must never see a single row belonging to
+Atriom Walk: not in a list, not in a report, not in a dropdown, not by editing the URL. Check it
+everywhere you go, not once.</div>
 
 <div class="plain"><b>Every screen explains itself.</b> There is a <b>guide button on each screen</b>
 giving its purpose, the steps, the rules — and most usefully <b>what else moves when you touch this
@@ -155,14 +179,14 @@ Needs SSH to the box; ask whoever set it up. Reset whenever the data stops makin
 It is a wrapper around three commands, and the third one matters:
 
 ```bash
-php artisan migrate:fresh --force
-php artisan db:seed --class='Database\Seeders\LearningSeeder' --force
+php artisan migrate:fresh --seed --force
 php artisan db:seed --class='Database\Seeders\PlaceholderIssuerIdentitySeeder' --force
 ```
 
-`migrate:fresh` wipes the **settings** too, not just the records you created — so without that third
-line the box would come back with **no tax registration**, every invoice would stop calling itself
-a *Tax Invoice*, and the [money cycle](/testing/cycle)'s step 6 would be wrong. The placeholder is a
+`--seed` runs the whole chain — reference data (roles, chart of accounts, charge codes,
+catalogues) **and** both malls. `migrate:fresh` also wipes the **settings**, so without that second
+line the box comes back with **no tax registration**, every invoice stops calling itself a *Tax
+Invoice*, and the [money cycle](/testing/cycle)'s step 6 would be wrong. The placeholder is a
 separate seeder on purpose: it turns a *blocking* configuration check green, so it must never be
 something you get by accident from asking for demo data, and it **refuses to run on production**.
 
