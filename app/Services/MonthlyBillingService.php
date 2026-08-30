@@ -958,10 +958,12 @@ class MonthlyBillingService
 
         $detail = $clashes->map(fn ($rows, $type) => $type.' ('.$rows->pluck('id')->implode(', ').')')->implode('; ');
 
-        throw new \DomainException(
-            "Lease {$lease->reference} has overlapping charge-schedule rows for {$periodStart->format('F Y')}: {$detail}. "
-            .'Exactly one row per charge type may cover a period — close the earlier row before the later one starts.'
-        );
+        throw new \DomainException(__('admin.refusals.overlapping_charge_schedule', [
+            'reference' => $lease->reference,
+            // Localised: `format('F Y')` is not, so an Arabic sentence carried an English month.
+            'period' => $periodStart->locale(app()->getLocale())->isoFormat('MMMM YYYY'),
+            'detail' => $detail,
+        ]));
     }
 
     /**

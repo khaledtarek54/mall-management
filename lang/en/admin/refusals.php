@@ -81,5 +81,18 @@ return [
         'je_void_no_open_period' => 'Cannot void: neither the original entry\'s period nor the current period is open. Reopen a period first.',
         'je_no_period' => 'No accounting period is defined for :date.',
         'je_period_closed' => 'Accounting period :month is closed — nothing can be posted into it.',
+        // ── Added 2026-08-30 — nine refusals that were still raw English ────────────────────
+        // These render as a toast to whoever pressed the button, so they are the app talking to a
+        // person, not a developer error. Two of them also interpolated a raw status/column value.
+        'cam_basis_locked_after_billing' => 'The CAM recovery basis cannot change once an allocation has been billed — void the billed allocations first.',
+        'vendor_not_dispatchable' => 'Vendor :vendor cannot be dispatched: it is blacklisted or inactive, or its insurance certificate has lapsed.',
+        'overlapping_charge_schedule' => 'Lease :reference has overlapping charge-schedule rows for :period (:detail). Exactly one row per charge type may cover a period — close the earlier row before the later one starts.',
+        'write_off_not_live' => 'Invoice :number is :status — only a live receivable can be written off.',
+        'write_off_nothing_outstanding' => 'Invoice :number has nothing outstanding — there is no debt to write off.',
+        'write_off_already_full' => 'Invoice :number is already fully written off (:written of :outstanding).',
+        'write_off_exceeds_remaining' => 'Cannot write off :amount against invoice :number: only :remaining is left to write off.',
+        'write_off_exceeds_remaining_partial' => 'Cannot write off :amount against invoice :number: only :remaining is left to write off (:written of :outstanding already written off).',
+        'owner_statement_finalised_exists' => 'A finalised statement already exists for this property and period — revise it instead of regenerating.',
+        'owner_statement_has_active_disbursements' => 'This run cannot be revised while it has active disbursements — cancel the scheduled or approved payouts first. If the owner has already been paid, correct the difference in the next period rather than revising the paid statement.',
     ],
 ];

@@ -37,10 +37,7 @@ class ReviseOwnerStatementRunService
             // disbursement exists — cancel the open ones first; if the owner has already been paid,
             // the correction belongs in the next period, not a revision of the paid statement.
             if ($run->hasActiveDisbursements()) {
-                throw new \DomainException(
-                    'Cannot revise a run that has active disbursements — cancel the scheduled/approved payouts first. '
-                    .'If the owner has already been paid, correct the difference in the next period rather than revising the paid statement.'
-                );
+                throw new \DomainException(__('admin.refusals.owner_statement_has_active_disbursements'));
             }
 
             // Retire the old version; the sweep voids its ledger entry (journalizer → null).

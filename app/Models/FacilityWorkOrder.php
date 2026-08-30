@@ -833,9 +833,9 @@ class FacilityWorkOrder extends Model implements HasMedia
             if ($order->isDirty('vendor_id') && $order->vendor_id !== null) {
                 $vendor = Vendor::find($order->vendor_id);
                 if ($vendor !== null && ! $vendor->isDispatchable()) {
-                    throw new \DomainException(
-                        "Vendor '{$vendor->name}' cannot be dispatched: it is blacklisted/inactive or its insurance (COI) has lapsed."
-                    );
+                    throw new \DomainException(__('admin.refusals.vendor_not_dispatchable', [
+                        'vendor' => $vendor->name,
+                    ]));
                 }
             }
 

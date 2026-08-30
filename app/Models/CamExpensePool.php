@@ -240,9 +240,7 @@ class CamExpensePool extends Model
                 || $pool->isDirty('recovery_vat_rate'); // changing the recovery VAT after billing would leave billed rows on the old rate
 
             if ($basisChanged && $pool->allocations()->where('status', '!=', 'pending')->exists()) {
-                throw new \DomainException(
-                    'Cannot change the CAM recovery basis once an allocation has been billed — void the billed allocations first.'
-                );
+                throw new \DomainException(__('admin.refusals.cam_basis_locked_after_billing'));
             }
         });
     }

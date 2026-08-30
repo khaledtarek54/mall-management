@@ -44,9 +44,7 @@ class GenerateOwnerStatementRunService
                 ->first();
 
             if ($latest && $latest->isFinalised()) {
-                throw new \DomainException(
-                    'A finalised statement already exists for this property and period — revise it instead of regenerating.'
-                );
+                throw new \DomainException(__('admin.refusals.owner_statement_finalised_exists'));
             }
 
             $run = ($latest && $latest->isDraft())

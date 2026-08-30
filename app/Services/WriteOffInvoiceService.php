@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Support\PostingDate;
 use App\Support\ReversalReason;
+use App\Support\Translate;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\Auth;
@@ -37,17 +38,20 @@ class WriteOffInvoiceService
             $locked = Invoice::whereKey($invoice->getKey())->lockForUpdate()->firstOrFail();
 
             if (in_array($locked->status, ['cancelled', 'written_off', 'draft'], true)) {
-                throw new DomainException(
-                    "Invoice {$locked->number} is '{$locked->status}' — only a live receivable can be written off."
-                );
+                throw new DomainException(__('admin.refusals.write_off_not_live', [
+                    'number' => $locked->number,
+                    // The STATUS the operator reads on the screen, not the stored code — the same
+                    // rule the lease immutability refusal follows.
+                    'status' => Translate::orHumanized("admin.statuses.invoice.{$locked->status}", $locked->status),
+                ]));
             }
 
             $outstanding = round((float) $locked->balance, 2);
 
             if ($outstanding <= 0) {
-                throw new DomainException(
-                    "Invoice {$locked->number} has nothing outstanding — there is no debt to write off."
-                );
+                throw new DomainException(__('admin.refusals.write_off_nothing_outstanding', [
+                    'number' => $locked->number,
+                ]));
             }
 
             // What is left to write off, NOT what is outstanding.
@@ -63,9 +67,11 @@ class WriteOffInvoiceService
             $remaining = round($outstanding - $alreadyWrittenOff, 2);
 
             if ($remaining <= 0) {
-                throw new DomainException(
-                    "Invoice {$locked->number} is already fully written off ({$alreadyWrittenOff} of {$outstanding})."
-                );
+                throw new DomainException(__('admin.refusals.write_off_already_full', [
+                    'number' => $locked->number,
+                    'written' => number_format($alreadyWrittenOff, 2),
+                    'outstanding' => number_format($outstanding, 2),
+                ]));
             }
 
             $amount = filled($data['amount'] ?? null)
@@ -79,10 +85,21 @@ class WriteOffInvoiceService
             // Never write off more than is left — that would credit AR below the debt and put the
             // ledger out of step with the invoice it came from.
             if ($amount > $remaining + 0.01) {
-                throw new DomainException(
-                    "Cannot write off {$amount} against invoice {$locked->number}: only {$remaining} is left to write off"
-                    .($alreadyWrittenOff > 0 ? " ({$alreadyWrittenOff} of {$outstanding} already written off)." : '.')
-                );
+                // Two sentences, two keys. A trailing clause appended with `.` cannot be worded
+                // in a language whose sentence order differs — the note has to be part of the
+                // sentence the translator writes, not glued onto the end of it.
+                throw new DomainException(__(
+                    $alreadyWrittenOff > 0
+                        ? 'admin.refusals.write_off_exceeds_remaining_partial'
+                        : 'admin.refusals.write_off_exceeds_remaining',
+                    [
+                        'amount' => number_format($amount, 2),
+                        'number' => $locked->number,
+                        'remaining' => number_format($remaining, 2),
+                        'written' => number_format($alreadyWrittenOff, 2),
+                        'outstanding' => number_format($outstanding, 2),
+                    ],
+                ));
             }
 
             $entryDate = isset($data['entry_date']) && $data['entry_date']

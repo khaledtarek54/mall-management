@@ -81,6 +81,188 @@ function buildableResources(): array
     ));
 }
 
+/**
+ * Every action a table renders, with `ActionGroup`s flattened.
+ *
+ * A group's children are the actions an operator actually reads; the group itself usually carries
+ * no label at all. Walking only the top level would sweep the two grouped resources and find
+ * nothing in them.
+ *
+ * @return array<int, object>
+ */
+function tableActionsOf(Table $table): array
+{
+    $flat = [];
+
+    $walk = function (array $items) use (&$walk, &$flat): void {
+        foreach ($items as $item) {
+            if (method_exists($item, 'getActions')) {
+                try {
+                    $walk($item->getActions());
+                } catch (Throwable) {
+                    // an unresolvable group; its own label is swept below if it has one
+                }
+            }
+
+            if (method_exists($item, 'getName')) {
+                $flat[] = $item;
+            }
+        }
+    };
+
+    foreach (['getRecordActions', 'getToolbarActions', 'getHeaderActions'] as $accessor) {
+        if (! method_exists($table, $accessor)) {
+            continue;
+        }
+
+        try {
+            $walk($table->{$accessor}());
+        } catch (Throwable) {
+            continue;
+        }
+    }
+
+    return $flat;
+}
+
+it('translates every worklist tab and every empty state', function () {
+    // Two surfaces no gate has ever read. A tab strip is the first thing on a list page and an
+    // empty state is the ONLY thing on it when there is nothing to show — the two moments where an
+    // English word is most conspicuous and least likely to be noticed by whoever wrote it.
+    $english = [];
+    $checked = 0;
+
+    foreach (buildableResources() as $resource) {
+        $page = $resource::getPages()['index']->getPage();
+        $short = class_basename($resource);
+
+        try {
+            $table = $resource::table(Table::make(new $page));
+        } catch (Throwable) {
+            continue;
+        }
+
+        foreach (['getEmptyStateHeading', 'getEmptyStateDescription'] as $accessor) {
+            if (! method_exists($table, $accessor)) {
+                continue;
+            }
+
+            $checked++;
+
+            try {
+                $text = $table->{$accessor}();
+            } catch (Throwable) {
+                continue;
+            }
+
+            if (readsAsEnglish($text === null ? null : (string) $text)) {
+                $english[] = "{$short} {$accessor} → {$text}";
+            }
+        }
+
+        if (! method_exists($page, 'getTabs')) {
+            continue;
+        }
+
+        try {
+            $tabs = (new $page)->getTabs();
+        } catch (Throwable) {
+            continue;
+        }
+
+        foreach ($tabs as $key => $tab) {
+            $checked++;
+
+            try {
+                $label = $tab->getLabel();
+            } catch (Throwable) {
+                continue;
+            }
+
+            if (readsAsEnglish($label)) {
+                $english[] = "{$short} tab[{$key}] → {$label}";
+            }
+        }
+    }
+
+    expect($checked)->toBeGreaterThan(200);
+
+    expect($english)->toBe([], "Reads in English on the Arabic panel:\n  ".implode("\n  ", $english));
+});
+
+it('translates the TENANT and CONTRACTOR panels too, not just the operator one', function () {
+    // Everything above sweeps `Filament::getPanel('admin')`. The tenant portal and the contractor
+    // portal are the two surfaces read by people OUTSIDE the operator's office — a retailer's
+    // accountant and a maintenance contractor — and neither was covered by anything.
+    $english = [];
+    $checked = 0;
+    $sweptPerPanel = [];
+
+    foreach (['portal', 'vendor'] as $panelId) {
+        $panel = Filament::getPanel($panelId);
+        Filament::setCurrentPanel($panel);
+        $sweptPerPanel[$panelId] = 0;
+
+        foreach ($panel->getResources() as $resource) {
+            $page = ($resource::getPages()['index'] ?? null)?->getPage();
+
+            if ($page === null) {
+                continue;
+            }
+
+            $short = $panelId.'/'.class_basename($resource);
+
+            try {
+                $table = $resource::table(Table::make(new $page));
+            } catch (Throwable) {
+                continue;
+            }
+
+            $sweptPerPanel[$panelId]++;
+
+            foreach ($table->getColumns() as $column) {
+                $checked++;
+                if (readsAsEnglish($label = $column->getLabel())) {
+                    $english[] = "{$short} column {$column->getName()} → {$label}";
+                }
+            }
+
+            foreach ($table->getFilters() as $filter) {
+                $checked++;
+                if (readsAsEnglish($label = $filter->getLabel())) {
+                    $english[] = "{$short} filter {$filter->getName()} → {$label}";
+                }
+            }
+
+            foreach (tableActionsOf($table) as $action) {
+                $checked++;
+
+                try {
+                    $label = $action->getLabel();
+                } catch (Throwable) {
+                    continue;
+                }
+
+                if (readsAsEnglish($label)) {
+                    $english[] = "{$short} action {$action->getName()} → {$label}";
+                }
+            }
+        }
+    }
+
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+    // The premise, per panel rather than in total. A count alone would stay satisfied by the
+    // portal's nine resources while the contractor panel silently stopped being swept at all —
+    // which is exactly how a sweep goes blind without anyone noticing.
+    expect($sweptPerPanel['portal'])->toBeGreaterThan(5)
+        ->and($sweptPerPanel['vendor'])->toBeGreaterThan(0)
+        ->and($checked)->toBeGreaterThan(80);
+
+    expect($english)->toBe([], "A tenant or a contractor reads this in English on the Arabic panel:\n  "
+        .implode("\n  ", $english));
+});
+
 it('translates every table label, filter and action', function () {
     $english = [];
     $checked = 0;
@@ -105,6 +287,36 @@ it('translates every table label, filter and action', function () {
             $checked++;
             if (readsAsEnglish($label = $filter->getLabel())) {
                 $english[] = class_basename($resource)." filter {$filter->getName()} → {$label}";
+            }
+        }
+
+        // ── The ACTIONS this test has always claimed to check ────────────────────────────────
+        //
+        // The title said "table label, filter and action" from the day it was written and the body
+        // checked two of the three. Nothing was wrong with the actions — 221 of them read in
+        // Arabic when this was finally measured — but nothing was keeping them that way, which is
+        // the same shape as every other gate in this suite that was found checking a weaker
+        // property than its name.
+        //
+        // The MODAL chrome is swept with them: a button can be perfectly translated and open a
+        // confirmation written in English, and the modal is where the consequence is stated.
+        foreach (tableActionsOf($table) as $action) {
+            foreach (['getLabel', 'getModalHeading', 'getModalDescription', 'getModalSubmitActionLabel'] as $accessor) {
+                if (! method_exists($action, $accessor)) {
+                    continue;
+                }
+
+                $checked++;
+
+                try {
+                    $text = $action->{$accessor}();
+                } catch (Throwable) {
+                    continue; // needs a record or a mounted container; not evaluable here
+                }
+
+                if (readsAsEnglish($text)) {
+                    $english[] = class_basename($resource)." action {$action->getName()}::{$accessor} → {$text}";
+                }
             }
         }
     }
