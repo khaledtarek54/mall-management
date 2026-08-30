@@ -1,26 +1,38 @@
 <?php
 
+use App\Filament\Admin\Actions\SalesDeclarationActions;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\ListTenantSalesDeclarations;
-use App\Filament\Admin\Resources\TenantSalesDeclarations\Tables\TenantSalesDeclarationsTable;
 use App\Models\Invoice;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Actions\Action;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
- * The lock / dispute / voidLocked actions gated permission + status ONLY in visible(). Filament's
- * mountAction() was believed never to check isVisible() — it does, indirectly: a hidden action is
- * (incl. tenant_sales.view) — so the list renders and a crafted dispatch ran the action: a read-only
- * auditor or owner Jawad could LOCK (bill an overage invoice + post GL), DISPUTE, or VOID a locked
- * declaration. CORRECTED 2026-07-31: `isDisabled()` returns true for a hidden action, so the
- * mountAction tests below exercise visible() ONLY — deleting the abort_unless left them green.
- * The direct-call tests at the bottom reach the actual gate. See FilamentActionDispatchContractTest.
- * callAction / assertTableActionHidden, which check only visible() and would false-pass). Mirrors
- * CamActionAuthzTest.
+ * The lock / dispute / voidLocked acts gated permission + status ONLY in `visible()`. Every role
+ * that can reach the screen holds `tenant_sales.view`, so a crafted dispatch ran the action: a
+ * read-only auditor or owner Jawad could LOCK (billing an overage invoice and posting to the GL),
+ * DISPUTE, or VOID a locked declaration.
+ *
+ * CORRECTED 2026-07-31: `isDisabled()` returns true for a hidden action, so a `mountAction` test
+ * exercises `visible()` ONLY — deleting the `abort_unless` left those green. The direct-call tests
+ * below reach the actual gate. See `FilamentActionDispatchContractTest`.
+ *
+ * UPDATED 2026-08-30: the gate is asserted against `SalesDeclarationActions` — the single
+ * definition both the list and the record page compose — rather than against whichever screen
+ * happens to render it. Three tests here had been calling `TenantSalesDeclarationsTable::canLock()`
+ * and friends, which moved to that class when the acts were extracted and were never updated: they
+ * had been erroring, not passing, since the extraction.
+ *
+ * The four acts deliberately STAY on the list row. `leasing` is the role that holds
+ * `tenant_sales.lock`, and it does NOT hold `tenant_sales.edit` — so it is refused the
+ * declaration's Edit page with a 403, and an act that lived only there could not be performed by
+ * the role that owns it. A LOCKED declaration is un-editable for everyone besides, so `voidLocked`
+ * could never be reached from that page at all. See App\Support\RowActionPolicy.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -40,21 +52,32 @@ beforeEach(function () {
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
+/** The act as the registry defines it — the one definition every surface composes. */
+function salesAct(string $name): Action
+{
+    $action = collect(SalesDeclarationActions::all())->first(fn (Action $a) => $a->getName() === $name);
+
+    expect($action)->not->toBeNull("act [{$name}] is not defined in SalesDeclarationActions::all()");
+
+    return $action;
+}
+
 /**
- * Invoke a table action's own closure, bypassing the visibility/disabled short-circuit.
+ * Invoke an act's own closure, bypassing the visibility/disabled short-circuit.
  *
- * mountAction() refuses DISABLED actions, and an action hidden by visible() is disabled
- * (CanBeDisabled::isDisabled → isHidden), so a mountAction test never reaches the abort_unless
- * inside action(). Action::call() evaluates the closure directly, which does.
+ * `mountAction()` refuses DISABLED actions, and an action hidden by `visible()` is disabled
+ * (`CanBeDisabled::isDisabled` → `isHidden`), so a mountAction test never reaches the
+ * `abort_unless` inside `action()`. `Action::call()` evaluates the closure directly, which does.
  */
 function callSalesAction(string $name, TenantSalesDeclaration $declaration): void
 {
-    $component = Livewire::test(ListTenantSalesDeclarations::class)->instance();
+    salesAct($name)->record($declaration)->call();
+}
 
-    $action = $component->getTable()->getAction($name);
-    expect($action)->not->toBeNull("action [{$name}] not found on the declarations table");
-
-    $action->record($declaration)->call();
+/** The list, which is where the four acts render — see the note above on why they stay there. */
+function declarationPage(TenantSalesDeclaration $declaration)
+{
+    return Livewire::test(ListTenantSalesDeclarations::class);
 }
 
 function salesActAs(string $role): void
@@ -63,11 +86,13 @@ function salesActAs(string $role): void
     Filament::setTenant(test()->asset);
 }
 
+/* ---- dispatched at the list, which is where they render --------------------- */
+
 it('refuses a read-only VIEWER locking a declaration (would bill an overage invoice), even dispatched directly', function () {
     salesActAs('viewer'); // holds tenant_sales.view but NOT tenant_sales.lock
-    expect(TenantSalesDeclarationsTable::canLock($this->decl))->toBeFalse();
+    expect(SalesDeclarationActions::canLock($this->decl))->toBeFalse();
 
-    Livewire::test(ListTenantSalesDeclarations::class)
+    declarationPage($this->decl)
         ->mountAction(TestAction::make('lock')->table($this->decl))
         ->callMountedAction();
 
@@ -77,9 +102,9 @@ it('refuses a read-only VIEWER locking a declaration (would bill an overage invo
 
 it('refuses a read-only OWNER disputing a declaration, even dispatched directly', function () {
     salesActAs('owner');
-    expect(TenantSalesDeclarationsTable::canDispute($this->decl))->toBeFalse();
+    expect(SalesDeclarationActions::canDispute($this->decl))->toBeFalse();
 
-    Livewire::test(ListTenantSalesDeclarations::class)
+    declarationPage($this->decl)
         ->mountAction(TestAction::make('dispute')->table($this->decl))
         ->callMountedAction();
 
@@ -93,9 +118,9 @@ it('refuses a read-only VIEWER voiding a LOCKED declaration (would cancel its in
     expect($invoice->status)->toBe('issued');
 
     salesActAs('viewer');
-    expect(TenantSalesDeclarationsTable::canVoid($this->decl->fresh()))->toBeFalse();
+    expect(SalesDeclarationActions::canVoid($this->decl->fresh()))->toBeFalse();
 
-    Livewire::test(ListTenantSalesDeclarations::class)
+    declarationPage($this->decl->fresh())
         ->mountAction(TestAction::make('voidLocked')->table($this->decl->fresh()))
         ->callMountedAction();
 

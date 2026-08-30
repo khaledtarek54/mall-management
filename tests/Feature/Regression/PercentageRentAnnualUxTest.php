@@ -1,7 +1,7 @@
 <?php
 
+use App\Filament\Admin\Actions\SalesDeclarationActions;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\ListTenantSalesDeclarations;
-use App\Filament\Admin\Resources\TenantSalesDeclarations\Tables\TenantSalesDeclarationsTable;
 use App\Models\TenantSalesDeclaration;
 use App\Notifications\SalesDeclarationLockedNotification;
 use App\Services\PercentageRentCalculationService;
@@ -100,7 +100,7 @@ it('builds + renders the "View working" modal with the cumulative breakdown for 
     $this->svc->lock($mar, $this->operator);
 
     // The native infolist schema for an annual lease includes the cumulative + this-month-share rows.
-    $names = collect(TenantSalesDeclarationsTable::workingSchema($mar->fresh()))->map->getName();
+    $names = collect(SalesDeclarationActions::workingSchema($mar->fresh()))->map->getName();
     expect($names)->toContain('working_cumulative')->toContain('working_share');
 
     // And the modal actually mounts/renders without error (catches a broken schema/component — the
@@ -120,7 +120,7 @@ it('the working modal shows the monthly (not cumulative) breakdown for a monthly
     ]);
     $decl = uxDecl($lease, '2026-01', 100000);
 
-    $names = collect(TenantSalesDeclarationsTable::workingSchema($decl))->map->getName();
+    $names = collect(SalesDeclarationActions::workingSchema($decl))->map->getName();
     expect($names)->toContain('working_breakpoint')->toContain('working_overage')
         ->not->toContain('working_cumulative');
 
@@ -137,7 +137,7 @@ it('annualYearSummary tells the operator how the year now sits (re-truing made v
     $feb = uxDecl($lease, '2026-02', 100000);
     $this->svc->lock($feb, $this->operator);
 
-    $summary = TenantSalesDeclarationsTable::annualYearSummary($feb->fresh());
+    $summary = SalesDeclarationActions::annualYearSummary($feb->fresh());
 
     expect($summary)->toContain('Feb 2026')->toContain('5,000');
 });
