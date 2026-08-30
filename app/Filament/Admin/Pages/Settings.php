@@ -735,6 +735,11 @@ class Settings extends Page implements HasSchemas
                 ->components([
                     Toggle::make('integrations.paymob_enabled')->label(__('admin.settings.fields.paymob_enabled'))->helperText(__('admin.settings.fields.paymob_enabled_helper')),
                 ]),
+            Section::make(__('admin.settings.sections.email'))
+                ->columns(1)
+                ->components([
+                    Toggle::make('integrations.mail_enabled')->label(__('admin.settings.fields.mail_enabled'))->helperText(__('admin.settings.fields.mail_enabled_helper')),
+                ]),
         ];
     }
 

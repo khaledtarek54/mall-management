@@ -332,14 +332,25 @@ class AppServiceProvider extends ServiceProvider
      */
     public function applyIntegrationKillSwitches(): void
     {
-        // config key => the IntegrationsSettings property that can switch it off.
+        // config key => [the IntegrationsSettings property that can switch it off, the value
+        //                 that MEANS off for this key].
+        //
+        // Mail is the same idea in a different SHAPE: `mail.default` names a MAILER, so "off"
+        // is the `log` mailer — written, delivered to nobody — not `false`, which would be an
+        // invalid driver name and break every send with an exception instead of quietly
+        // stopping delivery.
         $switches = [
-            'integrations.paymob.enabled' => 'paymob_enabled',
+            'integrations.paymob.enabled' => ['paymob_enabled', false],
+            'mail.default' => ['mail_enabled', 'log'],
         ];
 
-        // Only an integration env has already enabled can be narrowed — and only
-        // then is the settings table worth touching.
-        $live = array_filter($switches, fn (string $configKey) => (bool) config($configKey), ARRAY_FILTER_USE_KEY);
+        // Only something already ON can be narrowed — and only then is the settings table worth
+        // touching. "Already on" means: not already sitting at its own off value.
+        $live = array_filter(
+            $switches,
+            fn (array $switch, string $configKey): bool => config($configKey) !== $switch[1] && (bool) config($configKey),
+            ARRAY_FILTER_USE_BOTH,
+        );
 
         if ($live === []) {
             return;
@@ -348,12 +359,12 @@ class AppServiceProvider extends ServiceProvider
         try {
             $settings = $this->app->make(IntegrationsSettings::class);
 
-            foreach ($live as $configKey => $property) {
+            foreach ($live as $configKey => [$property, $offValue]) {
                 // The DB read happens on property ACCESS, not on make() — spatie loads
                 // a settings class lazily. Both have to sit inside the try, or a missing
                 // settings table takes the whole boot down.
                 if (! $settings->{$property}) {
-                    config([$configKey => false]);
+                    config([$configKey => $offValue]);
                 }
             }
         } catch (\Throwable) {

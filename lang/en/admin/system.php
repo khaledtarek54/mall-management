@@ -107,6 +107,7 @@ return [
             'payroll_deductions' => 'Payroll deductions',
             'payroll_deductions_description' => 'The statutory withholdings used to pre-fill a payroll run when you generate it from the roster. Your accountant owns these rates, and they are now kept as a dated ladder rather than as settings.',
             'payments' => 'Payment Gateways',
+            'email' => 'Outbound Email',
         ],
         'weekdays' => [7 => 'Sunday', 1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'],
         'fields' => [
@@ -208,6 +209,8 @@ return [
             'wht_default_tax_code_helper' => 'Which nature of payment to assume for a supplier whose own has not been ruled on. The rate it carries lives on the tax code. Leave blank if there is no sensible default — nothing is then withheld until each supplier is set, which is the safe direction.',
             'wht_default_none' => 'No default — set per supplier',
             'paymob_enabled' => 'Paymob payments enabled',
+            'mail_enabled' => 'Outbound email enabled',
+            'mail_enabled_helper' => 'Stop every outgoing email immediately — notifications, statements, reminders, password resets. Messages are written to the log instead of delivered, so nothing is lost and nothing is sent. Use it during a mail-provider incident, a bulk import that would notify hundreds of tenants, or a test window. It cannot switch sending ON: that needs a mailer configured on the server (MAIL_MAILER).',
             'paymob_enabled_helper' => 'Switch card collection off across the portal, the mobile app and every payment link — takes effect immediately. It cannot switch payments ON: that needs Paymob credentials in the server configuration (PAYMOB_ENABLED). While those are absent this toggle has nothing to disable.',
         ],
     ],

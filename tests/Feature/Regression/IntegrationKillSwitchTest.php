@@ -103,3 +103,56 @@ it('actually stops the mobile session endpoint — not just the config value', f
         ->assertStatus(409)
         ->assertJsonPath('error', 'paymob_disabled');
 });
+
+/* ------------------------------------------------------------------------------------------
+| Outbound email — the same switch, a different SHAPE
+|
+| `mail.default` names a MAILER, not a boolean, so "off" is the `log` mailer — written, never
+| delivered — and not `false`, which is an invalid driver name and would break every send with
+| an exception rather than quietly stopping delivery.
+|
+| Added 2026-08-30 so an operator can stop mail from the Settings screen during a provider
+| incident, a runaway notification loop, or an import that would email hundreds of tenants —
+| without an SSH session and a config rebuild.
+------------------------------------------------------------------------------------------- */
+
+it('routes email to the log when the operator turns sending off', function () {
+    config(['mail.default' => 'mailersend']);
+    app(IntegrationsSettings::class)->fill(['mail_enabled' => false])->save();
+
+    applyKillSwitches();
+
+    expect(config('mail.default'))->toBe('log');
+});
+
+it('leaves email sending alone when the operator leaves it on', function () {
+    config(['mail.default' => 'mailersend']);
+    app(IntegrationsSettings::class)->fill(['mail_enabled' => true])->save();
+
+    applyKillSwitches();
+
+    expect(config('mail.default'))->toBe('mailersend');
+});
+
+it('cannot switch email sending ON — this toggle only ever narrows, like its sibling', function () {
+    // A box with no mailer configured…
+    config(['mail.default' => 'log']);
+    // …and an operator who flips the UI toggle on anyway.
+    app(IntegrationsSettings::class)->fill(['mail_enabled' => true])->save();
+
+    applyKillSwitches();
+
+    expect(config('mail.default'))->toBe('log');
+});
+
+it('narrows email and payments independently, not all-or-nothing', function () {
+    // The regression the shared $switches array invites: an early return, or one loop that
+    // stops at the first key already off, would let a disabled Paymob mask a live mail switch.
+    config(['integrations.paymob.enabled' => false, 'mail.default' => 'mailersend']);
+    app(IntegrationsSettings::class)->fill(['paymob_enabled' => false, 'mail_enabled' => false])->save();
+
+    applyKillSwitches();
+
+    expect(config('mail.default'))->toBe('log')
+        ->and(config('integrations.paymob.enabled'))->toBeFalse();
+});
