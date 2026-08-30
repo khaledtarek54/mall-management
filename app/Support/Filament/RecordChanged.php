@@ -38,8 +38,13 @@ final class RecordChanged
      * Announce that the record this screen is about has been re-derived elsewhere.
      *
      * Call it from the component that made the change — a relation manager, or a page action
-     * that mutates something OTHER than its own form state. The page's own actions do not need
-     * it: they refresh through {@see RefreshesRecordState::refreshFormData()}.
+     * that mutates something OTHER than its own form state.
+     *
+     * This used to add "the page's own actions do not need it: they refresh through
+     * `RefreshesRecordState::refreshFormData()`". That was only ever true of an action that CALLS
+     * `refreshFormData()` itself, and the acts that most needed it — the ones that hand the record
+     * to a service which re-reads it under a lock — call nothing of the sort. See
+     * {@see announceAfterAction()}, which now delivers to the announcing component too.
      */
     public static function dispatchFrom(Component $livewire): void
     {
@@ -72,8 +77,39 @@ final class RecordChanged
             return;
         }
 
-        if ($livewire instanceof Component) {
-            $livewire->dispatch(self::EVENT);
+        if (! $livewire instanceof Component) {
+            return;
+        }
+
+        // ── THE ANNOUNCER HAS TO HEAR ITSELF (2026-08-30) ────────────────────────────────────
+        //
+        // Livewire's `dispatch()` goes to OTHER components; the one that raised the event never
+        // receives it. That was invisible while every act lived on a LIST — the list and the
+        // record page are different components, so the page heard it. The moment an act moves
+        // onto the record page it is the page dispatching, and the page is the only thing that
+        // needed to listen.
+        //
+        // Measured on `EditUnit::remeasure`: the database read 412.00 and the form on screen went
+        // on reading 300, under a success toast. This is the same failure `RefreshesRecordState`
+        // exists for, arriving through a door it did not cover — and it was ALREADY shipped: none
+        // of the thirteen commercial lease acts calls `refreshFormData()`, so `EditLease` has
+        // declared nine `derivedStatePaths()` since the day it was written and not one of them has
+        // ever been refilled.
+        //
+        // The siblings — relation managers, the summary widget — exactly as before.
+        $livewire->dispatch(self::EVENT);
+
+        // And the announcer itself, DIRECTLY rather than through the event bus. `->self()` exists
+        // but is a browser round-trip: the listener would run on the NEXT request, so the operator
+        // still reads the stale figure on the render they are looking at. Calling the listener
+        // here refills in the same request, which is what makes the act and its result appear
+        // together.
+        //
+        // Guarded on the trait rather than on `method_exists('refreshFormData')`: every Filament
+        // record page has that method, and calling the stock one would refill from the page's
+        // in-memory copy — the no-op this whole seam exists to replace.
+        if (in_array(RefreshesRecordState::class, class_uses_recursive($livewire), true)) {
+            $livewire->refreshRecordState();
         }
     }
 }

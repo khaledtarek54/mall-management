@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Units\Pages;
 
+use App\Filament\Admin\Actions\UnitActions;
 use App\Filament\Admin\Resources\Concerns\FillsCustomFields;
 use App\Filament\Admin\Resources\Units\UnitResource;
+use App\Support\Filament\RefreshesRecordState;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
@@ -12,6 +14,18 @@ use Filament\Resources\Pages\EditRecord;
 class EditUnit extends EditRecord
 {
     use FillsCustomFields;
+    use RefreshesRecordState;
+
+    /**
+     * `area_sqm` is what re-measuring rewrites, and it is rendered a few centimetres below the
+     * button that changes it. `RemeasureUnitService` re-reads the unit into a new instance, so
+     * without the re-read the operator records a re-survey, is told it worked, and goes on reading
+     * the old area.
+     */
+    protected function derivedStatePaths(): array
+    {
+        return ['area_sqm'];
+    }
 
     protected static string $resource = UnitResource::class;
 
@@ -43,6 +57,8 @@ class EditUnit extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The record hub: what you can DO to this unit lives here, not on the list.
+            ...UnitActions::all(),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),
