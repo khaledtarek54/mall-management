@@ -374,6 +374,24 @@ REDIS_CACHE_DB=2           # prod;  3 on staging
 Only DB-backed relational data now leaves the box. After changing drivers, re-run
 `php artisan config:cache`.
 
+> **Phase 1 note (2026-08-30): this section argues for Redis purely on the network hop, and in
+> phase 1 there ISN'T one** — MySQL is on the box. The reasons that still hold are different ones,
+> worth stating so nobody reads the hop disappearing as permission to go back to `database`:
+> sessions, queue polling and cache reads would otherwise compete with the app's own queries for
+> one 1 GB buffer pool and one disk; and the monthly-billing double-bill guard is a
+> **`Cache::lock`** (`MonthlyBillingService`, 900s — one of 14 in `app/`), so on the `database`
+> driver the lock would live inside the very instance it is arbitrating writes against.
+> `maxmemory-policy` must stay **`noeviction`** for that reason — under `allkeys-lru` Redis can
+> evict a lock key mid-run and the guard silently stops guarding.
+>
+> **THE PHASE-2 ITEM: turn on AOF before production shares this box.** Redis ships
+> `appendonly no` with `save 3600 1 …`, so a restart can lose up to an hour of queued jobs — and
+> `RunMonthlyBilling` and `ApplyLateFees` are scheduled as **jobs, not commands**, so a lost entry
+> is a billing run that silently never happened. Deliberately NOT done on staging, where the data
+> is `DemoSeeder` output and nothing is at stake; recorded here because this box becomes production
+> and an "it's only staging" default is otherwise inherited without anyone deciding.
+> `appendonly yes` + `appendfsync everysec` narrows the window from an hour to a second.
+
 ---
 
 ## 6. Managed MySQL (Aiven, Amsterdam)
