@@ -49,6 +49,38 @@ it('writes a real sentence in each language, with no placeholder left behind', f
     expect(trans("admin.lease_events.narratives.{$key}", [], 'ar'))->toMatch('/\p{Arabic}/u');
 })->with(LeaseEventNarrative::KEYS);
 
+it('never discards what an operator typed in favour of a generic sentence', function (): void {
+    // A service stamps a key on EVERY event it writes, including the ones a human explained. So a
+    // resolver that tests the key first throws away the only part of the row that carries the WHY.
+    // Measured on the demo books: a relief the operator explained as "Trading concession while the
+    // north entrance is closed for works" rendered as "Rent relief granted — 54,000.00 reduced to
+    // 40,500.00", which the figures in the same table already said.
+    $typed = 'Trading concession while the north entrance is closed for works.';
+
+    $explained = new LeaseEvent([
+        'type' => 'abatement',
+        'reason' => $typed,
+        'payload' => [LeaseEventNarrative::KEY => 'relief_granted', 'amount_from' => 54000, 'amount_to' => 40500],
+    ]);
+
+    // Their words, unchanged, in either language — a person's account of what happened is not
+    // something to translate or to replace.
+    expect(LeaseEventNarrative::resolve($explained, 'en'))->toBe($typed)
+        ->and(LeaseEventNarrative::resolve($explained, 'ar'))->toBe($typed);
+
+    // …and the composed sentence is still what a row with NO words falls back to. Paired, because
+    // a resolver that returned the stored column unconditionally would satisfy the assertion above
+    // and quietly undo the whole change.
+    $unexplained = new LeaseEvent([
+        'type' => 'abatement',
+        'reason' => null,
+        'payload' => [LeaseEventNarrative::KEY => 'relief_granted', 'amount_from' => 54000, 'amount_to' => 40500],
+    ]);
+
+    expect(LeaseEventNarrative::resolve($unexplained, 'en'))->toContain('54,000.00')
+        ->and(LeaseEventNarrative::resolve($unexplained, 'ar'))->toMatch('/\p{Arabic}/u');
+});
+
 it('resolves a classification token in the READER\'s language, not the session\'s', function (): void {
     // The half-translated shape: the sentence composes in the requested locale while a token
     // inside it resolves through a bare `trans()` and answers in whoever's session is running.

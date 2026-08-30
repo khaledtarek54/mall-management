@@ -21,10 +21,12 @@ use Illuminate\Support\Facades\Lang;
  * to be in Arabic. An Egyptian accountant reading the lease history sees whichever language a
  * colleague was using months ago, and no language switch can help them.
  *
- * **The stored `reason` column stays and is still the floor.** Every pre-existing row has prose and
- * no key, a reason an operator TYPED is theirs and must never be replaced, and a reader nobody has
- * converted degrades to today's wording rather than to a blank cell — which on a lease history
- * reads as an event nobody explained.
+ * **The stored `reason` column stays, and an operator's own words WIN over the key.** A service
+ * stamps a key on every event it writes, including the ones a human explained, so the composed
+ * sentence is the fallback for a row with no words rather than a replacement for one that has
+ * them. Every pre-existing row has prose and no key, and a reader nobody has converted degrades to
+ * today's wording rather than to a blank cell — which on a lease history reads as an event nobody
+ * explained.
  *
  * The KEY lives in the payload rather than in a new column: the payload already carries every
  * figure these sentences quote, so a key beside them needs no migration and cannot drift from the
@@ -69,8 +71,19 @@ class LeaseEventNarrative
         $payload = (array) ($event->payload ?? []);
         $key = $payload[self::KEY] ?? null;
 
-        // An operator's reason is theirs. It is stored in `reason` with no key beside it, so a
-        // narrative key present means the service composed it and the stored copy is only a floor.
+        // AN OPERATOR'S OWN WORDS WIN, whether or not a key sits beside them. A service stamps a
+        // key on every event it writes, including the ones where a human typed the reason — so
+        // testing the key first discarded exactly the sentence that carries the WHY. Measured on
+        // the demo books: a relief the operator explained as "Trading concession while the north
+        // entrance is closed for works" rendered as the generic "Rent relief granted — 54,000.00
+        // reduced to 40,500.00", which the figures beside it in the same table already said.
+        //
+        // The composed sentence is what a row with NO words falls back to; the key is never a
+        // reason to throw away a person's account of what happened.
+        if (filled($event->reason)) {
+            return $event->reason;
+        }
+
         if ($key === null) {
             return $event->reason;
         }

@@ -338,10 +338,14 @@
 > and the ninth was Arabic only because that one run was. An operator reading the lease history in
 > Arabic saw English, and no lang edit could ever reach a row already written.
 >
-> - **The `reason` COLUMN stays and is still the floor.** It is now nullable: an event carrying a
->   narrative key stores no prose at all, but operator-typed prose still goes here and still WINS
->   over the key — a termination the operator explained in their own words must read back in their
->   own words. Every pre-existing row keeps its frozen sentence, because `LeaseEvent` refuses updates
+> - **The `reason` COLUMN stays and an operator's own words WIN.** It is now nullable, so an event
+>   nobody explained stores no prose at all. But a service stamps a key on EVERY event it writes,
+>   including the ones a human typed a reason for — so a resolver that tests the key first throws
+>   away the only part of the row carrying the WHY, which is what it did until it was measured: a
+>   relief explained as *"Trading concession while the north entrance is closed for works"* rendered
+>   as the generic *"Rent relief granted — 54,000.00 reduced to 40,500.00"*, which the figures in
+>   the same table already said. The composed sentence is the fallback for a row with NO words,
+>   never a replacement for one that has them. Every pre-existing row keeps its frozen sentence, because `LeaseEvent` refuses updates
 >   by design; a blank timeline cell would be worse than a stale one.
 > - **`RecordLeaseEventService` accepts EITHER**, and refuses neither-nor: the *"a lease event needs a
 >   reason — that is the point of recording it"* guard now passes when a narrative key is stamped, so
