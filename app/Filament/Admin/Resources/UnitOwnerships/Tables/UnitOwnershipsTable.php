@@ -162,6 +162,14 @@ class UnitOwnershipsTable
                             ->content(fn (Get $get, UnitOwnership $record) => static::certificateSummary($record, $get('as_of'))),
                     ]),
 
+            ])
+            ->emptyStateIcon('heroicon-o-key')
+            ->emptyStateHeading(__('admin.empty.unit_ownerships.heading'))
+            ->emptyStateDescription(__('admin.empty.unit_ownerships.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.unit_ownerships.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 
@@ -200,14 +208,7 @@ class UnitOwnershipsTable
             .'<dd class="font-semibold '.$tone.'">'.e($money($outstanding)).'</dd>';
         $html .= '</dl>';
 
-        return new HtmlString($html)
-            ->emptyStateIcon('heroicon-o-key')
-            ->emptyStateHeading(__('admin.empty.unit_ownerships.heading'))
-            ->emptyStateDescription(__('admin.empty.unit_ownerships.description'))
-            ->emptyStateActions([
-                CreateAction::make()
-                    ->label(__('admin.empty.unit_ownerships.cta'))
-                    ->icon('heroicon-o-plus'),
-            ]);
+        return new HtmlString($html);
+
     }
 }

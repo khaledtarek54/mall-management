@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Admin\RelationManagers\DepartmentMembersRelationManager;
-use App\Filament\Admin\Resources\CamExpensePools\Pages\ListCamExpensePools;
+use App\Filament\Admin\Resources\CamExpensePools\Pages\EditCamExpensePool;
 use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\ListTenantSalesDeclarations;
@@ -121,8 +121,10 @@ it('hides the CAM generate-allocations action from a role without cam.generate_a
     $this->actingAs(makeUser('viewer', [$asset->id])); // cam.view, NOT cam.generate_allocations
     Filament::setTenant($asset);
 
-    Livewire::test(ListCamExpensePools::class)
-        ->assertTableActionHidden('generateAllocations', $pool);
+    // The act moved to the pool's own page on 2026-08-30 — the list FINDS, the record ACTS —
+    // and a viewer holds cam.view without cam.edit, so the refusal is now the PAGE itself.
+    Livewire::test(EditCamExpensePool::class, ['record' => $pool->getRouteKey()])
+        ->assertForbidden();
 });
 
 it('shows the CAM generate-allocations action to a role that holds cam.generate_allocations', function () {
@@ -135,8 +137,8 @@ it('shows the CAM generate-allocations action to a role that holds cam.generate_
     $this->actingAs(makeUser('accounting', [$asset->id])); // holds cam.generate_allocations
     Filament::setTenant($asset);
 
-    Livewire::test(ListCamExpensePools::class)
-        ->assertTableActionVisible('generateAllocations', $pool);
+    Livewire::test(EditCamExpensePool::class, ['record' => $pool->getRouteKey()])
+        ->assertActionVisible('generateAllocations');
 });
 
 /*

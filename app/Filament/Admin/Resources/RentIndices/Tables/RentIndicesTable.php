@@ -59,13 +59,7 @@ class RentIndicesTable
             ])
             // Newest month first: the figure somebody is about to enter is always the most recent
             // one, and the one they check against is the month before it.
-            ->defaultSort('period', 'desc');
-    }
-
-    /** Named once so `visible()` and `authorize()` cannot drift — the double-gate rule. */
-    private static function canWrite(): bool
-    {
-        return auth()->user()?->can('rent_indices.edit') ?? false
+            ->defaultSort('period', 'desc')
             ->emptyStateIcon('heroicon-o-chart-bar')
             ->emptyStateHeading(__('admin.empty.rent_indices.heading'))
             ->emptyStateDescription(__('admin.empty.rent_indices.description'))
@@ -74,5 +68,12 @@ class RentIndicesTable
                     ->label(__('admin.empty.rent_indices.cta'))
                     ->icon('heroicon-o-plus'),
             ]);
+    }
+
+    /** Named once so `visible()` and `authorize()` cannot drift — the double-gate rule. */
+    private static function canWrite(): bool
+    {
+        return auth()->user()?->can('rent_indices.edit') ?? false;
+
     }
 }

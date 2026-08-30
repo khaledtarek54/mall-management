@@ -111,13 +111,7 @@ class WorkPermitsTable
                     ->authorize(fn (): bool => self::canWrite()),
 
             ])
-            ->defaultSort('valid_from', 'desc');
-    }
-
-    /** Named once each so `visible()` and `authorize()` cannot drift — the double-gate rule. */
-    private static function canWrite(): bool
-    {
-        return auth()->user()?->can('work_permits.edit') ?? false
+            ->defaultSort('valid_from', 'desc')
             ->emptyStateIcon('heroicon-o-shield-check')
             ->emptyStateHeading(__('admin.empty.work_permits.heading'))
             ->emptyStateDescription(__('admin.empty.work_permits.description'))
@@ -126,5 +120,12 @@ class WorkPermitsTable
                     ->label(__('admin.empty.work_permits.cta'))
                     ->icon('heroicon-o-plus'),
             ]);
+    }
+
+    /** Named once each so `visible()` and `authorize()` cannot drift — the double-gate rule. */
+    private static function canWrite(): bool
+    {
+        return auth()->user()?->can('work_permits.edit') ?? false;
+
     }
 }

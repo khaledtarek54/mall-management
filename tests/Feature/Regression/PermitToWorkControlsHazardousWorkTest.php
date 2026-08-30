@@ -21,7 +21,7 @@
 | coverage gap: the missing thing is a closure that was never written.
 */
 
-use App\Filament\Admin\Resources\WorkPermits\Tables\WorkPermitsTable;
+use App\Filament\Admin\Actions\WorkPermitActions;
 use App\Filament\Admin\Resources\WorkPermits\WorkPermitResource;
 use App\Models\Vendor;
 use App\Models\WorkPermit;
@@ -88,7 +88,7 @@ it('refuses to issue a permit with no conditions', function () {
 it('refuses to issue a permit to a contractor who cannot be dispatched', function () {
     $blacklisted = Vendor::create([
         'name' => 'Risky Contracting', 'legal_name' => 'Risky Contracting LLC',
-        'status' => 'blacklisted', 
+        'status' => 'blacklisted',
     ]);
 
     $draft = permit($this, ['vendor_id' => $blacklisted->id]);
@@ -101,7 +101,7 @@ it('refuses to issue a permit to a contractor who cannot be dispatched', functio
 it('issues a permit to a contractor in good standing', function () {
     $vendor = Vendor::create([
         'name' => 'Delta FM', 'legal_name' => 'Delta FM LLC',
-        'status' => 'active', 
+        'status' => 'active',
     ]);
 
     $issued = app(WorkPermitService::class)->issue(permit($this, ['vendor_id' => $vendor->id]));
@@ -254,7 +254,7 @@ it('shows the conditions on the permit before it is authorised and after', funct
     $draft = permit($this, ['conditions' => 'Fire watch for 60 minutes after the last cut.']);
 
     $abstract = (new ReflectionMethod(
-        WorkPermitsTable::class, 'abstractOf'
+        WorkPermitActions::class, 'abstractOf'
     ));
     $abstract->setAccessible(true);
 
@@ -272,7 +272,7 @@ it('shows the conditions on the permit before it is authorised and after', funct
 /** A draft with no conditions says so in the abstract, rather than showing an empty box. */
 it('names the missing conditions rather than rendering a blank', function () {
     $abstract = new ReflectionMethod(
-        WorkPermitsTable::class, 'abstractOf'
+        WorkPermitActions::class, 'abstractOf'
     );
     $abstract->setAccessible(true);
 
