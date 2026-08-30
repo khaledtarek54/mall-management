@@ -148,7 +148,8 @@ class MarketingSpendsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label(__('admin.actions.add_spend'))->after(fn () => $this->warnIfOverBudget())
+                    ->label(__('admin.actions.add_spend'))
+                    ->modalHeading(__('admin.actions.add_spend'))->after(fn () => $this->warnIfOverBudget())
                     ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('marketing.edit') ?? false),
                 // Where the marketing fund went, as a spreadsheet — the record the owner reviews.

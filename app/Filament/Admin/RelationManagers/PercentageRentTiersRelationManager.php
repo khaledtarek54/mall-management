@@ -5,11 +5,13 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\Lease;
 use App\Models\LeasePercentageRentTier;
+use Closure;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -52,6 +54,40 @@ class PercentageRentTiersRelationManager extends RelationManager
             TextInput::make('from_amount')
                 ->label(__('admin.percentage_rent_tiers.from'))
                 ->numeric()->prefix('EGP')->minValue(0)->required()
+                // THE REFUSAL HAS TO REACH THE OPERATOR, and the model guard alone did not.
+                //
+                // `LeasePercentageRentTier` refuses an overlapping band correctly, with a worded
+                // message naming both bands — and inside a Filament modal that `DomainException`
+                // becomes a redirect-back: the modal closes, the page reloads, nothing is said.
+                // Reported from the panel twice as "nothing happened", which is worse than
+                // accepting the row, because a silent refusal cannot be acted on.
+                //
+                // Validated here so it lands ON THE FIELD, in the modal, before the save. The model
+                // guard stays as the backstop — it is what the importer, a service and any future
+                // writer go through, and a form rule protects only the form.
+                ->rules([
+                    fn (Get $get, RelationManager $livewire, ?LeasePercentageRentTier $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $livewire, $record): void {
+                        // `$get`, not the raw request: the sibling's value is form STATE, and reading it
+                        // out of the Livewire payload by path is both fragile and wrong on an edit.
+                        $to = $get('to_amount');
+
+                        $clash = LeasePercentageRentTier::clashingBand(
+                            $livewire->getOwnerRecord()->getKey(),
+                            (float) $value,
+                            $to !== null ? (float) $to : INF,
+                            $record?->getKey(),
+                        );
+
+                        if ($clash !== null) {
+                            $fail(__('admin.errors.percentage_rent_tier_overlap', [
+                                'from' => number_format((float) $value, 2),
+                                'to' => $to !== null ? number_format((float) $to, 2) : '∞',
+                                'other_from' => number_format((float) $clash->from_amount, 2),
+                                'other_to' => $clash->to_amount !== null ? number_format((float) $clash->to_amount, 2) : '∞',
+                            ]));
+                        }
+                    },
+                ])
                 ->helperText(__('admin.helpers.percentage_rent_tier_from'))
                 ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_tier_from')),
             TextInput::make('to_amount')
@@ -91,7 +127,8 @@ class PercentageRentTiersRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label(__('admin.actions.add_tier'))->visible(fn () => self::canWrite())->authorize(fn () => self::canWrite()),
+                    ->label(__('admin.actions.add_tier'))
+                    ->modalHeading(__('admin.actions.add_tier'))->visible(fn () => self::canWrite())->authorize(fn () => self::canWrite()),
             ])
             ->recordActions([
                 EditAction::make()->visible(fn () => self::canWrite())->authorize(fn () => self::canWrite()),

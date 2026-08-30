@@ -171,6 +171,7 @@ class LeaseCamTermsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.actions.add_cam_term'))
+                    ->modalHeading(__('admin.actions.add_cam_term'))
                     ->visible(fn () => self::canWrite())
                     ->authorize(fn () => self::canWrite()),
             ])

@@ -140,6 +140,7 @@ class DocumentsRelationManager extends RelationManager
                 // is named once so the two cannot drift.
                 CreateAction::make()
                     ->label(__('admin.tenants.documents.add'))
+                    ->modalHeading(__('admin.tenants.documents.add'))
                     ->visible(fn () => static::canWrite())
                     ->authorize(fn () => static::canWrite()),
             ])

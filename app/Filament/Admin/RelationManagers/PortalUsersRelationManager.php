@@ -94,6 +94,7 @@ class PortalUsersRelationManager extends RelationManager
                 // admin — that toggle is super_admin-only above — so this creates a read-only login.
                 CreateAction::make()
                     ->label(__('admin.actions.add_portal_user'))
+                    ->modalHeading(__('admin.actions.add_portal_user'))
                     ->visible(fn (): bool => Auth::user()?->can('tenants.edit') ?? false)
                     ->authorize(fn (): bool => Auth::user()?->can('tenants.edit') ?? false),
             ])

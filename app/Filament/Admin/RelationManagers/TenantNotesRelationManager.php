@@ -124,6 +124,7 @@ class TenantNotesRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.actions.log_communication'))
+                    ->modalHeading(__('admin.actions.log_communication'))
                     ->visible(fn () => auth()->user()?->can('notes.create') ?? false)
                     ->authorize(fn () => auth()->user()?->can('notes.create') ?? false)
                     ->mutateFormDataUsing(function (array $data): array {

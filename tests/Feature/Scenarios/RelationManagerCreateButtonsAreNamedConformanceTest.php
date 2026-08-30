@@ -39,8 +39,13 @@ it('gives every relation-manager create button a name of its own', function (): 
             $stop = strpos($tail, '),');
             $chain = $stop === false ? $tail : substr($tail, 0, $stop);
 
-            if (! str_contains($chain, '->label(')) {
-                $offenders[] = $file->getRelativePathname();
+            // The BUTTON and the modal's HEADING are derived separately — labelling the button
+            // left "Create Lease Percentage Rent Tier" on the modal it opens, which is the same
+            // sentence in the place an operator reads it second.
+            foreach (['->label(' => 'button', '->modalHeading(' => 'modal heading'] as $call => $what) {
+                if (! str_contains($chain, $call)) {
+                    $offenders[] = $file->getRelativePathname().' ('.$what.')';
+                }
             }
         }
     }

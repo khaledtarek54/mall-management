@@ -95,6 +95,7 @@ class WarehouseBinsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.actions.add_bin'))
+                    ->modalHeading(__('admin.actions.add_bin'))
                     ->visible(fn () => WarehouseResource::canCreate())
                     ->authorize(fn () => WarehouseResource::canCreate()),
             ])

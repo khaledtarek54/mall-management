@@ -134,6 +134,7 @@ class DocumentsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.vendors.documents.add'))
+                    ->modalHeading(__('admin.vendors.documents.add'))
                     ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])

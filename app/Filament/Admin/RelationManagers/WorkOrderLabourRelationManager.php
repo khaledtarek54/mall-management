@@ -173,6 +173,7 @@ class WorkOrderLabourRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.facility.labour.book'))
+                    ->modalHeading(__('admin.facility.labour.book'))
                     ->visible(fn (): bool => $this->canBook())
                     ->authorize(fn (): bool => $this->canBook())
                     ->mutateDataUsing(function (array $data): array {

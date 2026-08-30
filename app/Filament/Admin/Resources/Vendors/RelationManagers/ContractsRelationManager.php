@@ -241,6 +241,7 @@ class ContractsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()->label(__('admin.actions.add_contract'))
+                    ->modalHeading(__('admin.actions.add_contract'))
                     ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])

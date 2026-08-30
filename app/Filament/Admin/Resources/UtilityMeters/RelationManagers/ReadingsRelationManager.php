@@ -240,6 +240,7 @@ class ReadingsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.actions.add_reading'))
+                    ->modalHeading(__('admin.actions.add_reading'))
                     ->visible(fn () => auth()->user()?->can('utility_meters.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('utility_meters.edit') ?? false),
             ])

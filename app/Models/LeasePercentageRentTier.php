@@ -93,17 +93,7 @@ class LeasePercentageRentTier extends Model
             ]));
         }
 
-        $clash = static::query()
-            ->where('lease_id', $this->lease_id)
-            ->when($this->exists, fn ($q) => $q->whereKeyNot($this->getKey()))
-            ->get()
-            ->first(function (self $other) use ($from, $to): bool {
-                $otherTo = $other->to_amount !== null ? (float) $other->to_amount : INF;
-
-                // Half-open bands [from, to): touching edges (prev.to === next.from) are adjacent,
-                // not overlapping, which is what a contiguous ladder looks like.
-                return $from < $otherTo && (float) $other->from_amount < $to;
-            });
+        $clash = self::clashingBand($this->lease_id, $from, $to, $this->exists ? $this->getKey() : null);
 
         if ($clash) {
             throw new \DomainException(__('admin.errors.percentage_rent_tier_overlap', [
@@ -113,6 +103,35 @@ class LeasePercentageRentTier extends Model
                 'other_to' => $clash->to_amount !== null ? number_format((float) $clash->to_amount, 2) : '∞',
             ]));
         }
+    }
+
+    /**
+     * The band this one would overlap, if any — the same question the save guard asks, asked
+     * BEFORE the save so a form can answer at the field instead of throwing.
+     *
+     * The guard alone refused correctly and told nobody: a `DomainException` from a model inside a
+     * Filament modal is turned into a redirect-back, the modal closes, and the operator sees the
+     * page reload with no message. Reported from the panel twice as "nothing happened" — which is
+     * worse than accepting the row, because a silent refusal cannot be acted on.
+     *
+     * Half-open bands `[from, to)`: touching edges (prev.to === next.from) are ADJACENT, not
+     * overlapping, which is what a contiguous ladder looks like.
+     */
+    public static function clashingBand(?int $leaseId, float $from, float $to, ?int $ignoreId = null): ?self
+    {
+        if ($leaseId === null) {
+            return null;
+        }
+
+        return static::query()
+            ->where('lease_id', $leaseId)
+            ->when($ignoreId !== null, fn ($q) => $q->whereKeyNot($ignoreId))
+            ->get()
+            ->first(function (self $other) use ($from, $to): bool {
+                $otherTo = $other->to_amount !== null ? (float) $other->to_amount : INF;
+
+                return $from < $otherTo && (float) $other->from_amount < $to;
+            });
     }
 
     /**

@@ -153,6 +153,7 @@ class WorkOrderProposalsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.facility.proposal.record'))
+                    ->modalHeading(__('admin.facility.proposal.record'))
                     ->visible(fn (): bool => $this->canRecord())
                     ->authorize(fn (): bool => $this->canRecord())
                     ->using(fn (array $data) => app(WorkOrderProposalService::class)->submit($this->order(), $data)),

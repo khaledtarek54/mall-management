@@ -102,6 +102,7 @@ class ServicePlanStopsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.facility.route.add_stop'))
+                    ->modalHeading(__('admin.facility.route.add_stop'))
                     ->visible(fn (): bool => $this->canEditRoute())
                     ->authorize(fn (): bool => $this->canEditRoute()),
             ])

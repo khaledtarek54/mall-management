@@ -98,6 +98,7 @@ class RatesRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.utility_tariffs.add_rate'))
+                    ->modalHeading(__('admin.utility_tariffs.add_rate'))
                     ->authorize(fn () => auth()->user()?->can('utility_tariffs.edit') ?? false),
             ])
             ->recordActions([

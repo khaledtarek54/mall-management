@@ -176,6 +176,7 @@ class LeaseClausesRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.actions.add_clause'))
+                    ->modalHeading(__('admin.actions.add_clause'))
                     ->visible(fn (): bool => $this->canWrite())
                     ->authorize(fn (): bool => $this->canWrite()),
             ])
