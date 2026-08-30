@@ -63,6 +63,7 @@ class DumpAdminManifest extends Command
                 'hasCreate' => in_array('create', $pages, true),
                 'hasEdit' => in_array('edit', $pages, true),
                 'hasView' => in_array('view', $pages, true),
+                'recordActions' => static::recordPageActions($resourceClass),
             ];
         }
         usort($resources, fn ($a, $b) => strcmp($a['slug'], $b['slug']));
@@ -77,5 +78,48 @@ class DumpAdminManifest extends Command
         usort($pages, fn ($a, $b) => strcmp((string) $a['slug'], (string) $b['slug']));
 
         return ['resources' => $resources, 'pages' => $pages];
+    }
+
+    /**
+     * The acts that live on this resource's RECORD page, and whether each opens a modal.
+     *
+     * On 2026-08-30 sixteen resources moved their write verbs off the list row and onto the
+     * record — the list finds, the record acts. That created a surface the browser suite could not
+     * see: `22-actions-sweep` walks LIST rows, and a Filament action builds its schema on MOUNT,
+     * so a record page renders perfectly and fatals the moment somebody clicks. Emitting the acts
+     * here lets the sweep open each one, without anybody keeping a list of names in JavaScript.
+     *
+     * `opensModal` is the safety flag and the reason this is derived rather than hand-written: an
+     * action with a form or a confirmation shows a dialog that Escape closes, while one with
+     * neither RUNS on click. The sweep may only click the first kind — the demo database it runs
+     * against is the same one the reconciliation commands read.
+     *
+     * @return list<array{name: string, opensModal: bool}>
+     */
+    protected static function recordPageActions(string $resourceClass): array
+    {
+        $actionsClass = 'App\\Filament\\Admin\\Actions\\'.str_replace('Resource', 'Actions', class_basename($resourceClass));
+
+        if (! class_exists($actionsClass) || ! method_exists($actionsClass, 'all')) {
+            return [];
+        }
+
+        $acts = [];
+
+        foreach ($actionsClass::all() as $action) {
+            $acts[] = [
+                'name' => $action->getName(),
+                // The visible label, so the browser can find the button. Dumped in the app's own
+                // locale (English in CI); the sweep matches on it rather than on a wire: attribute,
+                // which is Filament's internal shape and changes between releases.
+                'label' => (string) $action->getLabel(),
+                // A form or a confirmation means a dialog opens and nothing has happened yet.
+                // `hasModal()` is Filament's own predicate and answers null when it has not been
+                // forced either way, in which case a confirmation is the remaining reason one shows.
+                'opensModal' => ($action->hasModal() ?? false) || $action->isConfirmationRequired(),
+            ];
+        }
+
+        return $acts;
     }
 }

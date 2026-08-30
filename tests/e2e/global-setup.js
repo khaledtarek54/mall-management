@@ -23,11 +23,14 @@ async function respectLoginThrottle() {
   loginsThisWindow = 0;
 }
 
-async function loginAndSave(browser, loginFn, statePath, label) {
+async function loginAndSave(browser, loginFn, statePath, label, account) {
   await respectLoginThrottle();
 
   // Retry up to 3 times to ride out cold-start races (Filament + Livewire first paint)
   let lastErr;
+  let lastUrl = '(never navigated)';
+  let sawLoginForm = false;
+
   for (let attempt = 1; attempt <= 3; attempt++) {
     const ctx = await browser.newContext({ baseURL });
     const page = await ctx.newPage();
@@ -39,13 +42,42 @@ async function loginAndSave(browser, loginFn, statePath, label) {
       return;
     } catch (e) {
       lastErr = e;
+      // Captured BEFORE the context closes — it is the whole difference between "the box is
+      // slow" and "that account does not exist here", and the raw timeout says neither.
+      lastUrl = page.url();
+      sawLoginForm = await page
+        .locator('input[type="password"]')
+        .first()
+        .isVisible({ timeout: 1000 })
+        .catch(() => false);
       console.warn(`[globalSetup] ${label} login attempt ${attempt} failed: ${e.message}`);
       await ctx.close().catch(() => {});
       // A retry inside the same window is another attempt against the throttle.
       await respectLoginThrottle();
     }
   }
-  throw lastErr;
+
+  // ── SAY WHAT ACTUALLY WENT WRONG ────────────────────────────────────────────────────────────
+  //
+  // Global setup throwing takes the WHOLE suite with it and reports zero tests, which reads as
+  // "nobody ran it" rather than as a failure — this project lost a month of browser coverage to
+  // exactly that, when a renamed demo account left `page.waitForFunction: Timeout` as the only
+  // symptom and it was read three times as a slow page.
+  //
+  // `E2eHarnessUsersExistTest` guards the harness against the SEEDED test database. It cannot see
+  // the database this run points at, so a dev box mid-experiment — restored from `qa:baseline`,
+  // part-way through a seeder, sharing a tree with another session — fails here and only here.
+  const stillOnLogin = sawLoginForm || /\/login/.test(lastUrl);
+  throw new Error(
+    `[globalSetup] could not sign ${label} in as ${account ?? '(unknown account)'} after 3 attempts.\n` +
+      `  last URL: ${lastUrl}\n` +
+      (stillOnLogin
+        ? `  The login form was still on screen, so the page loaded and the credentials were refused.\n` +
+          `  Does ${account} exist in the database ${baseURL} is pointed at? Check, and reseed with\n` +
+          `  \`php artisan migrate:fresh --seed\` if that box is meant to hold the demo data.\n`
+        : `  The panel never rendered, so this looks like the app rather than the account.\n`) +
+      `  underlying: ${lastErr?.message ?? lastErr}`,
+  );
 }
 
 /**
@@ -78,14 +110,14 @@ async function isSessionValid(browser, statePath, probePath) {
   }
 }
 
-async function ensureState(browser, loginFn, statePath, label, probePath = '/admin') {
+async function ensureState(browser, loginFn, statePath, label, probePath = '/admin', account = undefined) {
   if (await isSessionValid(browser, statePath, probePath)) return;
 
   if (fs.existsSync(statePath)) {
     console.log(`[globalSetup] ${label}: saved session is stale (reseed?) — logging in again`);
   }
 
-  await loginAndSave(browser, loginFn, statePath, label);
+  await loginAndSave(browser, loginFn, statePath, label, account);
 }
 
 // Non-admin RBAC roles — each is a real demo user. Auth states power the
@@ -108,9 +140,9 @@ export default async function globalSetup() {
 
   const browser = await chromium.launch();
   try {
-    await ensureState(browser, loginAdmin, 'storage/playwright-state/admin.json', 'admin');
-    await ensureState(browser, loginPortal, 'storage/playwright-state/portal.json', 'portal', '/portal');
-    await ensureState(browser, loginOwner, 'storage/playwright-state/owner.json', 'owner');
+    await ensureState(browser, loginAdmin, 'storage/playwright-state/admin.json', 'admin', '/admin', 'admin@mall.test');
+    await ensureState(browser, loginPortal, 'storage/playwright-state/portal.json', 'portal', '/portal', 'tenant1@atriomwalk.test');
+    await ensureState(browser, loginOwner, 'storage/playwright-state/owner.json', 'owner', '/admin', 'owner@atriom.test');
 
     // Each role's saved session is REUSED while it still authenticates, and
     // rebuilt when it does not — so a reseed costs one extra round of logins

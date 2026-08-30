@@ -5,462 +5,805 @@
             "slug": "account-mappings",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "AccountingPeriodResource",
             "slug": "accounting-periods",
             "hasCreate": false,
             "hasEdit": false,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "AnnouncementResource",
             "slug": "announcements",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": true
+            "hasView": true,
+            "recordActions": [
+                {
+                    "name": "send",
+                    "label": "Send now",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "ApprovalRuleResource",
             "slug": "approval-rules",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "AreaResource",
             "slug": "areas",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "AssetResource",
             "slug": "assets",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "BankAccountResource",
             "slug": "bank-accounts",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "BankStatementResource",
             "slug": "bank-statements",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "CamExpensePoolResource",
             "slug": "cam-expense-pools",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "syncFromLedger",
+                    "label": "Re-source from the ledger",
+                    "opensModal": true
+                },
+                {
+                    "name": "applyEstimates",
+                    "label": "Apply next year's estimates",
+                    "opensModal": true
+                },
+                {
+                    "name": "generateAllocations",
+                    "label": "Generate Allocations",
+                    "opensModal": true
+                },
+                {
+                    "name": "markReconciled",
+                    "label": "Mark Reconciled",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "ChargeCodeResource",
             "slug": "charge-codes",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "CreditNoteResource",
             "slug": "credit-notes",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "CustodyResource",
             "slug": "custodies",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "CustomFieldResource",
             "slug": "custom-fields",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "DepartmentResource",
             "slug": "departments",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "message",
+                    "label": "Message",
+                    "opensModal": false
+                }
+            ]
         },
         {
             "class": "DepositTransactionResource",
             "slug": "deposit-transactions",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "DisbursementResource",
             "slug": "disbursements",
             "hasCreate": false,
             "hasEdit": false,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "DocumentTemplateResource",
             "slug": "document-templates",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "EmployeeResource",
             "slug": "employees",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "terminate",
+                    "label": "Terminate",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "EquipmentResource",
             "slug": "equipment",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "ExpenseCategoryResource",
             "slug": "expense-categories",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "ExpenseResource",
             "slug": "expenses",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "FacilityWorkOrderResource",
             "slug": "facility-work-orders",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "FailureCodeResource",
             "slug": "failure-codes",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "FixedAssetResource",
             "slug": "fixed-assets",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "dispose",
+                    "label": "Dispose",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "HolidayResource",
             "slug": "holidays",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "InventoryItemResource",
             "slug": "inventory-items",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "InvoiceResource",
             "slug": "invoices",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "disputeLine",
+                    "label": "Dispute a line",
+                    "opensModal": false
+                },
+                {
+                    "name": "resolveDispute",
+                    "label": "Resolve dispute",
+                    "opensModal": true
+                },
+                {
+                    "name": "allocateToLines",
+                    "label": "Payment split",
+                    "opensModal": false
+                },
+                {
+                    "name": "regeneratePaymentLink",
+                    "label": "Regenerate payment link",
+                    "opensModal": true
+                },
+                {
+                    "name": "submitToEta",
+                    "label": "Submit to ETA",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "JournalEntryResource",
             "slug": "journal-entries",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "LeaseResource",
             "slug": "leases",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "renew",
+                    "label": "Renew",
+                    "opensModal": false
+                },
+                {
+                    "name": "recordDeposit",
+                    "label": "Record deposit movement",
+                    "opensModal": false
+                },
+                {
+                    "name": "billDeposit",
+                    "label": "Bill security deposit",
+                    "opensModal": false
+                },
+                {
+                    "name": "changeRent",
+                    "label": "Change rent",
+                    "opensModal": false
+                },
+                {
+                    "name": "assignRentableItem",
+                    "label": "Let a bay or store",
+                    "opensModal": false
+                },
+                {
+                    "name": "releaseRentableItem",
+                    "label": "Give a bay or store back",
+                    "opensModal": false
+                },
+                {
+                    "name": "grantRelief",
+                    "label": "Grant relief",
+                    "opensModal": false
+                },
+                {
+                    "name": "finalAccount",
+                    "label": "Settle the final account",
+                    "opensModal": false
+                },
+                {
+                    "name": "changePremises",
+                    "label": "Change premises",
+                    "opensModal": false
+                },
+                {
+                    "name": "convertToHoldover",
+                    "label": "Bill as holdover",
+                    "opensModal": true
+                },
+                {
+                    "name": "terminate",
+                    "label": "Terminate",
+                    "opensModal": false
+                },
+                {
+                    "name": "extendTerm",
+                    "label": "Extend term",
+                    "opensModal": false
+                }
+            ]
         },
         {
             "class": "LedgerAccountResource",
             "slug": "ledger-accounts",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "MarketingBudgetResource",
             "slug": "marketing-budgets",
             "hasCreate": false,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "MarketingPostResource",
             "slug": "marketing-posts",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "approve",
+                    "label": "Approve",
+                    "opensModal": true
+                },
+                {
+                    "name": "reject",
+                    "label": "Return",
+                    "opensModal": false
+                },
+                {
+                    "name": "publish",
+                    "label": "Publish",
+                    "opensModal": true
+                },
+                {
+                    "name": "archive",
+                    "label": "Archive",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "OwnerRequestResource",
             "slug": "owner-requests",
             "hasCreate": true,
             "hasEdit": false,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "OwnerStatementRunResource",
             "slug": "owner-statement-runs",
             "hasCreate": false,
             "hasEdit": false,
-            "hasView": true
+            "hasView": true,
+            "recordActions": [
+                {
+                    "name": "finalise",
+                    "label": "Finalise",
+                    "opensModal": true
+                },
+                {
+                    "name": "revise",
+                    "label": "Revise",
+                    "opensModal": true
+                },
+                {
+                    "name": "schedule",
+                    "label": "Schedule payout",
+                    "opensModal": false
+                },
+                {
+                    "name": "send",
+                    "label": "Send to owner",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "PaymentMethodResource",
             "slug": "payment-methods",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "PaymentResource",
             "slug": "payments",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "PayrollRateResource",
             "slug": "payroll-rates",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "PayrollResource",
             "slug": "payrolls",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "PostDatedChequeResource",
             "slug": "post-dated-cheques",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "deposit",
+                    "label": "Deposit",
+                    "opensModal": false
+                },
+                {
+                    "name": "clear",
+                    "label": "Clear",
+                    "opensModal": false
+                },
+                {
+                    "name": "bounce",
+                    "label": "Bounce",
+                    "opensModal": true
+                },
+                {
+                    "name": "chargeNsfFee",
+                    "label": "Charge returned-cheque fee",
+                    "opensModal": true
+                },
+                {
+                    "name": "cancel",
+                    "label": "Cancel",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "PurchaseRequestResource",
             "slug": "purchase-requests",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "approve",
+                    "label": "Approve",
+                    "opensModal": true
+                },
+                {
+                    "name": "reject",
+                    "label": "Reject",
+                    "opensModal": false
+                },
+                {
+                    "name": "order",
+                    "label": "Place the order",
+                    "opensModal": false
+                },
+                {
+                    "name": "receive",
+                    "label": "Receive the goods",
+                    "opensModal": true
+                },
+                {
+                    "name": "cancel",
+                    "label": "Cancel",
+                    "opensModal": false
+                }
+            ]
         },
         {
             "class": "RecurringExpenseResource",
             "slug": "recurring-expenses",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "RentIndexResource",
             "slug": "rent-indices",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "RentableItemResource",
             "slug": "rentable-items",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": true
+            "hasView": true,
+            "recordActions": []
         },
         {
             "class": "TenantRequestResource",
             "slug": "requests",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "RetailCategoryResource",
             "slug": "retail-categories",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "RoleResource",
             "slug": "roles",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "clone",
+                    "label": "Clone role",
+                    "opensModal": false
+                }
+            ]
         },
         {
             "class": "ServicePlanResource",
             "slug": "service-plans",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "generateNow",
+                    "label": "Generate now",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "SlaPolicyResource",
             "slug": "sla-policies",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "StockMovementResource",
             "slug": "stock-movements",
             "hasCreate": false,
             "hasEdit": false,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "TaxCodeResource",
             "slug": "tax-codes",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "TenantRequestSubcategoryResource",
             "slug": "tenant-request-subcategories",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "TenantSalesDeclarationResource",
             "slug": "tenant-sales-declarations",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "TenantResource",
             "slug": "tenants",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": true
+            "hasView": true,
+            "recordActions": []
         },
         {
             "class": "TradeResource",
             "slug": "trades",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "UnitOwnershipResource",
             "slug": "unit-ownerships",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "transfer",
+                    "label": "Transfer ownership",
+                    "opensModal": false
+                }
+            ]
         },
         {
             "class": "UnitResource",
             "slug": "units",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "remeasure",
+                    "label": "Remeasure",
+                    "opensModal": false
+                }
+            ]
         },
         {
             "class": "UserResource",
             "slug": "users",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "suspend",
+                    "label": "Suspend access",
+                    "opensModal": true
+                },
+                {
+                    "name": "reactivate",
+                    "label": "Reactivate",
+                    "opensModal": true
+                }
+            ]
         },
         {
             "class": "UtilityMeterResource",
             "slug": "utility-meters",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "UtilityTariffResource",
             "slug": "utility-tariffs",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "VendorBillResource",
             "slug": "vendor-bills",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "VendorDocumentTypeResource",
             "slug": "vendor-document-types",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "VendorResource",
             "slug": "vendors",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "ViolationCategoryResource",
             "slug": "violation-categories",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "ViolationResource",
             "slug": "violations",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "WarehouseResource",
             "slug": "warehouses",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": []
         },
         {
             "class": "WorkPermitResource",
             "slug": "work-permits",
             "hasCreate": true,
             "hasEdit": true,
-            "hasView": false
+            "hasView": false,
+            "recordActions": [
+                {
+                    "name": "issue",
+                    "label": "Issue permit",
+                    "opensModal": true
+                },
+                {
+                    "name": "close",
+                    "label": "Close out",
+                    "opensModal": false
+                },
+                {
+                    "name": "cancel",
+                    "label": "Cancel permit",
+                    "opensModal": false
+                }
+            ]
         }
     ],
     "pages": [
