@@ -84,6 +84,19 @@ return [
     ],
 
     'lease_options' => [
+        'preview' => [
+            'window' => 'Notice window',
+            'served' => 'Notice served',
+            'outside_window' => 'outside the window — this will be refused',
+            'current_term' => 'Current term',
+            'new_term_starts' => 'New term starts',
+            'months' => 'months',
+            'rent' => 'Rent',
+            'rent_to_be_agreed' => 'to be agreed (:basis basis)',
+            'penalty' => 'Penalty payable',
+            'records' => 'This records',
+            'records_value' => 'the option as exercised, and an event on the lease. The lease itself is not changed today.',
+        ],
         'help' => [
             'option_type' => 'What the tenant may do — renew, break, take more space, give some back, or match an offer.',
             'option_status' => 'Open until the tenant acts. Exercised, lapsed or waived closes it and frees the space.',

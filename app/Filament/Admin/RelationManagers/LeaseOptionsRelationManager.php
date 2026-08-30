@@ -8,11 +8,13 @@ use App\Models\LeaseOption;
 use App\Models\Unit;
 use App\Services\ExerciseLeaseOptionService;
 use App\Support\Filament\EntitySelect;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -25,6 +27,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 
 /**
  * Options & critical dates on a lease (OP-01/OP-02).
@@ -236,8 +239,75 @@ class LeaseOptionsRelationManager extends RelationManager
                     ->requiresConfirmation()
                     ->visible(fn (LeaseOption $record) => self::canWrite() && $record->isOpen())
                     ->schema([
+                        // WHAT EXERCISING THIS ACTUALLY DOES, before the operator commits to it.
+                        //
+                        // The modal asked for a date, a reason and a document reference and said
+                        // nothing about the outcome — on a decision that binds both parties for
+                        // the option's whole term. Everything here is already derived by the
+                        // service and the model; it was simply never shown.
+                        //
+                        // `projectedRent()` deliberately returns NULL for a market or CPI basis —
+                        // neither is a number this system may invent — so the preview says the
+                        // rent will be agreed rather than printing a figure nobody has set.
+                        Placeholder::make('exercise_preview')
+                            ->hiddenLabel()
+                            ->columnSpanFull()
+                            ->content(function (LeaseOption $record, Get $get): HtmlString {
+                                $lease = $record->lease;
+                                $served = filled($get('notice_given_at'))
+                                    ? CarbonImmutable::parse($get('notice_given_at'))
+                                    : CarbonImmutable::now()->startOfDay();
+
+                                $rows = [];
+
+                                $rows[__('admin.lease_options.preview.window')] = $record->earliest_notice_date
+                                    ? $record->earliest_notice_date->format('d/m/Y').' → '.($record->latest_notice_date?->format('d/m/Y') ?? '—')
+                                    : '—';
+
+                                // Said before the refusal, not after it: the operator can see the
+                                // notice date is outside the window while they can still fix it.
+                                $rows[__('admin.lease_options.preview.served')] = $served->format('d/m/Y')
+                                    .($record->windowIsOpen($served) ? '' : ' ⚠️ '.__('admin.lease_options.preview.outside_window'));
+
+                                if ($lease !== null) {
+                                    $rows[__('admin.lease_options.preview.current_term')] =
+                                        $lease->commencement_date?->format('d/m/Y').' → '.$lease->expiry_date?->format('d/m/Y');
+
+                                    if ($record->type === 'renewal' || $record->type === 'expansion') {
+                                        $from = filled($lease->expiry_date)
+                                            ? CarbonImmutable::instance($lease->expiry_date)->addDay()
+                                            : CarbonImmutable::now()->startOfDay();
+
+                                        $rows[__('admin.lease_options.preview.new_term_starts')] = $from->format('d/m/Y')
+                                            .($record->term_months ? ' · '.$record->term_months.' '.__('admin.lease_options.preview.months') : '');
+
+                                        $projected = $record->projectedRent((float) $lease->base_rent_monthly);
+
+                                        $rows[__('admin.lease_options.preview.rent')] = $projected !== null
+                                            ? 'EGP '.number_format((float) $lease->base_rent_monthly, 2).' → '.number_format($projected, 2)
+                                            : __('admin.lease_options.preview.rent_to_be_agreed', [
+                                                'basis' => __('admin.enums.rent_basis.'.($record->rent_basis ?? 'market')),
+                                            ]);
+                                    }
+
+                                    if ($record->penalty_amount !== null && (float) $record->penalty_amount > 0) {
+                                        $rows[__('admin.lease_options.preview.penalty')] = 'EGP '.number_format((float) $record->penalty_amount, 2);
+                                    }
+                                }
+
+                                $rows[__('admin.lease_options.preview.records')] = __('admin.lease_options.preview.records_value');
+
+                                $html = '<dl class="grid gap-x-4 gap-y-1" style="grid-template-columns:auto 1fr">';
+                                foreach ($rows as $label => $value) {
+                                    $html .= '<dt class="text-sm opacity-70">'.e($label).'</dt>'
+                                        .'<dd class="text-sm font-medium">'.e($value).'</dd>';
+                                }
+
+                                return new HtmlString($html.'</dl>');
+                            }),
                         DatePicker::make('notice_given_at')
                             ->label(__('admin.lease_options.notice_given_at'))
+                            ->live(onBlur: true)
                             ->helperText(__('admin.lease_options.notice_given_at_hint'))
                             ->default(fn (LeaseOption $record) => $record->notice_given_at ?? now())
                             ->required(),
