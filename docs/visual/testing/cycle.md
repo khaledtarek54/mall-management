@@ -64,11 +64,14 @@ collected from a retailer or wrongly failed to.</div>
 
 **Also expect:**
 - The invoice is **draft** until you issue it. A draft is not a document — it is a working note.
-- Its number looks like `INV-AW-…` and you cannot edit it.
+- Its number looks like `INV-PA-…` — the mall's own code — and you cannot edit it.
 
-**A draft must be invisible to the tenant.** Sign into `/portal` as `zara@atriomwalk.test` in a
-private window. If a tenant can see a draft invoice — a bill nobody has decided to send yet — that
-is serious.
+**A draft must be invisible to the tenant.** The tenant you just created has no portal login, so
+test this against one that does: switch to **Atriom Walk**, raise a **draft** invoice for
+*Cilantro*, then sign into `/portal` as `tenant1@atriomwalk.test` in a private window.
+
+*Expect:* the draft is **not there**. A draft is a working note, not a bill anybody has decided to
+send — if a tenant can see one, that is serious. Then issue it and confirm it appears.
 
 ## 3 · Collect
 
