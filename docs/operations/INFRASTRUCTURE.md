@@ -26,7 +26,7 @@ growth is copy-paste, not a rebuild.
                     outbound tunnel (no open inbound ports)
                                │
         ┌──────────────────────▼───────────────────────────┐
-        │  Hetzner Cloud VPS  (Ubuntu 24.04 · 8GB/4vCPU · DE)│
+        │  OVHcloud VPS-1  (Ubuntu 24.04 · 8GB/4vCPU · FRA)  │
         │                                                    │
         │  cloudflared ─┬─ app.<domain>    → 127.0.0.1:8080  │  prod  vhost
         │               └─ staging.<domain>→ 127.0.0.1:8081  │  stg   vhost
@@ -64,30 +64,36 @@ rebuilt at the next step, only moved off the box.
 
 *Prices verified August 2026 and they drift — Hetzner adjusted on 15 June 2026. Re-check at signup.*
 
-### Phase 1 — staging only (~€4/mo)
+### Phase 1 — staging only (~$7/mo)
 
 | Component | Spec | ~Monthly |
 |---|---|---|
-| Hetzner Cloud VPS | **CX22** — 2 vCPU / 4 GB / 40 GB, Falkenstein or Nuremberg | **€3.79** |
-| MySQL 8.4 | **on the box** | €0 |
-| Redis | on the box — not optional, see [§5](#5-redis--driver-overrides-required) | €0 |
-| Uploads + backup archives | the box's own disk | €0 |
-| Cloudflare | Free plan + Tunnel + Access on the staging hostname | €0 |
+| **OVHcloud VPS-1**, Frankfurt | 4 vCPU / 8 GB / 75 GB NVMe, unlimited EU traffic, anti-DDoS **and daily backups included** | **~$6.46** |
+| MySQL 8.4 | **on the box** | $0 |
+| Redis | on the box — not optional, see [§5](#5-redis--driver-overrides-required) | $0 |
+| Uploads + backup archives | the box's own disk | $0 |
+| Cloudflare | Free plan + Tunnel + Access on the staging hostname | $0 |
 | Domain | at Cloudflare | ~$10 / yr |
-| **All-in** | | **~€3.79/mo** |
+| **All-in** | | **~$6.46/mo** |
 
-**4 GB needs 4 GB of swap, and that is a requirement rather than a tuning note.** `npm run build`
-compiles the app assets *and* the VitePress handbook, and that peak alongside MySQL, Redis and FPM
-is what OOM-kills a 4 GB box mid-deploy — leaving both panels serving unstyled HTML, which is the
-same symptom as a skipped build and is diagnosed as one. Set `innodb_buffer_pool_size` to ~512 MB
-while you are there; the default is small enough that MySQL will not fight the build, but the
-default is not what an unattended `apt` install always leaves you.
+**Verify the RENEWAL price at checkout, not the headline.** OVH quotes commitment and promotional
+rates prominently and the month-13 figure is the one you are actually buying. Same for IONOS. This
+is the single thing to check before clicking.
+
+**Add ~4 GB of swap anyway.** At 8 GB it is insurance rather than the requirement it would be at 4:
+`npm run build` compiles the app assets *and* the VitePress handbook, and an OOM during that step
+leaves both panels serving unstyled HTML — the same symptom as a skipped `npm run build`, so it is
+diagnosed as one. Set `innodb_buffer_pool_size` to ~1 GB.
+
+**8 GB at the phase-1 price is why this box needs no resize in phase 2** — it is already the size
+[§2](#2-components-sizing--cost) wanted for prod+staging sharing one machine.
 
 ### Phase 2 — production joins the same box (~€30–40/mo)
 
-The box becomes two environments per [§3](#3-one-box-two-environments-native-separation). Resize
-CX22 → **CX32** (4 vCPU / 8 GB, **€6.80**) — a reboot, no migration; RAM and CPU resize both ways,
-disk only grows. Then move off the box the three things whose loss is now unacceptable:
+The box becomes two environments per [§3](#3-one-box-two-environments-native-separation). On VPS-1
+that needs **no resize** — 8 GB is already the target size, so the step is the second system user,
+FPM pool, vhost, worker, cron and tunnel ingress. Then move off the box the three things whose loss
+is now unacceptable:
 
 | Add | ~Monthly | What it buys |
 |---|---|---|
@@ -97,7 +103,7 @@ disk only grows. Then move off the box the three things whose loss is now unacce
 
 **Do not defer this past the day real data lands.** In phase 1 the database, the uploads and the
 archives are all on one disk, so anything that takes the box — hardware, or the account problems in
-[§2.1](#21-provider-risk-hetzner-specifically) — is total loss. That is correct for demo data and
+[§2.1](#21-why-this-provider-and-what-was-rejected) — is total loss. That is correct for demo data and
 indefensible for a tenant's signed lease.
 
 ### Phase 3 — split, when something actually pushes
@@ -105,35 +111,63 @@ indefensible for a tenant's signed lease.
 See [§11](#11-scaling--offload-path-designed-in-used-later). Nothing here is scheduled; each row is
 a response to a measured pressure, not a milestone.
 
-### 2.1 Provider risk (Hetzner specifically)
+### 2.1 Why this provider, and what was rejected
 
-The hardware and network are not the weak point — Hetzner has run its own data centres since 1997,
-and the price is 3–5× under DigitalOcean or Vultr for the same specs, which is why this box is
-worth the caveats. **The risk is commercial, and two of the three land specifically on an
-Egypt-based buyer.** Each has a cheap mitigation; take all three.
+**Hetzner was the pick until 2026-08-30 and is not, because you cannot buy it.** All eight
+cost-optimized **CX** plans are out of stock in every location — the supply constraint that started
+in June 2026, not an account problem. Recorded because the *shape* of that finding outlives this
+particular shortage: the cheapest line at a provider is the first to be rationed, and a plan that
+cannot be purchased is not a cheaper plan. Check availability **before** designing around a SKU.
+
+Hetzner is not closed, though — **CX is one of four lines.** `CAX` (ARM/Ampere) is separate and
+EU-available: **CAX21**, 4 vCPU / 8 GB, **€7.99**. It remains the fallback if OVH disappoints, and
+this stack runs on ARM without qualification — PHP 8.4 and all nine required extensions, MySQL,
+Redis and Node all ship arm64 builds, and mpdf is pure PHP. The only reason it is second is that it
+costs more than VPS-1 for the same specs while adding an architecture variable.
+
+**What VPS-1 buys beyond the price:** daily backups are **included**, which is a partial answer to
+phase 1's worst property — database, uploads and archives on one disk. Partial, and do not overread
+it: a provider snapshot sits in the same failure domain as the thing it snapshots, so it covers
+"someone truncated a table", not "the account or the region is gone". [§7](#7-backups) is still the
+real answer the day real data lands.
+
+**OVH's own history is on the record and belongs here:** the 2021 Strasbourg fire destroyed SBG2,
+and the customers who lost data were the ones who had assumed the provider's backups were theirs.
+Frankfurt is a different site, and the lesson is the one [§7](#7-backups) already states rather than
+a reason to avoid the provider.
+
+Whatever the provider, three commercial risks apply and each has a cheap mitigation. **Two land
+specifically on an Egypt-based buyer** — take all three:
 
 | Risk | Mitigation |
 |---|---|
-| **Suspension on an unpaid invoice.** Reported to happen with little warning. An Egyptian company paying a German provider by card meets international declines, FX limits and bank blocks routinely — and the consequence here is a stopped box, not a dunning email | **Prepay the account and keep a balance.** Second card on file. Put a *monitored ops mailbox* on the account, never a personal address |
-| **Capacity restrictions.** Since June 2026 Hetzner has limited new cloud-server creation for new customers and, at random, some existing ones | **Provision now**, while it is only staging. Having the box in the account before production day is worth more than the €4 |
-| **Object Storage degradation** — a hel1 incident took ~31 days to fully mitigate in H1 2026 | Never let it hold the **only** off-box backup copy. Put that copy on the Storage Box (a different system) or another vendor — Backblaze B2, Cloudflare R2. This is [§7](#7-backups)'s own failure-domain rule, applied to the provider |
+| **Suspension on an unpaid invoice.** An Egyptian company paying a European provider by card meets international declines, FX limits and bank blocks routinely, and the consequence is a stopped box rather than a dunning email | **Prepay and keep a balance.** Second card on file. A *monitored ops mailbox* on the account, never a personal address |
+| **Capacity rationing.** What removed Hetzner CX here, and no provider is immune | **Provision now**, while it is only staging. Holding the box before production day is worth more than the monthly saving |
+| **A managed service degrading for weeks** — a Hetzner Object Storage incident in hel1 took ~31 days to fully mitigate in H1 2026 | Never let one product hold the **only** off-box backup copy. [§7](#7-backups)'s failure-domain rule, applied to the vendor |
+
+**Phase 2's storage is provider-independent** and does not have to follow the app box: the `s3` disk
+takes any S3-compatible endpoint (Hetzner, Backblaze B2, Cloudflare R2, OVH Object Storage) and the
+restic target any SFTP host. Buying them from a *different* vendor than the app box is the stronger
+arrangement, not a compromise.
 
 **Contabo was evaluated and rejected — it is not cheaper.** Cloud VPS S (4 vCPU / 8 GB) is ~$11.31
-against CX32's €6.80 for the same CPU and RAM; its only advantage is disk size, which is not this
-system's constraint. What it costs is the thing this workload is most sensitive to: a Filament list
-page issues 130–400 queries ([§11](#11-scaling--offload-path-designed-in-used-later) measures it),
-and Contabo's documented high disk latency and inconsistent CPU do not make pages uniformly slower,
-they make them *randomly* slow — which is the complaint nobody can reproduce. It is a real company
-(Munich, 2003); it is the wrong fit here, and doubly so in phase 1 with MySQL on the same disk.
+against VPS-1's ~$6.46 for the same CPU and RAM; its only advantage is disk size, which is not this
+system's constraint. What it costs is what this workload is most sensitive to: a Filament list page
+issues 130–400 queries ([§11](#11-scaling--offload-path-designed-in-used-later) measures it), and
+Contabo's documented high disk latency and inconsistent CPU do not make pages uniformly slower —
+they make them *randomly* slow, which is the complaint nobody can reproduce. A real company (Munich,
+2003), the wrong fit here, and doubly so in phase 1 with MySQL on the same disk.
 
-**If a payment-related suspension is unacceptable to the operator**, the answer is DigitalOcean
-Frankfurt — roughly 3× the all-in cost, and it deletes the Aiven vendor entirely by putting managed
-MySQL in the same console. That is a defensible purchase, not a downgrade of this plan.
+**IONOS** (VPS Linux L — 4 vCPU / 8 GB / 240 GB, ~$15) is the sane German alternative if OVH's
+renewal price disappoints: more disk, unlimited traffic, a conventional business vendor. **If a
+payment-related suspension is unacceptable to the operator**, the answer is DigitalOcean Frankfurt —
+roughly 3× all-in, and it deletes the Aiven vendor by putting managed MySQL in the same console.
+Both are defensible purchases, not downgrades of this plan.
 
 **Not yet answered: data residency.** This system holds Egyptian tenants' tax cards, national IDs,
 signed leases and employee payroll, and Egypt's PDPL has cross-border transfer rules. Hosting in
-Germany may be fine or may need consent or licensing — that is a question for the operator's
-counsel, and it is far cheaper to ask before the box exists than after real data is on it.
+Germany or France may be fine or may need consent or licensing — a question for the operator's
+counsel, far cheaper to ask before the box exists than after real data is on it.
 
 ---
 
@@ -346,7 +380,7 @@ different failure domain, and they double as staging refresh data.
 > reason: posture A holds demo data.** A copy on the same disk as the database is not a backup, it
 > is a second file that dies with the box. The moment real data lands, the off-box copy below is
 > not a hardening step, it is the difference between an incident and a closure. Put that copy on a
-> **different vendor or a different system** from the app's object storage — [§2.1](#21-provider-risk-hetzner-specifically)
+> **different vendor or a different system** from the app's object storage — [§2.1](#21-why-this-provider-and-what-was-rejected)
 > records a month-long Object Storage degradation, and a backup sharing a failure domain with the
 > thing it backs up is the same mistake as keeping it on the same disk.
 
@@ -456,9 +490,10 @@ credentials.
 
 ### Phase 1 — the staging box
 
-1. Create Hetzner **CX22** (Ubuntu 24.04, Falkenstein/Nuremberg), add SSH key, create sudo user,
-   apply [§9](#9-server-hardening). **Add 4 GB of swap** — see [§2](#2-components-sizing--cost);
-   without it `npm run build` OOMs mid-deploy and the panels serve unstyled HTML.
+1. Create **OVHcloud VPS-1** (Ubuntu 24.04, Frankfurt) — check the **renewal** price, not the
+   headline — add SSH key, create sudo user, apply [§9](#9-server-hardening). Add ~4 GB of swap
+   ([§2](#2-components-sizing--cost)): at 8 GB it is insurance, and an OOM during `npm run build`
+   serves both panels unstyled, which reads as a skipped build.
 2. `apt` base + `ondrej/php` PPA → PHP 8.4 (+ `-fpm -mysql -redis -mbstring -xml -curl -zip -gd -bcmath -intl -exif`), nginx, redis-server, **mysql-server**, composer, cloudflared.
    **Install them for FPM as well as CLI, and prove it over HTTP.** `composer install` runs under
    `php-cli`; the money columns render under `php-fpm`. A box with `intl` in one and not the other
@@ -490,8 +525,9 @@ credentials.
 
 ### Phase 2 — production joins the box
 
-10. Resize CX22 → CX32 (reboot). Add system user `atriom-prod`, its FPM pool (12 kids; drop staging
-    to 4 so it cannot starve prod), its vhost on `:8080`, worker, cron, and the second tunnel ingress.
+10. **No resize needed** — VPS-1 is already 8 GB. Add system user `atriom-prod`, its FPM pool
+    (12 kids; drop staging to 4 so it cannot starve prod), its vhost on `:8080`, worker, cron, and
+    the second tunnel ingress.
 11. Provision managed MySQL → two DBs + two users ([§6](#6-managed-mysql-aiven-amsterdam)); allowlist
     the VPS IP; download the CA cert — TLS is mandatory. **Install `mysql-client`** now that
     `mysqldump` is no longer on the box.
@@ -524,8 +560,8 @@ nothing here has to be rebuilt:
 |---|---|
 | Real data arrives on the box | **Phase 2** — [§2](#2-components-sizing--cost). Not optional and not a growth step: it is what makes the loss of one machine survivable. |
 | DB engine load (once off-box) | Resize the managed node up; move off the free tier to get a standby/read-replica for HA. |
-| App box CPU/RAM contention | Resize the Hetzner VPS (vertical); it reboots in minutes. |
-| Staging noise affecting prod | Split **staging** to its own cheap Hetzner VPS — copy `/var/www/atriom-staging` + its `.env`, add a tunnel ingress rule, done. Same-provider, no data migration. |
+| App box CPU/RAM contention | Resize the VPS (vertical); it reboots in minutes. Every provider in [§2.1](#21-why-this-provider-and-what-was-rejected) supports it — but confirm the larger SKU is **in stock** before planning on it, which is what removed Hetzner CX. |
+| Staging noise affecting prod | Split **staging** to its own cheap VPS — copy `/var/www/atriom-staging` + its `.env`, add a tunnel ingress rule, done. No data migration, and it need not be the same provider. |
 | Prod needs isolation/HA | Move prod to its own box the same way; keep DB shared or split. |
 | Want reproducible infra | Lift each env into a Docker Compose stack (the native layout maps 1:1 to services); the compose file becomes the new "copy to a bigger box" unit. |
 
@@ -535,8 +571,9 @@ nothing here has to be rebuilt:
 **The statelessness is a phase-2 property, not a standing one.** Once MySQL is managed and files are
 in object storage, the app box holds nothing that is not in git — so it can be rebuilt from these
 steps, or re-provisioned at another provider, and nothing is lost. That is what makes the provider
-risk in [§2.1](#21-provider-risk-hetzner-specifically) survivable, and it is what turns leaving
-Hetzner into a re-provision rather than a migration. **In phase 1 none of it is true**: the database,
+risk in [§2.1](#21-why-this-provider-and-what-was-rejected) survivable, and it is what turns changing
+provider into a re-provision rather than a migration — which stopped being hypothetical on
+2026-08-30, when the planned SKU went out of stock before the box was built. **In phase 1 none of it is true**: the database,
 the uploads and the archives are all on one disk. Correct for demo data; the reason phase 2 is
 gated on real data rather than on load.
 
