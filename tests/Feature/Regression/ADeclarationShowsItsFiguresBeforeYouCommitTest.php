@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
+use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\EditTenantSalesDeclaration;
+use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\TaxCode;
 use App\Models\TaxRate;
+use App\Models\TenantSalesDeclaration;
 use App\Models\User;
+use App\Services\PercentageRentCalculationService;
 use App\Support\SalesExclusions;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
@@ -156,4 +160,61 @@ it('leaves the charge blank on a lease with no percentage rent', function (): vo
     // The control: a preview that showed a figure here would be inventing a charge the lease does
     // not provide for.
     expect(declarationForm($plain, ['returns' => 30_000])['calculated_percentage_rent'] ?? null)->toBeNull();
+});
+
+it('opens an edit page with the VAT toggle reflecting the deduction that is there', function (): void {
+    $declaration = TenantSalesDeclaration::create([
+        'lease_id' => $this->lease->id,
+        'period_start' => '2026-06-01',
+        'period_end' => '2026-06-30',
+        'gross_sales' => 1_368_000,
+        'sales_exclusions' => ['vat' => 168_000, 'returns' => 30_000, 'employee_discounts' => 20_000],
+        'declared_at' => '2026-07-05',
+        'status' => 'submitted',
+    ]);
+
+    $data = Livewire::test(EditTenantSalesDeclaration::class, ['record' => $declaration->getKey()])
+        ->get('data');
+
+    // The toggle stores nothing of its own, so without hydrating it from the deductions an edit
+    // page opens stating the OPPOSITE of the record it is showing.
+    expect($data['gross_includes_vat'])->toBeTrue()
+        ->and(round((float) $data['declared_sales'], 2))->toBe(1_150_000.0)
+        ->and(round((float) $data['calculated_percentage_rent'], 2))->toBe(24_500.0);
+});
+
+it('shows the toggle off when no VAT was deducted', function (): void {
+    $declaration = TenantSalesDeclaration::create([
+        'lease_id' => $this->lease->id,
+        'period_start' => '2026-06-01',
+        'period_end' => '2026-06-30',
+        'gross_sales' => 1_368_000,
+        'sales_exclusions' => ['returns' => 30_000],
+        'declared_at' => '2026-07-05',
+        'status' => 'submitted',
+    ]);
+
+    // The control. A toggle hydrated to `true` unconditionally would be just as wrong in the other
+    // direction, and would read as "VAT was taken" on a declaration where it was not.
+    expect(Livewire::test(EditTenantSalesDeclaration::class, ['record' => $declaration->getKey()])
+        ->get('data')['gross_includes_vat'])->toBeFalse();
+});
+
+it('does not open a LOCKED declaration for editing at all', function (): void {
+    $declaration = TenantSalesDeclaration::create([
+        'lease_id' => $this->lease->id,
+        'period_start' => '2026-06-01',
+        'period_end' => '2026-06-30',
+        'gross_sales' => 1_368_000,
+        'sales_exclusions' => ['vat' => 168_000, 'returns' => 30_000, 'employee_discounts' => 20_000],
+        'declared_at' => '2026-07-05',
+        'status' => 'submitted',
+    ]);
+
+    app(PercentageRentCalculationService::class)->lock($declaration, auth()->user());
+
+    // The reason the preview needs no "is it locked" branch: the resource refuses the page. A
+    // locked declaration has already raised an invoice, and its frozen figure is read on the view
+    // page and in the table rather than in a form.
+    expect(TenantSalesDeclarationResource::canEdit($declaration->fresh()))->toBeFalse();
 });

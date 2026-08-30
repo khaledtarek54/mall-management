@@ -44,11 +44,23 @@ class TenantSalesDeclarationForm
      * answers on the SAME code path a lock will later take, rather than a second copy of the
      * arithmetic that could drift from it.
      */
-    private static function refreshDerived(Get $get, Set $set): void
+    private static function refreshDerived(Get $get, Set $set, bool $locked = false): void
     {
         $gross = $get('gross_sales');
 
         if (blank($gross)) {
+            return;
+        }
+
+        // A LOCKED declaration shows the figure it was BILLED at, never a fresh preview. The stored
+        // overage is frozen at lock and an invoice was raised for it; recomputing on screen would
+        // show a number that disagrees with the document whenever anything the calculation reads
+        // has moved since — a tax rate, the lease's terms, a sibling month in an annual year.
+        //
+        // Read from the RECORD, not from `$get('status')`: a schema hydrates in declaration order
+        // and `status` is declared after the field this runs for, so on an edit page the form state
+        // has no status yet and the guard would never fire.
+        if ($locked) {
             return;
         }
 
@@ -97,7 +109,7 @@ class TenantSalesDeclarationForm
                     DatePicker::make('period_start')
                         ->label(__('admin.fields.period_start'))
                         ->live(onBlur: true)
-                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set, locked: $get('status') === 'locked'))
                         ->required()
                         ->displayFormat('d/m/Y')
                         ->default(now()->startOfMonth()->subMonth())
@@ -136,7 +148,7 @@ class TenantSalesDeclarationForm
                         ->minValue(0)
                         ->step('0.01')
                         ->live(onBlur: true)
-                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set, locked: $get('status') === 'locked'))
                         ->helperText(__('admin.helpers.gross_sales'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.gross_sales')),
                     // The one deduction that is not a concession — a shop collects VAT for the
@@ -158,6 +170,21 @@ class TenantSalesDeclarationForm
                         ->label(__('admin.fields.gross_includes_vat'))
                         ->dehydrated(false)
                         ->live()
+                        // HYDRATED FROM THE DEDUCTIONS, because it stores nothing of its own.
+                        //
+                        // As an input helper it only ever wrote a `vat` row and then forgot itself,
+                        // so an EDIT page opened with the toggle OFF beside a `vat` deduction of
+                        // 168,000 — the screen stating the opposite of the record. Worse than a
+                        // display fault: an operator flicking it on and off to check it works
+                        // REMOVES that row, and on the declaration this was found on the charge
+                        // went from 24,500 to 36,260 with nothing to say a deduction had gone.
+                        //
+                        // The deductions are the truth and this reflects them, which also makes it
+                        // right for a row keyed by hand or arriving from the portal.
+                        ->afterStateHydrated(fn (Get $get, Set $set) => $set(
+                            'gross_includes_vat',
+                            array_key_exists('vat', (array) ($get('sales_exclusions') ?? [])),
+                        ))
                         ->helperText(fn (Get $get): string => __('admin.helpers.gross_includes_vat', [
                             'rate' => Vat::standardRate($get('period_end') ?: $get('period_start') ?: null),
                         ]))
@@ -175,7 +202,7 @@ class TenantSalesDeclarationForm
                             }
 
                             $set('sales_exclusions', $exclusions);
-                            self::refreshDerived($get, $set);
+                            self::refreshDerived($get, $set, locked: $get('status') === 'locked');
                         }),
                     KeyValue::make('sales_exclusions')
                         ->label(__('admin.fields.sales_exclusions'))
@@ -183,7 +210,7 @@ class TenantSalesDeclarationForm
                         ->valueLabel(__('admin.fields.amount'))
                         ->addActionLabel(__('admin.fields.sales_exclusion_add'))
                         ->live()
-                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set, locked: $get('status') === 'locked'))
                         ->columnSpanFull()
                         ->visible(fn (Get $get): bool => filled($get('gross_sales')))
                         ->helperText(__('admin.helpers.sales_exclusions')),
@@ -206,6 +233,15 @@ class TenantSalesDeclarationForm
                             : __('admin.fields.declared_sales_help')),
                     TextInput::make('calculated_percentage_rent')
                         ->label(__('admin.fields.calculated_percentage_rent'))
+                        // FILLED ON OPEN, not only once a field is touched. The stored column is
+                        // 0.00 on anything not yet locked, so without this the preview appeared
+                        // only after the operator typed — exactly the state where they most want
+                        // to see what the lock is going to charge.
+                        //
+                        // A LOCKED declaration never reaches this: `canEdit()` refuses it outright,
+                        // because it has already raised an invoice. The frozen figure is read on
+                        // the VIEW page and in the table, not here.
+                        ->afterStateHydrated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
                         ->prefix('EGP')
                         ->numeric()
                         ->disabled()

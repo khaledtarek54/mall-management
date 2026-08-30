@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\TenantSalesDeclarations\Pages;
 
+use App\Filament\Admin\Actions\SalesDeclarationActions;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Services\PercentageRentCalculationService;
 use Filament\Actions\DeleteAction;
@@ -24,6 +25,14 @@ class EditTenantSalesDeclaration extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // The acts themselves, not just Delete. They lived only on the LIST, so an operator who
+            // opened a declaration to check its figures had to go back to the list to lock it —
+            // and locking is the decision the figures are being checked FOR.
+            //
+            // The same definitions the table renders (`SalesDeclarationActions`), never a second
+            // copy: `lock()` raises an invoice and `voidLocked()` reverses one, and two definitions
+            // of either is two answers to the same question.
+            ...SalesDeclarationActions::all(),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),
