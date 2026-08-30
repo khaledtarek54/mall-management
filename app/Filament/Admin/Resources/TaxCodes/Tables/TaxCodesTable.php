@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\TaxCodes\Tables;
 use App\Filament\Admin\Resources\TaxCodes\TaxCodeResource;
 use App\Models\TaxCode;
 use App\Support\PostingRoles;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -100,6 +101,14 @@ class TaxCodesTable
                 ViewAction::make()
                     ->visible(fn (TaxCode $record) => TaxCodeResource::canView($record)),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-receipt-percent')
+            ->emptyStateHeading(__('admin.empty.tax_codes.heading'))
+            ->emptyStateDescription(__('admin.empty.tax_codes.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.tax_codes.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

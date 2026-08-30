@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Models\Floor;
 use App\Models\RentableItem;
 use App\Support\Filament\EntitySelectFilter;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -80,6 +81,14 @@ class RentableItemsTable
             ->recordUrl(fn (RentableItem $record): string => RentableItemResource::canEdit($record)
                 ? RentableItemResource::getUrl('edit', ['record' => $record])
                 : RentableItemResource::getUrl('view', ['record' => $record]))
-            ->recordActions([ViewAction::make(), EditAction::make()]);
+            ->recordActions([ViewAction::make(), EditAction::make()])
+            ->emptyStateIcon('heroicon-o-squares-2x2')
+            ->emptyStateHeading(__('admin.empty.rentable_items.heading'))
+            ->emptyStateDescription(__('admin.empty.rentable_items.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.rentable_items.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

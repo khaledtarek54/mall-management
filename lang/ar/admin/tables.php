@@ -231,6 +231,7 @@ return [
     ],
 
     'filters' => [
+        'all' => 'الكل',
         'percentage_rent_clause' => 'بند الإيجار النسبي',
         'percentage_rent_clause_true' => 'يُحتسب عليه إيجار نسبي',
         'percentage_rent_clause_false' => 'إفصاح عن المبيعات فقط',

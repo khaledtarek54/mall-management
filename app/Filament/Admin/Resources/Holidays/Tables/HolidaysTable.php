@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Holidays\Tables;
 
 use App\Models\Holiday;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -66,6 +67,14 @@ class HolidaysTable
                 EditAction::make(),
                 DeleteAction::make(),
             ])
-            ->defaultSort('date', 'desc');
+            ->defaultSort('date', 'desc')
+            ->emptyStateIcon('heroicon-o-calendar-days')
+            ->emptyStateHeading(__('admin.empty.holidays.heading'))
+            ->emptyStateDescription(__('admin.empty.holidays.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.holidays.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

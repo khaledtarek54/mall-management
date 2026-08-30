@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\FailureCodes\Tables;
 
 use App\Models\FailureCode;
 use App\Support\Filament\TableGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -60,6 +61,14 @@ class FailureCodesTable
             ])
             ->recordActions([ViewAction::make(), EditAction::make()])
             ->defaultSort('type')
-            ->defaultGroup(TableGroup::byColumn($table, 'type'));
+            ->defaultGroup(TableGroup::byColumn($table, 'type'))
+            ->emptyStateIcon('heroicon-o-exclamation-triangle')
+            ->emptyStateHeading(__('admin.empty.failure_codes.heading'))
+            ->emptyStateDescription(__('admin.empty.failure_codes.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.failure_codes.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

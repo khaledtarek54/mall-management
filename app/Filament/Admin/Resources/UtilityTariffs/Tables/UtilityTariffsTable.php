@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\UtilityTariffs\Tables;
 use App\Filament\Admin\Resources\UtilityTariffs\UtilityTariffResource;
 use App\Models\UtilityTariff;
 use App\Support\ValueSets;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -102,6 +103,14 @@ class UtilityTariffsTable
                 ViewAction::make()
                     ->visible(fn (UtilityTariff $record) => UtilityTariffResource::canView($record)),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-bolt')
+            ->emptyStateHeading(__('admin.empty.utility_tariffs.heading'))
+            ->emptyStateDescription(__('admin.empty.utility_tariffs.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.utility_tariffs.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

@@ -231,6 +231,7 @@ return [
     ],
 
     'filters' => [
+        'all' => 'All',
         'percentage_rent_clause' => 'Percentage-rent clause',
         'percentage_rent_clause_true' => 'Charges percentage rent',
         'percentage_rent_clause_false' => 'Reports turnover only',

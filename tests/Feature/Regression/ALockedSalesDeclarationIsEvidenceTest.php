@@ -57,7 +57,16 @@ beforeEach(function (): void {
     ]);
 });
 
-function declarationFor(Lease $lease, float $sales, int $monthsAgo = 2): TenantSalesDeclaration
+/**
+ * A submitted declaration on an EXISTING lease, dated a couple of months back.
+ *
+ * Named for this file rather than `declarationFor`, which
+ * `tests/Feature/Services/PercentageRentCalculationServiceTest.php` already declares with a
+ * different signature (it MAKES the lease). Two file-scope functions of one name is a FATAL
+ * redeclaration on any single-process run and invisible under `--parallel` — see
+ * `TestHelperUniquenessConformanceTest`.
+ */
+function evidenceDeclarationFor(Lease $lease, float $sales, int $monthsAgo = 2): TenantSalesDeclaration
 {
     $start = CarbonImmutable::today()->subMonths($monthsAgo)->startOfMonth();
 
@@ -73,7 +82,7 @@ function declarationFor(Lease $lease, float $sales, int $monthsAgo = 2): TenantS
 }
 
 it('refuses to restate the gross a locked declaration certified', function (): void {
-    $declaration = declarationFor($this->lease, 910_000);
+    $declaration = evidenceDeclarationFor($this->lease, 910_000);
     app(PercentageRentCalculationService::class)->lock($declaration, $this->operator);
 
     $declaration = $declaration->fresh();
@@ -89,7 +98,7 @@ it('refuses to restate a LEGACY declaration, where the net figure is the one typ
     // hook above recomputes it, so retyping the net alone is reverted before this guard ever sees
     // it. That is safe, and it is not this rule. The rule bites on the older shape the hook leaves
     // alone: a declaration recorded with no gross, where the net figure is what somebody typed.
-    $declaration = declarationFor($this->lease, 910_000);
+    $declaration = evidenceDeclarationFor($this->lease, 910_000);
     $declaration->forceFill(['gross_sales' => null])->saveQuietly();
 
     app(PercentageRentCalculationService::class)->lock($declaration->fresh(), $this->operator);
@@ -101,7 +110,7 @@ it('refuses to restate a LEGACY declaration, where the net figure is the one typ
 });
 
 it('refuses to move a locked declaration to another month', function (): void {
-    $declaration = declarationFor($this->lease, 910_000);
+    $declaration = evidenceDeclarationFor($this->lease, 910_000);
     app(PercentageRentCalculationService::class)->lock($declaration, $this->operator);
 
     $declaration = $declaration->fresh();
@@ -111,7 +120,7 @@ it('refuses to move a locked declaration to another month', function (): void {
 });
 
 it('still lets the lock itself happen', function (): void {
-    $declaration = declarationFor($this->lease, 1_240_000);
+    $declaration = evidenceDeclarationFor($this->lease, 1_240_000);
 
     $locked = app(PercentageRentCalculationService::class)->lock($declaration, $this->operator);
 
@@ -120,7 +129,7 @@ it('still lets the lock itself happen', function (): void {
 });
 
 it('still lets the lock be voided — the door this guard points at', function (): void {
-    $declaration = declarationFor($this->lease, 1_240_000);
+    $declaration = evidenceDeclarationFor($this->lease, 1_240_000);
     app(PercentageRentCalculationService::class)->lock($declaration, $this->operator);
 
     $voided = app(PercentageRentCalculationService::class)
@@ -130,7 +139,7 @@ it('still lets the lock be voided — the door this guard points at', function (
 });
 
 it('still lets an audit note be written on a locked declaration', function (): void {
-    $declaration = declarationFor($this->lease, 910_000);
+    $declaration = evidenceDeclarationFor($this->lease, 910_000);
     app(PercentageRentCalculationService::class)->lock($declaration, $this->operator);
 
     $declaration = $declaration->fresh();
@@ -140,7 +149,7 @@ it('still lets an audit note be written on a locked declaration', function (): v
 });
 
 it('still lets an unlocked declaration be corrected freely', function (): void {
-    $declaration = declarationFor($this->lease, 910_000);
+    $declaration = evidenceDeclarationFor($this->lease, 910_000);
 
     $declaration->gross_sales = 1_500_000;
     $declaration->save();
@@ -149,7 +158,7 @@ it('still lets an unlocked declaration be corrected freely', function (): void {
 });
 
 it('does not freeze the computed share, which the annual re-true restates', function (): void {
-    $declaration = declarationFor($this->lease, 1_240_000);
+    $declaration = evidenceDeclarationFor($this->lease, 1_240_000);
     app(PercentageRentCalculationService::class)->lock($declaration, $this->operator);
 
     // The tenant's DECLARATION is evidence; the system's own share is derived, and

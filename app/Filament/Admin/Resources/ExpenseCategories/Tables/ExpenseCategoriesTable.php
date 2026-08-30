@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\ExpenseCategories\Tables;
 
 use App\Models\ExpenseCategory;
 use App\Support\CostNature;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -53,6 +54,14 @@ class ExpenseCategoriesTable
                 // resource's own form rendered disabled, so it cannot drift from the fields that exist.
                 ViewAction::make(),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-rectangle-group')
+            ->emptyStateHeading(__('admin.empty.expense_categories.heading'))
+            ->emptyStateDescription(__('admin.empty.expense_categories.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.expense_categories.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

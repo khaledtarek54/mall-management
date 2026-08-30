@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\WorkPermits\Tables;
 
 use App\Filament\Admin\Actions\WorkPermitActions;
 use App\Models\WorkPermit;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -116,6 +117,14 @@ class WorkPermitsTable
     /** Named once each so `visible()` and `authorize()` cannot drift — the double-gate rule. */
     private static function canWrite(): bool
     {
-        return auth()->user()?->can('work_permits.edit') ?? false;
+        return auth()->user()?->can('work_permits.edit') ?? false
+            ->emptyStateIcon('heroicon-o-shield-check')
+            ->emptyStateHeading(__('admin.empty.work_permits.heading'))
+            ->emptyStateDescription(__('admin.empty.work_permits.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.work_permits.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

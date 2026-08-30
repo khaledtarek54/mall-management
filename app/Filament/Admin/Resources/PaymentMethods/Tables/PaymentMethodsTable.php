@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\PaymentMethods\Tables;
 
 use App\Models\PaymentMethod;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -58,6 +59,14 @@ class PaymentMethodsTable
                 // resource's own form rendered disabled, so it cannot drift from the fields that exist.
                 ViewAction::make(),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-credit-card')
+            ->emptyStateHeading(__('admin.empty.payment_methods.heading'))
+            ->emptyStateDescription(__('admin.empty.payment_methods.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.payment_methods.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

@@ -246,6 +246,101 @@ return [
             'description' => 'Capitalised equipment — chillers, generators, escalators. Each depreciates monthly into the general ledger.',
             'cta' => 'Register a fixed asset',
         ],
+        'account_mappings' => [
+            'heading' => 'No posting map yet',
+            'description' => 'Every money document finds its chart account through this map. Until the roles are mapped the ledger sync refuses to post, and the books stay empty.',
+            'cta' => 'Map a posting role',
+        ],
+        'charge_codes' => [
+            'heading' => 'No charge codes yet',
+            'description' => 'A lease can only be billed for a charge that exists here. The code also decides which revenue account the money books to, and whether it is taxed.',
+            'cta' => 'Add a charge code',
+        ],
+        'document_templates' => [
+            'heading' => 'No wording overrides',
+            'description' => 'Tenant-facing documents fall back to the wording shipped with the system. Add a block to say it in this operator\'s own words, for one mall or the whole portfolio.',
+            'cta' => 'Add wording',
+        ],
+        'expense_categories' => [
+            'heading' => 'No expense categories yet',
+            'description' => 'A cost books to the P&L account its category names. Without categories every supplier bill and expense falls through to the general administrative account.',
+            'cta' => 'Add a category',
+        ],
+        'failure_codes' => [
+            'heading' => 'No failure codes yet',
+            'description' => 'A closed work order records why the equipment failed. Without codes the maintenance history cannot be read for repeat causes.',
+            'cta' => 'Add a failure code',
+        ],
+        'holidays' => [
+            'heading' => 'No holidays recorded',
+            'description' => 'The SLA clock skips the operator\'s holidays. Without them a job raised before Eid is measured as though the mall never closed.',
+            'cta' => 'Add a holiday',
+        ],
+        'payment_methods' => [
+            'heading' => 'No payment rails yet',
+            'description' => 'Every receipt and payout names the rail the money moved through, and the rail decides which bank or cash account it posts to.',
+            'cta' => 'Add a rail',
+        ],
+        'payroll_rates' => [
+            'heading' => 'No statutory rates yet',
+            'description' => 'Salary tax and social insurance are computed from the rung in force for the run\'s own month. With no rung, payroll withholds nothing.',
+            'cta' => 'Add a dated rung',
+        ],
+        'rent_indices' => [
+            'heading' => 'No index readings yet',
+            'description' => 'A CPI-linked lease steps its rent from the published reading for the period. Without readings the escalation has nothing to read and does not run.',
+            'cta' => 'Record a reading',
+        ],
+        'rentable_items' => [
+            'heading' => 'No rentable items yet',
+            'description' => 'Parking bays, kiosks, storage and signage are let separately from units. Register them here so they can be attached to a lease.',
+            'cta' => 'Add an item',
+        ],
+        'retail_categories' => [
+            'heading' => 'No trade categories yet',
+            'description' => 'A tenant\'s trade classifies the tenant-mix report and the shopper feed. Without categories both read as one undifferentiated list.',
+            'cta' => 'Add a category',
+        ],
+        'tax_codes' => [
+            'heading' => 'No tax codes yet',
+            'description' => 'A charge code points at a tax code, and the tax code carries the dated rate a document is billed at. Until one exists nothing is taxed.',
+            'cta' => 'Add a tax code',
+        ],
+        'tenant_request_subcategories' => [
+            'heading' => 'No request subcategories yet',
+            'description' => 'A tenant picks their problem from this list, and a maintenance subcategory routes to the trade that fixes it. Without them the intake form offers nothing.',
+            'cta' => 'Add a subcategory',
+        ],
+        'trades' => [
+            'heading' => 'No trades yet',
+            'description' => 'A trade classifies work orders, service plans and equipment, says which contractor may be dispatched to it, and carries the craft rate a job is costed at.',
+            'cta' => 'Add a trade',
+        ],
+        'unit_ownerships' => [
+            'heading' => 'No units sold',
+            'description' => 'A sold unit\'s owner pays a maintenance assessment rather than rent. Record the ownership so it can be billed and so the unit keeps its history.',
+            'cta' => 'Record an ownership',
+        ],
+        'utility_tariffs' => [
+            'heading' => 'No tariffs yet',
+            'description' => 'A meter reading is priced from the tariff in force on its date. With no tariff a reading records consumption that can never be recharged.',
+            'cta' => 'Add a tariff',
+        ],
+        'vendor_document_types' => [
+            'heading' => 'No document types yet',
+            'description' => 'A contractor\'s compliance file is built from these types, and one of them decides whether a lapsed certificate stops dispatch.',
+            'cta' => 'Add a document type',
+        ],
+        'violation_categories' => [
+            'heading' => 'No violation categories yet',
+            'description' => 'A recorded violation is classified here, and the category carries the standard fine the form prefills.',
+            'cta' => 'Add a category',
+        ],
+        'work_permits' => [
+            'heading' => 'No permits issued',
+            'description' => 'Hot work, work at height and isolation need a permit before anyone starts. Issue one so the window and its closure are on record.',
+            'cta' => 'Raise a permit',
+        ],
     ],
 
 ];

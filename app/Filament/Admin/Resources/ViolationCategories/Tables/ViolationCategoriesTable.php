@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\ViolationCategories\Tables;
 
 use App\Models\ViolationCategory;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -44,6 +45,14 @@ class ViolationCategoriesTable
                 // resource's own form rendered disabled, so it cannot drift from the fields that exist.
                 ViewAction::make(),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-flag')
+            ->emptyStateHeading(__('admin.empty.violation_categories.heading'))
+            ->emptyStateDescription(__('admin.empty.violation_categories.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.violation_categories.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

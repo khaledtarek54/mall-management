@@ -8,6 +8,7 @@ use App\Models\ChargeCode;
 use App\Models\TaxCode;
 use App\Support\PostingRoles;
 use App\Support\Vat;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -88,6 +89,14 @@ class ChargeCodesTable
                 ViewAction::make()
                     ->visible(fn (ChargeCode $record) => ChargeCodeResource::canView($record)),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-tag')
+            ->emptyStateHeading(__('admin.empty.charge_codes.heading'))
+            ->emptyStateDescription(__('admin.empty.charge_codes.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.charge_codes.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

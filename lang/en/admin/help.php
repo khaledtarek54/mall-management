@@ -2,7 +2,7 @@
 
 return [
     'helpers' => [
-        'requires_sales_reporting' => 'Leave unset unless the lease says otherwise. A mall may require turnover from a tenant who pays no percentage rent.',
+        'requires_sales_reporting' => 'Leave unset unless the lease says otherwise — a tenant may owe turnover without owing percentage rent.',
         'reversal_reason' => 'This is recorded permanently in the audit trail.',
         'cam_period_year' => 'The calendar year this pool reconciles. One pool per property per year.',
         'bank_account_on_document' => 'Leave blank unless you need to tell two bank accounts apart when reconciling.',
@@ -27,7 +27,7 @@ return [
         'expiry_date_locked' => 'Locked — this lease has been invoiced. Use “Extend term”, or Terminate to end it early.',
         'additional_units_locked' => 'Use “Change premises” to add or give back space — it keeps the months already occupied.',
         'gross_sales' => 'The figure on the tenant’s own certificate, before any deduction.',
-        'gross_includes_vat' => 'Adds the VAT contained in the figure as a deduction, at the :rate% in force for the period declared.',
+        'gross_includes_vat' => 'Deducts the VAT contained in the figure, at the :rate% in force for the period declared.',
         'sales_exclusions' => 'Only what this lease’s clause grants. VAT is always allowed.',
         'declared_sales_derived' => 'Derived: :gross gross less :excluded deducted. Percentage rent is charged on this.',
         'percentage_rent_sales_exclusions' => 'What this clause lets the tenant take off gross turnover.',

@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\TenantRequestSubcategories\Tables;
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequestSubcategory;
 use App\Support\Filament\TableGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -54,6 +55,14 @@ class TenantRequestSubcategoriesTable
                 // resource's own form rendered disabled, so it cannot drift from the fields that exist.
                 ViewAction::make(),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-queue-list')
+            ->emptyStateHeading(__('admin.empty.tenant_request_subcategories.heading'))
+            ->emptyStateDescription(__('admin.empty.tenant_request_subcategories.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.tenant_request_subcategories.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\PayrollRates\Tables;
 
 use App\Filament\Admin\Resources\PayrollRates\PayrollRateResource;
 use App\Models\PayrollRate;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -82,6 +83,14 @@ class PayrollRatesTable
                 DeleteAction::make()
                     ->visible(fn () => PayrollRateResource::canDeleteAny())
                     ->authorize(fn () => PayrollRateResource::canDeleteAny()),
+            ])
+            ->emptyStateIcon('heroicon-o-scale')
+            ->emptyStateHeading(__('admin.empty.payroll_rates.heading'))
+            ->emptyStateDescription(__('admin.empty.payroll_rates.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.payroll_rates.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 

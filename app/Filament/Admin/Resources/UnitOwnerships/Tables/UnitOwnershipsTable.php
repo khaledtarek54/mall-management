@@ -10,6 +10,7 @@ use App\Models\UnitOwnership;
 use App\Services\TransferUnitOwnershipService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -199,6 +200,14 @@ class UnitOwnershipsTable
             .'<dd class="font-semibold '.$tone.'">'.e($money($outstanding)).'</dd>';
         $html .= '</dl>';
 
-        return new HtmlString($html);
+        return new HtmlString($html)
+            ->emptyStateIcon('heroicon-o-key')
+            ->emptyStateHeading(__('admin.empty.unit_ownerships.heading'))
+            ->emptyStateDescription(__('admin.empty.unit_ownerships.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.unit_ownerships.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\DocumentTemplates\Tables;
 
 use App\Filament\Admin\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Models\DocumentTemplate;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -57,6 +58,14 @@ class DocumentTemplatesTable
                 DeleteAction::make()
                     ->visible(fn () => DocumentTemplateResource::canDeleteAny())
                     ->authorize(fn () => DocumentTemplateResource::canDeleteAny()),
+            ])
+            ->emptyStateIcon('heroicon-o-document-text')
+            ->emptyStateHeading(__('admin.empty.document_templates.heading'))
+            ->emptyStateDescription(__('admin.empty.document_templates.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.document_templates.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

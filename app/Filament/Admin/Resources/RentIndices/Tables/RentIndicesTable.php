@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\RentIndices\Tables;
 
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -64,6 +65,14 @@ class RentIndicesTable
     /** Named once so `visible()` and `authorize()` cannot drift — the double-gate rule. */
     private static function canWrite(): bool
     {
-        return auth()->user()?->can('rent_indices.edit') ?? false;
+        return auth()->user()?->can('rent_indices.edit') ?? false
+            ->emptyStateIcon('heroicon-o-chart-bar')
+            ->emptyStateHeading(__('admin.empty.rent_indices.heading'))
+            ->emptyStateDescription(__('admin.empty.rent_indices.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.rent_indices.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

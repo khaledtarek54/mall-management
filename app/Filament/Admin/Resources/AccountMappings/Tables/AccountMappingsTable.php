@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\AccountMappings\Tables;
 use App\Filament\Admin\Resources\AccountMappings\AccountMappingResource;
 use App\Models\AccountMapping;
 use App\Support\PostingRoles;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -96,6 +97,14 @@ class AccountMappingsTable
                 ViewAction::make()
                     ->visible(fn (AccountMapping $record) => AccountMappingResource::canView($record)),
                 EditAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-link')
+            ->emptyStateHeading(__('admin.empty.account_mappings.heading'))
+            ->emptyStateDescription(__('admin.empty.account_mappings.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.account_mappings.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

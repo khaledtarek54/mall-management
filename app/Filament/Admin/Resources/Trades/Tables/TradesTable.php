@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Trades\Tables;
 
 use App\Models\Trade;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -70,6 +71,14 @@ class TradesTable
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->defaultSort('sort_order');
+            ->defaultSort('sort_order')
+            ->emptyStateIcon('heroicon-o-wrench-screwdriver')
+            ->emptyStateHeading(__('admin.empty.trades.heading'))
+            ->emptyStateDescription(__('admin.empty.trades.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.trades.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }
