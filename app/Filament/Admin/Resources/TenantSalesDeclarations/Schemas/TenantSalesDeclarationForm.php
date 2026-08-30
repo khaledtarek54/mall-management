@@ -46,9 +46,14 @@ class TenantSalesDeclarationForm
      */
     private static function refreshDerived(Get $get, Set $set, bool $locked = false): void
     {
+        // BOTH WAYS OF STATING THE FIGURE. A gross plus its deductions DERIVES the net; a net
+        // typed straight in IS the net, which is what the form offers when no gross is given and
+        // what the older declarations carry. The preview has to answer on either, or it goes blank
+        // on exactly the simpler path — reported from the panel, on a declaration keyed that way.
         $gross = $get('gross_sales');
+        $typed = $get('declared_sales');
 
-        if (blank($gross)) {
+        if (blank($gross) && blank($typed)) {
             return;
         }
 
@@ -64,8 +69,12 @@ class TenantSalesDeclarationForm
             return;
         }
 
-        $net = round(max(0.0, (float) $gross - SalesExclusions::total((array) ($get('sales_exclusions') ?? []))), 2);
-        $set('declared_sales', $net);
+        if (filled($gross)) {
+            $net = round(max(0.0, (float) $gross - SalesExclusions::total((array) ($get('sales_exclusions') ?? []))), 2);
+            $set('declared_sales', $net);
+        } else {
+            $net = round(max(0.0, (float) $typed), 2);
+        }
 
         $lease = filled($get('lease_id')) ? Lease::find($get('lease_id')) : null;
 
@@ -220,6 +229,11 @@ class TenantSalesDeclarationForm
                         ->numeric()
                         ->minValue(0)
                         ->step('0.01')
+                        // Live when it is the field being TYPED — with no gross stated this is the
+                        // figure the charge is computed from, and without this the preview beside
+                        // it stayed blank however much was keyed into it.
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set, locked: $get('status') === 'locked'))
                         // Derived once a gross figure is stated — the same rule as a rate-priced
                         // rent: two editable fields that derive from each other is how they end up
                         // disagreeing. The model is the authority; this only mirrors it on screen.

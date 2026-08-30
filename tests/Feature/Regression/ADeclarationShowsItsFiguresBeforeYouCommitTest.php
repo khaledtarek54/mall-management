@@ -218,3 +218,50 @@ it('does not open a LOCKED declaration for editing at all', function (): void {
     // page and in the table rather than in a form.
     expect(TenantSalesDeclarationResource::canEdit($declaration->fresh()))->toBeFalse();
 });
+
+it('previews the charge when the NET figure is typed straight in', function (): void {
+    // The form only derives `declared_sales` when a gross is stated. With no gross it is the field
+    // the operator types, it is what older declarations carry, and it is what the tenant portal
+    // sends — so a preview that answered only on the gross went blank on the SIMPLER path.
+    // Reported from the panel on a declaration keyed exactly this way.
+    $page = Livewire::test(CreateTenantSalesDeclaration::class);
+    $page->set('data.lease_id', $this->lease->getKey());
+    $page->set('data.period_start', '2026-06-01');
+    $page->set('data.period_end', '2026-06-30');
+    $page->set('data.declared_sales', 1_150_000);
+
+    expect(round((float) $page->get('data')['calculated_percentage_rent'], 2))->toBe(24_500.0);
+});
+
+it('previews a natural breakpoint below and above its own line', function (): void {
+    $zara = Lease::factory()->create([
+        'status' => 'active',
+        'commencement_date' => CarbonImmutable::parse('2026-01-01'),
+        'expiry_date' => CarbonImmutable::parse('2028-12-31'),
+        'base_rent_monthly' => 50_000,
+        'has_percentage_rent' => true,
+        'percentage_rent_rate' => 5.5,
+        'percentage_rent_calculation_type' => 'natural_breakpoint',
+        'percentage_rent_threshold' => null,
+        'percentage_rent_frequency' => 'monthly',
+        'escalation_type' => 'none',
+    ]);
+
+    Filament::setTenant($zara->unit->asset);
+
+    $preview = function (float $net) use ($zara): float {
+        $page = Livewire::test(CreateTenantSalesDeclaration::class);
+        $page->set('data.lease_id', $zara->getKey());
+        $page->set('data.period_start', '2026-07-01');
+        $page->set('data.period_end', '2026-07-31');
+        $page->set('data.declared_sales', $net);
+
+        return round((float) $page->get('data')['calculated_percentage_rent'], 2);
+    };
+
+    // The breakpoint is DERIVED, not agreed: rent ÷ rate = 50,000 ÷ 5.5% = 909,090.91. Below it the
+    // percentage has not yet covered the rent, so nothing is owed — and ZERO must be shown rather
+    // than left blank, because a blank reads as "not computed" on the figure being decided.
+    expect($preview(640_000))->toBe(0.0)
+        ->and($preview(1_000_000))->toBe(5_000.0);
+});
