@@ -77,6 +77,10 @@ return [
             'approved' => 'Approved',
             'rejected' => 'Rejected',
         ],
+        'percentage_rent_frequency_short' => [
+            'monthly' => '/mo',
+            'annual' => '/yr',
+        ],
         'tenant_sales' => [
             'submitted' => 'Submitted',
             'locked' => 'Locked',

@@ -76,6 +76,10 @@ return [
             'approved' => 'مقبول',
             'rejected' => 'مرفوض',
         ],
+        'percentage_rent_frequency_short' => [
+            'monthly' => '/شهر',
+            'annual' => '/سنة',
+        ],
         'tenant_sales' => [
             'submitted' => 'مُقدَّم',
             'locked' => 'مُثبَّت',

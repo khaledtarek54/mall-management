@@ -500,4 +500,10 @@ return [
         'empty_description' => 'سجّل عدادًا لتتمكن من إعادة تحميل قراءاته على شاغل الوحدة في حينه.',
     ],
 
+
+    'percentage_rent' => [
+        'no_clause' => 'لا يوجد بند إيجار نسبي',
+        'clause_badge' => ':rate% فوق :breakpoint :basis',
+    ],
+
 ];

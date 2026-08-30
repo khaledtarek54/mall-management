@@ -504,4 +504,10 @@ return [
         'empty_description' => 'Register a meter and its readings can be recharged to whoever occupies the unit at the time.',
     ],
 
+
+    'percentage_rent' => [
+        'no_clause' => 'no percentage-rent clause',
+        'clause_badge' => ':rate% over :breakpoint :basis',
+    ],
+
 ];

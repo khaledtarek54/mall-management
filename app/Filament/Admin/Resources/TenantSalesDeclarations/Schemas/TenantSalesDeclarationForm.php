@@ -8,6 +8,7 @@ use App\Services\PercentageRentCalculationService;
 use App\Support\Filament\EntitySelect;
 use App\Support\SalesExclusions;
 use App\Support\Search\OptionDisplay;
+use App\Support\Search\RecordOption;
 use App\Support\TenantScope;
 use App\Support\Vat;
 use Filament\Forms\Components\DatePicker;
@@ -108,6 +109,40 @@ class TenantSalesDeclarationForm
                         ->label(__('admin.resources.lease.singular'))
                         ->entity(Lease::class)
                         ->modifyOptionsQuery(fn ($query) => $query->where('status', 'active'))
+                        // OPENS ON the leases that carry a percentage-rent clause, because those are
+                        // the ones a declaration usually belongs to — and still REACHES the rest by
+                        // typing, which is the difference between a suggestion and a filter.
+                        //
+                        // Not a hard filter, deliberately: a mall collects turnover from tenants who
+                        // owe no percentage rent (the Sales analytics screen is what it is for, and
+                        // this database already holds one such declaration). Filtering them out
+                        // would refuse a legitimate record — and worse, Filament resolves a Select's
+                        // value by LABELLING it through the same query, so an existing declaration
+                        // on a non-percentage lease would fail to open for editing at all.
+                        ->suggest(fn ($query) => $query->where('has_percentage_rent', true))
+                        // What the person keying the numbers needs to see WITHOUT leaving the form:
+                        // the clause they are about to be measured against. A rate and a breakpoint
+                        // are the two figures that decide the charge, and a natural breakpoint is
+                        // DERIVED from the rent rather than agreed — so it is computed here rather
+                        // than left for the operator to work out.
+                        ->withRelations(['tenant', 'unit'])
+                        ->decorateOption(function (RecordOption $option, Lease $lease): RecordOption {
+                            if (! $lease->has_percentage_rent) {
+                                return $option->withBadge(__('admin.percentage_rent.no_clause'), 'gray');
+                            }
+
+                            $rate = (float) $lease->percentage_rent_rate;
+
+                            $breakpoint = ($lease->percentage_rent_calculation_type ?? 'artificial') === 'natural_breakpoint'
+                                ? ($rate > 0 ? (float) $lease->base_rent_monthly * 100 / $rate : 0.0)
+                                : (float) ($lease->percentage_rent_threshold ?? 0);
+
+                            return $option->withBadge(__('admin.percentage_rent.clause_badge', [
+                                'rate' => rtrim(rtrim(number_format($rate, 2), '0'), '.'),
+                                'breakpoint' => number_format($breakpoint, 0),
+                                'basis' => __('admin.statuses.percentage_rent_frequency_short.'.($lease->percentage_rent_frequency ?? 'monthly')),
+                            ]), 'warning');
+                        })
                         // Options list only ACTIVE leases; a declaration on a lease later expired or
                         // terminated would render the raw id on edit — resolve any stored lease.
                         // After `->entity()`, which installs its own narrowed resolver.
