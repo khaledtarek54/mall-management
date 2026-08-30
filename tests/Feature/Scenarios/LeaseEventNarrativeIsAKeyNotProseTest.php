@@ -47,42 +47,88 @@ it('writes a real sentence in each language, with no placeholder left behind', f
     expect(trans("admin.lease_events.narratives.{$key}", [], 'ar'))->toMatch('/\p{Arabic}/u');
 })->with(LeaseEventNarrative::KEYS);
 
+it('has a service writing every narrative it defines', function (): void {
+    // A key in the vocabulary that nothing stamps is a sentence nobody will ever read. The first
+    // version of this gate checked parity and rendering and had exactly that hole: `rent_escalated`
+    // was catalogued in both languages while the escalation sweep went on storing raw English
+    // beside it, so the vocabulary looked complete and the timeline was not.
+    $source = '';
+
+    foreach (Finder::create()->files()->in(app_path())->name('*.php') as $file) {
+        $source .= $file->getContents();
+    }
+
+    $unwritten = array_values(array_filter(
+        LeaseEventNarrative::KEYS,
+        fn (string $key): bool => ! str_contains($source, "'{$key}'"),
+    ));
+
+    expect($unwritten)->toBe([], 'narratives nothing writes: '.implode(', ', $unwritten));
+});
+
 it('leaves no service composing prose into a lease event', function (): void {
-    $offenders = [];
-    $swept = 0;
+    // The call graph, DERIVED: the services that write an event, plus the ones that hand them a
+    // reason. One hop matters — `RentEscalationService` never names `RecordLeaseEventService`, it
+    // goes through `LeaseRentChangeService`, so a sweep of the writers alone could not see it and
+    // did not: it stored `Automatic rent escalation +10%` in raw English for the whole of its life.
+    $files = [];
 
     foreach (Finder::create()->files()->in(app_path('Services'))->name('*.php') as $file) {
-        $source = $file->getContents();
+        $files[$file->getRelativePathname()] = $file->getContents();
+    }
 
-        if (! str_contains($source, 'RecordLeaseEventService')) {
-            continue;
+    $writers = array_keys(array_filter($files, fn (string $src): bool => str_contains($src, 'RecordLeaseEventService')));
+    $classes = array_map(fn (string $path): string => basename($path, '.php'), $writers);
+
+    $inGraph = array_filter($files, function (string $src, string $path) use ($classes): bool {
+        foreach ($classes as $class) {
+            if ($path !== $class.'.php' && str_contains($src, $class)) {
+                return true;
+            }
         }
 
-        $swept++;
+        return in_array(basename($path, '.php'), $classes, true);
+    }, ARRAY_FILTER_USE_BOTH);
 
-        // ONLY the reason ARGUMENT, not every `__()` in the file — a refusal message and a
-        // transaction note are translated at write time quite correctly, and a gate that fired on
-        // those would be weakened rather than fixed. The reason is what sits between the effective
-        // date and the payload, so the window is bounded at both ends.
-        $calls = preg_split('/->record\(/', $source);
-        array_shift($calls);
+    // A quoted string carrying two adjacent letters and a space is a SENTENCE, not a key or a
+    // column name. Raw English is the worse half of this defect — it is not even translated — and
+    // the first version of this gate matched `__(` alone and walked straight past it.
+    $prose = '/(__\(|[\'"][^\'"]*[A-Za-z]{2,}[^\'"]*\s[^\'"]*[\'"])/';
 
-        foreach ($calls as $call) {
+    $offenders = [];
+
+    foreach ($inGraph as $path => $src) {
+        // (a) the reason ARGUMENT of a direct write. Bounded at `payload`, because a refusal
+        // message and a transaction note elsewhere in the same file are translated at write time
+        // quite correctly, and a gate that fired on those would be weakened rather than fixed.
+        foreach (array_slice(preg_split('/->record\(/', $src), 1) as $call) {
             $payloadAt = strpos($call, 'payload');
             $head = substr($call, 0, $payloadAt === false ? 400 : $payloadAt);
 
             if (preg_match('/__\([\'"]admin\./', $head)) {
-                $offenders[] = $file->getRelativePathname();
-                break;
+                $offenders[] = $path;
+            }
+        }
+
+        // (b) a reason COMPOSED anywhere in a file that reaches an event — assigned to a variable
+        // or handed over in a data array. This is the shape the escalation sweep had.
+        foreach (preg_split('/\R/', $src) as $line) {
+            if (str_starts_with(ltrim($line), '*') || str_starts_with(ltrim($line), '//')) {
+                continue;
+            }
+
+            if (preg_match('/(\$reason[a-zA-Z_]* *=[^=]|[\'"]reason[\'"] *=>)(.*)$/', $line, $m) && preg_match($prose, $m[2])) {
+                $offenders[] = $path;
             }
         }
     }
 
-    expect($swept)->toBeGreaterThan(5, 'the sweep found almost no callers');
+    expect(count($inGraph))->toBeGreaterThan(9, 'the sweep found almost no callers');
 
-    expect(array_unique($offenders))->toBe([], implode("\n", array_merge(
-        ['These translate a lease-event reason at WRITE time and store the result, so it freezes'],
-        ['in whichever language the run happened to be in. Stamp a narrative key instead:'],
+    expect(array_values(array_unique($offenders)))->toBe([], implode("\n", array_merge(
+        ['These compose a lease-event reason at WRITE time and store the result, so it freezes in'],
+        ['whichever language the run happened to be in — or, worse, in raw English that was never'],
+        ['translatable at all. Stamp a narrative key instead:'],
         array_unique($offenders),
     )));
 });

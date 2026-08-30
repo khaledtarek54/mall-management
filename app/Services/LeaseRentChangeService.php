@@ -39,7 +39,7 @@ class LeaseRentChangeService
     }
 
     /**
-     * @param  array{base_rent_monthly?:float|null, base_rent_rate_per_sqm_year?:float|null, service_charge_monthly?:float|null, reason?:string|null, document_reference?:string|null, effective_from?:string|\DateTimeInterface|null, origin?:string|null}  $data
+     * @param  array{base_rent_monthly?:float|null, base_rent_rate_per_sqm_year?:float|null, service_charge_monthly?:float|null, reason?:string|null, narrative?:string, narrative_data?:array<string,mixed>, document_reference?:string|null, effective_from?:string|\DateTimeInterface|null, origin?:string|null}  $data
      */
     public function apply(Lease $lease, array $data): Lease
     {
@@ -149,7 +149,17 @@ class LeaseRentChangeService
                 isset($data['reason']) && trim((string) $data['reason']) !== ''
                     ? trim((string) $data['reason'])
                     : null,
-                RecordLeaseEventService::scheduleChangePayload('base_rent', $previousRent, $newRent, [$opened]),
+                RecordLeaseEventService::scheduleChangePayload(
+                    'base_rent',
+                    $previousRent,
+                    $newRent,
+                    [$opened],
+                    // A caller that composed its own sentence names the narrative instead; the
+                    // escalation sweep is the one that does, and it runs unattended, so there is no
+                    // reader's language to compose in at the moment it writes.
+                    $data['narrative'] ?? 'rent_changed',
+                    $data['narrative_data'] ?? [],
+                ),
                 $data['document_reference'] ?? null,
             );
 

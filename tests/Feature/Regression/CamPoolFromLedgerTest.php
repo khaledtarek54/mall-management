@@ -9,6 +9,7 @@ use App\Models\Lease;
 use App\Models\LedgerAccount;
 use App\Services\ApplyCamEstimateService;
 use App\Services\CamReconciliationService;
+use App\Support\LeaseEventNarrative;
 use App\Services\ChargeScheduleService;
 use App\Services\SyncCamPoolFromLedgerService;
 use App\Support\Vat;
@@ -247,8 +248,11 @@ it('applies an accepted estimate as a schedule row effective next January, not a
         ->toBe(5000.0)
         ->and((float) $schedule->rowInForce($lease->fresh(), 'service_charge', CarbonImmutable::parse('2029-06-01'))->amount)
         ->toBe(20000.0)
-        // …and it lands on the lease's history with a reason, like every other rent-affecting change.
-        ->and($lease->fresh()->events()->first()->reason)->toContain('2028');
+        // …and it lands on the lease's history naming the year it re-based FROM, like every other
+        // rent-affecting change. Read through the narrative, not off the column: the service stamps
+        // a KEY so the sentence composes in the reader's language (2026-08-30).
+        ->and(LeaseEventNarrative::resolve($lease->fresh()->events()->first(), 'en'))->toContain('2028')
+        ->and(LeaseEventNarrative::resolve($lease->fresh()->events()->first(), 'ar'))->toContain('2028');
 });
 
 it('applies once, however many times the action is run', function () {

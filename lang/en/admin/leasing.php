@@ -52,7 +52,11 @@ return [
             'option_exercised' => ':option_type exercised — notice served :notice_given_at.',
             'option_waived' => ':option_type waived by the tenant.',
             'option_lapsed' => ':option_type lapsed — the notice window closed with no notice served.',
-            'rent_escalated' => 'Contractual rent escalation — :amount_from to :amount_to.',
+            'rent_escalated' => 'Contractual rent escalation +:step_pct% — :amount_from to :amount_to.',
+            // The collar is the term that is INVISIBLE in the resulting number: a tenant querying a
+            // 3% step in a year the index fell needs to see that the floor did that, not a mistake.
+            'rent_escalated_collared' => 'Contractual rent escalation +:step_pct% (index :index_pct%, collared) — :amount_from to :amount_to.',
+            'rent_escalated_amount' => 'Contractual rent escalation +:step_amount — :amount_from to :amount_to.',
             'rent_changed' => 'Rent changed from :amount_from to :amount_to.',
             'relief_granted' => 'Rent relief granted — :amount_from reduced to :amount_to.',
             'term_extended' => 'Term extended to :expiry_date.',
@@ -61,7 +65,7 @@ return [
             'converted_to_holdover' => 'Converted to holdover at :rate_pct% of the contracted rent.',
             'lease_terminated' => 'Lease terminated. Contracted expiry was :contracted_expiry.',
             'move_out_settled' => 'Final account settled.',
-            'cam_estimate_applied' => 'CAM estimate applied — :amount_to per month.',
+            'cam_estimate_applied' => 'CAM estimate applied — :amount_to per month, based on :based_on_year actuals.',
         ],
         'termination_default_reason' => 'Lease terminated',
         'title' => 'Lease history',

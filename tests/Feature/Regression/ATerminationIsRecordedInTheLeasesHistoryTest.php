@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
+use App\Support\LeaseEventNarrative;
 use App\Services\LeaseTerminationService;
 use Carbon\CarbonImmutable;
 
@@ -118,9 +119,20 @@ it('falls back to a worded reason rather than an empty one', function (): void {
         'reason' => '',
     ]);
 
-    $reason = LeaseEvent::where('lease_id', $lease->id)->where('type', 'termination')->first()->reason;
+    $event = LeaseEvent::where('lease_id', $lease->id)->where('type', 'termination')->first();
 
-    expect($reason)->not->toBe('')
-        // A key rendered raw is the failure this codebase names for every dynamic prefix.
-        ->and($reason)->not->toContain('admin.');
+    // What the READER sees, not the stored column — since 2026-08-30 a service stamps a narrative
+    // KEY rather than freezing a sentence, so `reason` is null on exactly this path and asserting
+    // on it would be asserting on the floor rather than on the timeline.
+    foreach (['en', 'ar'] as $locale) {
+        $sentence = LeaseEventNarrative::resolve($event, $locale);
+
+        expect($sentence)->not->toBeEmpty()
+            // A key rendered raw is the failure this codebase names for every dynamic prefix.
+            ->and($sentence)->not->toContain('admin.')
+            ->and($sentence)->not->toContain(': ');
+    }
+
+    // …and the two really are different sentences, which is the whole point of the change.
+    expect(LeaseEventNarrative::resolve($event, 'ar'))->toMatch('/\p{Arabic}/u');
 });

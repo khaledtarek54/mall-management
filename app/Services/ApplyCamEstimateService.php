@@ -112,6 +112,9 @@ class ApplyCamEstimateService
                     $previous,
                     (float) $proposed,
                     narrative: 'cam_estimate_applied',
+                    // The year whose ACTUALS this re-estimate is based on — the one fact the
+                    // figures alone do not carry, and what a tenant querying the new charge asks.
+                    narrativeData: ['based_on_year' => (int) $allocation->pool->period_year],
                 ),
             );
 

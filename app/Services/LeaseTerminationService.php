@@ -65,15 +65,17 @@ class LeaseTerminationService
             // `expired`. Yardi's model: notice given, then moved out; two states, not one.
             $underNotice = $terminationDate->isAfter(CarbonImmutable::today());
 
-            $existingNotes = $lease->notes ? rtrim($lease->notes)."\n\n" : '';
-            $stamp = $terminationDate->format('Y-m-d');
-            $reasonLine = $reason !== '' ? "Terminated on {$stamp}: {$reason}" : "Terminated on {$stamp}.";
+            // NO note is appended. This used to write `Terminated on 2026-08-30: <reason>` into
+            // `leases.notes` — raw English, frozen for ever, read by nothing, and duplicating the
+            // lease event recorded below. Module 04 already records the decision that the event
+            // replaced the notes-append (*"unqueryable, unreportable, unattributable, and it
+            // polluted a field operators use for their own notes"*); this was the one call site
+            // where the old mechanism survived beside the new one.
             $lease->update([
                 // `expiry_date` moves either way — that IS when the tenancy ends, and it is what
                 // `leases:expire` and every projection read.
                 'status' => $underNotice ? $lease->status : 'terminated',
                 'expiry_date' => $terminationDate,
-                'notes' => $existingNotes.$reasonLine,
             ]);
 
             // 2. Unit status is recomputed by LeaseObserver from step 1. Under notice the lease is

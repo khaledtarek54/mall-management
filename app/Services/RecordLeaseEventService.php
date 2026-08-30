@@ -86,11 +86,16 @@ class RecordLeaseEventService
         ?float $amountTo,
         iterable $opened = [],
         string $narrative = 'rent_changed',
+        array $narrativeData = [],
     ): array {
         return array_filter([
             // The narrative rides with the figures it describes, so both callers of this builder
             // get it from one place — see LeaseEventNarrative for why a row stores a key.
             LeaseEventNarrative::KEY => $narrative,
+            // Whatever else that particular sentence quotes — the escalation step, the raw index
+            // reading behind a collared one. It goes in the PAYLOAD beside the figures rather than
+            // into a formatted string, so it is queryable and reads in the reader's language.
+            ...$narrativeData,
             'charge_type' => $chargeType,
             'amount_from' => $amountFrom,
             'amount_to' => $amountTo,

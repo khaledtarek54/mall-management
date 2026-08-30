@@ -242,20 +242,24 @@ class RentEscalationService
                 // meaning against a step stated in pounds, and silently reinterpreting one unit as
                 // the other is how a lease gets escalated by something nobody agreed. The form hides
                 // the collar for amount leases for the same reason.
-                $reason = 'Automatic rent escalation +'.number_format($step, 2).' EGP';
+                $narrative = 'rent_escalated_amount';
+                $narrativeData = ['step_amount' => $step];
             } else {
                 $stated = $type === 'cpi' ? $indexRate : (float) $lease->escalation_rate;
                 $rate = self::collar($lease, $stated);
                 $step = $rate;
                 $newRent = round($current * (1 + $rate / 100), 2);
 
-                // The reason line names the RAW index movement beside the applied rate whenever the
+                // The narrative names the RAW index movement beside the applied rate whenever the
                 // collar changed it. A tenant querying a 3% step on a year the index fell needs to
                 // see that the floor did that, not a mistake — and the collar is precisely the term
                 // that is invisible in the resulting number.
-                $reason = $type === 'cpi' && abs($rate - $stated) >= 0.01
-                    ? "Automatic rent escalation +{$rate}% (index ".number_format($stated, 2).'%, collared)'
-                    : "Automatic rent escalation +{$rate}%";
+                $collared = $type === 'cpi' && abs($rate - $stated) >= 0.01;
+                $narrative = $collared ? 'rent_escalated_collared' : 'rent_escalated';
+                $narrativeData = array_filter([
+                    'step_pct' => $rate,
+                    'index_pct' => $collared ? number_format($stated, 2) : null,
+                ], fn ($v) => $v !== null);
             }
 
             if ($step <= 0) {
@@ -267,7 +271,11 @@ class RentEscalationService
 
             $this->rentChange->apply($lease, [
                 'base_rent_monthly' => $newRent,
-                'reason' => $reason,
+                // No prose: this sweep runs unattended, so there is no reader whose language it
+                // could compose in. The key and its figures are stored and read back in whichever
+                // language the person looking at the history is using.
+                'narrative' => $narrative,
+                'narrative_data' => $narrativeData,
                 // The step takes effect on the ANNIVERSARY, not the night the sweep happens to
                 // run. A sweep delayed by a weekend or a failed cron used to silently move the
                 // increase; now the schedule row starts where the contract says it starts.

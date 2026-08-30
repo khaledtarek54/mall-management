@@ -47,6 +47,8 @@ class LeaseEventNarrative
         'option_waived',
         'option_lapsed',
         'rent_escalated',
+        'rent_escalated_collared',
+        'rent_escalated_amount',
         'rent_changed',
         'relief_granted',
         'term_extended',

@@ -353,9 +353,20 @@
 >   check passes `fallback: false` or it only ever catches keys missing from both.
 > - **The gate reads the reason ARGUMENT, not the file.** `SettleMoveOutService` legitimately calls
 >   `__()` several times for refusals and transaction notes — those are correct at write time — so the
->   sweep is windowed to the argument that becomes `lease_events.reason`. Mutation-proved in both
->   directions: dropping one Arabic narrative and re-composing prose in one service each turn it red.
->   (`LeaseEventNarrativeIsAKeyNotProseTest`.)
+>   sweep is windowed to the argument that becomes `lease_events.reason`.
+> - **Its first version was too weak in two ways, and both were found from the DATA, not the gate.**
+>   It matched `__(` only, so `RentEscalationService`'s **raw English** — `Automatic rent escalation
+>   +10%`, never translatable at all, the worse half of the defect — walked straight past it; and it
+>   swept only the files that NAME `RecordLeaseEventService`, which the escalation sweep does not (it
+>   goes through `LeaseRentChangeService`). The call graph is now DERIVED and followed **one hop**.
+>   The same pass found the LAST survivor of the superseded notes-append: `LeaseTerminationService`
+>   still wrote `Terminated on 2026-08-30: …` into `leases.notes` — frozen English, read by nothing,
+>   duplicating the event beside it — which is exactly what LE-01 recorded as replaced.
+> - **A narrative nothing writes is a sentence nobody reads.** `rent_escalated` was catalogued in
+>   both languages while the sweep stored English beside it, so the vocabulary looked complete and
+>   the timeline was not; the gate now requires a writer for every key. Mutation-proved four ways:
+>   dropping an Arabic narrative, re-composing prose, reverting the escalation to raw English, and
+>   adding an unwritten key each turn it red. (`LeaseEventNarrativeIsAKeyNotProseTest`.)
 
 > **⚠️ A field offering values its column refuses reads as a button that does nothing (2026-08-18).**
 > The lease's "Record deposit movement" modal took its METHOD options from `admin.enums.method` — the
