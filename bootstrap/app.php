@@ -113,6 +113,22 @@ return Application::configure(basePath: dirname(__DIR__))
         // config/sentry.php — see send_default_pii + before_send there.
         Integration::handles($exceptions);
 
+        // A DomainException is a REFUSAL, not a fault — this file says so twice below, and the
+        // whole app throws them that way: 139 sites in `app/`, every one of them the system
+        // correctly declining something the operator asked for. A blocked over-payment, a refused
+        // double-let, a rejected edit inside a closed period. They render as a toast and the
+        // operator acts on them.
+        //
+        // Laravel's internal don't-report list covers ValidationException and friends but NOT
+        // DomainException (it is a plain SPL class), so without this line every refusal in the
+        // system arrives in Sentry as an error. That is not a noisy setting, it is a broken
+        // signal: the failures nobody anticipated — the ones Sentry exists to surface — would be
+        // buried under hundreds of the system working exactly as designed. Same reasoning that
+        // keeps `atriom:notify-status` silent unless the health set CHANGES.
+        //
+        // Faults still report. Only the deliberate refusal is excluded.
+        $exceptions->dontReport(DomainException::class);
+
         // Mobile API error contract: every /api/* failure renders as
         // { "message": "...", "statusCode": <int> } (+ "errors" for validation).
         // Keys are camelCased here too, since exception responses unwind
