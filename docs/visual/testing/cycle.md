@@ -130,9 +130,17 @@ has to be right and it has to be readable in their language.</p>
 numbers; and the Arabic version is genuinely Arabic and right-to-left with **the numbers
 unchanged**.
 
-> A document titled *Tax Invoice* must carry a tax registration number, or the tenant cannot use it
-> to reclaim the VAT they were charged. On this box no TRN is configured yet, so it should say
-> plainly **Invoice** — not *Tax Invoice*. That is correct behaviour, not a bug.
+<div class="rule"><span class="lbl">Why the title matters</span>
+A document calling itself a <b>Tax Invoice</b> must carry a tax registration number, or the retailer
+cannot use it to reclaim the VAT they were charged — and an invoice that claims to be one without a
+number is not merely incomplete, it is <b>confidently wrong</b> on the page every tenant files with
+their own accountant.<br><br>
+This box has a <b>placeholder registration — <code>000-000-000</code></b> — set so you can test that
+path. <i>Expect</i> the document to title itself <b>Tax Invoice</b> and print that number.<br><br>
+<b>The number is deliberately fake</b>: nine zeros cannot collide with a real Egyptian registration,
+and the seller name says STAGING on its face. Nothing produced on this box is a real tax document.
+The operator's true registration is set before production, and is a separate decision from anything
+you are testing.</div>
 
 ## 7 · Part months — the fiddly one
 
