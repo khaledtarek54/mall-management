@@ -153,6 +153,11 @@ export default async function globalSetup() {
         (page) => loginAdmin(page, email),
         `storage/playwright-state/role-${role}.json`,
         `role:${role}`,
+        '/admin',
+        // Threaded through so the failure names the account. Without it the diagnostic reads
+        // "could not sign role:operations in as undefined", which is the same dead end as the
+        // raw timeout it replaced — and this loop is exactly where the 2026-08 outage happened.
+        email,
       );
     }
   } finally {
