@@ -172,7 +172,7 @@ return [
         'generate_now' => 'إنشاء الآن',
         'generated' => 'تم إنشاء :count أمر عمل',
         'nothing_due' => 'لا يوجد مستحق — لم تُنشأ أوامر عمل',
-        'generate_failed' => 'فشل الإنشاء لـ :count خطة',
+        'generate_failed' => 'فشل إنشاء :count خطة',
         'helpers' => [
             'evidence' => 'صور أو مستندات لهذا العمل. خاصة — لا تُنشر على رابط عام أبدًا.',
             'priority_from_criticality' => 'يُملأ مسبقًا من درجة أهمية المعدة عند اختيارها — وغيّره إن رأيت غير ذلك.',
