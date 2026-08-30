@@ -336,7 +336,22 @@ ingress:
 `request()->ip()`, throttling, and audit logs record the real visitor — not `127.0.0.1`.
 
 **Edge protection to enable (free):** WAF managed ruleset · rate-limiting on `/admin` and
-`/api/v1` login routes · "Under Attack" mode toggle. **Put staging behind Cloudflare Access**
+`/api/v1` login routes · "Under Attack" mode toggle.
+
+> **Access was set up on 2026-08-30 and then REMOVED, at the operator's instruction** — it puts a
+> second sign-in (Cloudflare one-time PIN) in front of the panel's own, and the round trip was not
+> wanted for day-to-day staging work. **Cloudflare Turnstile on the admin login carries the load
+> instead** (`App\Support\Turnstile`): it is a challenge rather than an identity check, so it stops
+> automated credential stuffing and does NOT make the hostname unreachable to a person who finds it.
+>
+> State the residual plainly rather than implying the two are equivalent: **the staging URL is now
+> publicly reachable**, and what stands between it and a stranger is the Filament login, the rate
+> limiter and Turnstile. That is acceptable on posture A — demo data, and the seeded accounts on this
+> box do NOT use the published `DEMO.md` password — and it is **not** acceptable on posture B, where
+> the same box holds real tax cards and signed leases. Re-instate Access before any restore.
+> Re-creating it is one API call plus one policy; the app needs no change either way.
+
+The paragraph the Access recommendation used to sit in:
 (email/OTP) so the staging hostname isn't publicly reachable at all.
 
 ---

@@ -44,6 +44,13 @@ which is **B**. Both are legitimate; they are not the same box. Pick one deliber
 > `SECURITY_FORCE_2FA_ROLES` and deleting the seeded logins. Before that point, A rehearses
 > everything the code can rehearse: the deploy, the migrations, the billing run, the GL tie-out.
 
+> **Access is NOT in front of this box** (operator's call, 2026-08-30 — see
+> [INFRASTRUCTURE.md §4](INFRASTRUCTURE.md)). **Turnstile on the admin login** is what replaced it,
+> and the two are not equivalent: Turnstile stops automated credential stuffing, it does not make the
+> hostname unreachable. On posture A that is a reasonable trade. On **posture B it is not** — a
+> restore puts real tax cards and signed leases on a publicly reachable URL — so re-instating Access
+> belongs on the posture-B checklist beside rotating the demo logins.
+
 Either way, [INFRASTRUCTURE.md §8](INFRASTRUCTURE.md) puts staging behind **Cloudflare Access**
 (email/OTP) so the hostname is not publicly reachable. On **B** that is not a nicety.
 
