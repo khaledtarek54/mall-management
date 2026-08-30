@@ -449,6 +449,15 @@ makes archives large enough that retention becomes the thing that quietly gets c
 `serve => true` — a dump containing tax cards has no business on a disk the app can serve
 from. `storage/backups` is git-ignored.
 
+> **`BACKUP_ARCHIVE_PASSWORD=` empty used to mean NO BACKUP AT ALL, not "no encryption"** (found
+> and fixed 2026-08-30 on the first real box). Empty is not null, spatie enables AES on any non-null
+> value, and libzip then refuses at `close()` — after the dump has run and the zip is full, so the
+> operator sees `ZipArchive::close(): Invalid argument`, which reads as a corrupt file rather than a
+> missing setting. Every `backup:run` failed, `--only-db` with a single file included.
+> `config/backup.php` now coerces it, pinned by `EmptyBackupPasswordDoesNotKillTheBackupTest`. The
+> reason it went unnoticed for so long is the same reason [STATUS §1.1](../STATUS.md) records a
+> nineteen-day outage: a backup that never runs produces no error anybody reads.
+
 **Before go-live** (see `.env.example`):
 - `BACKUP_DISKS="backups,s3"` — a single copy on the same box as the database is **not a
   backup**; it dies with the box.

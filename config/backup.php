@@ -218,7 +218,18 @@ return [
          * The password to be used for archive encryption.
          * Set to `null` to disable encryption.
          */
-        'password' => env('BACKUP_ARCHIVE_PASSWORD'),
+        /*
+         * `?: null` is load-bearing, not defensive. `.env.example` ships this key
+         * present-but-empty, so env() answers '' — and '' is not null, so spatie's
+         * `$password !== null` guard turns AES encryption ON with an EMPTY password.
+         * libzip then refuses at close() with `ZipArchive::close(): Invalid argument`
+         * and NO ARCHIVE IS EVER WRITTEN — the failure is at the last step, after the
+         * dump has run and the zip has been filled, so the log reads like a corrupt
+         * file rather than a missing setting. Measured on the staging box 2026-08-30:
+         * every `backup:run` failed this way, including `--only-db` with one file.
+         * An unset password must mean "no encryption", exactly as the note above says.
+         */
+        'password' => env('BACKUP_ARCHIVE_PASSWORD') ?: null,
 
         /*
          * The encryption algorithm to be used for archive encryption.
