@@ -150,13 +150,29 @@ takes any S3-compatible endpoint (Hetzner, Backblaze B2, Cloudflare R2, OVH Obje
 restic target any SFTP host. Buying them from a *different* vendor than the app box is the stronger
 arrangement, not a compromise.
 
-**Contabo was evaluated and rejected — it is not cheaper.** Cloud VPS S (4 vCPU / 8 GB) is ~$11.31
-against VPS-1's ~$6.46 for the same CPU and RAM; its only advantage is disk size, which is not this
-system's constraint. What it costs is what this workload is most sensitive to: a Filament list page
-issues 130–400 queries ([§11](#11-scaling--offload-path-designed-in-used-later) measures it), and
-Contabo's documented high disk latency and inconsistent CPU do not make pages uniformly slower —
-they make them *randomly* slow, which is the complaint nobody can reproduce. A real company (Munich,
-2003), the wrong fit here, and doubly so in phase 1 with MySQL on the same disk.
+**Contabo — rejected, and NOT on price. Corrected 2026-08-30 from the vendor's own page.** An
+earlier revision of this section said Cloud VPS S was ~$11.31 "for the same CPU and RAM" and
+rejected it as *not cheaper*. That figure came from a third-party comparison and was wrong: **Cloud
+VPS 4 is $6.02/mo inc. VAT ($5.28 ex.) for 4 vCPU / 8 GB / 100 GB**, marginally *under* VPS-1 and
+with more disk. The correction is recorded rather than quietly edited because a price argument is
+the easiest kind to make and the easiest to be stale about, and it was doing the rhetorical work
+here for a conclusion that has a better reason behind it.
+
+The real reasons, both of which survive the price being equal:
+
+- **Disk class.** VPS-1 is NVMe; Cloud VPS 4's base tier is SSD (NVMe is an upsell). Phase 1 puts
+  MySQL on that disk and a Filament list page issues 130–400 queries
+  ([§11](#11-scaling--offload-path-designed-in-used-later) measures it), so this is the workload's
+  most sensitive axis. Contabo's documented disk-latency and CPU-steal variance does not make pages
+  uniformly slower — it makes them *randomly* slow, which is the complaint nobody can reproduce.
+- **Backups.** VPS-1 includes daily backups; on Contabo *Auto Backup* is a paid add-on. Switch it on
+  — and in phase 1, with the database, uploads and archives on one disk, you must — and Contabo is
+  the **more** expensive of the two while still being SSD.
+
+Two things to note fairly: Contabo is a real company (Munich, 2003) carrying 4.6/5 across ~11k
+Trustpilot reviews, and its headline is a **24-month** rate that reverts to $7.52 — the same
+renewal-price trap flagged above for OVH, but stated openly on their own page, which is more than
+most do.
 
 **IONOS** (VPS Linux L — 4 vCPU / 8 GB / 240 GB, ~$15) is the sane German alternative if OVH's
 renewal price disappoints: more disk, unlimited traffic, a conventional business vendor. **If a
