@@ -142,7 +142,7 @@ class DemoSeeder extends Seeder
         // 'password' matches DEMO.md for dev + CI. Pre-pilot deploys
         // MUST override DEMO_USER_PASSWORD and trigger a first-login
         // rotation when the URL becomes public.
-        $demoPassword = Hash::make((string) env('DEMO_USER_PASSWORD', 'password'));
+        $demoPassword = Hash::make((string) config('demo.user_password'));
 
         // 0. Admin + role-demo users (all share the demo password above)
         $users = [

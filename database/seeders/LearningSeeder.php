@@ -114,7 +114,7 @@ class LearningSeeder extends Seeder
             AccountingSeeder::class,
         ]);
 
-        $password = Hash::make((string) env('DEMO_USER_PASSWORD', 'password'));
+        $password = Hash::make((string) config('demo.user_password'));
 
         // ── 2. Logins ──────────────────────────────────────────────────────────────────────────
         $users = [];
@@ -248,8 +248,8 @@ class LearningSeeder extends Seeder
                 ['Leases / charges / invoices / payments / journal entries', '0 — that part is yours to create'],
             ],
         );
-        $this->command?->line('   Admin login: <fg=cyan>admin@mall.test</> · password <fg=cyan>password</>');
-        $this->command?->line('   Tenant portal: <fg=cyan>zara@atriomwalk.test</> · password <fg=cyan>password</>');
+        $this->command?->line('   Admin login: <fg=cyan>admin@mall.test</> · password <fg=cyan>'.config('demo.user_password').'</>');
+        $this->command?->line('   Tenant portal: <fg=cyan>zara@atriomwalk.test</> · password <fg=cyan>'.config('demo.user_password').'</>');
         $this->command?->newLine();
     }
 }
