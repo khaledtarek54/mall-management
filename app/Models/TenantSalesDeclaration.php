@@ -60,6 +60,22 @@ class TenantSalesDeclaration extends Model implements HasMedia
         'calculated_percentage_rent' => 'decimal:2',
     ];
 
+    /**
+     * What a lock freezes: everything the TENANT stated, and the period it was stated for.
+     *
+     * Not `calculated_percentage_rent` — that is the system's own share and `retrueAnnualYear()`
+     * restates it on locked months by design. Not `status` or `audit_notes` — `voidLocked()` writes
+     * both, and blocking them would seal the very door this guard points at.
+     */
+    public const FROZEN_ONCE_LOCKED = [
+        'declared_sales',
+        'gross_sales',
+        'sales_exclusions',
+        'period_start',
+        'period_end',
+        'lease_id',
+    ];
+
     protected static function booted(): void
     {
         // ── A declaration is a CERTIFICATE, and `declared_sales` is its bottom line ────────────
@@ -92,6 +108,38 @@ class TenantSalesDeclaration extends Model implements HasMedia
             }
 
             $declaration->declared_sales = round($gross - $excluded, 2);
+        });
+
+        // ── A LOCKED DECLARATION IS EVIDENCE, AND EVIDENCE DOES NOT GET RETYPED ────────────────
+        //
+        // Locking computes the overage, freezes it on the row and RAISES THE INVOICE for it. The
+        // figures the tenant certified were still freely editable afterwards, and nothing
+        // recomputed: measured on the demo books, a locked July declaration went from 910,000 to
+        // 2,000,000 of sales while its stored overage and its invoice both stayed at 7,700, where
+        // 84,000 was due. 76,300 hidden, and the document a dispute would be settled on now says
+        // one thing while the money says another.
+        //
+        // The correction path already exists and is careful — `voidLocked()` reverses the overage,
+        // voids the invoice, REFUSES if that invoice has been paid, and re-trues the rest of an
+        // annual year. This is the guard that makes an operator use it, exactly as the money
+        // documents are corrected through cancel / credit note / reverse rather than by editing.
+        //
+        // **`calculated_percentage_rent` is deliberately NOT frozen.** `retrueAnnualYear()`
+        // legitimately restates it on locked months when a sibling month is voided — the tenant's
+        // DECLARATION is evidence, the system's computed share is derived, and freezing the second
+        // would break the annual basis rather than protect it.
+        static::updating(function (self $declaration) {
+            if ($declaration->getOriginal('status') !== 'locked') {
+                return;
+            }
+
+            foreach (self::FROZEN_ONCE_LOCKED as $column) {
+                if ($declaration->isDirty($column)) {
+                    throw new DomainException(__('admin.validation.locked_declaration_is_evidence', [
+                        'field' => __('admin.fields.'.$column),
+                    ]));
+                }
+            }
         });
     }
 
