@@ -45,7 +45,7 @@ Measured on the whole panel: **100 screens, clean**, in about a minute.
 | File | Purpose |
 |---|---|
 | [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) | The go-live gate. Every box must be ticked before a production release. Ties together the automated gates + manual QA + UAT + the runbook pre-flight. |
-| [TESTER-GUIDE.md](TESTER-GUIDE.md) | For a **person testing the admin panel who did not build it**. One ordered pass through the money cycle with the figure to expect at each step, on the empty-mall dataset so every number on screen is one the tester caused — plus the Arabic, multi-role, phone and break-it passes, a bug-report format, and **what not to test**, since ~3,700 automated cases already cover the arithmetic. |
+| **The tester's guide** — [docs/visual/testing/](../visual/testing/index.md) | Lives in the **handbook**, not here, so a tester reads it *on the box* at `/admin/handbook` rather than in the repo. Three pages: how to test (access, dataset, reset, bug format, what NOT to test), one ordered money cycle with the figure to expect at each step, and all 38 modules with what each is *for* in business terms. |
 | [UAT-SCRIPTS.md](UAT-SCRIPTS.md) | End-to-end business scenarios per persona (operator / owner / tenant-web / tenant-mobile) that the **business** signs off — not "does it work" but "is this the workflow we run". |
 | [PRE-STAGING-QA.md](PRE-STAGING-QA.md) | The harness report — ~620 assertions across 26 scenario scripts plus four two-process concurrency races, driving the **real services against real MySQL**. Findings and their fixes in [PRE-STAGING-FINDINGS.md](PRE-STAGING-FINDINGS.md). |
 | [STAGING-FINAL-VERIFICATION.md](STAGING-FINAL-VERIFICATION.md) | The **final pre-staging verification** (2026-08-24) — eight lenses (Yardi · market/large systems · AR posting · AP/GL posting · recent-commit bugs · runtime ops · UI/UX · architecture), 82 findings, every one adversarially verified before being recorded. Read §0 for the market-position verdict. |
@@ -55,7 +55,7 @@ Measured on the whole panel: **100 screens, clean**, in about a minute.
 ## How to use it
 
 1. **Per release**, run `composer qa` — the harness restores the MySQL baseline before each suite, so a failure is the code and not the leftovers of the last run. A failure becomes a bug → fix → add a **regression test** (`tests/Feature/Regression/`) → re-run.
-2. **Handing the panel to a tester**, give them `TESTER-GUIDE.md` and nothing else — it carries its own access, dataset, script and reset. It is deliberately a CYCLE, not a per-screen matrix: see the note below on why the per-module matrix was deleted.
+2. **Handing the panel to a tester**, point them at `/admin/handbook` → **Testing the system**, and nothing else — it carries its own access, dataset, script and reset. It is deliberately a CYCLE, not a per-screen matrix: see the note below on why the per-module matrix was deleted.
 3. **Before go-live**, walk `UAT-SCRIPTS.md` with the business, then work through `RELEASE-CHECKLIST.md`.
 
 > **The per-module manual test-case matrix was removed on 2026-08-19.** It had been written for two

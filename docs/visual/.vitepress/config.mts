@@ -49,6 +49,16 @@ function allGroups(t: Record<string, string>, p: string): Group[] {
       ],
     },
     {
+      // English only for now. The Arabic sidebar is an explicit allowlist further down, so these
+      // simply do not appear there until an Arabic twin exists — which is the point of that list.
+      text: t.testing,
+      items: [
+        { text: t.howToTest, link: `${p}/testing/` },
+        { text: t.theMoneyCycle, link: `${p}/testing/cycle` },
+        { text: t.everyPart, link: `${p}/testing/coverage` },
+      ],
+    },
+    {
       text: t.leasing,
       collapsed: false,
       items: [
@@ -119,6 +129,10 @@ const en = {
   whatThisIs: 'What this is',
   wholeSystem: 'The whole system, one page',
   monthInLife: 'A month in the life',
+  testing: 'Testing the system',
+  howToTest: 'How to test',
+  theMoneyCycle: 'The money cycle, step by step',
+  everyPart: 'Every part of the system',
   leasing: 'Leasing — where the money starts',
   emptyUnitToRent: 'From empty unit to rent',
   lifeOfLease: 'Life of a lease',
