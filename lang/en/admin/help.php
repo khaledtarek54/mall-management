@@ -26,7 +26,7 @@ return [
         'expiry_date_locked' => 'Locked — this lease has been invoiced. Use “Extend term”, or Terminate to end it early.',
         'additional_units_locked' => 'Use “Change premises” to add or give back space — it keeps the months already occupied.',
         'gross_sales' => 'The figure on the tenant’s own certificate, before any deduction.',
-        'gross_includes_vat' => 'Adds the VAT contained in the figure as a deduction, at today’s standard rate.',
+        'gross_includes_vat' => 'Adds the VAT contained in the figure as a deduction, at the :rate% in force for the period declared.',
         'sales_exclusions' => 'Only what this lease’s clause grants. VAT is always allowed.',
         'declared_sales_derived' => 'Derived: :gross gross less :excluded deducted. Percentage rent is charged on this.',
         'percentage_rent_sales_exclusions' => 'What this clause lets the tenant take off gross turnover.',

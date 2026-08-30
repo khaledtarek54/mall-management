@@ -4,10 +4,12 @@ namespace App\Filament\Admin\Resources\TenantSalesDeclarations\Schemas;
 
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
+use App\Services\PercentageRentCalculationService;
 use App\Support\Filament\EntitySelect;
 use App\Support\SalesExclusions;
 use App\Support\Search\OptionDisplay;
 use App\Support\TenantScope;
+use App\Support\Vat;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
@@ -24,6 +26,57 @@ use Illuminate\Validation\Rules\Unique;
 
 class TenantSalesDeclarationForm
 {
+    /**
+     * Recompute the two DERIVED figures on screen, live.
+     *
+     * Both were computed only on the way to the database — `declared_sales` by the model's `saving`
+     * hook, `calculated_percentage_rent` by the lock — so the operator keyed a gross figure, some
+     * deductions, and then saved without ever seeing either number. The helper text underneath even
+     * spelled the derivation out ("1,368,000.00 gross less 218,000.00 deducted") while the field
+     * beside it stayed empty, which is the shape that gets read as broken.
+     *
+     * It matters most for the one that costs money: percentage rent is charged on the sales ABOVE a
+     * breakpoint, so a 12% error in the gross becomes a ~50% error in the charge. Seeing the charge
+     * before committing to it is the only cheap check an operator has.
+     *
+     * The model stays the authority — this mirrors it, exactly as `declared_sales` was already
+     * disabled-and-derived rather than editable. A transient declaration is used so the service
+     * answers on the SAME code path a lock will later take, rather than a second copy of the
+     * arithmetic that could drift from it.
+     */
+    private static function refreshDerived(Get $get, Set $set): void
+    {
+        $gross = $get('gross_sales');
+
+        if (blank($gross)) {
+            return;
+        }
+
+        $net = round(max(0.0, (float) $gross - SalesExclusions::total((array) ($get('sales_exclusions') ?? []))), 2);
+        $set('declared_sales', $net);
+
+        $lease = filled($get('lease_id')) ? Lease::find($get('lease_id')) : null;
+
+        if ($lease === null || ! $lease->has_percentage_rent || blank($get('period_start'))) {
+            $set('calculated_percentage_rent', null);
+
+            return;
+        }
+
+        // Unsaved on purpose: this is a preview of what a lock WOULD charge, and it must not
+        // write anything. An annual lease reads its prior locked months through the relation,
+        // so the figure shown is the marginal one that month would actually bill.
+        $preview = new TenantSalesDeclaration([
+            'lease_id' => $lease->getKey(),
+            'period_start' => $get('period_start'),
+            'period_end' => $get('period_end') ?: $get('period_start'),
+            'declared_sales' => $net,
+        ]);
+        $preview->setRelation('lease', $lease);
+
+        $set('calculated_percentage_rent', app(PercentageRentCalculationService::class)->calculate($preview));
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
@@ -43,6 +96,8 @@ class TenantSalesDeclarationForm
                         ->required(),
                     DatePicker::make('period_start')
                         ->label(__('admin.fields.period_start'))
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
                         ->required()
                         ->displayFormat('d/m/Y')
                         ->default(now()->startOfMonth()->subMonth())
@@ -81,28 +136,46 @@ class TenantSalesDeclarationForm
                         ->minValue(0)
                         ->step('0.01')
                         ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
                         ->helperText(__('admin.helpers.gross_sales'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.gross_sales')),
                     // The one deduction that is not a concession — a shop collects VAT for the
                     // state, so it was never its sales. Computed as the VAT WITHIN the figure
                     // (gross − gross ÷ 1.14), never gross × 14%, which would over-deduct by a
                     // factor of 1.14.
+                    //
+                    // AT THE RATE IN FORCE FOR THE PERIOD DECLARED, not today's. `vatWithin()`
+                    // falls back to `Vat::standardRate()` with no date, and this call site passed
+                    // none — so a declaration keyed after a rate change deducted the NEW rate from
+                    // an OLD month's turnover. With a rise to 20% effective 1 August, a June
+                    // declaration of 1,368,000 deducted 228,000 instead of 168,000 and billed
+                    // 20,300 where 24,500 was due: 21% under, on the document the tenant signed.
+                    //
+                    // Law 157/2025 makes that an imminent case rather than a hypothetical, and it
+                    // is the rule the rest of the system already keeps — a rate is a DATED rung,
+                    // and a back-dated document keeps the rate that was in force.
                     Toggle::make('gross_includes_vat')
                         ->label(__('admin.fields.gross_includes_vat'))
                         ->dehydrated(false)
                         ->live()
-                        ->helperText(__('admin.helpers.gross_includes_vat'))
+                        ->helperText(fn (Get $get): string => __('admin.helpers.gross_includes_vat', [
+                            'rate' => Vat::standardRate($get('period_end') ?: $get('period_start') ?: null),
+                        ]))
                         ->visible(fn (Get $get): bool => filled($get('gross_sales')))
                         ->afterStateUpdated(function (bool $state, Get $get, Set $set) {
                             $exclusions = (array) ($get('sales_exclusions') ?? []);
 
                             if ($state) {
-                                $exclusions['vat'] = SalesExclusions::vatWithin((float) $get('gross_sales'));
+                                $exclusions['vat'] = SalesExclusions::vatWithin(
+                                    (float) $get('gross_sales'),
+                                    Vat::standardRate($get('period_end') ?: $get('period_start') ?: null),
+                                );
                             } else {
                                 unset($exclusions['vat']);
                             }
 
                             $set('sales_exclusions', $exclusions);
+                            self::refreshDerived($get, $set);
                         }),
                     KeyValue::make('sales_exclusions')
                         ->label(__('admin.fields.sales_exclusions'))
@@ -110,6 +183,7 @@ class TenantSalesDeclarationForm
                         ->valueLabel(__('admin.fields.amount'))
                         ->addActionLabel(__('admin.fields.sales_exclusion_add'))
                         ->live()
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::refreshDerived($get, $set))
                         ->columnSpanFull()
                         ->visible(fn (Get $get): bool => filled($get('gross_sales')))
                         ->helperText(__('admin.helpers.sales_exclusions')),
