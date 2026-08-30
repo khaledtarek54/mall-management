@@ -143,7 +143,7 @@ negative amounts. Paste a 500-character name. Click Save twice quickly.
 A report that cannot be reproduced cannot be fixed. Always include these five:
 
 ```
-WHAT I DID            Screen, then steps. "Leases → New → saved with unit A-01."
+WHAT I DID            Screen, then steps. "Leases → New → saved with unit PA-01."
 WHAT I EXPECTED       "An invoice of 15,420.00"
 WHAT HAPPENED         "An invoice of 15,000.00 — no VAT on the service charge"
 LOGGED IN AS          manager@mall.test
