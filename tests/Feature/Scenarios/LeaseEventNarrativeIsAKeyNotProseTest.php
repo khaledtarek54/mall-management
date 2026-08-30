@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\LeaseEvent;
 use App\Support\LeaseEventNarrative;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Lang;
 use Symfony\Component\Finder\Finder;
 
@@ -46,6 +48,34 @@ it('writes a real sentence in each language, with no placeholder left behind', f
     // `Lang::has()` check ever written.
     expect(trans("admin.lease_events.narratives.{$key}", [], 'ar'))->toMatch('/\p{Arabic}/u');
 })->with(LeaseEventNarrative::KEYS);
+
+it('resolves a classification token in the READER\'s language, not the session\'s', function (): void {
+    // The half-translated shape: the sentence composes in the requested locale while a token
+    // inside it resolves through a bare `trans()` and answers in whoever's session is running.
+    // Measured on the real books with the panel in Arabic, an English read came back as
+    // `خيار التجديد exercised — notice served 30/07/2026` — a sentence in two languages at once.
+    // Exactly what `DocumentLocale::in()` exists to prevent on the PDFs: wrap the DATA, not just
+    // the template, or you get an Arabic body under English headings.
+    $event = new LeaseEvent([
+        'type' => 'extension',
+        'payload' => [
+            LeaseEventNarrative::KEY => 'option_exercised',
+            'option_type' => 'renewal',
+            'notice_given_at' => '2026-07-30',
+        ],
+    ]);
+
+    foreach (['en' => 'ar', 'ar' => 'en'] as $reader => $ambient) {
+        // The ambient locale is deliberately the OTHER one, so a token reading it leaks visibly.
+        App::setLocale($ambient);
+
+        $sentence = LeaseEventNarrative::resolve($event, $reader);
+        $optionType = trans('admin.lease_options.types.renewal', [], $reader);
+
+        expect($sentence)->toContain($optionType)
+            ->and($sentence)->not->toContain(trans('admin.lease_options.types.renewal', [], $ambient));
+    }
+});
 
 it('has a service writing every narrative it defines', function (): void {
     // A key in the vocabulary that nothing stamps is a sentence nobody will ever read. The first

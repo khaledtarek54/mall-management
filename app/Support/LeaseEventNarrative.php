@@ -82,7 +82,7 @@ class LeaseEventNarrative
             return $event->reason;
         }
 
-        return trans($path, self::tokens($payload), $locale);
+        return trans($path, self::tokens($payload, $locale), $locale);
     }
 
     /**
@@ -90,8 +90,15 @@ class LeaseEventNarrative
      *
      * A missing placeholder renders an em dash rather than a leftover `:amount` — the trap
      * `JournalNarrative` records, and the reason every token is filled even when absent.
+     *
+     * **The locale is threaded in, not read off the app.** A classification token resolved through
+     * a bare `trans()` answers in whoever's session is running, so an English sentence came back
+     * reading `خيار التجديد exercised — notice served 30/07/2026` — composed in the requested
+     * language with its own noun in the ambient one. The same half-translated shape
+     * `DocumentLocale::in()` exists to prevent on the PDFs: wrapping the template and not the DATA
+     * yields an Arabic body under English headings.
      */
-    private static function tokens(array $payload): array
+    private static function tokens(array $payload, ?string $locale = null): array
     {
         $tokens = [];
 
@@ -112,7 +119,7 @@ class LeaseEventNarrative
         // anywhere else in the panel.
         foreach (['option_type' => 'admin.lease_options.types.', 'rent_basis' => 'admin.enums.rent_basis.'] as $name => $group) {
             if (isset($tokens[$name])) {
-                $tokens[$name] = trans($group.$tokens[$name]);
+                $tokens[$name] = trans($group.$tokens[$name], [], $locale);
             }
         }
 

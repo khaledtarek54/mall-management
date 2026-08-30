@@ -362,6 +362,12 @@
 >   The same pass found the LAST survivor of the superseded notes-append: `LeaseTerminationService`
 >   still wrote `Terminated on 2026-08-30: …` into `leases.notes` — frozen English, read by nothing,
 >   duplicating the event beside it — which is exactly what LE-01 recorded as replaced.
+> - **A CLASSIFICATION token inside the sentence resolves in the READER's language too.** Found on
+>   the screen, not by a test: with the panel in Arabic, an English read of the same row came back
+>   `خيار التجديد exercised — notice served 30/07/2026` — one sentence in two languages, because
+>   `tokens()` resolved `option_type` through a bare `trans()` that answers in whatever session is
+>   running. The same half-translated shape `DocumentLocale::in()` exists to prevent on the PDFs:
+>   wrap the DATA, not just the template, or you get an Arabic body under English headings.
 > - **A narrative nothing writes is a sentence nobody reads.** `rent_escalated` was catalogued in
 >   both languages while the sweep stored English beside it, so the vocabulary looked complete and
 >   the timeline was not; the gate now requires a writer for every key. Mutation-proved four ways:
