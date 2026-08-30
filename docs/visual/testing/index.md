@@ -112,7 +112,7 @@ one</b>. Read it before testing a screen you do not know.</div>
 
 **Email really sends now**, through MailerSend. Two things follow:
 
-- **Every message goes to `info@tri-tech.net`**, whoever the app thinks it is writing to. That
+- **Every message goes to `hello@tri-tech.net`**, whoever the app thinks it is writing to. That
   redirect is deliberate — the seeded data contains invented vendor addresses on `.eg`, a real
   Egyptian domain, and letting those bounce would damage the sending reputation of a domain that is
   used for real mail. So to check an email, look in **that** inbox, not at the address on screen.
