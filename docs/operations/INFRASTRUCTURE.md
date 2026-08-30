@@ -26,7 +26,7 @@ growth is copy-paste, not a rebuild.
                     outbound tunnel (no open inbound ports)
                                │
         ┌──────────────────────▼───────────────────────────┐
-        │  OVHcloud VPS-1  (Ubuntu 24.04 · 8GB/4vCPU · FRA)  │
+        │  Contabo Cloud VPS 4 (Ubuntu 24.04 · 8GB/4vCPU · DE)│
         │                                                    │
         │  cloudflared ─┬─ app.<domain>    → 127.0.0.1:8080  │  prod  vhost
         │               └─ staging.<domain>→ 127.0.0.1:8081  │  stg   vhost
@@ -64,29 +64,43 @@ rebuilt at the next step, only moved off the box.
 
 *Prices verified August 2026 and they drift — Hetzner adjusted on 15 June 2026. Re-check at signup.*
 
-### Phase 1 — staging only (~$7/mo)
+### Phase 1 — staging only (~$6/mo) — **BOUGHT AND BUILT 2026-08-30**
 
 | Component | Spec | ~Monthly |
 |---|---|---|
-| **OVHcloud VPS-1**, Frankfurt | 4 vCPU / 8 GB / 75 GB NVMe, unlimited EU traffic, anti-DDoS **and daily backups included** | **~$6.46** |
-| MySQL 8.4 | **on the box** | $0 |
+| **Contabo Cloud VPS 4** | 4 vCPU AMD EPYC / 8 GB / 100 GB SSD, unlimited traffic | **$6.02** inc. VAT ($5.28 ex.) |
+| MySQL **8.4 LTS** | **on the box** | $0 |
 | Redis | on the box — not optional, see [§5](#5-redis--driver-overrides-required) | $0 |
 | Uploads + backup archives | the box's own disk | $0 |
 | Cloudflare | Free plan + Tunnel + Access on the staging hostname | $0 |
 | Domain | at Cloudflare | ~$10 / yr |
-| **All-in** | | **~$6.46/mo** |
+| **All-in** | | **~$6.02/mo** |
 
-**Verify the RENEWAL price at checkout, not the headline.** OVH quotes commitment and promotional
-rates prominently and the month-13 figure is the one you are actually buying. Same for IONOS. This
-is the single thing to check before clicking.
+**The rate is promotional for 24 months and reverts to $7.52.** Diarise it. The equivalent warning
+applies to every provider in [§2.1](#21-why-this-provider-and-what-was-rejected) — check the
+*renewal*, never the headline.
 
-**Add ~4 GB of swap anyway.** At 8 GB it is insurance rather than the requirement it would be at 4:
-`npm run build` compiles the app assets *and* the VitePress handbook, and an OOM during that step
-leaves both panels serving unstyled HTML — the same symptom as a skipped `npm run build`, so it is
-diagnosed as one. Set `innodb_buffer_pool_size` to ~1 GB.
+**Auto Backup is a paid Contabo add-on and is currently OFF.** That is the one consequence of this
+choice that has to be carried rather than argued with: on a box where the database, the uploads and
+the archives share a disk, there is now **no** copy anywhere else. Acceptable while the data is
+`DemoSeeder` output and on nothing else — so either switch the add-on on, or treat
+[§7](#7-backups)'s off-box copy as arriving on the same day the first real record does, not later.
+
+**4 GB of swap, added.** At 8 GB it is insurance rather than the requirement it would be at 4:
+`npm run build` compiles the app assets *and* the VitePress handbook, and an OOM there leaves both
+panels serving unstyled HTML — the same symptom as a skipped `npm run build`, so it is diagnosed as
+one. `vm.swappiness=10`, and `innodb_buffer_pool_size = 1G`.
 
 **8 GB at the phase-1 price is why this box needs no resize in phase 2** — it is already the size
 [§2](#2-components-sizing--cost) wanted for prod+staging sharing one machine.
+
+**MySQL 8.4, not Ubuntu's 8.0.** `apt install mysql-server` on Ubuntu 24.04 gives **8.0.46**, and
+the phase-2 destination is a managed **8.4** node — staging on a different major than production
+rehearses something else, and the cheapest moment to fix it is an empty box. It comes from Oracle's
+repo, and **the signing key published as `RPM-GPG-KEY-mysql-2023` is EXPIRED**: apt then rejects the
+repo with `EXPKEYSIG` and *silently falls back to Ubuntu's 8.0*, which looks like a successful
+install. The same key re-issued with a longer expiry is published as `RPM-GPG-KEY-mysql-2025` — use
+that one, and check `mysqld --version` afterwards rather than trusting the apt exit code.
 
 ### Phase 2 — production joins the same box (~€30–40/mo)
 
@@ -149,6 +163,14 @@ specifically on an Egypt-based buyer** — take all three:
 takes any S3-compatible endpoint (Hetzner, Backblaze B2, Cloudflare R2, OVH Object Storage) and the
 restic target any SFTP host. Buying them from a *different* vendor than the app box is the stronger
 arrangement, not a compromise.
+
+> **Superseded 2026-08-30: the operator bought Contabo Cloud VPS 4 and the box is built.** The
+> analysis below stands as the record of the trade — it was a close call on equal money, and the two
+> reasons it went the other way are now **live obligations rather than arguments**: the backup gap is
+> carried in [Phase 1](#phase-1--staging-only-6mo--bought-and-built-2026-08-30) above, and the disk
+> class is something to *measure* on the real box rather than assume, since the panel's 130–400
+> queries a page is where it would show. Nothing else in this document changes — the phasing, the
+> hardening and the gates are provider-independent by design.
 
 **Contabo — rejected, and NOT on price. Corrected 2026-08-30 from the vendor's own page.** An
 earlier revision of this section said Cloud VPS S was ~$11.31 "for the same CPU and RAM" and
@@ -506,10 +528,14 @@ credentials.
 
 ### Phase 1 — the staging box
 
-1. Create **OVHcloud VPS-1** (Ubuntu 24.04, Frankfurt) — check the **renewal** price, not the
-   headline — add SSH key, create sudo user, apply [§9](#9-server-hardening). Add ~4 GB of swap
+1. Create the VPS (Ubuntu 24.04) — check the **renewal** price, not the headline — add SSH key,
+   create sudo user, apply [§9](#9-server-hardening). Add ~4 GB of swap
    ([§2](#2-components-sizing--cost)): at 8 GB it is insurance, and an OOM during `npm run build`
-   serves both panels unstyled, which reads as a skipped build.
+   serves both panels unstyled, which reads as a skipped build. **Set the clock to Africa/Cairo** —
+   a fresh box comes up on the provider's own zone (Europe/Berlin here), and every log line, cron
+   time and `mysqldump` stamp then disagrees with the operator's wall clock.
+   *(Note: there is no `ppa:ondrej/nginx` for noble — use Ubuntu's own nginx. Adding it inside a
+   `set -e` script aborts the whole run, and with output piped to `tail` it aborts silently.)*
 2. `apt` base + `ondrej/php` PPA → PHP 8.4 (+ `-fpm -mysql -redis -mbstring -xml -curl -zip -gd -bcmath -intl -exif`), nginx, redis-server, **mysql-server**, composer, cloudflared.
    **Install them for FPM as well as CLI, and prove it over HTTP.** `composer install` runs under
    `php-cli`; the money columns render under `php-fpm`. A box with `intl` in one and not the other
