@@ -108,6 +108,21 @@ everywhere you go, not once.</div>
 giving its purpose, the steps, the rules — and most usefully <b>what else moves when you touch this
 one</b>. Read it before testing a screen you do not know.</div>
 
+## Two live integrations — know this before you test them
+
+**Email really sends now**, through MailerSend. Two things follow:
+
+- **Every message goes to `info@tri-tech.net`**, whoever the app thinks it is writing to. That
+  redirect is deliberate — the seeded data contains invented vendor addresses on `.eg`, a real
+  Egyptian domain, and letting those bounce would damage the sending reputation of a domain that is
+  used for real mail. So to check an email, look in **that** inbox, not at the address on screen.
+- **There is a cap of 100 emails a day.** A long session exercising notifications can exhaust it. If
+  mail stops arriving, check the cap before reporting a bug.
+
+**Card payments are live against Paymob's TEST account.** The portal's Pay button works and will
+open a real Paymob checkout. Use **Paymob's test card numbers** — never a real card. Nothing on this
+box should ever be paid with real money.
+
 ## Four passes that find different bugs
 
 Do these *as well as* the module coverage, not instead of it.
