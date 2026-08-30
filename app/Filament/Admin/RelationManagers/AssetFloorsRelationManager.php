@@ -110,6 +110,7 @@ class AssetFloorsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->label(__('admin.actions.add_floor'))
                     ->visible(fn (): bool => auth()->user()?->can('assets.edit') ?? false)
                     ->authorize(fn (): bool => auth()->user()?->can('assets.edit') ?? false),
             ])

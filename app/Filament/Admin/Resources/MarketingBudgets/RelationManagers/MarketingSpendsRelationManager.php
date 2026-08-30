@@ -147,7 +147,8 @@ class MarketingSpendsRelationManager extends RelationManager
                     ->placeholder('—'),
             ])
             ->headerActions([
-                CreateAction::make()->after(fn () => $this->warnIfOverBudget())
+                CreateAction::make()
+                    ->label(__('admin.actions.add_spend'))->after(fn () => $this->warnIfOverBudget())
                     ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false)
                     ->authorize(fn () => auth()->user()?->can('marketing.edit') ?? false),
                 // Where the marketing fund went, as a spreadsheet — the record the owner reviews.

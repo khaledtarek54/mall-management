@@ -223,6 +223,7 @@ class LeaseOptionsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->label(__('admin.actions.add_option'))
                     ->visible(fn () => self::canWrite())
                     ->authorize(fn () => self::canWrite()),
             ])

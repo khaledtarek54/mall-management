@@ -90,7 +90,8 @@ class PercentageRentTiersRelationManager extends RelationManager
                         : null),
             ])
             ->headerActions([
-                CreateAction::make()->visible(fn () => self::canWrite())->authorize(fn () => self::canWrite()),
+                CreateAction::make()
+                    ->label(__('admin.actions.add_tier'))->visible(fn () => self::canWrite())->authorize(fn () => self::canWrite()),
             ])
             ->recordActions([
                 EditAction::make()->visible(fn () => self::canWrite())->authorize(fn () => self::canWrite()),

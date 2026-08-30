@@ -170,6 +170,7 @@ class LeaseCamTermsRelationManager extends RelationManager
             ->defaultSort('effective_year', 'desc')
             ->headerActions([
                 CreateAction::make()
+                    ->label(__('admin.actions.add_cam_term'))
                     ->visible(fn () => self::canWrite())
                     ->authorize(fn () => self::canWrite()),
             ])

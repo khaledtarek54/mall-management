@@ -93,6 +93,7 @@ class PortalUsersRelationManager extends RelationManager
                 // stated rather than inherited from "can see the tenant". The new user cannot be an
                 // admin — that toggle is super_admin-only above — so this creates a read-only login.
                 CreateAction::make()
+                    ->label(__('admin.actions.add_portal_user'))
                     ->visible(fn (): bool => Auth::user()?->can('tenants.edit') ?? false)
                     ->authorize(fn (): bool => Auth::user()?->can('tenants.edit') ?? false),
             ])

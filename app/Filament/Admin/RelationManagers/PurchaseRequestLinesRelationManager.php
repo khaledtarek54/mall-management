@@ -122,6 +122,7 @@ class PurchaseRequestLinesRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
+                    ->label(__('admin.actions.add_request_line'))
                     ->visible(fn () => $this->editable())
                     ->authorize(fn () => $this->editable()),
             ])
