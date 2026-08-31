@@ -6,6 +6,8 @@ use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Translate;
+use DomainException;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -76,6 +78,46 @@ class LeaseCamTerm extends Model
      * resolves to no usable ceiling (missing inputs). When cap_type = 'both', the tighter of the
      * absolute and YoY ceilings wins (min) — the tenant gets the more protective cap.
      */
+    /**
+     * WHICH COLUMNS EACH CAP TYPE NEEDS TO RESOLVE TO A NUMBER.
+     *
+     * Mirrors the form's own `required()` rules, and is enforced on the MODEL because the form is
+     * not the only writer. A `yoy` term with no `base_year_amount` SAVES, renders on the lease's
+     * CAM tab like any other cap, and `resolveCeiling()` returns null — so the operator believes
+     * the tenant is capped and the reconciliation bills them in full. Measured on the demo books
+     * (2026-08-31): one of the two seeded cap terms was exactly that.
+     *
+     * The same reasoning as `TaxCode` refusing to activate a taxable code with no rate: an
+     * incomplete term must be impossible, not inert. A cap that silently does nothing is worse
+     * than no cap, because the second is visible.
+     *
+     * @var array<string, list<string>>
+     */
+    public const REQUIRED_BY_TYPE = [
+        'absolute' => ['cap_absolute_amount'],
+        'yoy' => ['base_year', 'base_year_amount', 'yoy_pct'],
+        'both' => ['cap_absolute_amount', 'base_year', 'base_year_amount', 'yoy_pct'],
+    ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $term): void {
+            $missing = array_values(array_filter(
+                self::REQUIRED_BY_TYPE[$term->cap_type] ?? [],
+                fn (string $column): bool => $term->{$column} === null || $term->{$column} === '',
+            ));
+
+            if ($missing !== []) {
+                throw new DomainException(__('admin.refusals.cam_cap_term_incomplete', [
+                    'type' => Translate::orHumanized("admin.enums.cam_cap_type.{$term->cap_type}", $term->cap_type),
+                    'fields' => collect($missing)
+                        ->map(fn (string $c): string => Translate::orHumanized('admin.fields.cam_'.str_replace('cap_', '', $c), $c))
+                        ->join('، ', ' — '),
+                ]));
+            }
+        });
+    }
+
     public function resolveCeiling(int $reconciledYear): ?float
     {
         $ceilings = [];

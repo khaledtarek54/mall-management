@@ -95,5 +95,6 @@ return [
         'owner_statement_finalised_exists' => 'A finalised statement already exists for this property and period — revise it instead of regenerating.',
         'owner_statement_has_active_disbursements' => 'This run cannot be revised while it has active disbursements — cancel the scheduled or approved payouts first. If the owner has already been paid, correct the difference in the next period rather than revising the paid statement.',
         'lease_option_not_open' => "This option is :status — only an open option can be exercised.",
+        'cam_cap_term_incomplete' => 'A :type CAM cap needs :fields. Without them the cap resolves to nothing and the tenant is billed in full, while the lease still shows a cap term.',
     ],
 ];

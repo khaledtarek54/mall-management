@@ -280,8 +280,15 @@ class SeedLeasingDepthCommand extends Command
                 'effective_year' => (int) CarbonImmutable::today()->year,
                 'cap_type' => $i === 0 ? 'absolute' : 'yoy',
                 'cap_absolute_amount' => $i === 0 ? 180_000 : null,
-                'yoy_pct' => $i === 0 ? null : 5.0,
+                // A FRACTION, not a percent. The form shows the operator 5 and stores 0.05
+                // (`dehydrateStateUsing`), and `resolveCeiling()` computes base × (1 + pct)^years —
+                // so writing 5.0 straight to the model, as this did, states a 500%-a-year cap that
+                // can never bite. Seeder-only: no screen can produce it.
+                'yoy_pct' => $i === 0 ? null : 0.05,
                 'base_year' => $i === 0 ? null : (int) CarbonImmutable::today()->subYear()->year,
+                // Without this the yoy leg resolves to NULL and the "cap" caps nothing, which is
+                // what the demo books carried. The model now refuses the row outright.
+                'base_year_amount' => $i === 0 ? null : 120_000,
                 'compounding' => $i !== 0,
                 'cap_carry_forward' => true,
                 'notes' => 'Seeded by atriom:seed-leasing-depth',

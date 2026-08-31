@@ -147,3 +147,97 @@ it('picks the latest effective-dated term on or before the reconciled year', fun
     // Reconciling 2026 → the 2026 term (40000) governs, not 2024 or the not-yet-effective 2028.
     expect($lease->resolveCamCeiling(2026))->toBe(40000.0);
 });
+
+/**
+ * A CAP THAT CANNOT RESOLVE IS WORSE THAN NO CAP (2026-08-31).
+ *
+ * `resolveCeiling()` returns null unless every column its cap type needs is filled. A `yoy` term
+ * with no `base_year_amount` SAVES, renders on the lease's CAM tab exactly like a working cap, and
+ * caps nothing — so the operator believes the tenant is protected and the reconciliation bills them
+ * in full. Measured on the demo books: one of the two seeded cap terms was precisely that.
+ *
+ * The form has always required these fields. The form is not the only writer — a seeder wrote both
+ * of them, and got the second one wrong — so the rule belongs on the model. Same reasoning as
+ * `TaxCode` refusing to activate a taxable code with no rate: incomplete must be impossible rather
+ * than inert, because inert is invisible.
+ */
+it('refuses a cap term that would resolve to nothing', function (): void {
+    $lease = makeLease(makeUnit(makeAsset()));
+
+    // yoy with no base-year amount and no percentage — the shape found on the demo books.
+    expect(fn () => LeaseCamTerm::create([
+        'lease_id' => $lease->id,
+        'effective_year' => 2027,
+        'cap_type' => 'yoy',
+        'base_year' => 2026,
+    ]))->toThrow(DomainException::class);
+
+    // absolute with no amount
+    expect(fn () => LeaseCamTerm::create([
+        'lease_id' => $lease->id,
+        'effective_year' => 2027,
+        'cap_type' => 'absolute',
+    ]))->toThrow(DomainException::class);
+
+    // `both` needs BOTH legs — one complete leg would still resolve, but it is not what the
+    // operator declared, and a term that quietly caps on one rule is the same class of surprise.
+    expect(fn () => LeaseCamTerm::create([
+        'lease_id' => $lease->id,
+        'effective_year' => 2027,
+        'cap_type' => 'both',
+        'cap_absolute_amount' => 180_000,
+    ]))->toThrow(DomainException::class);
+
+    expect(LeaseCamTerm::where('lease_id', $lease->id)->count())->toBe(0);
+});
+
+/**
+ * The control, and the half that matters: a guard that refused everything would satisfy the
+ * refusals above and make the cap feature unusable.
+ */
+it('accepts every complete cap term, and each one resolves to a number', function (): void {
+    $lease = makeLease(makeUnit(makeAsset()));
+
+    $absolute = LeaseCamTerm::create([
+        'lease_id' => $lease->id, 'effective_year' => 2027,
+        'cap_type' => 'absolute', 'cap_absolute_amount' => 180_000,
+    ]);
+
+    $yoy = LeaseCamTerm::create([
+        'lease_id' => $lease->id, 'effective_year' => 2028,
+        'cap_type' => 'yoy', 'base_year' => 2026, 'base_year_amount' => 120_000,
+        'yoy_pct' => 0.05, 'compounding' => false,
+    ]);
+
+    $both = LeaseCamTerm::create([
+        'lease_id' => $lease->id, 'effective_year' => 2029,
+        'cap_type' => 'both', 'cap_absolute_amount' => 180_000,
+        'base_year' => 2026, 'base_year_amount' => 120_000, 'yoy_pct' => 0.05, 'compounding' => false,
+    ]);
+
+    expect($absolute->resolveCeiling(2027))->toBe(180000.0)
+        // 120,000 base, +5% simple for two years = 132,000.
+        ->and($yoy->resolveCeiling(2028))->toBe(132000.0)
+        // `both` takes the LOWER of the two ceilings — 138,000 vs 180,000.
+        ->and($both->resolveCeiling(2029))->toBe(138000.0);
+});
+
+/**
+ * `yoy_pct` IS A FRACTION, NOT A PERCENT.
+ *
+ * `resolveCeiling()` computes base × (1 + pct)^years, and the form stores 0.05 when the operator
+ * types 5. A writer that stores 5.0 states a 500%-a-year ceiling, which can never bite — the cap
+ * looks configured and the tenant pays everything. That is what the leasing-depth seeder did.
+ */
+it('reads the annual increase as a fraction', function (): void {
+    $lease = makeLease(makeUnit(makeAsset()));
+
+    $term = LeaseCamTerm::create([
+        'lease_id' => $lease->id, 'effective_year' => 2027,
+        'cap_type' => 'yoy', 'base_year' => 2026, 'base_year_amount' => 100_000,
+        'yoy_pct' => 0.05, 'compounding' => false,
+    ]);
+
+    // 5% for one year. Were 5.0 stored instead, this would be 600,000 and no real cost would reach it.
+    expect($term->resolveCeiling(2027))->toBe(105000.0);
+});
