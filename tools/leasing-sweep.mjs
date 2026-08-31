@@ -15,6 +15,7 @@
  *   node tools/leasing-sweep.mjs --quick         # screens only, no actions or tabs
  */
 import { chromium } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const BASE = process.env.APP_URL ?? 'https://mall-management.test';
 const EMAIL = process.env.E2E_EMAIL ?? 'admin@mall.test';
@@ -37,6 +38,7 @@ const SCREENS = [
     '/admin/AW/rentable-items',
     '/admin/AW/rentable-item-map',
     '/admin/AW/rent-indices',
+    '/admin/AW/clause-register',
     '/admin/AW/tenants',
     '/admin/AW/revenue-forecast',
 ];
@@ -192,6 +194,87 @@ for (const tab of tabLabels) {
     }
 
     console.log(findings.length > before ? `✗ ${findings.length - before}` : `ok  (${seen.length} action${seen.length === 1 ? '' : 's'})`);
+}
+
+// ── PASS D · the SAME lease screen in every STATE ────────────────────────────────────────────────
+//
+// All 33 demo leases are `active`, so five of the seven states ValueSets allows had never been
+// opened in a browser — and three lease actions gate on state (finalAccount needs terminated or
+// expired, convertToHoldover needs a term that has run out, releaseRentableItem needs a holding).
+// A sweep over the demo data reports "clean" having never mounted them.
+//
+// `php artisan atriom:seed-lease-states` puts one disposable lease in each state; --drop removes
+// them. Skipped silently when they are absent, so the sweep still runs on a bare database.
+console.log('\n── lease states ──');
+
+// BY ID, from the map the command writes. This used to search `?tableSearch=SWEEP-…`, which does
+// not bind Filament's table state from a plain URL: every search returned the whole list and the
+// sweep opened the SAME active lease seven times, reporting seven "ok"s about one record.
+let stateSkipReason = null;
+const stateActionCounts = [];
+const stateLeases = [];
+try {
+    const map = JSON.parse(readFileSync('storage/app/private/sweep-lease-states.json', 'utf8'));
+    for (const [st, id] of Object.entries(map)) stateLeases.push([st, `/admin/AW/leases/${id}/edit`]);
+} catch (e) {
+    // REPORT the reason, never swallow it. A bare `catch {}` here hid a missing `readFileSync`
+    // import: the ReferenceError was caught, the pass printed "no fixture", and the sweep exited
+    // 0 having skipped its most valuable pass while looking like it had run.
+    stateSkipReason = String(e).slice(0, 160);
+}
+
+if (! stateLeases.length) {
+    console.log(`  (skipped: ${stateSkipReason ?? 'no SWEEP-* leases — run php artisan atriom:seed-lease-states'})`);
+    // A skipped pass is a finding, not a pass. The sweep used to exit 0 here, reporting "clean"
+    // over the one pass that reaches the state-gated screens.
+    findings.push({ where: 'state pass', what: 'skipped', detail: stateSkipReason ?? 'fixture missing' });
+}
+
+for (const [st, href] of stateLeases) {
+    current = `state:${st}`;
+    const before = findings.length;
+    process.stdout.write(`  ${st.padEnd(42)}`);
+
+    await page.goto(href.startsWith('http') ? href : `${BASE}${href}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000);
+    await check(current);
+
+    // Every header action this STATE offers — the ones the active-only sweep can never reach.
+    const btns = await page.locator('.fi-header-ctn button, .fi-header button, header button').all();
+    const seen = [];
+    for (const b of btns) {
+        const t = (await b.innerText().catch(() => '')).trim();
+        if (! t || seen.includes(t) || /^\d+$/.test(t)) continue;
+        seen.push(t);
+    }
+
+    for (const label of seen) {
+        await page.goto(href.startsWith('http') ? href : `${BASE}${href}`, { waitUntil: 'networkidle' });
+        await page.waitForTimeout(500);
+        await page.locator('button', { hasText: label }).first().click({ timeout: 4000 }).catch(() => {});
+        await page.waitForTimeout(1000);
+        await check(`${current} → ${label}`);
+        await page.keyboard.press('Escape').catch(() => {});
+    }
+
+    stateActionCounts.push([st, seen.length]);
+    console.log(findings.length > before ? `✗ ${findings.length - before}` : `ok  (${seen.length} action${seen.length === 1 ? '' : 's'})`);
+}
+
+// THE PASS MUST PROVE IT SAW DIFFERENT LEASES. Identical action counts across every state is the
+// signature of the search bug this pass was written with: seven visits to one record. A draft and
+// a terminated lease genuinely differ — Terminate and Renew are state-gated — so if they do not,
+// either the navigation is wrong or the actions are not gated at all. Both are findings.
+if (stateLeases.length > 1) {
+    const distinct = new Set(stateActionCounts.map(([, n]) => n));
+    if (distinct.size === 1) {
+        findings.push({
+            where: 'state pass',
+            what: 'vacuous',
+            detail: `every state offered the same ${[...distinct][0]} actions — either the sweep `
+                + 'opened one lease seven times, or the header actions are not state-gated',
+        });
+    }
 }
 
 report();

@@ -72,3 +72,32 @@ and a tester clicking through is the only thing that catches "technically works
 but is confusing / wrong for the business". The automated suite + this manual
 layer + UAT sign-off together are what "confident before prod" means. See
 the release checklist for the gate itself.
+
+## The leasing browser sweep — `tools/leasing-sweep.mjs`
+
+`APP_URL=http://mall-management.test node tools/leasing-sweep.mjs` walks every leasing screen, every
+lease header action, every relation-manager tab and its own actions, and the lease record in every
+state. **A Filament action builds its schema on MOUNT**, so a page renders perfectly and fatals the
+moment somebody clicks — which is how the unimported-class and missing-`use` crashes reached
+production while every test called the service instead of the button.
+
+**Run `php artisan atriom:seed-lease-states` first, and `--drop` after.** All 33 demo leases are
+`active`, so five of the seven states `ValueSets` allows had never been opened in a browser, and
+three actions gate on state: *Settle the final account* (terminated / expired) and *Convert to
+holdover* — which is not a status at all but an ACTIVE lease with a term that has run out, so it
+needs its own fixture row however many statuses a sweep walks. The command writes a `state → id` map
+to `storage/app/private/sweep-lease-states.json` (git-ignored) which the sweep reads.
+
+**Three false "clean"s, all in this one tool, all worth remembering:**
+
+| What it reported | What it had measured |
+|---|---|
+| 13 screens ok | nothing — `waitForURL(/\/admin\//)` matches `/admin/login`, so it swept while signed out |
+| 7 states ok, 14 actions each | one lease, seven times — `?tableSearch=` does not bind Filament's table state from a URL |
+| "no SWEEP-\* leases" | a missing `readFileSync` import, swallowed by a bare `catch {}` |
+
+Each fix is now a property the tool asserts about ITSELF: it re-checks it is signed in on every
+screen, it navigates by id, **identical action counts across states is a finding** (either one lease
+was visited eight times or the actions are not gated at all), and **a skipped pass is a finding**
+rather than a pass. A sweep that can report success over work it did not do is worth less than no
+sweep, because it is believed.
