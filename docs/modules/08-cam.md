@@ -1041,13 +1041,34 @@ The **View working** action on the allocations relation manager
 because the visible columns stop adding up the moment a cap bites, which is the one time anyone
 looks.
 
-### Carry-forward needs a year to bank from
+### Carry-forward needs a year to bank from, and a LADDER to spend it on
 
 `camCapHeadroomBankedBefore()` reads earlier **allocations**, not earlier terms — so an armed
-carry-forward term shows nothing until a pool for an earlier year has been reconciled under it.
-Zööba is seeded armed; create a pool for a year before 2026, generate it, and the 2026 run then
-resolves `ceiling + banked`. Reading it from the allocations is deliberate: a cap renegotiated in
-year three must not retroactively change what year one banked.
+carry-forward term shows nothing until an earlier year has actually been reconciled under a cap.
+Reading it from the allocations is deliberate: a cap renegotiated in year three must not
+retroactively change what year one banked.
+
+**One term cannot demonstrate it.** Headroom is banked by a year coming in UNDER its ceiling and
+spent by a later one biting — so a single ceiling would have to clear one year and bite the next,
+which no real ladder does and which this dataset cannot produce anyway (every overlapping lease's
+2026 share is SMALLER than its 2025 one, because the 2026 pool has 39 participants against 11).
+Zööba is seeded as two rows: **2025 at 45,000** (above its 2025 share, so it banks) and **2026 at
+10,000** (below its 2026 share, so it bites and draws).
+
+The walk, on the demo books — it needs a **void**, because the 2025 allocations are billed and a
+billed allocation is never re-touched:
+
+1. Void Zööba's `cam 2025` allocation, then regenerate that pool. It allocates **35,654.03** against
+   a 45,000 ceiling and banks **9,345.97**.
+2. Regenerate `cam 2026`. The 2026 ceiling is 10,000 and the effective one is **19,345.97**, so an
+   18,036.86 share now fits: `cap_absorbed` falls from **8,036.86 to 0.00** and `cap_headroom_used`
+   reads 8,036.86.
+
+**Headroom is not scoped to a pool CODE.** The query filters on `period_year <` only, so a lease
+participating in two pools in one year banks and spends across both — and resolves the same annual
+ceiling against each of them independently. Neither is obviously wrong (a cap clause is usually
+written against the tenant's whole service-charge cost), but it is unstated, and a mall running a
+second pool alongside CAM is exactly where it would first be noticed.
 
 ---
 

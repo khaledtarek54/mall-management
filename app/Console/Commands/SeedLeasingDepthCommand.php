@@ -331,10 +331,24 @@ class SeedLeasingDepthCommand extends Command
         ],
         [
             'tenant' => 'Zööba',
-            'notes' => 'DEMO: CARRY-FORWARD — a year under the ceiling banks the difference for a later spike. '
-                .'Needs an earlier reconciled year to bank from before it shows anything.',
+            // TWO rows, because one cannot show it. Headroom is banked by a year that comes in
+            // UNDER its ceiling and spent by a later, tighter one — so a single term demonstrates
+            // carry-forward only if the same ceiling both clears one year and bites the next, which
+            // no real ladder does. The 2025 ceiling sits above this lease's 2025 share and the 2026
+            // one below its 2026 share, which is the whole mechanism in two rows.
+            'notes' => 'DEMO: CARRY-FORWARD, year 1 — the ceiling is ABOVE this year\'s share, so the '
+                .'difference is banked for a later spike instead of being lost.',
             'columns' => [
-                'cap_type' => 'absolute', 'cap_absolute_amount' => 10_000, 'cap_carry_forward' => true,
+                'cap_type' => 'absolute', 'cap_absolute_amount' => 45_000, 'cap_carry_forward' => true,
+            ],
+            'also' => [
+                'year' => 2026,
+                'notes' => 'DEMO: CARRY-FORWARD, year 2 — a tighter ceiling that DRAWS on what year 1 banked. '
+                    .'It absorbs nothing until the earlier year has actually been reconciled under its cap: '
+                    .'`camCapHeadroomBankedBefore()` reads the ALLOCATIONS, not the terms.',
+                'columns' => [
+                    'cap_type' => 'absolute', 'cap_absolute_amount' => 10_000, 'cap_carry_forward' => true,
+                ],
             ],
         ],
         [
@@ -393,6 +407,16 @@ class SeedLeasingDepthCommand extends Command
                 // so writing 5.0 straight to the model states a 500%-a-year cap that can never bite.
                 'notes' => $shape['notes'],
             ] + $shape['columns']);
+
+            // A shape that needs a LADDER rather than a single ceiling — carry-forward is the one,
+            // and a second row is the only way to state it.
+            if (isset($shape['also'])) {
+                LeaseCamTerm::create([
+                    'lease_id' => $lease->id,
+                    'effective_year' => $shape['also']['year'],
+                    'notes' => $shape['also']['notes'],
+                ] + $shape['also']['columns']);
+            }
         }
 
         $ended = $leases->first(fn ($l) => $l->tenant?->name === self::CAM_CAP_ENDED['tenant'] && ! in_array($l->id, $taken, true))
