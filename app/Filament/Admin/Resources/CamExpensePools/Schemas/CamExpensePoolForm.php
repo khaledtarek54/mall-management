@@ -35,6 +35,29 @@ class CamExpensePoolForm
         return $record !== null && $record->allocations()->where('status', '!=', 'pending')->exists();
     }
 
+    /**
+     * IS THIS TOTAL A FIGURE SOMEBODY TYPES, OR ONE THE SYSTEM DERIVES?
+     *
+     * Both totals were `->required()` unconditionally, so a pool on `Posted ledger accounts` and
+     * `What tenants were invoiced` — the two bases whose whole point is that NOBODY re-keys the
+     * number — could not be created without keying it. Reported from the panel: the form refused to
+     * submit with *"Please fill out this field"* on a column the operator had just told it to
+     * compute. Both columns are NOT NULL `default 0.00`, so the requirement bought nothing.
+     *
+     * Worse than an obstacle. Whatever is typed STAYS until somebody presses Sync, and
+     * `CamExpensePool::needsSourcing()` exists because that exact figure once read 0 while tenants
+     * had been invoiced 346,000 — the header lying while the allocations were right. Forcing a
+     * hand-keyed seed into a derived column is how that row gets created.
+     *
+     * So a derived total is read-only rather than merely optional: it is an OUTPUT, and a second
+     * way to write it is a second truth about the same money. The Sync action fills it, and the
+     * `never_sourced` hint already says so while it has not run.
+     */
+    public static function totalIsTyped(mixed $get, string $basisField, string $derivedBasis): bool
+    {
+        return $get($basisField) !== $derivedBasis;
+    }
+
     /** The result of a reconciliation, never an estimate paid into one. */
     private const NOT_AN_ESTIMATE = ['cam_recovery', 'cam_admin_fee'];
 
@@ -270,32 +293,42 @@ class CamExpensePoolForm
                     TextInput::make('total_actual_expense')
                         ->label(__('admin.fields.total_actual_expense'))
                         ->prefix('EGP')
-                        ->required()
+                        ->required(fn ($get) => self::totalIsTyped($get, 'expense_basis', CamExpensePool::BASIS_LEDGER))
                         ->numeric()
                         ->minValue(0)
                         ->step('0.01')
                         ->helperText(__('admin.helpers.cam_actual_expense'))
-                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
-                        ->hintColor('warning')
-                        ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
+                        ->disabled(fn (?CamExpensePool $record, $get) => self::basisFrozen($record)
+                            || ! self::totalIsTyped($get, 'expense_basis', CamExpensePool::BASIS_LEDGER))
+                        ->hintColor(fn (?CamExpensePool $record) => $record?->needsSourcing() ? 'danger' : 'warning')
+                        ->hint(fn (?CamExpensePool $record, $get) => match (true) {
+                            (bool) $record?->needsSourcing() => __('admin.cam.never_sourced'),
+                            self::basisFrozen($record) => __('admin.helpers.cam_basis_frozen'),
+                            // Says WHERE the number comes from, so a read-only zero reads as
+                            // "not sourced yet" rather than as a broken field.
+                            ! self::totalIsTyped($get, 'expense_basis', CamExpensePool::BASIS_LEDGER) => __('admin.cam.derived_press_sync'),
+                            default => null,
+                        }),
                     TextInput::make('total_estimated_collected')
                         ->label(__('admin.fields.total_estimated_collected'))
                         ->prefix('EGP')
-                        ->required()
+                        ->required(fn ($get) => self::totalIsTyped($get, 'estimate_basis', CamExpensePool::BASIS_BILLED))
                         ->numeric()
                         ->minValue(0)
                         ->step('0.01')
                         ->helperText(__('admin.helpers.cam_estimated_collected'))
                         ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cam_estimated_collected'))
-                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
+                        ->disabled(fn (?CamExpensePool $record, $get) => self::basisFrozen($record)
+                            || ! self::totalIsTyped($get, 'estimate_basis', CamExpensePool::BASIS_BILLED))
                         // Two different warnings, and the more urgent one wins. "Frozen" says you may
                         // not change this; "never sourced" says the figure beside it is not yet the
                         // answer to anything — a derived column still holding whatever it was created
                         // with, which `variance()` subtracts regardless.
                         ->hintColor(fn (?CamExpensePool $record) => $record?->needsSourcing() ? 'danger' : 'warning')
-                        ->hint(fn (?CamExpensePool $record) => match (true) {
+                        ->hint(fn (?CamExpensePool $record, $get) => match (true) {
                             (bool) $record?->needsSourcing() => __('admin.cam.never_sourced'),
                             self::basisFrozen($record) => __('admin.helpers.cam_basis_frozen'),
+                            ! self::totalIsTyped($get, 'estimate_basis', CamExpensePool::BASIS_BILLED) => __('admin.cam.derived_press_sync'),
                             default => null,
                         }),
                     // THE LANDLORD'S SIDE — Yardi's recovery worksheet always shows it, and splits

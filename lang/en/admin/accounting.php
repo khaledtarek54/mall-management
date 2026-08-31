@@ -574,6 +574,7 @@ return [
         'landlord_share_body' => ':total of this pool is not recovered from tenants — :vacancy on vacant space (the denominator basis) and :caps refused by cap clauses.',
         'estimate_event_reason' => 'Service-charge estimate re-based from the :year recovery reconciliation to :amount a month.',
         'never_sourced' => 'Never sourced — run Sync from ledger; this figure is not yet derived',
+        'derived_press_sync' => 'Derived from the sources above — press “Re-source from the ledger”',
         'never' => 'Never',
         'sync_from_ledger' => 'Re-source from the ledger',
         'synced' => 'Pool re-sourced',

@@ -977,6 +977,32 @@ public function markBilled() {
 
 ---
 
+## A derived total is not a field you type (2026-08-31)
+
+`total_actual_expense` and `total_estimated_collected` were `->required()` **unconditionally**, so a
+pool on `Posted ledger accounts` and `What tenants were invoiced` — the two bases whose entire point
+is that nobody re-keys the figure — **could not be created without keying it**. Reported from the
+panel: the browser refused to submit with *"Please fill out this field"* on a column the operator had
+just told the system to compute. Both columns are NOT NULL `default 0.00`, so the requirement
+protected nothing.
+
+Worse than an obstacle. Whatever is typed **stays** until somebody presses Sync, and
+`needsSourcing()` exists because that exact figure once read 0 while the tenants had been invoiced
+346,000 — the pool header lying while every allocation was right, which §9 calls the harder kind of
+wrong to notice. Requiring a hand-keyed seed for a derived column is how that row gets created.
+
+So a derived total is **read-only**, not merely optional: it is an OUTPUT, and a second way to write
+it is a second truth about the same money. A disabled Filament field is not dehydrated, so a value
+sent for one is discarded rather than stored. The `never_sourced` hint already covers the state
+while Sync has not run, and a new `derived_press_sync` hint says where the figure comes from, so a
+read-only 0.00 reads as *not sourced yet* rather than as a broken field. Each total follows its OWN
+basis — one may be derived while the other is stated.
+
+(`CamDerivedTotalIsNotTypedTest`, both teeth mutation-proved: restoring the unconditional
+`required()` and leaving the field merely optional-but-writable each turn it red.)
+
+---
+
 ## What freezes a reconciliation is BILLING it, not calculating it (2026-08-31)
 
 `generateAllocations()` froze the participant set, the shares and the denominator as soon as **any**
