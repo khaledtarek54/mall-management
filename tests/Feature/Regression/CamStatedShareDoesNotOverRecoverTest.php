@@ -78,7 +78,11 @@ beforeEach(function () {
         'lease_id' => $lease->id,
         'effective_year' => $year,
         'stated_share_pct' => $pct,
-        'cap_type' => 'absolute',
+        // This term states a SHARE and no cap, so cap_type is NULL — the value the column has
+        // meant "no ceiling" since it was made nullable. It read 'absolute' here as filler from
+        // the days the column was NOT NULL, which `LeaseCamTerm`'s completeness guard now refuses:
+        // an absolute cap with no amount resolves to nothing while the lease still shows a cap.
+        'cap_type' => null,
         'cap_scope' => LeaseCamTerm::SCOPE_TOTAL,
         'cap_carry_forward' => false,
     ]);

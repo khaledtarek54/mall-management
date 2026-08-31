@@ -551,6 +551,25 @@ pool.variance() = total_actual_expense - total_estimated_collected
 > exists to hold. `LeaseCamTerm::effectiveCap()` already treats a non-matching value as no ceiling,
 > so null had always meant "no cap" to the logic and only the schema disagreed. Now nullable, rather
 > than a fourth enum value that every `in_array($this->cap_type, …)` would have to learn.
+>
+> **And the SCREEN kept requiring it for another week (2026-08-31).** The column was freed, the
+> service honoured it, `CamDenominatorTest` pinned the arithmetic — and
+> `LeaseCamTermsRelationManager` still had `->required()` on `cap_type` over exactly
+> `absolute|yoy|both`, so the row the table exists to hold was unreachable from the only screen that
+> writes it (measured: the create action returns `mountedActions.0.data.cap_type` required). Worse
+> than a missing feature: to record *"your share is 8%"* the operator had to pick a cap type and fill
+> its now-mandatory figures, **inventing a ceiling that then really bites** on the tenant-facing
+> recovery invoice. Reachable-but-not-configurable, with a wrong number at the end of it rather than
+> a dead screen. Null is also the only way to **END** a cap — a later term stating none supersedes an
+> earlier ceiling from its own year on, where deleting the old term would uncap the years already
+> reconciled under it. The empty option carries a WORDED placeholder (*"No cap — stated share only"*),
+> because Filament's own *"Select an option"* reads as an unanswered question rather than as an
+> answer, and the table column carries the same placeholder — a term with no ceiling supersedes an
+> earlier one, so a blank cell would read as a gap rather than as a decision. The two
+> `!== 'none'` visibility checks beside it tested against a value the enum has never held, so they
+> were true for every term ever written and hid nothing; they now read `filled()`, which is what
+> hides scope and carry-forward on a term that imposes no ceiling for them to describe.
+> (`CamTermMayStateAShareWithNoCapTest`, both teeth mutation-proved.)
 
 > **A non-annual true-up is EG-41, and it is an L rather than a setting.** `cam_expense_pools` is
 > `unique(asset_id, period_year)` — one pool per property per YEAR — so a quarterly or half-yearly
@@ -958,6 +977,80 @@ public function markBilled() {
 
 ---
 
+## Walking a cap by hand (2026-08-31)
+
+Every clause in this module is invisible until it BITES, and the demo carried exactly one absolute
+cap that never did — so `absolute`, `both`, simple-vs-compounding `yoy`, `controllable` scope,
+carry-forward and a stated share with no cap were all indistinguishable from unbuilt. This is the
+dataset and the route that make each one checkable from the panel.
+
+**Lay the data down:** `php artisan atriom:seed-leasing-depth` (idempotent; `--fresh` re-lays it).
+`SeedLeasingDepthCommand::CAM_CAP_SHAPES` is the matrix — one shape per lease, each naming in its
+own `notes` what it demonstrates, on `effective_year` 2025 so a 2025 term governing the 2026 pool is
+the effective-dating rule live in the data rather than described here.
+
+On the demo books, regenerating pool `cam 2026` (612,000 actual) then reads:
+
+| Tenant | What it shows | allocated | ceiling | capped | absorbed | true-up |
+|---|---|---|---|---|---|---|
+| Cilantro | yoy compounding, from `DemoSeeder` | 52,983.90 | 19,845.00 | 19,845.00 | 33,138.90 | **−30,368.50** |
+| California Gym | absolute, bites | 40,582.94 | 25,000.00 | 25,000.00 | 15,582.94 | −13,460.96 |
+| El Ezaby Pharmacy | yoy **compounding** 18,000 @5% | 27,055.30 | **19,845.00** | 19,845.00 | 7,210.30 | −5,795.64 |
+| Smart Gym | yoy **simple**, same base and rate | 20,291.47 | **19,800.00** | 19,800.00 | 491.47 | +569.52 |
+| Abou El Sid | `both` — absolute 30,000 vs yoy 16,537.50 | 20,792.09 | **16,537.50** | 16,537.50 | 4,254.59 | −3,167.42 |
+| Cleopatra Wellness Spa | scope = `controllable` | 18,685.58 | 12,000.00 | 12,000.00 | 6,685.58 | −5,708.56 |
+| Zööba | carry-forward armed | 18,036.86 | 10,000.00 | 10,000.00 | 8,036.86 | −7,093.76 |
+| Mobica | capped 2024, **ended** 2027 | 13,589.46 | 8,000.00 | 8,000.00 | 5,589.46 | −4,878.90 |
+| Cook Door | a cap **far above** any share | 22,546.08 | 400,000.00 | 22,546.08 | **0.00** | +1,178.88 |
+| Town Team | stated share, **no cap** | — | — | — | 0.00 | — |
+
+`landlordShare()` then reports `caps: 80,990.10`, and `Σ allocated + unrecovered = 612,000.00`
+exactly — the invariant every clause must leave standing.
+
+**The pairs are what make it checkable.** *Smart Gym against El Ezaby* is one toggle — 19,800 against
+19,845 — so `compounding` is provable rather than asserted. *Abou El Sid* states an absolute ceiling
+deliberately ABOVE its year-on-year one, so which of the two `both` picked can be read off the row.
+*Cook Door* is the case nobody thinks to seed: a cap that does not bite absorbs nothing and must
+leave the true-up byte-identical to the no-cap path.
+
+### Three things the route gets wrong if you do not know them
+
+**A re-run reuses the FROZEN shares, so a stated share added afterwards does nothing.** `$isRerun`
+is "this pool already has allocations", and the share basis is established on the first run and
+frozen thereafter (§9). The CAP is re-resolved every run — which is what makes the table above
+reachable by regenerating an existing pool — but `stated_share_pct` is not. To exercise a stated
+share, reconcile a pool that has never been generated. Nothing on screen distinguishes the two.
+
+**A stated share ABOVE the area share refuses the whole run, by design.** On an `occupied`
+denominator the shares already sum to 100%, so raising one past its area share projects a total over
+the pool and `generateAllocations` throws rather than over-recovering. Town Team's seeded 1.5% sits
+BELOW its ~2.03% area share for exactly that reason. Raising it is the way to see the guard fire —
+and the refusal is the feature, not a blocked run.
+
+**`controllable` scope needs the POOL to say what is controllable.** `controllableShare()` defaults
+to 1.0, so a controllable-scoped cap on an unclassified pool behaves exactly like an unscoped one —
+Cleopatra's row above is that default. Set the pool's controllable % (or attach ledger accounts that
+classify themselves) and the same term starts letting the uncontrollable part pass through above the
+ceiling.
+
+### Reading a single row
+
+The **View working** action on the allocations relation manager
+(`CamReconciliationService::explainAllocation()`) is the per-row ledger: share → allocated → ceiling
+→ capped → absorbed → estimate → true-up → recovery VAT → admin fee + VAT → net invoiced. It exists
+because the visible columns stop adding up the moment a cap bites, which is the one time anyone
+looks.
+
+### Carry-forward needs a year to bank from
+
+`camCapHeadroomBankedBefore()` reads earlier **allocations**, not earlier terms — so an armed
+carry-forward term shows nothing until a pool for an earlier year has been reconciled under it.
+Zööba is seeded armed; create a pool for a year before 2026, generate it, and the 2026 run then
+resolves `ceiling + banked`. Reading it from the allocations is deliberate: a cap renegotiated in
+year three must not retroactively change what year one banked.
+
+---
+
 ## 10. Tests & related modules
 
 ### Test files
@@ -968,8 +1061,10 @@ public function markBilled() {
 | `tests/Feature/Regression/CamAllocationDoubleBillTest.php` | Double-bill regression (fixed). 1 test case pinning the fix. |
 | `tests/Feature/Services/CamAutoTrueUpTest.php` | `autoTrueUpForYear()` with/without auto-bill, year skipping, empty report, idempotency, CLI command wiring. ~86 lines, 6 test cases. |
 | `tests/Feature/Resources/PortalCamAllocationScopingTest.php` | Portal tenant isolation (Tenant A sees only their allocations). 2 test cases. |
+| `tests/Feature/Regression/CamTermMayStateAShareWithNoCapTest.php` | A term may state a SHARE with no cap **through the panel**; an incomplete cap is still refused; a later no-cap term ENDS an earlier ceiling; the tie-out survives. |
 
-**Total coverage**: ~27 test cases, all passing.
+**Total coverage**: `vendor/bin/pest --filter=Cam` — the count is not written here, because the last
+one written down (*"~27 test cases"*) was stale by an order of magnitude before anyone read it.
 
 ### Running tests
 

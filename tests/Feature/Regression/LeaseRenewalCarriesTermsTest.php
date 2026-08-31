@@ -131,7 +131,16 @@ it('carries the CAM cap, so the true-up stays capped', function () {
         // `LeaseCamTerm::CAP_TYPES` is absolute|yoy|both, so the old fixture stored a cap the
         // reconciliation could never match. Surfaced when the column gained a value set.
         'cap_type' => 'yoy',
-        'yoy_pct' => 5,
+        // A COMPLETE year-on-year term. `base_year` + `base_year_amount` are what it resolves a
+        // ceiling FROM, and without them `resolveCeiling()` returns null — a cap that shows on the
+        // lease and bills the tenant in full, which `LeaseCamTerm::REQUIRED_BY_TYPE` now refuses.
+        // The fixture carried neither, so it was asserting that a renewal copies a cap that could
+        // never have capped anything.
+        'base_year' => 2026,
+        'base_year_amount' => 40_000,
+        // A FRACTION, not a percent: the form shows 5 and stores 0.05. Written as `5` this states
+        // a 500%-a-year cap, which no ceiling ever reaches.
+        'yoy_pct' => 0.05,
         'stated_share_pct' => 12.5,
     ]);
 
@@ -140,8 +149,11 @@ it('carries the CAM cap, so the true-up stays capped', function () {
 
     expect($renewal->camTerms()->count())->toBe(1)
         ->and($term->cap_type)->toBe('yoy')
-        ->and((float) $term->yoy_pct)->toBe(5.0)
-        ->and((float) $term->stated_share_pct)->toBe(12.5);
+        ->and((float) $term->yoy_pct)->toBe(0.05)
+        ->and((float) $term->stated_share_pct)->toBe(12.5)
+        // The whole point of carrying it: the renewal resolves a real ceiling of its own.
+        // Compounding (the default), two years on from the 2026 base: 40,000 × 1.05² = 44,100.
+        ->and($term->resolveCeiling(2028))->toBe(44_100.0);
 });
 
 it('carries the percentage-rent ladder, so the overage is not zero every month', function () {

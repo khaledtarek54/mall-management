@@ -265,36 +265,155 @@ class SeedLeasingDepthCommand extends Command
     }
 
     /**
-     * A CAM cap on two leases — one absolute, one year-on-year — because a cap only shows itself
-     * when the pool's apportionment tries to exceed it, and the two are capped by different rules.
+     * EVERY CAP SHAPE THE ENGINE CAN RESOLVE, ONE PER LEASE, EACH LABELLED IN ITS OWN NOTES.
+     *
+     * A cap only shows itself when the apportionment tries to exceed it, so a demo carrying one
+     * absolute cap teaches one branch of six and leaves the rest indistinguishable from unbuilt —
+     * the same reasoning that made this command exist at all.
+     *
+     * The pairs are the point. `yoy` compounding and `yoy` simple sit on the SAME base and rate so
+     * the two ceilings can be read side by side (19,845 against 19,800 in 2026); `both` states an
+     * absolute ceiling deliberately ABOVE its year-on-year one, so which of the two won is provable
+     * rather than assumed; and one cap is set far above any share it could ever meet, because "a
+     * cap that does not bite is invisible" is a fact about the feature nobody can check against a
+     * dataset where every cap bites.
+     *
+     * `effective_year` is 2025, not this year: the resolver takes the latest term ≤ the reconciled
+     * year, so a 2025 term governing a 2026 pool is the effective-dating rule live in the data
+     * rather than described in a doc. The 2025 pool is already billed, and a billed allocation is
+     * never re-touched, so nothing already reconciled moves.
+     *
+     * @var list<array{tenant: ?string, notes: string, columns: array<string, mixed>}>
      */
+    private const CAM_CAP_SHAPES = [
+        [
+            'tenant' => 'California Gym',
+            'notes' => 'DEMO: absolute cap that BITES — the landlord absorbs everything above 25,000.',
+            'columns' => ['cap_type' => 'absolute', 'cap_absolute_amount' => 25_000],
+        ],
+        [
+            'tenant' => 'Cook Door',
+            'notes' => 'DEMO: absolute cap set far ABOVE any share — a cap that never bites absorbs nothing.',
+            'columns' => ['cap_type' => 'absolute', 'cap_absolute_amount' => 400_000],
+        ],
+        [
+            'tenant' => 'El Ezaby Pharmacy',
+            'notes' => 'DEMO: year-on-year, COMPOUNDING — 18,000 base × 1.05^n. Compare with Smart Gym.',
+            'columns' => [
+                'cap_type' => 'yoy', 'base_year' => 2024, 'base_year_amount' => 18_000,
+                'yoy_pct' => 0.05, 'compounding' => true,
+            ],
+        ],
+        [
+            'tenant' => 'Smart Gym',
+            'notes' => 'DEMO: year-on-year, SIMPLE — 18,000 base × (1 + 0.05n). Same clause, one toggle apart.',
+            'columns' => [
+                'cap_type' => 'yoy', 'base_year' => 2024, 'base_year_amount' => 18_000,
+                'yoy_pct' => 0.05, 'compounding' => false,
+            ],
+        ],
+        [
+            'tenant' => 'Abou El Sid',
+            'notes' => 'DEMO: BOTH — absolute 30,000 against a year-on-year 16,537.50. The tighter one wins.',
+            'columns' => [
+                'cap_type' => 'both', 'cap_absolute_amount' => 30_000,
+                'base_year' => 2024, 'base_year_amount' => 15_000, 'yoy_pct' => 0.05, 'compounding' => true,
+            ],
+        ],
+        [
+            'tenant' => 'Cleopatra Wellness Spa',
+            'notes' => 'DEMO: scope = CONTROLLABLE — the ceiling bites on managed cost only; rates, insurance '
+                .'and utilities pass through above it. Set the pool\'s controllable % to see it move.',
+            'columns' => [
+                'cap_type' => 'absolute', 'cap_absolute_amount' => 12_000,
+                'cap_scope' => LeaseCamTerm::SCOPE_CONTROLLABLE,
+            ],
+        ],
+        [
+            'tenant' => 'Zööba',
+            'notes' => 'DEMO: CARRY-FORWARD — a year under the ceiling banks the difference for a later spike. '
+                .'Needs an earlier reconciled year to bank from before it shows anything.',
+            'columns' => [
+                'cap_type' => 'absolute', 'cap_absolute_amount' => 10_000, 'cap_carry_forward' => true,
+            ],
+        ],
+        [
+            'tenant' => 'Town Team',
+            // Deliberately BELOW this lease's area share. Above it, the shares would promise away
+            // more of the pool than it holds and `generateAllocations` refuses the whole run —
+            // which is the guard working, and a poor default for a dataset meant to be reconciled.
+            'notes' => 'DEMO: a STATED share and NO cap — the percentage the contract simply names. '
+                .'Below the area share, so less of the pool is recovered and the landlord bears the rest.',
+            'columns' => ['cap_type' => null, 'stated_share_pct' => 1.5],
+        ],
+    ];
+
+    /**
+     * A lease whose cap is later ENDED — two rows, which is the only way to express it.
+     *
+     * Deleting the capped year's term would uncap the years already reconciled under it; a later
+     * term stating no ceiling supersedes it from its own year on and leaves the past alone.
+     *
+     * @var array{tenant: string, capped_year: int, ends_year: int, amount: int}
+     */
+    private const CAM_CAP_ENDED = [
+        'tenant' => 'Mobica', 'capped_year' => 2024, 'ends_year' => 2027, 'amount' => 8_000,
+    ];
+
     private function seedCamTerms(iterable $leases): void
     {
-        foreach (collect($leases)->take(2) as $i => $lease) {
-            if ($lease->camTerms()->exists()) {
+        $leases = collect($leases);
+        $spare = $leases->filter(fn ($l) => ! $l->camTerms()->exists())->values();
+        $taken = [];
+
+        foreach (self::CAM_CAP_SHAPES as $shape) {
+            // Prefer the named tenant so the demo reads as a mall rather than as a fixture, but
+            // never DEPEND on it: this command must still lay the matrix down on a database
+            // DemoSeeder never touched.
+            $lease = $leases->first(fn ($l) => $l->tenant?->name === $shape['tenant'] && ! in_array($l->id, $taken, true))
+                ?? $spare->first(fn ($l) => ! in_array($l->id, $taken, true));
+
+            // A shape whose lease already carries a term is SKIPPED, not re-keyed onto the next
+            // one. Keying the shape to the loop index instead is what this replaced, and it cost
+            // the demo a whole branch: the first lease already carried a DemoSeeder cap, so the
+            // `absolute` arm never ran and no absolute cap existed anywhere on the books.
+            if ($lease === null || $lease->camTerms()->exists()) {
                 continue;
             }
 
+            $taken[] = $lease->id;
+
             LeaseCamTerm::create([
                 'lease_id' => $lease->id,
-                'effective_year' => (int) CarbonImmutable::today()->year,
-                'cap_type' => $i === 0 ? 'absolute' : 'yoy',
-                'cap_absolute_amount' => $i === 0 ? 180_000 : null,
+                // 2025, not this year: a 2025 term governing a 2026 pool IS the effective-dating
+                // rule, and the resolver takes the latest term on or before the reconciled year.
+                'effective_year' => 2025,
                 // A FRACTION, not a percent. The form shows the operator 5 and stores 0.05
                 // (`dehydrateStateUsing`), and `resolveCeiling()` computes base × (1 + pct)^years —
-                // so writing 5.0 straight to the model, as this did, states a 500%-a-year cap that
-                // can never bite. Seeder-only: no screen can produce it.
-                'yoy_pct' => $i === 0 ? null : 0.05,
-                'base_year' => $i === 0 ? null : (int) CarbonImmutable::today()->subYear()->year,
-                // Without this the yoy leg resolves to NULL and the "cap" caps nothing, which is
-                // what the demo books carried. The model now refuses the row outright.
-                'base_year_amount' => $i === 0 ? null : 120_000,
-                'compounding' => $i !== 0,
-                'cap_carry_forward' => true,
-                'notes' => 'Seeded by atriom:seed-leasing-depth',
+                // so writing 5.0 straight to the model states a 500%-a-year cap that can never bite.
+                'notes' => $shape['notes'],
+            ] + $shape['columns']);
+        }
+
+        $ended = $leases->first(fn ($l) => $l->tenant?->name === self::CAM_CAP_ENDED['tenant'] && ! in_array($l->id, $taken, true))
+            ?? $spare->first(fn ($l) => ! in_array($l->id, $taken, true));
+
+        if ($ended !== null && ! $ended->camTerms()->exists()) {
+            $ended->camTerms()->create([
+                'effective_year' => self::CAM_CAP_ENDED['capped_year'],
+                'cap_type' => 'absolute',
+                'cap_absolute_amount' => self::CAM_CAP_ENDED['amount'],
+                'notes' => 'DEMO: capped from '.self::CAM_CAP_ENDED['capped_year'].' — and ENDED by the row below it.',
+            ]);
+            $ended->camTerms()->create([
+                'effective_year' => self::CAM_CAP_ENDED['ends_year'],
+                'cap_type' => null,
+                'notes' => 'DEMO: no cap from '.self::CAM_CAP_ENDED['ends_year'].' on. The earlier ceiling still '
+                    .'governs every year before this one — deleting it would have uncapped those too.',
             ]);
         }
 
-        $this->line('  CAM caps   ✓');
+        $this->line('  CAM caps   ✓  ('.LeaseCamTerm::count().' terms: absolute · yoy compounding · yoy simple · '
+            .'both · controllable · carry-forward · stated share with no cap · a cap that ends)');
     }
 }

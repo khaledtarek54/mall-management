@@ -56,11 +56,20 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->default(fn () => now()->year)
                 ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('lease_id', $this->getOwnerRecord()->getKey()))
                 ->helperText(__('admin.helpers.cam_effective_year')),
+            // NOT required. A term may state a SHARE and no ceiling — the percentage the parties
+            // simply agreed — which is what the column was made nullable for on 2026-08-23; the
+            // form kept requiring it, so the row the table exists to hold was unreachable from the
+            // panel and an operator recording "your share is 8%" had to INVENT a cap that then
+            // really bit. Null is also how a cap is ENDED: a later term stating none supersedes an
+            // earlier ceiling from its own year on, which deleting the old term cannot express.
+            //
+            // The placeholder carries that meaning. Filament's own "Select an option" would read as
+            // an unanswered question rather than as an answer.
             Select::make('cap_type')
                 ->label(__('admin.fields.cam_cap_type'))
                 ->helperText(__('admin.lease_cam_terms.help.cap_type'))
                 ->options(fn () => __('admin.enums.cam_cap_type'))
-                ->required()
+                ->placeholder(__('admin.lease_cam_terms.no_cap'))
                 ->native(false)
                 ->live()
                 ->default('absolute'),
@@ -77,11 +86,15 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->default(LeaseCamTerm::SCOPE_TOTAL)
                 ->required()
                 ->native(false)
-                ->visible(fn (Get $get) => $get('cap_type') !== 'none'),
+                // `filled()`, not `!== 'none'`: 'none' was never a value in `cam_cap_type` — the
+                // enum is absolute|yoy|both — so both of these read TRUE for every term ever
+                // written and hid nothing. Scope and carry-forward describe how a CEILING bites, so
+                // on a share-only term they are two controls answering a question nobody asked.
+                ->visible(fn (Get $get) => filled($get('cap_type'))),
             Toggle::make('cap_carry_forward')
                 ->label(__('admin.fields.cam_cap_carry_forward'))
                 ->helperText(__('admin.helpers.cam_cap_carry_forward'))
-                ->visible(fn (Get $get) => $get('cap_type') !== 'none'),
+                ->visible(fn (Get $get) => filled($get('cap_type'))),
             TextInput::make('stated_share_pct')
                 ->label(__('admin.fields.cam_stated_share_pct'))
                 ->helperText(__('admin.helpers.cam_stated_share_pct'))
@@ -155,9 +168,13 @@ class LeaseCamTermsRelationManager extends RelationManager
                 TextColumn::make('effective_year')
                     ->label(__('admin.fields.cam_effective_year'))
                     ->sortable(),
+                // A term with no ceiling SUPERSEDES an earlier one from its own year on, so the
+                // cell must read as a decision rather than as a gap. Filament skips
+                // formatStateUsing for a null state and renders the placeholder instead.
                 TextColumn::make('cap_type')
                     ->label(__('admin.fields.cam_cap_type'))
                     ->badge()
+                    ->placeholder(__('admin.lease_cam_terms.no_cap'))
                     ->formatStateUsing(fn (string $state) => __("admin.enums.cam_cap_type.{$state}")),
                 TextColumn::make('cap_absolute_amount')
                     ->label(__('admin.fields.cam_cap_absolute_amount'))
