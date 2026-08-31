@@ -1050,6 +1050,31 @@ deliberately ABOVE its year-on-year one, so which of the two `both` picked can b
 *Cook Door* is the case nobody thinks to seed: a cap that does not bite absorbs nothing and must
 leave the true-up byte-identical to the no-cap path.
 
+### What each control actually does, measured
+
+Walked against the demo books on 2026-08-31 and rolled back. Every row is one change to one term or
+one pool field, then a regenerate of `cam 2026` — so the effect of each control is isolated.
+
+| Change | Row before → after |
+|---|---|
+| **Smart Gym**: `compounding` off → on | ceiling **19,800 → 19,845**, absorbed 491.47 → 446.47 |
+| **Abou El Sid**: `both`, absolute leg 30,000 → 10,000 | ceiling **16,537.50 → 10,000** (the absolute leg becomes the tighter one), absorbed 4,254.59 → 10,792.09 |
+| **Mobica**: move the no-cap term from 2027 to 2026 | ceiling **8,000 → none**, absorbed 5,589.46 → **0.00**, true-up −4,878.90 → **+710.56** |
+| **Pool**: `controllable_pct` unset → 90 → 50 (Cleopatra, ceiling 12,000) | absorbed **6,685.58 → 4,817.02 → 0.00**; at 50% the pass-through alone exceeds the ceiling and the cap stops biting entirely |
+| **Zööba**: void 2025, regenerate both years | banks 9,345.97 in 2025; 2026 absorbed **8,036.86 → 0.00**, headroom used 8,036.86 |
+
+**Stated shares, both directions.** Adding Town Team's 1.5% and regenerating the EXISTING 2026 pool
+left its share at 2.0262% — frozen, as designed and with nothing on screen to say so. On a fresh 2027
+pool the same term allocated **7,500.00 at 1.5%**, and `landlord_unrecovered` carried the difference.
+Raised to 12% on a fresh 2028 pool, the run was refused: *"the contractually stated CAM shares on
+this pool add up to **109.89%** — more than the pool itself"*.
+
+**Billing, all three outcomes.** A negative true-up (Cilantro, −30,368.50) settles as a **credit
+note** with the admin fee still billed on its own charge; a positive one (Smart Gym +569.52, Cook
+Door +1,178.88) raises a **recovery charge** plus its fee charge. The fee-only branch needs a true-up
+of exactly zero, which no natural reconciliation produces — it is reachable only by setting the
+estimate equal to the capped cost.
+
 ### Three things the route gets wrong if you do not know them
 
 **A re-run reuses the FROZEN shares, so a stated share added afterwards does nothing.** `$isRerun`
