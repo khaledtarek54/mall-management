@@ -147,7 +147,11 @@ class SeedLeasingDepthCommand extends Command
             ['type' => 'exclusivity', 'summary' => 'No other tenant in the mall may trade primarily in sportswear.', 'ref' => 'Cl. 14.2'],
             ['type' => 'radius', 'summary' => 'Tenant may not open a competing store within 5 km for the term.', 'radius' => 5.0, 'ref' => 'Cl. 14.5'],
             ['type' => 'kick_out', 'summary' => 'Either party may terminate if annual sales fall below EGP 6,000,000, on 90 days notice.', 'amount' => 6_000_000, 'notice' => 90, 'ref' => 'Cl. 21.1'],
-            ['type' => 'co_tenancy', 'summary' => 'Rent abates 50% if the anchor tenant ceases trading for more than 60 days.', 'pct' => 50.0, 'notice' => 60, 'ref' => 'Cl. 22.3'],
+            // The summary must DESCRIBE the numbers beside it. This read "Rent abates 50% … for more
+            // than 60 days", where 50 is the OCCUPANCY FLOOR and 60 is the NOTICE PERIOD — a
+            // sentence describing a different rule from the one the columns encode, on the row an
+            // operator learns the feature from.
+            ['type' => 'co_tenancy', 'summary' => 'Rent abates while mall occupancy is below 50%, claimable on 60 days written notice.', 'pct' => 50.0, 'notice' => 60, 'ref' => 'Cl. 22.3'],
             ['type' => 'operating_hours', 'summary' => 'Store must trade 10:00–22:00 daily, and 10:00–00:00 through Ramadan.', 'ref' => 'Cl. 9.1'],
             ['type' => 'signage', 'summary' => 'One fascia sign to the mall standard; any change needs written approval.', 'ref' => 'Cl. 11.4'],
             ['type' => 'guarantor', 'summary' => 'Parent company guarantees all obligations for the full term.', 'ref' => 'Cl. 27'],
