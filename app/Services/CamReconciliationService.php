@@ -1127,7 +1127,14 @@ class CamReconciliationService
         // true-up onto the tenant's regular monthly invoice.
         $charge = Charge::create($allocation->chargeLink() + [
             'name' => $name,
-            'type' => 'other',
+            // THE ANCHOR IS CLASSIFIED AS WHAT IT IS. It read `other`, so the lease's Charge
+            // Schedule — which GROUPS by type — filed every reconciliation row under
+            // "Other" beside genuinely miscellaneous charges, while the invoice line it settled
+            // said `cam_recovery`. Two classifications of one movement, and the register was the
+            // wrong one. `cam_recovery` is a real charge code, `charges.type` is governed by that
+            // catalogue, and nothing keys off the old value: the GL posts from the invoice ITEM
+            // and the billing engine loads only `is_active` charges, which this deliberately is not.
+            'type' => 'cam_recovery',
             'amount' => $amount,
             'currency' => 'EGP',
             'frequency' => 'one_time',
@@ -1189,7 +1196,10 @@ class CamReconciliationService
         // engine never re-bills it, exactly like the cost charge above.
         $charge = Charge::create($allocation->chargeLink() + [
             'name' => $name,
-            'type' => 'other',
+            // Its own code, not the recovery's: the fee is the landlord's REVENUE and the recovery
+            // is a cost pass-through, which is exactly why the fee has always been a sibling line
+            // rather than folded into the true-up.
+            'type' => 'cam_admin_fee',
             'amount' => $fee,
             'currency' => 'EGP',
             'frequency' => 'one_time',

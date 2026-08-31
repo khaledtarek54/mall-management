@@ -113,7 +113,7 @@ it('cam:reconcile --auto-bill also creates charges', function () {
         ->expectsOutputToContain('1 billed')
         ->assertExitCode(0);
 
-    expect(Charge::where('lease_id', $lease->id)->where('type', 'other')->count())->toBe(1);
+    expect(Charge::where('lease_id', $lease->id)->where('type', 'cam_recovery')->count())->toBe(1);
 });
 
 /* ───────── Jobs (drive handle()) ───────── */

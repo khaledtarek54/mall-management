@@ -187,7 +187,11 @@ it('billing an allocation creates a one-off CAM true-up charge on the lease', fu
     $charge = Charge::find($billed->billed_charge_id);
     expect($charge)->not->toBeNull();
     expect($charge->lease_id)->toBe($lease->id);
-    expect($charge->type)->toBe('other');
+    // `cam_recovery`, not `other`. This anchor is inert (is_active=false) but it is still a row on
+    // the lease's Charge Schedule, and that table groups by type — so `other` filed every
+    // reconciliation beside genuinely miscellaneous charges while the invoice line it settled
+    // already said `cam_recovery`. One movement, one classification.
+    expect($charge->type)->toBe('cam_recovery');
     expect($charge->frequency)->toBe('one_time');
     expect((float) $charge->amount)->toBe(10000.0);          // true_up = 50000 - 40000
     expect((bool) $charge->vat_applicable)->toBeFalse();
@@ -237,7 +241,7 @@ it('re-billing an already-billed allocation is a no-op (no duplicate charge)', f
     $second = camService()->bill($alloc->fresh());
 
     expect($second->billed_charge_id)->toBe($chargeId);
-    expect(Charge::where('lease_id', $lease->id)->where('type', 'other')->count())->toBe(1);
+    expect(Charge::where('lease_id', $lease->id)->where('type', 'cam_recovery')->count())->toBe(1);
 });
 
 /*
@@ -349,6 +353,6 @@ it('two pools on different assets bill onto their own leases only', function () 
     camService()->bill($poolA->allocations()->sole());
     camService()->bill($poolB->allocations()->sole());
 
-    expect((float) Charge::where('lease_id', $leaseA->id)->where('type', 'other')->sole()->amount)->toBe(10000.0);
-    expect((float) Charge::where('lease_id', $leaseB->id)->where('type', 'other')->sole()->amount)->toBe(20000.0);
+    expect((float) Charge::where('lease_id', $leaseA->id)->where('type', 'cam_recovery')->sole()->amount)->toBe(10000.0);
+    expect((float) Charge::where('lease_id', $leaseB->id)->where('type', 'cam_recovery')->sole()->amount)->toBe(20000.0);
 });

@@ -97,7 +97,7 @@ it('generates pro-rata allocations and flips the pool to reconciling (review-onl
     expect($pool->allocations()->where('status', 'pending')->count())->toBe(2);
 
     // Review-only run must NOT bill anything.
-    expect(Charge::where('type', 'other')->count())->toBe(0);
+    expect(Charge::where('type', 'cam_recovery')->count())->toBe(0);
 });
 
 /*
@@ -118,7 +118,7 @@ it('with --auto-bill it bills every allocation and marks the pool reconciled', f
     expect($pool->reconciled_at)->not->toBeNull();
 
     // One CAM true-up charge per lease, stamped with the period year.
-    $charges = Charge::where('type', 'other')->get();
+    $charges = Charge::where('type', 'cam_recovery')->get();
     expect($charges)->toHaveCount(2);
     expect($charges->every(fn ($c) => str_contains($c->name, '2025')))->toBeTrue();
 
@@ -156,7 +156,7 @@ it('is idempotent + lock-safe with --auto-bill: a second run does not double-bil
         ->expectsOutputToContain('2 billed')
         ->assertExitCode(0);
 
-    $chargeIds = Charge::where('type', 'other')->pluck('id')->sort()->values();
+    $chargeIds = Charge::where('type', 'cam_recovery')->pluck('id')->sort()->values();
     expect($chargeIds)->toHaveCount(2);
 
     // Second run: the reconciled pool is no longer eligible, so the year yields
@@ -167,9 +167,9 @@ it('is idempotent + lock-safe with --auto-bill: a second run does not double-bil
         ->assertExitCode(0);
 
     expect(CamAllocation::count())->toBe(2);
-    expect(Charge::where('type', 'other')->count())->toBe(2);
+    expect(Charge::where('type', 'cam_recovery')->count())->toBe(2);
     // The exact same charge rows survive — nothing was re-created.
-    expect(Charge::where('type', 'other')->pluck('id')->sort()->values()->all())
+    expect(Charge::where('type', 'cam_recovery')->pluck('id')->sort()->values()->all())
         ->toBe($chargeIds->all());
 
     // Every allocation is terminal-billed and points at a charge.
@@ -183,7 +183,7 @@ it('a review-only run followed by an --auto-bill run bills the existing pending 
     // First: review-only → allocations pending, no charges.
     $this->artisan('cam:reconcile', ['--year' => 2025])->assertExitCode(0);
     expect($pool->fresh()->status)->toBe('reconciling');
-    expect(Charge::where('type', 'other')->count())->toBe(0);
+    expect(Charge::where('type', 'cam_recovery')->count())->toBe(0);
 
     // Then: auto-bill picks up the SAME pending allocations (reconciling pools
     // are still eligible) and bills each exactly once.
@@ -192,6 +192,6 @@ it('a review-only run followed by an --auto-bill run bills the existing pending 
         ->assertExitCode(0);
 
     expect(CamAllocation::count())->toBe(2);
-    expect(Charge::where('type', 'other')->count())->toBe(2);
+    expect(Charge::where('type', 'cam_recovery')->count())->toBe(2);
     expect($pool->fresh()->status)->toBe('reconciled');
 });

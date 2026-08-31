@@ -977,6 +977,37 @@ public function markBilled() {
 
 ---
 
+## The anchor charge is classified as what it is (2026-08-31)
+
+Billing an allocation leaves a `Charge` behind — a traceability record, `is_active = false` and
+dated to the reconciled year so the monthly engine can never pick it up and double-bill. Its `type`
+was **`other`** on both the recovery and the admin fee.
+
+That is a row on the lease's **Charge Schedule**, and that table **groups by type** — so every
+reconciliation filed under *"Other"* beside genuinely miscellaneous charges, while the invoice line
+each one settled already said `cam_recovery` / `cam_admin_fee`. **Two classifications of one
+movement, and the register carried the wrong one.** The name (*"CAM Admin Fee — 2027"*) kept it from
+being invisible, which is why it survived.
+
+Both are real, active charge codes with their own posting roles (`cam_recovery_revenue`,
+`cam_admin_fee_revenue`), and `charges.type` is governed by that catalogue rather than by
+`ValueSets`, so both values are legal. **Nothing keyed off the old one**: the GL posts from the
+invoice ITEM (already correct) and the monthly engine loads only `is_active` charges, which these
+deliberately are not. The fee takes its OWN code rather than the recovery's — it is the landlord's
+revenue where the recovery is a cost pass-through, which is why it has always been a sibling line.
+
+**The blast radius was larger than it looked.** Nine tests pinned `other` — one as an explicit
+characterisation and thirteen occurrences as a LOCATOR (`where('type', 'other')`) for "the CAM
+anchor". None of them defended the value: no comment anywhere gave a reason for it, and the
+assertion sat among ordinary is-this-charge-right checks. Updated rather than worked around, and
+existing rows are deliberately left as they are — a classification on documents already issued is
+not rewritten to match a later decision.
+
+(`CamPositiveTrueUpBilledTest`, mutation-proved; the anchor's inertness is asserted in the same
+test, because that is the whole reason changing its type is safe.)
+
+---
+
 ## A reconciliation is POSTED AS A BATCH, and a year is not closed on unbilled work (2026-08-31)
 
 Two gaps on the pool's own screen, both reported from the panel while walking the module.

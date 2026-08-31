@@ -95,3 +95,42 @@ it('still bills a positive true-up for an ENDED-TERM (moved-out) lease', functio
     expect(InvoiceItem::where('charge_id', $billed->billed_charge_id)->count())->toBe(1)
         ->and(app(BooksReconciliationService::class)->run()['ok'])->toBeTrue();
 });
+
+it('classifies the anchor charges as what they actually are, not as "other"', function () {
+    // The Charge a CAM billing leaves behind is a traceability record, not a live schedule row —
+    // but it is still a row on the lease's Charge Schedule, and that table GROUPS by type. Both were
+    // written as `other`, so every reconciliation row filed under "Other" beside genuinely
+    // miscellaneous charges while the invoice line each one settled said `cam_recovery` /
+    // `cam_admin_fee`. Two classifications of one movement, and the register carried the wrong one.
+    //
+    // Nothing keys off the old value: the GL posts from the invoice ITEM (already correct) and the
+    // monthly engine loads only `is_active` charges, which these deliberately are not — asserted
+    // below rather than assumed, because that inactivity is the whole reason this is safe.
+    Carbon::setTestNow('2027-01-15');
+    $asset = makeAsset();
+    $lease = makeLease(makeUnit($asset, ['area_sqm' => 100]), makeTenant());
+
+    $pool = CamExpensePool::create([
+        'asset_id' => $asset->id, 'period_year' => 2026,
+        'total_actual_expense' => 50000, 'total_estimated_collected' => 30000,
+        'recovery_vat_rate' => 0, 'status' => 'draft',
+        // A fee, so BOTH anchors exist — the recovery and its sibling, which carry different codes
+        // because one is a cost pass-through and the other is the landlord's revenue.
+        'admin_fee_pct' => 0.10,
+    ]);
+
+    $svc = app(CamReconciliationService::class);
+    $svc->generateAllocations($pool);
+    $svc->bill($pool->allocations()->sole());
+
+    $charges = Charge::where('lease_id', $lease->id)->where('is_active', false)->get();
+
+    expect($charges->pluck('type')->sort()->values()->all())->toBe(['cam_admin_fee', 'cam_recovery'])
+        // Still inert: an anchor must never be picked up by the monthly run.
+        ->and($charges->every(fn ($c) => ! $c->is_active))->toBeTrue();
+
+    // And each anchor agrees with the invoice line it settled — one movement, one classification.
+    foreach ($charges as $charge) {
+        expect(InvoiceItem::where('charge_id', $charge->id)->value('type'))->toBe($charge->type);
+    }
+});

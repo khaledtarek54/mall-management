@@ -29,8 +29,8 @@ it('generates allocations and bumps pool to reconciling without auto-bill', func
     expect($report[0]['status'])->toBe('reconciling');
 
     // No charges should have been created.
-    expect($this->lease1->charges()->where('type', 'other')->count())->toBe(0);
-    expect($this->lease2->charges()->where('type', 'other')->count())->toBe(0);
+    expect($this->lease1->charges()->where('type', 'cam_recovery')->count())->toBe(0);
+    expect($this->lease2->charges()->where('type', 'cam_recovery')->count())->toBe(0);
 });
 
 it('generates AND bills AND marks reconciled with auto-bill', function () {
@@ -43,8 +43,8 @@ it('generates AND bills AND marks reconciled with auto-bill', function () {
     expect($this->pool->fresh()->reconciled_at)->not->toBeNull();
 
     // Both leases should now have a CAM Reconciliation charge.
-    expect($this->lease1->charges()->where('type', 'other')->count())->toBe(1);
-    expect($this->lease2->charges()->where('type', 'other')->count())->toBe(1);
+    expect($this->lease1->charges()->where('type', 'cam_recovery')->count())->toBe(1);
+    expect($this->lease2->charges()->where('type', 'cam_recovery')->count())->toBe(1);
 });
 
 it('bills the positive true-up on invoice items typed cam_recovery (for GL CAM revenue)', function () {
@@ -65,7 +65,7 @@ it('is idempotent — running twice does not double-bill', function () {
 
     // Pool is now 'reconciled', so it's not eligible — empty report on second run.
     expect($second)->toBeEmpty();
-    expect($this->lease1->charges()->where('type', 'other')->count())->toBe(1);
+    expect($this->lease1->charges()->where('type', 'cam_recovery')->count())->toBe(1);
 });
 
 it('skips pools that are already reconciled or closed', function () {

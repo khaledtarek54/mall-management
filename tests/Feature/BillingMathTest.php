@@ -333,6 +333,6 @@ class BillingMathTest extends TestCase
         $svc->bill($allocation->refresh());
 
         $this->assertEquals('billed', $allocation->refresh()->status);
-        $this->assertEquals(1, Charge::where('lease_id', $lease->id)->where('type', 'other')->count());
+        $this->assertEquals(1, Charge::where('lease_id', $lease->id)->where('type', 'cam_recovery')->count());
     }
 }
