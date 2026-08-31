@@ -9,6 +9,7 @@ return [
     ],
 
     'lease_clauses' => [
+        'notice_value' => ':days days\' notice',
         'help' => [
             'applies_from' => 'A clause can start after the lease does — exclusivity from year two, say. Blank means from commencement.',
         ],
@@ -299,7 +300,6 @@ return [
         'live_exposure' => 'Contingent money, live leases only',
         'in_force_today' => 'In force today',
         'open_ended' => 'Open-ended',
-        'notice_days' => ':days days\' notice',
         'empty' => 'No clauses abstracted yet',
         'empty_description' => 'Abstract a lease\'s legal terms from its Clauses tab. Co-tenancy and kick-out are the two worth recording first — they are the ones that can cost the mall rent.',
     ],

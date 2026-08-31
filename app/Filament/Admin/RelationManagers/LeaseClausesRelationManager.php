@@ -67,7 +67,7 @@ class LeaseClausesRelationManager extends RelationManager
                 ->suffix('%')
                 ->minValue(0)
                 ->maxValue(100)
-                ->visible(fn (Get $get) => $get('type') === LeaseClause::TYPE_CO_TENANCY)
+                ->visible(fn (Get $get) => LeaseClause::carriesNumber('threshold_pct', $get('type')))
                 ->helperText(__('admin.lease_clauses.threshold_pct_helper')),
 
             // Kick-out: the sales figure the tenant must reach to keep the landlord out.
@@ -76,7 +76,7 @@ class LeaseClausesRelationManager extends RelationManager
                 ->prefix('EGP')
                 ->numeric()
                 ->minValue(0)
-                ->visible(fn (Get $get) => $get('type') === LeaseClause::TYPE_KICK_OUT)
+                ->visible(fn (Get $get) => LeaseClause::carriesNumber('threshold_amount', $get('type')))
                 ->helperText(__('admin.lease_clauses.threshold_amount_helper')),
 
             TextInput::make('radius_km')
@@ -84,7 +84,7 @@ class LeaseClausesRelationManager extends RelationManager
                 ->numeric()
                 ->suffix('km')
                 ->minValue(0)
-                ->visible(fn (Get $get) => $get('type') === LeaseClause::TYPE_RADIUS)
+                ->visible(fn (Get $get) => LeaseClause::carriesNumber('radius_km', $get('type')))
                 ->helperText(__('admin.lease_clauses.radius_helper')),
 
             TextInput::make('notice_days')
@@ -94,11 +94,11 @@ class LeaseClausesRelationManager extends RelationManager
                 ->minValue(0)
                 // Any clause conferring a RIGHT tends to carry a notice period; the ones that
                 // describe a standing obligation (insurance, repairs, signage) do not.
-                ->visible(fn (Get $get) => in_array($get('type'), [
-                    LeaseClause::TYPE_CO_TENANCY,
-                    LeaseClause::TYPE_KICK_OUT,
-                    LeaseClause::TYPE_ASSIGNMENT,
-                ], true))
+                //
+                // Read from `NUMBERS_BY_TYPE`, which the MODEL also enforces on save — a field
+                // hidden here is not submitted, so without the model half the row simply keeps
+                // whatever it already held when the operator changed the type.
+                ->visible(fn (Get $get) => LeaseClause::carriesNumber('notice_days', $get('type')))
                 ->helperText(__('admin.lease_clauses.notice_helper')),
 
             DatePicker::make('applies_from')
@@ -148,12 +148,9 @@ class LeaseClausesRelationManager extends RelationManager
                 TextColumn::make('threshold_pct')
                     ->label(__('admin.fields.clause_trigger'))
                     ->placeholder('—')
-                    ->state(fn (LeaseClause $record): ?string => match (true) {
-                        $record->threshold_pct !== null => rtrim(rtrim(number_format((float) $record->threshold_pct, 2), '0'), '.').'%',
-                        $record->threshold_amount !== null => 'EGP '.number_format((float) $record->threshold_amount, 2),
-                        $record->radius_km !== null => rtrim(rtrim(number_format((float) $record->radius_km, 2), '0'), '.').' km',
-                        default => null,
-                    }),
+                    // The model's own answer — this read three of the four columns and omitted the
+                    // notice period, so an assignment clause showed a dash for its only number.
+                    ->state(fn (LeaseClause $record): ?string => $record->triggerLabel()),
 
                 TextColumn::make('applies_to')
                     ->label(__('admin.fields.clause_applies_to'))

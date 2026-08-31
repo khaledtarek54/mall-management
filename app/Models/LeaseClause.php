@@ -86,6 +86,35 @@ class LeaseClause extends Model
     ];
 
     /**
+     * WHICH NUMBER EACH CLAUSE TYPE MAY CARRY.
+     *
+     * A co-tenancy clause is an occupancy percentage, a kick-out is a sales figure, a radius is
+     * kilometres, and a notice period belongs to the three types that confer a RIGHT — the ones
+     * describing a standing obligation (insurance, repairs, signage) have nothing to give notice
+     * about.
+     *
+     * **One definition, read by the form and by the model.** The form hid each field behind its own
+     * inline `in_array` check, and the model enforced nothing: change a co-tenancy clause to
+     * signage and the 70% occupancy floor stayed on the row — invisible on the form that had just
+     * hidden the field, uncorrectable through any screen, and printed as `70.00%` in the clause
+     * register beside the word *Signage*. Found by driving the edit modal (2026-08-31).
+     *
+     * @var array<string, list<string>>
+     */
+    public const NUMBERS_BY_TYPE = [
+        'threshold_pct' => [self::TYPE_CO_TENANCY],
+        'threshold_amount' => [self::TYPE_KICK_OUT],
+        'radius_km' => [self::TYPE_RADIUS],
+        'notice_days' => [self::TYPE_CO_TENANCY, self::TYPE_KICK_OUT, self::TYPE_ASSIGNMENT],
+    ];
+
+    /** Whether this clause type carries that number at all — the form's visibility rule. */
+    public static function carriesNumber(string $column, ?string $type): bool
+    {
+        return $type !== null && in_array($type, self::NUMBERS_BY_TYPE[$column] ?? [], true);
+    }
+
+    /**
      * The two the benchmark calls contingent money — the ones worth a report of their own.
      *
      * Named here rather than compared inline so the lease screen, the filter and any future alert
@@ -106,6 +135,21 @@ class LeaseClause extends Model
         'applies_from' => 'date',
         'applies_to' => 'date',
     ];
+
+    protected static function booted(): void
+    {
+        // A number the clause's type cannot carry is dropped, not kept. Keeping it leaves a value
+        // no screen can show and no operator can correct — and the register would print it beside
+        // a type it means nothing for. Enforced on the MODEL rather than in the form: the form
+        // hides the field, which stops it being SUBMITTED and leaves whatever the row already held.
+        static::saving(function (self $clause): void {
+            foreach (array_keys(self::NUMBERS_BY_TYPE) as $column) {
+                if (! self::carriesNumber($column, $clause->type)) {
+                    $clause->{$column} = null;
+                }
+            }
+        });
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -184,6 +228,31 @@ class LeaseClause extends Model
             ->inForceOn($on)
             ->whereHas('lease', fn (Builder $lease) => $lease
                 ->whereNotIn('status', Lease::TERMINAL_STATUSES));
+    }
+
+    /**
+     * The clause's own number, whichever of the four columns its type uses — or null when it has
+     * none, so a table's `placeholder()` renders rather than a literal dash.
+     *
+     * **One definition, because there were two and they had already drifted.** The lease's Clauses
+     * tab read three columns and omitted `notice_days`, so an assignment clause — whose only number
+     * IS the notice period — showed a dash on the very screen where it was entered; the clause
+     * register, written later, read all four. Found by driving the tab (2026-08-31).
+     *
+     * A co-tenancy clause can carry both an occupancy floor and a notice period; the floor is what
+     * TRIGGERS it, so that is what this names.
+     */
+    public function triggerLabel(): ?string
+    {
+        $trim = fn (float $n): string => rtrim(rtrim(number_format($n, 2), '0'), '.');
+
+        return match (true) {
+            $this->threshold_pct !== null => $trim((float) $this->threshold_pct).'%',
+            $this->threshold_amount !== null => 'EGP '.number_format((float) $this->threshold_amount, 2),
+            $this->radius_km !== null => $trim((float) $this->radius_km).' km',
+            $this->notice_days !== null => __('admin.lease_clauses.notice_value', ['days' => $this->notice_days]),
+            default => null,
+        };
     }
 
     public function label(): string

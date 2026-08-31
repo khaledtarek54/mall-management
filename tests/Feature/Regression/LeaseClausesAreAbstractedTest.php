@@ -270,3 +270,71 @@ it('does not report a soft-deleted lease as exposed', function () {
     expect(LeaseClause::query()->liveExposure()->pluck('lease_id')->unique()->all())
         ->toBe([$live->id]);
 });
+
+/**
+ * A NUMBER BELONGS TO ITS CLAUSE TYPE (2026-08-31).
+ *
+ * Found by driving the edit modal, not by a test. Change a co-tenancy clause to signage and the
+ * 70% occupancy floor stayed on the row: the form had just hidden that field, so it was not
+ * submitted and the model kept what was already there. The result is a number no screen can show
+ * and no operator can correct — and the clause register printed it as `70.00%` beside the word
+ * *Signage*.
+ *
+ * The form hiding a field stops it being SUBMITTED; only the model can stop it being KEPT.
+ */
+it('drops a number the clause type cannot carry', function () {
+    $clause = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_CO_TENANCY,
+        'threshold_pct' => 70,
+        'notice_days' => 30,
+    ]);
+
+    expect((float) $clause->threshold_pct)->toBe(70.0);
+
+    // The operator re-classifies it. Signage carries neither an occupancy floor nor a notice period.
+    $clause->update(['type' => LeaseClause::TYPE_SIGNAGE]);
+
+    expect($clause->fresh()->threshold_pct)->toBeNull()
+        ->and($clause->fresh()->notice_days)->toBeNull();
+});
+
+/**
+ * The control, and it is the half that matters: a hook that nulled everything would satisfy the
+ * test above and quietly empty the register.
+ */
+it('keeps every number the clause type does carry', function () {
+    $coTenancy = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_CO_TENANCY, 'threshold_pct' => 70, 'notice_days' => 30,
+    ]);
+    $kickOut = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_KICK_OUT, 'threshold_amount' => 250000, 'notice_days' => 90,
+    ]);
+    $radius = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_RADIUS, 'radius_km' => 5,
+    ]);
+    $assignment = $this->lease->clauses()->create([
+        'type' => LeaseClause::TYPE_ASSIGNMENT, 'notice_days' => 30,
+    ]);
+
+    expect((float) $coTenancy->fresh()->threshold_pct)->toBe(70.0)
+        ->and($coTenancy->fresh()->notice_days)->toBe(30)
+        ->and((float) $kickOut->fresh()->threshold_amount)->toBe(250000.0)
+        ->and($kickOut->fresh()->notice_days)->toBe(90)
+        ->and((float) $radius->fresh()->radius_km)->toBe(5.0)
+        ->and($assignment->fresh()->notice_days)->toBe(30);
+});
+
+/**
+ * The form and the model must not drift: a field the form still OFFERS while the model nulls it is
+ * a box the operator types into that never saves, which reads as the app losing their work.
+ */
+it('offers exactly the numbers the model will keep', function () {
+    foreach (LeaseClause::TYPES as $type) {
+        foreach (array_keys(LeaseClause::NUMBERS_BY_TYPE) as $column) {
+            $clause = $this->lease->clauses()->create(['type' => $type, $column => 5]);
+
+            expect($clause->fresh()->{$column} !== null)
+                ->toBe(LeaseClause::carriesNumber($column, $type), "{$type}.{$column}");
+        }
+    }
+});

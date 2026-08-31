@@ -330,6 +330,28 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ A clause number outlived the type that owned it (2026-08-31).**
+> Found by driving the edit modal. Change a co-tenancy clause to *Signage* and its 70% occupancy
+> floor stayed on the row — the form had just HIDDEN that field, so it was never submitted, and the
+> model kept what was already there. The result is a number no screen can show and no operator can
+> correct, printed as `70.00%` beside the word *Signage* in the clause register. **A form hiding a
+> field stops it being SUBMITTED; only the model can stop it being KEPT.**
+>
+> `LeaseClause::NUMBERS_BY_TYPE` is the one definition of which number each type may carry — the
+> form's four `visible()` rules and the model's `saving()` hook both read it, so they cannot drift.
+> Any save now corrects a stale row, so no backfill was needed. Mutation-proved in both directions:
+> removing the guard and nulling everything each turn the tests red, and the second is the one that
+> matters — a hook that emptied every number would satisfy the obvious test and quietly blank the
+> register.
+>
+> **The same screen had a second copy of "which number is this".** The tab's Trigger column read
+> `threshold_pct`, `threshold_amount` and `radius_km` and **omitted `notice_days`**, so an
+> assignment clause — whose only number IS the notice period — showed a dash on the very screen it
+> was entered on, while the register (written later) read all four. Both now call
+> `LeaseClause::triggerLabel()`. **No demo clause exercised it**: every seeded row with a notice
+> period also carried a percentage or an amount, so the dash looked correct. The seeder now carries
+> one, because a fixture set that only shows the easy cases is how a column stays wrong.
+
 > **⚠️ The clause abstract had no reader (2026-08-31).**
 > `LeaseClause` was built so one question could be asked — its own docblock quotes it: *"nothing can
 > even answer 'how many of our leases have a co-tenancy trigger tied to the anchor we are about to

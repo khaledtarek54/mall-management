@@ -187,21 +187,12 @@ class ClauseRegister extends Page implements DeliverableReport, HasSchemas, HasT
     }
 
     /**
-     * The clause's own number, whichever of the four columns carries it.
-     *
-     * A co-tenancy clause is a percentage, a kick-out is a sales figure, a radius is kilometres and
-     * an assignment is notice days — one column each, and a register that showed only
-     * `threshold_pct` would print a blank cell for three types out of four.
+     * The clause's own number — the model's definition, shared with the lease's Clauses tab so the
+     * two cannot print different things for one row. See `LeaseClause::triggerLabel()`.
      */
     public static function trigger(LeaseClause $record): string
     {
-        return match (true) {
-            $record->threshold_pct !== null => number_format((float) $record->threshold_pct, 2).'%',
-            $record->threshold_amount !== null => 'EGP '.number_format((float) $record->threshold_amount, 2),
-            $record->radius_km !== null => number_format((float) $record->radius_km, 2).' km',
-            $record->notice_days !== null => __('admin.clause_register.notice_days', ['days' => $record->notice_days]),
-            default => '—',
-        };
+        return $record->triggerLabel() ?? '—';
     }
 
     /**

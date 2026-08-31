@@ -151,7 +151,12 @@ class SeedLeasingDepthCommand extends Command
             ['type' => 'operating_hours', 'summary' => 'Store must trade 10:00–22:00 daily, and 10:00–00:00 through Ramadan.', 'ref' => 'Cl. 9.1'],
             ['type' => 'signage', 'summary' => 'One fascia sign to the mall standard; any change needs written approval.', 'ref' => 'Cl. 11.4'],
             ['type' => 'guarantor', 'summary' => 'Parent company guarantees all obligations for the full term.', 'ref' => 'Cl. 27'],
-            ['type' => 'assignment', 'summary' => 'No assignment or sub-letting without the landlord’s prior written consent.', 'ref' => 'Cl. 18.1'],
+            // Its NOTICE PERIOD is its only number, which is the case the Trigger column got wrong:
+            // it read three of the four number columns and skipped this one, and no demo clause
+            // exercised it — every other row carrying a notice also carries a percentage or an
+            // amount, so the dash looked correct. A seeder that only shows the easy cases is how a
+            // column comes to be wrong for a month.
+            ['type' => 'assignment', 'summary' => 'No assignment or sub-letting without the landlord’s prior written consent, on 30 days notice.', 'notice' => 30, 'ref' => 'Cl. 18.1'],
         ];
 
         foreach ($leases as $i => $lease) {

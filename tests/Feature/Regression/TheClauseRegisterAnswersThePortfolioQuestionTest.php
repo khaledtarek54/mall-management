@@ -145,11 +145,20 @@ it('refuses an operator without the reports right, and admits one with it', func
 it('shows each clause type its own number', function (): void {
     $lease = makeLease(makeUnit($this->asset));
 
-    expect(ClauseRegister::trigger(clauseOn($lease, LeaseClause::TYPE_CO_TENANCY, ['threshold_pct' => 70])))->toBe('70.00%')
+    $coTenancy = clauseOn($lease, LeaseClause::TYPE_CO_TENANCY, ['threshold_pct' => 70]);
+    $assignment = clauseOn($lease, LeaseClause::TYPE_ASSIGNMENT, ['notice_days' => 30]);
+
+    expect(ClauseRegister::trigger($coTenancy))->toBe('70%')
         ->and(ClauseRegister::trigger(clauseOn($lease, LeaseClause::TYPE_KICK_OUT, ['threshold_amount' => 250000])))->toBe('EGP 250,000.00')
-        ->and(ClauseRegister::trigger(clauseOn($lease, LeaseClause::TYPE_RADIUS, ['radius_km' => 5])))->toBe('5.00 km')
-        ->and(ClauseRegister::trigger(clauseOn($lease, LeaseClause::TYPE_ASSIGNMENT, ['notice_days' => 30])))->toContain('30')
+        ->and(ClauseRegister::trigger(clauseOn($lease, LeaseClause::TYPE_RADIUS, ['radius_km' => 5])))->toBe('5 km')
+        // The one the lease's own Clauses tab could not show: an assignment clause's only number
+        // is its notice period, and that column read three of the four.
+        ->and(ClauseRegister::trigger($assignment))->toContain('30')
         ->and(ClauseRegister::trigger(clauseOn($lease, LeaseClause::TYPE_SIGNAGE)))->toBe('—');
+
+    // …and the register and the lease tab print the SAME thing, because they ask the same model.
+    expect(ClauseRegister::trigger($assignment))->toBe($assignment->triggerLabel())
+        ->and(ClauseRegister::trigger($coTenancy))->toBe($coTenancy->triggerLabel());
 });
 
 it('exports what the operator is looking at, not the whole register', function (): void {
