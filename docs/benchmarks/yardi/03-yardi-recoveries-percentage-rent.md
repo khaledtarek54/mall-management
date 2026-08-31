@@ -167,18 +167,23 @@ after completing the CAM & tax reconciliation**.)*
 The loop is three steps, and Atriom has two of them:
 
 1. **Estimate** — a monthly `CAMEST` charge on the lease schedule, derived from the budget.
-   *Atriom: the monthly `service_charge` on the lease serves this role, but it is a negotiated flat
-   number, not derived from a CAM budget, and `total_estimated_collected` on the pool is a
-   separately hand-keyed figure — so the estimate billed and the estimate reconciled are two
-   unconnected numbers that an operator must keep in agreement by hand.* **This is the single
-   weakest link in Atriom's CAM chain.**
+   *Atriom: the monthly `service_charge` on the lease serves this role. It is still a negotiated flat
+   number rather than one derived from a CAM budget — but the second half of this paragraph is
+   **stale (re-checked 2026-08-31)**. `estimate_basis = billed` derives each tenant's estimate from
+   THEIR OWN invoices (`SyncCamPoolFromLedgerService::estimateBilledFor()`), so the estimate billed
+   and the estimate reconciled are the same number by construction. It was described here as "the
+   single weakest link" after the link had been closed.*
 2. **Reconcile** — actual share vs estimated billed → true-up charge or credit, with a tenant-facing
    reconciliation statement showing the pool, the share basis and the arithmetic.
    *Atriom: yes, and well done — positive true-up bills immediately on its own recovery invoice
    (correct: the lease may already have ended), negative becomes a credit note auto-applied FIFO.*
 3. **Re-estimate** — push next year's monthly estimate up to the newly-known actual run rate.
-   *Atriom: **absent**. Next year's service charge stays whatever it was, so the same under-collection
-   repeats and every year ends in a true-up the tenant did not budget for.*
+   *Atriom: **built**, and this row said "absent" until it was re-checked 2026-08-31.*
+   `generateAllocations()` writes `proposed_monthly_estimate` (the CAPPED cost ÷ 12, so a capped
+   tenant is never asked to pre-pay more than their own clause allows), the whole mall's proposals
+   are reviewable side by side, and the **Apply estimates** action puts an accepted one on the
+   lease's charge schedule through `ApplyCamEstimateService`. Proposing is deliberately not
+   applying.*
 
 ## A8. The reconciliation statement
 
@@ -187,8 +192,12 @@ the denominator, their numerator and share %, their gross share, the cap applied
 estimate they were billed, and the resulting balance. Many leases give the tenant an **audit right**
 against exactly this document.
 
-Atriom bills the true-up as an invoice line. There is no statement that shows the working — so a
-tenant who asks "why" gets an answer assembled by hand.
+*Atriom: **built**, and this paragraph said "there is no statement" until it was re-checked
+2026-08-31.* `CamStatementPdfService` renders the tenant-facing statement, and
+`CamReconciliationService::explainAllocation()` backs the operator's **View working** panel with the
+same ladder — share → allocated → cap ceiling / capped / absorbed → estimate → true-up → recovery
+VAT → admin fee + VAT → net invoiced. The cap section is omitted when no cap applied, so a statement
+never carries a "cap: none" row nobody needs.
 
 ---
 

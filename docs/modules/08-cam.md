@@ -1347,7 +1347,26 @@ Reverses a billed allocation's documents — the recovery invoice (`VoidInvoiceS
 A UX audit found the reconciliation numbers weren't verifiable and one modal misinformed. Fixed: **(H1)** the Bill confirm modal said the true-up rides "the next monthly invoice" — it's billed **immediately** as a dedicated recovery invoice (or an auto-applied credit); reworded. **(H2)** editing a reconciled pool's basis fields threw an uncaught `DomainException` → Livewire 500; the four basis fields are now **disabled with a "frozen — void billed allocations first" hint** once an allocation is billed (`CamExpensePoolForm::basisFrozen()`), plus `EditCamExpensePool::handleRecordUpdate()` catches the guard as a clean toast backstop. **(M1)** the cap + VAT legs were invisible and the columns stopped adding up when a cap bit — added `CamReconciliationService::explainAllocation()` + a native-Filament **"View working"** breakdown action (share → allocated → cap ceiling/capped/absorbed → estimate → true-up → recovery VAT → admin fee + VAT → net invoiced/credited) and toggleable `capped_cost`/`cap_absorbed` columns. **(M2)** the billed-allocation notification now branches recover / credit / fee-only (was "true-up added" for all three). **(L1)** allocations relation-manager empty state. Tests: `CamAllocationBreakdownTest`.
 
 ### Deferred (with triggers)
-Slice 3 (gross-up / GLA basis / alternative bases / per-lease `exclusions`); per-tenant estimate derivation from actual billed service charges; move-in/out occupied-days proration; a tenant reconciliation-statement PDF. See the closure record for the triggers.
+
+> **Re-checked against the code 2026-08-31, and FIVE of this list's six items had shipped.** It read
+> *"Slice 3 (gross-up / GLA basis / alternative bases / per-lease exclusions); per-tenant estimate
+> derivation from actual billed service charges; move-in/out occupied-days proration; a tenant
+> reconciliation-statement PDF"* — and gross-up (`apportionmentBasis()`), the GLA and fixed bases
+> (`DENOMINATOR_BASES`), the billed-estimate derivation (`estimateBilledFor()`), day-weighted
+> occupancy (`totalAreaSqmForPeriod()`) and the statement PDF (`CamStatementPdfService`) are all
+> built and tested. A stale gap list is worse than no gap list: it is read as *"this is not built"*
+> by exactly the person deciding what to build next, which is how `BillUnitOwnershipsService` ran
+> for months billing nobody.
+
+**Still genuinely open, and only these:**
+
+| What | Why it is not built |
+|---|---|
+| **Per-lease `exclusions`** (slice 3) | The `cam_allocations.exclusions` JSON column exists, is fillable and cast, and is **read by nothing** — no service, no form, no report. Present and inert, the shape this project treats as a defect in its own right. Needs a screen and a step in `generateAllocations` between EXCLUDE and ALLOCATE. |
+| **Adjusted denominator** (Yardi) | Carve an anchor out of the denominator while it still participates. Zero references in the service; the three bases we have cannot express it, and no lease here has asked for it yet. |
+| **Non-annual true-up** (EG-41) | `cam_expense_pools` is `unique(asset_id, period_year, pool_code)` — one pool per YEAR — so a quarterly reconciliation is not a scheduling option: the POOL must gain a shorter period first, and everything that assumes one-pool-per-year follows it. Worth building only if the operator's leases state a non-annual reconciliation. |
+| **Headroom is scoped to the YEAR, not to the POOL** | `camCapHeadroomBankedBefore()` filters on `period_year <` only, so a lease in two pools banks and spends across both **and resolves the same annual ceiling against each independently** — it could bear twice its cap. Neither reading is obviously wrong (a cap clause is usually written against the tenant's whole service-charge cost), but it is unstated. A mall running a second pool beside CAM — `fc_grease` on the demo books — is where it would first be met. |
+| **Line text frozen in the writer's language** | Not CAM's, and recorded as [ROADMAP UX-30](../ROADMAP.md). A credit note's `reason_notes` and every invoice line description are composed with `__()` at WRITE time and stored, so they freeze in whichever language the operator was running. |
 
 ---
 
