@@ -5,6 +5,8 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
 use App\Models\CamExpensePool;
 use App\Models\LeaseCamTerm;
+use App\Models\LedgerAccount;
+use App\Support\CamPoolAccountIds;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -172,6 +174,23 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->helperText(__('admin.lease_cam_terms.help.compounding'))
                 ->default(true)
                 ->visible(fn (Get $get) => in_array($get('cap_type'), ['yoy', 'both'], true)),
+            // WHAT THIS TENANT'S CLAUSE CARVES OUT OF ITS OWN SHARE (slice 3).
+            //
+            // Offered from the accounts THIS PROPERTY'S pools actually contain, not the whole chart:
+            // an account no pool holds excludes nothing, and would look identical to a clause that
+            // simply is not biting. Resolvable only on a ledger-sourced pool, which the helper says.
+            Select::make('excluded_account_ids')
+                ->label(__('admin.fields.cam_excluded_accounts'))
+                ->helperText(__('admin.helpers.cam_excluded_accounts'))
+                ->multiple()
+                ->native(false)
+                ->options(fn (): array => LedgerAccount::query()
+                    ->whereIn('id', CamPoolAccountIds::forLease($this->getOwnerRecord()))
+                    ->orderBy('code')
+                    ->get()
+                    ->mapWithKeys(fn (LedgerAccount $a): array => [$a->id => $a->code.' — '.$a->displayName()])
+                    ->all())
+                ->columnSpanFull(),
             Textarea::make('notes')
                 ->label(__('admin.fields.notes'))
                 ->helperText(__('admin.lease_cam_terms.help.cam_notes'))

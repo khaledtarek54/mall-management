@@ -977,6 +977,49 @@ public function markBilled() {
 
 ---
 
+## A lease may carve named accounts out of its own share (slice 3, 2026-09-01)
+
+`cam_allocations.exclusions` existed from the day the table was created — fillable, cast to array,
+and **read by nothing**: no service, no form, no report. Present and inert, and carried in this
+doc's own gap list as *"still unused"* for the whole of its life.
+
+**What was missing was the TERM.** An exclusion is a clause in ONE tenant's lease — *"my share
+excludes capital items and the management fee"* — so it belongs beside the cap and the stated share
+on `lease_cam_terms` (`excluded_account_ids`, a JSON list of `ledger_accounts.id`). That table is
+already keyed by `(lease, pool, year)`, and a clause excluding the food-court grease trap from a CAM
+share would be meaningless without it.
+
+**The neighbours are not re-cut.** Their leases say *"your pro-rata share of the pool"*, so charging
+them more because a third party negotiated a carve-out would over-bill them against their own terms
+— the same rule a stated share below the area share already follows. The landlord bears it, and the
+tie-out needs no help: `landlord_unrecovered_amount` is `actual − Σ allocated`.
+
+**But it must not be reported as vacancy.** `landlordShare()` gains a THIRD cause for the reason it
+had two: they move on different levers, and *"vacancy"* says *change the denominator* about money a
+clause removed. Each carve-out is counted only to the extent of that lease's SHARE — the rest of it
+was never going to reach them — so it is weighted, not summed raw, and vacancy is what is LEFT once
+the named causes come out, so the three always add back to the column.
+
+**Three rules that are easy to get wrong:**
+
+- **Resolvable only on a LEDGER-sourced pool.** A pool whose total was typed has no accounts to
+  exclude anything from, so the set resolves to nothing and the lease is allocated in full.
+- **Intersected with the pool's OWN accounts** (`netForPoolAccounts()`). A term naming an account
+  this pool does not contain must subtract nothing, not reach into the ledger for it — otherwise it
+  reduces a share against money that was never in the pool, and an operator who retires an account
+  from a pool goes on excluding it for ever, invisibly. *(The first version of the test for this
+  passed with the guard deleted, because the outside account had no postings.)*
+- **Floored at zero.** A credit-heavy year on the excluded accounts must not produce a negative
+  basis and bill the tenant a refund of somebody else's cost.
+
+Subtracted at the accounts' **actual** posted amount, never grossed up: the clause excludes what
+those accounts really cost, not a hypothetical full-occupancy version of it.
+
+(`CamLeaseExclusionsTest`, three teeth mutation-proved, plus the parity case every clause here must
+pass — with no lease excluding anything, the allocation is byte-identical.)
+
+---
+
 ## A cap belongs to a RECOVERY POOL, not to a year (2026-09-01)
 
 `lease_cam_terms` was `unique(lease_id, effective_year)` and `Lease::resolveCamCeiling(int $year)`
@@ -1401,7 +1444,6 @@ A UX audit found the reconciliation numbers weren't verifiable and one modal mis
 
 | What | Why it is not built |
 |---|---|
-| **Per-lease `exclusions`** (slice 3) | The `cam_allocations.exclusions` JSON column exists, is fillable and cast, and is **read by nothing** — no service, no form, no report. Present and inert, the shape this project treats as a defect in its own right. Needs a screen and a step in `generateAllocations` between EXCLUDE and ALLOCATE. |
 | **Adjusted denominator** (Yardi) | Carve an anchor out of the denominator while it still participates. Zero references in the service; the three bases we have cannot express it, and no lease here has asked for it yet. |
 | **Non-annual true-up** (EG-41) | `cam_expense_pools` is `unique(asset_id, period_year, pool_code)` — one pool per YEAR — so a quarterly reconciliation is not a scheduling option: the POOL must gain a shorter period first, and everything that assumes one-pool-per-year follows it. Worth building only if the operator's leases state a non-annual reconciliation. |
 | **Line text frozen in the writer's language** | Not CAM's, and recorded as [ROADMAP UX-30](../ROADMAP.md). A credit note's `reason_notes` and every invoice line description are composed with `__()` at WRITE time and stored, so they freeze in whichever language the operator was running. |

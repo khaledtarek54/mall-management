@@ -160,6 +160,23 @@ class SyncCamPoolFromLedgerService
      *
      * @param  Collection<int, int>  $accountIds
      */
+    /**
+     * What a NAMED SUBSET of this pool's accounts holds for the year — the amount a lease's own
+     * exclusion clause carves out of its share (slice 3).
+     *
+     * Narrowed to the pool's OWN accounts on purpose: a term naming an account this pool does not
+     * contain must subtract nothing, not reach into the ledger for it. An operator who retires an
+     * account from a pool would otherwise go on excluding it for ever, invisibly.
+     *
+     * @param  list<int>  $accountIds
+     */
+    public function netForPoolAccounts(CamExpensePool $pool, array $accountIds): float
+    {
+        $inThisPool = $pool->ledgerAccounts->pluck('id')->intersect($accountIds);
+
+        return $inThisPool->isEmpty() ? 0.0 : round($this->netForAccounts($pool, $inThisPool->all()), 2);
+    }
+
     private function netForAccounts(CamExpensePool $pool, $accountIds): float
     {
         $start = CarbonImmutable::create((int) $pool->period_year, 1, 1)->toDateString();

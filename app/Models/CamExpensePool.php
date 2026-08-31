@@ -392,7 +392,7 @@ class CamExpensePool extends Model
      * NOT folded into one figure: conflating them hides which lever moves the number. Changing the
      * denominator is a pool decision; a cap is a lease term renegotiated at renewal.
      *
-     * @return array{vacancy: float, caps: float, total: float}
+     * @return array{vacancy: float, caps: float, exclusions: float, total: float}
      */
     public function landlordShare(): array
     {
@@ -405,10 +405,30 @@ class CamExpensePool extends Model
         // which reads as a fault rather than as nothing. A negative residue means the allocations
         // slightly over-cover the pool — the landlord bears nothing from vacancy — and a genuine
         // over-allocation is a different problem, which `billing:reconcile`'s tie-out already owns.
-        $vacancy = round(max(0.0, (float) $this->landlord_unrecovered_amount), 2);
+        $unrecovered = round(max(0.0, (float) $this->landlord_unrecovered_amount), 2);
         $caps = round((float) $this->allocations()->sum('cap_absorbed_amount'), 2);
 
-        return ['vacancy' => $vacancy, 'caps' => $caps, 'total' => round($vacancy + $caps, 2)];
+        // A THIRD cause, and it must be split out for the reason the other two are: it moves on a
+        // different lever. `landlord_unrecovered_amount` is `actual − Σ allocated`, so a per-lease
+        // exclusion lands in it silently and would be reported as VACANCY — which says "change the
+        // denominator" about money a tenant's own carve-out clause removed.
+        //
+        // Each excluded amount is only borne to the extent of that lease's SHARE — the rest of the
+        // carve-out was never going to reach them anyway — so it is weighted, not summed raw.
+        $exclusions = round((float) $this->allocations()->get()->sum(
+            fn ($a) => (float) $a->excluded_amount * ((float) $a->pro_rata_share_pct / 100)
+        ), 2);
+
+        // Vacancy is what is LEFT once the causes we can name are taken out, so the three always
+        // add back to the column and none of them is double-counted.
+        $vacancy = round(max(0.0, $unrecovered - $exclusions), 2);
+
+        return [
+            'vacancy' => $vacancy,
+            'caps' => $caps,
+            'exclusions' => $exclusions,
+            'total' => round($vacancy + $caps + $exclusions, 2),
+        ];
     }
 
     /**

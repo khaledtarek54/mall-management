@@ -124,6 +124,28 @@ trait HasCamTerms
     }
 
     /**
+     * The ledger accounts this lease's clause carves out of ITS OWN share (slice 3).
+     *
+     * A per-lease exclusion — "my share excludes capital items and the management fee" — and not a
+     * pool decision: the neighbours keep paying on the whole pool, because their own leases say
+     * "your pro-rata share of the pool" and re-cutting them to cover one tenant's carve-out would
+     * over-bill them against their own terms. The landlord bears the difference, which is the same
+     * rule a stated share below the area share already follows.
+     *
+     * Resolved on the same term the cap is, so it is per pool and effective-dated for free.
+     *
+     * @return list<int>
+     */
+    public function camExcludedAccountIds(int $reconciledYear, ?string $poolCode = null): array
+    {
+        $ids = $this->camTermFor($reconciledYear, $poolCode)?->excluded_account_ids ?? [];
+
+        // A JSON column is whatever was written into it. Coerce, so one bad row cannot make a
+        // `whereIn` match on a string and silently exclude nothing.
+        return array_values(array_filter(array_map('intval', (array) $ids)));
+    }
+
+    /**
      * The recovery share this lease's contract NAMES, if it names one (story RC-03).
      *
      * A stated share beats any derived one: no denominator can produce a percentage the parties

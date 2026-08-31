@@ -210,7 +210,39 @@ class CamReconciliationService
                     }
                 }
 
-                $allocated = round($basis * $share, 2);
+                // ── EXCLUDE (slice 3) ───────────────────────────────────────────────────────
+                //
+                // A clause in ONE tenant's lease carving named accounts out of THEIR share: "my
+                // share excludes capital items and the management fee". The neighbours keep paying
+                // on the whole pool — their own leases say "your pro-rata share of the pool" and
+                // re-cutting them to cover somebody else's carve-out would over-bill them against
+                // their own terms. The landlord bears the difference, exactly as it does for a
+                // stated share below the area share.
+                //
+                // Subtracted at the accounts' ACTUAL posted amount, never grossed up: the clause
+                // excludes what those accounts really cost, not a hypothetical full-occupancy
+                // version of it. On a pool whose total was TYPED there are no accounts to exclude
+                // from, so the set resolves to nothing and the lease is allocated in full — stated
+                // on `netForPoolAccounts()` rather than left as an accident of the query.
+                //
+                // The tie-out needs no help: `landlord_unrecovered_amount` is
+                // `actual − Σ allocated`, so what a carve-out removes lands there by construction.
+                // It is RECORDED on the allocation because that column would otherwise report it as
+                // vacancy, which is a different decision with a different lever.
+                $excluded = 0.0;
+
+                if ($isLease) {
+                    $excludedIds = $lease->camExcludedAccountIds((int) $pool->period_year, $pool->pool_code);
+
+                    if ($excludedIds !== []) {
+                        $excluded = app(SyncCamPoolFromLedgerService::class)->netForPoolAccounts($pool, $excludedIds);
+                    }
+                }
+
+                // Floored at zero: a pool whose excluded accounts net to more than the pool itself
+                // (a credit-heavy year on those accounts) must not produce a NEGATIVE basis and bill
+                // the tenant a refund of somebody else's cost.
+                $allocated = round(max(0.0, $basis - $excluded) * $share, 2);
                 // What this tenant actually paid in estimates (story RC-05). On `billed` the
                 // figure comes from the invoices themselves, so the estimate RECONCILED and the
                 // estimate BILLED are the same number by construction. On `stated` — every pool
@@ -304,6 +336,7 @@ class CamReconciliationService
                 $allocation->fill([
                     'pro_rata_share_pct' => round($share * 100, 4),
                     'allocated_amount' => $allocated,
+                    'excluded_amount' => $excluded,
                     'estimated_paid' => $estimated,
                     'cap_amount' => $ceiling,           // the resolved ceiling that applied (null = uncapped)
                     'capped_cost_amount' => $cappedCost,

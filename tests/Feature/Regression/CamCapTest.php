@@ -278,10 +278,12 @@ it('reports what the pool did not recover, split into vacancy and caps', functio
         'cap_absorbed_amount' => 0, 'share_pct' => 66,
     ]);
 
-    // Kept apart on purpose: one figure would hide which lever moves it.
+    // Kept apart on purpose: one figure would hide which lever moves it. A third cause joined them
+    // on 2026-09-01 — a per-lease exclusion — and reports 0.00 here because this pool has none.
     expect($pool->landlordShare())->toBe([
         'vacancy' => 4000.0,
         'caps' => 12000.0,
+        'exclusions' => 0.0,
         'total' => 16000.0,
     ]);
 });
@@ -323,5 +325,5 @@ it('does not report a rounding residue as money the landlord bears', function ()
         'allocated_amount' => 100_000.02, 'cap_absorbed_amount' => 500, 'share_pct' => 100,
     ]);
 
-    expect($pool->landlordShare())->toBe(['vacancy' => 0.0, 'caps' => 500.0, 'total' => 500.0]);
+    expect($pool->landlordShare())->toBe(['vacancy' => 0.0, 'caps' => 500.0, 'exclusions' => 0.0, 'total' => 500.0]);
 });

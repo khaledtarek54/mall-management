@@ -40,6 +40,7 @@ class LeaseCamTerm extends Model
         'cap_scope',
         'cap_carry_forward',
         'stated_share_pct',
+        'excluded_account_ids',
         'cap_absolute_amount',
         'base_year',
         'base_year_amount',
@@ -57,6 +58,7 @@ class LeaseCamTerm extends Model
         'stated_share_pct' => 'decimal:4',
         'compounding' => 'boolean',
         'cap_carry_forward' => 'boolean',
+        'excluded_account_ids' => 'array',
     ];
 
     /** The cap bites on the tenant's WHOLE share — the legacy scope, and the default. */
