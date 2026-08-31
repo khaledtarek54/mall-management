@@ -275,6 +275,8 @@ return [
         'generate_allocations' => 'Generate Allocations',
         'generate_allocations_confirm' => 'Distributes the pool\'s actual expense pro-rata across every active lease in the asset (by unit sqm). Existing allocations are updated, not duplicated.',
         'mark_reconciled' => 'Mark Reconciled',
+        'bill_all_pending' => 'Bill all pending',
+        'bill_all_pending_confirm' => 'This will bill :count allocation(s): :invoices recovery invoice(s) totalling EGP :recovered, :credits credit note(s) totalling EGP :credited, and EGP :fees of admin fee. Each stays its own row and can be voided individually.',
         'bill_allocation' => 'Bill',
         'bill_allocation_confirm' => 'Issues a CAM recovery invoice to the tenant immediately for the true-up, plus the admin fee and recovery VAT — or, if the tenant over-paid the estimate, an auto-applied credit note. It is NOT added to the next monthly invoice.',
         'view_cam_working' => 'View working',

@@ -977,6 +977,49 @@ public function markBilled() {
 
 ---
 
+## A reconciliation is POSTED AS A BATCH, and a year is not closed on unbilled work (2026-08-31)
+
+Two gaps on the pool's own screen, both reported from the panel while walking the module.
+
+**Yardi posts the batch, not the tenant.** `bill()` existed per allocation and **nothing above it**,
+so a 39-tenant pool was 39 clicks. Recovery Reconciliation is reviewed per PROPERTY and then posted
+— *"reviewable BATCH → post"*
+([benchmark](../benchmarks/yardi/02-yardi-money-flow.md)) — and nobody posts a mall one row at a
+time. The capability was already written: `autoTrueUpForYear(autoBill: true)` and
+`cam:reconcile --auto-bill`. It sat behind a CLI the operator cannot reach, and a flag the scheduled
+run deliberately does not pass. **Reachable from a terminal is not reachable** — the same class as
+the four orphaned services `ServiceReachability` was built for.
+
+`CamReconciliationService::billAllPending()` is that batch, and the CLI now calls it too, so there
+is ONE definition of what billing a pool means. **One bad allocation must not strand the other
+thirty-eight**: each is billed in its own transaction and a failure is recorded and stepped over — a
+closed period on one lease's charge is not a reason to leave the rest of the mall un-recovered. The
+confirmation modal states what is about to happen **in figures** (how many recovery invoices, how
+many credit notes, how much admin fee), because that is the difference between a batch you can
+approve and a button you press hoping. **The per-allocation Bill stays**: billing one tenant and
+holding another back is a real act, and the per-row Void that undoes it needs a row to undo.
+
+**And a year was closeable on work nobody did.** `markReconciled` asked for the pool's status and
+the permission and never whether anything had been billed — measured on the demo books, a pool with
+**36 allocations, 0 billed, and the button live**. The CLI has always refused it (`autoTrueUpForYear`
+marks a pool reconciled only when billing ran), so the button an operator actually uses was the
+weaker of the two. It now refuses, in both layers: `disabled()` with a tooltip naming the count, and
+`assertReadyToReconcile()` inside the action. The CLI additionally refuses to close a year on
+PARTIAL work — `billFailures === 0` — because a pool with a tenant left un-recovered has not been
+reconciled, and calling it so is how the one row nobody billed stops being visible.
+
+**`assertReadyToReconcile()` is a METHOD for a testing reason, and it is this codebase's own trap.**
+`disabled()` is refused at dispatch on this Filament version, so `callAction()` never reaches the
+action body — mutation proved it: deleting the inline guard left the refusal test fully green while
+it was only ever measuring the disabled state. Extracted, it is assertable where `disabled()` cannot
+intervene, and paired with the control that must NOT throw.
+
+(`CamPoolIsPostedAsABatchTest`, four teeth mutation-proved — including that the CLI's status
+decision must be driven through `autoTrueUpForYear()` and not through `billAllPending()`, or the
+partial-failure branch is never reached.)
+
+---
+
 ## A derived total is not a field you type (2026-08-31)
 
 `total_actual_expense` and `total_estimated_collected` were `->required()` **unconditionally**, so a

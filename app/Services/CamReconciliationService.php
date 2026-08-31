@@ -580,18 +580,26 @@ class CamReconciliationService
                 $allocations = $this->generateAllocations($pool);
                 $billed = 0;
 
+                $billFailures = 0;
+
                 if ($autoBill) {
-                    foreach ($pool->allocations()->where('status', 'pending')->get() as $allocation) {
-                        $this->bill($allocation);
-                        $billed++;
-                    }
+                    // ONE definition of "bill this pool's pending allocations", shared with the
+                    // panel's own batch action, so the two can never disagree about what a batch is.
+                    $billing = $this->billAllPending($pool);
+                    $billed = $billing['billed'];
+                    $billFailures = $billing['failed'];
                 }
 
                 // Pool moves to 'reconciled' once allocations exist and billing was
                 // requested; otherwise to 'reconciling' so the admin queue surfaces
                 // it for manual review.
+                //
+                // NOT on partial work. `billAllPending()` steps over an allocation it could not
+                // bill so the rest of the mall is still recovered — but a pool with a tenant left
+                // un-recovered has not been reconciled, and calling it so is how the one row nobody
+                // billed stops being visible.
                 $nextStatus = match (true) {
-                    $autoBill && $allocations > 0 => 'reconciled',
+                    $autoBill && $allocations > 0 && $billFailures === 0 => 'reconciled',
                     $allocations > 0 => 'reconciling',
                     default => $pool->status,
                 };
@@ -876,6 +884,66 @@ class CamReconciliationService
                 ? round(abs($trueUp) * (1 + $recoveryVatRate / 100.0), 2)
                 : round($recovery + $recoveryVat + $fee + $feeVat, 2),
         ];
+    }
+
+    /**
+     * BILL EVERY PENDING ALLOCATION ON A POOL — the batch, as Yardi posts one.
+     *
+     * A reconciliation is a batch you review and then POST; Yardi's Recovery Reconciliation posts
+     * per property, not per tenant. This system had `bill()` per allocation and nothing above it on
+     * any screen, so a 39-tenant pool was 39 clicks. The capability existed — `autoTrueUpForYear()`
+     * with `--auto-bill` — behind a CLI the operator cannot reach, and the scheduled run
+     * deliberately does not pass the flag. Reachable from a terminal is not reachable.
+     *
+     * **One bad allocation must not strand the other thirty-eight.** Each is billed in its own
+     * transaction (`bill()` already opens one) and a failure is RECORDED and stepped over rather
+     * than aborting the batch — a closed accounting period on one lease's charge is not a reason to
+     * leave the rest of the mall un-recovered. The caller is told what failed, and the count is what
+     * stops a pool being called reconciled on partial work.
+     *
+     * Idempotent: `bill()` returns early on an allocation that is already billed, and only PENDING
+     * rows are selected in the first place.
+     *
+     * The direction is read BEFORE billing, because that is when `true_up_amount` still describes
+     * what is about to happen — the operator is told how many invoices and how many credit notes
+     * they are about to create, which is the difference between a batch you can approve and a
+     * button you press hoping.
+     *
+     * @return array{billed:int, recovered:int, credited:int, fee_only:int, failed:int, failures:list<string>}
+     */
+    public function billAllPending(CamExpensePool $pool): array
+    {
+        $result = ['billed' => 0, 'recovered' => 0, 'credited' => 0, 'fee_only' => 0, 'failed' => 0, 'failures' => []];
+
+        $pending = $pool->allocations()
+            ->where('status', 'pending')
+            ->with('lease.tenant', 'unitOwnership.owner')
+            ->get();
+
+        foreach ($pending as $allocation) {
+            $trueUp = (float) $allocation->true_up_amount;
+
+            try {
+                $this->bill($allocation);
+            } catch (\Throwable $e) {
+                $result['failed']++;
+                $result['failures'][] = ($allocation->lease?->tenant?->name
+                    ?? $allocation->unitOwnership?->owner?->name
+                    ?? '#'.$allocation->id).': '.$e->getMessage();
+
+                continue;
+            }
+
+            $result['billed']++;
+            $key = match (true) {
+                $trueUp > 0.005 => 'recovered',
+                $trueUp < -0.005 => 'credited',
+                default => 'fee_only',
+            };
+            $result[$key]++;
+        }
+
+        return $result;
     }
 
     public function bill(CamAllocation $allocation): CamAllocation

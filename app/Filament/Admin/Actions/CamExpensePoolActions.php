@@ -8,6 +8,7 @@ use App\Services\ApplyCamEstimateService;
 use App\Services\CamReconciliationService;
 use App\Services\SyncCamPoolFromLedgerService;
 use App\Support\RowActionPolicy;
+use DomainException;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
@@ -120,14 +121,76 @@ class CamExpensePoolActions
                         ->body(__('admin.notifications.allocations_generated_body', ['count' => $count]))
                         ->send();
                 }),
+            // YARDI POSTS THE BATCH, NOT THE TENANT. Recovery Reconciliation is reviewed per
+            // property and then posted; nobody posts a 39-tenant pool one row at a time. The
+            // capability existed behind `cam:reconcile --auto-bill` — a CLI the operator cannot
+            // reach, and a flag the scheduled run deliberately does not pass — so the panel offered
+            // 39 clicks and no alternative.
+            //
+            // The per-allocation Bill STAYS. Billing one tenant and holding another back is a real
+            // act (a disputed share, a lease in negotiation), and this replaces neither it nor the
+            // per-row Void that undoes it.
+            Action::make('billAllPending')
+                ->label(__('admin.actions.bill_all_pending'))
+                ->icon('heroicon-o-banknotes')
+                ->color('success')
+                ->requiresConfirmation()
+                // The modal states what is ABOUT to happen in figures, because the difference
+                // between a batch you can approve and a button you press hoping is being told how
+                // many invoices and how many credit notes it will create.
+                ->modalHeading(__('admin.actions.bill_all_pending'))
+                ->modalDescription(fn (CamExpensePool $record) => self::batchSummary($record))
+                ->visible(fn (CamExpensePool $record) => self::canBillAll($record))
+                ->authorize(fn (CamExpensePool $record) => self::canBillAll($record))
+                ->action(function (CamExpensePool $record): void {
+                    abort_unless(self::canBillAll($record), 403);
+
+                    $r = app(CamReconciliationService::class)->billAllPending($record);
+
+                    if ($r['failed'] > 0) {
+                        Notification::make()
+                            ->warning()
+                            ->title(__('admin.notifications.cam_batch_billed_partial', [
+                                'billed' => $r['billed'],
+                                'failed' => $r['failed'],
+                            ]))
+                            ->body(implode("\n", array_slice($r['failures'], 0, 5)))
+                            ->persistent()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('admin.notifications.cam_batch_billed', ['count' => $r['billed']]))
+                        ->body(__('admin.notifications.cam_batch_billed_body', [
+                            'recovered' => $r['recovered'],
+                            'credited' => $r['credited'],
+                            'fee_only' => $r['fee_only'],
+                        ]))
+                        ->send();
+                }),
             Action::make('markReconciled')
                 ->label(__('admin.actions.mark_reconciled'))
                 ->icon('heroicon-o-check-badge')
                 ->color('success')
                 ->requiresConfirmation()
                 ->visible(fn (CamExpensePool $record) => self::canMarkReconciled($record))
+                // AUTHZ says who may close the year; READINESS says whether it is finished. Kept
+                // apart because they fail differently: a role that may not close it should not see
+                // the button, and one that may should see WHY it is not yet pressable rather than a
+                // button that vanished. `disabled()` is refused at dispatch on this Filament
+                // version, and the guard in action() is the layer we control.
+                ->disabled(fn (CamExpensePool $record) => self::unbilledCount($record) > 0)
+                ->tooltip(fn (CamExpensePool $record) => self::unbilledCount($record) > 0
+                    ? __('admin.refusals.cam_pool_has_unbilled_allocations', ['count' => self::unbilledCount($record)])
+                    : null)
                 ->action(function (CamExpensePool $record): void {
                     abort_unless(self::canMarkReconciled($record), 403);
+
+                    self::assertReadyToReconcile($record);
+
                     $record->update([
                         'status' => 'reconciled',
                         'reconciled_at' => now(),
@@ -155,5 +218,62 @@ class CamExpensePoolActions
     {
         return $record->status === 'reconciling'
             && (auth()->user()?->can('cam.mark_reconciled') ?? false);
+    }
+
+    /**
+     * A YEAR IS NOT RECONCILED WHILE A TENANT'S SHARE HAS NOT BEEN ACTED ON.
+     *
+     * The CLI has always refused this — `autoTrueUpForYear()` marks a pool reconciled only when
+     * billing actually ran — and the button did not, so a pool could read "Reconciled ✓" with every
+     * allocation still pending and not one tenant charged. Measured on the demo books: 36
+     * allocations, 0 billed, button live.
+     *
+     * A METHOD, not an inline `if`, because `disabled()` is refused at dispatch on this Filament
+     * version — so `callAction()` never reaches the action body and the guard inside it cannot be
+     * proved through the page. Mutation said so: deleting the inline check left the refusal test
+     * fully green. It is kept as the second layer for the reason the authz invariant gives (hidden-
+     * implies-disabled is an upstream detail that can change in a release), and it is now provable.
+     */
+    public static function assertReadyToReconcile(CamExpensePool $record): void
+    {
+        if (($unbilled = self::unbilledCount($record)) > 0) {
+            throw new DomainException(__('admin.refusals.cam_pool_has_unbilled_allocations', [
+                'count' => $unbilled,
+            ]));
+        }
+    }
+
+    /** Allocations nobody has acted on yet. `disputed` and `closed` are decisions; `pending` is not. */
+    public static function unbilledCount(CamExpensePool $record): int
+    {
+        return $record->allocations()->where('status', 'pending')->count();
+    }
+
+    /**
+     * Same permission as the per-allocation Bill — batching an act is not a different right — plus
+     * something to bill. An empty batch button on a fully-billed pool reads as a broken one.
+     */
+    public static function canBillAll(CamExpensePool $record): bool
+    {
+        return self::unbilledCount($record) > 0
+            && (auth()->user()?->can('cam.bill_allocation') ?? false);
+    }
+
+    /** What the batch is about to do, in figures, for the confirmation modal. */
+    private static function batchSummary(CamExpensePool $record): string
+    {
+        $rows = $record->allocations()->where('status', 'pending')->get(['true_up_amount', 'admin_fee_amount']);
+
+        $recover = $rows->filter(fn ($a) => (float) $a->true_up_amount > 0.005);
+        $credit = $rows->filter(fn ($a) => (float) $a->true_up_amount < -0.005);
+
+        return __('admin.actions.bill_all_pending_confirm', [
+            'count' => $rows->count(),
+            'invoices' => $recover->count(),
+            'recovered' => number_format((float) $recover->sum('true_up_amount'), 2),
+            'credits' => $credit->count(),
+            'credited' => number_format(abs((float) $credit->sum('true_up_amount')), 2),
+            'fees' => number_format((float) $rows->sum('admin_fee_amount'), 2),
+        ]);
     }
 }
