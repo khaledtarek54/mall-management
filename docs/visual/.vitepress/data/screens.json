@@ -96,6 +96,12 @@
         "guide": "charge_codes"
     },
     {
+        "screen": "ClauseRegister",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "clause_register"
+    },
+    {
         "screen": "ConfigurationHealth",
         "panel": "admin",
         "kind": "page",
