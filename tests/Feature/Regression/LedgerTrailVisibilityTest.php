@@ -119,7 +119,7 @@ it('flags a document that has drifted since it was posted', function () {
     // anywhere said so.
     InvoiceItem::create([
         'invoice_id' => $invoice->id,
-        'type' => 'late_fee', 'description' => 'Late fee', 
+        'type' => 'late_fee', 'description' => 'Late fee',
         'amount' => 50, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 50,
     ]);
     $invoice->recomputeTotals();
@@ -150,7 +150,7 @@ it('keeps every entry a document has ever had, so the history is auditable', fun
     // Change the total, which the sweep resolves by voiding the stale entry and posting a new one.
     InvoiceItem::create([
         'invoice_id' => $invoice->id,
-        'type' => 'service_charge', 'description' => 'CAM', 
+        'type' => 'service_charge', 'description' => 'CAM',
         'amount' => 200, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 200,
     ]);
     $invoice->recomputeTotals();

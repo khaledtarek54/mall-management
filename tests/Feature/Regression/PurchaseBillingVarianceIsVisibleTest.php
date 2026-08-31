@@ -27,7 +27,7 @@ beforeEach(function () {
     ensureAllPropertiesAsset();
     $this->asset = makeAsset();
     $this->vendor = Vendor::create([
-        'name' => 'Delta FM', 'legal_name' => 'Delta FM LLC', 'status' => 'active', 
+        'name' => 'Delta FM', 'legal_name' => 'Delta FM LLC', 'status' => 'active',
     ]);
 });
 

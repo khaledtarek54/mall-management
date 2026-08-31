@@ -16,6 +16,7 @@ use App\Models\VendorBill;
 function immutabilityBill(array $attrs = []): VendorBill
 {
     $vendor = Vendor::create(['name' => 'V-'.uniqid(), 'status' => 'active']);
+
     return VendorBill::create(array_merge([
         'vendor_id' => $vendor->id, 'asset_id' => makeAsset()->id, 'category' => 'maintenance',
         'bill_date' => now()->toDateString(), 'due_date' => now()->addDays(30)->toDateString(),

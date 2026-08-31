@@ -1,9 +1,13 @@
 <?php
 
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\RecurringExpense;
+use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Services\GenerateRecurringExpensesService;
 use Carbon\CarbonImmutable;
+use Database\Seeders\ExpenseCategorySeeder;
 use Illuminate\Console\Scheduling\Schedule;
 
 /**
@@ -39,9 +43,9 @@ beforeEach(function () {
     // activated here exactly as the operator would before their first real-estate tax instalment.
     // Booking a statutory levy to `other` would be the wrong answer on the P&L and inside any CAM
     // pool that recovers government charges.
-    test()->seed(Database\Seeders\ExpenseCategorySeeder::class);
-    App\Models\ExpenseCategory::where('code', 'government_fees')->update(['is_active' => true]);
-    App\Models\ExpenseCategory::flushCatalogue();
+    test()->seed(ExpenseCategorySeeder::class);
+    ExpenseCategory::where('code', 'government_fees')->update(['is_active' => true]);
+    ExpenseCategory::flushCatalogue();
 
     $this->reAsset = makeAsset(['code' => 'RE']);
 });
@@ -190,7 +194,7 @@ function retainerSchedule(array $attrs = []): RecurringExpense
 {
     return RecurringExpense::create($attrs + [
         'asset_id' => test()->reAsset->id,
-        'vendor_id' => App\Models\Vendor::factory()->create()->id,
+        'vendor_id' => Vendor::factory()->create()->id,
         'description' => 'Cleaning retainer',
         'category' => 'cleaning_security',
         'amount' => 50000,
@@ -206,7 +210,7 @@ it('raises a supplier BILL when the schedule names a vendor', function () {
 
     app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
 
-    $bill = App\Models\VendorBill::where('recurring_expense_id', $schedule->id)->sole();
+    $bill = VendorBill::where('recurring_expense_id', $schedule->id)->sole();
 
     expect($bill->vendor_id)->toBe($schedule->vendor_id)
         ->and((float) $bill->subtotal)->toBe(50000.0)
@@ -230,7 +234,7 @@ it('still books an EXPENSE when no vendor is named — the paired control', func
     app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
 
     expect(Expense::where('recurring_expense_id', $tax->id)->count())->toBe(1)
-        ->and(App\Models\VendorBill::where('recurring_expense_id', $tax->id)->count())->toBe(0);
+        ->and(VendorBill::where('recurring_expense_id', $tax->id)->count())->toBe(0);
 });
 
 it('never raises the same supplier bill twice, however often the sweep runs', function () {
@@ -241,11 +245,11 @@ it('never raises the same supplier bill twice, however often the sweep runs', fu
     }
 
     // One for March, one for April — the sweep having run four times inside March.
-    expect(App\Models\VendorBill::where('recurring_expense_id', $schedule->id)->count())->toBe(1);
+    expect(VendorBill::where('recurring_expense_id', $schedule->id)->count())->toBe(1);
 
     app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-04-01'));
 
-    expect(App\Models\VendorBill::where('recurring_expense_id', $schedule->id)
+    expect(VendorBill::where('recurring_expense_id', $schedule->id)
         ->orderBy('bill_date')->pluck('bill_date')
         ->map(fn ($d) => $d->toDateString())->all())
         ->toBe(['2026-03-01', '2026-04-01']);
@@ -276,7 +280,7 @@ it('derives the input tax from the code the schedule states', function () {
 
     app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
 
-    $bill = App\Models\VendorBill::where('recurring_expense_id', $withTax->id)->sole();
+    $bill = VendorBill::where('recurring_expense_id', $withTax->id)->sole();
 
     expect((float) $bill->vat_amount)->toBe(7000.0)
         ->and((float) $bill->total)->toBe(57000.0);
@@ -288,7 +292,7 @@ it('derives the input tax from the code the schedule states', function () {
 
     app(GenerateRecurringExpensesService::class)->generate(CarbonImmutable::parse('2026-03-01'));
 
-    $plain = App\Models\VendorBill::where('recurring_expense_id', $noTax->id)->sole();
+    $plain = VendorBill::where('recurring_expense_id', $noTax->id)->sole();
 
     expect((float) $plain->vat_amount)->toBe(0.0)
         ->and((float) $plain->total)->toBe(20000.0);

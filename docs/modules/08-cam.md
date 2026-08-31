@@ -977,6 +977,61 @@ public function markBilled() {
 
 ---
 
+## What freezes a reconciliation is BILLING it, not calculating it (2026-08-31)
+
+`generateAllocations()` froze the participant set, the shares and the denominator as soon as **any**
+allocation existed — so a pool that had merely been *calculated* could never be *re*calculated. The
+other two layers drew the line in the other place, and neither matched it:
+
+| Layer | Its definition of frozen |
+|---|---|
+| `CamExpensePoolForm::basisFrozen()` | an allocation is **not pending** — so the screen **offered** the edit |
+| `generateAllocations()` | **any** allocation exists — so the service **ignored** it |
+| `CamDenominatorTest` | its comment says *"on a pool with **billed** allocations"* — and it **billed nothing** |
+
+**Found from the panel, in the first hands-on session.** An operator built a 2027 pool, generated
+it, switched `denominator_basis` from `occupied` to `gla`, saved — the column really changed —
+regenerated (36 allocations, success toast), and every share, the denominator and the landlord's
+figure were **byte-identical**. The screen said GLA and the arithmetic said occupied, with nothing
+reporting it. Same shape as the cap columns above: not a wrong number, a screen contradicting one.
+
+**And there was no way back.** `void` refuses a PENDING allocation (it un-bills, and nothing had been
+billed), no screen deletes one, and `CamExpensePool` is
+`#[DeletableWhenUnused(blockedBy: ['allocations'])]` — so the pool could not be deleted either. A
+wrong denominator on the first run was **unrecoverable from the panel**, and the register offers no
+"start again".
+
+**Yardi is the standard and it is unambiguous.** Recovery Reconciliation is a BATCH you review before
+you post — *"review estimated vs actual expenses, tenant share calculations, and generate
+reconciliation statements"* ([benchmark A7](../benchmarks/yardi/03-yardi-recoveries-percentage-rent.md)) —
+and an unposted batch recalculates freely. **Posting is the freeze.** `billed` is this system's
+posting and `pending` is the draft, so the guard now asks the question the form and the test were
+already asking, and all three layers finally agree.
+
+**The hazard the old guard protected against is real and is NOT relaxed.** With some allocations
+billed, recomputing the pending ones against a new denominator breaks
+`Σ allocated = total_actual_expense` and over-/under-bills the rest. `CamDenominatorTest` and
+`CamClauseReviewHardeningTest` both pin that — and **both now bill first**, which is the state their
+own comments always described. Correcting the fixtures made them test what they say.
+
+**The fix introduces one hazard of its own, and it is covered.** The loop only creates and updates;
+while the set was pinned that was complete by construction. Now that an unbilled pool re-resolves
+its participants, a lease that has stopped qualifying would keep a stale pending row carrying its
+old share — money allocated to somebody the pool no longer includes, which breaks the tie-out in the
+direction it reads as drift. Stale pending rows are removed on that path only; a committed
+allocation is evidence and is deleted by nothing.
+
+Measured on the demo books, the same pool regenerated after the fix: denominator **2,610 → 8,500**,
+every share down ~3.3×, `landlord_unrecovered` **4,251.10 → 479,088.23** (the vacancy the GLA basis
+exists to expose), **no cap bit at all** because every share collapsed below its ceiling, and
+`Σ allocated + unrecovered = 700,000.00` exactly.
+
+(`CamDraftReconciliationRecalculatesTest`, mutation-proved. A third mutation — the `pending` clause
+on the delete — turns nothing red and is annotated in place as unreachable-by-construction rather
+than removed: what it prevents if the guard above ever moves is deleting a billed allocation.)
+
+---
+
 ## An allocation row must name who it is against, and must not contradict itself (2026-08-31)
 
 Two defects on the allocations table, both reported from the panel in one sentence — *"why are some

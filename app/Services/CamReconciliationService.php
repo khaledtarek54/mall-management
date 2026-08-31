@@ -39,16 +39,39 @@ class CamReconciliationService
      */
     public function generateAllocations(CamExpensePool $pool): int
     {
-        // On a RE-RUN, keep the ORIGINAL participant set AND the share basis frozen. The set is
-        // pinned via $existingLeaseIds; the SHARES are pinned by REUSING each existing allocation's
-        // stored pro_rata_share_pct instead of recomputing from live sqm. Otherwise a unit-area
-        // edit — or a soft-deleted participant — between runs would shift the sqm denominator, and
-        // with some allocations already billed (frozen) the remaining pending ones would recompute
-        // against the new denominator → Σ(allocated) ≠ total_actual_expense (broken tie-out) and
-        // over-/under-billed tenants. The pool freeze guard protects the expense basis; this
-        // protects the area basis, its missing counterpart.
-        $existing = $pool->allocations()->get(['lease_id', 'unit_ownership_id', 'pro_rata_share_pct']);
-        $isRerun = $existing->isNotEmpty();
+        // WHAT FREEZES A RECONCILIATION IS BILLING IT, NOT CALCULATING IT (2026-08-31).
+        //
+        // On a frozen re-run, keep the ORIGINAL participant set AND the share basis: the set is
+        // pinned via the existing rows and the SHARES by REUSING each allocation's stored
+        // pro_rata_share_pct instead of recomputing from live sqm. Otherwise a unit-area edit — or a
+        // soft-deleted participant — between runs would shift the sqm denominator, and with some
+        // allocations already billed the remaining pending ones would recompute against the new
+        // denominator → Σ(allocated) ≠ total_actual_expense (broken tie-out) and over-/under-billed
+        // tenants. That hazard is REAL and is what this guard exists for; both tests that pin it
+        // bill an allocation first, which is the state it describes.
+        //
+        // It keyed on whether ANY allocation existed, which froze a reconciliation nobody had
+        // billed — and the two other layers drew the line in the other place. `basisFrozen()` on the
+        // pool form disables the basis fields only once an allocation is NOT PENDING, so the screen
+        // offered the edit; and the one test asserting the denominator freeze says in its own
+        // comment "on a pool with BILLED allocations" while billing nothing. Measured on the demo
+        // books: an operator generated a pool, switched `denominator_basis` from `occupied` to
+        // `gla`, saved (the column really changed), regenerated (36 allocations, success toast) —
+        // and every share, the denominator and the landlord's figure were byte-identical. The
+        // screen said GLA and the arithmetic said occupied, with nothing reporting it.
+        //
+        // Worse, there was no way back: `void` refuses a PENDING allocation (it un-bills, and
+        // nothing was billed), no screen deletes one, and `CamExpensePool` is
+        // `#[DeletableWhenUnused(blockedBy: ['allocations'])]` — so the pool could not be deleted
+        // either. A wrong denominator on the first run was unrecoverable from the panel.
+        //
+        // YARDI is the standard here and it is unambiguous: Recovery Reconciliation is a BATCH you
+        // review before you post — "review estimated vs actual expenses, tenant share calculations,
+        // and generate reconciliation statements" — and an unposted batch recalculates freely.
+        // Posting is the freeze. `billed` is this system's posting, and `pending` is the draft, so
+        // the guard now asks the question the form and the test were already asking.
+        $existing = $pool->allocations()->get(['id', 'lease_id', 'unit_ownership_id', 'pro_rata_share_pct', 'status']);
+        $isRerun = $existing->contains(fn ($a) => $a->status !== 'pending');
 
         $leases = $isRerun
             ? Lease::query()->whereIn('id', $existing->pluck('lease_id')->filter())->with('unit', 'units.areas')->get()
@@ -142,9 +165,10 @@ class CamReconciliationService
             ]));
         }
 
-        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis, $statedShares) {
+        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis, $statedShares, $existing) {
             $count = 0;
             $allocatedTotal = 0.0;
+            $touched = [];
 
             foreach ($leases as $lease) {
                 // An ownership brings no CAM CLAUSE — no stated share, no ceiling, no controllable
@@ -302,7 +326,36 @@ class CamReconciliationService
                 ]);
                 $allocation->save();
                 $allocatedTotal += $allocated;
+                $touched[] = self::agreementKeyFor($lease);
                 $count++;
+            }
+
+            // A FULL RECOMPUTE MUST NOT STRAND THE DRAFT IT REPLACES.
+            //
+            // The loop above only creates and updates. While the set was pinned that was complete
+            // by construction; now that an unbilled pool re-resolves its participants, a lease that
+            // has since stopped qualifying keeps a stale pending row carrying its old share — money
+            // allocated to somebody the pool no longer includes, which breaks
+            // `Σ allocated + unrecovered = total` in the one direction the tie-out reads as drift.
+            //
+            // Only ever PENDING rows, and only on the path where nothing is billed: a committed
+            // allocation is evidence and is deleted by nothing, which is why the frozen path pins
+            // the set instead.
+            if (! $isRerun) {
+                $stale = $existing
+                    ->reject(fn ($a) => in_array(self::agreementKey($a), $touched, true))
+                    ->pluck('id');
+
+                if ($stale->isNotEmpty()) {
+                    // `pending` is UNREACHABLE as written and deliberately kept: this branch only
+                    // runs when nothing is committed, so every row in `$existing` is already
+                    // pending and the clause excludes nothing (mutation-proved — removing it turns
+                    // no test red). It stays because the guard it duplicates is fifteen lines up,
+                    // and what it prevents if that guard ever moves is DELETING A BILLED
+                    // ALLOCATION — the document a tenant was invoiced from. Cheap insurance against
+                    // an expensive edit, stated rather than left looking live.
+                    CamAllocation::whereIn('id', $stale)->where('status', 'pending')->delete();
+                }
             }
 
             // What the landlord bears itself — the part of the pool no lease's share reached.

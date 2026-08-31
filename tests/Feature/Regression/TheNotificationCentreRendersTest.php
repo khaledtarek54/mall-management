@@ -1,6 +1,8 @@
 <?php
 
+use App\Filament\Admin\Pages\NotificationCenter;
 use App\Models\Asset;
+use App\Models\TenantUser;
 use Database\Seeders\DatabaseSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -46,13 +48,13 @@ it('renders the admin notification centre', function () {
 
     // `assertOk()` alone is not enough — the table has to be BUILT for the column manager to run,
     // which is why this asserts on rendered content rather than just a 200.
-    Livewire::test(App\Filament\Admin\Pages\NotificationCenter::class)->assertOk();
+    Livewire::test(NotificationCenter::class)->assertOk();
 
     Filament::setTenant(null, isQuiet: true);
 });
 
 it('renders the portal notification centre', function () {
-    $tenantUser = App\Models\TenantUser::query()->firstOrFail();
+    $tenantUser = TenantUser::query()->firstOrFail();
 
     Filament::setCurrentPanel(Filament::getPanel('portal'));
     $this->actingAs($tenantUser, 'portal');

@@ -87,11 +87,17 @@ it('freezes the corrected share on a re-run rather than recomputing it', functio
     $leaseA = makeLease($masterA);
     $leaseA->syncUnits([$masterA->id, $extraA->id], $masterA->id);
 
-    makeLease(makeUnit($asset, ['area_sqm' => 800]));
+    $leaseB = makeLease(makeUnit($asset, ['area_sqm' => 800]));
 
     $pool = makeCamPool($asset, ['total_actual_expense' => 200000]);
     $service = app(CamReconciliationService::class);
     $service->generateAllocations($pool);
+
+    // BILL B FIRST — the guard freezes a reconciliation that has been POSTED, not merely one that
+    // has been calculated, and this fixture billed nothing until 2026-08-31. B is billed and A is
+    // asserted, because billing A would freeze it through a different guard entirely (a billed
+    // allocation is never re-touched) and pass whether or not this one existed.
+    $service->bill(CamAllocation::where('cam_expense_pool_id', $pool->id)->where('lease_id', $leaseB->id)->sole());
 
     // An area edit between runs must NOT shift an established share (the frozen-basis guard).
     // Through RemeasureUnitService, and dated back into the pool's year: an area is a dated record

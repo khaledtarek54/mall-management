@@ -5,14 +5,15 @@ use App\Models\CreditNote;
 use App\Models\DepositTransaction;
 use App\Models\JournalEntry;
 use App\Models\Lease;
-use Carbon\CarbonImmutable;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\ChargeScheduleService;
 use App\Services\LeaseRenewalService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\TaxCodeSeeder;
-use App\Services\Accounting\FiscalCalendar;
 
 /**
  * The pre-staging money fixes that are armed by an ORDINARY event rather than by an exotic one:
@@ -193,7 +194,7 @@ it('reverses tax at the posting role the line carried, not always VAT', function
     $note->describeAs('Rent credit', 500, 14, 70, 'VAT_14');
     $note->describeAs('Stamped supply credit', 500, 14, 70, 'STAMP_20');
 
-    $payload = app(\App\Services\Accounting\Journalizers\CreditNoteJournalizer::class)->payload($note->fresh());
+    $payload = app(CreditNoteJournalizer::class)->payload($note->fresh());
 
     $debits = collect($payload['lines'])->where('debit', '>', 0)->pluck('debit', 'ledger_account_id');
 
@@ -223,7 +224,7 @@ it('falls back to VAT payable for a line that names no tax code', function () {
 
     $note->describeAs('Unclassified credit', 1000, 14, 140);
 
-    $payload = app(\App\Services\Accounting\Journalizers\CreditNoteJournalizer::class)->payload($note->fresh());
+    $payload = app(CreditNoteJournalizer::class)->payload($note->fresh());
 
     expect(round(collect($payload['lines'])->sum('debit'), 2))
         ->toEqual(round(collect($payload['lines'])->sum('credit'), 2))

@@ -4,7 +4,6 @@ use App\Filament\Admin\RelationManagers\CamAllocationsRelationManager;
 use App\Filament\Admin\Resources\CamExpensePools\Pages\EditCamExpensePool;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
-use App\Models\LeaseCamTerm;
 use App\Models\Tenant;
 use App\Models\UnitOwnership;
 use App\Services\CamReconciliationService;

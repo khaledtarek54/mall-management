@@ -170,17 +170,29 @@ it('uses the share a lease STATES over any share derived from area', function ()
 it('freezes the shares on a re-run whatever the basis says today', function () {
     // The hard-won frozen-share guard must survive RC-03: changing the denominator on a pool with
     // billed allocations must not re-cut anybody's share.
+    //
+    // IT NOW BILLS ONE, WHICH IS THE STATE THE SENTENCE ABOVE DESCRIBES. It billed nothing until
+    // 2026-08-31, so it pinned the guard against an UNBILLED pool — a far stronger property than
+    // the one it names, and the reason an operator could switch a draft pool's denominator, save
+    // it, regenerate, and watch every figure stay exactly where it was.
+    //
+    // B is the one billed and A is the one asserted: billing A would freeze it through the
+    // never-re-touch-a-billed-allocation rule instead, which is a different guard and would pass
+    // whether or not this one existed.
     CarbonImmutable::setTestNow('2029-01-15');
-    [$asset, $a] = denomAsset(1000);
+    [$asset, $a, $b] = denomAsset(1000);
 
     $pool = denomPool($asset->id, CamExpensePool::DENOMINATOR_OCCUPIED);
-    app(CamReconciliationService::class)->generateAllocations($pool);
+    $svc = app(CamReconciliationService::class);
+    $svc->generateAllocations($pool);
 
     $before = (float) CamAllocation::where('cam_expense_pool_id', $pool->id)
         ->where('lease_id', $a->id)->sole()->pro_rata_share_pct;
 
+    $svc->bill(CamAllocation::where('cam_expense_pool_id', $pool->id)->where('lease_id', $b->id)->sole());
+
     $pool->update(['denominator_basis' => CamExpensePool::DENOMINATOR_GLA]);
-    app(CamReconciliationService::class)->generateAllocations($pool->fresh());
+    $svc->generateAllocations($pool->fresh());
 
     expect((float) CamAllocation::where('cam_expense_pool_id', $pool->id)->where('lease_id', $a->id)->sole()->pro_rata_share_pct)
         ->toBe($before);

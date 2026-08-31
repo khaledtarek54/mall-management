@@ -6,8 +6,8 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
-use App\Support\LeaseEventNarrative;
 use App\Services\LeaseTerminationService;
+use App\Support\LeaseEventNarrative;
 use Carbon\CarbonImmutable;
 
 /**

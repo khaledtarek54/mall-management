@@ -21,6 +21,7 @@ declare(strict_types=1);
 */
 
 use App\Filament\Admin\Pages\ClauseRegister;
+use App\Models\Lease;
 use App\Models\LeaseClause;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -34,7 +35,7 @@ beforeEach(function (): void {
     Filament::setTenant($this->asset);
 });
 
-function clauseOn(\App\Models\Lease $lease, string $type, array $attrs = []): LeaseClause
+function clauseOn(Lease $lease, string $type, array $attrs = []): LeaseClause
 {
     return $lease->clauses()->create([...['type' => $type, 'summary' => "a {$type} clause"], ...$attrs]);
 }

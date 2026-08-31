@@ -46,7 +46,7 @@ function reportedTestInvoice(string $issueDate, float $total = 1000): Invoice
 
     InvoiceItem::create([
         'invoice_id' => $invoice->id,
-        'type' => 'base_rent', 'description' => 'Rent', 
+        'type' => 'base_rent', 'description' => 'Rent',
         'amount' => $total, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => $total,
     ]);
 
@@ -125,7 +125,7 @@ it('alerts the GL managers when a re-derive restates a reported month', function
     // The edit: a late fee on a March invoice, after March has been reported.
     InvoiceItem::create([
         'invoice_id' => $invoice->id,
-        'type' => 'late_fee', 'description' => 'Late fee', 
+        'type' => 'late_fee', 'description' => 'Late fee',
         'amount' => 50, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 50,
     ]);
     $invoice->recomputeTotals();
@@ -151,7 +151,7 @@ it('stays quiet when the month has not been reported', function () {
 
     InvoiceItem::create([
         'invoice_id' => $invoice->id,
-        'type' => 'late_fee', 'description' => 'Late fee', 
+        'type' => 'late_fee', 'description' => 'Late fee',
         'amount' => 50, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 50,
     ]);
     $invoice->recomputeTotals();
@@ -172,7 +172,7 @@ it('flags the restatement on the document itself, before it happens', function (
 
     InvoiceItem::create([
         'invoice_id' => $invoice->id,
-        'type' => 'late_fee', 'description' => 'Late fee', 
+        'type' => 'late_fee', 'description' => 'Late fee',
         'amount' => 50, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 50,
     ]);
     $invoice->recomputeTotals();
