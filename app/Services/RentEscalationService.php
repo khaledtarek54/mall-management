@@ -27,8 +27,17 @@ use Illuminate\Support\Facades\DB;
  * Idempotent + lock-safe: each lease is row-locked and its due-ness re-checked inside the
  * transaction, and applying advances `next_escalation_date` past today so a re-run is a no-op.
  * One step per run — a multi-year backlog (a mis-set date) catches up over subsequent runs rather
- * than compounding many years in a single pass. CPI escalation is skipped (no index feed —
- * inventing a CPI number would be inventing data); `fixed_percent` and `fixed_amount` are applied.
+ * than compounding many years in a single pass.
+ *
+ * **All three clause types are applied**: `fixed_percent`, `fixed_amount` and — since the
+ * `rent_indices` register arrived on 2026-08-19 — `cpi`, which resolves the named index
+ * `escalation_index_lag_months` back from the anniversary, measures it against the lease's
+ * `escalation_index_base_value` and collars the result. *(This docblock said "CPI escalation is
+ * skipped (no index feed)" until 2026-08-31, describing the world before that register: the
+ * sentence outlived its truth by twelve days and was contradicted by the `'cpi'` branch below it.)*
+ * What is still absent is an automatic FEED — a published statistic is keyed by a person, because
+ * inventing an index number is inventing the money a tenant pays. A clause naming no index, or
+ * carrying no base, produces no step rather than a guess.
  */
 class RentEscalationService
 {

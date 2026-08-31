@@ -9,7 +9,11 @@ module is how a stale one survives.
 
 | Document | Covers | For |
 |---|---|---|
+| [SPACE-WALKTHROUGH.md](SPACE-WALKTHROUGH.md) | Modules 01 · 30 · 35 · 37 — the property, its floors, the unit register, why a unit's status is a **projection**, the two occupancy numbers, dated areas, the two floor plans, rentable items and unit owners | Anyone, before they touch a lease |
 | [LEASING-WALKTHROUGH.md](LEASING-WALKTHROUGH.md) | Module 04 — the lease record, its 6 form tabs, its 13 record tabs, all 13 actions, the list, the nightly jobs, and **16 hands-on exercises** | A new team member who has to understand leasing from nothing |
+| [RECEIVABLES-WALKTHROUGH.md](RECEIVABLES-WALKTHROUGH.md) | Modules 05 · 06 · 07 · 08 · 09 · 33 — the monthly run, proration, tax on the line, the **four settlement channels**, credit notes, deposits, cheques, the recoveries, the dunning ladder, and what each act does to the books | Whoever raises the invoices and chases the money |
+| [PAYABLES-WALKTHROUGH.md](PAYABLES-WALKTHROUGH.md) | Modules 12 · 25 · 29 (+ 22 · 23 · 24 · 26) — the five roads money leaves by, the dispatch gate, the vendor bill, **withholding tax**, voiding a payment, procurement and the approval tier, **GRNI**, custody, and the SLA penalty charged onto a supplier's bill | Whoever pays the suppliers |
+| [OPERATOR-PLAYBOOK.md](OPERATOR-PLAYBOOK.md) | Cross-module — what you can change **without a developer**, twenty time-savers, the **silent failures**, a diagnostic order for a wrong number, the daily→annual rhythm, and an honest list of what is **not** here | Anyone already using the system daily |
 
 ## How they are written
 
