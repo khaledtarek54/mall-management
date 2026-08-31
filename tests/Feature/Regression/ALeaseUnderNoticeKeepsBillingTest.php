@@ -147,14 +147,24 @@ it('still expires a lease whose term merely ran out', function (): void {
 it('leaves an already-closed rung of the rent ladder closed', function (): void {
     $lease = leaseBillingMonthly();
 
+    // ANCHOR ON THE FIRST OF THE MONTH, never on today. Carbon OVERFLOWS month arithmetic: run on
+    // the 31st, `today()->subMonths(2)->endOfMonth()` is 31 Jul (31 Jun → 1 Jul → end of July) while
+    // `today()->subMonth()->startOfMonth()` is 1 Jul — so the "closed" rung and the one that
+    // succeeded it both cover July, and `Charge`'s overlap guard refuses the row. Correctly: two
+    // rows on the same month WOULD bill it twice. The fixture was wrong, not the guard.
+    //
+    // Measured: this failed on 31 August 2026 and passes on every other day of that month, which is
+    // the worst shape a gate can have — it goes red on a date nobody changed anything on.
+    $month = CarbonImmutable::today()->startOfMonth();
+
     // The state every escalating lease is in: a closed rung and the one that succeeded it.
     $closed = $lease->charges()->where('type', 'base_rent')->first();
-    $closed->update(['end_date' => CarbonImmutable::today()->subMonths(2)->endOfMonth()]);
+    $closed->update(['end_date' => $month->subMonths(2)->endOfMonth()]);
 
     Charge::create([
         'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
         'amount' => 44_000, 'currency' => 'EGP', 'frequency' => 'monthly',
-        'start_date' => CarbonImmutable::today()->subMonth()->startOfMonth(), 'is_active' => true,
+        'start_date' => $month->subMonth(), 'is_active' => true,
     ]);
 
     $leaving = CarbonImmutable::today()->addMonths(3)->endOfMonth();
@@ -168,7 +178,7 @@ it('leaves an already-closed rung of the rent ladder closed', function (): void 
     // they are all being deactivated in the same statement — and the moment they stay live it
     // RE-OPENS the closed rung, so two rows cover the same month and the billing run throws.
     expect($closed->fresh()->end_date->toDateString())
-        ->toBe(CarbonImmutable::today()->subMonths(2)->endOfMonth()->toDateString());
+        ->toBe($month->subMonths(2)->endOfMonth()->toDateString());
 
     // The claim is the billing, not the column.
     $period = CarbonImmutable::today()->addMonth()->startOfMonth();
