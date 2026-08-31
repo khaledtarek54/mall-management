@@ -641,11 +641,27 @@ class DemoSeeder extends Seeder
             return;
         }
 
-        // EGP 4,800/m²/yr on 110 m² = 44,000 a month. The model derives the monthly figure, so this
-        // also proves the derivation runs outside a test.
+        // The rate is DERIVED FROM THE RENT THIS LEASE ALREADY BILLS, not typed.
+        //
+        // It was a hardcoded 4,800/m²/yr, which on 110 m² derives 44,000 — while the lease had been
+        // seeded at 77,000 and its charge schedule still said so. The model re-derived the COLUMN
+        // and nothing touched the SCHEDULE, so the demo books carried a lease whose rent roll read
+        // 44,000 and whose invoices billed 77,000, with no lease event to explain the difference —
+        // and three years of escalation compounded from the wrong base. No operator can reach that
+        // state (all three rent fields are locked on Edit, with "use the Change rent action"), so it
+        // was the seeder contradicting itself, on the one lease written to prove the derivation runs.
+        //
+        // Computed, so it cannot drift again if the seeded rent changes.
+        $area = (float) $lease->unit?->area_sqm;
+        $rent = (float) $lease->base_rent_monthly;
+
+        if ($area <= 0 || $rent <= 0) {
+            return;
+        }
+
         $lease->update([
             'rent_pricing_basis' => Lease::RENT_RATE,
-            'base_rent_rate_per_sqm_year' => 4800,
+            'base_rent_rate_per_sqm_year' => round($rent * 12 / $area, 2),
         ]);
     }
 
