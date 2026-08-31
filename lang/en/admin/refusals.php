@@ -94,5 +94,6 @@ return [
         'write_off_exceeds_remaining_partial' => 'Cannot write off :amount against invoice :number: only :remaining is left to write off (:written of :outstanding already written off).',
         'owner_statement_finalised_exists' => 'A finalised statement already exists for this property and period — revise it instead of regenerating.',
         'owner_statement_has_active_disbursements' => 'This run cannot be revised while it has active disbursements — cancel the scheduled or approved payouts first. If the owner has already been paid, correct the difference in the next period rather than revising the paid statement.',
+        'lease_option_not_open' => "This option is :status — only an open option can be exercised.",
     ],
 ];

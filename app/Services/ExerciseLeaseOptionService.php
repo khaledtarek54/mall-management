@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Support\LeaseEventNarrative;
+use App\Support\Translate;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
 use App\Models\LeaseOption;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -56,10 +58,12 @@ class ExerciseLeaseOptionService
      */
     public function exercise(LeaseOption $option, array $data = []): LeaseOption
     {
+        // Translated, and the STATUS reads as a word: this is the app talking to a person, so
+        // printing `'lapsed'` gives them half a business rule and half a database column.
         if (! $option->isOpen()) {
-            throw new InvalidArgumentException(
-                "This option is already '{$option->status}' — only an open option can be exercised."
-            );
+            throw new DomainException(__('admin.refusals.lease_option_not_open', [
+                'status' => Translate::orHumanized("admin.lease_options.statuses.{$option->status}", $option->status),
+            ]));
         }
 
         $lease = $option->lease;
@@ -93,8 +97,12 @@ class ExerciseLeaseOptionService
         // Judged on the date NOTICE WAS SERVED, exactly as `$noticeGiven` is derived above: a
         // notice served inside the window and keyed a week late is valid, and refusing it on
         // today's date would push the operator to falsify the date.
+        // A DomainException, not an InvalidArgumentException: this is the operator doing something
+        // the lease does not permit, not a developer error. `bootstrap/app.php` renders the first
+        // as its own message and the second as a 500 page — and the sweep that requires every
+        // refusal to be translated deliberately reads only the first.
         if (! $option->windowIsOpen($noticeGiven)) {
-            throw new InvalidArgumentException(__('admin.errors.option_notice_outside_window', [
+            throw new DomainException(__('admin.errors.option_notice_outside_window', [
                 'served' => $noticeGiven->format('d/m/Y'),
                 'from' => $option->earliest_notice_date?->format('d/m/Y') ?? '—',
                 'to' => $option->latest_notice_date?->format('d/m/Y') ?? '—',

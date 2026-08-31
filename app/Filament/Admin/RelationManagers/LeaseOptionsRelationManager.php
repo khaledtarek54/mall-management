@@ -9,6 +9,7 @@ use App\Models\Unit;
 use App\Services\ExerciseLeaseOptionService;
 use App\Support\Filament\EntitySelect;
 use Carbon\CarbonImmutable;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -310,7 +311,33 @@ class LeaseOptionsRelationManager extends RelationManager
                             ->live(onBlur: true)
                             ->helperText(__('admin.lease_options.notice_given_at_hint'))
                             ->default(fn (LeaseOption $record) => $record->notice_given_at ?? now())
-                            ->required(),
+                            ->required()
+                            // THE WINDOW IS REFUSED ON THE FIELD, not in the action.
+                            //
+                            // A `catch` around the service call showed the refusal and then let the
+                            // closure return normally, so Filament sent its success notification
+                            // straight after it: the operator read "outside this option's window"
+                            // and "Option marked exercised" together, and only the first was true.
+                            // Reported from the panel.
+                            //
+                            // Validating here also keeps the modal OPEN with the date still in it,
+                            // which a toast-and-close cannot: the operator fixes the day rather
+                            // than re-typing the reason and the document reference. The service
+                            // guard stays as the backstop — a disabled or absent field still
+                            // arrives in the Livewire payload.
+                            ->rules([
+                                fn (LeaseOption $record): Closure => function (string $attribute, $value, Closure $fail) use ($record): void {
+                                    if (blank($value) || $record->windowIsOpen(CarbonImmutable::parse($value)->startOfDay())) {
+                                        return;
+                                    }
+
+                                    $fail(__('admin.errors.option_notice_outside_window', [
+                                        'served' => CarbonImmutable::parse($value)->format('d/m/Y'),
+                                        'from' => $record->earliest_notice_date?->format('d/m/Y') ?? '—',
+                                        'to' => $record->latest_notice_date?->format('d/m/Y') ?? '—',
+                                    ]));
+                                },
+                            ]),
                         Textarea::make('reason')
                             ->label(__('admin.actions.change_rent_reason'))
                             ->helperText(__('admin.lease_options.help.option_reason'))
@@ -324,11 +351,10 @@ class LeaseOptionsRelationManager extends RelationManager
                         // action() is the real gate — visible() is the UI.
                         abort_unless(self::canWrite(), 403);
 
-                        try {
-                            app(ExerciseLeaseOptionService::class)->exercise($record, $data);
-                        } catch (\InvalidArgumentException $e) {
-                            Notification::make()->danger()->title($e->getMessage())->send();
-                        }
+                        // No try/catch. A DomainException is this codebase's refusal type and
+                        // renders as its own message; catching one here and returning normally is
+                        // what made the panel report a refusal and a success in the same breath.
+                        app(ExerciseLeaseOptionService::class)->exercise($record, $data);
                     })
                     ->successNotificationTitle(__('admin.lease_options.exercised_notice')),
                 Action::make('waive')

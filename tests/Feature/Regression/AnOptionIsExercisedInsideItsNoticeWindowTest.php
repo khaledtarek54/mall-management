@@ -7,7 +7,10 @@ use App\Models\LeaseOption;
 use App\Models\User;
 use App\Services\ExerciseLeaseOptionService;
 use Carbon\CarbonImmutable;
+use App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager;
+use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use Database\Seeders\RolesPermissionsSeeder;
+use Livewire\Livewire;
 
 /**
  * A NOTICE WINDOW IS A CONTRACTUAL TERM, AND NOTHING WAS CHECKING IT.
@@ -70,7 +73,7 @@ it('refuses a notice served before the window opens', function (): void {
     $option = optionWindowed($this->lease, '2026-12-30', '2027-03-30');
 
     expect(fn () => app(ExerciseLeaseOptionService::class)->exercise($option, ['reason' => 'early']))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 });
 
 it('refuses a notice served after the window closes', function (): void {
@@ -81,7 +84,7 @@ it('refuses a notice served after the window closes', function (): void {
     expect($option->status)->toBe('open');
 
     expect(fn () => app(ExerciseLeaseOptionService::class)->exercise($option, ['reason' => 'late']))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 });
 
 it('accepts a notice served inside the window', function (): void {
@@ -128,4 +131,49 @@ it('words the refusal in both languages, naming the window', function (): void {
     }
 
     expect(trans('admin.errors.option_notice_outside_window', [], 'ar'))->toMatch('/\p{Arabic}/u');
+});
+
+it('never reports a refusal and a success for the same click', function (): void {
+    // WHAT THE OPERATOR SAW, reported from the panel: two notifications at once —
+    //
+    //   "Notice was served on 01/06/2026, outside this option's window (10/08/2026 to 09/10/2026)…"
+    //   "Option marked exercised."
+    //
+    // …and only the first was true. A `catch` around the service call showed the refusal and then
+    // let the closure RETURN NORMALLY, so Filament sent the action's success notification straight
+    // after it. A success toast is what an operator files the day's work by; one that fires over a
+    // refusal is worse than no message at all.
+    $option = optionWindowed($this->lease, '2026-08-10', '2026-10-09');
+    $lease = $this->lease;
+
+    $component = Livewire::test(LeaseOptionsRelationManager::class, [
+        'ownerRecord' => $lease,
+        'pageClass' => EditLease::class,
+    ])->callTableAction('exercise', $option, data: ['notice_given_at' => '2026-06-01']);
+
+    // Refused ON THE FIELD, so the modal stays open with the date still in it and the operator
+    // fixes the day rather than re-typing the reason and the document reference.
+    $component->assertHasTableActionErrors(['notice_given_at']);
+
+    // Nothing happened, and nothing SAID anything happened.
+    expect($option->fresh()->status)->toBe('open')
+        ->and($option->fresh()->notice_given_at)->toBeNull();
+
+    $component->assertNotNotified(__('admin.lease_options.exercised_notice'));
+});
+
+it('still exercises on a date inside the window, through the same modal', function (): void {
+    // The control. A refusal test passes just as happily when the action is a no-op, so the
+    // success path must be driven through the SAME component for the pair to prove anything.
+    $option = optionWindowed($this->lease, '2026-08-10', '2026-10-09');
+
+    Livewire::test(LeaseOptionsRelationManager::class, [
+        'ownerRecord' => $this->lease,
+        'pageClass' => EditLease::class,
+    ])
+        ->callTableAction('exercise', $option, data: ['notice_given_at' => '2026-08-20'])
+        ->assertHasNoTableActionErrors()
+        ->assertNotified(__('admin.lease_options.exercised_notice'));
+
+    expect($option->fresh()->status)->toBe('exercised');
 });

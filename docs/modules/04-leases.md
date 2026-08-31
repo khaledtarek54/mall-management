@@ -330,6 +330,31 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ A refusal and a success cannot both be true of one click (2026-08-31).**
+> Reported from the panel: exercising an option on a notice date outside its window produced BOTH
+> *"Notice was served on 01/06/2026, outside this option's window…"* and *"Option marked exercised."*
+> Only the first was true.
+>
+> - **A `catch` that shows a message and returns normally is a `catch` that reports success.** The
+>   action caught the service's refusal, sent a danger notification and let the closure return, so
+>   Filament sent the chain's `successNotificationTitle()` straight afterwards. A success toast is
+>   what an operator files the day's work by; one that fires over a refusal is worse than silence.
+>   A sweep of every `->action()` in the panel carrying `successNotification` found exactly one
+>   such swallow — this one.
+> - **The window is refused ON THE FIELD**, not in the action, so the modal stays open with the date
+>   still in it and the operator fixes the day rather than re-typing the reason and the document
+>   reference. The service guard stays as the backstop: a field's value still arrives in the
+>   Livewire payload whatever the form did.
+> - **`DomainException`, not `InvalidArgumentException`.** An operator exercising outside the window,
+>   or re-clicking Exercise on an option somebody already resolved, is doing something the lease does
+>   not permit — not tripping a developer error. `bootstrap/app.php` renders the first as a readable
+>   message and the second as a 500, and `RefusalsAreTranslatedConformanceTest` deliberately sweeps
+>   only the first. The already-resolved refusal was also raw English printing a raw column value
+>   (*"This option is already 'lapsed'"*), so it now reads through `admin.lease_options.statuses.*`.
+> - Mutation-proved both ways: neutering the field rule, and restoring the swallowing catch, each
+>   turn `AnOptionIsExercisedInsideItsNoticeWindowTest` red. Verified in a browser afterwards —
+>   refusal alone with the modal open, success alone on a valid date.
+
 > **⚠️ A lease event's REASON is a key, resolved at read time (2026-08-30).**
 > `App\Support\LeaseEventNarrative` is the lease timeline's twin of `JournalNarrative`, under the
 > rule both obey: **a row stores DATA, never PROSE.** Ten services composed their sentence through

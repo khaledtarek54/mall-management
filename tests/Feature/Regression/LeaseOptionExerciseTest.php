@@ -157,8 +157,11 @@ it('refuses to exercise an option that is already resolved', function () {
 
     app(ExerciseLeaseOptionService::class)->exercise($option);
 
+    // A DomainException, not an InvalidArgumentException: an operator re-clicking Exercise on an
+    // option somebody already resolved is doing something the lease does not permit, not tripping a
+    // developer error — and only the first renders as a message they can read (2026-08-31).
     expect(fn () => app(ExerciseLeaseOptionService::class)->exercise($option->fresh()))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(DomainException::class);
 
     // The control: exactly one event, so the refusal is not just a silent no-op.
     expect($lease->fresh()->events()->count())->toBe(1);
