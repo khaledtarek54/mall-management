@@ -28,13 +28,26 @@ class CamAllocationsRelationManager extends RelationManager
         return __('admin.tables.cam.allocations');
     }
 
-    protected static function tenantName(CamAllocation $record): string
+    /**
+     * WHO THIS ALLOCATION IS AGAINST — a tenant on a lease, or the OWNER of a sold unit.
+     *
+     * `UnitOwnership`'s relation is `owner`, not `tenant` — named for what the operator calls them,
+     * over the same `tenants` table. Reading `->tenant` on it returns NULL rather than throwing (an
+     * undefined relation is just a missing attribute), so this method was written to fix owner rows
+     * reading '—' and went on answering '—' for every one of them. Measured on the demo books: six
+     * ownership allocations in the 2026 pool, all anonymous.
+     */
+    public static function participantName(CamAllocation $record): string
     {
-        // Both agreement shapes. An allocation belongs to a lease OR a unit ownership, so reading the
-        // lease alone titled every owner's allocation modal '—'.
-        $tenant = $record->lease?->tenant ?? $record->unitOwnership?->tenant;
+        $tenant = $record->lease?->tenant ?? $record->unitOwnership?->owner;
 
         return $tenant instanceof Tenant ? $tenant->name : '—';
+    }
+
+    /** The unit the allocation is against, from whichever agreement holds it. */
+    public static function participantUnit(CamAllocation $record): ?string
+    {
+        return $record->lease?->unit?->code ?? $record->unitOwnership?->unit?->code;
     }
 
     /** Named once so the bill action's visible() (UI) and action() (real gate) can't drift. */
@@ -133,18 +146,50 @@ class CamAllocationsRelationManager extends RelationManager
         return $rows;
     }
 
+    /**
+     * Did a cap actually REFUSE cost on this pool?
+     *
+     * Named once because two columns ask it and they must appear and disappear together — one of
+     * the pair alone leaves the row still not adding up. A resolved ceiling is not enough: a cap
+     * set above the share absorbs nothing and explains nothing, which is exactly the case
+     * `explainAllocation()` already tests as `cap_applied`.
+     */
+    protected function poolHasACapThatBit(): bool
+    {
+        return $this->getOwnerRecord()
+            ->allocations()
+            ->where('cap_absorbed_amount', '>', 0.005)
+            ->exists();
+    }
+
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['lease.tenant', 'lease.unit', 'pool']))
+            ->modifyQueryUsing(fn ($query) => $query->with([
+                'lease.tenant', 'lease.unit', 'unitOwnership.owner', 'unitOwnership.unit', 'pool',
+            ]))
             ->columns([
-                TextColumn::make('lease.tenant.name')
+                // A PARTICIPANT, not a tenant: a pool apportions to leases AND to the owners of sold
+                // units (module 37), and both columns read the lease alone — so every ownership row
+                // rendered with no name and no unit, which is a row of money against nobody. Six of
+                // the 39 on the demo's 2026 pool. Reported from the panel, and unreportable as
+                // anything but "the table is broken": there is no clue on screen that the blank rows
+                // are owners.
+                TextColumn::make('participant')
                     ->label(__('admin.tables.cam.tenant'))
-                    ->searchable()
+                    ->state(fn (CamAllocation $record): string => self::participantName($record))
+                    // A computed column has no column to search, so the search has to reach BOTH
+                    // agreements itself — otherwise typing an owner's name empties the table, which
+                    // reads as "no such participant".
+                    ->searchable(query: fn ($query, string $search) => $query
+                        ->whereHas('lease.tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('unitOwnership.owner', fn ($q) => $q->where('name', 'like', "%{$search}%")))
                     ->weight('medium'),
-                TextColumn::make('lease.unit.code')
+                TextColumn::make('participant_unit')
                     ->label(__('admin.tables.cam.unit'))
+                    ->state(fn (CamAllocation $record): ?string => self::participantUnit($record))
                     ->badge()
+                    ->placeholder('—')
                     ->color('gray'),
                 TextColumn::make('pro_rata_share_pct')
                     ->label(__('admin.tables.cam.share'))
@@ -152,12 +197,25 @@ class CamAllocationsRelationManager extends RelationManager
                 TextColumn::make('allocated_amount')
                     ->label(__('admin.tables.cam.allocated'))
                     ->money('EGP', divideBy: 1),
-                // Cap legs — hidden by default, but present so the true-up reconciles when a cap bites
-                // (allocated − absorbed = capped cost; capped cost − estimated = true-up).
+                // ── THE ROW MUST NOT CONTRADICT ITSELF ──────────────────────────────────────
+                //
+                // These were added "so the true-up reconciles when a cap bites" and then hidden by
+                // default, which is the one state in which it does not. On a pool where a cap bit,
+                // the visible columns read `allocated 52,983.90` and `estimated 50,213.50` beside a
+                // true-up of `−30,368.50` — three numbers that cannot all be right, with the reason
+                // behind a toggle nobody knows to open. Reported from the panel as wrong FIGURES;
+                // the figures were exact and the screen was lying about them.
+                //
+                // So they are shown exactly when they explain something — the same rule this module
+                // already applies to the tenant's own statement ("the cap section is omitted when no
+                // cap applied") and that the financial statements apply to a subtotal that would
+                // equal its own section total. On the pools that carry no cap at all, nothing
+                // changes: two columns of 0.00 on every row is the noise that rule exists to avoid.
                 TextColumn::make('capped_cost_amount')
                     ->label(__('admin.tables.cam.capped_cost'))
                     ->money('EGP', divideBy: 1)
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->visible(fn (): bool => $this->poolHasACapThatBit())
+                    ->toggleable(),
                 // DANGER, not success. This is cost the LANDLORD eats because a cap refused it, and
                 // this is the operator's screen — the landlord's agent. Green read as good news on
                 // the one column that is money leaving the mall. (The tenant's own CAM statement is
@@ -171,7 +229,8 @@ class CamAllocationsRelationManager extends RelationManager
                     ->color(fn ($state): string => (float) $state > 0.005 ? 'danger' : 'gray')
                     ->placeholder('—')
                     ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP'))
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->visible(fn (): bool => $this->poolHasACapThatBit())
+                    ->toggleable(),
                 TextColumn::make('estimated_paid')
                     ->label(__('admin.tables.cam.estimated_paid'))
                     ->money('EGP', divideBy: 1)
@@ -214,7 +273,7 @@ class CamAllocationsRelationManager extends RelationManager
                     ->icon('heroicon-o-calculator')
                     ->color('gray')
                     ->modalHeading(fn (CamAllocation $record) => __('admin.actions.view_cam_working_heading', [
-                        'tenant' => self::tenantName($record),
+                        'tenant' => self::participantName($record),
                     ]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel(__('admin.actions.close'))

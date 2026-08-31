@@ -977,6 +977,43 @@ public function markBilled() {
 
 ---
 
+## An allocation row must name who it is against, and must not contradict itself (2026-08-31)
+
+Two defects on the allocations table, both reported from the panel in one sentence — *"why are some
+tenants blank, and why are the numbers wrong?"* — and neither visible from any test.
+
+**A pool apportions to LEASES and to the OWNERS of sold units**, and the Tenant and Unit columns both
+read `lease.*`. So every ownership row rendered **with no name and no unit** — six of the 39 on the
+demo's 2026 pool. A line of money against nobody, and unreportable as anything but *"the table is
+broken"*, because nothing on the screen says the blank rows are owners. `->searchable()` on the same
+path meant typing an owner's name emptied the table, which reads as *"no such participant"*.
+
+**The fix for exactly this was already there and inert.** `tenantName()` carries a docblock saying
+*"reading the lease alone titled every owner's allocation modal '—'"* and reads
+`$record->unitOwnership?->tenant`. `UnitOwnership`'s relation is **`owner`** — named for what the
+operator calls them, over the same `tenants` table — and an undefined relation resolves to **NULL
+rather than throwing**, so the method went on answering `'—'` for every owner while looking correct.
+Renamed `participantName()`, with `participantUnit()` beside it, and the table takes both.
+
+**The second half is why the figures looked wrong: they were exact.** The cap columns were added
+*"so the true-up reconciles when a cap bites"* — and hidden by default, which is the one state in
+which it does not. A capped row reads `allocated 52,983.90` and `estimated paid 50,213.50` beside a
+true-up of **−30,368.50**: three numbers that cannot all be right, with the 33,138.90 that explains
+them behind a toggle nobody knows to open. The information was made AVAILABLE and never made
+VISIBLE, and the default is the whole of what a reader sees.
+
+They now appear exactly when a cap **actually refused cost** (`poolHasACapThatBit()` — a ceiling
+above the share absorbs nothing and explains nothing, the same test `explainAllocation()` already
+makes as `cap_applied`). That is this module's own rule for the tenant's statement — *"the cap
+section is omitted when no cap applied"* — applied to the operator's screen; on a pool with no cap
+nothing changes, because two columns of 0.00 on every row is the noise the rule exists to avoid.
+Named once, so the pair cannot drift apart: one of the two alone still leaves the row not adding up.
+
+(`CamAllocationRowNamesItsParticipantTest`, four teeth mutation-proved — including that the
+predicate must test what a cap ABSORBED and not merely that one was resolved.)
+
+---
+
 ## Walking a cap by hand (2026-08-31)
 
 Every clause in this module is invisible until it BITES, and the demo carried exactly one absolute
