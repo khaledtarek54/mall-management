@@ -241,3 +241,87 @@ it('reads the annual increase as a fraction', function (): void {
     // 5% for one year. Were 5.0 stored instead, this would be 600,000 and no real cost would reach it.
     expect($term->resolveCeiling(2027))->toBe(105000.0);
 });
+
+/**
+ * THE LANDLORD'S SIDE OF A RECONCILIATION, SPLIT BY CAUSE (2026-08-31).
+ *
+ * Yardi's recovery worksheet always shows what the pool did NOT recover, and splits it, because the
+ * two halves are different levers: vacancy follows from the pool's `denominator_basis`, a cap is a
+ * lease term renegotiated at renewal.
+ *
+ * Atriom reported only the first, and only to services — `landlord_unrecovered` appeared on no
+ * screen. So a pool where a cap absorbed 33,138.60 answered "unrecovered: 0.00", true of the column
+ * and false of the question.
+ */
+it('reports what the pool did not recover, split into vacancy and caps', function (): void {
+    $asset = makeAsset();
+    $pool = CamExpensePool::create([
+        'asset_id' => $asset->id, 'period_year' => 2026, 'status' => 'draft',
+        'total_actual_expense' => 100_000,
+    ]);
+
+    // forceFill, and the FULL column name. `create()` drops an unfillable key silently, and the
+    // model's own reader had been asking for `landlord_unrecovered` — an attribute that does not
+    // exist, so it answered null, so the vacancy half reported 0.00 on every pool. This test is
+    // what found it.
+    $pool->forceFill(['landlord_unrecovered_amount' => 4_000])->save();
+
+    $capped = makeLease(makeUnit($asset));
+    $uncapped = makeLease(makeUnit($asset));
+
+    $pool->allocations()->create([
+        'lease_id' => $capped->id, 'allocated_amount' => 30_000,
+        'cap_absorbed_amount' => 12_000, 'share_pct' => 30,
+    ]);
+    $pool->allocations()->create([
+        'lease_id' => $uncapped->id, 'allocated_amount' => 66_000,
+        'cap_absorbed_amount' => 0, 'share_pct' => 66,
+    ]);
+
+    // Kept apart on purpose: one figure would hide which lever moves it.
+    expect($pool->landlordShare())->toBe([
+        'vacancy' => 4000.0,
+        'caps' => 12000.0,
+        'total' => 16000.0,
+    ]);
+});
+
+/**
+ * The control: a clean pool must report nothing, so the figure stays meaningful. A notice shown on
+ * a healthy reconciliation is trained away before the one that matters.
+ */
+it('reports nothing when the pool recovered everything', function (): void {
+    $asset = makeAsset();
+    $pool = CamExpensePool::create([
+        'asset_id' => $asset->id, 'period_year' => 2026, 'status' => 'draft',
+        'total_actual_expense' => 100_000,
+    ]);
+
+    $pool->allocations()->create([
+        'lease_id' => makeLease(makeUnit($asset))->id,
+        'allocated_amount' => 100_000, 'cap_absorbed_amount' => 0, 'share_pct' => 100,
+    ]);
+
+    expect($pool->landlordShare()['total'])->toBe(0.0);
+});
+
+/**
+ * The per-tenant rounding leaves a residue of a piastre or two either way, and a real pool rendered
+ * "EGP −0.02 on vacant space" — which reads as a fault, not as nothing. A negative residue means the
+ * allocations slightly over-cover, so the landlord bears nothing from vacancy.
+ */
+it('does not report a rounding residue as money the landlord bears', function (): void {
+    $asset = makeAsset();
+    $pool = CamExpensePool::create([
+        'asset_id' => $asset->id, 'period_year' => 2026, 'status' => 'draft',
+        'total_actual_expense' => 100_000,
+    ]);
+    $pool->forceFill(['landlord_unrecovered_amount' => -0.02])->save();
+
+    $pool->allocations()->create([
+        'lease_id' => makeLease(makeUnit($asset))->id,
+        'allocated_amount' => 100_000.02, 'cap_absorbed_amount' => 500, 'share_pct' => 100,
+    ]);
+
+    expect($pool->landlordShare())->toBe(['vacancy' => 0.0, 'caps' => 500.0, 'total' => 500.0]);
+});

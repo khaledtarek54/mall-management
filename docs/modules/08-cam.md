@@ -1055,3 +1055,34 @@ request's. Blank is the normal state.
 **Do NOT add an `@page` rule to the template.** Page geometry belongs to the renderer, which is also
 the thing that knows there is a running footer; a template that sets its own margins leaves no room
 for it and the footer renders nowhere at all.
+
+## The landlord's side of a reconciliation (2026-08-31)
+
+Yardi's recovery worksheet always shows what a pool did **not** recover, and splits it by cause.
+Atriom reported only half of it, and only to services: `landlord_unrecovered_amount` appears on no
+screen at all, and `cap_absorbed_amount` was a per-allocation column hidden by default with no
+total. So a pool where a cap absorbed **33,138.60** answered *"unrecovered: 0.00"* — true of the
+column, false of the question anyone asks it.
+
+`CamExpensePool::landlordShare()` returns `vacancy` · `caps` · `total`, rendered on the pool and
+summed on the allocations tab.
+
+- **Kept apart, not summed into one figure.** They are different levers: vacancy follows from the
+  pool's `denominator_basis` (a pool decision), a cap is a lease term renegotiated at renewal.
+- **Silent on a clean pool**, the rule the unallocated-entries notice already follows — a warning
+  shown on a healthy reconciliation is trained away before the one that matters.
+- **The vacancy half is FLOORED AT ZERO.** The column is `actual − Σ allocated`, so per-tenant
+  rounding leaves a residue either way and a real pool rendered *"EGP −0.02 on vacant space"*, which
+  reads as a fault rather than as nothing. A negative residue means the allocations slightly
+  over-cover; a genuine over-allocation is a different problem and `billing:reconcile`'s tie-out
+  already owns it.
+- **`cap_absorbed_amount` is coloured DANGER, not success.** It is cost the landlord eats, on the
+  operator's screen — the landlord's agent. Green read as good news on the one column that is money
+  leaving the mall. (The tenant's own CAM statement is where it is good news, and that is a
+  different document.)
+- **The reader had a silent bug of its own**, caught by its own test: the column is
+  `landlord_unrecovered_AMOUNT`, and asking for `landlord_unrecovered` returns an undefined
+  attribute — null, then `0.00` — which is exactly the wrong answer the method exists to stop
+  reporting.
+
+Mutation-proved: dropping the caps half and reading the wrong column each turn `CamCapTest` red.

@@ -298,6 +298,25 @@ class CamExpensePoolForm
                             self::basisFrozen($record) => __('admin.helpers.cam_basis_frozen'),
                             default => null,
                         }),
+                    // THE LANDLORD'S SIDE — Yardi's recovery worksheet always shows it, and splits
+                    // it, because the two halves are different levers: the denominator is a pool
+                    // decision, a cap is a lease term. Shown only once there is something to show,
+                    // so a clean reconciliation stays quiet (the rule the unallocated-entries
+                    // notice follows for the same reason).
+                    Placeholder::make('landlord_share')
+                        ->label(__('admin.cam.landlord_share'))
+                        ->visible(fn (?CamExpensePool $record) => ($record?->landlordShare()['total'] ?? 0) > 0.005)
+                        ->content(function (CamExpensePool $record): string {
+                            $s = $record->landlordShare();
+                            $money = fn (float $v): string => 'EGP '.number_format($v, 2);
+
+                            return __('admin.cam.landlord_share_body', [
+                                'total' => $money($s['total']),
+                                'vacancy' => $money($s['vacancy']),
+                                'caps' => $money($s['caps']),
+                            ]);
+                        })
+                        ->columnSpanFull(),
                     Placeholder::make('expense_synced_at')
                         ->label(__('admin.tables.cam.sourced_at'))
                         ->visible(fn (?CamExpensePool $record) => (bool) $record?->isDerived())

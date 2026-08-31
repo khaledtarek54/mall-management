@@ -374,6 +374,44 @@ class CamExpensePool extends Model
     }
 
     /**
+     * WHAT THIS RECONCILIATION COST THE LANDLORD, SPLIT BY CAUSE.
+     *
+     * Yardi's recovery worksheet always shows the landlord's side of a pool, and splits it, because
+     * the two halves are different decisions with different levers:
+     *
+     *  - **vacancy** — cost allocated to nobody, which follows from `denominator_basis`. On a `gla`
+     *    denominator the landlord elected to carry the empty space; on `occupied` the sitting
+     *    tenants do and this is zero. Stored as `landlord_unrecovered`.
+     *  - **caps** — cost allocated to a tenant and then refused by their cap clause. Summed from
+     *    the allocations, because the cap is a per-lease term and the pool has no column for it.
+     *
+     * Atriom reported only the first, and only to services — `landlord_unrecovered` appears on no
+     * screen at all. So a pool where a cap absorbed 33,138.60 answered "unrecovered: 0.00", which
+     * is true of the column and false of the question anyone asks it (2026-08-31).
+     *
+     * NOT folded into one figure: conflating them hides which lever moves the number. Changing the
+     * denominator is a pool decision; a cap is a lease term renegotiated at renewal.
+     *
+     * @return array{vacancy: float, caps: float, total: float}
+     */
+    public function landlordShare(): array
+    {
+        // `landlord_unrecovered_AMOUNT` — the full column name. Reading `landlord_unrecovered`
+        // returns an undefined attribute, i.e. null, i.e. a silent 0.00 for the vacancy half, which
+        // is exactly the wrong answer this method exists to stop reporting. Caught by its own test.
+        //
+        // FLOORED AT ZERO. The column is `actual − Σ allocated`, so the per-tenant rounding leaves a
+        // residue of a piastre or two either way; a real pool rendered "EGP −0.02 on vacant space",
+        // which reads as a fault rather than as nothing. A negative residue means the allocations
+        // slightly over-cover the pool — the landlord bears nothing from vacancy — and a genuine
+        // over-allocation is a different problem, which `billing:reconcile`'s tie-out already owns.
+        $vacancy = round(max(0.0, (float) $this->landlord_unrecovered_amount), 2);
+        $caps = round((float) $this->allocations()->sum('cap_absorbed_amount'), 2);
+
+        return ['vacancy' => $vacancy, 'caps' => $caps, 'total' => round($vacancy + $caps, 2)];
+    }
+
+    /**
      * Are this pool's headline totals DERIVED but never sourced?
      *
      * `expense_basis = ledger` and `estimate_basis = billed` both mean "this column is computed from

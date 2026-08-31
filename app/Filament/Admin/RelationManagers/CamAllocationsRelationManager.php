@@ -13,6 +13,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -157,11 +158,19 @@ class CamAllocationsRelationManager extends RelationManager
                     ->label(__('admin.tables.cam.capped_cost'))
                     ->money('EGP', divideBy: 1)
                     ->toggleable(isToggledHiddenByDefault: true),
+                // DANGER, not success. This is cost the LANDLORD eats because a cap refused it, and
+                // this is the operator's screen — the landlord's agent. Green read as good news on
+                // the one column that is money leaving the mall. (The tenant's own CAM statement is
+                // where it IS good news, and that is a different document.)
+                //
+                // Summarised, because "what did our caps cost us this year" is the question Yardi's
+                // recovery worksheet answers at the pool and Atriom answered nowhere.
                 TextColumn::make('cap_absorbed_amount')
                     ->label(__('admin.tables.cam.cap_absorbed'))
                     ->money('EGP', divideBy: 1)
-                    ->color('success')
+                    ->color(fn ($state): string => (float) $state > 0.005 ? 'danger' : 'gray')
                     ->placeholder('—')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('estimated_paid')
                     ->label(__('admin.tables.cam.estimated_paid'))

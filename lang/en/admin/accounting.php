@@ -570,6 +570,8 @@ return [
         'empty_description' => 'No open invoice carries a balance at this date.',
     ],
     'cam' => [
+        'landlord_share' => 'Borne by the landlord',
+        'landlord_share_body' => ':total of this pool is not recovered from tenants — :vacancy on vacant space (the denominator basis) and :caps refused by cap clauses.',
         'estimate_event_reason' => 'Service-charge estimate re-based from the :year recovery reconciliation to :amount a month.',
         'never_sourced' => 'Never sourced — run Sync from ledger; this figure is not yet derived',
         'never' => 'Never',
