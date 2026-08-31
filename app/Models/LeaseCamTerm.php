@@ -4,10 +4,10 @@ namespace App\Models;
 
 use App\Support\Attributes\DeletionAllowed;
 use App\Support\Attributes\PropertyOwned;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use App\Support\Translate;
 use DomainException;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -32,6 +32,10 @@ class LeaseCamTerm extends Model
     protected $fillable = [
         'lease_id',
         'effective_year',
+        // Which recovery pool this cap governs. NULL is the fallback that governs any pool without a
+        // term of its own — and the value every row written before 2026-09-01 carries, so nothing an
+        // install reconciles changes. See HasCamTerms::camTermFor().
+        'pool_code',
         'cap_type',
         'cap_scope',
         'cap_carry_forward',

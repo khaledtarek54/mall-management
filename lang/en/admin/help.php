@@ -81,6 +81,7 @@ return [
         'posting_map_property' => 'Blank = the global default. Pick a property only to override that default for that property.',
         'posting_map_type_mismatch' => 'This account is not the kind this role usually posts to — check it is what you meant.',
         'cam_cap_scope' => 'Most clauses cap only controllable costs and carve out rates, insurance and utilities.',
+        'cam_term_pool_code' => 'Each recovery pool can carry its own cap. Blank covers any pool without one.',
         'cam_cap_carry_forward' => 'A year under the ceiling banks the difference, and a later year can draw on it.',
         'cam_stated_share_pct' => 'Use only when the lease names the percentage outright. Leave blank to derive it from area.',
         'late_fee_recurrence_days' => 'Days before this invoice may be charged another late fee. Blank inherits the property; 0 charges once.',

@@ -230,7 +230,7 @@ class CamReconciliationService
                 // books-check's Σ allocated = total_actual_expense tie-out is untouched. The
                 // landlord ABSORBS the difference (cap_absorbed). No cap term ⇒ ceiling null ⇒
                 // capped_cost = allocated ⇒ true-up + fee byte-identical to the no-cap slice.
-                $ceiling = $isLease ? $lease->resolveCamCeiling((int) $pool->period_year) : null;
+                $ceiling = $isLease ? $lease->resolveCamCeiling((int) $pool->period_year, $pool->pool_code) : null;
 
                 // How the cap bites (story RC-07). Two refinements over "cap the whole share":
                 //
@@ -241,8 +241,8 @@ class CamReconciliationService
                 //   CARRY-FORWARD — a cumulative cap banks the headroom of a year that came in
                 //   under, so a later spike can draw on it. Without it, running the centre cheaply
                 //   for three years earns no credit in the fourth.
-                $capScope = $isLease ? $lease->camCapScope((int) $pool->period_year) : null;
-                $carryForward = $isLease && $lease->camCapCarriesForward((int) $pool->period_year);
+                $capScope = $isLease ? $lease->camCapScope((int) $pool->period_year, $pool->pool_code) : null;
+                $carryForward = $isLease && $lease->camCapCarriesForward((int) $pool->period_year, $pool->pool_code);
 
                 $controllableShare = $capScope === LeaseCamTerm::SCOPE_CONTROLLABLE
                     ? $pool->controllableShare()
@@ -252,7 +252,7 @@ class CamReconciliationService
                 $passThrough = round($allocated - $cappable, 2);
 
                 $banked = $carryForward && $ceiling !== null
-                    ? $lease->camCapHeadroomBankedBefore((int) $pool->period_year)
+                    ? $lease->camCapHeadroomBankedBefore((int) $pool->period_year, $pool->pool_code)
                     : 0.0;
 
                 $effectiveCeiling = $ceiling !== null ? $ceiling + $banked : null;
@@ -674,7 +674,9 @@ class CamReconciliationService
         $fromLeases = $leases
             ->filter(fn ($participant): bool => $participant instanceof Lease)
             ->mapWithKeys(function (Lease $lease) use ($pool): array {
-                $stated = $lease->statedCamSharePct((int) $pool->period_year);
+                // Per POOL, like the cap it shares a row with: a lease's contract can name its share
+                // of CAM and say nothing about the food-court pool it also trades in.
+                $stated = $lease->statedCamSharePct((int) $pool->period_year, $pool->pool_code);
 
                 return $stated === null ? [] : [self::agreementKeyFor($lease) => $stated / 100];
             })

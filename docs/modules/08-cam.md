@@ -977,6 +977,45 @@ public function markBilled() {
 
 ---
 
+## A cap belongs to a RECOVERY POOL, not to a year (2026-09-01)
+
+`lease_cam_terms` was `unique(lease_id, effective_year)` and `Lease::resolveCamCeiling(int $year)`
+took a year and nothing else — so **every pool reconciling that year applied the same ceiling
+independently**, and a tenant trading in two pools could bear twice their stated cap. Measured on
+the demo books: **Zööba trades in `cam` and `fc_grease` in 2025 under a 45,000 term, and each pool
+resolves 45,000** — 90,000 borne against a contract that says 45,000. `camCapHeadroomBankedBefore()`
+filtered on `period_year <` for the same reason, so headroom banked under a grease-trap pool was
+spendable against the CAM ceiling, which is indefensible under any reading of a cap clause.
+
+**Yardi is unambiguous.** A property runs several recovery pools — CAM, real-estate tax, insurance,
+utilities, security, HVAC, capital amortisation — *"each with a different recovery basis, a different
+set of participants **and a different cap**"*
+([benchmark A2](../benchmarks/yardi/03-yardi-recoveries-percentage-rent.md)). The cap is a property
+of the lease's setup FOR THAT POOL, which is exactly the axis this table did not have.
+
+`lease_cam_terms.pool_code` is **nullable, and null keeps the old meaning**: a term naming no pool
+governs any pool without one of its own. Every row written before this carries null, so an install
+that never writes a pool-specific term reconciles exactly what it always did — what changes is that
+the per-pool cap becomes expressible and headroom stops leaking between pools. The unique key is now
+`(lease_id, pool_code, effective_year)`, and the **stated share moves with it**: a contract can name
+a tenant's share of CAM and say nothing about the food court.
+
+**Effective dating resolves WITHIN the winning scope, never across both.** A pool-specific term wins
+outright, so a 2027 portfolio-wide renegotiation does not supersede a 2025 clause written for the
+food court — reading the two ladders as one would silently retire a term nobody renegotiated.
+
+**Two mechanical notes worth keeping.** MySQL satisfies `lease_id`'s foreign key from the LEFTMOST
+PREFIX of the old unique index, so dropping it first fails with *"needed in a foreign key
+constraint"* — the new index (which also leads with `lease_id`) has to be created first. And the
+`down()` **refuses** rather than guessing when a lease carries both a portfolio-wide and a
+pool-specific term for one year: squeezing them back into the old key means throwing a cap away, and
+a discarded cap bills a tenant in full.
+
+(`CamCapBelongsToAPoolTest`, three teeth mutation-proved — the pool-blind resolver, the unscoped
+headroom, and a catch-all allowed to outrank a pool's own older clause.)
+
+---
+
 ## The anchor charge is classified as what it is (2026-08-31)
 
 Billing an allocation leaves a `Charge` behind — a traceability record, `is_active = false` and
@@ -1365,7 +1404,6 @@ A UX audit found the reconciliation numbers weren't verifiable and one modal mis
 | **Per-lease `exclusions`** (slice 3) | The `cam_allocations.exclusions` JSON column exists, is fillable and cast, and is **read by nothing** — no service, no form, no report. Present and inert, the shape this project treats as a defect in its own right. Needs a screen and a step in `generateAllocations` between EXCLUDE and ALLOCATE. |
 | **Adjusted denominator** (Yardi) | Carve an anchor out of the denominator while it still participates. Zero references in the service; the three bases we have cannot express it, and no lease here has asked for it yet. |
 | **Non-annual true-up** (EG-41) | `cam_expense_pools` is `unique(asset_id, period_year, pool_code)` — one pool per YEAR — so a quarterly reconciliation is not a scheduling option: the POOL must gain a shorter period first, and everything that assumes one-pool-per-year follows it. Worth building only if the operator's leases state a non-annual reconciliation. |
-| **Headroom is scoped to the YEAR, not to the POOL** | `camCapHeadroomBankedBefore()` filters on `period_year <` only, so a lease in two pools banks and spends across both **and resolves the same annual ceiling against each independently** — it could bear twice its cap. Neither reading is obviously wrong (a cap clause is usually written against the tenant's whole service-charge cost), but it is unstated. A mall running a second pool beside CAM — `fc_grease` on the demo books — is where it would first be met. |
 | **Line text frozen in the writer's language** | Not CAM's, and recorded as [ROADMAP UX-30](../ROADMAP.md). A credit note's `reason_notes` and every invoice line description are composed with `__()` at WRITE time and stored, so they freeze in whichever language the operator was running. |
 
 ---

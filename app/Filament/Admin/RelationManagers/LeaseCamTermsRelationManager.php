@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\RelationManagers\Concerns\CountsItsRows;
+use App\Models\CamExpensePool;
 use App\Models\LeaseCamTerm;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -54,7 +55,12 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->minValue(2020)
                 ->maxValue(2099)
                 ->default(fn () => now()->year)
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('lease_id', $this->getOwnerRecord()->getKey()))
+                // Unique per (lease, POOL, year) — the same key the index carries. Without the pool
+                // in the rule the form refuses a second pool's cap for a year the lease already has
+                // one for, which is exactly the row this change exists to allow.
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, Get $get) => $rule
+                    ->where('lease_id', $this->getOwnerRecord()->getKey())
+                    ->where('pool_code', $get('pool_code')))
                 ->helperText(__('admin.helpers.cam_effective_year')),
             // NOT required. A term may state a SHARE and no ceiling — the percentage the parties
             // simply agreed — which is what the column was made nullable for on 2026-08-23; the
@@ -65,6 +71,26 @@ class LeaseCamTermsRelationManager extends RelationManager
             //
             // The placeholder carries that meaning. Filament's own "Select an option" would read as
             // an unanswered question rather than as an answer.
+            // WHICH POOL THIS CAP GOVERNS. A property runs several recovery pools — CAM, the
+            // food-court grease trap, real-estate tax — and Yardi gives each its own cap on the
+            // lease. Left blank the term governs any pool that has no term of its own, which is
+            // what every row written before 2026-09-01 does and why nothing changes on deploy.
+            Select::make('pool_code')
+                ->label(__('admin.fields.cam_term_pool_code'))
+                ->helperText(__('admin.helpers.cam_term_pool_code'))
+                ->placeholder(__('admin.lease_cam_terms.any_pool'))
+                // The codes this PROPERTY actually runs, not a free-text box: a typo'd code governs
+                // no pool at all and looks identical to a cap that is simply not biting.
+                ->options(fn (): array => CamExpensePool::query()
+                    ->when(
+                        $this->getOwnerRecord()->unit?->asset_id,
+                        fn ($q, $assetId) => $q->where('asset_id', $assetId),
+                    )
+                    ->distinct()
+                    ->orderBy('pool_code')
+                    ->pluck('pool_code', 'pool_code')
+                    ->all())
+                ->native(false),
             Select::make('cap_type')
                 ->label(__('admin.fields.cam_cap_type'))
                 ->helperText(__('admin.lease_cam_terms.help.cap_type'))
@@ -171,6 +197,13 @@ class LeaseCamTermsRelationManager extends RelationManager
                 // A term with no ceiling SUPERSEDES an earlier one from its own year on, so the
                 // cell must read as a decision rather than as a gap. Filament skips
                 // formatStateUsing for a null state and renders the placeholder instead.
+                // Without this, a lease with a CAM cap and a grease-pool cap for the same year shows
+                // two rows that look like a duplicate.
+                TextColumn::make('pool_code')
+                    ->label(__('admin.fields.cam_term_pool_code'))
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder(__('admin.lease_cam_terms.any_pool')),
                 TextColumn::make('cap_type')
                     ->label(__('admin.fields.cam_cap_type'))
                     ->badge()

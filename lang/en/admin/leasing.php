@@ -95,6 +95,7 @@ return [
         // What an empty cap type MEANS. Left as Filament's own "Select an option" it reads as an
         // unanswered question; it is an answer — the term states a share, or ends an earlier cap.
         'no_cap' => 'No cap — stated share only',
+        'any_pool' => 'Any pool without its own term',
         'help' => [
             'cap_type' => 'Absolute caps the amount. Year-on-year caps the RISE. Both applies whichever binds first. Leave it empty for no cap.',
             'cap_absolute_amount' => 'The most this tenant pays for CAM in a year, whatever the mall actually spent.',
