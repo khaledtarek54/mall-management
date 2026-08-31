@@ -288,6 +288,21 @@ return [
         'empty' => 'No leases live on this date.',
         'empty_description' => 'The rent roll shows tenancies that had commenced and had not yet ended on the chosen day. Try another date.',
     ],
+    'clause_register' => [
+        'title' => 'Lease clause register',
+        'nav_label' => 'Clause register',
+        'subheading' => ':clauses abstracted clauses. :exposed exposed to a live co-tenancy or kick-out trigger today.',
+        // Counted through trans_choice, not glued on as "(s)". Arabic needs it more than English
+        // does: 11–99 takes a SINGULAR accusative noun, so a bare ":count عقد" is wrong for every
+        // number this line will realistically show, and the adjective has to agree with it too.
+        'exposed_leases' => '{0} No leases are|{1} One lease is|[2,*] :count leases are',
+        'live_exposure' => 'Contingent money, live leases only',
+        'in_force_today' => 'In force today',
+        'open_ended' => 'Open-ended',
+        'notice_days' => ':days days\' notice',
+        'empty' => 'No clauses abstracted yet',
+        'empty_description' => 'Abstract a lease\'s legal terms from its Clauses tab. Co-tenancy and kick-out are the two worth recording first — they are the ones that can cost the mall rent.',
+    ],
     'expiration_schedule' => [
         'title' => 'Lease expiration schedule',
         'nav_label' => 'Expiration schedule',

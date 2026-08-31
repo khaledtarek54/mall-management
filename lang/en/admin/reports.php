@@ -289,6 +289,7 @@ return [
             'billing_run_preview' => 'What the next monthly billing run would raise, before it raises it.',
             'rent_roll' => 'Every active tenancy with its rent, area, term and status — the schedule a lender or owner asks for.',
             'expiration_schedule' => 'Which leases end when, so renewals are opened before they lapse into holdover.',
+            'clause_register' => 'Every abstracted lease term in one list — who has a co-tenancy trigger, an exclusivity, a radius restriction.',
             'revenue_forecast' => 'Every month the portfolio will bill from the leases already signed — contracted income only, with no assumed renewals.',
             'occupancy_map' => 'The property floor by floor — what is let, what is vacant, what is under fit-out.',
             'rentable_item_map' => 'Parking, storage, signage and kiosks floor by floor — what is let, to whom, and what is free.',

@@ -1131,6 +1131,25 @@ return [
             'A month counts as invoiced only when every lease in it has been billed. One un-billed lease makes the whole month a projection.',
         ],
     ],
+    'clause_register' => [
+        'purpose' => 'Every abstracted lease term in the portfolio, in one list — so a clause can be found across leases instead of one lease at a time.',
+        'steps' => [
+            'Tick "Contingent money, live leases only" to see the leases that can claim rent relief today.',
+            'Filter by clause type to answer a specific question — who has an exclusivity, who has a radius restriction.',
+            'Open the lease from its reference to read the full term or raise the relief.',
+            'Export to work the list with the legal team.',
+        ],
+        'affects' => [
+            'Nothing. It reads the abstracts recorded on each lease\'s Clauses tab and changes none of them.',
+            'Acting on what you find does: a co-tenancy trigger that has fired is granted through Grant relief on the lease, which credits the tenant and posts to the ledger.',
+        ],
+        'rules' => [
+            'Recording a trigger and abating the rent are two steps, deliberately. Whether a co-tenancy condition has actually been met is a legal reading of the clause that an occupancy percentage only approximates — and a system that abated on its own reading would be wrong in exactly the cases that matter, each error a credit somebody has to claw back.',
+            'A clause with no end date is open-ended and stays in force for the life of the lease. The exposure count still excludes it once the lease itself has ended, which is why a terminated tenancy never appears as exposed.',
+            'Only clauses on leases in a property you can see are listed.',
+        ],
+    ],
+
     'expiration_schedule' => [
         'purpose' => 'Which leases end when, so renewals are started before a tenant is out of contract.',
         'steps' => [

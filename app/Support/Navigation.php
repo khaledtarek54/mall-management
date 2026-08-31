@@ -12,6 +12,7 @@ use App\Filament\Admin\Pages\Budget;
 use App\Filament\Admin\Pages\CashFlow;
 use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
+use App\Filament\Admin\Pages\ClauseRegister;
 use App\Filament\Admin\Pages\ExpirationSchedule;
 use App\Filament\Admin\Pages\GeneralLedger;
 use App\Filament\Admin\Pages\Handbook;
@@ -201,6 +202,7 @@ final class Navigation
             RentableItemMap::class,
             RentRoll::class,
             ExpirationSchedule::class,
+            ClauseRegister::class,
         ],
 
         // ── What tenants owe ───────────────────────────────────────────────────────────────────

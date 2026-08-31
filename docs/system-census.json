@@ -7,10 +7,10 @@
         "portal_resources": 9,
         "admin_widgets": 19,
         "api_controllers": 54,
-        "console_commands": 58,
+        "console_commands": 59,
         "jobs": 6,
         "notifications": 38,
-        "migrations": 290
+        "migrations": 292
     },
     "modules": {
         "documented": 38,
@@ -296,7 +296,8 @@
                 "backup:clean",
                 "backup:run",
                 "backup:monitor",
-                "atriom:backup-verify"
+                "atriom:backup-verify",
+                "atriom:notify-status"
             ],
             "jobs": [
                 "RunMonthlyBilling",
@@ -305,9 +306,9 @@
         }
     },
     "tests": {
-        "files": 989,
-        "e2e_specs": 22,
-        "scenarios": 181,
-        "regressions": 548
+        "files": 1012,
+        "e2e_specs": 23,
+        "scenarios": 188,
+        "regressions": 562
     }
 }

@@ -330,6 +330,35 @@
 >   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
 >   existed all along with **nothing in the codebase calling it**.
 
+> **⚠️ The clause abstract had no reader (2026-08-31).**
+> `LeaseClause` was built so one question could be asked — its own docblock quotes it: *"nothing can
+> even answer 'how many of our leases have a co-tenancy trigger tied to the anchor we are about to
+> lose?'"* — and `contingentMoney()`, `inForceOn()` and `liveExposure()` were written to answer it.
+> **`liveExposure()` had no caller anywhere in `app/`, only tests.** Fully built, fully tested and
+> unreachable: the shape this repo names for the four orphaned services found in August, where the
+> green test file is exactly what makes it look maintained. Ninety-nine clauses sat on the demo
+> books readable one lease at a time; no report, no search index, no alert.
+>
+> `App\Filament\Admin\Pages\ClauseRegister` is that caller — the leasing counterpart of the rent
+> roll, in the same navigation group and the same report category.
+>
+> - **The exposure count is `liveExposure()` verbatim**, never a count reassembled from the table's
+>   filters. That scope bundles three conditions on purpose, and a second assembly of them here
+>   would be free to drift back into the bug its docblock records: an open-ended co-tenancy clause
+>   reads as in force for ever, so a TERMINATED tenancy was once reported as exposed.
+> - **Query-backed, not a collection.** The filters narrow real SQL, so they page correctly, are
+>   remembered by `TableDefaults` and render as clearable chips. Property isolation is the model's
+>   own `#[PropertyOwned(via: 'lease.unit')]` — two hops, and `currentAssetId()` alone would return
+>   the portfolio to a restricted operator in All-Properties mode.
+> - **The trigger column reads whichever of four columns the type uses** — a percentage for
+>   co-tenancy, a sales figure for kick-out, kilometres for radius, notice days for assignment.
+>   Showing `threshold_pct` alone prints a blank cell for three types out of four.
+> - **The shared report shell now renders its filter strip only if the page declares one**, by the
+>   same `method_exists` idiom its stats and unallocated-notice blocks already used. A report whose
+>   filters belong on the table declared none, and the unconditional render was a 500 on the page.
+> - Counted through `trans_choice`, not `lease(s)`: Arabic 11–99 takes a singular accusative noun,
+>   so a bare `:count عقد` is wrong for every number this line realistically shows.
+
 > **⚠️ A refusal and a success cannot both be true of one click (2026-08-31).**
 > Reported from the panel: exercising an option on a notice date outside its window produced BOTH
 > *"Notice was served on 01/06/2026, outside this option's window…"* and *"Option marked exercised."*

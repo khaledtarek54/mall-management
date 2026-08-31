@@ -12,6 +12,7 @@ use App\Filament\Admin\Pages\Budget;
 use App\Filament\Admin\Pages\CashFlow;
 use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
+use App\Filament\Admin\Pages\ClauseRegister;
 use App\Filament\Admin\Pages\ExpirationSchedule;
 use App\Filament\Admin\Pages\GeneralLedger;
 use App\Filament\Admin\Pages\Handbook;
@@ -249,6 +250,7 @@ class ScreenGuides
         BillingRunPreview::class => 'billing_run',
         RentRoll::class => 'rent_roll',
         ExpirationSchedule::class => 'expiration_schedule',
+        ClauseRegister::class => 'clause_register',
         RevenueForecast::class => 'revenue_forecast',
         OccupancyMap::class => 'occupancy_map',
         RentableItemMap::class => 'rentable_item_map',

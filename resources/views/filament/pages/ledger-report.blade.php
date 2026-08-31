@@ -12,7 +12,14 @@
     every card twice.
 --}}
 <x-filament-panels::page>
-    {{ $this->filtersForm }}
+    {{-- Optional, by the same `method_exists` idiom the stats and the unallocated notice use.
+         A report whose filters belong on the TABLE — a query-backed register, where they narrow
+         real SQL, are remembered by TableDefaults and render as clearable chips — declares no
+         filter strip, and rendering one unconditionally was a 500 on the page rather than an
+         empty section. --}}
+    @if (method_exists($this, 'filtersForm'))
+        {{ $this->filtersForm }}
+    @endif
 
     @if (method_exists($this, 'statsWidgets'))
         {{ $this->statsWidgets }}

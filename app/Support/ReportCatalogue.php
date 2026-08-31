@@ -13,6 +13,7 @@ use App\Filament\Admin\Pages\Budget;
 use App\Filament\Admin\Pages\CashFlow;
 use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
+use App\Filament\Admin\Pages\ClauseRegister;
 use App\Filament\Admin\Pages\ExpirationSchedule;
 use App\Filament\Admin\Pages\GeneralLedger;
 use App\Filament\Admin\Pages\Handbook;
@@ -105,6 +106,7 @@ class ReportCatalogue
         // ---- Leasing ----
         RentRoll::class => ['category' => self::LEASING, 'key' => 'rent_roll', 'keywords' => ['tenancy schedule', 'rent', 'occupancy']],
         ExpirationSchedule::class => ['category' => self::LEASING, 'key' => 'expiration_schedule', 'keywords' => ['expiry', 'renewals', 'rollover']],
+        ClauseRegister::class => ['category' => self::LEASING, 'key' => 'clause_register', 'keywords' => ['clause', 'co-tenancy', 'kick-out', 'exclusivity', 'radius', 'abstract', 'بند', 'إشغال مشترك']],
         RevenueForecast::class => ['category' => self::LEASING, 'key' => 'revenue_forecast', 'keywords' => ['forecast', 'projection', 'budget', 'income', 'pipeline']],
         OccupancyMap::class => ['category' => self::LEASING, 'key' => 'occupancy_map', 'keywords' => ['vacancy', 'floor', 'units']],
         RentableItemMap::class => ['category' => self::LEASING, 'key' => 'rentable_item_map', 'keywords' => ['parking', 'bay', 'kiosk', 'signage', 'storage', 'utilisation', 'موقف', 'كشك']],
