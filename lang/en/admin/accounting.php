@@ -34,6 +34,7 @@ return [
             'is_active' => 'Switching off stops future bookings; costs already booked are untouched.',
         ],
         'hints' => [
+            'paid_from' => 'Leave blank for cash. Naming a bank keeps the credit leg off the cash account.',
             'category' => 'Decides which P&L account the cost books to. Government fees and licences ships switched off — activate it under Expense categories.',
             'tax_code' => 'Leave empty for a levy outside VAT, which most statutory charges are.',
         ],

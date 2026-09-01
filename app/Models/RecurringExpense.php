@@ -80,6 +80,8 @@ class RecurringExpense extends Model
         'category',
         'amount',
         'tax_code',
+        'paid_from',
+        'bank_account_id',
         'frequency',
         'day_of_month',
         'payment_terms_days',

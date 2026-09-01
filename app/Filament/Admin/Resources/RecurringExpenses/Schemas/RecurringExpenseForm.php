@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\RecurringExpenses\Schemas;
 
+use App\Models\BankAccount;
 use App\Models\ExpenseCategory;
+use App\Models\PaymentMethod;
 use App\Models\RecurringExpense;
 use App\Models\TaxCode;
 use App\Models\Vendor;
@@ -121,6 +123,27 @@ class RecurringExpenseForm
                     ->native(false)
                     ->placeholder(__('admin.recurring_expenses.fields.no_end'))
                     ->helperText(__('admin.recurring_expenses.help.ends_on')),
+
+                // **WHICH RAIL THE MONEY LEAVES BY.** The generator omitted it, so every expense it
+                // minted fell to the column default and credited CASH — while the costs this screen
+                // exists for (real-estate tax, municipal levies, a licence renewal, a fixed
+                // retainer) all leave a bank account. Left blank the generated expense keeps the
+                // old default, so nothing an install already runs changes.
+                Select::make('paid_from')
+                    ->label(__('admin.fields.paid_from'))
+                    ->options(fn () => PaymentMethod::optionsFor('expenses.paid_from', 'admin.enums.expense_paid_from'))
+                    ->native(false)
+                    ->placeholder(__('admin.enums.expense_paid_from.cash'))
+                    ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.recurring_expenses.hints.paid_from')),
+
+                // The rail says WHICH KIND of account; this says which one. `MoneyAccount` resolves
+                // the document's own bank account first, then the rail's mapped account, then the
+                // posting role — so a mall banking in two places needs this or both banks' money
+                // lands in one chart account.
+                EntitySelect::make('bank_account_id')
+                    ->label(__('admin.fields.bank_account'))
+                    ->entity(BankAccount::class)
+                    ->visible(fn (Get $get): bool => ($get('paid_from') ?? 'cash') !== 'cash'),
 
                 Select::make('tax_code')
                     ->label(__('admin.fields.tax_code'))

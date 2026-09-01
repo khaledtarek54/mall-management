@@ -107,6 +107,26 @@ class CreditUnearnedBillingService
 
     private function creditUnearnedPortion(BillableAgreement $agreement, Invoice $invoice, CarbonImmutable $terminationDate, string $reason): ?CreditNote
     {
+        // **IDEMPOTENT.** Terminating is a button an operator can press twice — a slow save, a
+        // second look at the date, a colleague doing it in parallel — and nothing here refused the
+        // second run: it raised a SECOND credit note for the same unearned days on the same invoice.
+        // The tenant is then credited twice for one part-month, AR goes negative for that debt, and
+        // the two notes are individually plausible, so nothing on any screen says which is the
+        // duplicate.
+        //
+        // Keyed on the INVOICE, not on the termination date: re-terminating with a different date
+        // is the same mistake wearing a different figure, and the correction for a credit note
+        // raised in error is to void it, not to raise its sibling. A VOIDED note is deliberately
+        // not counted — voiding one is exactly how an operator says "do that again properly".
+        $already = CreditNote::query()
+            ->where('invoice_id', $invoice->id)
+            ->onTheBooks()
+            ->exists();
+
+        if ($already) {
+            return null;
+        }
+
         $periodStart = CarbonImmutable::instance($invoice->period_start)->startOfDay();
         $periodEnd = CarbonImmutable::instance($invoice->period_end)->startOfDay();
 

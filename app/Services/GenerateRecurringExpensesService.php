@@ -186,6 +186,16 @@ class GenerateRecurringExpensesService
             'vat_amount' => $this->taxOn($schedule, $due),
             'tax_code' => $schedule->tax_code,
             'expense_date' => $due,
+            // **THE RAIL, AND THE ACCOUNT.** Omitted, `expenses.paid_from` falls to its column
+            // default of `cash` — so every generated cost credited CASH, however it was really
+            // paid. Real-estate tax, municipal levies, a licence renewal and a fixed retainer all
+            // leave a BANK account, so the whole recurring-cost stream was posting its credit leg
+            // to the wrong side of the chart, silently and every month.
+            //
+            // `??` rather than a coalesce to `'cash'`: a schedule that states nothing keeps the
+            // column default, so nothing an install already runs changes on deploy.
+            'paid_from' => $schedule->paid_from ?? 'cash',
+            'bank_account_id' => $schedule->bank_account_id,
             // `recorded`, which is what posts it to the ledger. That is the point of the schedule:
             // a statutory cost with a known amount and date books itself, exactly as Yardi's
             // recurring payables do. `expenses.status` accepts only recorded|cancelled anyway —
