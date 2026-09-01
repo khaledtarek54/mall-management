@@ -71,7 +71,7 @@ built and still fail that test. It cites the gap analysis where the two touch, a
 |---|---|
 | **[`operations/`](operations/)** | The launch gate moved to [STATUS.md](STATUS.md) · [STAGING-CUTOVER](operations/STAGING-CUTOVER.md) — the ordered runbook · [STAGING](operations/STAGING.md) — the box, and which health rows are *supposed* to be red · [PRODUCTION-RUNBOOK](operations/PRODUCTION-RUNBOOK.md) — the per-release sequence · [INFRASTRUCTURE](operations/INFRASTRUCTURE.md) — servers, Cloudflare, backups |
 | **[`qa/`](qa/README.md)** | The pre-staging harness ([PRE-STAGING-QA](qa/PRE-STAGING-QA.md) + [findings](qa/PRE-STAGING-FINDINGS.md)), the [release checklist](qa/RELEASE-CHECKLIST.md), UAT scripts, and the runnable [`scripts/`](qa/scripts/README.md) behind `composer qa` |
-| **[`integrations/`](integrations/)** | [Paymob](integrations/PAYMOB.md) · [ETA + Paymob certification](integrations/ETA-PAYMOB-CERTIFICATION.md) · [the public pay link + Apple Pay](integrations/PAYMENT-LINK-APPLEPAY.md) · [push notifications](integrations/PUSH-NOTIFICATIONS.md) |
+| **[`integrations/`](integrations/)** | [Paymob](integrations/PAYMOB.md) · [ETA + Paymob certification](integrations/ETA-PAYMOB-CERTIFICATION.md) · [the public pay link + Apple Pay](integrations/PAYMENT-LINK-APPLEPAY.md) · [push notifications](integrations/PUSH-NOTIFICATIONS.md) · [the in-app assistant](integrations/AI-ASSISTANT.md) — **designed, not built** |
 | **[`api/`](api/MOBILE-API.md)** | The mobile API a client codes against, plus the generated [`openapi.json`](api/openapi.json) (`composer api-spec`) |
 
 **The one pre-deploy command:** `php artisan atriom:preflight` — health, the configuration checks, both data audits and a
