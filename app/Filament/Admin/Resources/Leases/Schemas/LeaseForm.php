@@ -402,6 +402,11 @@ class LeaseForm
                             ->numeric()
                             ->required(fn (Get $get): bool => $get('rent_pricing_basis') !== Lease::RENT_RATE)
                             ->minValue(0)
+                            // Live so a deposit stated as a MULTIPLE follows the rent as it is typed.
+                            // On the rate basis this field is disabled and never fires, which is why
+                            // deriveRentInto() cascades into the deposit itself.
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
                             // Read-only on Edit (rent changes go through the "Change rent" action so the
                             // schedule stays in step), and read-only on a rate-priced lease because it
                             // is derived — `Lease::deriveBaseRentFromRate()` is the authority either way.
@@ -526,6 +531,7 @@ class LeaseForm
                             ->maxValue(24)
                             ->step('0.5')
                             ->live(onBlur: true)
+                            ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDepositInto($get, $set))
                             ->suffix(__('admin.fields.months'))
                             ->helperText(__('admin.helpers.security_deposit_months'))
                             ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.security_deposit_months')),
@@ -990,7 +996,43 @@ class LeaseForm
         $rate = (float) $get('base_rent_rate_per_sqm_year');
 
         if ($area > 0 && $rate > 0) {
-            $set('base_rent_monthly', round($rate * $area / 12, 2));
+            $rent = round($rate * $area / 12, 2);
+            $set('base_rent_monthly', $rent);
+
+            // A rate change moves the rent, and a deposit stated as a multiple of rent moves with
+            // it. Passed explicitly rather than re-read: this runs in the same closure as the
+            // `$set` above, and reading it back is a dependency on when Filament flushes state.
+            self::deriveDepositInto($get, $set, $rent);
         }
+    }
+
+    /**
+     * Show the deposit a stated multiple actually comes to, while it is being typed.
+     *
+     * The deposit is DERIVED — the field is disabled the moment a multiple is stated, and its own
+     * helper text says "derived from the rent and the months above". It was showing 0.00 the whole
+     * time: nothing wrote the figure into the form, so the operator read a greyed-out zero on the
+     * screen where they agree a deposit. `Lease::saving` computed the right number on save, so this
+     * was never wrong in the database — which is exactly why it survived. It was wrong on the only
+     * surface a person looks at, and its sibling (base rent, derived from the rate) fills in live,
+     * so one derived field moved and the other did not.
+     *
+     * **`Lease::saving` remains the authority** and this is a preview of it. Both must agree, and
+     * `ADepositStatedAsMonthsShowsItsFigureTest` compares the two rather than trusting them to stay
+     * in step — the model rule also serves the importer, the API, the escalation sweep and the
+     * renewal, none of which is a form.
+     *
+     * **Blank months means a FLAT deposit and nothing is touched** — a sum unrelated to rent is a
+     * real deal, and overwriting it here would invent a term nobody agreed to.
+     */
+    private static function deriveDepositInto(Get $get, Set $set, ?float $rent = null): void
+    {
+        if (blank($get('security_deposit_months'))) {
+            return;
+        }
+
+        $rent ??= (float) $get('base_rent_monthly');
+
+        $set('security_deposit', round($rent * (float) $get('security_deposit_months'), 2));
     }
 }
