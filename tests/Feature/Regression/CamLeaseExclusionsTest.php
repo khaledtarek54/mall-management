@@ -52,7 +52,7 @@ beforeEach(function () {
             'asset_id' => $this->asset->id,
             'entry_date' => '2027-06-30',
             'status' => 'draft',
-            'description' => 'test',
+            'description_en' => 'test',
             'number' => 'JE-'.uniqid(),
         ]);
         foreach ([[$account, $amount, 0], [$bank, 0, $amount]] as [$acc, $dr, $cr]) {

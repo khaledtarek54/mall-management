@@ -93,6 +93,11 @@
                     "opensModal": true
                 },
                 {
+                    "name": "billAllPending",
+                    "label": "Bill all pending",
+                    "opensModal": true
+                },
+                {
                     "name": "markReconciled",
                     "label": "Mark Reconciled",
                     "opensModal": true
@@ -838,6 +843,10 @@
         {
             "class": "CashFlow",
             "slug": "cash-flow"
+        },
+        {
+            "class": "ClauseRegister",
+            "slug": "clause-register"
         },
         {
             "class": "ConfigurationHealth",

@@ -65,12 +65,10 @@ it('names the OWNER of a sold unit, not a blank cell', function () {
     $lease = makeLease(makeUnit($this->asset, ['area_sqm' => 100]), makeTenant(['name' => 'Trading Tenant']), $this->span);
 
     $ownedUnit = makeUnit($this->asset, ['area_sqm' => 100, 'code' => 'OWNED-1']);
-    $owner = Tenant::create([
-        'asset_id' => $this->asset->id,
-        'name' => 'Hoda The Unit Owner',
-        'status' => 'active',
-        'contact_email' => 'owner@example.test',
-    ]);
+    // Through the shared helper: `Tenant` has no `asset_id` and no `contact_email`, and Eloquent
+    // DROPS an unknown key silently — so the fixture set up a different state than it read as, which
+    // is the shape `FixtureColumnsExistConformanceTest` exists to catch. It caught this.
+    $owner = makeTenant(['name' => 'Hoda The Unit Owner']);
     UnitOwnership::create([
         'asset_id' => $this->asset->id,
         'unit_id' => $ownedUnit->id,
@@ -104,12 +102,10 @@ it('finds an owner by name in the table search, not just a tenant', function () 
     $lease = makeLease(makeUnit($this->asset, ['area_sqm' => 100]), makeTenant(['name' => 'Zebra Retail']), $this->span);
 
     $ownedUnit = makeUnit($this->asset, ['area_sqm' => 100, 'code' => 'OWNED-2']);
-    $owner = Tenant::create([
-        'asset_id' => $this->asset->id,
-        'name' => 'Quokka Holdings',
-        'status' => 'active',
-        'contact_email' => 'quokka@example.test',
-    ]);
+    // Through the shared helper: `Tenant` has no `asset_id` and no `contact_email`, and Eloquent
+    // DROPS an unknown key silently — so the fixture set up a different state than it read as, which
+    // is the shape `FixtureColumnsExistConformanceTest` exists to catch. It caught this.
+    $owner = makeTenant(['name' => 'Quokka Holdings']);
     UnitOwnership::create([
         'asset_id' => $this->asset->id,
         'unit_id' => $ownedUnit->id,

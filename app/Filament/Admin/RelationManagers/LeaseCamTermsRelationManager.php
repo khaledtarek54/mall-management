@@ -7,6 +7,7 @@ use App\Models\CamExpensePool;
 use App\Models\LeaseCamTerm;
 use App\Models\LedgerAccount;
 use App\Support\CamPoolAccountIds;
+use App\Support\Filament\EntitySelect;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -185,17 +186,19 @@ class LeaseCamTermsRelationManager extends RelationManager
             // Offered from the accounts THIS PROPERTY'S pools actually contain, not the whole chart:
             // an account no pool holds excludes nothing, and would look identical to a clause that
             // simply is not biting. Resolvable only on a ledger-sourced pool, which the helper says.
-            Select::make('excluded_account_ids')
+            // An `EntitySelect`, not a bare `Select`: this picks a RECORD, and `EntitySelect` is where
+            // the folded blob search, the two-line option and the scoping live. Written as a plain
+            // Select first, and `EntitySelectConformanceTest` caught it — which is the gate working.
+            EntitySelect::make('excluded_account_ids')
                 ->label(__('admin.fields.cam_excluded_accounts'))
                 ->helperText(__('admin.helpers.cam_excluded_accounts'))
+                ->entity(LedgerAccount::class)
                 ->multiple()
-                ->native(false)
-                ->options(fn (): array => LedgerAccount::query()
-                    ->whereIn('id', CamPoolAccountIds::forLease($this->getOwnerRecord()))
-                    ->orderBy('code')
-                    ->get()
-                    ->mapWithKeys(fn (LedgerAccount $a): array => [$a->id => $a->code.' — '.$a->displayName()])
-                    ->all())
+                // Narrowed to the accounts THIS PROPERTY'S pools actually contain, not the whole
+                // chart: an account no pool holds excludes nothing and would look identical to a
+                // clause that is simply not biting.
+                ->modifyOptionsQuery(fn ($query) => $query
+                    ->whereIn('id', CamPoolAccountIds::forLease($this->getOwnerRecord())))
                 ->columnSpanFull(),
             Textarea::make('notes')
                 ->label(__('admin.fields.notes'))
