@@ -127,6 +127,55 @@ class DemoSeeder extends Seeder
      */
     public const DEMO_RNG_SEED = 4242;
 
+    /*
+    |--------------------------------------------------------------------------
+    | Whose mall this is
+    |--------------------------------------------------------------------------
+    | The demo estate's IDENTITY, in one place, so a seeder for a real prospect
+    | is a subclass rather than a fork. `ValPlazaSeeder` is the first of those.
+    |
+    | It has to be here and not a post-seed rename, because the mall CODE is
+    | baked into every document number the run allocates — `LSE-AW-2026-0007`,
+    | `INV-AW-0341`. Renaming the asset afterwards leaves every invoice, lease
+    | and receipt in the demo carrying the previous mall's initials, which is
+    | the first thing a client reads on the page they are shown.
+    |
+    | Defaults are the existing Atriom Walk values, so `DemoSeeder` seeds exactly
+    | what it always did and every test that reads `code = 'AW'` stays green.
+    */
+
+    protected function primaryCode(): string
+    {
+        return 'AW';
+    }
+
+    protected function primaryName(): string
+    {
+        return 'Atriom Walk';
+    }
+
+    /** The second property — it exists so property isolation has visible effect. */
+    protected function secondaryCode(): string
+    {
+        return 'PA';
+    }
+
+    protected function secondaryName(): string
+    {
+        return 'Plaza Annex';
+    }
+
+    protected function ownerName(): string
+    {
+        return 'Atriom Developments';
+    }
+
+    /** Where the demo's portal logins live. `.test` is reserved and can never resolve. */
+    protected function emailDomain(): string
+    {
+        return 'atriomwalk.test';
+    }
+
     private ?BankAccount $cibAccount = null;
 
     private ?BankAccount $nbeAccount = null;
@@ -135,7 +184,7 @@ class DemoSeeder extends Seeder
     {
         mt_srand(self::DEMO_RNG_SEED);
 
-        $this->command->info('🏬 Seeding Atriom Walk demo data...');
+        $this->command->info('🏬 Seeding '.$this->primaryName().' demo data...');
 
         // Demo password lives in env so production deploys can rotate
         // without touching the seeder (audit M17 F-63 / D-48). Default
@@ -166,9 +215,9 @@ class DemoSeeder extends Seeder
 
         // 1. The Asset
         $atriomWalk = Asset::updateOrCreate(
-            ['code' => 'AW'],
+            ['code' => $this->primaryCode()],
             [
-                'name' => 'Atriom Walk',
+                'name' => $this->primaryName(),
                 'type' => 'retail_walk',
                 'address' => 'Wahat Road, 6th of October City',
                 'city' => '6th of October',
@@ -177,7 +226,7 @@ class DemoSeeder extends Seeder
                 'leasable_area_sqm' => 8500,
                 'currency' => 'EGP',
                 'metadata' => [
-                    'owner' => 'Atriom Developments',
+                    'owner' => $this->ownerName(),
                     'launched' => '2025',
                 ],
             ],
@@ -206,9 +255,9 @@ class DemoSeeder extends Seeder
         // and vice versa. Lightweight on purpose (8 units, no leases yet) so
         // the demo dataset stays clean.
         $plazaAnnex = Asset::updateOrCreate(
-            ['code' => 'PA'],
+            ['code' => $this->secondaryCode()],
             [
-                'name' => 'Plaza Annex',
+                'name' => $this->secondaryName(),
                 'type' => 'retail_walk',
                 'address' => 'Plaza Road, 6th of October City',
                 'city' => '6th of October',
@@ -217,7 +266,7 @@ class DemoSeeder extends Seeder
                 'leasable_area_sqm' => 1600,
                 'currency' => 'EGP',
                 'is_active' => true,
-                'metadata' => ['owner' => 'Atriom Developments', 'launched' => '2026', 'notes' => 'Strip annex; scoping demo asset.'],
+                'metadata' => ['owner' => $this->ownerName(), 'launched' => '2026', 'notes' => 'Strip annex; scoping demo asset.'],
             ],
         );
         foreach (range(1, 8) as $n) {
@@ -262,7 +311,7 @@ class DemoSeeder extends Seeder
 
             // First three tenants get portal-login creds (tenant1/2/3@atriomwalk.test / password)
             $portalEmail = $i < 3
-                ? 'tenant'.($i + 1).'@atriomwalk.test'
+                ? 'tenant'.($i + 1).'@'.$this->emailDomain()
                 : ($tenantData['email'] ?? Str::slug($tenantData['name']).'@example.com');
 
             $tenant = Tenant::create([
@@ -278,7 +327,7 @@ class DemoSeeder extends Seeder
                 // street, building. Seeded because a business tenant's registered address is
                 // real master data the tenant record and its documents read; e-invoicing was
                 // what first required the breakdown, and it survives the module's freeze.
-                'address' => 'Unit '.($i + 1).', Atriom Walk, 6th of October City',
+                'address' => 'Unit '.($i + 1).', '.$this->primaryName().', 6th of October City',
                 'address_governorate' => 'Giza',
                 'address_city' => '6th of October City',
                 'address_street' => 'Wahat Road',
@@ -346,7 +395,7 @@ class DemoSeeder extends Seeder
                     TenantUser::create([
                         'tenant_id' => $tenant->id,
                         'name' => 'Tenant Staff (read-only)',
-                        'email' => 'staff1@atriomwalk.test',
+                        'email' => 'staff1@'.$this->emailDomain(),
                         'password' => $demoPassword,
                         'is_admin' => false,
                     ]);
@@ -368,7 +417,7 @@ class DemoSeeder extends Seeder
             $service = round($rent * 0.15, 0); // service charge ~15% of rent
 
             $lease = Lease::create([
-                'reference' => Lease::generateReference('AW'),
+                'reference' => Lease::generateReference($this->primaryCode()),
                 'unit_id' => $unit->id,
                 'tenant_id' => $tenant->id,
                 'status' => 'active',
@@ -500,10 +549,10 @@ class DemoSeeder extends Seeder
         $this->seedPostDatedCheques($atriomWalk);
 
         $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
-        $this->command->info("✅ Created Atriom Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
+        $this->command->info("✅ Created {$this->primaryName()} with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on {$this->secondaryName()} demo asset)");
         $this->command->info('✅ Generated leases, charges, invoices, and payment history');
         $this->command->newLine();
-        $this->command->info('📊 Demo metrics (Atriom Walk):');
+        $this->command->info('📊 Demo metrics ('.$this->primaryName().'):');
         $this->command->info('   Occupancy: '.$atriomWalk->fresh()->occupancyRate().'%');
         $this->command->info('   Total leases: '.Lease::count());
         $this->command->info('   Total invoices: '.Invoice::count());
@@ -1069,9 +1118,9 @@ class DemoSeeder extends Seeder
     private function seedPortalDemoInvoices(): void
     {
         $tenants = Tenant::whereIn('email', [
-            'tenant1@atriomwalk.test',
-            'tenant2@atriomwalk.test',
-            'tenant3@atriomwalk.test',
+            'tenant1@'.$this->emailDomain(),
+            'tenant2@'.$this->emailDomain(),
+            'tenant3@'.$this->emailDomain(),
         ])->with('leases.unit')->get();
 
         $issueDate = Carbon::now()->startOfMonth();
@@ -1149,9 +1198,9 @@ class DemoSeeder extends Seeder
     private function seedTenantRequests(): void
     {
         $tenants = Tenant::whereIn('email', [
-            'tenant1@atriomwalk.test',
-            'tenant2@atriomwalk.test',
-            'tenant3@atriomwalk.test',
+            'tenant1@'.$this->emailDomain(),
+            'tenant2@'.$this->emailDomain(),
+            'tenant3@'.$this->emailDomain(),
         ])->with(['leases.unit'])->get()->keyBy('email');
 
         $manager = User::where('email', 'manager@mall.test')->first();
