@@ -90,6 +90,45 @@ class LearningSeeder extends Seeder
         ['email' => 'owner@atriom.test',    'name' => 'Property Owner',     'role' => 'owner',       'staff' => false],
     ];
 
+    /*
+    |--------------------------------------------------------------------------
+    | Whose mall this is
+    |--------------------------------------------------------------------------
+    | Same arrangement as `DemoSeeder`: the estate's identity is overridable so a seeder for a real
+    | prospect is a subclass rather than a fork. Defaults are the existing Atriom Walk values, so
+    | this seeder seeds exactly what it always did.
+    */
+
+    protected function assetCode(): string
+    {
+        return 'AW';
+    }
+
+    protected function assetName(): string
+    {
+        return 'Atriom Walk';
+    }
+
+    protected function ownerName(): string
+    {
+        return 'Atriom Developments';
+    }
+
+    /** Where the demo's tenant contacts live. `.test` is reserved and can never resolve. */
+    protected function emailDomain(): string
+    {
+        return 'atriomwalk.test';
+    }
+
+    /** @return list<array{name: string, legal: string, email: string, contact: string, portal: bool}> */
+    protected function tenants(): array
+    {
+        return array_map(
+            fn (array $t): array => [...$t, 'email' => str_replace('atriomwalk.test', $this->emailDomain(), $t['email'])],
+            self::TENANTS,
+        );
+    }
+
     public function run(): void
     {
         // ── 1. Reference data ──────────────────────────────────────────────────────────────────
@@ -133,9 +172,9 @@ class LearningSeeder extends Seeder
         $leasable = collect(self::UNITS)->sum('area');
 
         $asset = Asset::updateOrCreate(
-            ['code' => 'AW'],
+            ['code' => $this->assetCode()],
             [
-                'name' => 'Atriom Walk',
+                'name' => $this->assetName(),
                 'type' => 'retail_walk',
                 'address' => 'Wahat Road, 6th of October City',
                 'city' => '6th of October',
@@ -144,7 +183,7 @@ class LearningSeeder extends Seeder
                 'leasable_area_sqm' => $leasable,
                 'currency' => 'EGP',
                 'is_active' => true,
-                'metadata' => ['owner' => 'Atriom Developments', 'launched' => '2026'],
+                'metadata' => ['owner' => $this->ownerName(), 'launched' => '2026'],
             ],
         );
 
@@ -177,7 +216,7 @@ class LearningSeeder extends Seeder
         }
 
         // ── 5. Tenants, with no lease between them ─────────────────────────────────────────────
-        foreach (self::TENANTS as $i => $row) {
+        foreach ($this->tenants() as $i => $row) {
             $tenant = Tenant::updateOrCreate(
                 ['email' => $row['email']],
                 [
@@ -189,7 +228,7 @@ class LearningSeeder extends Seeder
                     'tax_id' => '10000000'.($i + 1),
                     // The receiver address in the parts the tax authority validates — filled so an
                     // e-invoice submission is possible later without editing the tenant first.
-                    'address' => 'Atriom Walk, 6th of October City',
+                    'address' => $this->assetName().', 6th of October City',
                     'address_governorate' => 'Giza',
                     'address_city' => '6th of October City',
                     'address_street' => 'Wahat Road',
@@ -238,7 +277,7 @@ class LearningSeeder extends Seeder
     private function report(Asset $asset): void
     {
         $this->command?->newLine();
-        $this->command?->info('🧪 A fresh, empty Atriom Walk is ready.');
+        $this->command?->info('🧪 A fresh, empty '.$this->assetName().' is ready.');
         $this->command?->table(
             ['What', 'Count'],
             [
@@ -249,7 +288,7 @@ class LearningSeeder extends Seeder
             ],
         );
         $this->command?->line('   Admin login: <fg=cyan>admin@mall.test</> · password <fg=cyan>'.config('demo.user_password').'</>');
-        $this->command?->line('   Tenant portal: <fg=cyan>zara@atriomwalk.test</> · password <fg=cyan>'.config('demo.user_password').'</>');
+        $this->command?->line('   Tenant portal: <fg=cyan>zara@'.$this->emailDomain().'</> · password <fg=cyan>'.config('demo.user_password').'</>');
         $this->command?->newLine();
     }
 }

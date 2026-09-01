@@ -2,78 +2,113 @@
 
 /*
 |--------------------------------------------------------------------------
-| A demo for a prospect carries THEIR mall's name, on every document
+| Val Plaza opens on its first day, with nothing on the books
 |--------------------------------------------------------------------------
-| Asked for on 2026-09-01: the demo is for Val Plaza, not for the fictional
-| "Atriom Walk" the seeder ships.
+| The demo is for the people who will RUN Val Plaza, and what they need to see
+| is what an action does. `DemoSeeder` seeds a mall mid-life — 33 leases, 290
+| invoices, 693 journal entries — which proves the system holds a portfolio and
+| is exactly the wrong dataset for that, because every figure on every screen
+| was put there by somebody else.
 |
-| **Why this could not be a rename after seeding.** The mall CODE is baked into
-| every document number the run allocates — `LSE-VP-2026-0007`, `INV-VP-0341`,
-| `BILL-VP-0004`. Seeding as one mall and renaming the asset afterwards leaves
-| every invoice, lease and receipt in the demo carrying the previous mall's
-| initials, on the page a client reads first. It has to be set before the first
-| document is allocated, which means inside the seeder.
+| So `ValPlazaSeeder` extends `LearningSeeder`, not `DemoSeeder`: the trial
+| balance opens EMPTY, the first lease created in the room is the first lease
+| that ever existed, and the entries that appear in the ledger are the ones the
+| audience just watched being made.
 |
-| **Why a subclass and not a fork.** `DemoSeeder` is two thousand lines of a
-| mall mid-life. A copy would be a second dataset to keep in step, and the one
-| not being reseeded daily would rot — the failure this repo already records for
-| parallel doc sets. So the identity is a few overridable methods and the
-| subclass is the only thing that changes.
+| **The empty half and the ready half are both load-bearing.** Empty books with
+| no chart of accounts, no posting map or no open period would bill perfectly
+| and post NOTHING — the worst thing to discover mid-demo, and the failure
+| `ConfigurationHealth` exists to catch. So this asserts both: nothing on the
+| books, and everything needed to put something there.
+|
+| **A test for an empty dataset passes vacuously by default** — `every()` over
+| an empty collection is true, `pluck()->contains()` is false. The first version
+| of this file checked the branding by asserting every lease reference started
+| `LSE-VP-`, which on an empty mall says nothing at all. It now proves the
+| branding by CREATING the first document, which is also the demo itself.
 */
 
 use App\Models\Asset;
+use App\Models\ChargeCode;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Models\Lease;
-use Database\Seeders\DatabaseSeeder;
+use App\Models\LedgerAccount;
+use App\Models\Tenant;
+use App\Models\Unit;
+use Carbon\CarbonImmutable;
+use Database\Seeders\LearningSeeder;
 use Database\Seeders\ValPlazaSeeder;
 
-it('brands the estate and every document it allocates', function () {
+it('opens as Val Plaza with nothing on the books', function () {
     $this->seed(ValPlazaSeeder::class);
 
     expect(Asset::where('code', 'VP')->value('name'))->toBe('Val Plaza')
-        ->and(Asset::where('code', 'VA')->value('name'))->toBe('Val Annex')
-        // The whole reason this lives in the seeder rather than in a rename.
-        ->and(Lease::query()->pluck('reference')->every(fn ($r) => str_starts_with($r, 'LSE-VP-')))->toBeTrue()
-        ->and(Invoice::query()->pluck('number')->filter()->every(fn ($n) => str_starts_with($n, 'INV-VP-')))->toBeTrue()
-        // Nothing of ours left on the estate the client is shown.
-        ->and(Asset::query()->pluck('name')->contains(fn ($n) => str_contains($n, 'Atriom')))->toBeFalse();
+        ->and(Asset::query()->pluck('name')->contains(fn ($n) => str_contains((string) $n, 'Atriom')))->toBeFalse()
+        // Units and tenants exist so there is something to lease, and nothing else does.
+        ->and(Unit::count())->toBeGreaterThan(0)
+        ->and(Unit::where('status', '!=', 'vacant')->count())->toBe(0)
+        ->and(Tenant::count())->toBeGreaterThan(0)
+        ->and(Lease::count())->toBe(0)
+        ->and(Invoice::count())->toBe(0)
+        ->and(JournalEntry::count())->toBe(0);
+});
+
+it('is ready to post, so the first invoice reaches the ledger', function () {
+    $this->seed(ValPlazaSeeder::class);
+
+    // Empty books are only useful if something can be written into them. Without
+    // these the demo bills perfectly and the trial balance never moves.
+    expect(LedgerAccount::count())->toBeGreaterThan(0)
+        ->and(ChargeCode::count())->toBeGreaterThan(0)
+        ->and(\App\Models\AccountingPeriod::where('status', 'open')->count())->toBeGreaterThan(0);
 });
 
 /*
-| CONTROL — the default seeder is untouched.
-|
-| Without this, "Val Plaza works" could be satisfied by renaming the demo estate
-| for everyone, which would break 46 files' worth of references and every test
-| that reads `code = 'AW'`.
+| THE DEMO ITSELF — and the only non-vacuous proof of the branding.
 */
-it('leaves the default demo estate exactly as it was', function () {
-    $this->seed(DatabaseSeeder::class);
+it('numbers the first documents for Val Plaza, and the trial balance moves', function () {
+    $this->seed(ValPlazaSeeder::class);
 
-    expect(Asset::where('code', 'AW')->value('name'))->toBe('Atriom Walk')
-        ->and(Lease::query()->pluck('reference')->every(fn ($r) => str_starts_with($r, 'LSE-AW-')))->toBeTrue();
+    $lease = Lease::create([
+        'unit_id' => Unit::where('status', 'vacant')->firstOrFail()->id,
+        'tenant_id' => Tenant::firstOrFail()->id,
+        'status' => 'active',
+        'commencement_date' => '2026-09-01',
+        'expiry_date' => '2029-08-31',
+        'term_months' => 36,
+        'base_rent_monthly' => 90000,
+        'service_charge_monthly' => 13500,
+    ]);
+    \App\Services\LeaseCreationService::seedStandardCharges($lease, rent: 90000, service: 13500);
+
+    $invoice = app(\App\Services\MonthlyBillingService::class)
+        ->generateForLease($lease->fresh(), CarbonImmutable::parse('2026-09-01'), false)['invoice'];
+
+    expect($invoice)->not->toBeNull()
+        // The mall code is baked in at ALLOCATION time — this is why the estate's
+        // identity has to live in the seeder rather than in a rename afterwards.
+        ->and($lease->reference)->toStartWith('LSE-VP-')
+        ->and($invoice->number)->toStartWith('INV-VP-');
+
+    app(\App\Services\Accounting\LedgerPoster::class)->sync($invoice->fresh());
+
+    $lines = \App\Models\JournalLine::selectRaw('coalesce(sum(debit),0) d, coalesce(sum(credit),0) c')->first();
+
+    expect((float) $lines->d)->toBeGreaterThan(0.0)
+        ->and((float) $lines->d)->toBe((float) $lines->c);
 });
 
 /*
-| The prerequisites are shared, not re-typed. `--seeder=` runs ONE class, so
-| ValPlazaSeeder has to lay down the reference data itself; taking that list from
-| DatabaseSeeder is what stops the two drifting until a run dies half-way
-| through on a missing role, having already written half a mall.
+| CONTROL — the teaching seeder is untouched. Without this, "Val Plaza works"
+| could be satisfied by renaming the estate for everybody.
 */
-it('takes its reference data from the one list', function () {
-    expect(DatabaseSeeder::REFERENCE)->not->toBeEmpty()
-        ->and(DatabaseSeeder::REFERENCE)->not->toContain(\Database\Seeders\DemoSeeder::class);
+it('leaves the default empty mall as Atriom Walk', function () {
+    $this->seed(LearningSeeder::class);
 
-    $source = file_get_contents(base_path('database/seeders/ValPlazaSeeder.php'));
-
-    expect($source)->toContain('DatabaseSeeder::REFERENCE');
+    expect(Asset::where('code', 'AW')->value('name'))->toBe('Atriom Walk');
 });
 
-/*
-| It must NOT satisfy the blocking tax-identity check on the operator's behalf.
-| That row exists so an install cannot issue a document titled "Tax Invoice"
-| carrying no registration; a seeder that quietly turned it green would make the
-| check answer for itself.
-*/
 it('does not invent a tax registration', function () {
     $this->seed(ValPlazaSeeder::class);
 

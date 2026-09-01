@@ -4,62 +4,57 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Models\Asset;
-use Illuminate\Support\Facades\Artisan;
-
 /**
- * The demo estate, branded as VAL PLAZA — the mall this system is being shown for.
+ * VAL PLAZA, on its first day of trading — an empty mall with nothing on the books.
  *
- * ## Why a subclass and not a copy
+ * ## What this is for
  *
- * `DemoSeeder` is two thousand lines of a mall mid-life: leases part-way through their term, an
- * ageing profile with real arrears, a CAM pool with caps that bite, work orders that ran over.
- * Forking it to change a name would create a second dataset to keep in step, and the one that was
- * not being reseeded daily would rot — the failure this repo already records for parallel doc sets.
+ * Showing the system to the people who will run Val Plaza. `DemoSeeder` seeds a mall mid-life —
+ * 33 leases, 290 invoices, 693 journal entries — which proves the system HOLDS a portfolio and is
+ * exactly the wrong dataset for showing what an ACTION does, because every figure on every screen
+ * was put there by somebody else.
  *
- * So the mall's IDENTITY is a handful of overridable methods on `DemoSeeder` and this class is the
- * only thing that changes. `DemoSeeder` still seeds exactly what it always did.
+ * Here the trial balance opens empty. So the first lease created in the room is the first lease
+ * that ever existed, the first invoice is the entire accounts receivable, and the entries that
+ * appear in the general ledger are the ones the audience just watched being made. That is the
+ * difference between believing the software works and seeing it work.
  *
- * ## Why it cannot be a rename after the fact
+ * ## What you get
  *
- * The mall code is baked into every document number the run allocates — `LSE-VP-2026-0007`,
- * `INV-VP-0341`. Seeding as Atriom Walk and renaming the asset afterwards leaves every invoice,
- * lease and receipt carrying the previous mall's initials, on the page a client reads first. It has
- * to be set before the first document is allocated, which means before the seeder runs.
+ *   - the reference data `atriom:install` lays down on a real first deploy — roles and permissions,
+ *     the approval ladder, departments, the chart of accounts, the posting map, tax codes, charge
+ *     codes and an open fiscal calendar. Without the accounting half a database bills perfectly and
+ *     posts NOTHING, which would be the worst possible thing to discover mid-demo.
+ *   - Val Plaza, with two floors and twelve VACANT units of varied size (per-m² rent and CAM
+ *     pro-rata shares are only legible when the units differ)
+ *   - three retailers with no lease between them — a leasing pipeline, not a rent roll
+ *   - **no leases · no charges · no invoices · no payments · no journal entries**
  *
  * ## What it deliberately does NOT do
  *
  * It does not set a tax registration. `ConfigurationHealth`'s `seller_tax_identity` row is BLOCKING
- * precisely so an install cannot issue a document titled *Tax Invoice* with no registration on it,
- * and a seeder that quietly satisfied that check would be answering on the operator's behalf. Run
- * `PlaceholderIssuerIdentitySeeder` for a test box, or set the real registration under Settings →
- * Tax — which is what a demo in front of a client should carry.
+ * so an install cannot issue a document titled *Tax Invoice* carrying no registration, and a seeder
+ * that quietly satisfied that check would be answering on the operator's behalf. Set the real one
+ * under Settings → Tax before showing an invoice to anybody.
  *
  *     php artisan migrate:fresh --seed --seeder='Database\Seeders\ValPlazaSeeder'
+ *
+ * Twelve units is a teaching size, not a claim about Val Plaza — widen `LearningSeeder::UNITS` if
+ * the real estate should be on screen.
  */
-class ValPlazaSeeder extends DemoSeeder
+class ValPlazaSeeder extends LearningSeeder
 {
-    protected function primaryCode(): string
+    protected function assetCode(): string
     {
         return 'VP';
     }
 
-    protected function primaryName(): string
+    protected function assetName(): string
     {
         return 'Val Plaza';
     }
 
-    protected function secondaryCode(): string
-    {
-        return 'VA';
-    }
-
-    protected function secondaryName(): string
-    {
-        return 'Val Annex';
-    }
-
-    /** The owner. Eltizam operates; Jawad owns. */
+    /** Eltizam operates; Jawad owns. */
     protected function ownerName(): string
     {
         return 'Jawad';
@@ -68,36 +63,5 @@ class ValPlazaSeeder extends DemoSeeder
     protected function emailDomain(): string
     {
         return 'valplaza.test';
-    }
-
-    public function run(): void
-    {
-        // `--seeder=` runs ONE class, so the reference data `DatabaseSeeder` normally lays down
-        // first has to be laid down here — otherwise the run dies partway through on a missing
-        // role, having already written half a mall. Taken from that seeder's own list, never
-        // re-typed.
-        $this->call(DatabaseSeeder::REFERENCE);
-
-        parent::run();
-
-        // The terms `DemoSeeder` leaves empty — options, clauses, percentage-rent declarations and
-        // CAM caps. Every one of those tabs renders on a lease and opens with nothing in it, and an
-        // empty table reads as "not built" rather than "no data". Part of the demo, not a garnish.
-        //
-        // A command rather than a seeder because that is what it already is, and it is idempotent
-        // per lease, so a second run adds nothing.
-        Artisan::call('atriom:seed-leasing-depth');
-
-        $this->command->newLine();
-        $this->command->info('🏬 '.$this->primaryName().' is seeded.');
-        $this->command->line('   Properties: '.Asset::whereIn('code', [$this->primaryCode(), $this->secondaryCode()])
-            ->get()->map(fn (Asset $a) => $a->code.' = '.$a->name)->implode('  ·  '));
-        $this->command->line('   Portal logins: tenant1@'.$this->emailDomain().' · staff1@'.$this->emailDomain());
-        $this->command->newLine();
-        $this->command->warn('   NOT set: the seller tax registration. Until it is, invoices are titled');
-        $this->command->warn('   "Invoice" rather than "Tax Invoice" — deliberately, so an unconfigured');
-        $this->command->warn('   install cannot issue a document a tenant would file with their accountant.');
-        $this->command->line('   Set it under Settings → Tax, or seed a placeholder for a test box:');
-        $this->command->line("   php artisan db:seed --class='Database\\Seeders\\PlaceholderIssuerIdentitySeeder'");
     }
 }
