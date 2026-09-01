@@ -36,7 +36,7 @@ a matching line in [gap-analysis §6](../gap-analysis/README.md#6-declined--with
 **Update the row in the same commit as the fix.** A status column nobody maintains is worse than
 none, because it reads as current.
 
-> ### Where this stands — 9 closed, 195 open (updated 2026-09-01)
+> ### Where this stands — 11 closed, 193 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -62,7 +62,7 @@ none, because it reads as current.
 | **SW-008** | ✅ **fixed** `67212524` | high | M | PDC clear() settles a written-off invoice — AR relieved twice, bad debt stands, cash double-counted | `Services/PostDatedChequeService:73` |
 | **SW-009** | open | high | M | Two concurrent move-out settlements double-disburse the deposit: depositHeld() is a plain read inside one outer transaction, so the second settle spends and refunds a pot the first already emptied *(reported by 3 independent agents)* | `Services/SettleMoveOutService:81` |
 | **SW-010** | open | high | XS | VoidPaymentService's spent-surplus guard falls back to the GLOBAL credit balance for a zero-allocation receipt — credit at another mall masks that this receipt's surplus was already spent | `Services/VoidPaymentService:59` |
-| **SW-011** | open | high | M | A PARTIAL write-off is invisible to every collection surface — the tenant is asked for, and can pay, the forgiven part; AR goes negative and even billing:reconcile agrees with the wrong books | `Services/WriteOffInvoiceService:129` |
+| **SW-011** | ✅ **fixed** `77f088a4` | high | M | A PARTIAL write-off is invisible to every collection surface — the tenant is asked for, and can pay, the forgiven part; AR goes negative and even billing:reconcile agrees with the wrong books | `Services/WriteOffInvoiceService:129` |
 | **SW-012** | open | medium | S | Tenant hub's Payments tab scopes through invoices.lease.unit — unit-owner assessment payments vanish for property-restricted operators | `Filament/Admin/RelationManagers/TenantPaymentsRelationManager:35` |
 | **SW-013** | ✅ **fixed** `67212524` | medium | S | Payment allocation picker and auto-suggest offer DRAFT invoices; allocating flips a never-issued draft straight to paid | `Filament/Admin/Resources/Payments/Schemas/PaymentForm:178` |
 | **SW-014** | open | medium | M | Payment/PDC invoice pickers override getOptionLabelUsing with an unscoped Invoice::find, deleting the validation write-guard the picker's narrowing relies on | `Filament/Admin/Resources/Payments/Schemas/PaymentForm:197` |
@@ -73,7 +73,7 @@ none, because it reads as current.
 | **SW-019** | ✅ **fixed** `67212524` | medium | S | A written-off invoice passes every server-side money gate for receiving cash — only option lists exclude it — so a stale repeater row or a gateway capture relieves AR twice for the same debt | `Models/Payment:371` |
 | **SW-020** | open | medium | S | Voiding a cheque-clearing payment keyed in error marks the physical cheque BOUNCED — a bank return that never happened, and an NSF fee becomes billable on it | `Models/Payment:444` |
 | **SW-021** | ✅ **fixed** `67212524` | medium | S | Tenant credit can be applied to a written-off (or draft) invoice — the one settlement channel missing the status guard its two siblings have | `Services/ApplyTenantCreditService:34` |
-| **SW-022** | open | medium | S | Late fees and dunning are charged on the forgiven slice of a partially-written-off debt | `Services/LateFeeService:158` |
+| **SW-022** | ✅ **fixed** `77f088a4` | medium | S | Late fees and dunning are charged on the forgiven slice of a partially-written-off debt | `Services/LateFeeService:158` |
 | **SW-023** | open | medium | S | Voiding a partially-written-off invoice leaves the bad-debt entry standing — AR negative and the loss double-counted in P&L | `Services/VoidInvoiceService:52` |
 | **SW-024** | open | low | XS | Deposit register cannot be searched or filtered by tenant | `Filament/Admin/Resources/DepositTransactions/Tables/DepositTransactionsTable:42` |
 | **SW-025** | open | low | — | A payment rail with both directions off saves as an active row that no screen will ever offer | `Filament/Admin/Resources/PaymentMethods/Schemas/PaymentMethodForm:56` |
