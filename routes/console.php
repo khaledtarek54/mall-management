@@ -30,7 +30,7 @@ Artisan::command('inspire', function () {
 // today is its day. Firing monthly on one global day would make the override a setting the operator
 // can save and nothing can honour.
 Schedule::job(new RunMonthlyBilling(dueTodayOnly: true))
-    ->dailyAt((string) ScheduleSetting::billing('monthly_billing_time', 'billing.monthly_billing_time', '02:00'))
+    ->dailyAt(ScheduleSetting::billingTime('monthly_billing_time', 'billing.monthly_billing_time', '02:00'))
     ->name('atriom-monthly-billing')
     ->withoutOverlapping();
 
@@ -50,7 +50,10 @@ Schedule::command('billing:run-assessments')
     // is its billing day. The TIME is config-only and deliberately not a settings property — it is a
     // stagger, not a policy, and a settings field with no screen behind it reads as configurable
     // when it is not.
-    ->dailyAt((string) config('billing.assessment_billing_time', '02:30'))
+    // Through the same guard as its lease-side twin above. Config-only today, but a malformed
+    // `ASSESSMENT_BILLING_TIME` in env stops the entire scheduler exactly as a bad settings row
+    // would, and covering it is one call rather than a second way for the same value to be wrong.
+    ->dailyAt(ScheduleSetting::billingTime('assessment_billing_time', 'billing.assessment_billing_time', '02:30'))
     ->name('atriom-owner-assessments')
     ->withoutOverlapping();
 
@@ -77,10 +80,13 @@ Schedule::command('accounting:post-straight-line-rent')
     ->withoutOverlapping();
 
 Schedule::command('cam:reconcile')
+    // Every part guarded, and the DAY clamped into the month it is in. An out-of-range month or day
+    // throws and takes the whole scheduler down; an impossible PAIR — 30 February, which the form
+    // permits because it caps month and day independently — throws nothing and simply never runs.
     ->yearlyOn(
-        (int) ScheduleSetting::billing('cam_reconciliation_month', 'billing.cam_reconciliation_month', 1),
-        (int) ScheduleSetting::billing('cam_reconciliation_day', 'billing.cam_reconciliation_day', 15),
-        (string) ScheduleSetting::billing('cam_reconciliation_time', 'billing.cam_reconciliation_time', '03:00'),
+        $camMonth = ScheduleSetting::billingInt('cam_reconciliation_month', 'billing.cam_reconciliation_month', 1, 1, 12),
+        ScheduleSetting::yearlyDay($camMonth, ScheduleSetting::billingInt('cam_reconciliation_day', 'billing.cam_reconciliation_day', 15, 1, 31)),
+        ScheduleSetting::billingTime('cam_reconciliation_time', 'billing.cam_reconciliation_time', '03:00'),
     )
     ->name('atriom-cam-reconcile')
     ->withoutOverlapping();

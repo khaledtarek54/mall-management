@@ -378,9 +378,17 @@ class Settings extends Page implements HasSchemas
                         ->integer()
                         ->required()
                         ->helperText(__('admin.settings.fields.monthly_billing_day_helper')),
-                    TextInput::make('billing.monthly_billing_time')
+                    // A TIME, so it is picked rather than typed — the calendar pair below has
+                    // always been a TimePicker and these two were free text with a placeholder.
+                    // What a malformed value costs is not this job: `->dailyAt('24:00')` builds an
+                    // invalid cron expression, and `Schedule::dueEvents()` evaluates every event in
+                    // one eager filter with no try/catch, so `schedule:run` aborts before ANY task
+                    // runs. `ScheduleSetting::billingTime()` is the layer that actually holds — a row
+                    // can also arrive from a seeder, an import or a restored backup — and this stops
+                    // the panel offering the mistake.
+                    TimePicker::make('billing.monthly_billing_time')
                         ->label(__('admin.settings.fields.monthly_billing_time'))
-                        ->placeholder('02:00')
+                        ->seconds(false)
                         ->required(),
                     TextInput::make('billing.cam_reconciliation_month')
                         ->label(__('admin.settings.fields.cam_reconciliation_month'))
@@ -394,9 +402,14 @@ class Settings extends Page implements HasSchemas
                         ->minValue(1)
                         ->maxValue(31)
                         ->required(),
-                    TextInput::make('billing.cam_reconciliation_time')
+                    TimePicker::make('billing.cam_reconciliation_time')
                         ->label(__('admin.settings.fields.cam_reconciliation_time'))
-                        ->placeholder('03:00')
+                        // `->seconds(false)` is not decoration: without it the picker dehydrates
+                        // `03:00:00`, which is a CHANGE on every save of an untouched form — and the
+                        // settings audit trail said so. Caught by SettingsPageConformanceTest's
+                        // "writes no audit entry when nothing changed", which is exactly the row an
+                        // audit-everything trail exists to keep meaningful.
+                        ->seconds(false)
                         ->required(),
                 ]),
         ];
