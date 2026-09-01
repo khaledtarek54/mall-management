@@ -134,6 +134,27 @@ class InvoiceForm
                                 // does not touch the real path.
                                 unset($options['written_off']);
 
+                                // 'credited' is the outcome of a CREDIT NOTE, and it is the third
+                                // time this reasoning has had to be generalised — after 'cancelled'
+                                // and then 'written_off', whose own comment above records that the
+                                // rule "was never generalised to it". Picked here, an invoice claims
+                                // a credit note relieved its AR when no credit note exists.
+                                //
+                                // It is STRICTER than the derived three below, not looser, and that
+                                // is the part that makes it worse than the statuses already removed:
+                                // those self-correct on the next `recomputeTotals()`, while
+                                // 'credited' is on that method's own exclusion list, so it STICKS.
+                                // `InvoiceSettlement` classifies it RELIEVED — "that document
+                                // already relieved the AR" — so nothing may settle against it again,
+                                // `PaymentForm` denylists it, and the TENANT STATEMENT omits it
+                                // entirely. Measured on a fully-paid invoice carrying a real
+                                // receipt: the tenant's own statement stopped showing an invoice
+                                // they had paid, and no recompute ever put it back.
+                                //
+                                // Reached through CreditNoteService instead, which writes the credit
+                                // note that makes the claim true.
+                                unset($options['credited']);
+
                                 // The DERIVED statuses. `recomputeTotals()` computes these three from
                                 // money — payments, credit and the due date — and hand-setting one
                                 // states something false about cash that no receipt backs: 'paid' on
