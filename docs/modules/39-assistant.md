@@ -1,6 +1,6 @@
-# 39 · Ask Atriom — the in-app assistant (A0)
+# 39 · Ask Atriom — the in-app assistant (A0 + A1)
 
-**Status: A0 shipped.** No language model is involved. See
+**Status: A0 and A1 shipped.** No language model is involved. See
 [docs/integrations/AI-ASSISTANT.md](../integrations/AI-ASSISTANT.md) for the full design, the later
 phases, and what a model would cost if one is ever added.
 
@@ -23,6 +23,7 @@ screen held it, which is precisely what a new operator does not know.
 | `AssistantQuestion` | `assistant_questions` — what was typed, and what it matched |
 | `AssistantCorpus` | `app/Support/Assistant` — the searchable index, **derived** from two registries |
 | `AssistantEntry` | one screen or report, with its folded word → weight map |
+| `AssistantRecords` | finds the RECORDS a question named, through the global search |
 | `AnswerQuestionService` | `app/Services/Assistant` — fold, score, filter by access, record |
 | `Assistant` (page) | `/admin/ask` |
 
@@ -35,6 +36,16 @@ searchable the day somebody writes its guide, with no second registry to forget.
 - **It can never name a screen its reader may not open.** Every candidate is filtered through that
   screen's own `canAccess()` inside the service. Two roles asking one question get different
   answers, correctly — a link that 403s reads as a broken system rather than as a boundary.
+- **A question naming a record answers with that record, first.** "How much does Cilantro owe"
+  leads with the tenant, then the AR aging screen — a question naming something specific is asking
+  about that thing, and the screen explaining the concept is the follow-up.
+- **Records come from the global search, not from a query of our own.**
+  `AtriomGlobalSearchProvider` already runs `canGloballySearch()` (→ `canAccess()`) and scopes
+  through `getEloquentQuery()`, so property isolation and authorization are inherited by
+  construction. A second search here would be a second thing to keep in step.
+- **One destination, one card.** A page can be both a guided screen and a catalogued report; the
+  two entries are merged, keeping the screen's identity (its key resolves the guide) and the better
+  URL (the report's, when a year was named).
 - **It points at answers; it does not compute them.** A money question leads to the report that
   produces the figure, so the number the reader sees is the number the report shows. Nothing here
   re-derives a balance, which would be a second truth about the same money.
@@ -67,6 +78,28 @@ worse than none** — the reader follows it, finds the wrong screen, and conclud
 work. Silence is honest, costs one more search, and lands the question on the unanswered list where
 it becomes the next screen guide.
 
+## Which words become a record search
+
+The global search ANDs its words, so handing it *"how much does Zara owe"* matches nothing. The
+words worth searching are the ones the **documentation has never heard of**: every word in a guide,
+a screen title or a report keyword is vocabulary of the system, so a word appearing in none of it is
+far more likely to be a tenant's name, a unit code or a document number. Derived from the corpus,
+so there is nothing to maintain, and it degrades safely both ways — a proper noun that happens to
+appear in a guide is simply not searched for, and a domain word that appears in none costs one
+search the provider's own query floor makes cheap.
+
+**A bare four-digit year is excluded.** It is the one token certainly not a record name, and it is
+already read as a report parameter.
+
+## Deep links
+
+A **year** is the only parameter lifted out of a question, and only for a report that declares one:
+four digits in a plausible range are unambiguous in both languages, where *"last month"* and
+«الشهر اللي فات» are not. **No report declares a tenant parameter at all** — so *"AR aging for
+Zara"* links to the record **and** to the report, rather than to a report pre-filtered in a way it
+does not support. Even a wrong year is recoverable in a way a wrong figure would not be: it is a
+link, and the report shows its own period selector.
+
 ## Gotchas
 
 - **A locale argument that does not switch the application locale is decoration.** Every string the
@@ -88,6 +121,16 @@ it becomes the next screen guide.
 - **The assistant is excluded from its own corpus.** Its guide is written in the vocabulary of
   asking questions, which is the vocabulary every question is made of — left in, it ranked on
   everything, and *"open Ask Atriom"* is a dead end for somebody already looking at it.
+- **A bare year was searched as a record and matched three units**, because a unit's search blob
+  carries dates — *"income statement 2026"* answered *PA-01, PA-02, PA-03*. Found by driving it, not
+  by a test.
+- **A test of the record half that does not seed `RolesPermissionsSeeder` returns zero for
+  everything**, because Filament drops a result whose URL is blank and the URL derives from
+  `canView()`. Every refusal then passes for the wrong reason. This cost one wasted diagnosis here
+  and is already recorded for the global search.
+- **A translation key built by interpolation is invisible to the parity gate** — it resolves to the
+  PREFIX, so every leaf under it is unchecked in both locales. The result-kind labels are spelled
+  out for that reason.
 - **Arabic morphology is not handled.** «اشعار» does not match «اشعارات»; there is no stemming. So
   «ازاي اعمل اشعار خصم» still answers the withholding-tax return, because خصم means both *credit*
   and *withholding* and the WHT return holds it as a keyword. This is a known, measured limit and
@@ -104,7 +147,7 @@ defaulting on). Declared in `EveryRoleMeetsEveryScreenTest::UNIVERSAL_SCREENS` w
 
 ## Tests
 
-`tests/Feature/Scenarios/AskingAtriomFindsTheScreenThatAnswersTest.php` — 14 cases. Every refusal is
+`tests/Feature/Scenarios/AskingAtriomFindsTheScreenThatAnswersTest.php` — 18 cases. Every refusal is
 paired with a control that must succeed, and four of the properties were mutation-proved: the floor,
 the stop list, the locale switch, and the page's own render.
 

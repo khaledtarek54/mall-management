@@ -126,22 +126,6 @@ class Assistant extends Page
         ];
     }
 
-    /**
-     * Where a result leads.
-     *
-     * `rescue()`d to null because `getUrl()` needs a tenant and a route that a screen may not have
-     * in every context — and a result with no link is still a useful answer, while an exception
-     * would take the whole page down for one bad row.
-     */
-    public function urlFor(string $screen): ?string
-    {
-        return rescue(
-            fn (): ?string => $screen::getUrl(),
-            null,
-            report: false,
-        );
-    }
-
     protected function getHeaderActions(): array
     {
         return [

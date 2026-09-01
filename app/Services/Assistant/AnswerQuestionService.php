@@ -6,6 +6,9 @@ use App\Http\Middleware\SetLocale;
 use App\Models\AssistantQuestion;
 use App\Support\Assistant\AssistantCorpus;
 use App\Support\Assistant\AssistantEntry;
+use App\Support\Assistant\AssistantRecords;
+use App\Support\ReportCatalogue;
+use App\Support\ReportParameters;
 use App\Support\Search\SearchText;
 use App\Support\TenantScope;
 use Illuminate\Support\Facades\Auth;
@@ -64,7 +67,7 @@ class AnswerQuestionService
     public const MAX_RESULTS = 5;
 
     /**
-     * @return array{results: array<int, array{kind: string, key: string, screen: class-string, title: string, score: int}>, matched: bool, locale: string}
+     * @return array{results: array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>, matched: bool, locale: string}
      */
     public function answer(string $question, ?int $assetId = null): array
     {
@@ -95,6 +98,29 @@ class AnswerQuestionService
             }
         }
 
+        // RECORDS FIRST, and only the words the documentation has never heard of are searched for
+        // (see AssistantRecords). A question that names a specific record — "how much does Zara
+        // owe", a pasted invoice number — is asking about that record; the screen explaining the
+        // concept is the follow-up, not the answer.
+        // A YEAR IS NOT AN IDENTIFIER. "Income statement 2026" has one word the documentation
+        // does not know — `2026` — and searching records for it matched three UNITS, because a
+        // unit's search blob carries dates. A bare four-digit year is the one token that is
+        // certainly not a record name, and it is already being read as a report parameter three
+        // lines down. Document numbers survive: `INV-AW-202608-0417` folds to `invaw2026080417`,
+        // which is not four digits.
+        $unknown = array_values(array_filter(
+            AssistantRecords::unknownWords($words, AssistantCorpus::entries($readerLocale)),
+            fn (string $word): bool => ! preg_match('/^20\\d{2}$/', $word),
+        ));
+
+        $records = AssistantRecords::find($unknown);
+
+        $results = array_slice(
+            array_merge($records, $this->mergeDuplicateDestinations($results)),
+            0,
+            self::MAX_RESULTS,
+        );
+
         return $this->record($question, $results, $readerLocale, $assetId);
     }
 
@@ -117,7 +143,7 @@ class AnswerQuestionService
 
     /**
      * @param  array<int, string>  $words
-     * @return array<int, array{kind: string, key: string, screen: class-string, title: string, score: int}>
+     * @return array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>
      */
     private function rank(array $words, string $locale): array
     {
@@ -156,9 +182,109 @@ class AnswerQuestionService
                 'screen' => $row['entry']->screen,
                 'title' => $row['entry']->title,
                 'score' => $row['score'],
+                'url' => $this->urlFor($row['entry'], $words),
             ],
             array_slice($scored, 0, self::MAX_RESULTS),
         );
+    }
+
+    /**
+     * One destination, one card.
+     *
+     * A page can be BOTH a screen with a guide and a catalogued report with keywords — the income
+     * statement is both — so a question naming it produced two results with the same title, one
+     * carrying the explanation and the other the year-filtered link. Two cards for one page reads
+     * as a duplicate, and the reader has to open both to find which is which.
+     *
+     * Merged keeping the SCREEN's identity (its guide key is what renders the explanation) and the
+     * best URL either side produced (the report's, when a year was named). Highest score wins the
+     * ordering, so merging never demotes a page below one it out-ranked.
+     *
+     * @param  array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>  $results
+     * @return array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>
+     */
+    private function mergeDuplicateDestinations(array $results): array
+    {
+        $merged = [];
+
+        foreach ($results as $result) {
+            $key = $result['screen'];
+
+            if (! isset($merged[$key])) {
+                $merged[$key] = $result;
+
+                continue;
+            }
+
+            $kept = $merged[$key];
+
+            $merged[$key] = [
+                // The screen half owns the identity: its key is what resolves the four-field guide.
+                ...($kept['kind'] === 'screen' ? $kept : $result),
+                'score' => max($kept['score'], $result['score']),
+                // A parameterised link is strictly more useful than the bare page, and only the
+                // report half can produce one.
+                'url' => $this->betterUrl($kept['url'], $result['url']),
+            ];
+        }
+
+        return array_values($merged);
+    }
+
+    private function betterUrl(?string $a, ?string $b): ?string
+    {
+        // "Better" means "carries a query string" — that is the year the question named.
+        foreach ([$a, $b] as $url) {
+            if ($url !== null && str_contains($url, '?')) {
+                return $url;
+            }
+        }
+
+        return $a ?? $b;
+    }
+
+    /**
+     * Where a result leads — and for a report, at the year the question named.
+     *
+     * A YEAR is the only parameter safe to lift out of a question without guessing: four digits in
+     * a plausible range are unambiguous in both languages, where "last month" and «الشهر اللي فات»
+     * are not. Nothing else is attempted, and NO report declares a tenant parameter at all — so
+     * "AR aging for Zara" links to the record AND to the report, rather than to a report
+     * pre-filtered in a way it does not support.
+     *
+     * Even a wrong year is recoverable in a way a wrong FIGURE would not be: this is a link, and
+     * the report renders its own period selector showing what it was opened at.
+     *
+     * @param  array<int, string>  $words
+     */
+    private function urlFor(AssistantEntry $entry, array $words): ?string
+    {
+        return rescue(function () use ($entry, $words): ?string {
+            $year = $this->yearIn($words);
+
+            if ($entry->kind === 'report'
+                && $year !== null
+                && isset(ReportCatalogue::REPORTS[$entry->screen])
+                && array_key_exists('year', ReportParameters::parametersOf($entry->screen))) {
+                return ReportParameters::urlFor($entry->screen, ['year' => $year]);
+            }
+
+            return $entry->screen::getUrl();
+        }, null, report: false);
+    }
+
+    /**
+     * @param  array<int, string>  $words
+     */
+    private function yearIn(array $words): ?int
+    {
+        foreach ($words as $word) {
+            if (preg_match('/^20\d{2}$/', $word) && (int) $word <= 2100) {
+                return (int) $word;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -178,8 +304,8 @@ class AnswerQuestionService
     }
 
     /**
-     * @param  array<int, array{kind: string, key: string, screen: class-string, title: string, score: int}>  $results
-     * @return array{results: array<int, array{kind: string, key: string, screen: class-string, title: string, score: int}>, matched: bool, locale: string}
+     * @param  array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>  $results
+     * @return array{results: array<int, array{kind: string, key: string, screen: string, title: string, score: int, url: string|null}>, matched: bool, locale: string}
      */
     private function record(string $question, array $results, string $locale, ?int $assetId): array
     {

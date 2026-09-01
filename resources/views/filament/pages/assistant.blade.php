@@ -20,22 +20,38 @@
     </form>
 
     @if ($asked)
+        @php
+            // Which result gets its guide opened in full. Records rank above screens and have no
+            // guide, so "the first result" would expand nothing and leave the screen that answers
+            // the question collapsed underneath.
+            $firstScreenIndex = collect($results)->search(fn (array $r): bool => $r['kind'] === 'screen');
+        @endphp
+
         <div class="mt-6 space-y-4">
             @forelse ($results as $result)
                 @php
                     $guide = $this->guideFor($result['kind'], $result['key']);
-                    $url = $this->urlFor($result['screen']);
+                    $url = $result['url'] ?? null;
                 @endphp
 
-                <x-filament::section :collapsible="$loop->index > 0" :collapsed="$loop->index > 0">
+                <x-filament::section
+                    :collapsible="$loop->index !== $firstScreenIndex"
+                    :collapsed="$loop->index !== $firstScreenIndex"
+                >
                     <x-slot name="heading">
                         {{ $result['title'] }}
                     </x-slot>
 
                     <x-slot name="description">
-                        {{ $result['kind'] === 'report'
-                            ? __('admin.assistant.kind_report')
-                            : __('admin.assistant.kind_screen') }}
+                        {{-- Spelled out rather than composed. A key built by interpolation resolves
+                             to its PREFIX for TranslationKeyConformanceTest, so every leaf under it
+                             is unchecked in both locales — the failure mode this codebase already
+                             records for `admin.billing_preview.reason.*`. --}}
+                        {{ match ($result['kind']) {
+                            'report' => __('admin.assistant.kind_report'),
+                            'record' => __('admin.assistant.kind_record'),
+                            default => __('admin.assistant.kind_screen'),
+                        } }}@if ($result['kind'] === 'record') · {{ $result['key'] }}@endif
                     </x-slot>
 
                     @if ($guide)
@@ -46,7 +62,7 @@
                         {{-- Only the first result is opened in full. The rest are a heading and a
                              sentence, because a page of four complete guides answers nothing: the
                              reader has to re-read all of them to find which one was the answer. --}}
-                        @if ($loop->first)
+                        @if ($loop->index === $firstScreenIndex)
                             @foreach (['steps' => 'admin.assistant.steps', 'affects' => 'admin.assistant.affects', 'rules' => 'admin.assistant.rules'] as $field => $label)
                                 @if (filled($guide[$field]))
                                     <div class="mt-4">
@@ -67,7 +83,9 @@
                     @if ($url)
                         <div class="mt-4">
                             <x-filament::link :href="$url">
-                                {{ __('admin.assistant.open_screen', ['screen' => $result['title']]) }}
+                                {{ $result['kind'] === 'record'
+                                    ? __('admin.assistant.open_record')
+                                    : __('admin.assistant.open_screen', ['screen' => $result['title']]) }}
                             </x-filament::link>
                         </div>
                     @endif

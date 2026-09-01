@@ -21,12 +21,14 @@ return [
 
         'kind_screen' => 'Screen',
         'kind_report' => 'Report',
+        'kind_record' => 'Record',
 
         'steps' => 'How it is done',
         'affects' => 'What this changes elsewhere',
         'rules' => 'Rules worth knowing',
 
         'open_screen' => 'Open :screen',
+        'open_record' => 'Open this record',
 
         'no_answer_heading' => 'No answer for that one',
         'no_answer_body' => 'Try the words you would use on the screen itself — a tenant, a document or a number. Your question has been recorded, and questions nothing answers are what we use to fill the gaps.',

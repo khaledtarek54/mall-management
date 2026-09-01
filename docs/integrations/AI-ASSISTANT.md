@@ -1,6 +1,6 @@
 # The in-app assistant — design
 
-**Status: PHASE A0 SHIPPED (2026-09-01); phases A1 onward not built.** The question box is live at
+**Status: PHASES A0 AND A1 SHIPPED (2026-09-01); A2 onward not built.** The question box is live at
 `/admin/ask` — see [modules/39](../modules/39-assistant.md). No language model is involved and no
 Anthropic dependency is in `composer.json`; every B phase below is still a decision, not a plan.
 
@@ -348,8 +348,8 @@ by then the logs say whether it is needed.**
 
 | Phase | Scope | Cost to run | Rough size |
 |---|---|---|---|
-| **A0** | The "Ask Atriom" box: fold the question with `SearchText`, score it against the 112 screen guides and the 26 reports' `keywords`, show the guide. Module switch, permission, activity logging. | $0 | 2 days |
-| **A1** | Route a question to a **report** — open it pre-filtered — and to a **record**, through `AtriomGlobalSearchProvider`. Deep links, not answers. | $0 | 2 days |
+| **A0** ✅ | The "Ask Atriom" box: fold the question with `SearchText`, score it against the 112 screen guides and the 26 reports' `keywords`, show the guide. Module switch, permission, activity logging. | $0 | 2 days |
+| **A1** ✅ | Route a question to a **record** through `AtriomGlobalSearchProvider`, and to a report at the **year** it named. Deep links, not answers. Note: no report declares a tenant parameter, so "pre-filtered" means period, never counterparty. | $0 | done |
 | **A2** | `atriom:dump-assistant-index` + the doc-chunk table + FULLTEXT over `docs/`, so the box reaches past the guides. Nightly rebuild. | $0 | 2 days |
 | **—** | **Ship, and read the logs for a month.** What was asked, what matched nothing. That miss list is the only honest input to the next decision. | $0 | — |
 | **B0** | The model as a **wording layer only**, on the passage A0–A2 already found: `AssistantModel` interface, `none` + `anthropic` drivers, monthly ceiling, answer cache. | ~200 EGP/mo | 2 days |

@@ -232,3 +232,88 @@ it('is refused when the module is switched off', function () {
 
     expect(App\Filament\Admin\Pages\Assistant::canAccess())->toBeFalse();
 });
+
+// ── A1: records, and the links that carry a parameter ──────────────────────────────────────────
+
+it('answers a question that NAMES a record with that record, first', function () {
+    $asset = makeAsset();
+    $tenant = makeTenant(['name' => 'Zarqoun Trading']);
+    makeLease(makeUnit($asset), $tenant);
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        $results = app(AnswerQuestionService::class)->answer('how much does Zarqoun owe')['results'];
+
+        // The record leads: a question naming one is asking about it, and the screen that explains
+        // the concept is the follow-up.
+        expect($results[0]['kind'])->toBe('record')
+            ->and($results[0]['title'])->toContain('Zarqoun')
+            ->and($results[0]['url'])->not->toBeNull();
+
+        // And the screen half still answers, so records did not displace the explanation.
+        expect(array_column($results, 'kind'))->toContain('screen');
+    });
+});
+
+it('never searches records for a bare year', function () {
+    $asset = makeAsset();
+    // A unit's search blob carries dates, so "2026" matched three of them — three UNITS offered as
+    // the answer to "income statement 2026". A four-digit year is the one token that is certainly
+    // not a record name, and it is already read as a report parameter.
+    makeUnit($asset);
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        $results = app(AnswerQuestionService::class)->answer('income statement 2026')['results'];
+
+        expect(array_column($results, 'kind'))->not->toContain('record');
+
+        // The control: the year is not merely ignored — it reaches the report link.
+        $incomeStatement = collect($results)->firstWhere('key', 'income_statement');
+        expect($incomeStatement)->not->toBeNull()
+            ->and($incomeStatement['url'])->toContain('year=2026');
+    });
+});
+
+it('shows one card per destination, not one per registry it appears in', function () {
+    $asset = makeAsset();
+    $this->actingAs(makeUser('super_admin'));
+
+    asTenant($asset, function () {
+        $results = app(AnswerQuestionService::class)->answer('income statement')['results'];
+
+        $screens = array_column($results, 'screen');
+        expect($screens)->toBe(array_unique($screens));
+
+        // The merge keeps the SCREEN's identity, because its key is what resolves the guide.
+        $incomeStatement = collect($results)->firstWhere('screen', App\Filament\Admin\Pages\IncomeStatement::class);
+        expect($incomeStatement['kind'])->toBe('screen');
+    });
+});
+
+it('never returns a record from a property the reader does not hold', function () {
+    $mine = makeAsset(['name' => 'Held Mall']);
+    $theirs = makeAsset(['name' => 'Other Mall']);
+
+    $ours = makeTenant(['name' => 'Qamaria Coffee']);
+    makeLease(makeUnit($mine), $ours);
+
+    $theirTenant = makeTenant(['name' => 'Qamaria Roasters']);
+    makeLease(makeUnit($theirs), $theirTenant);
+
+    $this->actingAs(makeUser('manager', [$mine->id]));
+
+    asTenant($mine, function () {
+        $titles = array_column(
+            app(AnswerQuestionService::class)->answer('Qamaria')['results'],
+            'title'
+        );
+
+        // The refusal.
+        expect(implode(' ', $titles))->not->toContain('Roasters');
+
+        // The control, in the same shape: a scope that returned nothing at all would satisfy the
+        // refusal and read as a pass.
+        expect(implode(' ', $titles))->toContain('Qamaria Coffee');
+    });
+});
