@@ -40,7 +40,7 @@ rather than editing a number. The first hand-typed set had already drifted by th
 header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
 which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 22 closed, 192 open (updated 2026-09-01)
+> ### Where this stands — 23 closed, 191 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -52,11 +52,11 @@ which is the same failure this repo gates for generated doc blocks.
 
 ### Money · AR · settlement
 
-*23 open — 3 high, 11 medium, 9 low.*
+*22 open — 2 high, 11 medium, 9 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-001** | open | high | S | Credit-note status Select lets 'void' be picked directly, bypassing the void service's applied-amount refusal | `Filament/Admin/Resources/CreditNotes/Schemas/CreditNoteForm:144` |
+| **SW-001** | ✅ fixed | high | S | Credit-note status Select lets 'void' be picked directly, bypassing the void service's applied-amount refusal. Broader than reported: `applied` is DERIVED (picking it makes the tenant's credit invisible to every picker narrowing on `hasBalance()`) and `issued` skipped `PostingDate::assertOpen`, so AR committed while the journal post was silently refused. **The first cut was worse than the bug** — removing the options made an applied or voided note unsaveable on every field (`Rule::in([])`), and the only remaining option was `issued`, so the sole way past the error was to un-void the note. Narrowed on draft, DISABLED after; void is terminal | `Filament/Admin/Resources/CreditNotes/Schemas/CreditNoteForm:144` |
 | **SW-002** | ✅ **fixed** `2733f9af` | high | S | A deposit refund/forfeit larger than what the lease holds is accepted by the DepositTransactions create form — negative deposit liability *(reported by 2 independent agents)*. The FIFTH door onto the pot, and the only one with no cap at all: same `deposit_transactions.create`/`.edit` permissions as the lease action, `minValue(0.01)` and nothing else, and freely editable afterwards because the receipt freeze fires only for `type === 'receipt'`. Capped on the MODEL, measured against the pot less the row's own persisted contribution | `Models/DepositTransaction:300` |
 | **SW-003** | open | high | S | CreatePayment's orphan rollback throws on the form's own default status — a captured, allocation-less receipt survives behind the wrong error *(reported by 2 independent agents)* | `Filament/Admin/Resources/Payments/Pages/CreatePayment:193` |
 | **SW-004** | open | high | M | EditPayment re-allocation re-spends a surplus already drawn down as tenant credit — the same money settles two invoices | `Filament/Admin/Resources/Payments/Pages/EditPayment:148` |

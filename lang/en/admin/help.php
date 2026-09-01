@@ -185,6 +185,7 @@ return [
     | the Arabic side needed no new translation for the tooltips.
     */
     'hints' => [
+        'credit_note_status' => 'Issue and Void are their own buttons — they check the accounting period, post to the ledger and record why.',
         'billing_timing' => 'Rent is settled ahead of the month; a service charge or utility recharge is settled after it, once the cost or the meter reading is known. The line names the month it covers.',
         'does_not_prorate' => 'Rent is priced by time, so a mid-month move-in pays part of it. A signage licence, a fixed parking fee or a fixed management fee is not — the tenant holds it for the month whichever day they arrive. Tick this and the row bills in full for any month the lease runs into, and is not credited back on a mid-month move-out either.',
         'cash_flow_section' => 'Only balance-sheet accounts carry one. Revenue and expense net into profit, which the statement starts from.',

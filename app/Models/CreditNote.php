@@ -12,6 +12,7 @@ use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
+use App\Support\PostingDate;
 use App\Support\Translate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -322,6 +323,66 @@ class CreditNote extends Model
         // guarded here to avoid float-round-trip false positives). Defense-in-depth behind
         // the form lock — closes the JS-tamper / API / tinker path.
         static::updating(function (self $note) {
+            // ── A STATUS IS THE OUTCOME OF AN ACT, NOT SOMETHING YOU PICK ────────────────────────
+            //
+            // Every non-draft status here is derived or act-driven, and each act carries its own
+            // permission: `issued` comes from the Issue button (`credit_notes.issue`), `applied` is
+            // derived from the balance by `applyToInvoice()`, and `void` comes from the Void button
+            // (`credit_notes.void`). The form's status Select needed only `credit_notes.edit`, so it
+            // was a way to produce all three effects with none of their checks. Measured, the two
+            // permissions are held by the same four roles today, so this is defence in depth for a
+            // hand-built role rather than a live escalation — the substantive holes are the skipped
+            // CHECKS below, which no role assignment protects against.
+            //
+            // What the acts do and the Select skipped:
+            //   ISSUE   `PostingDate::assertOpen()` on the issue date. Without it the AR effect
+            //           commits while the journal post is silently refused inside the best-effort
+            //           sync — the operator sees "Saved" and the ledger never moves.
+            //   VOID    refuses a note with applied credit (it would strand the application), zeroes
+            //           the balance, stamps `voided_at`, records the WHY in the audit trail and lets
+            //           the poster reverse the entry.
+            //
+            // The MONEY rules are enforced here on every path — the services satisfy them already,
+            // so nothing legitimate is refused — and `voided_at` tells an act from a picked status
+            // AT THE WRITE, because the acts stamp it and no form offers it. It does NOT keep
+            // discriminating over a record's life: a stamp survives, which is why the terminal rule
+            // above exists rather than relying on it.
+            if ($note->isDirty('status')) {
+                $from = (string) $note->getOriginal('status');
+                $to = (string) $note->status;
+
+                // **A VOID NOTE IS TERMINAL.** Its journal entry has been reversed, its balance
+                // zeroed and its `voided_at` stamped; nothing legitimately brings it back —
+                // `CreditNoteService::void()` returns early on an already-void note and no other
+                // service moves a status off `void`. Left unguarded, an un-void was reachable and
+                // silent: the note prints with no VOID watermark on the document the tenant files,
+                // every list reads it as live, and `voided_at` stays stamped — so the blank-stamp
+                // discriminator below is permanently satisfied for that note, and a later crafted
+                // `status = void` walks past the guard written to stop it. The correction for a
+                // note voided in error is a NEW note, as it is for every other money document.
+                if ($from === 'void' && $to !== 'void') {
+                    throw new \DomainException(__('admin.refusals.credit_note_void_is_terminal'));
+                }
+
+                if ($to === 'void' && $from !== 'void') {
+                    if ((float) $note->getOriginal('applied_amount') > 0) {
+                        throw new \DomainException(__('admin.notifications.credit_note_void_applied'));
+                    }
+
+                    if (blank($note->voided_at)) {
+                        throw new \DomainException(__('admin.refusals.credit_note_status_is_an_act'));
+                    }
+                }
+
+                // Leaving draft is the GL event. Asserted here as well as in the service so the
+                // form and a crafted payload both meet it — `assertOpen` is idempotent, and a
+                // MISSING period is allowed, only a CLOSED one refused. (`CreateCreditNote`
+                // already asserted it on the create path; this is the edit path.)
+                if ($from === 'draft' && in_array($to, ['issued', 'applied'], true)) {
+                    PostingDate::assertOpen($note->issue_date, __('admin.fields.issue_date'));
+                }
+            }
+
             if ($note->getOriginal('status') === 'draft') {
                 return; // draft is freely editable (and draft→issued must be allowed)
             }

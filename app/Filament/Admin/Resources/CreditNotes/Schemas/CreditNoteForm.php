@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class CreditNoteForm
 {
@@ -143,17 +144,46 @@ class CreditNoteForm
 
                         Select::make('status')
                             ->label(__('admin.tables.common.status'))
-                            // 'draft' is not a selectable target once the note is finalized —
-                            // reverting would re-open the locked money fields (see the model
-                            // guard in CreditNote::booted).
+                            // **A status is the outcome of an ACT, so it is only pickable while the
+                            // note is a DRAFT** — the one state where the choice means anything.
+                            // `issued` comes from the Issue button (`credit_notes.issue`),
+                            // `applied` is derived from the remaining balance by
+                            // `applyToInvoice()`, and `void` from the Void button
+                            // (`credit_notes.void`); this form needs only `credit_notes.edit`.
+                            //
+                            // **The full vocabulary is kept for a non-draft note even though the
+                            // field is disabled, and that is not cosmetic.** Filament derives an
+                            // `in:` rule from the options whenever it cannot resolve the CURRENT
+                            // state's label, and an unresolvable state yields `Rule::in([])`, which
+                            // nothing satisfies. Removing `void`/`applied` outright therefore made
+                            // an applied or voided note **unsaveable on every field** — an operator
+                            // editing only `notes` got "The selected status is invalid" — and the
+                            // single remaining option was `issued`, so the only way past that error
+                            // was to UN-VOID the note, which then prints with no VOID watermark on
+                            // the document the tenant files. Caught in review; the first cut of this
+                            // fix was worse than the bug it closed.
                             ->options(function (?CreditNote $record) {
                                 $options = __('admin.statuses.credit_note');
-                                if ($record && $record->status !== 'draft') {
-                                    unset($options['draft']);
+
+                                if ($record === null || $record->status === 'draft') {
+                                    // Neither is a legitimate pick FROM draft: voiding is an act
+                                    // with its own permission, and `applied` is derived.
+                                    unset($options['void'], $options['applied']);
+
+                                    return $options;
                                 }
+
+                                // Reverting would re-open the locked money fields (see the model
+                                // guard in `CreditNote::booted`).
+                                unset($options['draft']);
 
                                 return $options;
                             })
+                            // Disabled rather than narrowed: not validated, not submitted, and the
+                            // record's own status still renders as its translated label instead of
+                            // the raw `void` token the Arabic panel was showing.
+                            ->disabled(fn (?CreditNote $record): bool => $record !== null && $record->status !== 'draft')
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.credit_note_status'))
                             ->required()
                             ->default('draft')
                             ->native(false),

@@ -21,6 +21,8 @@
 
 return [
     'refusals' => [
+        'credit_note_void_is_terminal' => 'A voided credit note is closed for good — its ledger entry has been reversed. Raise a new note if credit is due.',
+        'credit_note_status_is_an_act' => 'A credit note is issued or voided by its own button, not by picking a status. Those acts check the accounting period, post to the ledger and record why — use Issue or Void.',
         'cam_carve_out_needs_a_stated_share' => 'Lease :lease is carved out of the share denominator but its contract names no share. A lease outside the divisor has no area basis left to derive one from — state its share, or put it back in the denominator.',
         'cam_pool_has_unbilled_allocations' => 'This pool still has :count allocation(s) nobody has billed. A year is not reconciled while a tenant\'s share has not been acted on — bill them, or void the ones that should not be billed.',
         'immutable_committed_money' => 'This document is already on the books, so its :field cannot be changed — reverse it and re-enter it instead.',
