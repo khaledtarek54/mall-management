@@ -206,9 +206,26 @@ class PaymentForm
                                     // edit page that stored value would otherwise render as a raw id
                                     // ("6"); resolve ANY invoice so the row shows its number. After
                                     // `->entity()`, which installs its own narrowed resolver.
-                                    ->getOptionLabelUsing(fn ($value): ?string => ($i = Invoice::find($value))
-                                        ? self::invoiceOptionLabel($i)
-                                        : null)
+                                    // …but SCOPED. `Invoice::find()` resolves anything, and Filament
+                                    // derives a Select's `in:` rule from whether the label resolves —
+                                    // so a bare find here overrides `EntitySelect`'s scoped resolver
+                                    // and makes "the label lookup IS the write guard" untrue on this
+                                    // one field. The server-side guards still bite
+                                    // (`assertInvoiceAssetInScope`, `assertInvoicesShareTenant`), but
+                                    // a layer that reads as a gate should be one.
+                                    //
+                                    // Scoped by PROPERTY only, never by balance or status: the whole
+                                    // reason for resolving outside the options is that a fully-paid
+                                    // invoice is legitimately absent from them on the edit page.
+                                    ->getOptionLabelUsing(function ($value) {
+                                        $visible = TenantScope::visibleAssetIds();
+
+                                        $invoice = Invoice::query()
+                                            ->when($visible !== null, fn ($q) => $q->whereIn('asset_id', $visible))
+                                            ->find($value);
+
+                                        return $invoice ? self::invoiceOptionLabel($invoice) : null;
+                                    })
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                                         if (! $state) {

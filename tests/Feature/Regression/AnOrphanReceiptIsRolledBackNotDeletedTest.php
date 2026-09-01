@@ -212,3 +212,37 @@ it('still accepts two rows that TOGETHER fit the invoice — the control', funct
     expect(Payment::count())->toBe(1)
         ->and(round((float) $this->invoice->fresh()->balance, 2))->toEqual(0.0);
 });
+
+it('will not label an invoice from a mall the operator cannot see', function () {
+    // SW-003c. The allocation picker chained `->getOptionLabelUsing(fn ($v) => Invoice::find($v))`,
+    // a bare unscoped find that overrides `EntitySelect`'s scoped resolver — and Filament derives a
+    // Select's `in:` rule from whether the label resolves, so "the label lookup IS the write guard"
+    // was untrue on this one field. Scoped by PROPERTY only, never by balance or status: resolving
+    // outside the narrowed options exists precisely so a fully-paid invoice still renders on the
+    // edit page.
+    $otherAsset = makeAsset(['code' => 'BB']);
+    $otherLease = makeLease(makeUnit($otherAsset), makeTenant());
+    $foreign = makeInvoice($otherLease, [
+        'status' => 'issued', 'subtotal' => 500, 'vat_amount' => 0, 'total' => 500,
+        'paid_amount' => 0, 'balance' => 500,
+    ]);
+
+    // The operator is standing in $this->asset, and holds only it.
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+    Filament::setTenant($this->asset);
+
+    Livewire::test(CreatePayment::class)
+        ->fillForm([
+            'tenant_id' => $this->lease->tenant_id,
+            'amount' => 500,
+            'method' => 'cash',
+            'status' => 'captured',
+            'payment_date' => CarbonImmutable::now()->toDateString(),
+            'allocations' => [['invoice_id' => $foreign->id, 'allocated_amount' => 500]],
+        ])
+        ->call('create')
+        ->assertHasFormErrors();
+
+    expect(Payment::count())->toBe(0)
+        ->and(round((float) $foreign->fresh()->balance, 2))->toEqual(500.0);
+});
