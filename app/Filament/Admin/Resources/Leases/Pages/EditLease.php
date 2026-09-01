@@ -24,6 +24,21 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditLease extends EditRecord
 {
+    /**
+     * The lease edit and everything `afterSave()` derives are ONE unit of work.
+     *
+     * `afterSave()` throws a `DomainException` when additional units are changed on a locked lease,
+     * and it runs AFTER `handleRecordUpdate()` — so without this the lease row's edit committed
+     * (term, expiry, escalation, deposit months, percentage-rent flags) while `syncUnits()` and
+     * `createLevyCharge()` never ran and the operator was told the change was refused. Reachable
+     * exactly as that guard's own comment argues: a disabled input's value still arrives in the
+     * Livewire payload.
+     *
+     * `halt()` COMMITS by default, so any halt added here must pass
+     * `shouldRollbackDatabaseTransaction: true`. The one at :58 is pre-write and unaffected.
+     */
+    protected ?bool $hasDatabaseTransactions = true;
+
     use FillsCustomFields;
     use RefreshesRecordState;
 
@@ -55,7 +70,7 @@ class EditLease extends EditRecord
                 ->title(__('admin.validation.lease_terminal_immutable'))
                 ->danger()
                 ->send();
-            $this->halt();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
 
         // Block re-homing the lease (or attaching out-of-scope additional units).

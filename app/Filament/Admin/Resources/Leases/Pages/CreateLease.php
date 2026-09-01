@@ -10,6 +10,29 @@ use Filament\Resources\Pages\CreateRecord;
 
 class CreateLease extends CreateRecord
 {
+    /**
+     * The lease and its charge ladder are ONE unit of work.
+     *
+     * `afterCreate()` seeds the standard charges, projects the whole term's contracted rent and
+     * creates the marketing levy — several writes after the lease row is already committed. Nothing
+     * on that path throws TODAY: `ChargeScheduleService`'s two refusals are both inside
+     * `overlayWindow()`, the rent-relief path this page never calls, and `projectTermEscalations()`
+     * returns early unless an escalation is configured. (An earlier version of this docblock said
+     * otherwise and sent the reader to the wrong service — corrected in review.)
+     *
+     * So this is belt-and-braces rather than a live bug: a throw anywhere in that sequence — a
+     * `ValueSets` refusal, a `Charge::booted()` guard, a future step — would otherwise leave a
+     * COMMITTED LEASE WITH A PARTIAL LADDER, which is the state `atriom:audit-charge-schedules`
+     * exists to find after the fact. The page next door, `EditLease`, has the LIVE version of the
+     * same shape.
+     *
+     * Filament's `CreateRecord::create()` already rolls back and re-throws; it is inert only because
+     * no panel opts in (SW-003d). This page has no `halt()` after creation, so nothing else is
+     * needed here — but note that `halt()` COMMITS by default, so a page that refuses that way must
+     * pass `shouldRollbackDatabaseTransaction: true`.
+     */
+    protected ?bool $hasDatabaseTransactions = true;
+
     protected static string $resource = LeaseResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

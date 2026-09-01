@@ -19,6 +19,22 @@ use Illuminate\Support\Facades\DB;
 
 class EditPayment extends EditRecord
 {
+    /**
+     * The record and everything its hooks derive are ONE unit of work.
+     *
+     * Filament's `EditRecord::save()` already rolls back and re-throws on any Throwable — it is
+     * inert only because `CanUseDatabaseTransactions` defers to the panel and no panel here opts
+     * in, so every Create/Edit page that throws in its hooks commits the record anyway. (The
+     * panel-wide question is recorded as SW-003d; this page is enabled because a partial commit
+     * here is a MONEY problem, not a cosmetic one.)
+     *
+     * **`halt()` COMMITS by default** — `BasePage::halt(bool $shouldRollbackDatabaseTransaction =
+     * false)`. So turning the transaction on is not enough on its own: every halt that follows a
+     * refusal has to ask for the rollback, or the page keeps exactly the behaviour this is meant to
+     * fix while looking as though it were fixed.
+     */
+    protected ?bool $hasDatabaseTransactions = true;
+
     use AnnouncesLedgerRestatement;
     use RefreshesRecordState;
 
@@ -115,7 +131,7 @@ class EditPayment extends EditRecord
                 ->danger()
                 ->send();
 
-            $this->halt();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
     }
 
@@ -141,7 +157,7 @@ class EditPayment extends EditRecord
                 ->danger()
                 ->send();
 
-            $this->halt();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
     }
 
@@ -187,7 +203,7 @@ class EditPayment extends EditRecord
                 ->body($e->getMessage())
                 ->danger()
                 ->send();
-            $this->halt();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
 
         // Re-allocating a payment across invoices (or to invoices on another property)
@@ -198,6 +214,11 @@ class EditPayment extends EditRecord
         $payment->touch();
 
         // Allocations are now synced — deliver the receipt notification.
-        $payment->notifyReceiptOnce();
+        // AFTER THE COMMIT, for the reason CreatePayment gives: the allocation guard holds
+        // `lockForUpdate()` on the invoice and four settlement tables, and
+        // `PaymentReceivedNotification` is not `ShouldQueue` — its mail channel sends synchronously,
+        // per portal user. Inside the transaction every other settlement against that invoice queues
+        // behind an SMTP round-trip.
+        DB::afterCommit(fn () => $payment->notifyReceiptOnce());
     }
 }
