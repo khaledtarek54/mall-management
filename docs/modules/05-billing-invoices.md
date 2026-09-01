@@ -2016,3 +2016,12 @@ actions the day *they* were grouped. `InvoiceActionTopologyTest` asserts the map
 composition name exactly the same set, in **both** directions, that no name is grouped twice, and —
 because grouping must be a layout change and never an authorisation one — that every act is still
 mountable by name through the real page. All four teeth mutation-proved.
+
+**And the panel was swept for the same defect elsewhere — there is none.** Two gates, because
+neither can see what the other does. `AnActIsDeclaredOnceConformanceTest` reads the source through
+`Tests\Support\ActionStrips` (tokenised, so an action declared inside a modal `schema()` closure is
+not miscounted as a sibling) across all **330** strips the panel declares, relation managers
+included. `NoScreenRendersTheSameActTwiceTest` mounts **159 of 160** screens and reads what Filament
+actually cached — the only place a trait-supplied act, a `parent::getHeaderActions()` spread, or a
+runtime-composed group is visible. It compares LABELS too: two acts with different names under one
+set of words is the same complaint. Both go red when `EditInvoice` is restored to `d4edce7c^`.

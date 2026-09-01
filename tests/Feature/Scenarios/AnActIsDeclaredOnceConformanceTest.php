@@ -1,74 +1,76 @@
 <?php
 
+use Tests\Support\ActionStrips;
+
 /*
 |--------------------------------------------------------------------------
-| One act, one declaration (2026-09-01)
+| One act, one place in the strip that renders it (2026-09-01)
 |--------------------------------------------------------------------------
 | `EditInvoice` composed `InvoiceActions::all()` — which defines `regeneratePaymentLink` — AND kept
 | a second, inline copy of the same act. Both rotated the same token, so neither was wrong; what
-| was wrong is that the operator read the same DESTRUCTIVE button twice in one header, with nothing
-| to say which was which. Reported from the panel.
+| was wrong is that the operator read the same DESTRUCTIVE red button twice in one header, with
+| nothing to say which was which. Reported from the panel.
 |
-| It is invisible from either file. Each is correct on its own, and `cacheAction()` keys by name —
-| so `mountAction('regeneratePaymentLink')` resolves, `assertActionVisible` passes, and the two
-| tests that drive that exact act on that exact page were green throughout. **Only the rendered
-| header shows two.**
+| It is invisible from either file. Each is correct alone, and `cacheAction()` keys by name — so
+| `mountAction('regeneratePaymentLink')` resolved, `assertActionVisible` passed, and the two tests
+| that drive that exact act on that exact page were green throughout. **Only the rendered strip
+| shows two.**
 |
-| That is the shape `App\Filament\Admin\Actions\*Actions` exists to prevent — one definition,
-| several surfaces — and the shape it makes newly possible, because composing a registry does not
-| stop a page ALSO declaring one of its members. Nineteen surfaces compose a registry today; this
-| sweeps every one of them.
+| ## Two gates, because neither can see what the other does
+|
+| This is the SOURCE half. It reads every strip the panel declares — including all 49 relation
+| managers, which the behavioural half cannot cheaply mount — and it can expand a registry spread
+| to the acts it brings in.
+|
+| `NoScreenRendersTheSameActTwiceTest` is the BEHAVIOURAL half. It mounts the real components and
+| sees the three shapes no static read can: an act supplied by a TRAIT, one spread from
+| `parent::getHeaderActions()`, and a group composed at runtime (`LeaseActions::grouped()` resolves
+| `self::only(self::GROUPS[…])`, so its contents do not exist until the page is built).
+|
+| Both are mutation-proved against the real historical defect: restore `EditInvoice` as it stood at
+| `d4edce7c^` and each one names it.
 */
 
-it('never declares an act a registry it composes has already defined', function () {
-    // A closure, not a file-scope `function`: two test files declaring one helper name is a fatal
-    // redeclaration during collection that exits the suite 255 with NO output, and `--parallel`
-    // hides it. This project has had that four times; `rglob` in this file's first draft would
-    // have been the fifth (it already exists in ImportIsAdminOnlyTest).
-    $declaredIn = function (string $body): array {
-        preg_match_all("/Action::make\\('([^']+)'\\)/", $body, $matches);
+it('never renders the same act twice in one strip of controls', function () {
+    $registries = ActionStrips::registries();
 
-        return array_values(array_unique($matches[1]));
-    };
-
-    $registries = [];
-
-    foreach (glob(app_path('Filament/Admin/Actions/*Actions.php')) as $file) {
-        $registries[basename($file, '.php')] = $declaredIn((string) file_get_contents($file));
-    }
-
-    // Premise: the sweep is worthless if there are no registries to compose.
+    // Premise: with no registry to expand, a spread is invisible and this sweep is much weaker
+    // than it reads.
     expect($registries)->not->toBeEmpty();
 
     $offenders = [];
-    $composed = 0;
+    $strips = 0;
+    $acts = 0;
 
-    foreach (filamentSources() as $file) {
-        $body = (string) file_get_contents($file);
+    foreach (ActionStrips::sources() as $file) {
+        foreach (ActionStrips::inFile($file, $registries) as $strip) {
+            $strips++;
+            $acts += count($strip['members']);
 
-        foreach ($registries as $registry => $names) {
-            // A surface composes a registry by name — `::all()`, `::grouped()`, `::forOwner()`.
-            // Reading the CALL rather than the import, because an import proves nothing is used.
-            if (! preg_match('/\b'.preg_quote($registry, '/').'::(all|grouped|forOwner|only)\(/', $body)) {
-                continue;
+            $sources = [];
+
+            foreach ($strip['members'] as [$name, $source]) {
+                $sources[$name][] = $source;
             }
 
-            $composed++;
-
-            $clash = array_values(array_intersect($declaredIn($body), $names));
-
-            if ($clash !== []) {
-                $offenders[] = str_replace(base_path().'/', '', $file)
-                    .' re-declares '.$registry.': '.implode(', ', $clash);
+            foreach ($sources as $name => $declaredBy) {
+                if (count($declaredBy) > 1) {
+                    $offenders[] = str_replace(base_path().'/', '', $file)
+                        .':'.$strip['line']." · {$strip['method']}() renders '{$name}' from "
+                        .implode(' + ', $declaredBy);
+                }
             }
         }
     }
 
-    expect($offenders)->toBe([], "These render the same act twice — once from the registry they\n"
-        ."compose, once from their own copy:\n  ".implode("\n  ", $offenders));
+    expect($offenders)->toBe([], implode("\n  ", array_merge(
+        ['These strips offer the same act more than once — the operator reads one button twice:'],
+        $offenders,
+    )));
 
-    // Vacuity guard. A registry renamed out of this glob, or a `::all()` spelled some new way,
-    // would leave the sweep examining nothing and reporting clean — which is how a gate stops
-    // gating without anybody noticing.
-    expect($composed)->toBeGreaterThan(10, 'The sweep found no composition sites at all.');
+    // Vacuity guards. Measured at 330 strips and 645 acts when this was written; a sweep that
+    // silently stops collecting is how three gates in this project stopped gating, and each time
+    // the tell was that nobody had asked it what it had counted.
+    expect($strips)->toBeGreaterThan(300, 'The sweep found far fewer action strips than this panel declares.');
+    expect($acts)->toBeGreaterThan(600, 'The sweep read far fewer acts than this panel declares.');
 });
