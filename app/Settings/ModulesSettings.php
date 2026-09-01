@@ -40,6 +40,11 @@ class ModulesSettings extends Settings
 
     public bool $activity_log = true;
 
+    // "Ask Atriom" — the question box over the screen guides and the report catalogue. On by
+    // default: it reads only what this system already publishes and can never surface a screen
+    // its reader could not already open, so there is nothing an upgrade needs to decide.
+    public bool $assistant = true;
+
     // ETA e-invoicing is FROZEN, not merely off. The property stays so `modules.eta` remains a
     // real key (a module outside Modules::KEYS is a guard that can never refuse), but nothing
     // reads it any more: `Modules::enabled('eta')` answers false from `Modules::FROZEN` before it

@@ -30,6 +30,7 @@ return [
         // help budget is 18 words (App\Support\FieldHelp), and a switch needs to say what STOPS
         // when it is off, not describe the module.
         'modules' => [
+            'assistant' => 'The "Ask Atriom" question box, and the record of what was asked.',
             'unit_ownerships' => 'Buyers who own their unit and pay a maintenance assessment instead of rent.',
             'rentable_items' => 'Parking bays, kiosks and storage let on their own agreements.',
             'rent_indices' => 'Published indices a lease escalation can be pegged to.',

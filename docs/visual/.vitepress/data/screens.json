@@ -48,6 +48,12 @@
         "guide": "areas"
     },
     {
+        "screen": "Assistant",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "assistant"
+    },
+    {
         "screen": "BalanceSheet",
         "panel": "admin",
         "kind": "page",

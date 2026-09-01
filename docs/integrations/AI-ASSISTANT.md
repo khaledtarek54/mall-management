@@ -1,8 +1,8 @@
 # The in-app assistant — design
 
-**Status: DESIGNED, NOT BUILT.** Nothing in `app/` implements any of this yet, and no Anthropic
-dependency is in `composer.json`. This document is the recommendation and the reasoning behind it,
-written so the decision can be reviewed before a line is spent.
+**Status: PHASE A0 SHIPPED (2026-09-01); phases A1 onward not built.** The question box is live at
+`/admin/ask` — see [modules/39](../modules/39-assistant.md). No language model is involved and no
+Anthropic dependency is in `composer.json`; every B phase below is still a decision, not a plan.
 
 **What it is.** One box in the panel where an operator types a question in Arabic or English and
 gets an answer. Two kinds of question, and the design turns on the fact that they are different:

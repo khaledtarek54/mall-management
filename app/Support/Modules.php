@@ -100,6 +100,7 @@ class Modules
             'activity_log',
             'custom_fields',
             'document_templates',
+            'assistant',
             // Frozen in code (see FROZEN) — listed so the key keeps a home, never rendered.
             'eta',
         ],
@@ -162,6 +163,7 @@ class Modules
         'custom_fields',
         'document_templates',
         'eta',
+        'assistant',
     ];
 
     /**

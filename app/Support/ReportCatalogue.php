@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\ActivityLog;
+use App\Filament\Admin\Pages\Assistant;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
 use App\Filament\Admin\Pages\ArCollections;
@@ -87,40 +88,40 @@ class ReportCatalogue
      */
     public const REPORTS = [
         // ---- Financial statements ----
-        IncomeStatement::class => ['category' => self::FINANCIAL, 'key' => 'income_statement', 'keywords' => ['p&l', 'profit', 'loss', 'revenue', 'expenses']],
-        BalanceSheet::class => ['category' => self::FINANCIAL, 'key' => 'balance_sheet', 'keywords' => ['assets', 'liabilities', 'equity']],
-        CashFlow::class => ['category' => self::FINANCIAL, 'key' => 'cash_flow', 'keywords' => ['cash', 'bank', 'movement']],
-        TrialBalance::class => ['category' => self::FINANCIAL, 'key' => 'trial_balance', 'keywords' => ['tb', 'debits', 'credits']],
+        IncomeStatement::class => ['category' => self::FINANCIAL, 'key' => 'income_statement', 'keywords' => ['p&l', 'profit', 'loss', 'revenue', 'expenses', 'قائمة الدخل', 'الأرباح', 'الخسائر', 'الإيرادات', 'المصروفات']],
+        BalanceSheet::class => ['category' => self::FINANCIAL, 'key' => 'balance_sheet', 'keywords' => ['assets', 'liabilities', 'equity', 'الميزانية', 'المركز المالي', 'الأصول', 'الخصوم', 'حقوق الملكية']],
+        CashFlow::class => ['category' => self::FINANCIAL, 'key' => 'cash_flow', 'keywords' => ['cash', 'bank', 'movement', 'التدفقات النقدية', 'النقدية', 'البنك']],
+        TrialBalance::class => ['category' => self::FINANCIAL, 'key' => 'trial_balance', 'keywords' => ['tb', 'debits', 'credits', 'ميزان المراجعة', 'مدين', 'دائن']],
         TaxDepreciation::class => ['category' => self::TAX, 'key' => 'tax_depreciation', 'keywords' => ['depreciation', 'tax', 'pool', 'declining', 'law 91', 'إهلاك']],
-        GeneralLedger::class => ['category' => self::FINANCIAL, 'key' => 'general_ledger', 'keywords' => ['gl', 'account', 'entries', 'statement']],
-        MonthEndClose::class => ['category' => self::FINANCIAL, 'key' => 'month_end_close', 'keywords' => ['close', 'period', 'lock']],
-        Reports::class => ['category' => self::FINANCIAL, 'key' => 'monthly_close', 'keywords' => ['month', 'kpi', 'summary']],
-        WeeklySpend::class => ['category' => self::FINANCIAL, 'key' => 'weekly_spend', 'keywords' => ['spend', 'cost', 'week', 'expenses']],
+        GeneralLedger::class => ['category' => self::FINANCIAL, 'key' => 'general_ledger', 'keywords' => ['gl', 'account', 'entries', 'statement', 'دفتر الأستاذ', 'الأستاذ العام', 'القيود', 'كشف حساب']],
+        MonthEndClose::class => ['category' => self::FINANCIAL, 'key' => 'month_end_close', 'keywords' => ['close', 'period', 'lock', 'إقفال الشهر', 'إقفال الفترة', 'الإقفال']],
+        Reports::class => ['category' => self::FINANCIAL, 'key' => 'monthly_close', 'keywords' => ['month', 'kpi', 'summary', 'الإقفال الشهري', 'ملخص الشهر', 'مؤشرات']],
+        WeeklySpend::class => ['category' => self::FINANCIAL, 'key' => 'weekly_spend', 'keywords' => ['spend', 'cost', 'week', 'expenses', 'المصروفات الأسبوعية', 'الإنفاق', 'التكاليف']],
 
         // ---- Receivables ----
-        ArAging::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging', 'keywords' => ['ageing', 'aging', 'overdue', 'debtors', 'arrears']],
-        ArAgingByType::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging_by_type', 'keywords' => ['ageing', 'charge type', 'rent', 'service charge']],
-        ArCollections::class => ['category' => self::RECEIVABLES, 'key' => 'ar_collections', 'keywords' => ['collections', 'paid', 'recovery']],
-        BillingRunPreview::class => ['category' => self::RECEIVABLES, 'key' => 'billing_run_preview', 'keywords' => ['billing', 'run', 'preview', 'dry run']],
+        ArAging::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging', 'keywords' => ['ageing', 'aging', 'overdue', 'debtors', 'arrears', 'أعمار الديون', 'الذمم المدينة', 'المتأخرات', 'المديونية', 'المستحقات', 'فلوس', 'owes', 'owing', 'owed', 'debt']],
+        ArAgingByType::class => ['category' => self::RECEIVABLES, 'key' => 'ar_aging_by_type', 'keywords' => ['ageing', 'charge type', 'rent', 'service charge', 'أعمار حسب النوع', 'رسوم الخدمة', 'الإيجار']],
+        ArCollections::class => ['category' => self::RECEIVABLES, 'key' => 'ar_collections', 'keywords' => ['collections', 'paid', 'recovery', 'التحصيل', 'المحصل', 'السداد']],
+        BillingRunPreview::class => ['category' => self::RECEIVABLES, 'key' => 'billing_run_preview', 'keywords' => ['billing', 'run', 'preview', 'dry run', 'معاينة الفوترة', 'تشغيل الفوترة', 'الفوترة الشهرية']],
 
         // ---- Leasing ----
-        RentRoll::class => ['category' => self::LEASING, 'key' => 'rent_roll', 'keywords' => ['tenancy schedule', 'rent', 'occupancy']],
-        ExpirationSchedule::class => ['category' => self::LEASING, 'key' => 'expiration_schedule', 'keywords' => ['expiry', 'renewals', 'rollover']],
+        RentRoll::class => ['category' => self::LEASING, 'key' => 'rent_roll', 'keywords' => ['tenancy schedule', 'rent', 'occupancy', 'كشف الإيجارات', 'جدول الإشغال', 'الإيجارات']],
+        ExpirationSchedule::class => ['category' => self::LEASING, 'key' => 'expiration_schedule', 'keywords' => ['expiry', 'renewals', 'rollover', 'جدول انتهاء العقود', 'انتهاء العقود', 'التجديد']],
         ClauseRegister::class => ['category' => self::LEASING, 'key' => 'clause_register', 'keywords' => ['clause', 'co-tenancy', 'kick-out', 'exclusivity', 'radius', 'abstract', 'بند', 'إشغال مشترك']],
-        RevenueForecast::class => ['category' => self::LEASING, 'key' => 'revenue_forecast', 'keywords' => ['forecast', 'projection', 'budget', 'income', 'pipeline']],
-        OccupancyMap::class => ['category' => self::LEASING, 'key' => 'occupancy_map', 'keywords' => ['vacancy', 'floor', 'units']],
+        RevenueForecast::class => ['category' => self::LEASING, 'key' => 'revenue_forecast', 'keywords' => ['forecast', 'projection', 'budget', 'income', 'pipeline', 'توقعات الإيرادات', 'التنبؤ', 'الإيرادات المتوقعة']],
+        OccupancyMap::class => ['category' => self::LEASING, 'key' => 'occupancy_map', 'keywords' => ['vacancy', 'floor', 'units', 'خريطة الإشغال', 'الشواغر', 'الوحدات', 'الدور']],
         RentableItemMap::class => ['category' => self::LEASING, 'key' => 'rentable_item_map', 'keywords' => ['parking', 'bay', 'kiosk', 'signage', 'storage', 'utilisation', 'موقف', 'كشك']],
-        OccupancyCost::class => ['category' => self::LEASING, 'key' => 'occupancy_cost', 'keywords' => ['occupancy cost', 'ocr', 'affordability']],
-        SalesAnalytics::class => ['category' => self::LEASING, 'key' => 'sales_analytics', 'keywords' => ['turnover', 'sales', 'percentage rent']],
+        OccupancyCost::class => ['category' => self::LEASING, 'key' => 'occupancy_cost', 'keywords' => ['occupancy cost', 'ocr', 'affordability', 'تكلفة الإشغال', 'نسبة تكلفة الإشغال']],
+        SalesAnalytics::class => ['category' => self::LEASING, 'key' => 'sales_analytics', 'keywords' => ['turnover', 'sales', 'percentage rent', 'تحليل المبيعات', 'المبيعات', 'رقم الأعمال', 'نسبة الإيجار']],
 
         // ---- Tax ----
-        VatReturn::class => ['category' => self::TAX, 'key' => 'vat_return', 'keywords' => ['vat', 'return', 'output', 'input', 'eta']],
+        VatReturn::class => ['category' => self::TAX, 'key' => 'vat_return', 'keywords' => ['vat', 'return', 'output', 'input', 'eta', 'إقرار القيمة المضافة', 'ضريبة القيمة المضافة', 'الإقرار الضريبي']],
         WithholdingTaxReturn::class => ['category' => self::TAX, 'key' => 'wht_return', 'keywords' => ['withholding', 'wht', 'form 41', 'supplier', 'certificate', 'خصم', 'إضافة']],
 
         // ---- Operations ----
-        Workflows::class => ['category' => self::OPERATIONS, 'key' => 'workflows', 'keywords' => ['approvals', 'process', 'diagram']],
-        ActivityLog::class => ['category' => self::OPERATIONS, 'key' => 'activity_log', 'keywords' => ['audit', 'history', 'who changed']],
-        VendorScorecard::class => ['category' => self::OPERATIONS, 'key' => 'vendor_scorecard', 'keywords' => ['vendor', 'supplier', 'sla', 'performance', 'renewal', 'contractor']],
+        Workflows::class => ['category' => self::OPERATIONS, 'key' => 'workflows', 'keywords' => ['approvals', 'process', 'diagram', 'مسارات العمل', 'الاعتمادات', 'الإجراءات']],
+        ActivityLog::class => ['category' => self::OPERATIONS, 'key' => 'activity_log', 'keywords' => ['audit', 'history', 'who changed', 'سجل النشاط', 'سجل التغييرات', 'من غيّر']],
+        VendorScorecard::class => ['category' => self::OPERATIONS, 'key' => 'vendor_scorecard', 'keywords' => ['vendor', 'supplier', 'sla', 'performance', 'renewal', 'contractor', 'تقييم الموردين', 'أداء المورد', 'المقاولين']],
     ];
 
     /**
@@ -140,6 +141,7 @@ class ReportCatalogue
         Handbook::class => 'The manual, not a measurement. Every report here answers a question about this portfolio\'s data and changes when the data changes; the handbook explains how the system works and reads identically on an empty database. Listing it beside the rent roll would send an operator looking for a number to a page that has none.',
         Budget::class => 'Configuration, and an INPUT screen — it pastes what each P&L account is expected to do. Every report here answers a question about what happened; this states what is planned, and the report that compares the two is the income statement. Same reasoning as Settings and PropertyOverrides above.',
         OpeningBalances::class => 'Cutover data entry — it loads the accountant\'s opening trial balance and creates a DRAFT journal entry. It writes the books rather than reporting on them, and it is used once per go-live rather than per month.',
+        Assistant::class => 'A way to FIND a report, not one of them. Every report here answers a question about this portfolio\'s data and changes when the data changes; this searches the guides and this very catalogue, and reads identically on an empty database. Listing it beside the rent roll would send an operator looking for a number to a search box. Same reasoning as the Handbook above.',
         NotificationCenter::class => 'One reader\'s own alert history. Every report here answers a question about the BUSINESS and reads the same for any two operators with the same permissions; this reads differently for every single person, because it is scoped to their own notifications. It is mail, not a report — and listing it in the report hub would promise a portfolio answer and deliver an inbox.',
     ];
 

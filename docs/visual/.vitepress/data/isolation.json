@@ -48,6 +48,12 @@
         "note": null
     },
     {
+        "model": "AssistantQuestion",
+        "label": "Assistant Question",
+        "classification": "owned",
+        "note": null
+    },
+    {
         "model": "BankAccount",
         "label": "Bank Account",
         "classification": "owned",

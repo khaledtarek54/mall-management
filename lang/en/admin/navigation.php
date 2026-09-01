@@ -133,6 +133,7 @@ return [
     ],
 
     'permission_modules' => [
+        'assistant' => 'Ask Atriom',
         'recurring_expenses' => 'Recurring costs',
         'custom_fields' => 'Custom fields',
         'document_templates' => 'Document wording',

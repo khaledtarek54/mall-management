@@ -128,6 +128,7 @@ return [
     ],
 
     'permission_modules' => [
+        'assistant' => 'اسأل أتريوم',
         'recurring_expenses' => 'التكاليف الدورية',
         'custom_fields' => 'الحقول المخصصة',
         'document_templates' => 'صياغة المستندات',

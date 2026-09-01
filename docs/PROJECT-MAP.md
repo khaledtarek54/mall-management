@@ -27,26 +27,26 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **125** models | **168** services | **67** admin resources | **9** portal resources |
-| **54** API controllers | **19** dashboard widgets | **59** console commands | **6** queued jobs |
-| **38** notifications | **292** migrations | **38** module docs | **1012** test files |
+| **126** models | **169** services | **67** admin resources | **9** portal resources |
+| **54** API controllers | **19** dashboard widgets | **60** console commands | **6** queued jobs |
+| **38** notifications | **296** migrations | **39** module docs | **1032** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 125 models classified — 89 property-owned, 35 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 126 models classified — 90 property-owned, 35 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 24 posting sources, 24 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 23 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 1012 files — 188 scenario, 562 regression. |
-| **Module flags** | 34 toggleable modules (`App\Support\Modules`). 1 frozen in code and shown nowhere: `eta`. |
+| **Tests** | 1032 files — 189 scenario, 580 regression. |
+| **Module flags** | 35 toggleable modules (`App\Support\Modules`). 1 frozen in code and shown nowhere: `eta`. |
 
 **Scheduled automation** — commands: `billing:run-assessments` · `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `reports:deliver` · `marketing:expire-posts` · `announcements:send-scheduled` · `vendors:scan-document-expiry` · `tenants:scan-document-expiry` · `vendors:scan-contract-renewals` · `expenses:generate-recurring` · `atriom:prune-activity-log` · `atriom:prune-transient-data` · `requests:auto-close` · `facility:generate-preventive` · `requests:scan-sla-breaches` · `facility:scan-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:expire` · `leases:apply-escalations` · `pdc:scan-maturing` · `facility:scan-open-permits` · `pdc:scan-coverage` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `billing:reconcile --deep` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify` · `atriom:notify-status`
 ; jobs: `RunMonthlyBilling` · `ApplyLateFees` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).
 
 ### Module documentation
 
-**38** modules carry a doc in [`docs/modules/`](modules/). Every one of them has been gap-analysed at least once; the standing verdict per module lives in [`docs/gap-analysis/`](gap-analysis/README.md), which is one living document rather than a file per module.
+**39** modules carry a doc in [`docs/modules/`](modules/). Every one of them has been gap-analysed at least once; the standing verdict per module lives in [`docs/gap-analysis/`](gap-analysis/README.md), which is one living document rather than a file per module.
 
 <!-- census:end -->
 

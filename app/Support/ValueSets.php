@@ -127,6 +127,17 @@ class ValueSets
         'tenants.locale' => [SetLocale::class, 'SUPPORTED'],
         'vendors.locale' => [SetLocale::class, 'SUPPORTED'],
         'employees.locale' => [SetLocale::class, 'SUPPORTED'],
+        // The SIXTH such column, and registered on arrival rather than after the sweep found it —
+        // which is the whole reason `locale` was added to CLASSIFICATION_SUFFIXES. Here it records
+        // which language a question was ASKED in, so the unanswered list can say whether the gap is
+        // in the English guides or the Arabic ones.
+        'assistant_questions.locale' => [SetLocale::class, 'SUPPORTED'],
+
+        // What the assistant matched a question to. Classification-shaped (`kind`), so the sweep
+        // would demand it anyway — and it must be a closed set, because the unanswered-question
+        // analysis groups on it and a typo'd value would silently form a third bucket that nobody
+        // reads.
+        'assistant_questions.top_kind' => ['screen', 'report'],
 
         // What an operator-defined field can hold (D-7 / EG-32). Registered because a mistyped type
         // does not error — `CustomFieldsSchema::input()` falls through its `match` to a plain text
