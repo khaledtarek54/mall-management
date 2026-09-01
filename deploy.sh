@@ -160,7 +160,17 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 php artisan event:cache
-ok "config, routes, views and events cached"
+# Filament's OWN cache, and it is not covered by `optimize`. Measured 2026-09-02 over 25 real FPM
+# requests each way, toggled twice to be sure of the direction: WITH it a page was best 0.045s /
+# median 0.063s, WITHOUT it best 0.096s / median 0.144s — it roughly HALVES every request, because
+# Filament otherwise discovers its 66 resources and 35 pages, and Blade scans its icon sets, on
+# every single request.
+#
+# It was missing here, and `optimize:clear` above deletes it — so every release since this script
+# was written has run the panel with Filament discovery uncached. `filament:assets` (step above) is
+# a different thing: that publishes CSS/JS, this caches component discovery.
+php artisan filament:optimize
+ok "config, routes, views, events and Filament components cached"
 
 # storage:link is a first-deploy step, but it is idempotent and a missing link breaks every media
 # URL — cheap to assert on every release rather than remember once.

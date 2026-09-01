@@ -62,6 +62,12 @@ it('runs every step whose omission fails silently', function () use ($deploy) {
         'route:cache' => 'route resolution stays on the previous release',
         'view:cache' => 'the first request compiles every view',
         'event:cache' => 'listeners stay on the previous release',
+        // Measured 2026-09-02 over 25 real FPM requests each way, toggled twice: WITH it a page
+        // was best 0.045s / median 0.063s, WITHOUT best 0.096s / median 0.144s. Filament otherwise
+        // rediscovers 66 resources and 35 pages, and Blade rescans its icon sets, on EVERY request.
+        // It is NOT covered by `optimize`, and the `optimize:clear` above deletes it — so its
+        // omission is silent and permanent: the panel runs at half speed with nothing in any log.
+        'filament:optimize' => 'Filament rediscovers every resource, page and icon on EVERY request — roughly doubling page time, silently',
         'atriom:rebuild-search' => 'every existing row keeps the previous release\'s fold and the search bar says the record does not exist',
         'queue:restart' => 'workers keep running the OLD code against the NEW schema',
         'atriom:preflight' => 'the deploy reports no verdict at all',
