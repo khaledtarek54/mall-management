@@ -4,6 +4,22 @@
 > Atriom comparisons are pointers only — the verdicts live in
 > [06-atriom-gap-analysis.md](../../gap-analysis/README.md).
 
+> ### Read the CLOSED notes before you read the Atriom comparisons — re-verified 2026-09-01
+>
+> The Voyager halves of this document are stable; the **Atriom** halves were measured on
+> **2026-08-08**, and four of them describe a system that no longer exists. §4 lists the automatic
+> application order and the NSF fee as missing (both shipped within days of it being written), §5
+> calls the late fee config-global (per-lease since the day after), §7 opens by saying straight-line
+> rent has *no Atriom counterpart at all* (it is built and ships switched off), and §10 item 5 asks
+> the operator a question that was answered by shipping the answer. Each now carries a note naming
+> the class or setting that closed it, re-checked against the source today.
+>
+> **The original paragraphs are kept exactly as written.** They are the case that was made at the
+> time, and the reasoning in them — why a second time coordinate matters, why a write-off is not the
+> same as a cancellation, why auto-applying credit is not obviously correct — is what a future change
+> has to respect. What must not survive is a reader stopping at one of them and rebuilding something
+> that is already here.
+
 ---
 
 ## 1. The shape of the flow
@@ -131,6 +147,50 @@ On-account credit is a real, separately-journalized document
 `Payment.status = bounced` and the PDC module. What is missing is the *automatic* application
 order, the NSF fee, and the bank deposit batch.
 
+> **CLOSED — two of the three shipped within days of this being written; the third is a recorded
+> decline.** Re-verified against the code 2026-09-01.
+>
+> **The application order exists in both of the places Voyager puts it.** At the point of entry,
+> [`PaymentForm::suggestAllocations()`](../../../app/Filament/Admin/Resources/Payments/Schemas/PaymentForm.php)
+> fills the allocations repeater from the tenant's open invoices `orderBy('due_date')`, distributing
+> the amount across them — and **only when the repeater is empty**, so a remittance advice keyed by
+> the operator is never clobbered. That is Voyager's oldest-first with manual override. Where no
+> operator is present it is not a suggestion but the rule:
+> `PostDatedChequeService::settleOpenInvoices()` spreads a cleared cheque over the tenant's open
+> invoices in that mall, oldest due first, under a **locking** read, and its own docblock states the
+> Voyager reasoning for settling at the customer record rather than per lease;
+> `ApplyDepositToInvoiceService` and the CAM credit both apply oldest-first the same way. Yardi's
+> *open credits first* tier is the auto-apply hook on `Invoice::saved` — see §10 item 5. Within a
+> settled invoice the LINES then settle by `InvoiceItemSettlement::TYPE_PRIORITY`, Voyager's
+> charge-code priority: rent first, penalties last, so a part payment is never eaten by a fee.
+> **A stated deviation:** Voyager makes that order configurable per AR settings and shops tune it;
+> Atriom's is a constant, on the reasoning written into the class — a settings screen nothing reads is
+> worse than an explicit constant, and this project has shipped that bug twice.
+>
+> **The NSF fee is `BillBouncedChequeFeeService`** (2026-08-10, `974a8e69`): its own invoice, raised
+> under a row lock with the precondition re-checked inside the transaction, idempotent through
+> `post_dated_cheques.nsf_fee_invoice_id` — and a *cancelled* fee invoice counts as a withdrawal, so a
+> fee raised in error can be voided and re-charged. The amount is `billing.nsf_fee_amount` resolved
+> per property, falling back to the portfolio, and `0` turns it off and hides the action rather than
+> leaving a button that can only refuse. **It is operator-triggered per bounce and that is deliberate,
+> not a gap**: the same separation module 31 draws between recording a violation and billing its fine
+> — the bounce is a fact, charging for it is a decision, and a landlord may well waive it for a tenant
+> whose cheque bounced once in five years, so `PostDatedChequeService::bounce()` stays a pure state
+> change. The reversal half of Voyager's NSF has **nothing to reverse here**: Atriom mints no
+> `Payment` until a cheque CLEARS, so the tenant's invoice was never reduced and no charge re-opens.
+>
+> **Bank deposit batches are a recorded DECLINE**, not an omission — see §10 row 6 and
+> [gap §3.4](../../gap-analysis/README.md). The motive behind them, tying bank reconciliation to what
+> the bank actually saw, is met by a different mechanism: `App\Support\MoneyAccount::for()`
+> (2026-08-22) routes each document to **its own bank's** chart account, so reconciling one bank no
+> longer offers the other bank's postings as candidates.
+>
+> **Both `(verify)` markers above are now answerable from this codebase rather than from Yardi
+> documentation.** The unapplied remainder really does become a liability: `PaymentJournalizer` books
+> it to `unearned_revenue` (*"any unallocated remainder is a customer advance"*), `Tenant::creditBalance()`
+> surfaces it as the tenant's on-account credit, and the auto-apply hook draws it down against the
+> next issued invoice — the full Voyager cycle, remainder → Cr Unearned → open credit → applied.
+
 ---
 
 ## 5. Credits, adjustments and write-offs
@@ -140,7 +200,7 @@ order, the NSF fee, and the bank deposit batch.
 | **Credit charge** | a negative charge on a charge code — reduces AR and reverses revenue on that code | `CreditNote` + `CreditNoteApplication`, invoice-level. **Stronger than Yardi's**: reversal un-applies the original rather than stacking a second offsetting document |
 | **Charge reversal** | undo a posted charge (in an open period) | invoice cancel → auto-reverses applied credit |
 | **Write-off / bad debt** | a `WRTOFF` charge code that clears the receivable to a bad-debt expense account, per charge, with an aging-driven work-list | ✅ **BUILT** (2026-08, after this section was written) — `InvoiceWriteOff` is its own dated GL source via `InvoiceWriteOffJournalizer` → `bad_debt_expense`, with a "Write off" action on the invoice. The paragraph below states why it was needed and is kept for that reason |
-| **Late fee** | automated per charge code with grace, %-or-flat, per-lease override | `LateFeeService`, idempotent + lock-safe, but **config-global** — no per-lease override |
+| **Late fee** | automated per charge code with grace, %-or-flat, per-lease override | `LateFeeService`, idempotent + lock-safe. Was **config-global** the day this was written; ✅ **BUILT** since MF-08 (2026-08-09) — rate, grace, minimum, **ceiling** and **recurrence** all resolve lease → property → portfolio through `Lease::lateFeeTerms()`. The note below states what the three tiers are for |
 
 **Why the write-off had to exist, and was not a feature request.** Cancelling an invoice that was
 genuinely earned and genuinely uncollectible reverses the revenue in the *current* period and removes
@@ -151,6 +211,30 @@ the revenue, credits AR, and debits bad-debt expense. That is what `InvoiceWrite
 had no reversal at all until 2026-08-11 (`VoidVendorBillPaymentService` — voiding a check is an
 everyday Voyager operation). See [the change-impact plan](../../accounting/CHANGE-IMPACT-PLAN.md) for
 the general form of this: which changes may move a posted entry, and which must become a new document.
+
+> **CLOSED — the late-fee clause is now richer than the row asked for.** Re-verified 2026-09-01.
+> [`Lease::lateFeeTerms()`](../../../app/Models/Concerns/Lease/ActsAsBillableAgreement.php) answers
+> five figures on **three** tiers, not two: the lease's own negotiated column wins, then the
+> PROPERTY (`PropertySettings::OVERRIDABLE`, added 2026-08-12), then `BillingSettings`. Real clauses
+> do not agree — an anchor negotiates thirty days of grace and a kiosk gets five — and Eltizam runs
+> several malls, so a single portfolio answer beneath a per-lease term was the odd one out.
+>
+> **EG-35 (2026-08-22) added the two the benchmark row never named**, because a real clause has a
+> ceiling as well as a floor and can be charged more than once. `late_fee_maximum` is applied
+> **after** the minimum, and the order is the whole of it: a ceiling the operator typed is a
+> statement about the most they will ever charge, while a floor only rounds small fees up, so
+> applying the floor last would bill above a cap the clause names. `0` means *no cap* at every tier,
+> which is what every install had before the column existed. `late_fee_recurrence_days` charges again
+> while the balance stands, measured from the last fee's **issue** date rather than the invoice's due
+> date, so switching it on does not fire a burst of back-dated fees at an old arrear; `0` means once
+> per invoice, the previous behaviour. A late fee can never earn a late fee — a fee invoice's only
+> line is itself of type `late_fee`, and the absolute `items()->where('type','late_fee')` bar that
+> recurrence must never reach through is what stops a penalty compounding on a penalty.
+>
+> The default still comes from `BillingSettings` rather than `config('billing.*')`, and that
+> distinction was a live bug worth keeping written down: the Settings screen wrote the settings
+> record while the service read the config file, so every late-fee value an operator saved was
+> silently ignored.
 
 ---
 
@@ -197,6 +281,36 @@ leases do not require them, and Yardi ships them as jurisdiction packs rather th
 
 This is the part of Yardi's money flow that has no Atriom counterpart at all, and it is worth
 being precise about, because it is the item most likely to make the owner's accountant unhappy.
+
+> **BUILT 2026-08-09 as story RA-02, and it ships switched OFF** — re-verified against the code
+> 2026-09-01. §10 row 3 has recorded this since 2026-08-11; it is repeated here because the opening
+> sentence above is the first thing a reader meets, and *"no Atriom counterpart at all"* is exactly
+> the sentence that gets someone to build it twice. **Everything below it is still worth reading**:
+> the standard, the worked example and the ruling it forces are all unchanged, and the ruling is the
+> only thing still outstanding.
+>
+> [`StraightLineRentService::scheduleFor()`](../../../app/Services/StraightLineRentService.php)
+> computes the flat monthly recognition from the contracted charge ladder — which is only possible
+> *because* of the ladder, exactly as the last sentence of this section predicted: on the old model
+> of one mutable rent amount the future was unknowable and straight-lining would have meant inventing
+> it. [`PostStraightLineRentService::postForMonth()`](../../../app/Services/PostStraightLineRentService.php)
+> writes one `StraightLineRentAdjustment` per lease per month, and that model is a **registered GL
+> source** — one line in `LedgerPoster::JOURNALIZERS` pointing at `StraightLineRentAdjustmentJournalizer`
+> plus its `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` entry — which is precisely the shape the
+> *"yes, book it"* option below prescribes. `accounting:post-straight-line-rent` runs monthly on the
+> 2nd, so the month it recognises has closed and its invoices exist.
+>
+> **`BillingSettings::straight_line_rent_enabled` ships `false`.** With it off the command posts
+> nothing at all, which is what lets the capability ship ahead of the ruling; `StraightLineRentTest`
+> asserts invoices are byte-identical with the setting on and off, because *"the books changed but
+> the bills did not"* is the whole claim. So the misstatement described below stands while it is off,
+> and **flipping one toggle is the entire deploy** — no migration, no code.
+>
+> Yardi's *"amendments trigger a recalculation from the modification date forward"* is
+> `PostStraightLineRentService::reverseFrom()`, which soft-deletes the adjustments from a date onward
+> so the next run re-derives them against the new terms — and refuses a month whose accounting period
+> has closed. Forward-only, never restated: the standards expect a change in terms to be accounted
+> for prospectively, and the posting-date guards would refuse it in any case.
 
 ### What it is
 
@@ -306,6 +420,18 @@ tie-out, `PostingDateGuards` refusing a closed period — and its *conformance-g
 (every money source must be registered, or the build fails) is stricter than what a typical Voyager
 install enforces. The gaps here are §3 (post month) and §5 (write-off), not the close itself.
 
+> **Both of those closed** — the post month as MF-05 (§3's own note) and the write-off as
+> `InvoiceWriteOffJournalizer` (§5's table) — **and one control the close genuinely still lacks is
+> the one §3 quotes Voyager on.** Verified 2026-09-01: `AccountingPeriod` is not an audited model and
+> `PeriodService::reopenPeriod()` is a bare `$period->update(['status' => 'open'])` with no reason
+> asked and no row written, so *"reopen sparingly and with proper documentation"* is documented
+> nowhere but in the operator's memory. A reopen lifts `App\Support\SealedPeriod`'s whole guard over
+> all 24 GL sources, which makes it the single widest act in the accounting module and the one least
+> worth leaving untraceable. The fix is the seam every other model already uses —
+> `ActivityLogging::for($this, 'accounting_period')` with a `COVERAGE_FLOOR` entry and labels in both
+> languages — plus a required reason on close and reopen in the shape every money reversal already
+> follows (`App\Support\ReversalReason`).
+
 ---
 
 ## 10. What Yardi does that Atriom does not — **re-verified against the code 2026-08-11**
@@ -314,13 +440,17 @@ The table below was written at the start of the cycle and had gone substantially
 ten rows are now built. Re-checked item by item against the source rather than trusted, because a
 gap list nobody re-reads is how a team builds something twice.
 
+> **Eight of ten, as of a re-check on 2026-09-01** — item 5 went from 🟡 to ✅ the same day this
+> table was written, and its row and the subsection beneath now say so. The two that remain are the
+> two recorded declines, 6 and 9. Nothing here is outstanding engineering.
+
 | # | Capability | Status | Where |
 |---|---|---|---|
 | 1 | Charge schedule (date-ranged, many rows per code) | ✅ **BUILT** | `ChargeScheduleService`; a change closes the row in force and opens the next |
 | 2 | Post month independent of document date | ✅ **BUILT** | `App\Support\PostMonth` + `posting_month_overrides`; `PostMonthAction` on the document |
 | 3 | Straight-line rent / deferred rent | ✅ **BUILT** (ships OFF) | `StraightLineRentService`, RA-02 — off until the accountant rules |
 | 4 | Bad-debt write-off | ✅ **BUILT** | `InvoiceWriteOffJournalizer` → `bad_debt_expense` |
-| 5 | Receipt application order + **open-credit auto-apply** | 🟡 **HALF** — see below | `InvoiceItemSettlement::TYPE_PRIORITY` orders the lines; `ApplyTenantCreditService` applies a credit but only when an operator asks |
+| 5 | Receipt application order + **open-credit auto-apply** | ✅ **BUILT** (2026-08-11, 34 minutes after this row was written) — the 🟡 **HALF** verdict and the paragraph below are kept because the argument in them is the reason it is a *setting* | `InvoiceItemSettlement::TYPE_PRIORITY` orders the lines; `PaymentForm::suggestAllocations()` and `PostDatedChequeService` order the invoices oldest-first (§4); `Invoice::saved` calls `ApplyTenantCreditService` by itself, per property |
 | 6 | Bank deposit batches | ⚪ **not worth it** | one operator, one bank; the receipt already carries its method and date |
 | 7 | Itemised deposit disposition at move-out | ✅ **BUILT** | `MoveOutStatementService` + `SettleMoveOutService` (MF-02/MF-03) |
 | 8 | Charge codes as configurable data (code → GL account) | ✅ **BUILT** | `charge_codes` + its screen; adding a code is a row, not a deploy |
@@ -328,6 +458,30 @@ gap list nobody re-reads is how a team builds something twice.
 | 10 | Rate-based charges (EGP/m²/yr) that re-derive on an area change | ✅ **BUILT** | `LeaseSpaceChangeService::applyRentChange` re-derives from the rate at the effective date (LS-04) |
 
 ### The one real remainder: item 5
+
+> **CLOSED 2026-08-11 by `4792adb7`, made per-property 2026-08-21 — re-verified 2026-09-01.** The two
+> paragraphs below were written the same morning the trigger shipped, and their recommendation was
+> followed rather than declined: the operator was not asked to answer in prose, they were **given the
+> switch**. `billing.auto_apply_tenant_credit` is a `PropertySettings::OVERRIDABLE` key, so a mall
+> whose tenants hand over a year of cheques up front leaves it on and a mall that reconciles every
+> receipt by hand turns it off — which is exactly the per-property configurability the paragraph
+> attributes to Yardi, and for exactly the reason it gives. It ships **true**.
+>
+> The trigger is hooked on `Invoice::saved` in the MODEL rather than in the billing service, because
+> an invoice is raised from six paths (the monthly run, a CAM recovery, a percentage-rent overage, a
+> violation fine, the NSF fee, and by hand) and a hook per path is the arrangement where one gets
+> forgotten. It reads the setting through **the invoice's own property**, so there is no ambiguity
+> about which mall's policy applies. The accounting is untouched: `ApplyTenantCreditService` still
+> posts its own dated `Dr Unearned / Cr AR` document, still row-locks the tenant and the invoice, and
+> is still capped at the lesser of the credit and the balance — only the trigger is new. *"This
+> tenant has no credit"* is a `DomainException` and therefore the ordinary case, swallowed without a
+> log line; anything else reaches `OpsLog` and never costs the operator the invoice.
+>
+> **That silent-refusal path is also where it went wrong once**, and it is worth knowing before
+> touching this: `applyToInvoice()` resolved the property through `lease?->unit?->asset`, which is
+> null by construction for a unit-owner assessment, so every one of those refused — invisibly,
+> because the caller treats a refusal as normal — and no unit owner's credit was ever drawn down. It
+> now reads `invoices.asset_id`, which is NOT NULL.
 
 The mechanism exists and the hard part is done — applying an on-account credit is its **own dated GL
 source** (`Dr Unearned / Cr AR`, posted at application time, with the over-allocation guards), which

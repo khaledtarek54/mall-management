@@ -4,6 +4,31 @@
 > This file answers it — but it starts by disagreeing with half of it, for a reason backed by
 > Yardi's own users.
 
+> ### Statuses re-verified against the code 2026-09-01
+>
+> **Four things in this file were describing work that had shipped.** UX-08 still read 🟠 open while
+> the CAM reconciliation workbench had been on the pool's own record page for weeks; UX-13 still read
+> 🔴 while every form in its own candidate table was either converted or deliberately left alone by
+> the rule the story states; UX-03's *"still open"* sentence named four things of which three had
+> shipped, and one of those three is a **design decision** somebody could undo by mistake while
+> reading this file as a worklist; and the *correspondence from the record* cell in
+> [§2](#2-what-voyager-gets-right-and-what-it-costs-atriom-to-be-without-it) was a snapshot taken
+> before the send actions existed. Each now carries a note naming the class that closed it. **The
+> original text stays** — it is the case that was made at the time, and the reasoning in it is what a
+> future change has to respect.
+>
+> UX-05's own warning applies to this file more than to any other in the tree: *"this row still read
+> 🔴 after the page had shipped. Two rows in this file did … check the code before believing a 🔴
+> here."* That was written on 2026-08-10, and it has now happened twice more.
+>
+> **The rows still marked open were re-checked and are genuinely open** — UX-10 (the global search
+> provider iterates `Filament::getResources()` and nothing else, so no page or action is reachable by
+> typing its name), UX-12 (`MallStats` renders three money figures with no `->url()`), and the stated
+> remainders on UX-02 (nothing draws a legacy gap or overlap on the schedule panel) and UX-07 (the
+> tenant hub still carries neither sales nor violations). **[§4](#4-the-ui-work-list--stories-ux-01ux-13)
+> is the authoritative status**; the phasing table in [§6](#6-where-this-sits-in-the-plan) is the plan
+> as it was drawn and has not been maintained since.
+
 ---
 
 ## 1. The honest read: copy the architecture, not the look
@@ -47,6 +72,27 @@ Atriom's better-looking surface.** That is the standard Voyager 8 is itself chas
 | **Saved report filters + report builder** *(cited, Voyager 8)* | The accountant's monthly pack is one click, not twelve filters | Reports have filters; nothing is savable or shareable |
 | **Correspondence from the record** — statements, invoices, notices merged and sent from where you are *(cited)* | No export-then-mail-merge round trip | Invoice PDFs and tenant statements exist; not a general "generate & send from here" surface |
 | **Persistent scope selector** (property/entity) | Everything you see is scoped, always, visibly | ✅ **Atriom already does this well** — property-first, conformance-gated isolation |
+
+> **The correspondence row is half closed, and the half that remains has a number.** *"Not a general
+> generate-&-send surface"* was true when it was written and is now a snapshot: **sending a document
+> from the record it belongs to exists on the documents that need it.** An invoice is emailed from
+> its own page with its PDF attached ([`EditInvoice::sendToTenant`](../../../app/Filament/Admin/Resources/Invoices/Pages/EditInvoice.php)
+> → [`SendInvoiceToTenantService`](../../../app/Services/SendInvoiceToTenantService.php), labelled
+> *Send* or *Send again* because those are different decisions); a violation notice is sent from the
+> violation (`ViolationTable::sendNotice`, never automatically on create); an owner statement is sent
+> from its run (`OwnerStatementRunActions::send`, which marks it sent and bells the owner); an
+> announcement is sent from the announcement. The chase is served by download-where-you-are rather
+> than by mail-merge — the AR collections row hands you the tenant statement to attach to the call,
+> and a CAM allocation hands you that tenant's service-charge statement — and the automated dunning
+> twin is the scheduled `billing:remind-overdue-tenants`.
+>
+> **What is genuinely absent is the MERGE half**: composing a document from a template with a
+> record's data. That is [gap **O1**](../../gap-analysis/README.md#2-the-complete-open-list), lease
+> document generation and e-signature, and it is tracked there — so this row must not be read as a
+> second, separate ask for a correspondence surface. When O1 is built it inherits the renderer the
+> other thirteen documents already share (`App\Support\Pdf\PdfDocument`, written in the **reader's**
+> language) and the standing-wording registry (`App\Support\DocumentText`), which is most of what a
+> merge engine is for.
 
 ---
 
@@ -142,6 +188,41 @@ off-by-one hides.
 **Still open:** grouping by charge type (RR-03) waits on item-level allocation (MF-06); inline
 apply-credit / record-payment / flag-disputed are not there yet.
 
+> **CLOSED 2026-08-10 and 2026-08-25 — the sentence above lists four things and only ONE of them is
+> still open.**
+>
+> **Grouping by charge type shipped 2026-08-10**, together with the item-level allocation it was
+> waiting on: MF-06 is `App\Support\InvoiceItemSettlement` and RR-03 is
+> [`ArAgingByType`](../../../app/Filament/Admin/Pages/ArAgingByType.php) at
+> `/admin/ar-aging-by-type`. Its own docblock states why the split earns a screen: *"EGP 400k over
+> 90 days"* reads as delinquent rent and prompts a collections call, and if most of it is a service
+> charge the tenant has formally disputed then **the call is the wrong action and the number is the
+> wrong alarm**. Because every per-line figure is derived from `invoices.paid_amount` rather than
+> stored, the re-cut ties to the aging summary by construction — the same discipline the
+> `agingBucketKey()` refactor above imposed on the buckets.
+>
+> **Flagging a line disputed shipped the same day** as MF-07: `InvoiceActions::disputeLine` and its
+> `resolveDispute` twin, over `invoice_items.disputed_at`, backed by
+> [`DisputeInvoiceItemService`](../../../app/Services/DisputeInvoiceItemService.php). The reason is
+> required, because the flag **suppresses a late fee** and the first question anyone asks three months
+> later is why. **It is deliberately per LINE and on the invoice, not per tenant on this worklist:** a
+> dispute is an argument about a charge, and flagging a whole tenant would suppress the fee on rent
+> nobody is arguing about.
+>
+> **Record-payment shipped 2026-08-25 (UX5-03) and is a LINK by design, not a gap.** The row carries
+> the tenant across into the real payment form (`PaymentResource::getUrl('create', ['tenant' => …])`)
+> rather than opening a slimmed-down modal here. The comment at the call site states the reason and it
+> should not be re-litigated: the real form guards the posting date, the property scope,
+> over-allocation and the orphaned-receipt case, and **a second form beside it would be a second set
+> of those guards to keep in step** — the same argument that made the charge-schedule grid read-only
+> in UX-02.
+>
+> **What genuinely remains from this row is inline apply-credit alone.** Applying a tenant's
+> on-account credit lives on the invoice (`EditInvoice::apply_credit` → `ApplyTenantCreditService`,
+> capped at `min(credit, balance)` and posting its own dated entry), so settling a chased tenant from
+> a credit they are already holding still means leaving the worklist. If it is built, it is the same
+> shape as record-payment — carry the tenant and the invoice across — for the same reason.
+
 ---
 
 ### UX-04 ✅ The Month-End Close dashboard — **SHIPPED 2026-08-08**
@@ -209,12 +290,47 @@ screens; folding them in is a smaller job than the hub was.
 
 ---
 
-### UX-08 🟠 CAM reconciliation workbench
+### UX-08 ✅ CAM reconciliation workbench — **SHIPPED as the pool's own record page**
 One screen for the whole [S11](04-scenarios.md#s11--cam-year-end-reconciliation) flow: pool total →
 (later: the GL accounts behind it) → denominator + basis → the allocation table with each tenant's
 area, share, cap applied, admin fee, estimate billed, true-up → bill/credit actions → **the
 re-estimate proposal** (RC-05). Plus the tenant-facing statement (RC-06) generated from the same
 screen.
+
+> **CLOSED — the pieces on 2026-08-09, assembled onto one screen 2026-08-30, batch posting
+> 2026-09-01.** Every leg of the flow above is on the CAM expense pool's record page, re-verified
+> against the code today.
+>
+> **The pool total, and the GL accounts behind it.** `CamExpensePoolActions::syncFromLedger` pulls the
+> year's actual expense straight out of the ledger (RC-01), and the `ledgerAccounts` picker on
+> `CamExpensePoolForm` is *which* accounts — the parenthesised *"later"* in the story. **The
+> denominator and the basis are on the same form**: the participant area, plus `expense_basis` and
+> `estimate_basis`, both **frozen once any allocation is billed**, because a basis is a claim about
+> money already invoiced.
+>
+> **The allocation table is the working, not a summary.** `CamAllocationsRelationManager` carries the
+> tenant, the unit, the share, the allocated amount, the capped cost, what the cap absorbed, the
+> estimate already paid, the true-up and the admin fee — and its `breakdown` action renders every leg
+> of one tenant's figure, cap and VAT included, which is what makes the number arguable rather than
+> merely displayed. `PdfDownloadAction::make('statement')` on the same row is RC-06, through
+> `CamStatementPdfService`.
+>
+> **Bill/credit is both per row and as a batch.** Per-allocation *Bill* stays, because holding one
+> tenant back while billing the rest is a real act (a disputed share, a lease in negotiation);
+> `billAllPending` is the batch, and its confirmation modal states in **figures** how many invoices
+> and how many credit notes it is about to raise — the difference between a batch you can approve and
+> a button you press hoping. `markReconciled` then refuses to close the year while any allocation is
+> still unbilled, so a reconciled pool cannot mean *"we stopped looking"*. `applyEstimates` is the
+> re-estimate proposal, RC-05.
+>
+> **A stated deviation: this is the record hub, not a workbench page.** Voyager's reconciliation
+> screen is a destination of its own; Atriom put the same flow on the pool record under the
+> panel-wide rule in [`App\Support\RowActionPolicy`](../../../app/Support/RowActionPolicy.php) —
+> **the list finds, the record acts** — with `EditCamExpensePool::getHeaderActions()` composing
+> `CamExpensePoolActions::all()`. The reason is the one UX-01 gave for not building a separate lease
+> View page: a second surface showing the same pool would be free to drift from it, and the pool page
+> already holds the form, the allocations and the acts. Anyone tempted to build the standalone
+> workbench should read that as a decision, not an omission.
 
 ---
 
@@ -274,9 +390,26 @@ string, which is precisely what the redirect reads as "nothing asked for".
 
 ---
 
-### UX-13 🔴 Tabbed forms for every multi-concern resource *(operator directive, 2026-08-08)*
+### UX-13 ✅ Tabbed forms for every multi-concern resource — **SHIPPED** *(operator directive, 2026-08-08)*
 **As an** operator **I want** a long resource form split into tabs, each tab one group of related
 settings **so that** I am looking at one concern at a time instead of scrolling thirty fields.
+
+> **CLOSED 2026-08-10 — the heading read 🔴 while its own candidate table below said otherwise.**
+> Every form in that table is either converted or deliberately left alone by the rule the story
+> states, and the standard has since been applied outside the list: `FormTab::make()` is used by
+> **eight** forms — payment, invoice, tenant, lease, credit note, service plan, tenant request and
+> `MarketingPostForm`, which its own commit describes as *"a thirty-field scroll"* and which was never
+> on the list below because nobody had measured it.
+>
+> **The one row that did not convert is `VendorBillForm`, and that is the rule working rather than
+> work outstanding.** It carries fifteen fields in exactly **two** sections — the bill's details and
+> its amounts — and the standard is *more than ~3 distinct concerns*, so a tab strip there would cost
+> a click and buy nothing. The same threshold is why everything below ~12 fields stays a section.
+>
+> `FormTab` remains **mandatory** for any conversion: Filament still ships no validation-error
+> indicator on `Tabs`, so a tab strip without the per-tab danger badge is strictly worse than the
+> scroll it replaced. `FormTabErrorBadgeTest` holds it, mutation-verified against an upstream API
+> change.
 
 **The standard.** A resource form covering more than ~3 distinct concerns is built as
 `Tabs` → one tab per concern, via **`App\Support\FormTab::make(label, [...])`** — never a bare

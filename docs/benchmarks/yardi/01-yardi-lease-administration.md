@@ -6,6 +6,25 @@
 > [README](README.md#sourcing--confidence): unmarked = stable product knowledge, *(cited)* =
 > verified this session, ***(verify)*** = version/edition-sensitive.
 
+> ### ⚠️ FOUR INLINE "ATRIOM" ASIDES BELOW WERE STALE — corrected in place, re-verified 2026-09-01
+>
+> The header above says the Atriom comparison lives elsewhere, and that disclaimer **does not
+> survive contact with a "(verified)" marker.** A reader who meets *"verified: no rent-roll report
+> exists in `app/`"* in §10 reads it as a measurement of this system rather than as a pointer
+> somewhere else, and stops there — which is exactly the drift
+> [gap-analysis §0](../../gap-analysis/README.md#0-how-to-read-this) is written against: *a gap row
+> is a claim about code*. All four asides were measured on **2026-08-08**, the day this file was
+> written; all four have since been closed, and the rent roll shipped the **next day**.
+>
+> The four are §2.1 (*"Atriom collapses both into one `status` enum"*), §3.1 (*"in Atriom it is a
+> code change"*), §5 (*"there is no amendment concept at all"*) and §10 (*"no rent roll at all"*).
+> Each now carries a **CLOSED** note naming what closed it. The asides themselves are left exactly
+> as written: they are the case that was made at the time, not a description of the system, and in
+> at least two of the four the argument is visibly what produced the thing that closed it — compare
+> §3.1 with `ChargeCode`'s own docblock (*"used to mean editing a PHP enum and a private const map
+> inside the journalizer; it is now a row"*) and §10 with `RentRoll`'s (*"the single most-used report
+> in commercial property, and Atriom had no version of it"*).
+
 ---
 
 ## 1. The entity hierarchy
@@ -69,6 +88,27 @@ commission, deal reporting and whether it consumed an option). *Status* says whe
 (which drives occupancy, billing and the rent roll). Atriom collapses both into one `status` enum,
 which is why "renewed" has to be a *status* there — a category error the schedule model avoids.
 
+> **CLOSED — the two axes are separate.**
+> [`HasRenewalLineage::leaseType()`](../../../app/Models/Concerns/Lease/HasRenewalLineage.php#L48)
+> answers `new` or `renewal`, `isRenewal()` is its predicate, and the lease list carries both a
+> `lease_type` filter and a per-row description built from them
+> ([`LeasesTable.php:121`](../../../app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php#L121)).
+>
+> **The type is DERIVED, never stored — a stated deviation from Voyager, which keeps it as a
+> column.** `previous_lease_id` is already written by `LeaseRenewalService` and read by two
+> relations, so *"is this a renewal"* is a fact the database holds; a `lease_type` column would be a
+> second source of truth for it, and the two would disagree the first time a renewal was created by a
+> path that forgot to set it. Only **two** values, also deliberately: Voyager types a lease as an
+> *expansion*, and here taking extra space adds units to the **same** lease and records a
+> `LeaseEvent::TYPE_EXPANSION` (see §5) rather than originating a second lease, while holdover is a
+> state the lease enters rather than the way it began.
+>
+> `renewed` does survive on `leases.status`, and it is no longer the category error described above.
+> `LeaseRenewalService` sets it on the **original** lease, as one of
+> `HasLeaseTermState::TERMINAL_STATUSES` — so it is a *time-axis* fact about the record that has been
+> superseded (*this tenancy ended by being renewed*), while the type of the record that supersedes it
+> is derived from the chain.
+
 ### 2.2 The dates — Voyager keeps six, not two
 
 This is where most home-grown systems are wrong, because in practice these dates diverge and each
@@ -122,6 +162,34 @@ enter the corresponding lease charges.")*
 accountant — new charge code, point it at a GL account, done. In Atriom it is a code change:
 `InvoiceItemType` gains a case and `InvoiceJournalizer::REVENUE_ROLE` gains a hard-coded mapping
 ([`InvoiceJournalizer.php:19`](../../../app/Services/Accounting/Journalizers/InvoiceJournalizer.php#L19)).
+
+> **CLOSED — adding a billable thing is a row now, and an accountant writes it.** `charge_codes` is
+> the catalogue and `/admin/charge-codes` is its screen: code, bilingual name, **posting role**, tax
+> code, active flag, sort order. [`ChargeCode::roleFor()`](../../../app/Models/ChargeCode.php#L167)
+> is what the journalizer asks **first**
+> ([`InvoiceJournalizer.php:130`](../../../app/Services/Accounting/Journalizers/InvoiceJournalizer.php#L130)),
+> so pointing *"key money"* or a *"chiller charge"* at a revenue account is the configuration act
+> this paragraph describes Voyager doing.
+> [`AccountantAddedChargeCodeBillsTest`](../../../tests/Feature/Regression/AccountantAddedChargeCodeBillsTest.php)
+> walks the whole path — catalogue row → the lease's charge schedule → the monthly run → the ledger,
+> under the account *they* chose — because the promise originally stopped short of **recurring**
+> billing, which is most of the money: `invoice_items.type` was freed first, `charges.type` was left
+> an enum, so the accountant's code could be billed as a one-off line and could not be set up as a
+> lease charge.
+>
+> **`REVENUE_ROLE` still exists and is no longer the mapping — it is the FLOOR.** The middle step of
+> `roleFor() ?? REVENUE_ROLE[$code] ?? 'misc_income'` is not redundant: a deployment whose
+> charge-code table has not been seeded yet must still post revenue to the right accounts rather than
+> dump the lot into miscellaneous income. `ChargeCodeGlMappingConformanceTest` asserts the two agree,
+> so the floor is a safety net and never a second opinion.
+>
+> **Behaviour stays in code, and that is a stated deviation from a pure catalogue.** A few codes
+> carry real logic — `cam_recovery` and `percentage_rent` are excluded from the monthly
+> anti-double-bill probe, `late_fee` and `nsf_fee` settle last — and that logic is keyed on the
+> `InvoiceItemType` constants, which survive as *named references to exactly those codes* rather than
+> as the set the column may hold. `App\Support\ValueSets` therefore leaves both `invoice_items.type`
+> and `charges.type` deliberately unregistered, validating the latter against the catalogue instead:
+> *"the operator adds a charge type as a row. A fixed list here would refuse one they just created."*
 
 ### 3.2 Lease charges — the date-ranged schedule
 
@@ -234,6 +302,35 @@ defensible and arguably cleaner for a mall where a renewal is genuinely a new ne
 **Atriom's real gap is not renewal; it is that there is no amendment concept at all**, so a
 mid-term expansion or rent modification has nowhere to live except `leases.notes`.
 
+> **CLOSED — the amendment concept is `lease_events`.** It is **append-only at the model** (updates
+> and deletes are both refused, because an event you can edit is not an audit record) and it carries
+> exactly the three things this section says an amendment must carry: an **effective date**, a
+> **document reference** and a **reason**, plus the actor.
+> [`RecordLeaseEventService`](../../../app/Services/RecordLeaseEventService.php) is the only writer
+> and every caller invokes it *inside the same transaction as the change itself* — an event written
+> outside that transaction can survive a rolled-back change, or be lost while the change commits, and
+> both are worse than not having the table. `LeaseHistoryRelationManager` renders the timeline on the
+> lease record and is read-only by construction: *a timeline you can type into is a notes field with
+> columns.*
+>
+> **Five of this section's seven rows now have an act behind them.** Expansion and contraction are
+> `LeaseSpaceChangeService`, which date-ranges the `lease_unit` pivot so a given-back unit's tenure is
+> *closed* rather than deleted — deleting it re-apportioned the whole year's recoveries as if the
+> tenant had never held the space. Renewal and extension are `LeaseRenewalService` and
+> `LeaseExtensionService`; holdover is `ConvertLeaseToHoldoverService`; rent modification is
+> `LeaseRentChangeService`. Two types exist beyond the table: abatement (`LeaseReliefService`, which
+> overlays a bounded relief window on the charge ladder so the original schedule resumes on its own)
+> and termination (`LeaseTerminationService`, `SettleMoveOutService`).
+>
+> **The two rows still worth reading this section for are `relocation` and `assignment / sublease`.**
+> `LeaseEvent::TYPE_RELOCATION` is declared and written by nothing — `LeaseSpaceChangeService`'s
+> master-unit refusal tells the operator to *"record a relocation instead"* and no act does.
+> Assignment is neither a type nor a service: the lease form locks `tenant_id` on edit under a comment
+> reading *"an ASSIGNMENT is a new lease, not an edit. Yardi refuses this on an executed lease for
+> exactly that reason"* — **the refusal is right and the replacement act was never built**, so a
+> franchise sale can only be recorded as a termination plus a fresh lease, which drops the
+> `previous_lease_id` chain and the deposit continuity with it.
+
 ---
 
 ## 6. Options & critical dates
@@ -337,6 +434,34 @@ a straight aggregation of the schedule model above:
 exists in `app/`; the term appears only in `docs/../../STATUS.md` and the discovery
 questionnaire). For a mall operator that is a conspicuous hole, and once a rent schedule exists it
 is a day of work.
+
+> **CLOSED 2026-08-09 — the day after this paragraph was written, and the last sentence was right
+> about why.** [`/admin/rent-roll`](../../../app/Filament/Admin/Pages/RentRoll.php) reads each
+> lease's schedule row **in force on the chosen date**, through the same
+> `ChargeScheduleService::pickInForce()` the billing engine uses — *a rent roll that decided "current
+> rent" by its own rule would eventually disagree with what actually bills, which is the one thing a
+> rent roll may not do.* The as-of date is a first-class filter rather than an implicit *now*, because
+> *"what were we earning when we signed the loan"* and *"what will we be earning after the January
+> steps"* are the two questions an owner actually asks, and neither was answerable while the rent was
+> a single mutable number.
+>
+> [`/admin/expiration-schedule`](../../../app/Filament/Admin/Pages/ExpirationSchedule.php) shipped the
+> same day, with area **and** income at risk per year and **holdovers in their own bucket, listed
+> first**: a lease past its term but still trading has not rolled off, so filing it under a past year
+> would understate both this year's risk and today's income.
+>
+> **The stacking plan was a false gap.** `/admin/occupancy-map` renders every unit as a card grouped
+> by floor, with per-status counts, status filtering and search by unit or tenant; earlier versions of
+> the gap analysis called it absent because they grepped for the word, a correction recorded at
+> [gap-analysis §3.6](../../gap-analysis/README.md#36-reporting). One honest difference survives and
+> is worth stating rather than resolving: it colours by unit **status**, where Voyager's stacking plan
+> colours by **expiry** — that axis lives on the expiration schedule instead, so the two questions are
+> answered on two screens rather than one.
+>
+> All three are registered in `App\Support\ReportCatalogue` as LEASING reports. The two tabular ones
+> carry `ExportsReport` and are schedulable; the map is registered in `NOT_DELIVERABLE` with its
+> reason — *"a visual floor plan. A CSV of it would answer a different question from the one the
+> screen answers."*
 
 ---
 

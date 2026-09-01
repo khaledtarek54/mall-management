@@ -11,6 +11,14 @@
 > Priority: 🔴 must-have this cycle · 🟠 should-have · 🟡 next cycle · ⚪ probably never (recorded
 > so it stops being re-proposed).
 
+> **How to read the "Today" lines — re-verified 2026-09-01.** Every story here was written before
+> the thing was built, so its **Today** line records the state of the code on the day the story was
+> drafted, not the state now. Where the story has since shipped that line is relabelled **Before**
+> and the story carries a `CLOSED` note naming the class, table or command that closed it. Until
+> this sweep eight shipped stories still said "Today", so MF-04 was headed ✅ SHIPPED and ended
+> three paragraphs later with "Today: absent" — and a story is read to the end, which is how a
+> reader came away believing this system still has no way to write off a bad debt.
+
 ---
 
 ## Epic LS — The charge schedule *(phase 1 — the foundation)*
@@ -27,10 +35,16 @@ someone re-derives every year.
   refused with a clear message naming the two rows.
 - The schedule is visible on the lease view page without opening an edit form.
 
-**Today:** `LeaseCreationService::seedStandardCharges()` writes exactly one base-rent row and one
-service-charge row with today's amount. The `charges` table already has `start_date`/`end_date` and
-`MonthlyBillingService::chargeAppliesToPeriod()` already honours them — **nothing writes more than
+**Before:** `LeaseCreationService::seedStandardCharges()` wrote exactly one base-rent row and one
+service-charge row with today's amount. The `charges` table already had `start_date`/`end_date` and
+`MonthlyBillingService::chargeAppliesToPeriod()` already honoured them — **nothing wrote more than
 one row.**
+
+> **CLOSED 2026-08-08, re-verified 2026-09-01.** `seedStandardCharges()` still writes the first
+> row, and [`ChargeScheduleService::projectTermEscalations()`](../../../app/Services/ChargeScheduleService.php)
+> then projects the rest of the term from the lease's own escalation terms. It is called from
+> **both** creation paths — `LeaseCreationService` and the `CreateLease` page — so a lease made
+> through the panel and one made through the service carry the same ladder.
 
 ---
 
@@ -45,8 +59,16 @@ period **so that** a rent step takes effect on its own date with no nightly job 
 - Regression test: bill Mar-2027 and Apr-2027 on a lease that steps 1 Apr; assert two different
   amounts with no code having mutated anything between the runs.
 
-**Today:** billing filters `is_active = true` charges by date range already — this story is mostly
-about *removing* the assumption that only one row per type exists.
+**Before:** billing already filtered `is_active = true` charges by date range — this story was
+mostly about *removing* the assumption that only one row per type exists.
+
+> **CLOSED 2026-08-08, re-verified 2026-09-01.** The assumption is gone, and what replaced it is a
+> refusal rather than a preference: `MonthlyBillingService::assertScheduleUnambiguous()` groups the
+> applicable rows by charge type and throws `admin.refusals.overlapping_charge_schedule` naming
+> both row ids when a recurring type matches twice, so a broken schedule is one failed lease in the
+> run summary and never a silent double charge. **One-off charges are exempt on purpose** — a CAM
+> true-up, a percentage-rent overage and a utility recharge genuinely can land in the same month,
+> and they are not a schedule.
 
 ---
 
@@ -62,8 +84,15 @@ that** the rent history is intact and next year's rent is visible and reviewable
 - **Regression:** after two escalations, the lease has three rent rows and the 2026 amount is still
   readable.
 
-**Today:** `LeaseRentChangeService::apply()` overwrites `Lease.base_rent_monthly` and the
-most-recent active `Charge.amount`; the escalation sweep calls it.
+**Before:** `LeaseRentChangeService::apply()` overwrote `Lease.base_rent_monthly` and the
+most-recent active `Charge.amount`; the escalation sweep called it.
+
+> **CLOSED 2026-08-08, re-verified 2026-09-01.** `apply()` no longer writes an amount onto a live
+> row. It CLOSES the row in force and OPENS the next one from the effective date through
+> [`ChargeScheduleService::setAmount()`](../../../app/Services/ChargeScheduleService.php), and
+> `RentEscalationService` reaches the schedule only by calling it — so there is a single definition
+> of "the rent stepped", shared by the nightly sweep and by an operator changing the rent by hand,
+> rather than two that can drift onto different rows.
 
 ---
 
@@ -108,8 +137,19 @@ step, a hand edit — is visible without opening the lease.
   full-invoice (gross) grace they were actually billed under; nothing is retroactively rebilled.
 - The lease view shows total abatement value over the term.
 
-**Today:** `Lease::periodInFitOut()` suppresses the **entire invoice** — rent, service charge, CAM
+**Before:** `Lease::periodInFitOut()` suppressed the **entire invoice** — rent, service charge, CAM
 and marketing levy together ([S1](04-scenarios.md#s1--new-lease-fit-out-grace--stepped-rent)).
+
+> **CLOSED 2026-08-08, re-verified 2026-09-01.** What the grace abates is a lease term now —
+> `leases.fit_out_scope`, either `rent_only` (net abatement, the default for new leases) or
+> `gross` — read by
+> [`DeterminesFitOutGrace`](../../../app/Models/Concerns/Lease/DeterminesFitOutGrace.php).
+> `abatedChargeTypesFor()` answers what is free in a given period, and `graceAbates()` answers the
+> harder crossover month, where the grace ended on the 15th and only the types it actually covered
+> may be clipped to the rent-commencement date. `periodInFitOut()` survives and is now only ever
+> true for a `gross` lease, because `firstBillableMonth()` returns the commencement month under net
+> abatement — deriving it in one place means the quarterly cycle anchor and the "unbilled leases"
+> card follow automatically instead of each growing its own copy of the rule.
 
 ---
 
@@ -236,8 +276,25 @@ option can actually be exercised.
 - An option whose latest notice date passes is auto-marked `lapsed` with an alert.
 - A dashboard card: "options requiring action in the next 90 days".
 
-**Today:** nothing. `leases:remind-expiring` fires 90 days before **expiry** — typically months
-after the option window has closed ([S7](04-scenarios.md#s7--renewal-option-with-a-notice-window)).
+**Before:** nothing. `leases:remind-expiring` fired 90 days before **expiry** — typically months
+after the option window had closed ([S7](04-scenarios.md#s7--renewal-option-with-a-notice-window)).
+
+> **CLOSED 2026-08-09, re-verified 2026-09-01.**
+> [`leases:scan-option-windows`](../../../app/Console/Commands/ScanLeaseOptionWindowsCommand.php)
+> runs daily at 06:45 with the lead time coming from `config('billing.lease_option_notice_lead_days')`,
+> and it alerts on **three** moments rather than one, because each asks for a different action:
+> *opening* (notice may now be served), *closing* (the deadline is near, decide) and *lapsed* —
+> which also writes `status = lapsed`, so an option that is gone stops appearing as live. Each
+> option is row-locked and its notification stamp re-checked inside the transaction, the
+> scheduled-scan invariant, so a manual run racing the scheduled one cannot double-notify.
+>
+> **It is scheduled ahead of the expiry reminder in the day's order deliberately**, and the comment
+> in [`routes/console.php`](../../../routes/console.php) says why: the expiry reminder speaks 90
+> days out, by which point a clause reading "no later than 9 months before expiry" has been shut
+> for months. The dashboard card asked for is the `option_closing` row on
+> [`ActionRequired`](../../../app/Filament/Admin/Widgets/ActionRequired.php), which links into the
+> lease list's own `option_closing` filter sorted by expiry — a closing notice window being the one
+> critical date that cannot be recovered once it passes.
 
 ---
 
@@ -354,8 +411,31 @@ lands in bad-debt expense and the earned revenue stays in the period it was earn
   invariant — a test that calls `LedgerPoster::post()` directly proves nothing).
 - Recovery of a written-off debt reverses it rather than editing it.
 
-**Today:** absent. Cancel is the only tool, and it reverses revenue in the wrong period
+**Before:** absent. Cancel was the only tool, and it reverses revenue in the wrong period
 ([S13](04-scenarios.md#s13--an-uncollectible-tenant)).
+
+> **CLOSED 2026-08-09, re-verified 2026-09-01.** A write-off is a registered GL source: one
+> `InvoiceWriteOff::class => InvoiceWriteOffJournalizer::class` line in
+> [`LedgerPoster::JOURNALIZERS`](../../../app/Services/Accounting/LedgerPoster.php) with its
+> `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` entry beside it, posting `Dr bad_debt_expense /
+> Cr accounts_receivable` at the write-off's own `entry_date`.
+> [`WriteOffInvoiceService`](../../../app/Services/WriteOffInvoiceService.php) requires a reason,
+> guards the date through `PostingDate::assertOpen()`, and flips the invoice to `written_off`.
+> That status drops the invoice out of `ReportService::arAgingBuckets()`, which allowlists
+> `issued` / `partially_paid` / `overdue`, and `Invoice::recomputeTotals()` treats it as a manual
+> override so the next recompute cannot drag an accepted loss back to `overdue`. The journalizer's own
+> docblock states the whole reason the story exists: **the loss belongs to the period the operator
+> recognised it while the revenue stays in the period it was earned**, and a cancellation collapses
+> both into the current month. Pinned by `tests/Feature/Regression/InvoiceWriteOffTest.php` and
+> `PartialWriteOffIntegrityTest.php`.
+>
+> **The elevated permission is `invoices.void`, not a write-off right of its own** — a stated
+> deviation, on the reading that writing an invoice off and voiding it are the same authority over
+> an issued document, so a separate key would mostly have been a permission nobody remembered to
+> grant. Recovery is `WriteOffInvoiceService::reverse()`, which was built with the write-off and
+> reachable from nothing until the **Reverse write-off** action landed on `EditInvoice` on
+> 2026-08-28: a debt written off and later paid could otherwise only be re-billed (double-counting
+> the revenue) or booked as miscellaneous income (losing the AR history).
 
 ---
 
@@ -772,7 +852,30 @@ a single-tier ladder reproduces today's numbers exactly.
 **As a** Property Accountant **I want** a missing declaration to bill an estimate **so that**
 silence is not a way to avoid percentage rent, with a retro-adjustment when the real figure lands.
 
-**Today:** `sales:scan-missing-declarations` chases the tenant and never bills.
+**Before:** `sales:scan-missing-declarations` chased the tenant and never billed, so silence was a
+complete and costless way to avoid percentage rent.
+
+> **CLOSED 2026-08-09, re-verified 2026-09-01.**
+> [`sales:estimate-missing`](../../../app/Console/Commands/EstimateMissingSalesCommand.php) runs on
+> the 8th of each month — a week after the chase, so the tenant has had the reminder and a chance
+> to file first — and raises a `TenantSalesDeclaration` flagged `is_estimate` for every
+> percentage-rent lease that owes a return, using `Lease::missingSalesDeclarationsFor()`, the same
+> definition of "owes a declaration" the reminder scan and the month-end checklist use.
+>
+> **The estimate is the tenant's own trailing average — the mean of their last three LOCKED
+> declarations — never a landlord guess**, which is what makes it defensible in the conversation
+> it starts. Below `--min-history` locked declarations nothing is raised at all: without history
+> there is no defensible number, the same rule that stops the escalation sweep inventing a CPI
+> figure. The existence check is re-run under `lockForUpdate` inside the transaction, because
+> between the query and the write the tenant may have filed and a real figure must never be
+> overwritten by an estimate.
+>
+> **A stated deviation from Voyager: the estimate is never auto-locked, so it does not bill by
+> itself.** An estimate is a prompt for a decision, not a fact, and locking one would bill a tenant
+> on a number nobody has agreed; the operator's lock is the same gate every other percentage-rent
+> overage passes through. The retro-adjustment the story asks for is the existing lock/void
+> re-truing rather than a second mechanism — a real declaration supersedes the estimate for the
+> period rather than adding to it.
 
 ---
 
@@ -787,7 +890,20 @@ current rent · rent/m² · service charge · marketing · escalation · next st
 deposit held · AR balance. Property-scoped, CSV **and** PDF (reuse `ReportCsv`/`Exporter` from
 module 17), EN + AR.
 
-**Today:** does not exist anywhere in `app/`.
+**Before:** did not exist anywhere in `app/`.
+
+> **CLOSED 2026-08-09, re-verified 2026-09-01.** `ReportService::rentRoll($asOf, $assetId)` plus
+> the [Rent roll page](../../../app/Filament/Admin/Pages/RentRoll.php) — one row per live tenancy
+> as at any chosen date, property-scoped through `TenantScope`, with the term dates, months
+> remaining, rent, EGP/m²/yr, next option date and type, and the deposit held. Charges, units,
+> options and deposits are eager-loaded and resolved in memory, because a per-lease query for each
+> would be four round trips per row on a report meant to open instantly for a whole mall.
+>
+> **CSV shipped through `ExportsReport`; a PDF rendition did not** — a stated shortfall against the
+> acceptance above rather than a closed item. The report is read on screen and taken away as CSV,
+> and there is no `RentRollPdfService` among the thirteen PDF services. Whoever builds it should
+> put it on the shared [`PdfDocument`](../../../app/Support/Pdf/PdfDocument.php) renderer with
+> `DocumentLocale`, not on a fourteenth private mpdf setup.
 
 ---
 
