@@ -2260,6 +2260,12 @@ class DemoSeeder extends Seeder
                     'email' => $v['email'],
                     'phone' => $v['contact']['phone'],
                     'is_primary' => true,
+                    // A contractor who can actually SIGN IN. The `/vendor` panel shipped with four
+                    // verbs and no demo login, so the whole thing looked unbuilt on a fresh demo —
+                    // the same reason demo data is treated as part of a feature here rather than as
+                    // decoration. Password `password`, like every other demo account.
+                    'is_portal_user' => true,
+                    'password' => 'password',
                 ],
             );
 

@@ -589,6 +589,7 @@ return [
         'auto_generated' => 'يُنشأ تلقائيًا',
         'invoice' => 'الفاتورة',
         'assigned_vendor' => 'مورد خارجي',
+        'vendor_portal_access' => 'الدخول إلى بوابة المقاولين',
         'primary_contact' => 'جهة الاتصال الرئيسية',
         'name' => 'الاسم',
         'role' => 'الدور',

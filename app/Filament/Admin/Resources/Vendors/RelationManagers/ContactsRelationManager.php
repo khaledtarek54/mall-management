@@ -31,6 +31,26 @@ class ContactsRelationManager extends RelationManager
             TextInput::make('email')->label(__('admin.fields.email'))->email()->maxLength(200),
             TextInput::make('phone')->label(__('admin.fields.phone'))->tel()->maxLength(50),
             Toggle::make('is_primary')->label(__('admin.fields.primary_contact') ?: 'Primary contact')->columnSpanFull(),
+            // THE ONLY WRITE PATH TO THE CONTRACTOR PORTAL, and until 2026-09-01 there was none.
+            //
+            // `VendorContact::canAccessPanel()` requires `is_portal_user`, the column defaults false
+            // for every row, and nothing anywhere set it — no form field, no importer, no seeder, no
+            // console command; a grep found the model, the migration and two readers and no writer
+            // at all. Filament's own bootstrap door is shut for the same reason: its password-reset
+            // page refuses to send a link to somebody who `! canAccessPanel()`. So the whole
+            // `/vendor` panel — accept, evidence, update, quote, the dispatch bell, `VendorScope` —
+            // was unenterable without editing MySQL by hand, which is the shape
+            // `ServiceReachability` exists to catch one layer up: built, tested, and impossible to
+            // start.
+            //
+            // Access, not identity: it grants nothing but the ability to sign in against their own
+            // reset-token table. Turning it OFF is how access is withdrawn when somebody leaves the
+            // contractor, which is why it is a field the operator can see and change rather than a
+            // one-way invitation.
+            Toggle::make('is_portal_user')
+                ->label(__('admin.fields.vendor_portal_access'))
+                ->helperText(__('admin.helpers.vendor_portal_access'))
+                ->columnSpanFull(),
         ]);
     }
 

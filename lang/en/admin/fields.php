@@ -590,6 +590,7 @@ return [
         'auto_generated' => 'Auto-generated',
         'invoice' => 'Invoice',
         'assigned_vendor' => 'External Vendor',
+        'vendor_portal_access' => 'Portal access',
         'primary_contact' => 'Primary contact',
         'name' => 'Name',
         'role' => 'Role',
