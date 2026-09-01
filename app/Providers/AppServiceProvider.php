@@ -28,6 +28,7 @@ use App\Support\Filament\AnnouncingRestoreAction;
 use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\Filament\NavigationItemMemo;
+use App\Support\TenantBalances;
 use App\Support\LedgerRealtimeSync;
 use App\Support\MorphMap;
 use App\Support\SealedPeriod;
@@ -97,6 +98,9 @@ class AppServiceProvider extends ServiceProvider
         // time). `scoped`, never `singleton`: a queue worker outlives the request, and a badge
         // count memoised across one would be answered from whenever that worker booted.
         $this->app->scoped(NavigationItemMemo::class);
+        // Per REQUEST, never a singleton: a queue worker outlives the request, and a stale
+        // arrears figure held across jobs reads as current. Same rule as the memo above.
+        $this->app->scoped(TenantBalances::class);
 
         // `->authorize()` on a Filament action is the SAME layer as `visible()` — both fold into
         // `isHidden()`/`isDisabled()` — and `Action::call()` checks nothing. So the second layer the

@@ -9,6 +9,9 @@ use App\Services\TenantStatementPdfService;
 use App\Support\Exports;
 use App\Support\Filament\CustomFieldsTable;
 use App\Support\Filament\PdfDownloadAction;
+use Illuminate\Contracts\Pagination\Paginator;
+use Filament\Tables\Contracts\HasTable;
+use App\Support\TenantBalances;
 use App\Support\TenantScope;
 use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
@@ -32,6 +35,46 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TenantsTable
 {
+    /**
+     * The three money figures for one row, computed ONCE for the whole page.
+     *
+     * Reads the ids Filament has already loaded and asks `TenantBalances` for the SET, so the
+     * first row computes for all of them and every later row hits the per-request memo. Asking
+     * per row instead would memoise 25 sets of one and batch nothing.
+     *
+     * Measured 2026-09-01: this list was issuing about five aggregate queries PER ROW — the four
+     * settlement channels plus an invoice `exists()` — and was the second-slowest screen in the
+     * panel. `TenantBalances` does not restate the rule; it runs the model's own filters and SQL
+     * over a set, pinned by `TenantBalancesMatchThePerRowMethodsTest`.
+     *
+     * @return array{outstanding: float, credit: float, delinquent: bool}
+     */
+    private static function balances(Tenant $record, mixed $livewire): array
+    {
+        $ids = [$record->getKey()];
+
+        if ($livewire instanceof HasTable) {
+            $loaded = $livewire->getTableRecords();
+
+            if ($loaded !== null) {
+                // getTableRecords() may hand back a PAGINATOR, and collect() on one yields its
+                // metadata (current_page, total, …) alongside the rows — ints, which is a fatal on
+                // ->getKey(). Filter to actual records rather than trusting the shape.
+                $keys = collect($loaded instanceof Paginator ? $loaded->items() : $loaded)
+                    ->filter(fn ($r): bool => $r instanceof Tenant)
+                    ->map(fn (Tenant $r) => $r->getKey())
+                    ->all();
+
+                if ($keys !== []) {
+                    $ids = $keys;
+                }
+            }
+        }
+
+        return app(TenantBalances::class)->for($ids, TenantScope::visibleAssetIds())[$record->getKey()]
+            ?? ['outstanding' => 0.0, 'credit' => 0.0, 'delinquent' => false];
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -92,7 +135,7 @@ class TenantsTable
                     ->badge()
                     // Scope to visible properties — a shared tenant's mall-B overdue must not colour
                     // the badge for a mall-A-only operator (cross-property AR leak).
-                    ->state(fn (Tenant $record): string => $record->isDelinquent(TenantScope::visibleAssetIds()) ? 'delinquent' : 'current')
+                    ->state(fn (Tenant $record, $livewire): string => self::balances($record, $livewire)['delinquent'] ? 'delinquent' : 'current')
                     ->color(fn (string $state): string => $state === 'delinquent' ? 'danger' : 'success')
                     ->icon(fn (string $state): string => $state === 'delinquent' ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
                     ->formatStateUsing(fn (string $state) => __("admin.tables.tenant.delinquency_state.{$state}"))
@@ -104,8 +147,8 @@ class TenantsTable
                     //
                     // Scoped with `visibleAssetIds()` exactly like the badge above: a shared
                     // tenant's mall-B arrears must not surface to a mall-A-only operator.
-                    ->description(function (Tenant $record): ?string {
-                        $outstanding = $record->outstandingBalance(TenantScope::visibleAssetIds());
+                    ->description(function (Tenant $record, $livewire): ?string {
+                        $outstanding = self::balances($record, $livewire)['outstanding'];
 
                         return $outstanding > 0
                             ? 'EGP '.number_format($outstanding, 2)
@@ -117,7 +160,7 @@ class TenantsTable
                 TextColumn::make('credit_on_account')
                     ->label(__('admin.tables.tenant.credit_on_account'))
                     ->badge()
-                    ->state(fn (Tenant $record): float => $record->creditBalance(TenantScope::visibleAssetIds()))
+                    ->state(fn (Tenant $record, $livewire): float => self::balances($record, $livewire)['credit'])
                     ->formatStateUsing(fn ($state): string => (float) $state > 0 ? 'EGP '.number_format((float) $state, 2) : '—')
                     ->color(fn ($state): string => (float) $state > 0 ? 'success' : 'gray')
                     ->icon(fn ($state): ?string => (float) $state > 0 ? 'heroicon-m-gift' : null)
