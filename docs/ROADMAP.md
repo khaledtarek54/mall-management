@@ -54,6 +54,22 @@ Owner: 🧑‍💻 code (buildable now) · 🔑 external (credentials, KYC, cert
 the operator) · ⚙️ ops (deploy/infra). A ~~struck row~~ has shipped and is kept so the same idea is
 not raised twice.
 
+> ### 🔴 NEWEST CYCLE, 2026-09-01 — the post-staging deep sweep → [§9](#9--cycle--the-20260901-deep-sweep-sw)
+>
+> **Start here if you are picking up work today.** Twenty-three agents read the code to break it and
+> a second agent tried to refute each finding; **204 survived**, with file and line, in
+> [qa/DEEP-SWEEP-2026-09-01.md](qa/DEEP-SWEEP-2026-09-01.md). Three criticals and one high were fixed
+> the same day and are recorded in §9.0 so nobody re-opens them: a write-off you could type into the
+> status field, work-order evidence that deleted the photograph before it, a scheduled report that
+> emailed every mall to the owner's outside accountant, and a contractor portal **nobody could ever
+> sign in to**.
+>
+> **The money core held** — `billing:reconcile --deep` is 9/9 on real data and nothing found says a
+> figure already in the books is wrong. What the sweep found is the perimeter: a guard on one of two
+> doors, a nightly sweep that fatals on a row shape introduced after it was written, a status with no
+> way out. §9.2 is the order to take them in; §9.3 is the four gates that stop the class rather than
+> the instance.
+
 > **✅ ROUND 3 COMPLETE, 2026-08-18 — all 37 modules gap-analysed → [the gap analysis](gap-analysis/README.md).**
 > The never-audited list round 2 opened is closed. Twelve defects found and fixed, ten on money paths,
 > every one proven by exploit before being touched. Eleven of the twelve were the same sentence in a
@@ -750,3 +766,106 @@ free rate entry stays, the more history is entered under it. **DF-01/03/04** nex
 is what stops the pattern decaying. **CFG-01/02** then, because every later configuration row is
 cheap once the registry exists and expensive before it. **RP-05 and RP-01** last of the 🟠 rows: the
 most visible change per unit of work, and both are additive.
+
+---
+
+## 9 · Cycle — the 2026-09-01 deep sweep (SW)
+
+> **Opened 2026-09-01, after the staging deploy.** Twenty-three agents read the code to break it —
+> twelve over the money and GL seams, eleven over the Filament panels and both portals — and
+> everything they raised was adjudicated against the code by a second agent told to **refute** it,
+> with a third pass on whatever survived. **204 findings survived** and are listed with their file
+> and line in **[qa/DEEP-SWEEP-2026-09-01.md](qa/DEEP-SWEEP-2026-09-01.md)**, which is the evidence
+> file; this section is the priority call.
+>
+> **Read the warning at the top of §6 first.** These rows are claims about code, produced the same
+> way the rows that turned out to be false were produced. Four were fixed on the day and each was
+> independently re-verified before it was touched; two were refuted outright and are not in the file.
+> Open the file and satisfy yourself before acting on a row.
+
+### 9.0 Fixed on the day — do not re-open
+
+The three criticals and one high, each with a mutation-proved regression test.
+
+| What was wrong | Fix |
+|---|---|
+| **Live AR could leave collections with no bad-debt entry.** The invoice status Select offered `written_off` as a plain option — no `InvoiceWriteOff` row, no Dr Bad Debt / Cr AR, no reason, no closed-period check — and it was a **one-way door**, because "Write off" hides once the status is set and "Reverse write-off" hides while no row exists. Also a privilege escalation: the act needs `invoices.void`, the form needs only `invoices.edit` | `9c970144` — the Select no longer offers it, nor the three DERIVED statuses; `Invoice::updating` refuses the transition unless the row exists (the service saves with `saveQuietly()`, so the real path is untouched) |
+| **Work-order evidence was REPLACING, not appending** — on both doors. `->appendFiles()` governs the browser widget; the save runs `deleteAbandonedFiles()` against an action modal's state, which nothing hydrates. A contractor's second photograph deleted their first, and the two doors erased each other. `SlaSettings::require_completion_evidence` gates completion on that collection | `42e21d0b` — `App\Filament\Actions\EvidenceUpload` is the one definition for both doors and saves without the delete, which is the correct save for a collection that may only grow |
+| **A scheduled report emailed every mall.** No Filament tenant exists in a queue worker, so `TenantScope::currentAssetId()` answered null and every scoped query read that as *no property filter*. A rent roll saved in one mall went out monthly as the whole portfolio — to the owner's external accountant and the auditor, who have no login here and so no way to tell whose tenants they were reading | `a39a4c78` — the standing property is part of what a saved view reproduces (`ReportParameters::PROPERTY_KEY`) and is re-established as the tenant for the render, which fixes every report page at once. A view recording no property is refused and logged, never sent as the portfolio |
+| **The contractor portal was inert.** Nothing anywhere wrote `is_portal_user` — no form, no importer, no seeder, no command — so no contractor could ever sign in, and accept/evidence/update/quote and the dispatch bell were all dead. Filament's own reset page refuses a link to somebody who `! canAccessPanel()`, so even that door was shut | `14771766` — the flag is on the contacts form (a toggle, because turning it off is how access is withdrawn) and `DemoSeeder` seeds a contractor who can sign in |
+
+### 9.1 What the sweep says about the system
+
+**The money core held.** `billing:reconcile --deep` was 9/9 on real data before and after, the four
+settlement channels tie, and the GL ties to AR and AP. Nothing found says a figure already in the
+books is wrong. **What it found instead are the edges**: a guard that exists on one of two doors, a
+sweep that fatals on a row shape introduced after it was written, a status a record can reach with
+no way back, a screen that renders a field nothing reads. That is the profile of a system whose
+centre is sound and whose perimeter has grown faster than its gates.
+
+**Three shapes account for most of the 204, and each already has a gate that could be widened:**
+
+| Shape | What it looks like | The gate that nearly caught it |
+|---|---|---|
+| **One guard, two doors** | The rule lives in the modal that was written first, and the second entry point — the standalone create form, the importer, the other panel — never got it (SW deposit over-refund, the evidence collection, the write-off status) | `ConcurrencyPolicy` proved a *file* locks; nothing proves a *rule* is on every path that reaches it |
+| **Built, and unreachable** | The code is complete and tested and nothing can start it, or nothing can enter the data it needs (`is_portal_user`, the draft purchase request, the disputed declaration, the terminated employee) | `ServiceReachability` covers services and `BillableAgreementIsConfigurable` covers agreements. Neither covers an **auth surface**, a **status**, or a **column no screen writes** |
+| **A row shape the code predates** | `invoices.lease_id` became nullable for unit owners in 2026-08-15 and several services still dereference it, so the nightly sweep fatals on exactly the rows module 37 introduced | Nothing. This is the "the lease is the route to the property" class the 2026-08-18 round found eleven of |
+
+### 9.2 The order to take them in
+
+**Tranche A — the nightly runs that fatal (do first).** A scheduled command that throws is invisible
+in a way a wrong figure is not: nobody gets an error, the work simply never happens. `LateFeeService`
+dereferences `invoice->lease` and `invoices.lease_id` has been nullable since module 37, so **every
+overdue unit-owner assessment kills the run** — and with it the late fees for the leases that would
+otherwise have been charged. Same class: `leases:expire` emptying the holdover queue every morning,
+and the two free-text time settings that feed cron expressions. 🔴 **P0, effort S each.**
+
+**Tranche B — money that can move twice.** The concurrency and cross-channel rows: the move-out
+settlement that takes no lock over the deposit pot, `EditPayment` re-spending a surplus already drawn
+down as tenant credit, PDC clearing against a written-off invoice, the partial write-off that no
+collection surface can see. Each is a real double-spend, each needs `tests/Mysql/` rather than the
+sqlite suite to prove, and the fix pattern is the one this codebase already knows — a locking read
+behind the lock, and the guard named once so the doors cannot drift. 🔴 **P0, effort S–M.**
+
+**Tranche C — a status with no way out.** A record that can reach a state no screen can act on is a
+workflow that stops dead: the disputed sales declaration, the draft purchase request, the terminated
+employee, the expired lease with no offered conversion. These are cheap and each unblocks somebody's
+actual day. 🟠 **P1, mostly XS–S.**
+
+**Tranche D — the tenant and contractor surfaces.** A draft invoice publicly payable through
+`/pay/{token}`, draft leases visible in the portal, a live Paymob checkout on a written-off invoice,
+the contractor who can post to a thread they cannot read. The portal is what a retailer judges the
+whole system by, and two of these are the draft-leak class that already cost seven surfaces once.
+🟠 **P1, S each.**
+
+**Tranche E — the ~150 medium and low rows.** Validation gaps, missing filters and columns, unlocalised
+composed strings, wrong defaults. Worth a scheduled pass rather than a project: take them a module at
+a time, in the order the operator actually uses the modules, and let each pass end with the module's
+own doc updated. 🟡 **P2.**
+
+### 9.3 The four gates worth building, in the order they pay
+
+Every one of these turns a class of finding into something the build catches, which is the only way a
+sweep like this does not have to be repeated by hand.
+
+1. **An auth surface must be grantable from a screen** — the `is_portal_user` shape. Derive the set
+   from the panels' own `canAccessPanel()` and require a write path for each flag it reads. **S.**
+2. **A rule must be on every door, not on the first one** — for a named set of invariants (the
+   deposit cap, evidence append, the settlement-channel guards), assert the refusal from *each*
+   reachable entry point rather than from the service. Mutation-proved, or it proves nothing. **M.**
+3. **Every status must be reachable and leaveable** — sweep each `ValueSets` classification column
+   and require, per value, an act that writes it and an act that leaves it, or a registered reason.
+   This is Tranche C made permanent. **M.**
+4. **A nullable foreign key must be honoured by everything that reads it** — the `invoices.lease_id`
+   class. Static: for each nullable FK, find the dereferences that assume it is set. **M.**
+
+### 9.4 What this cycle deliberately does NOT include
+
+- **Anything under CAM.** A concurrent stream shipped caps-per-pool, per-lease account exclusions
+  and the adjusted denominator on 2026-09-01; the sweep's CAM rows were raised against code that
+  moved underneath them and must be re-verified against HEAD before anyone acts on one.
+- **The benchmark parity gaps.** The same sweep re-verified every Yardi and FM row and found **no red
+  gaps** — the open ones are yellow and white, they live in
+  [gap-analysis](gap-analysis/README.md), and none of them is worth doing before Tranche A.
+- **Re-litigating the declines.** §6 here and gap-analysis §6 both grew rows on 2026-09-01 for
+  exactly that reason.
