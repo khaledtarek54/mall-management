@@ -8,6 +8,21 @@
 > Standing assumptions: EGP · VAT 14% on service charges, base rent VAT-exempt · marketing levy 5%
 > of base rent · payment terms 7 days.
 
+> ### ✅ ALL FIFTEEN DELTAS ARE CLOSED — re-verified against the code 2026-09-01
+>
+> **Read the CLOSED note under each scenario before you read its delta.** The "Atriom" and "Delta"
+> paragraphs are preserved as written, in the state the code was in when each was measured; they are
+> the *case that was made*, not a description of the system. Two of them called out live money bugs —
+> **S5** (*"CAM mis-allocates on every multi-unit lease"*) and **S9** (*"117,971/month of contracted
+> revenue not billed"*) — and **both shipped**. A reader who stops at the delta walks away believing
+> this system is losing money every month.
+>
+> Only S4 and S12 carried correction notes before this pass; thirteen did not, and the closing table
+> still argued for building a structure that had already been built. That is the same drift
+> [gap-analysis §0](../../gap-analysis/README.md) is written against — *a gap row is a claim about
+> code* — and this document is where it survived longest, because a scenario reads like a story
+> rather than like a checklist.
+
 ---
 
 ## S1 — New lease: fit-out grace + stepped rent
@@ -31,6 +46,13 @@ is armed at commencement + 1 year and the nightly sweep will **overwrite** `amou
   forecasting are all guesswork.
 - Nothing records that 180,000 was the rent for Apr 2026 – Mar 2027 once the sweep has run;
   only `leases.notes` and the activity log carry a trace.
+
+> **CLOSED 2026-08-19.** The contracted ladder is projected at origination:
+> `ChargeScheduleService::projectTermEscalations()` writes one dated charge row per step, called
+> from `CreateLease`, `LeaseCreationService`, `LeaseRenewalService` and `LeaseExtensionService`, so
+> 2029's rent is visible on the rent roll the day the lease is abstracted. `atriom:project-lease-schedules`
+> backfills leases that pre-date it. The fit-out question in the third bullet is a *deal* question,
+> not a code one, and is still the operator's to answer.
 - **The fit-out grace suppresses the service charge and the marketing levy too.** That is a
   deliberate operator decision (2026-07-19), but the far more common mall deal is *rent-free,
   service charge payable* — the tenant still consumes cleaning, security and A/C during fit-out.
@@ -55,6 +77,13 @@ single-lease "Generate Invoice" action passes `true`. So a lease that commences 
 a *full* month by the scheduled run unless a human remembers to bill it by hand first. That is a
 silent overcharge to the tenant, and it happens on exactly the leases nobody is watching.
 
+> **CLOSED.** The bulk path passes `prorate: true`
+> ([`MonthlyBillingService.php:95`](../../../app/Services/MonthlyBillingService.php#L95)), so the
+> scheduled run and the manual action price a stub month the same way. Which *method* it prorates by
+> is now the lease's own (`App\Support\ProrationMethod`, EG-29 — actual / 30-day / 365 / whole
+> month), and whether a given charge prorates at all is `charges.prorate`, so a flat signage or
+> parking fee bills in full for any month the lease runs into.
+
 ---
 
 ## S3 — Annual escalation
@@ -74,6 +103,12 @@ rather than invented. As a *sweep* it is well built.
 and Atriom implements it as a destructive nightly mutation. Consequences: no review-before-it-bills,
 no forward visibility, no history, and a bug in the sweep silently re-prices a live tenancy with no
 document to point at.
+
+> **CLOSED 2026-08-19.** The ladder is projected forward at origination (see S1), so the step for
+> 2027 exists as a dated row from day one and the sweep reads it rather than inventing it. Every
+> change to a lease's rent is also an append-only `lease_events` row carrying its own reason — the
+> "no history" half — and the narrative is a KEY resolved at read time, so the timeline reads in the
+> reader's language rather than in whichever one the sweep happened to run in.
 
 ---
 
@@ -140,6 +175,14 @@ unit only** — so the CAM allocation does *not* pick up the extra 300 m².
    cycle and should be fixed on its own, with a regression test that asserts a two-unit lease's
    share equals its *summed* area over the *summed* denominator.
 
+> **CLOSED — and the money bug in point 3 was fixed first, exactly as this scenario asked.**
+> `CamReconciliationService` resolves area through `totalAreaSqmForPeriod()`, which sums the
+> `lease_unit` pivot over the days each unit was actually held, so a lease that expands mid-year is
+> weighted for what it occupied when it occupied it — numerator and denominator both. Point 1 is
+> closed by the dated charge ladder (S1) plus `LeaseSpaceChangeService`, which re-derives the rent
+> from the rate over the new area **honouring a holdover uplift** (EG-40); point 2 by the
+> `lease_events` amendment types, of which expansion is one.
+
 ---
 
 ## S6 — Negotiated mid-term relief
@@ -156,6 +199,13 @@ diary fails, the tenant pays half rent forever and nothing in the system objects
 **Delta.** The temporary is indistinguishable from the permanent. This is the single most
 convincing argument for the schedule model to a non-technical stakeholder: *the system cannot tell
 the difference between a six-month discount and a permanent rent cut.*
+
+> **CLOSED.** `LeaseReliefService` overlays a bounded relief window on the charge ladder through
+> `ChargeScheduleService::overlayWindow()`: the original row closes, a relief row runs Jul–Dec at the
+> reduced amount, and the original schedule **resumes on its own** in January — no diary. Relief is
+> its own `lease_events` type, so it reads as temporary on the timeline. The relief and resumed rows
+> carry `billing_timing` **and** `prorate` forward (D3-01, 2026-08-24): dropping them flipped an
+> arrears service charge to advance and double-billed the crossover month.
 
 ---
 
@@ -177,6 +227,12 @@ the uploaded PDF.
 Atriom speaks, the tenant has either lost a below-market renewal or the landlord has lost a
 contracted rent step, and the space has been marketed while encumbered. Cheap to fix, expensive to
 miss — this is why options rank so highly in the phase plan.
+
+> **CLOSED.** `LeaseOption` records the window and the rent basis, and
+> `leases:scan-option-windows` ([`routes/console.php:324`](../../../routes/console.php#L324)) alerts
+> on the **notice window opening**, not on expiry. Exercising it is its own act with its own
+> `lease_events` entry, and the renewal it creates is a new chained lease whose rate follows the
+> negotiated rent rather than the other way round (EG-39).
 
 ---
 
@@ -207,6 +263,14 @@ to cancel partially-paid ones, which would orphan `paid_amount`). But:
 **Delta.** No trailing proration; no final-account document. Move-out is the moment a tenancy's
 money is settled, and it is currently a sequence of unconnected manual acts.
 
+> **CLOSED.** Trailing proration is `CreditUnearnedBillingService`, which credits the unearned tail
+> of an already-billed month on the **same** `monthsCovered()` rule the invoice was billed on — a
+> credit computed on a different rule than its invoice disagrees by days on exactly the mid-month
+> move-out it exists for. The final account is `MoveOutStatementService` (one document, itemised)
+> and `SettleMoveOutService` nets the deposit through `DepositApplication`, which is a *settlement
+> channel* on the invoice rather than a second cash path. `LeaseTerminationService` defaults
+> `credit_unearned = true`.
+
 ---
 
 ## S9 — Holdover
@@ -223,6 +287,13 @@ surfaced, not billed**. The operator sees a flag.
 **Delta.** The mall bills nothing, or bills the old rent, while a tenant occupies at 100% instead of
 150%. On a 235,943 rent, every month of holdover is **117,971 of contracted revenue not billed** —
 and holdovers routinely run six months. This is real money and a simple fix once a schedule exists.
+
+> **CLOSED — the 117,971/month is billed.** `ConvertLeaseToHoldoverService` converts the lease to
+> month-to-month and prices it at `holdover_rate_pct` **as a percentage of the contracted rent**
+> (150 means 150%, the shipped default), leaving `base_rent_rate_per_sqm_year` contractual — a rate
+> is what the parties agreed, and re-rating on conversion would bake a temporary penalty into it.
+> Every later derivation honours the premium: EG-40 fixed `LeaseSpaceChangeService` silently
+> dropping it back to 100% when a tenant took extra space mid-holdover.
 
 ---
 
@@ -245,6 +316,12 @@ appears in AR aging as generically delinquent.
 Egypt (the invoice is the ETA document). The fix is not to abandon invoice-level AR but to allocate
 payments **to invoice items** and let an item carry a disputed flag. See
 [gap §8](../../gap-analysis/README.md).
+
+> **CLOSED — built exactly as prescribed.** `invoice_item_payment` (MF-06) records how an
+> already-counted settlement splits across the lines, and `invoice_items.disputed_at` flags the
+> contested one. It is deliberately **not a fifth settlement channel**: every per-line figure is
+> derived from the invoice's own `paid_amount` by `App\Support\InvoiceItemSettlement`, so the item
+> outstandings always sum back to `balance` and there is never a second truth about the same money.
 
 ---
 
@@ -286,6 +363,16 @@ becomes a credit note auto-applied FIFO and a positive one bills immediately on 
 5. One pool per property per year; no per-category pools.
 6. No tenant-facing reconciliation statement showing the working.
 
+> **CLOSED — all six.** (1) `SyncCamPoolFromLedgerService` builds the pool **from the GL by
+> account**, so every line drills to its postings and pointing an expense category at an account
+> inside a pool starts recovering those costs through it. (2) Gross-up and (3) the denominator basis
+> are both columns on `cam_expense_pools`, so the landlord can elect to absorb vacancy. (4) The
+> re-estimate loop is an action on the pool record (`CamExpensePoolActions`). (5) Pools are
+> per-category, keyed by `pool_code` — and a cap now belongs to a **pool**, not to a year
+> (`03133a13`, 2026-09-01). (6) `CamStatementPdfService` renders the tenant statement, in the
+> reader's own language. Since 2026-09-01 a lease may also carve named accounts out of its own share
+> and be excluded from the denominator (Yardi's adjusted basis).
+
 ---
 
 ## S12 — Percentage rent for a seasonal tenant
@@ -316,6 +403,18 @@ annually, that lease is on the wrong setting — and only reading the clauses wi
 Still missing here: **tiers**, **deductions/offsets**, and billing on **estimated sales** when a
 tenant never declares (today they pay nothing).
 
+> **CLOSED 2026-09-01 — all three of those.** Tiers are `LeasePercentageRentTier` (a `tiered`
+> calculation type); deductions are `percentage_rent_deductible_types` resolved per declaration; and
+> `sales:estimate-missing` ([`routes/console.php:246`](../../../routes/console.php#L246)) estimates
+> from a trailing average for a tenant who never declares — **marked as an estimate and never
+> auto-locked**, because billing a figure nobody declared as though they had is the one thing the
+> operator must decide.
+>
+> **The data question in the paragraph above is still open and is still not code.** The column
+> defaults to `monthly`; a clause that settles annually is billed on the wrong basis until someone
+> reads it. Re-probed 2026-09-01: **24 percentage-rent leases, 0 on `annual`** — unchanged. It
+> belongs on the go-live checklist, and no gate can find it.
+
 ---
 
 ## S13 — An uncollectible tenant
@@ -335,6 +434,13 @@ AR aging clears.
 
 **Delta.** A missing accounting instrument, not a missing feature. Every mall has bad debt.
 
+> **CLOSED.** `WriteOffInvoiceService` posts **Dr Bad Debt / Cr AR** against an `InvoiceWriteOff`
+> row, so revenue stays recognised in the period it was earned and the loss lands where it was
+> recognised — Yardi's `WRTOFF`, with the reason recorded. Recovery has a button too:
+> `reverse()` re-opens the debt when a written-off tenant later pays, instead of forcing the
+> operator to re-bill (double-counting revenue) or book it as miscellaneous income (losing the AR
+> history).
+
 ---
 
 ## S14 — An invoice keyed after the period closed
@@ -351,6 +457,12 @@ document to March, which changes the tenant's invoice and its ETA filing.
 **Delta.** The guard is right; the missing piece is the **second time coordinate**. Yardi's answer —
 "keep the date, move the post month" — is not expressible in Atriom. This is a real workflow blocker
 the first time a real close happens on a real deadline.
+
+> **CLOSED (MF-05).** The second coordinate is `posting_month_overrides` — **one table, not a
+> `post_month` column on each of the 24 sources** — set through `SetPostMonthService` and offered on
+> every source document by one shared action factory (`App\Filament\Actions\PostMonthAction`), so
+> the behaviour cannot drift into 24 slightly different versions of itself. The tenant's invoice
+> keeps 28 Feb; the GL sees March; February stays closed.
 
 ---
 
@@ -374,23 +486,44 @@ accountant's ruling, and it is question 1 of this cycle
 *not* optional is that the prerequisite — a forward rent schedule — is the same prerequisite as
 everything else in this document.
 
+> **CODE CLOSED; the ruling is still the accountant's.** The prerequisite shipped (S1), and so did
+> the engine: `accounting:post-straight-line-rent`
+> ([`routes/console.php:74`](../../../routes/console.php#L74)) recognises the level charge and posts
+> the deferred/accrued difference. **It ships switched OFF**, because whether EAS 49 straight-lining
+> applies to these leases is a ruling, not a default — flipping the setting is the whole deployment.
+> It is question 1 of the accountant briefing and it is still unanswered.
+
 ---
 
 ## What the fifteen say together
 
-| Root cause | Scenarios it breaks |
-|---|---|
-| **No rent/charge schedule** (state, not schedule) | S1 S3 S4 S5 S6 S9 S15 |
-| **No lease events / amendments** | S5 S6 S9 |
-| **No options / critical dates** | S7 |
-| **Proration is one-ended, and the bulk run never prorates** | S2 S8 |
-| **No final account at move-out** | S8 |
-| **No write-off** | S13 |
-| **No post month** | S14 |
-| **Recoveries: pool not from the GL, no gross-up, fixed denominator, no re-estimate** | S11 |
-| **Percentage rent: no cumulative basis, no tiers, no deductions, no estimated sales** | S12 |
-| **Invoice-level AR with no item-level allocation** | S10 |
-| **Independent bug: CAM reads master-unit area only** | S5 |
+**The table below is the diagnosis as it stood when these fifteen were written, kept because the
+*reasoning* is what a future change has to respect.** Every row is closed; the right-hand column
+names what closed it, re-verified against the code 2026-09-01.
 
-**Seven of fifteen trace to one missing structure.** That is the case for making the rent schedule
-phase 1 and letting almost everything else follow from it.
+| Root cause | Scenarios it broke | Closed by |
+|---|---|---|
+| **No rent/charge schedule** (state, not schedule) | S1 S3 S4 S5 S6 S9 S15 | `ChargeScheduleService::projectTermEscalations()` at every origination point + `atriom:project-lease-schedules` for the backfill |
+| **No lease events / amendments** | S5 S6 S9 | append-only `lease_events`, eight amendment types, narrative resolved at read time |
+| **No options / critical dates** | S7 | `LeaseOption` + `leases:scan-option-windows` on the **notice window**, not on expiry |
+| **Proration is one-ended, and the bulk run never prorates** | S2 S8 | `prorate: true` on the bulk path; `ProrationMethod` (four methods, per-lease) + per-charge `prorate`; `CreditUnearnedBillingService` for the trailing end |
+| **No final account at move-out** | S8 | `MoveOutStatementService` + `SettleMoveOutService` netting through `DepositApplication` |
+| **No write-off** | S13 | `WriteOffInvoiceService` (Dr Bad Debt / Cr AR) with a recovery reversal |
+| **No post month** | S14 | `posting_month_overrides` + `SetPostMonthService` + one shared `PostMonthAction` |
+| **Recoveries: pool not from the GL, no gross-up, fixed denominator, no re-estimate** | S11 | `SyncCamPoolFromLedgerService`; gross-up and denominator basis as pool columns; re-estimate on the pool record; per-category pools |
+| **Percentage rent: no cumulative basis, no tiers, no deductions, no estimated sales** | S12 | cumulative annual basis; `LeasePercentageRentTier`; `percentage_rent_deductible_types`; `sales:estimate-missing` |
+| **Invoice-level AR with no item-level allocation** | S10 | `invoice_item_payment` + `invoice_items.disputed_at`, derived from `paid_amount` so it is not a fifth channel |
+| **Independent bug: CAM reads master-unit area only** | S5 | `totalAreaSqmForPeriod()` — the pivot summed, day-weighted, on both sides of the share |
+
+**Seven of fifteen traced to one missing structure, and that structure was built.** The schedule was
+made phase 1 and almost everything else did follow from it — which is the strongest evidence this
+document was worth writing, and the reason it must not be read as a live defect list.
+
+**What these fifteen still leave open is not code:**
+- **S12's data question** — 24 percentage-rent leases on the `monthly` default; only reading the
+  clauses will find the ones that settle annually. Go-live checklist, not a gate.
+- **S15's ruling** — whether EAS 49 straight-lining applies here. The engine ships off, awaiting the
+  accountant.
+- **S1's fit-out question** — whether the service charge and marketing levy really should be
+  suppressed during a rent-free fit-out, or only the rent. An operator decision, re-raised here
+  because the far more common mall deal is *rent-free, service charge payable*.
