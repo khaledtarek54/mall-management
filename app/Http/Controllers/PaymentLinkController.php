@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Paymob\PaymobPaymentInitiator;
 use App\Support\DemoPayments;
+use App\Support\InvoiceSettlement;
 use App\Support\IssuingEntity;
 use App\Support\OpsLog;
 use Illuminate\Contracts\View\View;
@@ -25,10 +26,27 @@ use Illuminate\Http\Request;
  */
 class PaymentLinkController
 {
-    /** Resolve the invoice behind a pay token, or 404 (no enumeration). */
+    /**
+     * Resolve the invoice behind a pay token, or 404 (no enumeration).
+     *
+     * **A DRAFT is a 404, not a redirect.** It is not a document yet — nothing was issued, nothing
+     * was posted, and the tenant has never been told it exists — so it has no public existence and
+     * the honest public answer is that this URL resolves to nothing. Redirecting to the status page
+     * instead would still print the tenant's NAME and the invoice number to whoever holds the link,
+     * on a page whose whole vocabulary is about a payment; 404 is the same answer the cross-tenant
+     * API gives, for the same reason.
+     *
+     * Only `draft` — the other relieved statuses (`cancelled`, `credited`, `written_off`) are real
+     * documents the tenant received, and somebody holding that link deserves to be told what became
+     * of them rather than shown a dead URL.
+     */
     protected function resolve(string $token): Invoice
     {
-        return Invoice::where('payment_link_token', $token)->firstOrFail();
+        $invoice = Invoice::where('payment_link_token', $token)->firstOrFail();
+
+        abort_if($invoice->status === 'draft', 404);
+
+        return $invoice;
     }
 
     /** Public visitors have no session — pick the language from ?lang or the browser. */
@@ -54,7 +72,9 @@ class PaymentLinkController
         }
 
         return view('pay.show', [
-            'invoice' => $invoice->loadMissing('tenant', 'items', 'asset'),
+            // `writeOffs` because both `isPayable()` above and the blade's `payableAmount()`
+            // net them — two aggregates per public page view without it.
+            'invoice' => $invoice->loadMissing('tenant', 'items', 'asset', 'writeOffs'),
             'token' => $token,
             // The mall, not the software. A cardholder is about to enter card details on this page
             // and should recognise the merchant they are paying — "Atriom" is a name the tenant has
@@ -124,9 +144,9 @@ class PaymentLinkController
         app()->setLocale($this->locale($request));
         $invoice = $this->resolve($token);
 
-        // Nothing to collect (already paid, cancelled, credited, written off) — the status page
-        // says what happened. RecordDemoPaymentAction re-checks the balance under a row lock too;
-        // this is the friendly answer, that is the correct one.
+        // Nothing to collect (already paid, cancelled, credited, written off, or never issued) —
+        // the status page says what happened. RecordDemoPaymentAction re-checks under a row lock
+        // too; this is the friendly answer, that is the correct one.
         if (! $invoice->isPayable()) {
             return redirect()->route('pay.status', ['token' => $token]);
         }
@@ -150,23 +170,38 @@ class PaymentLinkController
     public function status(Request $request, string $token): View
     {
         app()->setLocale($this->locale($request));
-        $invoice = $this->resolve($token)->loadMissing('tenant');
+        $invoice = $this->resolve($token)->loadMissing('tenant', 'writeOffs');
 
         $payment = $invoice->payments()
             ->where('channel', Payment::CHANNEL_LINK)
             ->orderByDesc('payments.id')
             ->first();
 
+        // **`paid` must mean PAID.** Reading it off `payableAmount() <= 0` is wrong for every
+        // RELIEVED status, because `settleableAmount()` returns 0 for all of them — so a
+        // WRITTEN-OFF invoice rendered "✓ Payment successful — 0.00" on an unauthenticated page to
+        // a tenant whose debt had just gone to bad debt, and `WriteOffInvoiceService::reverse()`
+        // exists precisely because such a debt may still be chased. `closed` is the fourth state:
+        // there is nothing to collect here and no claim that anybody paid it.
+        $relieved = ! InvoiceSettlement::accepts($invoice);
+
         $state = match (true) {
-            round((float) $invoice->balance, 2) <= 0 => 'paid',
+            $relieved => 'closed',
+            round((float) $invoice->collectableBalance(), 2) <= 0 => 'paid',
             $payment && $payment->status === 'failed' => 'failed',
             $payment && $payment->status === 'initiated' => 'processing',
             default => 'unpaid',
         };
 
         // Show the amount transacted on THIS link (what the client paid / owes),
-        // not the full invoice total — the invoice may have been partly paid before.
-        $amount = $payment !== null ? (float) $payment->amount : (float) $invoice->balance;
+        // not the full invoice total — the invoice may have been partly paid before. A `closed`
+        // invoice shows nothing: there is no figure that is honest there, since the document was
+        // cancelled, credited or forgiven rather than settled.
+        $amount = match (true) {
+            $state === 'closed' => null,
+            $payment !== null => (float) $payment->amount,
+            default => $invoice->payableAmount(),
+        };
 
         return view('pay.status', [
             'invoice' => $invoice->loadMissing('asset'),

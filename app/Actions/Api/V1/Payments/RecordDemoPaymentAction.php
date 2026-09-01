@@ -4,6 +4,7 @@ namespace App\Actions\Api\V1\Payments;
 
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\InvoiceSettlement;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,9 +39,19 @@ class RecordDemoPaymentAction
             // over-capture the invoice (the second serialises on the lock and
             // sees balance 0).
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
-            abort_if((float) $invoice->balance <= 0, 422, __('admin.notifications.pay_now_failed_body'));
 
-            $amount = round((float) $invoice->balance, 2);
+            // `payableAmount()`, not the raw balance, on BOTH the guard and the amount. A partial
+            // write-off deliberately leaves `balance` standing — that is what makes a write-off
+            // visible on the document — so capturing it takes money the operator already forgave,
+            // driving AR negative for the debt and leaving bad-debt expense standing against cash
+            // that arrived. It also closes the statuses a balance test cannot see: `draft` most of
+            // all, since the public /pay route has no login in front of it.
+            // The LOCKING twin, because this is a guard and not a render: a plain read behind the
+            // lock above is answered from the snapshot taken before we waited, which is what both
+            // of `Payment`'s over-allocation guards take this same lock to avoid.
+            $amount = InvoiceSettlement::accepts($invoice) ? $invoice->collectableBalanceForUpdate() : 0.0;
+
+            abort_if($amount <= 0, 422, __('admin.notifications.pay_now_failed_body'));
 
             $payment = Payment::create([
                 'tenant_id' => $invoice->tenant_id,

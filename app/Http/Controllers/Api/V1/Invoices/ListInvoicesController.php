@@ -20,7 +20,13 @@ class ListInvoicesController extends ApiController
     {
         $query = $request->user()->invoices()
             ->visibleToTenant()
-            ->with(['lease.unit', 'receivedPayments'])
+            ->with([
+                'lease.unit',
+                'receivedPayments',
+                // `InvoiceResource` calls `isPayable()`, which nets prior write-offs — one
+                // aggregate per row without this, and per_page goes to 100.
+                'writeOffs',
+            ])
             ->latest('issue_date');
 
         if ($status = $request->query('status')) {

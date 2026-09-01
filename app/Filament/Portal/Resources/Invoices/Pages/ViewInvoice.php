@@ -93,12 +93,25 @@ class ViewInvoice extends ViewRecord
      * Stated once so the button's visibility and its authorization guard cannot drift —
      * they are the same question, and `visible()` alone never answers it (see the
      * abort_unless calls above).
+     *
+     * **WHICH invoices may take money is `Invoice::isPayable()`, not a test written here.** These
+     * two methods sat three lines apart and disagreed: the demo one carried a denylist of three
+     * statuses, and this one — the one that opens a LIVE Paymob checkout — checked no status at
+     * all, so a tenant was offered real card payment on an invoice the operator had written off to
+     * bad debt while the fake button beside it correctly refused. Neither list knew about `draft`.
+     * `isPayable()` now asks `App\Support\InvoiceSettlement`, the one register for the question,
+     * and nets prior write-offs out of the amount.
      */
     private function canPayNow(): bool
     {
+        // `isPayable()` nets prior write-offs, so it is an aggregate unless the relation is loaded.
+        // This page asks it three to four times per render (both predicates plus each action's own
+        // `abort_unless`), and Filament does not eager-load for a record page.
+        $this->record->loadMissing('writeOffs');
+
         return Portal::isAdmin()
             && config('integrations.paymob.enabled')
-            && (float) $this->record->balance > 0;
+            && $this->record->isPayable();
     }
 
     /** The demo counterpart — availability is DemoPayments' decision, not this screen's. */
@@ -106,7 +119,6 @@ class ViewInvoice extends ViewRecord
     {
         return Portal::isAdmin()
             && DemoPayments::enabled()
-            && (float) $this->record->balance > 0
-            && ! in_array($this->record->status, ['cancelled', 'credited', 'written_off'], true);
+            && $this->record->isPayable();
     }
 }

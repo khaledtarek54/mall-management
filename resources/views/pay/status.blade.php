@@ -6,11 +6,19 @@
         'failed'     => ['#b91c1c', '#fef2f2', '✕'],
         'processing' => ['#b45309', '#fffbeb', '…'],
         'unpaid'     => ['#475569', '#f1f5f9', '•'],
+        // Nothing to collect and nobody paid it — cancelled, credited or written off. Deliberately
+        // NOT the green tick: a written-off debt showing "Payment successful" is a receipt for
+        // something that never happened, on a page with no login in front of it.
+        'closed'     => ['#475569', '#f1f5f9', '–'],
     ];
     [$color, $bg, $icon] = $style[$state] ?? $style['unpaid'];
     $title = __('pay.states.'.$state.'.title');
     $msg = __('pay.states.'.$state.'.msg');
-    $amountLabel = $state === 'paid' ? __('pay.amount_paid') : ($state === 'processing' ? __('pay.amount') : __('pay.amount_due'));
+    $amountLabel = match ($state) {
+        'paid' => __('pay.amount_paid'),
+        'processing' => __('pay.amount'),
+        default => __('pay.amount_due'),
+    };
 @endphp
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}" dir="{{ $rtl ? 'rtl' : 'ltr' }}">
@@ -45,8 +53,10 @@
         <div class="title">{{ $title }}</div>
         <p class="msg">{{ $msg }}</p>
 
-        <div style="color:#94a3b8;font-size:12px;">{{ $amountLabel }}</div>
-        <div class="amount">{{ number_format((float) $amount, 2) }} {{ $invoice->currency ?? 'EGP' }}</div>
+        @if ($amount !== null)
+            <div style="color:#94a3b8;font-size:12px;">{{ $amountLabel }}</div>
+            <div class="amount">{{ number_format((float) $amount, 2) }} {{ $invoice->currency ?? 'EGP' }}</div>
+        @endif
         <div class="meta">{{ __('pay.invoice') }} {{ $invoice->number }}@if ($invoice->tenant) · {{ $invoice->tenant->name }}@endif</div>
 
         @if ($state === 'paid' && $appDeepLink)

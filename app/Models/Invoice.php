@@ -442,6 +442,27 @@ class Invoice extends Model
      * `deleted_at is null` is what makes a recovered debt collectable again through the query side
      * too, matching the relation's default scope.
      */
+    /**
+     * {@see collectableBalance()}, read under a LOCK — for a guard that decides whether money may
+     * land, rather than for a screen that renders a figure.
+     *
+     * A lock serialises writers; it does not make the read behind it SEE them. Under MySQL's
+     * REPEATABLE READ a plain `select` inside a transaction answers from the snapshot taken before
+     * it waited, so a capture that locked the invoice and then asked the plain twin decides from
+     * before a concurrent write-off committed. Both of `Payment`'s over-allocation guards already
+     * take this lock and say so in writing; `RecordDemoPaymentAction` did not.
+     *
+     * It deliberately does NOT consult a loaded relation. An eager-loaded `writeOffs` is exactly
+     * what a locking read must not trust — it was fetched before the transaction, which is the
+     * stale answer this method exists to avoid.
+     */
+    public function collectableBalanceForUpdate(): float
+    {
+        $writtenOff = round((float) $this->writeOffs()->lockForUpdate()->sum('amount'), 2);
+
+        return round(max(0.0, round((float) $this->balance, 2) - $writtenOff), 2);
+    }
+
     public static function collectableBalanceSql(string $table = 'invoices'): string
     {
         // A CASE rather than `GREATEST(…, 0)`: **GREATEST does not exist in SQLite**, and the suite

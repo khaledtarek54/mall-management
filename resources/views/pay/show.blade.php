@@ -44,7 +44,8 @@
             @endif
 
             <div class="label">{{ __('pay.amount_due') }}</div>
-            <div class="amount">{{ number_format((float) $invoice->balance, 2) }} <span class="cur">{{ $invoice->currency ?? 'EGP' }}</span></div>
+            {{-- payableAmount(), not `balance`: a partial write-off leaves the balance standing by design, so this is the one figure a tenant may be asked for. --}}
+            <div class="amount">{{ number_format($invoice->payableAmount(), 2) }} <span class="cur">{{ $invoice->currency ?? 'EGP' }}</span></div>
 
             <div class="meta">
                 <div class="row"><span class="k">{{ __('pay.invoice') }}</span><span>{{ $invoice->number }}</span></div>

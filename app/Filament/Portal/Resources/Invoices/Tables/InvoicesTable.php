@@ -30,7 +30,10 @@ class InvoicesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['lease.unit', 'unitOwnership.unit']))
+            // `writeOffs` is eager-loaded for the Pay button: `isPayable()` nets prior write-offs
+            // out of what a tenant may be charged, and without this that is one aggregate per row
+            // on the first page a tenant opens.
+            ->modifyQueryUsing(fn ($query) => $query->with(['lease.unit', 'unitOwnership.unit', 'writeOffs']))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.invoice.number'))

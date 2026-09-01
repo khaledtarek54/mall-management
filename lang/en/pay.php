@@ -21,6 +21,10 @@ return [
     'redirect_note' => 'You will be redirected to a secure payment page.',
 
     'states' => [
+        'closed' => [
+            'title' => 'This invoice is closed',
+            'msg' => 'There is nothing to pay here. It was cancelled, credited or settled by agreement. Please contact the mall office if you were expecting to pay it.',
+        ],
         'paid' => ['title' => 'Payment successful', 'msg' => 'Your payment has been received. Thank you.'],
         'failed' => ['title' => 'Payment failed', 'msg' => 'The payment did not go through. You can try again.'],
         'processing' => ['title' => 'Processing payment', 'msg' => 'We are confirming your payment. This page will update automatically.'],

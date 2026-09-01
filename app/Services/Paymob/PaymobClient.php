@@ -161,9 +161,20 @@ class PaymobClient
      */
     public function buildPaymentSession(Invoice $invoice, ?int $integrationId = null): array
     {
-        $amount = (float) $invoice->balance;
+        // **THE AMOUNT THE CARDHOLDER IS ASKED FOR, and it must be the same figure we record.**
+        // `payableAmount()` is `balance` net of anything written off; a write-off deliberately
+        // leaves `balance` standing, so the two differ on every partly-forgiven invoice.
+        //
+        // Moving our own record to the netted figure and leaving this on the raw balance is WORSE
+        // than the over-charge it was meant to fix: the tenant is billed 10,000, we write a 4,000
+        // Payment and a 4,000 allocation, nothing compares `amount_cents` against our row, and
+        // 6,000 of real cardholder money sits in the merchant account with no row anywhere in
+        // Atriom. Not unallocated — absent. `billing:reconcile` stays green, because the books are
+        // internally consistent about a receipt that was never the size we think it was.
+        $amount = $invoice->payableAmount();
+
         if ($amount <= 0) {
-            throw new RuntimeException("Invoice {$invoice->number} has no balance to pay.");
+            throw new RuntimeException("Invoice {$invoice->number} has nothing left to collect.");
         }
 
         $bearer = $this->authenticate();

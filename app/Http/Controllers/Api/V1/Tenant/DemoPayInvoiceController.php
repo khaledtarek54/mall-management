@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Resources\Api\V1\PaymentResource;
 use App\Models\Invoice;
 use App\Support\DemoPayments;
+use App\Support\InvoiceSettlement;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -52,7 +53,10 @@ class DemoPayInvoiceController extends ApiController
             abort(404);
         }
 
-        if (in_array($invoice->status, ['draft', 'cancelled', 'credited', 'written_off'], true)) {
+        // `InvoiceSettlement`, not a fifth copy of the same four statuses. This list and its three
+        // siblings were four hand-rolled answers to one question, and the register that owns it
+        // carries a written reason against every status on both sides of the partition.
+        if (! InvoiceSettlement::accepts($invoice)) {
             return response()->json([
                 'message' => __('admin.notifications.pay_now_failed_body'),
                 'error' => 'invoice_not_payable',
@@ -60,11 +64,15 @@ class DemoPayInvoiceController extends ApiController
             ], 422);
         }
 
-        if ((float) $invoice->balance <= 0) {
+        // `payableAmount()`, never the raw balance: a write-off deliberately leaves `balance`
+        // standing, so a partly-forgiven invoice passed this guard and then went to the gateway for
+        // money nobody was claiming. It must ALSO be the same predicate the action behind it uses,
+        // or the client gets that action's bare 422 with none of the keys this contract promises.
+        if ($invoice->payableAmount() <= 0) {
             return response()->json([
                 'message' => __('admin.notifications.pay_now_failed_body'),
                 'error' => 'no_balance',
-                'balance' => (float) $invoice->balance,
+                'balance' => $invoice->payableAmount(),
             ], 422);
         }
 

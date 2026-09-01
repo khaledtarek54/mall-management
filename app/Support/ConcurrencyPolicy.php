@@ -86,6 +86,10 @@ final class ConcurrencyPolicy
             'guard, which is the premise this codebase has already disproved twice. Two operators each raise an '.
             'invoice, the tenant owes twice the agreed security, and `deposits_held` is credited twice on payment.',
 
+        'App\\Models\\Invoice::collectableBalanceForUpdate' => 'What a tenant-driven capture may put on an invoice. `RecordDemoPaymentAction` '.
+            'locks the invoice and then decides from this figure, so a plain read there is answered from before it '.
+            'waited — the same premise both of Payment\'s guards take this lock to avoid.',
+
         'App\\Models\\Payment::assertInvoicesNotOverAllocated' => 'A second receipt settling an invoice another channel has already paid. All four '.
             'settlement channels are summed here, and the guard is only as strong as its weakest term.',
 
@@ -265,6 +269,9 @@ final class ConcurrencyPolicy
         // `depositHeldForUpdate()` must pin all three or the two it did not are free to move. The
         // fourth pins the deposit-BILLING invoices, so "how much is still unasked for" cannot be
         // answered from before a concurrent invoice was raised.
+        // The locking twin of `collectableBalance()` — the figure a tenant-driven capture is
+        // written from, which must not be answered from a pre-lock snapshot.
+        'app/Models/Invoice.php' => 1,
         'app/Models/Lease.php' => 4,
         // The locking read behind the double-booking guard. `LeaseCreationService` locks the UNIT
         // row (registered in PROVEN); this is the read of `leases` that the lock exists to make

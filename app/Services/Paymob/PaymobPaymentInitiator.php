@@ -111,7 +111,10 @@ class PaymobPaymentInitiator
         return DB::transaction(function () use ($invoice, $session, $channel, $integrationId) {
             $payment = Payment::create([
                 'tenant_id' => $invoice->tenant_id,
-                'amount' => $invoice->balance,
+                // `payableAmount()`, never the raw balance: a partial write-off leaves `balance`
+                // standing by design, so charging it asks the tenant for money the operator has
+                // already forgiven. See Invoice::payableAmount().
+                'amount' => $invoice->payableAmount(),
                 'currency' => $invoice->currency ?? 'EGP',
                 'method' => 'card',
                 'status' => 'initiated',
@@ -127,12 +130,12 @@ class PaymobPaymentInitiator
                 ],
             ]);
 
-            // Allocate the full invoice balance upfront. Invoice::recomputeTotals
+            // Allocate the whole payable amount upfront. Invoice::recomputeTotals
             // filters by payments.status = 'captured', so this allocation has
             // zero effect on the AR balance until the callback marks the
             // Payment captured.
             $payment->invoices()->attach($invoice->id, [
-                'allocated_amount' => round((float) $invoice->balance, 2),
+                'allocated_amount' => $invoice->payableAmount(),
             ]);
 
             // The public revenue surface had NO logging at all: when a tenant reported "the pay
@@ -148,7 +151,7 @@ class PaymobPaymentInitiator
                 'tenant_id' => $invoice->tenant_id,
                 'payment_id' => $payment->id,
                 'order_id' => (int) $session['order_id'],
-                'amount' => round((float) $invoice->balance, 2),
+                'amount' => $invoice->payableAmount(),
                 'channel' => $channel,
                 // Apple Pay runs its own integration; which one was used decides where a failed
                 // charge is investigated.
@@ -199,11 +202,12 @@ class PaymobPaymentInitiator
             return null;
         }
 
-        // Only reuse a session whose amount still matches what's owed. If a
-        // credit or partial payment reduced the invoice balance since the
-        // session was created, the gateway token is bound to the OLD (higher)
-        // amount — reusing it would overcharge. Fall through to a fresh session.
-        if (round((float) $payment->amount, 2) !== round((float) $invoice->balance, 2)) {
+        // Only reuse a session whose amount still matches what's owed. If a credit, a partial
+        // payment or a WRITE-OFF reduced what is collectable since the session was created, the
+        // gateway token is bound to the OLD (higher) amount — reusing it would overcharge. Fall
+        // through to a fresh session. Compared against `payableAmount()` and not the raw balance,
+        // or every session for a partly written-off invoice is discarded as stale for ever.
+        if (round((float) $payment->amount, 2) !== $invoice->payableAmount()) {
             // Worth a line: this is the branch that stops a tenant being charged an amount a
             // credit or part-payment has already reduced. Silent, it looks identical to "the
             // reuse window expired" — and the two have very different implications if the
@@ -212,7 +216,7 @@ class PaymobPaymentInitiator
                 'invoice_id' => $invoice->id,
                 'payment_id' => $payment->id,
                 'session_amount' => round((float) $payment->amount, 2),
-                'invoice_balance' => round((float) $invoice->balance, 2),
+                'invoice_payable' => $invoice->payableAmount(),
             ]);
 
             return null;

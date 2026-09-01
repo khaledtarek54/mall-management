@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Paymob\PaymobClient;
+use App\Services\WriteOffInvoiceService;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -94,7 +95,10 @@ it('buildPaymentSession refuses an invoice with zero balance', function () {
     $invoice = makeInvoice($lease, ['total' => 100, 'paid_amount' => 100, 'balance' => 0]);
 
     paymobClient()->buildPaymentSession($invoice);
-})->throws(RuntimeException::class, 'no balance');
+    // "nothing left to collect", not "no balance": the amount is `payableAmount()` now — `balance`
+    // net of anything written off — because a write-off deliberately leaves `balance` standing and
+    // charging it asks the cardholder for money the operator already forgave.
+})->throws(RuntimeException::class, 'nothing left to collect');
 
 it('verifyHmac accepts a callback signed with our hmac_secret', function () {
     $obj = [
@@ -136,3 +140,29 @@ it('authenticate raises a clear error when Paymob returns a non-2xx', function (
 
     paymobClient()->authenticate();
 })->throws(RuntimeException::class, 'Paymob authenticate failed');
+
+it('refuses an invoice whose remaining balance is entirely written off', function () {
+    // The other half of the same refusal, and the one a balance test cannot see: `balance` still
+    // reads 10,000 here because a write-off does not touch it. Without `payableAmount()` the client
+    // would happily build a Paymob order for money nobody is claiming.
+    ensureAllPropertiesAsset();
+    $asset = makeAsset();
+    $lease = makeLease(makeUnit($asset), makeTenant());
+    $invoice = makeInvoice($lease, [
+        'status' => 'issued', 'subtotal' => 10000, 'vat_amount' => 0, 'total' => 10000,
+        'paid_amount' => 0, 'balance' => 10000,
+    ]);
+
+    // Through the real service, not a hand-written row: a write-off carries a tenant, an asset and
+    // a GL entry, and a fixture that invents the row is testing a state the app cannot produce.
+    app(WriteOffInvoiceService::class)->write($invoice->fresh(), [
+        'amount' => 10000,
+        'reason' => 'Bad debt',
+        'write_off_date' => now()->toDateString(),
+    ]);
+
+    // The premise, so this cannot pass for the previous test's reason.
+    expect(round((float) $invoice->fresh()->balance, 2))->toEqual(10000.0);
+
+    paymobClient()->buildPaymentSession($invoice->fresh());
+})->throws(RuntimeException::class, 'nothing left to collect');

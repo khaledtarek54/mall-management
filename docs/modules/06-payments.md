@@ -554,6 +554,48 @@ Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pa
 **Revoking a leaked link.** `invoices.payment_link_token` is a bearer credential: 48 random chars, no login, **no expiry**. Anyone holding the URL can read the tenant, the line items and the amounts — which is the point (it has to work from an email on a phone), but it means a link that is forwarded, lands in a shared inbox or is screenshotted stays live forever. The remedy is **rotation**, not expiry: `Invoice::rotatePaymentLinkToken()` mints a new token and every previously-issued URL 404s on all three public routes. Surfaced as the **"Regenerate payment link"** action on the invoice table and edit page, gated on `invoices.edit` in *both* `visible()` and `action()`, confirmation-required, and written to `ops.log` as `invoice.pay_link_rotated` (a client reporting "the link stopped working" is otherwise unanswerable).
 
 - It is **not** gated on `isPayable()` — a leaked link to a settled invoice still discloses the tenant and the amounts via `/pay/{token}/status`, so the remedy has to outlive payability.
+
+> **⚠️ WHICH invoice a tenant may pay, and HOW MUCH, each had four answers (fixed 2026-09-01).**
+>
+> **WHICH.** `Invoice::isPayable()` was a hand-rolled denylist of `cancelled|credited|written_off`
+> plus `balance > 0`, sitting beside `App\Support\InvoiceSettlement` — the register built for that
+> exact question, carrying a written reason against every status on both sides of its partition. It
+> missed **`draft`**, which `InvoiceSettlement` had refused since the day it was written (*nothing
+> was ever posted, so cash against a draft credits a receivable that does not exist*). Reproduced
+> over the real route before the fix: a draft invoice answered **200** at `/pay/{token}` to an
+> unauthenticated visitor, naming the tenant and the amount, and would have taken the money. That is
+> an eighth surface for the *"a draft is not a document"* invariant, and the only one with no login
+> in front of it.
+>
+> The portal's View page then held two more opinions three lines apart: `canPayDemo()` repeated the
+> same three statuses, and **`canPayNow()` — the one that opens a LIVE Paymob checkout — tested no
+> status at all**, so a written-off invoice offered real card payment while the fake button beside it
+> correctly refused. The permissive branch is always the one that spends money, because the careful
+> author guards the path they are thinking about.
+>
+> **HOW MUCH.** Every path charged the raw `balance`. A write-off deliberately leaves `balance`
+> standing — that is what keeps it visible on the document — so a 10,000 invoice with 6,000 forgiven
+> asked the tenant for **10,000**, on the public page, in the Paymob session, in the pivot's
+> `allocated_amount`, in the session-REUSE comparison, in the ops log and in the demo capture.
+> Collecting it drives AR negative for that debt and leaves bad-debt expense standing against cash
+> that arrived — the permanently red `billing:reconcile --deep` that blocks the next deploy.
+> `Invoice::payableAmount()` is now the one amount, over `InvoiceSettlement::settleableAmount()` —
+> which already answered this and was already load-bearing on **seven** call sites (the payment
+> form, tenant credit, credit notes, post-dated cheques). **It was applied on every channel an
+> OPERATOR drives and on none a TENANT drives**, which is the more useful way to state the gap: the
+> netting went in beside the code whose author was thinking about write-offs, and the pay link, the
+> portal and the mobile API were each written by somebody thinking about a gateway. It composes with the write-off rather than fighting it:
+> paying 4,000 leaves `balance` at 6,000, which the write-off has already relieved, so
+> `collectableBalance()` reads 0 and the document is finished from both sides.
+>
+> Two things that must move WITH the amount. The **session-reuse comparison**, or every session for a
+> partly written-off invoice is discarded as stale for ever and the tenant gets a fresh gateway hop
+> on every click. And the **eager load**: `isPayable()` became a per-row aggregate the moment it
+> started netting write-offs, so `settleableAmount()` prefers a loaded `writeOffs` exactly as
+> `collectableBalance()` does, and the portal's invoice table loads it.
+>
+> (`APublicPayLinkCannotCollectWhatIsNotOwedTest` — every refusal paired with a control, because a
+> route that redirected everything would satisfy the refusals alone and read as a pass.)
 - It is safe mid-checkout: the gateway session is keyed by Paymob's `order_id`, not by this token, so rotating never strands a payment already at the gateway.
 - Expiry was rejected deliberately: it would silently kill legitimate links in already-sent mail and turn every late payer into a support call.
 - Tests: `tests/Feature/Regression/PaymentLinkRotationTest.php`.

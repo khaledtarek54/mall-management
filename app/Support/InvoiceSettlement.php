@@ -93,13 +93,13 @@ final class InvoiceSettlement
      */
     public static function settleableAmount(Invoice $invoice): float
     {
-        if (! self::accepts($invoice)) {
-            return 0.0;
-        }
-
-        $writtenOff = (float) $invoice->writeOffs()->sum('amount');
-
-        return round(max(0.0, round((float) $invoice->balance, 2) - round($writtenOff, 2)), 2);
+        // DELEGATED, not re-implemented. `Invoice::collectableBalance()` is the same arithmetic
+        // asked as a different question — *what may still be collected* rather than *what may still
+        // be put on this invoice* — and a second copy here was a third implementation of one
+        // netting (with `collectableBalanceSql()` as the fourth). It also inherits that method's
+        // eager-load preference for free, which matters now that `Invoice::isPayable()` asks this
+        // per ROW on the portal's invoice table.
+        return self::accepts($invoice) ? $invoice->collectableBalance() : 0.0;
     }
 
     /** The statuses nothing may settle — for a query that needs the list rather than the row. */

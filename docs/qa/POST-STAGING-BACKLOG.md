@@ -150,6 +150,11 @@ round changed the reading.
   exists and CI is paused, so nothing has enforced it. Almost all of it is `ordered_imports` /
   `unary_operator_spaces`. One `composer fix` run closes it — do it on a QUIET tree, because it
   rewrites files across the whole app and would collide with anything in flight.
+- **OPS-08** — `ADocumentIsWrittenInItsReadersLanguageTest` is **RED on `main`** (3 of 11 cases: an
+  English-locale invoice renders «فاتورة»). It is red at HEAD independently of any deposit or
+  payment-link work, and the PDF views were last touched by `98fa45cc` — whoever owns that commit
+  should re-run the file. Recorded here rather than fixed because several sessions are working the
+  tree and this is not this sweep's area.
 - **OPS-07** — the MySQL QA baseline is **stale** and two `tests/Mysql` cases fail on it for reasons
   unrelated to any code: `leases.requires_sales_reporting` and the `facility_work_order_comments`
   table are both missing from `docs/qa/scripts/baseline.sql`. Rebuild with `composer qa:baseline`.

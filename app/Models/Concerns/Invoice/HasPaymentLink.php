@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns\Invoice;
 
+use App\Support\InvoiceSettlement;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -82,10 +83,55 @@ trait HasPaymentLink
         return (string) preg_replace('/^<\?xml.*?\?>\s*/s', '', $svg);
     }
 
-    /** Whether there is still a balance that can be collected online. */
+    /**
+     * Whether a TENANT may still put money on this invoice online.
+     *
+     * **One question with one answer, and it had four.** This was a hand-rolled denylist of three
+     * statuses beside `App\Support\InvoiceSettlement` — the register built for exactly this
+     * question, with a reason written against every status on both sides of the partition. The
+     * portal's own View page then carried two MORE opinions three lines apart: `canPayDemo()`
+     * repeated the same three, and `canPayNow()` — the one that opens a LIVE gateway — checked no
+     * status at all, so a written-off invoice offered real card checkout while the demo button
+     * beside it correctly refused.
+     *
+     * The status the denylist missed is `draft`. Measured over the real route: a draft invoice
+     * answered **200** at `/pay/{token}` to an unauthenticated visitor, naming the tenant and the
+     * amount, and would take the money — an eighth surface for the invariant that says the tenant
+     * never sees a draft, and the only one with no login in front of it. `InvoiceSettlement` had
+     * refused `draft` since the day it was written, under a reason explaining that nothing was ever
+     * posted so cash against it credits a receivable that does not exist.
+     *
+     * @see payableAmount() for the other half — WHICH invoice and HOW MUCH are two questions.
+     */
     public function isPayable(): bool
     {
-        return ! in_array($this->status, ['cancelled', 'credited', 'written_off'], true)
-            && round((float) $this->balance, 2) > 0;
+        return InvoiceSettlement::accepts($this) && $this->payableAmount() > 0;
+    }
+
+    /**
+     * The most a tenant may be charged for this invoice — `balance` net of anything written off.
+     *
+     * The other half of the same defect, and the one that moves money. Every gateway path charged
+     * the raw `balance`: `PaymobPaymentInitiator` built its session, its allocation and its
+     * reuse-check from it, `RecordDemoPaymentAction` captured it, and the public pay page printed
+     * it. So a 10,000 invoice with 6,000 forgiven asked a tenant for 10,000 — measured on the real
+     * page, which showed 10,000 and never 4,000. Paying it drives AR negative for that debt and
+     * leaves bad-debt expense standing for money that was collected, which is the permanently red
+     * `billing:reconcile --deep` that blocks the next deploy.
+     *
+     * `InvoiceSettlement::settleableAmount()` already answered this and was already load-bearing —
+     * SEVEN call sites, capping the payment form, tenant credit, credit notes and post-dated
+     * cheques. **It was applied on every channel an OPERATOR drives and on none a TENANT drives**,
+     * which is the more useful way to state the gap: the careful netting went in beside the code
+     * whose author was thinking about write-offs, and the public pay link, the portal and the
+     * mobile API were each written by somebody thinking about a gateway.
+     *
+     * It composes correctly with the write-off: paying 4,000 leaves `balance` at 6,000, which the
+     * write-off has already relieved, so `collectableBalance()` reads 0 and the invoice is finished
+     * from both sides.
+     */
+    public function payableAmount(): float
+    {
+        return InvoiceSettlement::settleableAmount($this);
     }
 }
