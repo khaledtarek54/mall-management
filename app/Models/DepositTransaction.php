@@ -211,6 +211,30 @@ class DepositTransaction extends Model
                 ->exists();
     }
 
+    /**
+     * What this row ALREADY contributes to `Lease::depositHeld()`, as the database holds it.
+     *
+     * The pot is read fresh in the guard above, so it still contains this row's own effect when the
+     * row is being edited. Subtracting this is what lets a recorded 30,000 refund be corrected up
+     * to 40,000 against the full 100,000 pot rather than against the 70,000 left after itself.
+     *
+     * Read from `getOriginal()` throughout — the point is what is PERSISTED, not what is about to
+     * be. A row that was not `recorded` contributed nothing, which is why a draft becoming recorded
+     * correctly gets no add-back.
+     */
+    public function potContributionAsPersisted(): float
+    {
+        if (! $this->exists || $this->getOriginal('status') !== 'recorded') {
+            return 0.0;
+        }
+
+        return match ($this->getOriginal('type')) {
+            'receipt' => round((float) $this->getOriginal('amount'), 2),
+            'refund', 'forfeit' => -round((float) $this->getOriginal('amount'), 2),
+            default => 0.0,
+        };
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $deposit) {
@@ -260,6 +284,50 @@ class DepositTransaction extends Model
                 && $deposit->isDirty(['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type', 'status'])
                 && $deposit->hasBeenDrawnOn()) {
                 throw new \DomainException(__('admin.deposits.errors.receipt_in_use'));
+            }
+
+            // ── You cannot give back more than you took ──────────────────────────────────────
+            // A refund or forfeit larger than the pot posts a NEGATIVE liability: `depositHeld()`
+            // goes below zero, `deposits_held` in the GL says the landlord owes a tenant money it
+            // never received, and the move-out statement offers a negative deposit.
+            //
+            // **This is the fifth door onto one pot, and it is the one that had nothing at all.**
+            // The cap existed in exactly ONE place — the "Record deposit movement" action on the
+            // lease — while `deposit_transactions.create` and `.edit` also mount an ordinary
+            // Filament Create and Edit page on the register, gated by the SAME permissions. A
+            // 500,000 refund against a 100,000 pot saved from that form without a word. The
+            // receipt freeze immediately above only fires for `type === 'receipt'`, so a refund
+            // row was freely creatable AND freely editable afterwards.
+            //
+            // On the MODEL, not on the two forms, for the reason `ValueSets::guard()` is a single
+            // wildcard listener: a sixth door is covered by existing rather than by being
+            // remembered — the importer, a console command, a future screen.
+            //
+            // The pot is read EXCLUDING this row's own persisted contribution, so editing a
+            // recorded 30,000 refund up to 40,000 is measured against the whole 100,000 and not
+            // against the 70,000 that is left after itself. A draft contributes nothing, so a
+            // draft becoming recorded gets no add-back.
+            //
+            // A PLAIN read, deliberately: this hook also fires inside `SettleMoveOutService`, which
+            // has already pinned all three tables under the lease lock — re-locking there buys
+            // nothing, and taking row locks from a model hook that often runs with no transaction
+            // around it would be a lock released on the next statement, which is worse than none
+            // because it reads as protection. The AUTHORITATIVE guard is the caller's; this is the
+            // backstop that makes the invariant true of the row rather than of one screen.
+            if (in_array($deposit->type, ['refund', 'forfeit'], true)
+                && $deposit->status === 'recorded'
+                && $deposit->lease_id) {
+                $lease = Lease::find($deposit->lease_id);
+
+                if ($lease) {
+                    $available = round($lease->depositHeld() - $deposit->potContributionAsPersisted(), 2);
+
+                    if (round((float) $deposit->amount, 2) > $available + 0.005) {
+                        throw new \DomainException(__('admin.deposits.exceeds_held', [
+                            'held' => 'EGP '.number_format(max($available, 0), 2),
+                        ]));
+                    }
+                }
             }
 
             // Derive tenant + asset from the lease so they can't drift — on create AND

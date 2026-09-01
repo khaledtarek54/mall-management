@@ -838,6 +838,68 @@ class Lease extends Model implements BillableAgreement, HasMedia
     }
 
     /**
+     * The deposit pot, read under a LOCK — the authoritative figure a disbursement is written from.
+     *
+     * `depositHeld()` is the display twin and stays exactly as it is: the leases list, the lease
+     * page, the portal infolist and the form helpers all read it on render, and taking row locks per
+     * row per page is a cost with no writer waiting on it. Same split, and the same reason, as
+     * `Unit::isActivelyLeased()` / `isActivelyLeasedForUpdate()`.
+     *
+     * **Why a locking twin at all.** A lock serialises writers; it does not make the guard behind it
+     * SEE them. Under MySQL REPEATABLE READ a transaction's consistent-read snapshot is fixed at its
+     * first plain read, so a settlement that locked something and then asked `depositHeld()` would
+     * be answered from before it waited — and `SettleMoveOutService` locked nothing at all. Two
+     * move-outs on one lease each read the whole pot and each wrote a refund for it: the deposit
+     * disbursed twice, `depositHeld()` negative by its full value, and `deposits_held` in the GL
+     * saying a departed tenant owes the landlord money. Unlike the unit double-booking there is no
+     * UNIQUE index underneath to turn the race into a duplicate-key error, so nothing catches it.
+     *
+     * **The locks are written out here rather than delegated**, deliberately. All three terms of the
+     * pot must be pinned, and `ConcurrencyPolicyConformanceTest`'s `AUTHORITATIVE_GUARDS` check reads
+     * THIS method's own body and requires a locking read in it — a twin that pushed the locking into
+     * a private helper would pass review and fail the gate, which is the right outcome: a guard whose
+     * lock is not visible where the decision is made is how one gets deleted by a tidy-up.
+     *
+     * **LOCK ORDER IS LOAD-BEARING: leases → invoices → deposit_transactions → deposit_applications.**
+     * `Payment::assertInvoicesNotOverAllocated()` locks invoices and then the deposit applications
+     * for those invoices, so taking them in the other order here would deadlock an ordinary receipt
+     * against a move-out. Nothing in `app/` locks an invoice and then a lease, so putting the lease
+     * at the head of the chain introduces no cycle.
+     */
+    public function depositHeldForUpdate(): float
+    {
+        // The billed-and-settled term first, because it reads INVOICES — ahead of the two deposit
+        // tables in the global order.
+        $invoiceIds = Invoice::query()
+            ->where('lease_id', $this->id)
+            ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
+            ->lockForUpdate()
+            ->pluck('id');
+
+        $settledBillings = round((float) Invoice::query()
+            ->whereIn('id', $invoiceIds)
+            ->with('items')
+            ->get()
+            ->sum(fn (Invoice $invoice): float => (float) InvoiceItemSettlement::for($invoice)
+                ->where('type', 'security_deposit')
+                ->sum('settled')), 2);
+
+        $recorded = $this->deposits()->where('status', 'recorded')->lockForUpdate()->get();
+
+        $applied = (float) DepositApplication::where('lease_id', $this->id)->lockForUpdate()->sum('amount');
+
+        return round(
+            $recorded->where('type', 'receipt')->sum('amount')
+            - $recorded->where('type', 'refund')->sum('amount')
+            - $recorded->where('type', 'forfeit')->sum('amount')
+            - $applied
+            + $settledBillings,
+            2,
+        );
+    }
+
+    /**
      * The part of any BILLED security deposit the tenant has actually settled.
      *
      * Derived from `InvoiceItemSettlement`, the one place that answers "how much of this line has
@@ -921,6 +983,63 @@ class Lease extends Model implements BillableAgreement, HasMedia
     public function depositUnbilledShortfall(): float
     {
         return round(max($this->depositShortfall() - $this->depositBilledOutstanding(), 0), 2);
+    }
+
+    /**
+     * What still has to be ASKED for, read under a LOCK — the figure a second deposit invoice is
+     * refused from.
+     *
+     * The display twin of this trio is fine where it is used: the leases list, the modal's helper
+     * text and the lease page all render it, and taking row locks per row per page buys nothing.
+     * What is NOT fine is a guard: `BillSecurityDepositService` locks the lease and then asked the
+     * PLAIN one, which is the shape this codebase has already been bitten by twice — a lock
+     * serialises writers, it does not make the read behind it see them, so under MySQL's
+     * REPEATABLE READ the second operator is answered from before it waited. Both operators then
+     * read the same outstanding deposit and each raise an invoice for it: the tenant is asked for
+     * twice the security they agreed and `deposits_held` is credited twice when they pay.
+     *
+     * Split into three the same way the display trio is, so a refusal MESSAGE quotes the same
+     * figures the refusal DECISION was made from — a "you have already billed 0.00" is a worse
+     * refusal than none.
+     *
+     * **Lock order** is the one this model's pot already states: invoices, then the deposit tables.
+     */
+    public function depositUnbilledShortfallForUpdate(): float
+    {
+        return round(max($this->depositShortfallForUpdate() - $this->depositBilledOutstandingForUpdate(), 0), 2);
+    }
+
+    /** {@see depositShortfall()}, read under a lock. */
+    public function depositShortfallForUpdate(): float
+    {
+        return round(max((float) ($this->security_deposit ?? 0) - $this->depositHeldForUpdate(), 0), 2);
+    }
+
+    /**
+     * {@see depositBilledOutstanding()}, read under a lock.
+     *
+     * The lock is written out here rather than delegated for the reason {@see depositHeldForUpdate()}
+     * gives: `ConcurrencyPolicyConformanceTest` reads this method's own body, so a guard whose lock
+     * has moved out of sight cannot be silently deleted by a tidy-up.
+     */
+    public function depositBilledOutstandingForUpdate(): float
+    {
+        $invoiceIds = Invoice::query()
+            ->where('lease_id', $this->id)
+            ->whereNotIn('status', self::DEPOSIT_BILLING_EXCLUDED_STATUSES)
+            ->whereHas('items', fn ($q) => $q->where('type', 'security_deposit'))
+            ->lockForUpdate()
+            ->pluck('id');
+
+        $outstanding = Invoice::query()
+            ->whereIn('id', $invoiceIds)
+            ->with('items')
+            ->get()
+            ->sum(fn (Invoice $invoice): float => (float) InvoiceItemSettlement::for($invoice)
+                ->where('type', 'security_deposit')
+                ->sum('outstanding'));
+
+        return round(max((float) $outstanding, 0), 2);
     }
 
     /**

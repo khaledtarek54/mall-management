@@ -34,9 +34,13 @@ one high, and each shipped with a mutation-proved regression test:
 and then did not survive contact — say why, and leave the row) · `⏭️ declined` (with the reason, and
 a matching line in [gap-analysis §6](../gap-analysis/README.md#6-declined--with-reasons-so-they-are-not-re-raised)).
 **Update the row in the same commit as the fix.** A status column nobody maintains is worse than
-none, because it reads as current.
+none, because it reads as current — **and so are the counts beside it**. Every subtotal below is
+DERIVED from the rows by `python3 docs/qa/scripts/sweep-tally.py`; run it after changing a status
+rather than editing a number. The first hand-typed set had already drifted by the third fix (the
+header said 193 open over a table of 195, and the money section claimed 11 high where 7 were left),
+which is the same failure this repo gates for generated doc blocks.
 
-> ### Where this stands — 11 closed, 193 open (updated 2026-09-01)
+> ### Where this stands — 14 closed, 194 open (updated 2026-09-01)
 >
 > Plus the four fixed on the day of the sweep, listed above and not in the table.
 
@@ -48,19 +52,23 @@ none, because it reads as current.
 
 ### Money · AR · settlement
 
-*32 open — 11 high, 12 medium, 9 low.*
+*26 open — 6 high, 11 medium, 9 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
 | **SW-001** | open | high | S | Credit-note status Select lets 'void' be picked directly, bypassing the void service's applied-amount refusal | `Filament/Admin/Resources/CreditNotes/Schemas/CreditNoteForm:144` |
-| **SW-002** | open | high | S | A deposit refund/forfeit larger than what the lease holds is accepted by the DepositTransactions create form — negative deposit liability *(reported by 2 independent agents)* | `Filament/Admin/Resources/DepositTransactions/Pages/CreateDepositTransaction:15` |
+| **SW-002** | ✅ fixed | high | S | A deposit refund/forfeit larger than what the lease holds is accepted by the DepositTransactions create form — negative deposit liability *(reported by 2 independent agents)*. The FIFTH door onto the pot, and the only one with no cap at all: same `deposit_transactions.create`/`.edit` permissions as the lease action, `minValue(0.01)` and nothing else, and freely editable afterwards because the receipt freeze fires only for `type === 'receipt'`. Capped on the MODEL, measured against the pot less the row's own persisted contribution | `Models/DepositTransaction:300` |
 | **SW-003** | open | high | S | CreatePayment's orphan rollback throws on the form's own default status — a captured, allocation-less receipt survives behind the wrong error *(reported by 2 independent agents)* | `Filament/Admin/Resources/Payments/Pages/CreatePayment:193` |
 | **SW-004** | open | high | M | EditPayment re-allocation re-spends a surplus already drawn down as tenant credit — the same money settles two invoices | `Filament/Admin/Resources/Payments/Pages/EditPayment:148` |
 | **SW-005** | open | high | — | Portal invoice View page offers a live Paymob checkout on a WRITTEN-OFF invoice — same file's demo button gets it right | `Filament/Portal/Resources/Invoices/Pages/ViewInvoice:97` |
 | **SW-006** | open | high | — | A DRAFT invoice is publicly readable and publicly payable through `/pay/{token}` — the one invoice surface with no draft filter | `Models/Concerns/Invoice/HasPaymentLink:86` |
 | **SW-007** | ✅ **fixed** `fe04a0f9` | high | — | A unit-owner assessment can never be charged a late fee — the sweep fatals on a null lease every night *(reported by 3 independent agents)* | `Services/LateFeeService:203` |
 | **SW-008** | ✅ **fixed** `67212524` | high | M | PDC clear() settles a written-off invoice — AR relieved twice, bad debt stands, cash double-counted | `Services/PostDatedChequeService:73` |
-| **SW-009** | open | high | M | Two concurrent move-out settlements double-disburse the deposit: depositHeld() is a plain read inside one outer transaction, so the second settle spends and refunds a pot the first already emptied *(reported by 3 independent agents)* | `Services/SettleMoveOutService:81` |
+| **SW-009** | ✅ fixed | high | M | Two concurrent move-out settlements double-disburse the deposit: depositHeld() is a plain read inside one outer transaction, so the second settle spends and refunds a pot the first already emptied *(reported by 3 independent agents)* — the settle took **no lock at all**, and no UNIQUE index can turn the race into a duplicate key — `deposit_transactions.number` is unique, but the two writers get different numbers, so nothing constrains the POT. `Lease::depositHeldForUpdate()` is the locking twin; the LEASE is the contended row because the pot spans three tables, so `ApplyDepositToInvoiceService` locking the invoice was never a guard for it. Order: leases → invoices → deposit_transactions → deposit_applications | `Services/SettleMoveOutService:81` |
+| **SW-009b** | ✅ fixed | high | S | *(found while fixing SW-009 — not in the sweep.)* The same pot has FOUR doors and the sweep only saw the one that locked nothing. `BillSecurityDepositService` locked the lease and then read `depositUnbilledShortfall()` — a PLAIN read — beneath a comment asserting the lock made it a check-then-act guard. Two operators each read the same unbilled shortfall and each raise an invoice: the tenant is asked for **twice the security they agreed**, and `deposits_held` is credited twice on payment. The *Record deposit movement* action capped from the display twin **outside any transaction** | `Services/BillSecurityDepositService:56`, `Filament/Admin/Actions/LeaseActions:246` |
+| **SW-009c** | open | medium | M | **Lock-order cycle `leases` ⇄ `units`, via an OBSERVER.** Three services take units → leases (`LeaseCreationService:45→50`, `LeaseRenewalService:60→62`, `ConvertLeaseToHoldoverService:108→110`); six paths take leases → units the other way, because `LeaseObserver::updated` → `Unit::recomputeStatus()` issues an implicit X lock on `units` (`ExpireLeasesCommand:118`, `LeaseTerminationService:74`, `LeaseExtensionService:69`, `LeaseRentChangeService:100`, `RentEscalationService:179`, `SettleMoveOutService`). A deadlock is detected and rolled back, so the symptom is an intermittent 500 rather than wrong money — but `ConcurrencyPolicy` cannot see the second edge at all, because it registers EXPLICIT locks and this one is an observer-driven UPDATE | `Observers/LeaseObserver:72` |
+| **SW-009d** | open | medium | M | **Lock-order cycle `credit_notes` ⇄ `invoices` ⇄ `credit_note_applications` — three different orders in ONE file.** `applyToInvoice:55→56` is notes→invoices; `reverseAppliedCredit:197→198` runs from `Invoice::updated` while the caller holds an invoices lock, i.e. invoices→applications→notes; `reverseAllApplications:235→241→242` is notes→applications→invoices; `reverseApplication:282→289→295` is applications→invoices→notes. A void racing an apply on the same note/invoice pair deadlocks | `Services/CreditNoteService:51` |
+| **SW-009e** | open | medium | S | **Lock-order cycle `payments` ⇄ `invoices`.** The gateway callback locks the payment then its invoices (`CallbackController:157` → `Payment::refitAllocationsToBalance:396`), and so does `VoidPaymentService:33`; the receipt/allocation paths lock the invoice then its payments (`Payment::assertInvoicesNotOverAllocated:298→326`). A capture landing while an operator edits an allocation on the same invoice deadlocks. Also `PostDatedChequeService::settleOpenInvoices:135` takes a RANGE lock over a tenant's open invoices — the widest in the repo, and the likeliest victim | `Models/Payment:291` |
 | **SW-010** | open | high | XS | VoidPaymentService's spent-surplus guard falls back to the GLOBAL credit balance for a zero-allocation receipt — credit at another mall masks that this receipt's surplus was already spent | `Services/VoidPaymentService:59` |
 | **SW-011** | ✅ **fixed** `77f088a4` | high | M | A PARTIAL write-off is invisible to every collection surface — the tenant is asked for, and can pay, the forgiven part; AR goes negative and even billing:reconcile agrees with the wrong books | `Services/WriteOffInvoiceService:129` |
 | **SW-012** | open | medium | S | Tenant hub's Payments tab scopes through invoices.lease.unit — unit-owner assessment payments vanish for property-restricted operators | `Filament/Admin/RelationManagers/TenantPaymentsRelationManager:35` |
@@ -87,7 +95,7 @@ none, because it reads as current.
 
 ### Billing · leases
 
-*25 open — 9 high, 11 medium, 5 low.*
+*22 open — 6 high, 11 medium, 5 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
@@ -156,7 +164,7 @@ none, because it reads as current.
 
 ### HR · payroll · treasury
 
-*23 open — 5 high, 10 medium, 8 low.*
+*22 open — 4 high, 10 medium, 8 low.*
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|

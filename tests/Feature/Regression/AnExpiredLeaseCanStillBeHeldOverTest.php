@@ -8,6 +8,7 @@ use App\Services\LeaseTerminationService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Tests\Support\LockSpy;
 
 /**
  * The nightly sweep must not make the holdover decision unreachable.
@@ -206,4 +207,30 @@ it('does not let a crafted payload borrow the carve-out to change the deal', fun
         'holdover_from' => CarbonImmutable::now()->toDateString(),
         'expiry_date' => CarbonImmutable::now()->addYears(5)->toDateString(),
     ]))->toThrow(DomainException::class);
+});
+
+it('locks the unit before it makes the shop live again', function () {
+    // `ConcurrencyPolicy::PROVEN` claims this service is driven through a LockSpy test, and for a
+    // week it was not: the entry arrived with the holdover fix and the gate that checks the claim
+    // was a hardcoded list of six in another file, so it went red over correct code and — CI being
+    // paused — stayed red silently. The claim is now backed here.
+    //
+    // The lock is the whole of what stops the SEQUENTIAL double-booking: the 05:15 sweep vacates the
+    // unit, leasing signs a new tenant, and weeks later somebody works the ActionRequired card. Both
+    // leases end up `active` on one shop, both billing, and `Unit::recomputeStatus()` reports
+    // `occupied` either way, so nothing on any screen says anything is wrong.
+    //
+    // `leases` is asserted as well as `units`, because the guard behind the lock has to be a LOCKING
+    // READ or it answers from the snapshot taken before it waited — the F-09 finding, and the reason
+    // `Unit::isActivelyLeasedForUpdate()` exists beside its plain twin.
+    $lease = pastTermLease();
+    $this->artisan('leases:expire')->assertSuccessful();
+
+    $spy = LockSpy::watch(fn () => app(ConvertLeaseToHoldoverService::class)
+        ->convert($lease->fresh(), ['reason' => 'Still trading.']));
+
+    expect($spy->locked('units'))->toBeTrue(
+        'ConvertLeaseToHoldoverService took no lock on `units`. Locked: '.implode(', ', $spy->lockedTables()))
+        ->and($spy->locked('leases'))->toBeTrue(
+            'the double-let guard read `leases` without a lock, so it decides from a stale snapshot');
 });

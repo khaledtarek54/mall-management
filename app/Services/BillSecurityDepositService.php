@@ -46,6 +46,13 @@ class BillSecurityDepositService
             // Locked and re-read INSIDE the transaction: the shortfall is a check-then-act over
             // receipts and settled billings, so two operators (or a double-click) would each read
             // the same outstanding figure and each raise an invoice for it.
+            //
+            // The lock alone was NOT enough, and the comment above said it was. A row lock
+            // serialises the writers; it does not make the read behind it see them — under MySQL's
+            // REPEATABLE READ the second transaction was still answered from the snapshot taken
+            // before it waited. Every figure this block decides or reports from is therefore a
+            // LOCKING read (`…ForUpdate`), which is the same correction `SettleMoveOutService` and
+            // `Unit::isActivelyLeasedForUpdate()` already carry.
             $locked = Lease::query()->lockForUpdate()->findOrFail($lease->getKey());
 
             // What is still UNASKED, not what is unheld. `depositShortfall()` is `agreed − held`,
@@ -54,18 +61,18 @@ class BillSecurityDepositService
             // ask. Measured on lease #3: an open 164,999.91 deposit invoice, and this method
             // happily raised another one for the same amount, which is the "landlord ends up
             // holding twice the deposit" outcome the docblock above says this service prevents.
-            $outstanding = $locked->depositUnbilledShortfall();
+            $outstanding = $locked->depositUnbilledShortfallForUpdate();
 
             if ($outstanding <= 0) {
-                $billed = $locked->depositBilledOutstanding();
+                $billed = $locked->depositBilledOutstandingForUpdate();
 
                 throw new DomainException($billed > 0
                     ? __('admin.deposits.already_billed', [
                         'billed' => number_format($billed, 2),
-                        'held' => number_format($locked->depositHeld(), 2),
+                        'held' => number_format($locked->depositHeldForUpdate(), 2),
                     ])
                     : __('admin.deposits.nothing_outstanding', [
-                        'held' => number_format($locked->depositHeld(), 2),
+                        'held' => number_format($locked->depositHeldForUpdate(), 2),
                     ]));
             }
 

@@ -72,12 +72,31 @@ class ApplyDepositToInvoiceService
         PostingDate::assertOpen($on, __('admin.lease_events.effective'));
 
         return DB::transaction(function () use ($lease, $invoice, $requested, $on): float {
-            // Lock the invoice and re-read inside the transaction: two concurrent settlements would
-            // otherwise each see the full balance and together over-apply the deposit.
+            // The LEASE first, then the invoice — that order both ways round.
+            //
+            // Locking the invoice alone serialises two applications against the SAME invoice and
+            // nothing else. The contended resource here is the deposit POT, which is one per lease:
+            // two applications against two DIFFERENT invoices of one lease lock two different rows
+            // and are not serialised at all. The invoice lock is still right for the balance cap; it
+            // was simply never the guard for the deposit.
+            //
+            // **What this is NOT:** a live standalone hole. `apply()` reaches production only via
+            // `settleOpenAr()` ← `SettleMoveOutService`, which now holds the lease lock — so the
+            // scenario above is already serialised one level up. This is the belt to that braces,
+            // and it is the reason `apply()` can be given a second caller later without the next
+            // author having to rediscover which lock the deposit actually needs.
+            //
+            // Lease before invoice is also the global order (leases → invoices →
+            // deposit_transactions → deposit_applications), which keeps this from deadlocking
+            // against `SettleMoveOutService`, and `Payment`'s guards from deadlocking against both.
+            $lease = Lease::query()->lockForUpdate()->findOrFail($lease->id);
+
             /** @var Invoice $locked */
             $locked = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
 
-            $held = $this->statements->depositHeld($lease);
+            // The LOCKING twin: a plain read here would be answered from the snapshot taken before
+            // we waited, which is the whole class of bug the lock above exists to prevent.
+            $held = $lease->depositHeldForUpdate();
             $amount = round(min(
                 (float) $locked->balance,
                 $held,

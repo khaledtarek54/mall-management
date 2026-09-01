@@ -52,9 +52,17 @@ it('answers identically whether or not the relations are loaded', function () {
         ->findOrFail($lease->id)
         ->depositHeld();
 
+    // The LOCKING twin is the third path, and the one a move-out refund is written from. It
+    // re-derives the pot with its own queries rather than reusing this code — the locks have to be
+    // literal in that method, because `ConcurrencyPolicyConformanceTest` reads the method's own body
+    // and a twin that delegated its locking would pass review and fail the gate. That makes "do all
+    // three agree" a real question rather than a formality, so it is asked here.
+    $forUpdate = Lease::query()->findOrFail($lease->id)->depositHeldForUpdate();
+
     // The premise: a lease holding nothing would make any two implementations agree.
     expect($unloaded)->toBeGreaterThan(0.0);
     expect($loaded)->toBe($unloaded);
+    expect($forUpdate)->toBe($unloaded);
 });
 
 it('answers identically when a deposit has been applied to an invoice', function () {
@@ -75,6 +83,7 @@ it('answers identically when a deposit has been applied to an invoice', function
     // 20,000 received less 5,000 netted against an invoice.
     expect($unloaded)->toBe(15000.0);
     expect($loaded)->toBe($unloaded);
+    expect(Lease::query()->findOrFail($lease->id)->depositHeldForUpdate())->toBe($unloaded);
 });
 
 it('keeps the refund guard reading a FRESH figure, not a cached one', function () {

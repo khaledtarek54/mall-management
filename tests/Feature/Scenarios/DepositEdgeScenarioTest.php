@@ -63,6 +63,16 @@ function dep_balanced(): bool
 it('posts a balanced entry for each of receipt, refund and forfeit', function () {
     $lease = makeLease(makeUnit(makeAsset()));
 
+    // Fund the pot first. The three movements below draw 3,000 each, and since 2026-09-01 a refund
+    // or forfeit larger than what the lease holds is refused at the model — so the receipt in the
+    // loop covers the refund and leaves nothing for the forfeit. That refusal is correct (you cannot
+    // forfeit a deposit you have just returned in full); what it exposed here is a fixture that had
+    // been posting a GL entry for a document no door in the app can produce.
+    DepositTransaction::create([
+        'lease_id' => $lease->id, 'type' => 'receipt', 'amount' => 6000,
+        'transaction_date' => now()->toDateString(), 'method' => 'bank', 'status' => 'recorded',
+    ]);
+
     $types = ['receipt', 'refund', 'forfeit'];
     $deposits = collect($types)->map(fn (string $type) => DepositTransaction::create([
         'lease_id' => $lease->id, 'type' => $type, 'amount' => 3000,

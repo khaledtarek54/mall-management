@@ -15,6 +15,7 @@ use App\Support\ConcurrencyPolicy;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\File;
 use Tests\Support\LockSpy;
 
 /**
@@ -188,17 +189,45 @@ it('ignores a query that takes no lock — the control that stops this passing f
         ->and($spy->locked('invoices'))->toBeFalse();
 });
 
-it('names a real service for every PROVEN entry', function () {
+it('drives every PROVEN entry through a real LockSpy test, wherever that test lives', function () {
     // The registry's PROVEN tier claims these are driven through a LockSpy test. If an entry is
     // added without one, the tier means nothing — it becomes a second REGISTERED with a nicer name.
-    $covered = ['LeaseCreationService', 'LateFeeService', 'VoidInvoiceService',
-        'ApplyTenantCreditService', 'GeneratePreventiveWorkOrdersService', 'FacilityWorkOrderService'];
+    //
+    // **This was a hardcoded list of six, and it assumed the test lived in THIS file.** Both halves
+    // were wrong the moment a PROVEN service got its LockSpy coverage somewhere else:
+    // `ConvertLeaseToHoldoverService` (2026-09-01) and `SettleMoveOutService` (2026-09-01) each
+    // arrived with a test in their own regression file, and the gate went red over correct code —
+    // then STAYED red, because CI is paused and a red push here is silent rather than a red check.
+    // A gate whose failure means "somebody put the test in a different file" is one people learn to
+    // ignore, which is worse than not having it.
+    //
+    // Derived now, the way every other registry in this project is: the coverage is whatever the
+    // test tree actually contains. `LockSpy::watch` is the seam — a file that names the service and
+    // never watches anything is a test of something else that happens to mention it.
+    $watchers = collect(File::allFiles(base_path('tests')))
+        ->filter(fn ($f): bool => $f->getExtension() === 'php')
+        // COMMENTS STRIPPED, and that is not a detail: the paragraph above names
+        // `ConvertLeaseToHoldoverService`, so on the first run this sweep matched its own prose and
+        // reported the entry as covered — a gate turned green by the sentence explaining it. Same
+        // trap `PdfDocumentConformanceTest` hit from the other direction, where a docblock made a
+        // gate fire on correct code.
+        ->map(fn ($f): string => sourceWithoutComments($f->getPathname()))
+        ->filter(fn (string $src): bool => str_contains($src, 'LockSpy::watch'))
+        ->values();
 
-    $claimed = collect(array_keys(ConcurrencyPolicy::PROVEN))
-        ->map(fn (string $p): string => basename($p, '.php'))
+    // The premise, asserted before anything is concluded from it: a sweep that found no watchers at
+    // all would report every PROVEN entry as uncovered, or — if the assertion were inverted — none.
+    expect($watchers)->not->toBeEmpty('no LockSpy test files found — the sweep is measuring nothing');
+
+    $uncovered = collect(array_keys(ConcurrencyPolicy::PROVEN))
+        ->map(fn (string $path): string => basename($path, '.php'))
+        ->reject(fn (string $service): bool => $watchers->contains(
+            fn (string $src): bool => str_contains($src, $service)
+        ))
         ->sort()->values()->all();
 
-    expect($claimed)->toBe(collect($covered)->sort()->values()->all(),
-        'PROVEN changed but this file did not. Every PROVEN entry needs a test above that drives '.
-        'its service and asserts the lock, or it is only count-pinned and belongs in REGISTERED.');
+    expect($uncovered)->toBe([],
+        'These files are in ConcurrencyPolicy::PROVEN but no test anywhere calls LockSpy::watch '.
+        'while naming them. Either drive the service through a LockSpy test, or move the entry to '.
+        'REGISTERED — where it is honestly described as count-pinned only.');
 });

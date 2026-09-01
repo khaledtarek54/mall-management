@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Support\LeaseEventNarrative;
 use App\Models\DepositTransaction;
 use App\Models\Lease;
 use App\Models\LeaseEvent;
+use App\Support\LeaseEventNarrative;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -79,6 +79,24 @@ class SettleMoveOutService
         // reasonably concluded that nothing had happened. A final account is one act; it commits
         // whole or not at all.
         return DB::transaction(function () use ($lease, $deductions, $settlementDate, $data) {
+            // ── THE LEASE, LOCKED, AS THE FIRST STATEMENT IN THE TRANSACTION ────────────────────
+            //
+            // This service took no lock of any kind, and no UNIQUE index can turn the race into a
+            // duplicate-key error the way the unit double-booking's accidentally did.
+            // `deposit_transactions.number` IS unique — but `AllocatesDocumentNumber` hands the two
+            // writers DIFFERENT numbers under its own cache lock, so that index can never fire on
+            // this. Nothing constrains THE POT, which is the quantity being raced. Two
+            // settlements on one move-out each read the whole pot and each wrote a refund for it:
+            // the deposit disbursed twice, `depositHeld()` negative by its full value, and
+            // `deposits_held` in the GL saying a tenant who has left owes the landlord money.
+            //
+            // The LEASE is the contended row, because the pot is one per lease and spans three
+            // tables — locking any one of them would leave the other two unserialised. It is also
+            // the head of the global order (leases → invoices → deposit_transactions →
+            // deposit_applications), which is what keeps an ordinary receipt from deadlocking
+            // against a move-out.
+            $lease = Lease::query()->lockForUpdate()->findOrFail($lease->id);
+
             // ── "IS THERE ANYTHING TO SETTLE" IS ASKED BEFORE THE ARREARS, NOT AFTER ────────────
             //
             // This check used to live below, against the deposit as it stood AFTER the arrears had
@@ -92,7 +110,7 @@ class SettleMoveOutService
             // service applied the deposit across five invoices, left 11,443.64 of residual debt,
             // and then threw "There is no deposit held on this lease to settle" — so that lease
             // could never be closed at all.
-            $heldAtEntry = round((float) $lease->depositHeld(), 2);
+            $heldAtEntry = round((float) $lease->depositHeldForUpdate(), 2);
             $deducted = round((float) $deductions->sum('amount'), 2);
 
             if ($heldAtEntry <= 0 && $deducted <= 0) {
@@ -110,8 +128,14 @@ class SettleMoveOutService
 
             // Recomputed AFTER the arrears are settled: the deposit held has shrunk by exactly what
             // they consumed, so the refund below cannot spend the same money twice.
-            $statement = $this->statements->for($lease->fresh(), $settlementDate);
-            $held = (float) $statement['deposit_held'];
+            //
+            // This is the read the refund is WRITTEN from, not a display figure, so it goes through
+            // the locking twin — and it is PASSED INTO the statement rather than patched onto the
+            // returned array. Three keys are derived from it (`deposit_shortfall`, `net_to_tenant`,
+            // `residual_debt`) and two are frozen onto the immutable lease event, so patching left
+            // the signed record stating a net-to-tenant computed from a different deposit balance.
+            $held = round((float) $lease->depositHeldForUpdate(), 2);
+            $statement = $this->statements->for($lease->fresh(), $settlementDate, $held);
 
             // A deduction cannot be funded by a deposit the arrears have already spent. Refused
             // rather than clamped, and the message says what to do instead — the damage is still

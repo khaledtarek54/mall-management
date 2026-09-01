@@ -75,6 +75,17 @@ final class ConcurrencyPolicy
         'App\\Models\\Unit::isActivelyLeasedForUpdate' => 'Two leases signed on the same vacant unit at once. The unit row lock serialises the '.
             'writers; only a locking read here sees the lease the other one just committed.',
 
+        'App\\Models\\Lease::depositHeldForUpdate' => 'The deposit pot, which is one per lease and spans THREE tables '.
+            '(recorded movements, deposit applications, and the settled part of any billed deposit). A move-out '.
+            'refund is written from this figure and no UNIQUE index catches a race on it — `number` is unique, but '.
+            'the two writers are handed different ones, so nothing constrains the POT — and so two '.
+            'settlements each read the whole pot and each disburse it.',
+
+        'App\\Models\\Lease::depositBilledOutstandingForUpdate' => 'A SECOND invoice for a deposit already asked for. `BillSecurityDepositService` locks '.
+            'the lease and then decides how much is still unbilled — a comment there claimed the lock was the '.
+            'guard, which is the premise this codebase has already disproved twice. Two operators each raise an '.
+            'invoice, the tenant owes twice the agreed security, and `deposits_held` is credited twice on payment.',
+
         'App\\Models\\Payment::assertInvoicesNotOverAllocated' => 'A second receipt settling an invoice another channel has already paid. All four '.
             'settlement channels are summed here, and the guard is only as strong as its weakest term.',
 
@@ -83,6 +94,12 @@ final class ConcurrencyPolicy
     ];
 
     public const PROVEN = [
+        'app/Services/SettleMoveOutService.php' => [
+            'locks' => 1,
+            'protects' => 'The LEASE, as the transaction first statement. The deposit pot spans three tables, so '.
+                'locking any one of them leaves the other two unserialised — and this service locked nothing at '.
+                'all, so two move-outs on one lease each refunded the whole deposit.',
+        ],
         'app/Services/ConvertLeaseToHoldoverService.php' => [
             'locks' => 1,
             'protects' => 'The unit. Resuming an expired lease makes it ACTIVE on that shop again, so '.
@@ -180,7 +197,7 @@ final class ConcurrencyPolicy
         // allocation, because under REPEATABLE READ a plain read is served from the snapshot taken
         // before the wait. Measured with two processes: the guard passed on a fully-settled invoice.
         'app/Models/Payment.php' => 10,
-        'app/Services/ApplyDepositToInvoiceService.php' => 1,
+        'app/Services/ApplyDepositToInvoiceService.php' => 2,
         'app/Services/Banking/MatchBankStatementLineService.php' => 1,
         // One row lock on the lease, re-read inside the txn. The shortfall is check-then-act over
         // receipts and settled billings, so two operators (or one double-click) would each read the
@@ -240,6 +257,15 @@ final class ConcurrencyPolicy
 
         // ── Leasing and space ────────────────────────────────────────────────────────────────
         'app/Services/AssignRentableItemService.php' => 1,
+        // The "Record deposit movement" action: a refund/forfeit is a WRITE against the deposit
+        // pot, and its cap was a check-then-act on the display twin outside any transaction — the
+        // same defect SettleMoveOutService was fixed for, one action away.
+        'app/Filament/Admin/Actions/LeaseActions.php' => 1,
+        // Four: the deposit pot spans invoices, deposit_transactions and deposit_applications, and
+        // `depositHeldForUpdate()` must pin all three or the two it did not are free to move. The
+        // fourth pins the deposit-BILLING invoices, so "how much is still unasked for" cannot be
+        // answered from before a concurrent invoice was raised.
+        'app/Models/Lease.php' => 4,
         // The locking read behind the double-booking guard. `LeaseCreationService` locks the UNIT
         // row (registered in PROVEN); this is the read of `leases` that the lock exists to make
         // authoritative, and without it the guard looks past the very lease it waited for.

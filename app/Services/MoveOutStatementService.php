@@ -47,11 +47,18 @@ class MoveOutStatementService
      *   residual_debt: float
      * }
      */
-    public function for(Lease $lease, ?CarbonImmutable $asOf = null): array
+    public function for(Lease $lease, ?CarbonImmutable $asOf = null, ?float $depositHeld = null): array
     {
         $asOf = ($asOf ?? CarbonImmutable::now())->startOfDay();
 
-        $depositHeld = $this->depositHeld($lease);
+        // `$depositHeld` is supplied by the SETTLEMENT, which must read the pot under a lock — the
+        // figure a refund is written from cannot come from the display twin. It is a parameter
+        // rather than something the caller overrides on the returned array, because three keys are
+        // DERIVED from it here (`deposit_shortfall`, `net_to_tenant`, `residual_debt`) and two of
+        // those are frozen onto the immutable lease event. Overriding the array afterwards left the
+        // signed document stating a net-to-tenant computed from a deposit balance the same document
+        // said was different — one figure in, one derivation, or the statement contradicts itself.
+        $depositHeld = $depositHeld ?? $this->depositHeld($lease);
         $contractual = (float) ($lease->security_deposit ?? 0);
 
         $openInvoices = Invoice::query()

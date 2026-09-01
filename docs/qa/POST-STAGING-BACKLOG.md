@@ -144,6 +144,16 @@ round changed the reading.
   716 stale queued jobs and 5 E2E rows from 2026-08-23 are what turn the local health queue row red.
 - **D2-13 / H3** — measure the leading-wildcard `LIKE` search on a posture-B staging box before
   optimising anything. H3's own instruction, and staging is the first place it can be measured.
+- **OPS-06** — `vendor/bin/pint --test` fails on **30 files** and has for a long time: files nobody
+  touched this cycle are dirty at HEAD (`app/Support/MorphMap.php`, `Navigation.php`,
+  `ReportCatalogue.php`), so this is drift rather than anything a sweep introduced. `composer lint`
+  exists and CI is paused, so nothing has enforced it. Almost all of it is `ordered_imports` /
+  `unary_operator_spaces`. One `composer fix` run closes it — do it on a QUIET tree, because it
+  rewrites files across the whole app and would collide with anything in flight.
+- **OPS-07** — the MySQL QA baseline is **stale** and two `tests/Mysql` cases fail on it for reasons
+  unrelated to any code: `leases.requires_sales_reporting` and the `facility_work_order_comments`
+  table are both missing from `docs/qa/scripts/baseline.sql`. Rebuild with `composer qa:baseline`.
+  Until then the tier reports two red rows that read as product defects and are not.
 
 ---
 

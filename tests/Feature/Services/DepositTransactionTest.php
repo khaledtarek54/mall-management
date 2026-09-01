@@ -47,6 +47,11 @@ it('journalizes a receipt as Dr Bank / Cr Deposits Held', function () {
 });
 
 it('journalizes a refund as Dr Deposits Held / Cr Bank', function () {
+    // The receipt first: a refund against a lease that never received a deposit is refused at the
+    // model (2026-09-01) and, more to the point, has been unreachable through every door since —
+    // there is no importer and no console writer, so it was a state only a fixture could produce.
+    makeDeposit($this->lease, ['type' => 'receipt']);
+
     $entry = $this->poster->post(makeDeposit($this->lease, ['type' => 'refund'])->fresh());
 
     $byAccount = $entry->lines->keyBy('ledger_account_id');
@@ -55,6 +60,8 @@ it('journalizes a refund as Dr Deposits Held / Cr Bank', function () {
 });
 
 it('journalizes a forfeit as Dr Deposits Held / Cr Misc Income', function () {
+    makeDeposit($this->lease, ['type' => 'receipt']);
+
     $entry = $this->poster->post(makeDeposit($this->lease, ['type' => 'forfeit'])->fresh());
 
     $byAccount = $entry->lines->keyBy('ledger_account_id');

@@ -557,6 +557,78 @@
 > The direct-receipt path is unchanged and still posts its own entry: both rails feed one
 > `depositHeld()`.
 
+> **⚠️ The pot had no locking definition, so a move-out could disburse it twice (fixed 2026-09-01).**
+> `SettleMoveOutService::settle()` took **no lock of any kind**, and unlike the unit double-booking
+> no UNIQUE index turns the race into a duplicate-key error: `deposit_transactions.number` is unique,
+> but the two writers are handed different numbers, so nothing constrains THE POT. Two settlements on
+> one move-out each read the whole pot and each wrote a refund for it: the deposit disbursed twice,
+> `depositHeld()` negative by its full value, and `deposits_held` in the GL saying a tenant who has
+> left owes the landlord money.
+>
+> **`Lease::depositHeldForUpdate()` is the locking twin** — the pattern `Unit::isActivelyLeased()` /
+> `isActivelyLeasedForUpdate()` established for exactly this. The plain twin stays: the leases list,
+> the lease page and the portal infolist read it on render, and taking row locks per row per page is
+> a cost with no writer waiting on it. A lock serialises writers; it does not make the guard behind
+> it SEE them — under REPEATABLE READ a plain read is answered from the snapshot taken before the
+> wait, which is why a locked settlement still needs a locking READ.
+>
+> **The LEASE is the contended row**, because the pot is one per lease and spans three tables
+> (recorded movements, deposit applications, and the settled part of any billed deposit). Locking any
+> one of them leaves the other two free to move — which is why `ApplyDepositToInvoiceService` locking
+> the INVOICE was never a guard for this: two applications against two *different* invoices of one
+> lease locked two different rows and were not serialised at all. It now takes the lease first.
+>
+> **Lock order is load-bearing: leases → invoices → deposit_transactions → deposit_applications.**
+> `Payment`'s two over-allocation guards lock invoices and then the deposit applications for those
+> invoices, so taking them the other way round here would deadlock an ordinary receipt against a
+> move-out. Nothing in `app/` locks an invoice and then a lease, so putting the lease at the head
+> introduces no cycle — verified across every file in `ConcurrencyPolicy::expected()` that takes
+> more than one lock (28 of the 81 registered).
+>
+> The twin re-derives the pot with its own queries rather than reusing the display path, because the
+> locks must be **literal in the method**: `ConcurrencyPolicyConformanceTest`'s `AUTHORITATIVE_GUARDS`
+> check reads that method's own body, so a twin that delegated its locking would pass review and fail
+> the gate. That makes "do the two agree" a real question, so
+> `DepositHeldIsTheSameFigureLoadedOrNotTest` now asks it of all three paths across all three terms.
+> (`AMoveOutCannotDisburseTheDepositTwiceTest` proves which table was locked via `LockSpy`;
+> `tests/Mysql/DepositPotSerialisesTest` proves two connections actually serialise, which SQLite
+> cannot show because it compiles `lockForUpdate()` to nothing.)
+>
+> **The pot has FIVE doors and the sweep that found this one was looking for services that locked
+> NOTHING.** The other four: `ApplyDepositToInvoiceService` (above), the **Record deposit movement**
+> action — a cap read from the display twin outside any transaction — `BillSecurityDepositService`,
+> which locked the lease and then asked `depositUnbilledShortfall()` beneath a comment stating that
+> the lock made it a check-then-act guard. It does not, and a comment asserting a safety property
+> that does not hold is worse than none: two operators each read the same unbilled shortfall and each
+> raise an invoice, so the tenant is asked for **twice the security they agreed** and `deposits_held`
+> is credited twice the day they pay. `depositUnbilledShortfallForUpdate()`,
+> `depositShortfallForUpdate()` and `depositBilledOutstandingForUpdate()` mirror the display trio
+> one-for-one, so a refusal MESSAGE quotes the figures its DECISION was made from — *"you have
+> already billed 0.00"* is a worse refusal than none.
+>
+> …and **the deposit register's own Create and Edit pages, which had no cap at all** — the fifth door,
+> and the only one that never had even the check-then-act version. `DepositTransactionForm` caps
+> `amount` at `minValue(0.01)` and nothing else, `ListDepositTransactions` mounts a plain
+> `CreateAction`, and both are gated on `deposit_transactions.create` / `.edit` — the SAME permissions
+> the lease action gates on. So the operator refused a 500,000 refund against a 100,000 pot on the
+> lease page could open the register and save it, and edit it freely afterwards, because the receipt
+> freeze fires only for `type === 'receipt'`. **The cap now lives on the MODEL** (`DepositTransaction::saving`),
+> for the reason `ValueSets::guard()` is one wildcard listener rather than a trait on 39 models: a
+> sixth door is covered by existing rather than by being remembered.
+>
+> It measures against the pot **less this row's own persisted contribution**
+> (`potContributionAsPersisted()`, read from `getOriginal()`). Without that subtraction, correcting a
+> recorded 30,000 refund up to 90,000 is measured against the 70,000 left *after itself* and a
+> legitimate restatement is refused — the worse direction, because the row is lost and it reads as a
+> bug rather than a rule. A draft contributes nothing, so a draft becoming recorded correctly gets no
+> add-back. The read is deliberately PLAIN: the hook also fires inside `SettleMoveOutService`, which
+> has already pinned all three tables under the lease lock, and a row lock taken from a model hook
+> that often runs with no transaction around it is released on the next statement — worse than none,
+> because it reads as protection. The AUTHORITATIVE guard is the caller's; this is the backstop that
+> makes the invariant true of the ROW rather than of one screen.
+>
+> **Enumerate the doors onto a pot by grepping the pot, never from the diff that fixed one of them.**
+
 > **⚠️ …but the REGISTER only ever read one rail (fixed 2026-08-18).** Reported from the field:
 > *"I paid the security deposit invoice and no security deposit record is done."* Correct, and the
 > money was never the problem — the cycle ties out exactly (`Dr AR / Cr Deposits Held` on issue,

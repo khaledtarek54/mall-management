@@ -36,6 +36,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * **Everything you can DO to a lease, defined once.**
@@ -235,28 +236,56 @@ class LeaseActions
 
                     // Giving back more than is held would post a NEGATIVE liability — the landlord
                     // recorded as owing the tenant money it never took.
-                    if (in_array($data['type'], ['refund', 'forfeit'], true) && $amount > $record->depositHeld() + 0.005) {
-                        Notification::make()
-                            ->danger()
-                            ->title(__('admin.deposits.exceeds_held', [
-                                'held' => 'EGP '.number_format($record->depositHeld(), 2),
-                            ]))
-                            ->send();
+                    //
+                    // IN A TRANSACTION, WITH THE LEASE LOCKED AND THE POT READ UNDER THAT LOCK. This
+                    // was a check-then-act on the display twin, outside any transaction — the same
+                    // defect `SettleMoveOutService` was fixed for, one action away. Two refunds, or
+                    // a refund racing a move-out settlement, each read the whole pot, each passed,
+                    // and each wrote. No UNIQUE index catches it: `deposit_transactions.number` is
+                    // unique, but the two writers are handed DIFFERENT numbers, so nothing in the
+                    // schema constrains THE POT — the quantity actually being raced.
+                    $movement = DB::transaction(function () use ($record, $data, $amount) {
+                        $lease = Lease::query()->lockForUpdate()->findOrFail($record->id);
 
+                        // Read the POT only on the branch that draws on it. A RECEIPT is money
+                        // arriving and is not a draw, and `depositHeldForUpdate()` takes a
+                        // `FOR UPDATE` range lock over every invoice on the lease — so hoisting it
+                        // above this test would make recording a receipt contend with the monthly
+                        // billing run for that lease, which it has never had any reason to.
+                        // (The old code got this for free from PHP's short-circuit; hoisting it was
+                        // an unintended behaviour change, caught in review.)
+                        if (in_array($data['type'], ['refund', 'forfeit'], true)) {
+                            $held = $lease->depositHeldForUpdate();
+
+                            if ($amount > $held + 0.005) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title(__('admin.deposits.exceeds_held', [
+                                        'held' => 'EGP '.number_format($held, 2),
+                                    ]))
+                                    ->send();
+
+                                return null;
+                            }
+                        }
+
+                        return DepositTransaction::create([
+                            'lease_id' => $record->id,
+                            'tenant_id' => $record->tenant_id,
+                            'asset_id' => $record->unit?->asset_id,
+                            'type' => $data['type'],
+                            'status' => 'recorded',
+                            'method' => $data['type'] === 'forfeit' ? null : ($data['method'] ?? null),
+                            'amount' => $amount,
+                            'transaction_date' => $data['transaction_date'],
+                            'notes' => $data['notes'] ?? null,
+                        ]);
+                    });
+
+                    // The guard above refused, and said so in its own notification.
+                    if ($movement === null) {
                         return;
                     }
-
-                    $movement = DepositTransaction::create([
-                        'lease_id' => $record->id,
-                        'tenant_id' => $record->tenant_id,
-                        'asset_id' => $record->unit?->asset_id,
-                        'type' => $data['type'],
-                        'status' => 'recorded',
-                        'method' => $data['type'] === 'forfeit' ? null : ($data['method'] ?? null),
-                        'amount' => $amount,
-                        'transaction_date' => $data['transaction_date'],
-                        'notes' => $data['notes'] ?? null,
-                    ]);
 
                     Notification::make()
                         ->success()
