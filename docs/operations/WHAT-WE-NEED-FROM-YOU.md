@@ -200,10 +200,108 @@ built and tested; what is missing is your numbers, your file and your two decisi
 
 ---
 
-## Questions we have NOT asked here
+## Part 5 · The other decisions that block go-live
+## خامسًا · بقية القرارات التي توقف بدء التشغيل
 
-Deliberately. There is a longer list of things that would change what the system does — tax-exempt
-tenants, tenants who withhold tax from rent, whether to generate the lease contract as a PDF,
-whether a tenant-caused repair is recharged. **None of them blocks go-live**, and asking twenty
-questions at once is how the four that matter get lost. They are in
-[STATUS.md §5](../STATUS.md) and we will bring them in a second pass.
+Parts 1–4 are the ones with deadlines. These have no deadline but still block a real launch, and
+every one of them needs your accountant or your management — none is a technical choice.
+
+| # | Question | السؤال | Your answer |
+|---|---|---|---|
+| **A1.x** | **Sign off the tax treatment:** which supplies are taxable, at what rate, from when — including the one **Law 157/2025** forces: **is base rent now taxable?** | اعتماد المعالجة الضريبية، ومنها: هل أصبح الإيجار الأساسي خاضعًا للضريبة؟ | `__________` |
+| **C-TAX** | **Which supplies carry stamp tax (ضريبة الدمغة) or schedule tax (ضريبة الجدول)?** | أي التوريدات تحمل ضريبة الدمغة أو ضريبة الجدول؟ | `__________` |
+| **A9.1 / A9.2** | **Sign off the posting map** — do all 52 roles point at the right account in your chart? And is the **5% marketing levy** revenue, or a restricted fund? | اعتماد خريطة الترحيل · ورسم التسويق ٥٪: إيراد أم صندوق مخصص؟ | `__________` |
+| **A2.7** | **Are invoices issued under Eltizam's TRN, or each owner's?** | هل تصدر الفواتير برقم التزام الضريبي أم برقم كل مالك؟ | `__________` |
+| **A8.3** | **What history migrates, how many years, and can you send sample files?** | ما التاريخ الذي سيُرحَّل، وكم سنة، وهل يمكن إرسال عينات؟ | `__________` |
+| **B.1 / B.3–B.5** | **How is Eltizam paid, and whose bank account does tenant money land in?** Fixed fee, % of collected, or % of gross? Rent only, or all income? | كيف تُحتسب أتعاب التزام، وفي أي حساب بنكي يدخل مال المستأجرين؟ | `__________` |
+| **C-PAY** | **The statutory payroll rates** — salary tax and both social-insurance shares. | النسب القانونية للأجور: ضريبة المرتبات وحصتا التأمينات. | `__________` |
+| **C4.2** | **Target go-live date, parallel-run period, and who validates the migrated data on your side.** | تاريخ بدء التشغيل، ومدة التشغيل المتوازي، ومن يعتمد البيانات المرحَّلة لديكم. | `__________` |
+
+> **Two notes.** The payroll rates ship at **0 · 0 · 0** on purpose — software should not start
+> deducting money from people's salaries on an assumption. And **two owners with two VAT
+> registrations cannot share one install** (A2.7); if that is your situation, tell us early.
+
+---
+
+## Part 6 · Confirm a default — silence ships it
+## سادسًا · تأكيد الإعدادات الافتراضية — الصمت يعني الموافقة
+
+**You do not need to reply to this section.** Everything below is already built and will ship exactly
+as described. Read it, and tell us only about the lines you want **changed**. Each is a setting, not
+a rebuild.
+
+| # | Ships as | ✓ or change |
+|---|---|---|
+| A1.2–A1.6 | Percentage rent, CAM true-up, late fees and the marketing levy are **VAT-exempt**; levy is **5% of base rent only** | |
+| A1.7 | Late fee **2%** of outstanding · **minimum 50 EGP** · **7-day grace** · charged **once** · **no cap** | |
+| A1.8 | **Security deposit 3 months** · **escalation 7% fixed** (a CPI-indexed option exists) | |
+| A1.9 | Percentage rent on an **artificial breakpoint**: (sales − threshold) × rate | |
+| A1.10 | **Payment terms 7 days** from issue | |
+| A3.2 | **Accrual, revenue recognised at issue.** Straight-line rent (EAS 49) is built and **off** | |
+| A3.4 | A closed period blocks back-dated posting | |
+| A3.8 | **Reporting per property. Consolidated is NOT reachable today** — the books support it; the screens do not | |
+| A5.2 | Payroll withholdings split into their own payable accounts | |
+| A6.1 | **Egyptian tax depreciation 5 / 10 / 25 / 50%** (Law 91/2005 art. 25) | |
+| A6.2 / A9.6 | Monthly depreciation run · bilingual payslips · per-asset useful life and salvage | |
+| A7.2 / A7.5 | Deposit is a refundable liability with **no VAT**; discounts go through credit notes with approval | |
+| A9.3 / A9.4 | CAM presented **gross**; inventory at per-movement unit cost (FIFO on receipts) | |
+| A8.1 / A8.2 | 23 report pages · CSV + XLSX · saved views · scheduled email | |
+| B.2 / B.9 | Co-owners with % and dates; the owner has oversight and requests, and approves nothing before Eltizam acts | |
+| B2.3–B2.5 | Unit-owner **صيانة** is property revenue; no operator approval on a resale | |
+| C1.1 | Unit types: retail · F&B · wellness · service · kiosk · office · storage | |
+| C1.2–C1.6 | Renewal · escalation · early termination · **full** fit-out grace (rent, service, CAM and levy all suppressed) · manual sales declarations | |
+| C2.1 / C2.2 | CAM pool contents and annual true-up; utilities **at cost**, no markup, no cap | |
+| C2.3 | The SLA hour targets the breach scan alerts on | |
+| C2.6 / C3.5 / C3.9 | Approval bands **1,000 / 10,000 EGP**; delete is super-admin only and **money records are never deletable** | |
+| C3.3 / C3.4 | Warehouse categories are free text; one reorder level and quantity per item | |
+| D.4 | Daily backups, weekly restore drill; a leaver is **deactivated**, never deleted | |
+| E.3 | *"Admin (per mall) — full access"* does **not** include deleting records | |
+
+---
+
+## Part 7 · Do you need this? — yes means new work
+## سابعًا · هل تحتاجون هذا؟ — نعم تعني عملًا جديدًا
+
+**None of these blocks go-live.** Each is a real feature we have deliberately not built, because
+building the wrong one is worse than building none. Answer **yes** or **no** — a *yes* becomes
+scheduled work with an estimate.
+
+| # | Question | السؤال | Yes / No |
+|---|---|---|---|
+| **A2.6** | **Tax-exempt tenants** — free zone, government, NGO, embassy? Today taxability is one answer for the whole portfolio | مستأجرون معفون من الضريبة؟ | |
+| **A2.1** | **Do tenants withhold tax from your rent** and issue certificates you must track? *(The supplier side is built; the tenant side is not — a tenant who withholds looks like an underpayment for ever)* | هل يخصم المستأجرون ضريبة من الإيجار ويصدرون شهادات؟ | |
+| **A3.3 / A7.3** | **Should rent billed in advance be deferred** and recognised over the period? | هل يُؤجَّل الإيجار المحصَّل مقدمًا ويُعترف به على مدى الفترة؟ | |
+| **A7.1** | **Should security cheques be their own class**, separate from payment cheques? | هل تُصنَّف شيكات الضمان تصنيفًا مستقلًا؟ | |
+| **A9.5** | **Accrue a leave provision monthly?** | هل يُحتسب مخصص إجازات شهريًا؟ | |
+| **A9.8** | **A salary-tax return**, beside the VAT return and Form 41? | إقرار ضريبة مرتبات؟ | |
+| **C1.8** | **Generate the lease contract as a PDF**, with signature tracked in-system? *(Uploading a signed lease already works)* | إصدار عقد الإيجار من النظام مع تتبع التوقيع؟ | |
+| **C2.5** | **Recharge a tenant-caused repair to that tenant?** If yes: VATable or cost recovery? Parts only, or parts + labour + the vendor's invoice? | إعادة تحميل الإصلاح على المستأجر المتسبب؟ | |
+| **C2.7** | **Must a vendor bill back an externally-bought part before the job can close?** | هل يجب فوترة القطع المشتراة خارجيًا قبل إغلاق أمر العمل؟ | |
+| **C3.2** | **Inter-mall stock transfers as ONE action?** *(Same-property transfers already work. Cross-property is refused by design, because value would cross the property boundary with no journal entry — the documented path is adjust-out then receive-in)* | تحويل مخزون بين المولات كإجراء واحد؟ | |
+| **C3.6** | **More than one approver for a large spend?** Today it is a single-level band per module | أكثر من معتمِد للمصروفات الكبيرة؟ | |
+| **C3.8** | **Per service: billed out or absorbed as a unit expense** — plus an annual report either way | لكل خدمة: تُفوتر أم تُحمَّل كمصروف؟ | |
+| **D.2** | **Paymob card payments — activate now or later?** *(Built and switched off; sandbox certified)* | مدفوعات البطاقات عبر Paymob: الآن أم لاحقًا؟ | |
+| **C4.3** | **Training format, and which roles?** | شكل التدريب وأي الوظائف؟ | |
+
+---
+
+## Part 8 · Two sentences we cannot build from
+## ثامنًا · جملتان لم نستطع البناء عليهما
+
+Each needs **one clarifying sentence** — we stopped rather than guess.
+
+| # | The wording | Why we stopped | Your answer |
+|---|---|---|---|
+| **E.1** | FR-REQ-01, *"delegation (from/to)"* | No such concept exists anywhere else in the system or in the rest of the requirements | `__________` |
+| **E.2** | FR-PPM-01, *"Fixed maintenance"* | The requirements say **both** one-time and periodic, in different sentences. We built periodic | `__________` |
+
+---
+
+## How to return this
+
+Any way that suits you — reply in the table, mark up a printed copy, or send the answers in a
+message. **Parts 1–4 first**; the rest can follow. Part 6 needs nothing unless you want a line
+changed.
+
+> بأي طريقة تناسبكم — بالرد في الجدول أو على نسخة مطبوعة أو برسالة. **الأجزاء ١–٤ أولًا**،
+> وما بعدها يمكن أن يتبع. والجزء السادس لا يحتاج ردًا إلا إذا أردتم تغيير سطر منه.

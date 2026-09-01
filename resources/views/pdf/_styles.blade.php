@@ -505,4 +505,20 @@
     .num { text-align: {{ $end }}; white-space: nowrap; }
     .start { text-align: {{ $start }}; }
     .end { text-align: {{ $end }}; }
+
+    /*
+    | NOTHING IN A DOCUMENT IS EVER ITALIC, AND THAT IS A CORRECTNESS RULE.
+    |
+    | IBM Plex Sans Arabic ships no italic face, and mpdf does not degrade to the upright one — it
+    | falls through to a font with NO ARABIC COVERAGE, so «فاتورة ضريبية» inside an `<em>` renders
+    | as a row of empty boxes while the Latin beside it slopes correctly. Measured on mpdf 8.x:
+    | plain and bold render, `<em>`, `<i>` and `font-style: italic` all lose the script entirely.
+    | Declaring `I`/`BI` in `PdfDocument::fontData()` does NOT fix it — that was tried and
+    | reverted rather than shipped as a fix that does not fix.
+    |
+    | No shipped template used italic when this was found, so the bug was latent. This makes it
+    | unreachable: emphasis becomes WEIGHT, which is also the right typographic answer, because
+    | Arabic has no italic tradition to borrow.
+    */
+    em, i, cite, dfn, var, address { font-style: normal; font-weight: 600; }
 </style>
