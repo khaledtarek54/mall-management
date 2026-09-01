@@ -33,6 +33,7 @@ return [
         'immutable_disbursement' => 'A :status disbursement is immutable.',
         'immutable_cheque' => 'A :status post-dated cheque is immutable.',
         'invoice_no_return_to_draft' => 'An issued invoice cannot be returned to draft — void it or issue a credit note instead.',
+        'invoice_write_off_is_an_act' => 'An invoice cannot be marked written off by editing its status — use the Write off action, which records the reason and posts the bad debt.',
         'credit_note_no_return_to_draft' => 'A finalized credit note cannot be returned to draft — void it and issue a new one instead.',
         'credit_note_still_applied' => 'Cannot delete a credit note whose credit is still applied — reverse the application first, then delete.',
         'bill_pr_other_property' => 'The linked purchase request belongs to a different property than the bill.',

@@ -586,6 +586,28 @@ class Invoice extends Model
                 throw new \DomainException(__('admin.actions.cancel_blocked_captured_cash'));
             }
 
+            // A write-off is an ACCOUNTING ACT, not a status. `WriteOffInvoiceService` posts
+            // Dr Bad Debt / Cr AR against an `InvoiceWriteOff` row, records the reason, refuses a
+            // closed period and enforces the outstanding cap — and it is gated on `invoices.void`.
+            // The status Select on this form needs only `invoices.edit` and offered `written_off`
+            // as a plain option, so a role deliberately denied the write-off could produce its
+            // whole effect without any of it: no bad-debt entry, no reason, no row, and live AR
+            // gone from the overdue sweep, the late-fee sweep, the dunning ladder and both payment
+            // pickers. It was also a one-way door — "Write off" hides once the status is set and
+            // "Reverse write-off" hides while no `InvoiceWriteOff` row exists — so nothing on any
+            // screen could put it back.
+            //
+            // The real path is unaffected: the service assigns the status with `saveQuietly()`,
+            // which fires no model events, exactly as `recomputeTotals()` does. This refuses the
+            // ordinary save — the form, an importer, a crafted Livewire payload — and the presence
+            // of the row is what tells the two apart, so a legitimate write-off can never be
+            // blocked by its own guard.
+            if ($invoice->status === 'written_off'
+                && $invoice->getOriginal('status') !== 'written_off'
+                && ! InvoiceWriteOff::where('invoice_id', $invoice->id)->exists()) {
+                throw new \DomainException(__('admin.refusals.invoice_write_off_is_an_act'));
+            }
+
             if ($invoice->getOriginal('status') === 'draft') {
                 return; // draft is freely editable (and draft→issued must be allowed)
             }

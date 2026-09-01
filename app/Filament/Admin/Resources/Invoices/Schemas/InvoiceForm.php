@@ -120,6 +120,40 @@ class InvoiceForm
                                 // (Invoice::booted) — this only stops the UI inviting it.
                                 unset($options['cancelled']);
 
+                                // 'written_off' is the same mistake, and the reasoning above was
+                                // never generalised to it. It is the outcome of the "Write off"
+                                // action, which needs `invoices.void` (this form needs only
+                                // `invoices.edit`), posts Dr Bad Debt / Cr AR, records a reason and
+                                // writes the `InvoiceWriteOff` row. Picked here instead, live AR left
+                                // collections with none of that — the overdue sweep, the late-fee
+                                // sweep and both payment pickers all skip a written-off invoice — and
+                                // it was a ONE-WAY DOOR: "Write off" hides on a written-off invoice
+                                // and "Reverse write-off" hides when no `InvoiceWriteOff` row exists,
+                                // so both ways out were gone. WriteOffInvoiceService saves the status
+                                // with `saveQuietly()`, so the model guard refusing this transition
+                                // does not touch the real path.
+                                unset($options['written_off']);
+
+                                // The DERIVED statuses. `recomputeTotals()` computes these three from
+                                // money — payments, credit and the due date — and hand-setting one
+                                // states something false about cash that no receipt backs: 'paid' on
+                                // an unpaid invoice takes it out of every collection surface. They are
+                                // not refused at the model, because the next recompute corrects them;
+                                // they are simply not a choice. Returning an invoice to the derived
+                                // ladder is what picking 'issued' does.
+                                foreach (['paid', 'partially_paid', 'overdue'] as $derived) {
+                                    unset($options[$derived]);
+                                }
+
+                                // Whatever the record IS must stay in the list even when it is not a
+                                // legitimate target, or Filament — which validates a Select by
+                                // resolving the submitted value's label — refuses every save of an
+                                // invoice in that state, on a field the operator never touched.
+                                if ($record && ! isset($options[$record->status])) {
+                                    $options[$record->status] = __('admin.statuses.invoice')[$record->status]
+                                        ?? $record->status;
+                                }
+
                                 return $options;
                             })
                             ->required()
