@@ -282,10 +282,37 @@ class PaymentForm
                                                     ->where('payment_id', $paymentId)
                                                     ->value('allocated_amount') ?: 0.0;
                                             }
+                                            // **SIBLING ROWS COUNT.** `CreatePayment::afterCreate()`
+                                            // SUMS every row naming the same invoice (the pivot is
+                                            // keyed by invoice id), and the repeater has no
+                                            // `->distinct()`, so two legitimate-looking rows —
+                                            // 700 and 600 against a 1,000 invoice — each passed this
+                                            // cap independently and the receipt was refused only at
+                                            // the model, after submit. Duplicate rows are supported
+                                            // input, not a mistake (`PaymentFormGuardsTest` covers
+                                            // 400 + 600 on one invoice), so the fix is to cap the
+                                            // ROW against what its siblings have already claimed
+                                            // rather than to forbid the second row.
+                                            $claimedBySiblings = 0.0;
+                                            $currentPath = $get('.');
+                                            foreach ($get('../../allocations') ?? [] as $key => $row) {
+                                                if ($get('../../allocations.'.$key) === $currentPath) {
+                                                    continue;   // this row
+                                                }
+                                                if ((int) ($row['invoice_id'] ?? 0) === (int) $invoiceId) {
+                                                    $claimedBySiblings += (float) ($row['allocated_amount'] ?? 0);
+                                                }
+                                            }
+
                                             // Same cap the model-level backstop applies, so the form
                                             // refuses with a figure rather than letting the save
                                             // throw.
-                                            $cap = round(InvoiceSettlement::settleableAmount($invoice) + $existingAllocation, 2);
+                                            $cap = round(
+                                                InvoiceSettlement::settleableAmount($invoice)
+                                                    + $existingAllocation
+                                                    - $claimedBySiblings,
+                                                2,
+                                            );
                                             if ((float) $value > $cap + 0.005) {
                                                 $fail(__('admin.payment.allocation_exceeds_balance', [
                                                     'invoice' => $invoice->number,

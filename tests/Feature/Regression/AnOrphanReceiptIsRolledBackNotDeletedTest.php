@@ -175,3 +175,40 @@ it('leaves the page usable after a refusal, rather than a component pointing at 
 
     expect(Payment::count())->toBe(1);
 });
+
+it('refuses the over-allocation at the FIELD, not after the submit', function () {
+    // SW-003b. The per-row cap bounded each allocation independently while `afterCreate()` SUMS
+    // rows against the same invoice, so 700 + 600 on a 1,000 invoice passed every form gate and was
+    // refused only at the model — the operator learned about it after pressing Create, with the
+    // whole receipt rejected. Duplicate rows are supported input (`PaymentFormGuardsTest` covers
+    // 400 + 600 on one invoice), so the row is capped against what its siblings already claim
+    // rather than forbidden.
+    Livewire::test(CreatePayment::class)
+        ->fillForm(overAllocatingForm())
+        ->call('create')
+        ->assertHasFormErrors();
+
+    expect(Payment::count())->toBe(0);
+});
+
+it('still accepts two rows that TOGETHER fit the invoice — the control', function () {
+    // Without this, capping the row at the whole balance minus siblings could be mistaken for
+    // forbidding a second row, which would break a supported way of keying a receipt.
+    Livewire::test(CreatePayment::class)
+        ->fillForm([
+            'tenant_id' => $this->lease->tenant_id,
+            'amount' => 1000,
+            'method' => 'cash',
+            'status' => 'captured',
+            'payment_date' => CarbonImmutable::now()->toDateString(),
+            'allocations' => [
+                ['invoice_id' => $this->invoice->id, 'allocated_amount' => 400],
+                ['invoice_id' => $this->invoice->id, 'allocated_amount' => 600],
+            ],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(Payment::count())->toBe(1)
+        ->and(round((float) $this->invoice->fresh()->balance, 2))->toEqual(0.0);
+});
