@@ -79,7 +79,7 @@ return [
         'wht_certificate' => 'Issue certificate',
         'wht_certificate_hint' => 'Only suppliers withheld from in this period. The certificate is what lets them claim it back.',
         'vat_ties_out' => 'Ties out to the ledger',
-        'vat_does_not_tie' => 'Does NOT tie out — the documents differ from the ledger by :difference',
+        'vat_does_not_tie' => 'Does NOT tie out — the documents differ from the ledger by EGP :difference',
         'vat_net_payable' => 'Net payable: EGP :amount',
         'vat_net_payable_label' => 'Net VAT payable',
         'vat_line' => 'Line',

@@ -96,7 +96,10 @@ class TenantLedger
         // not yet netted, so it has not moved the receivable.
         CreditNote::query()
             ->where('tenant_id', $tenant->id)
-            ->whereIn('status', ['issued', 'partially_paid', 'applied'])
+            // `onTheBooks()`: `partially_paid` is an invoice status and cannot occur here. Inert
+            // today — `applied_amount > 0` is the real filter — but a dead literal on the statement
+            // the tenant reads is one more place the next author copies from.
+            ->onTheBooks()
             ->where('applied_amount', '>', 0)
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereIn('asset_id', $visibleAssetIds))
             ->get()

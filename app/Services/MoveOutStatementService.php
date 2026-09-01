@@ -79,7 +79,14 @@ class MoveOutStatementService
         // between a final account and half of one.
         $tenantCredit = round((float) CreditNote::query()
             ->where('lease_id', $lease->id)
-            ->whereIn('status', ['issued', 'partially_paid'])
+            // `onTheBooks()`, not a status list. This read `['issued', 'partially_paid']` —
+            // `partially_paid` is an INVOICE status and cannot exist on `credit_notes.status`
+            // (`draft | issued | applied | void`), and the list omitted `applied`. It was masked
+            // only by the invariant that a note with a balance is `issued`, set in four places in
+            // `CreditNoteService`; the day that slips, this WITHHOLDS a departing tenant's own
+            // credit from their final account. Same copy-paste as the VAT return's phantom
+            // `cancelled`, on the money going back to a person who is leaving.
+            ->onTheBooks()
             ->where('balance', '>', 0)
             ->sum('balance'), 2);
 

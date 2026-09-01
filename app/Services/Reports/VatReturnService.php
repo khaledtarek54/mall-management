@@ -9,6 +9,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\TaxCode;
 use App\Services\Accounting\AccountResolver;
+use App\Support\MorphMap;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -83,9 +84,62 @@ class VatReturnService
         // Live, not latent: three paths issue VAT-bearing credit notes routinely — the CAM negative
         // true-up at the pool's `recovery_vat_rate`, the move-out unearned credit, and a manual note
         // inheriting its invoice's rate.
-        $creditNotes = CreditNote::query()
-            ->whereNotIn('status', ['draft', 'cancelled'])
+        // **WHICH notes reduced the supply IN THIS PERIOD — a question about dates, not statuses.**
+        //
+        // The old filter was `whereNotIn('status', ['draft', 'cancelled'])`, and
+        // `credit_notes.status` has no `cancelled` (`draft | issued | applied | void`), so it
+        // excluded a status that cannot occur and counted every VOIDED note.
+        //
+        // Excluding `void` outright is the obvious repair AND IT IS ALSO WRONG, in the direction
+        // that matters more. `JournalPostingService::void()` does not erase an entry: it posts a
+        // sign-flipped REVERSAL and marks the original `void`, and `void` is one of
+        // `JournalEntry::REPORTABLE_STATUSES` — so the original's VAT still counts in its own
+        // period and the netting comes entirely from the reversal. `reversalPeriod()` dates that
+        // reversal at the ORIGINAL entry date when that period is still open, and at TODAY when it
+        // is closed. So a note issued in March and voided in June, with March CLOSED, is netted in
+        // JUNE — March's ledger still carries the reduction. Dropping it from March's documents
+        // side moves `base_standard` on an ALREADY FILED return by the whole credited supply, and
+        // leaves the tie-out permanently red on a month nobody can correct.
+        //
+        // The honest rule mirrors what the ledger actually did, in two halves that compose through
+        // `$accumulate`'s sign: a note REDUCES this period unless its reversal landed inside it,
+        // and a reversal that lands inside this period ADDS the reduction back.
+        //
+        // **Reading the reversal's DATE is not what would make this check tautological.** Every
+        // figure still comes from the document's own lines — a journalizer that computed the wrong
+        // amount, posted to the wrong account or skipped a document entirely still shows up as a
+        // difference. Only *which period the correction belongs to* is taken from the ledger, and
+        // that is a fact the documents alone cannot know, because it depends on whether a period
+        // was open on a day that has since passed.
+        $issuedInPeriod = CreditNote::query()
+            ->whereNotIn('status', ['draft'])
             ->whereBetween('issue_date', [$start->toDateString(), $end->toDateString()])
+            ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
+            ->with('items')
+            ->get();
+
+        $noteIds = $issuedInPeriod->pluck('id')->all();
+        $reversedIn = $this->creditNoteReversalDates($noteIds, $start, $end);
+        $postedIn = $this->creditNotesPostedIn($noteIds, $start, $end);
+
+        // A VOID note reduced this period only if its reduction actually STOOD here: it was posted
+        // into this window and its reversal landed somewhere else. A note voided straight from
+        // draft never posted at all — `EditCreditNote` permits that — and one whose reversal landed
+        // in this same window nets to nothing on the ledger. Both are excluded.
+        //
+        // An `issued` or `applied` note is counted from its document whether or not a posting is
+        // found, deliberately: a missing journal entry is exactly the drift the tie-out exists to
+        // report, and silently matching the documents side to it would be a control that cannot
+        // fail.
+        $creditNotes = $issuedInPeriod->reject(fn (CreditNote $note): bool => $note->status === 'void'
+            && (in_array($note->id, $reversedIn, true) || ! in_array($note->id, $postedIn, true)));
+
+        // …and the other half: a reduction UNDONE in this period, whose note belongs to an earlier
+        // one. Without this the month the void lands in is short by the reversal, which is the same
+        // permanently-red control one period later.
+        $undoneInPeriod = CreditNote::query()
+            ->whereIn('id', $this->creditNoteReversalDates(null, $start, $end))
+            ->whereNotBetween('issue_date', [$start->toDateString(), $end->toDateString()])
             ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
             ->with('items')
             ->get();
@@ -134,6 +188,11 @@ class VatReturnService
 
         foreach ($creditNotes as $note) {
             $accumulate($note->items->filter(fn ($i) => $i instanceof CreditNoteItem), -1);
+        }
+
+        // The reversal, with the opposite sign — the supply reduction being taken back.
+        foreach ($undoneInPeriod as $note) {
+            $accumulate($note->items->filter(fn ($i) => $i instanceof CreditNoteItem), 1);
         }
 
         $outputVatDocuments = round($outputVatDocuments, 2);
@@ -191,5 +250,67 @@ class VatReturnService
                 ->whereDate('entry_date', '>=', $start->toDateString())
                 ->whereDate('entry_date', '<=', $end->toDateString()))
             ->sum(DB::raw($expression)), 2);
+    }
+
+    /**
+     * Credit-note ids whose void REVERSAL is dated inside the window.
+     *
+     * Dates and links only — never an amount. `JournalPostingService::void()` posts the reversal
+     * with `reversal_of_id` pointing at the original, and the original carries the note as its
+     * polymorphic source, so this is one join and no arithmetic.
+     *
+     * @param  array<int, int>|null  $noteIds  restrict to these notes, or null for all
+     * @return array<int, int>
+     */
+    protected function creditNoteReversalDates(?array $noteIds, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        if ($noteIds === []) {
+            return [];
+        }
+
+        return JournalEntry::query()
+            ->whereBetween('entry_date', [$start->toDateString(), $end->toDateString()])
+            ->whereNotNull('reversal_of_id')
+            ->whereHas('reversalOf', function ($q) use ($noteIds) {
+                $q->where('source_type', MorphMap::alias(CreditNote::class))
+                    ->when($noteIds !== null, fn ($w) => $w->whereIn('source_id', $noteIds));
+            })
+            ->with('reversalOf:id,source_id')
+            ->get()
+            ->map(fn (JournalEntry $e): ?int => $e->reversalOf?->source_id)
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Credit-note ids carrying a reportable journal entry dated inside the window.
+     *
+     * The question is "did this reduction ever stand here", which only the ledger can answer — a
+     * note voided straight from draft looks identical on the document to one voided after months on
+     * the books.
+     *
+     * @param  array<int, int>  $noteIds
+     * @return array<int, int>
+     */
+    protected function creditNotesPostedIn(array $noteIds, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        if ($noteIds === []) {
+            return [];
+        }
+
+        return JournalEntry::query()
+            ->whereBetween('entry_date', [$start->toDateString(), $end->toDateString()])
+            ->whereIn('status', JournalEntry::REPORTABLE_STATUSES)
+            ->whereNull('reversal_of_id')
+            ->where('source_type', MorphMap::alias(CreditNote::class))
+            ->whereIn('source_id', $noteIds)
+            ->pluck('source_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 }

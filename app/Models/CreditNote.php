@@ -13,6 +13,7 @@ use App\Support\Attributes\PostingDateGuardedBy;
 use App\Support\Attributes\PropertyOwned;
 use App\Support\DocumentNumbering;
 use App\Support\Translate;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -183,6 +184,50 @@ class CreditNote extends Model
     public function issuedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by_user_id');
+    }
+
+    /**
+     * Statuses whose supply is NOT on the books, with the reason for each.
+     *
+     * A reason per row rather than a bare list, for the reason `InvoiceSettlement` and
+     * `DeletionPolicy` give: whoever adds the next status has to say which side it falls on.
+     *
+     * **This existed as the literal `['draft', 'cancelled']` in the VAT return, and
+     * `credit_notes.status` has no `cancelled`** — the set is `draft | issued | applied | void`
+     * (`ValueSets`). So the filter excluded a status that cannot occur and counted every voided
+     * note.
+     *
+     * **Do NOT use this constant to decide whether a note belongs on a PERIOD report.** Voiding
+     * does not erase the journal entry: `JournalPostingService::void()` posts a sign-flipped
+     * reversal and marks the original `void`, and `void` is one of
+     * `JournalEntry::REPORTABLE_STATUSES`, so the original's lines are still summed in their own
+     * period. Whether the ledger is net of a void therefore depends on WHERE the reversal landed —
+     * the original's period if it was still open, today's if it had closed — which is a question
+     * about dates that no status can answer. `VatReturnService` asks it properly; this constant
+     * answers the narrower, timeless question of whether a note is a document at all.
+     */
+    public const NOT_ON_THE_BOOKS = [
+        'draft' => 'Never issued. Nothing was posted and the tenant has never seen it, so no supply was reduced.',
+        'void' => 'Reversed. A note may be voided straight from DRAFT — `EditCreditNote` permits it — so a void note has not necessarily ever been posted, and where it was, the reversal may sit in a later period than the note. Neither makes it a live document.',
+    ];
+
+    /**
+     * The notes a return, a tie-out or a reduction must count.
+     *
+     * DERIVED by exclusion, never allowlisted: a status this class has not heard of counts, and has
+     * to be excluded deliberately. Dropping a real supply off a filed return is the worse failure
+     * and the silent one — the same reasoning `TenantVisibility` gives for excluding rather than
+     * allowlisting.
+     */
+    public function scopeOnTheBooks(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', array_keys(self::NOT_ON_THE_BOOKS));
+    }
+
+    /** The row-level twin of {@see scopeOnTheBooks()}. */
+    public function isOnTheBooks(): bool
+    {
+        return ! array_key_exists((string) $this->status, self::NOT_ON_THE_BOOKS);
     }
 
     public function hasBalance(): bool
