@@ -196,6 +196,13 @@ class EditPayment extends EditRecord
 
                 // Lock-safe over-allocation backstop (rolls back this sync if violated).
                 $payment->assertInvoicesNotOverAllocated(array_keys($sync));
+
+                // …and the OTHER direction, which the total-vs-amount cap above cannot see. That cap
+                // asks "does this add up to the receipt", and a receipt whose surplus has already
+                // been drawn down as tenant credit has less than its face value left to give. Without
+                // this, re-allocating it in full spends the same money twice — once through the pivot
+                // and once through the credit application that had already settled another invoice.
+                $payment->assertCreditNotOverdrawn();
             });
         } catch (\DomainException $e) {
             Notification::make()

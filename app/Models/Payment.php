@@ -596,6 +596,50 @@ class Payment extends Model
      * Only money actually received is permanent. An initiated/failed row — including the orphan
      * CreatePayment rolls back when allocation fails — never became money.
      */
+    /**
+     * Refuse a re-allocation that spends a surplus already drawn down as tenant credit.
+     *
+     * A receipt's UNALLOCATED remainder is what funds the tenant's on-account credit
+     * (`Tenant::creditBalance()` = received, less allocated, less what has been applied). Nothing
+     * links an application back to the receipt that funded it — the credit is a POOL — so the only
+     * honest question is whether the pool is still solvent after the change.
+     *
+     * Without this, re-allocating a receipt across invoices could spend money that had already
+     * settled a different invoice as credit: 10,000 received, 4,000 allocated, 6,000 drawn as
+     * credit against another invoice, then the receipt re-allocated to the full 10,000. The pivot
+     * says 10,000 settled here and the credit application says 6,000 settled there, out of one
+     * 10,000 receipt — the same money twice, surfacing as a negative credit balance nobody reads.
+     *
+     * Scoped exactly as `VoidPaymentService`'s sibling guard scopes it, and for the same reason: a
+     * global balance would let an unrelated credit at another mall stand in for this one. The
+     * property comes from the invoices this receipt settles, or — for a receipt with none, which is
+     * the ordinary cleared SERIES cheque — from the cheque itself.
+     *
+     * Call INSIDE the transaction that wrote the allocations, after `recomputeTotals()`.
+     */
+    public function assertCreditNotOverdrawn(): void
+    {
+        $tenant = $this->tenant;
+
+        if (! $tenant instanceof Tenant) {
+            return;
+        }
+
+        $assetIds = $this->invoices()->pluck('invoices.asset_id')->filter()->unique()->values()->all();
+
+        if ($assetIds === [] && ($originating = $this->originatingAssetId()) !== null) {
+            $assetIds = [$originating];
+        }
+
+        $available = (float) $tenant->creditBalance($assetIds !== [] ? $assetIds : null);
+
+        if (round($available, 2) < -0.005) {
+            throw new \DomainException(__('admin.refusals.payment_credit_overdrawn', [
+                'shortfall' => number_format(abs($available), 2),
+            ]));
+        }
+    }
+
     public function isCommittedForDeletionPurposes(): bool
     {
         return $this->isReceived();

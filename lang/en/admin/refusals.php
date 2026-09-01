@@ -21,6 +21,7 @@
 
 return [
     'refusals' => [
+        'payment_credit_overdrawn' => 'This receipt cannot be re-allocated in full: :shortfall of it has already been applied to another invoice as on-account credit. Reverse that application first.',
         'credit_note_void_is_terminal' => 'A voided credit note is closed for good — its ledger entry has been reversed. Raise a new note if credit is due.',
         'credit_note_status_is_an_act' => 'A credit note is issued or voided by its own button, not by picking a status. Those acts check the accounting period, post to the ledger and record why — use Issue or Void.',
         'cam_carve_out_needs_a_stated_share' => 'Lease :lease is carved out of the share denominator but its contract names no share. A lease outside the divisor has no area basis left to derive one from — state its share, or put it back in the denominator.',
