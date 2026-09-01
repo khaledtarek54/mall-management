@@ -172,7 +172,7 @@ which is the same failure this repo gates for generated doc blocks.
 
 | ID | Status | Sev | Fix | What is wrong | Where |
 |---|---|---|---|---|---|
-| **SW-088** | ✅ fixed | high | — | The per-property proration override renders as a NUMERIC box — the setting is unsettable, and anything typed is silently discarded | `Filament/Admin/Pages/PropertyOverrides:149` |
+| **SW-088** | ✅ **fixed** `fb85e218` | high | — | The per-property proration override renders as a NUMERIC box — the setting is unsettable, and anything typed is silently discarded | `Filament/Admin/Pages/PropertyOverrides:149` |
 | **SW-089** | ✅ **fixed** `5041571a` | high | — | Two unvalidated free-text time fields feed cron expressions — "24:00" stops the entire scheduler | `Filament/Admin/Pages/Settings:381` |
 | **SW-090** | open | high | S | Payroll add-line modal renders allowances / other deductions / deduction note / employer SI and silently discards all four on save | `Filament/Admin/RelationManagers/PayrollLinesRelationManager:232` |
 | **SW-091** | ✅ **fixed** `5e159676` | high | S | Un-settled custody's custody_date can be back-dated into a closed period through the Edit form — row saves, GL re-post silently refused | `Filament/Admin/Resources/Custodies/Pages/EditCustody:11` |
@@ -206,7 +206,7 @@ which is the same failure this repo gates for generated doc blocks.
 | **SW-112** | open | high | — | The owner can neither read nor answer the conversation thread module 15 built for them | `Filament/Admin/Resources/OwnerRequests/Tables/OwnerRequestsTable:120` |
 | **SW-113** | ✅ **fixed** `2b4dd73c` | high | XS | Paymob callback treats only 'captured' as terminal, not the whole received set — a late or replayed decline callback flips a 'reconciled'/'settled' payment to 'failed', silently un-paying the invoice and voiding its GL leg. The REVERSED half of the very same condition was already derived from the model, under a comment reading *"enumerate a set like this by asking the model, not by grepping the diff"*; the RECEIVED half was a literal. Both paths (the fast check and the locked re-check) now ask `Payment::isReceived()` | `Http/Controllers/Paymob/CallbackController:128` |
 | **SW-114** | open | high | — | Applying an SLA penalty never re-derives the work order's cost — recompute() is saveQuietly, so the only hook that calls recomputeCosts() never fires | `Services/ApplySlaPenaltyService:45` |
-| **SW-115** | ✅ fixed | high | — | `sales:estimate-missing` runs on the 8th and the chase it is supposed to follow runs on the 10th — the reminder can never fire for any tenant the estimate covers | `routes/console:246` |
+| **SW-115** | ✅ **fixed** `fb85e218` | high | — | `sales:estimate-missing` runs on the 8th and the chase it is supposed to follow runs on the 10th — the reminder can never fire for any tenant the estimate covers | `routes/console:246` |
 | **SW-116** | open | medium | — | Schedule-payout modal defaults to a rail the catalogue may no longer offer | `Filament/Admin/Actions/OwnerStatementRunActions:104` |
 | **SW-117** | open | medium | — | The Income Statement restores the remembered property AFTER the pin, desyncing its scope caption from the mall it is reporting | `Filament/Admin/Pages/IncomeStatement:70` |
 | **SW-118** | open | medium | — | A duplicate custom-field key is a raw duplicate-key 500 — the DB has UNIQUE(model,key) and no layer above it validates | `Filament/Admin/Resources/CustomFields/Schemas/CustomFieldForm:47` |
