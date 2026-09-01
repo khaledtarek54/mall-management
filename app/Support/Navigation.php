@@ -488,7 +488,9 @@ final class Navigation
         $memo = app(NavigationItemMemo::class);
 
         foreach ($screens as $screen) {
-            if (! self::isVisibleTo($screen)) {
+            // Memoised alongside the item: this pair of permission checks ran for all 103
+            // screens on every getNavigation() call, which is at least twice a page.
+            if (! $memo->visible($screen, static fn (): bool => self::isVisibleTo($screen))) {
                 continue;
             }
 
