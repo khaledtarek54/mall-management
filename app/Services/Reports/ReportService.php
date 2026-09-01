@@ -506,6 +506,40 @@ class ReportService
     }
 
     /**
+     * How many signed leases the as-of date is holding back — the reason a roll looks incomplete.
+     *
+     * **Why this exists.** The rent roll is a snapshot of what the mall is contracted to earn ON a
+     * day, so a lease signed today and commencing in three weeks is correctly absent from today's
+     * roll. That is right, and it reads exactly like the report is broken: an operator who has just
+     * activated a lease goes looking for it, searches the unit code, finds nothing, and has no way
+     * to connect an empty search to a date in the subheading. Reported that way on 2026-09-01, on a
+     * lease commencing in fifteen days.
+     *
+     * The page's `empty` state already explains the whole-table case. It cannot reach this one,
+     * because the table is NOT empty — thirty-four other leases are on it and only the searched
+     * one is missing.
+     *
+     * **Not-yet-commenced only, deliberately.** A lease that has ENDED is intuitively absent from a
+     * rent roll and needs no explanation, and counting those would put a permanent line on the
+     * screen of any mall with history — which is how a notice stops being read. Same rule as
+     * `LedgerReportService::unallocated()`: silent when there is nothing to say, so that when it
+     * does say something it is worth reading.
+     *
+     * Scoped exactly as `rentRoll()` scopes, or the count would describe a different set from the
+     * report it annotates.
+     */
+    public function rentRollNotYetCommenced(?CarbonImmutable $asOf = null, ?int $assetId = null): int
+    {
+        $asOf = ($asOf ?? CarbonImmutable::now())->startOfDay();
+
+        return TenantScope::applyTo(Lease::query(), 'unit')
+            ->whereIn('status', ['active', 'renewed'])
+            ->whereDate('commencement_date', '>', $asOf->toDateString())
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->count();
+    }
+
+    /**
      * The lease expiration schedule — what rolls off, when, and how much is at risk (story RR-02).
      *
      * **Why a leasing manager needs it and a rent roll cannot answer it.** The rent roll says what

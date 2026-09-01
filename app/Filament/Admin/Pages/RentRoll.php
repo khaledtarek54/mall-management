@@ -91,8 +91,8 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
         $area = (float) $rows->sum('area_sqm');
         $rent = (float) $rows->sum('base_rent');
 
-        return __('admin.rent_roll.subheading', [
-            'leases' => $rows->count(),
+        $line = __('admin.rent_roll.subheading', [
+            'leases' => trans_choice('admin.rent_roll.lease_count', $rows->count(), ['count' => $rows->count()]),
             'area' => number_format($area, 2),
             'monthly' => 'EGP '.number_format((float) $rows->sum('total_monthly'), 2),
             // Weighted by area, not an average of the per-unit rates: a 20 m² kiosk must not pull
@@ -100,6 +100,24 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
             'per_sqm' => $area > 0 ? number_format($rent * 12 / $area, 2) : '—',
             'as_of' => ArAging::parseAsOf($this->asOf)->format('d/m/Y'),
         ]);
+
+        // Say what the date is holding back. A lease signed today and commencing in three weeks is
+        // correctly absent from today's roll, and that reads as a broken report to whoever just
+        // activated it — they search the unit code, find nothing, and the as-of date in the line
+        // above is not something anybody connects to an empty search. The page's `empty` state
+        // cannot cover this: the table is full, and only the searched lease is missing.
+        //
+        // Silent when there is nothing to say, so it stays worth reading (ScopesLedgerReport's
+        // unallocated notice, same rule).
+        $pending = app(ReportService::class)
+            ->rentRollNotYetCommenced(ArAging::parseAsOf($this->asOf), TenantScope::currentAssetId());
+
+        if ($pending > 0) {
+            // trans_choice, not a glued-on "(s)": Arabic distinguishes one, two and many.
+            $line .= ' · '.trans_choice('admin.rent_roll.not_yet_commenced', $pending, ['count' => $pending]);
+        }
+
+        return $line;
     }
 
     public static function getNavigationLabel(): string

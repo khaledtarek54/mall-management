@@ -276,7 +276,11 @@ return [
         'title' => 'Rent roll',
         'as_of' => 'As at',
         'as_of_help' => 'The roll is taken on this day: each lease shows the rent that was — or will be — in force then.',
-        'subheading' => ':leases leases · :area m² · :monthly per month · EGP :per_sqm /m²/yr · as at :as_of',
+        // The count is a trans_choice fragment composed into the line, not ":leases leases" —
+        // that printed "1 leases" on the first line an owner reads. Arabic needs the
+        // distinction more than English does.
+        'subheading' => ':leases · :area m² · :monthly per month · EGP :per_sqm /m²/yr · as at :as_of',
+        'lease_count' => '{0} No leases|{1} 1 lease|[2,*] :count leases',
         'area' => 'Area',
         'base_rent' => 'Base rent',
         'per_sqm' => 'EGP/m²/yr',
@@ -290,6 +294,10 @@ return [
         'next_step' => 'Next rent step',
         'no_step' => 'No further steps',
         'next_option' => 'Next option deadline',
+        // Shown beside the totals only when the as-of date is holding leases back — a signed
+        // lease commencing next month is correctly off today's roll, and without this the
+        // operator who just activated it searches the unit and finds nothing.
+        'not_yet_commenced' => '{1} 1 signed lease commences after this date and is not shown|[2,*] :count signed leases commence after this date and are not shown',
         'empty' => 'No leases live on this date.',
         'empty_description' => 'The rent roll shows tenancies that had commenced and had not yet ended on the chosen day. Try another date.',
     ],
