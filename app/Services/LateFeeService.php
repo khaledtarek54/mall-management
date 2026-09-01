@@ -56,7 +56,7 @@ class LateFeeService
         //     keeps that property on purpose, and states why.
         $ids = Invoice::query()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
+            ->whereCollectable()
             ->whereDate('due_date', '<=', $today->toDateString())
             ->orderBy('id')
             ->pluck('id');
@@ -154,7 +154,7 @@ class LateFeeService
                 // itself of type `late_fee` — so this is also what stops a late fee earning one.
                 // Recurrence must never reach through it.
                 || $locked->items()->where('type', 'late_fee')->exists()
-                || (float) $locked->balance <= 0
+                || $locked->collectableBalance() <= 0
                 || ! in_array($locked->status, ['issued', 'partially_paid', 'overdue'], true)) {
                 return false;
             }
@@ -170,7 +170,11 @@ class LateFeeService
             // Charging a penalty on a balance the tenant has formally disputed is the complaint this
             // story exists to stop. Only the OUTSTANDING part of a disputed line comes out — a line
             // that was part-paid is only argued about for what is still owed on it.
-            $chargeable = round((float) $locked->balance - DisputeInvoiceItemService::disputedOutstanding($locked), 2);
+            // The invoice answers what it is worth; this service does no arithmetic about it.
+            // `chargeableBalance()` takes the forgiven slice off FIRST and then the disputed one,
+            // flooring at zero — so a debt that is wholly written off and partly disputed cannot
+            // produce a negative base that the minimum-fee `max()` would round back up into a charge.
+            $chargeable = $locked->chargeableBalance();
 
             // Everything still owed is under dispute → no fee at all, and NOT the minimum. Falling
             // through to `max($min, 0)` would bill the floor off a balance nobody has agreed is

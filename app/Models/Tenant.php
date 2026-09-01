@@ -27,6 +27,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -476,10 +477,13 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      */
     public function outstandingBalance(?array $assetIds = null): float
     {
+        // Sum the COLLECTABLE figure, not `balance`: a partial write-off leaves the balance
+        // standing (it is not a settlement channel), so summing it reported the tenant as owing the
+        // part the operator had already forgiven — on their statement, on the hub and in the API.
         $invoiceBalance = (float) $this->invoices()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
-            ->sum('balance');
+            ->sum(DB::raw(Invoice::collectableBalanceSql()));
 
         // The CreditNote status enum is (draft, issued, applied, void) —
         // a 'partially_applied' state was once contemplated but never
@@ -571,7 +575,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     public function isDelinquent(?array $assetIds = null): bool
     {
         return $this->invoices()
-            ->where('balance', '>', 0)
+            ->whereCollectable()
             ->where('due_date', '<', now())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))

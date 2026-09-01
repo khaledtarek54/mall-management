@@ -24,7 +24,9 @@ class ScanOverdueInvoicesCommand extends Command
     {
         $overdue = Invoice::query()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
+            // COLLECTABLE, not `balance`: a partial write-off leaves the invoice live with its
+            // whole balance standing, so this chased the operator's own forgiveness.
+            ->whereCollectable()
             ->whereDate('due_date', '<', now())
             ->whereNull('owner_overdue_notified_at')
             ->with(['lease.unit', 'tenant'])

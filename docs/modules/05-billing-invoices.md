@@ -90,6 +90,39 @@
 > whole balance counted toward `expectedAr` while the GL had already been relieved of the
 > written-off part — an AR delta from the day it was booked, permanently, with no way to clear it.
 > `expectedAr` now subtracts write-offs recorded against invoices still in the counted set.
+>
+> **⚠️ The COLLECTIONS half of the same problem, fixed 2026-09-01.** That pass taught the write-off
+> side and the tie-out to net prior write-offs, and stopped. Every surface that decides *whether or
+> how much to CHASE* still read `balance` — so a partly-forgiven tenant went on being sent overdue
+> notices, dunning letters and late fees for the part the operator had written off and the bad-debt
+> entry had already relieved. It got sharper, not milder, when the settlement guards learnt the same
+> netting: the invoice could then not be paid down to zero either, because the cap refused the
+> forgiven part while the reads went on demanding it. A debt that can be neither collected nor closed.
+>
+> `Invoice::collectableBalance()` is the missing third term — `balance` answers *what was owed*,
+> `status` answers *has this left the books*, and a partial write-off is neither.
+> `chargeableBalance()` is its penalty twin (collectable, less `disputedOutstanding()`), and the two
+> reductions are deliberately different questions: a DISPUTED amount is still claimed and merely not
+> chargeable, a FORGIVEN one is not claimed at all. Naming them as a pair is what stops the next
+> reduction becoming a fourth inline subtraction somebody has to remember at each site.
+>
+> **`balance` is unchanged and must stay so** — the write-off cap, the tie-out and the statement
+> history all rest on it recording what was billed. What changed is who asks: the overdue scan, the
+> tenant dunning sweep, the late-fee selection *and* base, `Tenant::outstandingBalance()` and
+> `isDelinquent()`, both AR chokepoints in `ReportService` (which feed ageing, the collections
+> worklist, the CSV and five widgets), `MoveOutStatementService` — the one reader where it cost the
+> tenant real money, by withholding that much of their own deposit — the statement PDF, the portal
+> filter, the reconcile control total, and **all three notifications**. That last group is the
+> lesson: the first pass routed the sweeps and left the letters quoting `balance`, so the system
+> selected the right invoices and then asked for the wrong amount, which is worse than fixing neither.
+>
+> Two traps in the query twin, both caught before shipping. `collectableBalanceSql()` uses a **CASE,
+> not `GREATEST`** — that function does not exist in SQLite, so a MySQL-only expression is green on
+> the real database and fatal in every test. And it takes the query's own table name, because Laravel
+> aliases a self-relation's inner table (`whereHas('lateFeeInvoice', …)`) and a hardcoded `invoices.`
+> then binds to the OUTER row: valid SQL, no error, wrong answer.
+> (`AForgivenSliceIsNotChasedTest`, mutation-proved per layer — including `considered`, because the
+> row-level re-check makes every outcome assertion pass with the selection reverted.)
 > Mutation-checked: removing that subtraction reproduces a −5,000 delta on a 5,000 partial.
 >
 > **Separately, the payment picker offered written-off invoices.** It filtered `balance > 0` with

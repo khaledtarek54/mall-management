@@ -51,7 +51,9 @@ class BooksReconciliationService
     {
         $query = Invoice::query()
             ->where('status', '!=', 'cancelled')
-            ->with('items');
+            // `writeOffs` too: the outstanding-AR control total asks each invoice for its
+            // collectable figure, over every invoice in the period — without this, a query per row.
+            ->with(['items', 'writeOffs']);
 
         if ($month) {
             [$year, $mon] = array_map('intval', explode('-', $month));
@@ -277,10 +279,13 @@ class BooksReconciliationService
             // Outstanding AR = the canonical AR definition (open + owed), matching
             // outstandingBalance() / the AR-aging report — not every non-cancelled
             // invoice (which would fold in paid/credited/disputed/draft rows).
+            //
+            // COLLECTABLE, so that claim stays true: both of those now net a partial write-off, and
+            // a control total printed beside them that did not would be the operator's first
+            // reconciling item on a set of books that actually tie.
             'outstandingAR' => round((float) $invoices
                 ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                ->where('balance', '>', 0)
-                ->sum('balance'), 2),
+                ->sum(fn (Invoice $i): float => $i->collectableBalance()), 2),
             'vatTotal' => round((float) $invoices->sum('vat_amount'), 2),
         ];
 

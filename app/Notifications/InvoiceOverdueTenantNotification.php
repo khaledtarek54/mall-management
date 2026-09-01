@@ -10,6 +10,15 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
+ * The chase letter, and the figure in it is the COLLECTABLE one.
+ *
+ * `balance` records what was owed; a partial write-off deliberately does not move it, because a
+ * write-off is not a settlement channel. Quoting it here asked the tenant for money the operator had
+ * already forgiven and the bad-debt entry had already relieved — and the sweep that selects these
+ * invoices was fixed to net the forgiven slice while this, the sentence the tenant actually reads,
+ * was not. Selecting correctly and then quoting the wrong number is worse than not fixing either.
+ */
+/**
  * Tenant-facing reminder that one of their invoices is past due and still unpaid.
  * Fired once per invoice by the daily billing:remind-overdue-tenants command
  * (idempotent via invoices.tenant_overdue_notified_at) — the tenant counterpart
@@ -61,7 +70,7 @@ class InvoiceOverdueTenantNotification extends Notification implements ShouldQue
             ->line(DocumentText::for($this->bodyKey(), $this->invoice->asset_id, [
                 'number' => $this->invoice->number,
                 'days' => $this->daysOverdue(),
-                'amount' => number_format((float) $this->invoice->balance, 2),
+                'amount' => number_format($this->invoice->collectableBalance(), 2),
                 'notice' => $this->notice,
             ]) ?? '');
     }
@@ -74,7 +83,7 @@ class InvoiceOverdueTenantNotification extends Notification implements ShouldQue
             'type' => 'invoice_overdue_reminder',
             'invoice_id' => $this->invoice->id,
             'invoice_number' => $this->invoice->number,
-            'balance' => (float) $this->invoice->balance,
+            'balance' => $this->invoice->collectableBalance(),
             'days_overdue' => $days,
             'notice' => $this->notice,
             'is_final' => $this->isFinal,
@@ -82,7 +91,7 @@ class InvoiceOverdueTenantNotification extends Notification implements ShouldQue
             'body' => __('admin.notifications.invoice_overdue_reminder_body', [
                 'number' => $this->invoice->number,
                 'days' => $days,
-                'amount' => number_format((float) $this->invoice->balance, 2),
+                'amount' => number_format($this->invoice->collectableBalance(), 2),
             ]),
             'icon' => 'heroicon-o-banknotes',
             'color' => 'danger',

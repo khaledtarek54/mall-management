@@ -42,7 +42,7 @@ class LateFeeAppliedNotification extends Notification implements ShouldQueue
             ->line(DocumentText::for('dunning.late_fee_applied', $this->overdueInvoice->asset_id, [
                 'fee' => 'EGP '.number_format($this->fee(), 2),
                 'number' => $this->overdueInvoice->number,
-                'balance' => 'EGP '.number_format((float) $this->overdueInvoice->balance, 2),
+                'balance' => 'EGP '.number_format($this->overdueInvoice->collectableBalance(), 2),
             ]) ?? '')
             ->line(__('admin.notifications.late_fee_invoice_line', [
                 'number' => $this->feeInvoice->number,
@@ -65,12 +65,12 @@ class LateFeeAppliedNotification extends Notification implements ShouldQueue
             'fee_invoice_id' => $this->feeInvoice->id,
             'fee_invoice_number' => $this->feeInvoice->number,
             'fee' => $fee,
-            'balance' => (float) $this->overdueInvoice->balance,
+            'balance' => $this->overdueInvoice->collectableBalance(),
             'title' => __('admin.notifications.late_fee_applied_title'),
             'body' => __('admin.notifications.late_fee_applied_body', [
                 'fee' => 'EGP '.number_format($fee, 2),
                 'number' => $this->overdueInvoice->number,
-                'balance' => 'EGP '.number_format((float) $this->overdueInvoice->balance, 2),
+                'balance' => 'EGP '.number_format($this->overdueInvoice->collectableBalance(), 2),
             ]),
             'icon' => 'heroicon-o-exclamation-triangle',
             'color' => 'warning',

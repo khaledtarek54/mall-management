@@ -57,11 +57,15 @@ class MoveOutStatementService
         $openInvoices = Invoice::query()
             ->where('lease_id', $lease->id)
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
+            ->whereCollectable()
             ->orderBy('due_date')
+            ->with('writeOffs')
             ->get();
 
-        $openAr = round((float) $openInvoices->sum('balance'), 2);
+        // COLLECTABLE, and this is the one reader where the difference is money rather than a
+        // misstatement: `$openAr` is subtracted from the deposit below, so counting a forgiven slice
+        // here withholds that much of the tenant's own deposit for a debt the operator wrote off.
+        $openAr = round((float) $openInvoices->sum(fn (Invoice $i): float => $i->collectableBalance()), 2);
 
         // Credit notes with a balance are money owed BACK to the tenant — typically the unearned
         // rent this very termination just credited (MF-02). Netting them here is the difference

@@ -183,9 +183,12 @@ class TenantStatementPdfService
             ->values();
 
         $summary = [
-            'outstanding' => (float) $invoicesAll->sum('balance'),
+            // The same figure `Tenant::outstandingBalance()` gives the portal headline and the API.
+            // Summing `balance` here made the statement a tenant downloads disagree with the number
+            // on the screen they downloaded it from.
+            'outstanding' => (float) $invoicesAll->sum(fn ($i): float => $i->collectableBalance()),
             'overdue' => (float) $invoicesAll
-                ->where('balance', '>', 0)
+                ->filter(fn ($i): bool => $i->collectableBalance() > 0)
                 ->filter(fn ($inv) => $inv->due_date && $inv->due_date->isPast())
                 ->sum('balance'),
             'total_billed' => (float) $invoicesAll->sum('total'),

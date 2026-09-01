@@ -137,7 +137,7 @@ class InvoicesTable
                     }),
                 Filter::make('unpaid_only')
                     ->label(__('admin.filters.overdue_only'))
-                    ->query(fn (Builder $query) => $query->where('balance', '>', 0)),
+                    ->query(fn (Builder $query) => $query->whereCollectable()),
             ])
             ->filtersFormColumns(2)
             ->recordActions([

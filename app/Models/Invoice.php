@@ -12,6 +12,7 @@ use App\Models\Concerns\Invoice\HasPaymentLink;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Services\ApplyTenantCreditService;
 use App\Services\CreditNoteService;
+use App\Services\DisputeInvoiceItemService;
 use App\Support\ActivityLogging;
 use App\Support\Attributes\NeverDeletable;
 use App\Support\Attributes\PostingDateGuardedBy;
@@ -378,6 +379,98 @@ class Invoice extends Model
     public function writtenOffAmount(): float
     {
         return round((float) $this->writeOffs()->sum('amount'), 2);
+    }
+
+    /**
+     * What may still be COLLECTED — `balance` net of anything forgiven.
+     *
+     * **The missing third term.** `balance` answers *what was owed* and `status` answers *has this
+     * left the books*; a PARTIAL write-off is neither — still on the books, still live, but smaller.
+     * With nothing to express it in, every collections surface fell back to `balance` and chased the
+     * forgiven slice: the overdue scan, the dunning ladder, the late-fee base, the tenant's own
+     * outstanding figure and AR ageing all asked the tenant for money the operator had written off,
+     * and the bad-debt entry had already relieved.
+     *
+     * It became sharper, not milder, once the settlement side learnt to net write-offs: the invoice
+     * then could not be paid down to zero either, because the cap refused the forgiven part while
+     * these reads went on demanding it.
+     *
+     * Derived, never stored. The sum already lives in `invoice_write_offs`, and a
+     * `written_off_amount` column would be a second truth about the same money — the rule that keeps
+     * per-item balances out of `invoice_item_payment`. A REVERSED write-off soft-deletes, so a
+     * recovered debt becomes collectable again with no second rule to keep in step.
+     */
+    public function collectableBalance(): float
+    {
+        // Prefer an eager-loaded relation over a fresh aggregate: five consumers walk a COLLECTION
+        // of open invoices, and arrears is the one dataset that never shrinks — AR ageing alone
+        // would otherwise issue a query per row on every view. `with('writeOffs')` at the call site
+        // makes this free; without it the behaviour is identical, just a query.
+        $writtenOff = $this->relationLoaded('writeOffs')
+            ? round((float) $this->writeOffs->sum('amount'), 2)
+            : $this->writtenOffAmount();
+
+        return round(max(0.0, round((float) $this->balance, 2) - $writtenOff), 2);
+    }
+
+    /**
+     * What may still be PENALISED — collectable, less what is under dispute.
+     *
+     * Two reductions, and they are deliberately different questions. A DISPUTED amount is still
+     * claimed and still chased — it is only not chargeable, which is why `disputedOutstanding()` is
+     * read by the late-fee base alone and by no other collections surface. A FORGIVEN amount is not
+     * claimed at all. Naming them as a pair here is what stops the next reduction (a hardship
+     * deferral, a settlement in progress) becoming a fourth inline subtraction somebody has to
+     * remember to add at each site — which is exactly how the forgiven slice came to be penalised.
+     *
+     * The FINAL floor is what matters — the order of the two subtractions does not, since both
+     * orderings reduce to `max(0, balance − forgiven − disputed)`. Flooring is what stops a fully
+     * forgiven, partly disputed invoice producing a negative base.
+     */
+    public function chargeableBalance(): float
+    {
+        return round(max(0.0, $this->collectableBalance() - DisputeInvoiceItemService::disputedOutstanding($this)), 2);
+    }
+
+    /**
+     * The SQL twin of {@see collectableBalance()} — for a `where`, an `orderBy` or a `sum`.
+     *
+     * Hand-kept beside its PHP half, the discipline `HasLeaseTermState` states for its own four
+     * pairs: a predicate answered one way by a query and another way by a row read is how a list and
+     * a record page come to disagree about the same debt.
+     *
+     * `deleted_at is null` is what makes a recovered debt collectable again through the query side
+     * too, matching the relation's default scope.
+     */
+    public static function collectableBalanceSql(string $table = 'invoices'): string
+    {
+        // A CASE rather than `GREATEST(…, 0)`: **GREATEST does not exist in SQLite**, and the suite
+        // runs on SQLite while production runs MySQL — so a MySQL-only expression is green on the
+        // real database and fatal in every test, which is this project's driver-divergence trap
+        // taken in the rarer direction. `CASE WHEN … THEN … ELSE 0 END` is valid on both.
+        //
+        // The floor is there because the PHP half floors at zero and a twin that does not is not a
+        // twin. A
+        // write-off can exceed the balance on a row whose balance was later forced down —
+        // `recomputeTotals()` zeroes a cancelled invoice while its write-offs stand — and an
+        // unfloored expression then contributes a NEGATIVE figure to any `sum()`, netting off real
+        // debt elsewhere in the same total. The five call sites all filter status today; the method
+        // documents itself as safe for a bare `sum()`, so it has to actually be.
+        //
+        // `$table` because the string names its own columns: Laravel aliases a self-relation's inner
+        // table (`whereHas('lateFeeInvoice', …)` becomes `laravel_reserved_0`), and a hardcoded
+        // `invoices.` then silently binds to the OUTER row — valid SQL, no error, wrong answer. The
+        // scope below passes the query's own table, so the common path cannot get it wrong.
+        $net = $table.'.balance - COALESCE((select sum(amount) from invoice_write_offs '
+            .'where invoice_write_offs.invoice_id = '.$table.'.id and invoice_write_offs.deleted_at is null), 0)';
+
+        return '(case when '.$net.' > 0 then '.$net.' else 0 end)';
+    }
+
+    /** Invoices with something still collectable on them — the query half. */
+    public function scopeWhereCollectable(Builder $query): Builder
+    {
+        return $query->whereRaw(self::collectableBalanceSql($query->getQuery()->from).' > 0');
     }
 
     public function payments(): BelongsToMany

@@ -243,10 +243,14 @@ class ReportService
     {
         $asOf = $asOf ?? CarbonImmutable::now()->endOfDay();
 
+        // `with('writeOffs')`: the bucket loop below asks each invoice for its collectable figure,
+        // and arrears is the one dataset that never shrinks — without the eager load that is a query
+        // per open invoice, every time anyone opens AR ageing.
         $openInvoices = TenantScope::applyTo(Invoice::query())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
+            ->whereCollectable()
             ->whereDate('issue_date', '<=', $asOf)
+            ->with('writeOffs')
             ->get();
 
         $buckets = array_map(
@@ -257,7 +261,7 @@ class ReportService
         foreach ($openInvoices as $invoice) {
             $key = self::agingBucketKey($invoice, $asOf);
             $buckets[$key]['count']++;
-            $buckets[$key]['total'] += (float) $invoice->balance;
+            $buckets[$key]['total'] += $invoice->collectableBalance();
         }
 
         foreach ($buckets as $k => $v) {
@@ -809,7 +813,12 @@ class ReportService
     {
         return TenantScope::applyTo(Invoice::query())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
+            // COLLECTABLE, not `balance`. A partial write-off leaves the invoice live with its whole
+            // balance standing, so ageing counted — and the collections worklist chased — money the
+            // operator had forgiven and the bad-debt entry had already relieved. This method is the
+            // chokepoint for the drill-down, the CSV and the worklist, which is why it is fixed here
+            // rather than at each reader.
+            ->whereCollectable()
             // The same inclusion cutoff for every view, so a drill-down can never surface an
             // invoice its own summary bucket did not count.
             ->whereDate('issue_date', '<=', $asOf)

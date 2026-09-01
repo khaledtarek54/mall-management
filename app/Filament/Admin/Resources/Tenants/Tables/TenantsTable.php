@@ -157,13 +157,16 @@ class TenantsTable
                         // this reason. Only a RESTRICTED user was affected, which is why it survived:
                         // `visibleAssetIds()` is null for super_admin, so the person who could have
                         // noticed never saw it.
+                        // `whereCollectable()`, matching the badge beside it, which reads
+                        // `isDelinquent()`. Filtering to *Delinquent* used to return tenants whose
+                        // own badge said *Current*, because only one of the two nets write-offs.
                         true: fn (Builder $query) => $query->whereHas('invoices', fn (Builder $q) => $q
-                            ->where('balance', '>', 0)
+                            ->whereCollectable()
                             ->where('due_date', '<', now())
                             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
                             ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),
                         false: fn (Builder $query) => $query->whereDoesntHave('invoices', fn (Builder $q) => $q
-                            ->where('balance', '>', 0)
+                            ->whereCollectable()
                             ->where('due_date', '<', now())
                             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
                             ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereIn('asset_id', $ids))),

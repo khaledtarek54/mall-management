@@ -46,7 +46,9 @@ class RemindOverdueTenantsCommand extends Command
 
         $due = Invoice::query()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
+            // Same reduction as the owner-facing sweep — and this one writes to the TENANT, so
+            // chasing a forgiven slice is a letter asking for money nobody is owed.
+            ->whereCollectable()
             ->whereDate('due_date', '<', now())
             ->where(function ($q) use ($followUpDays, $maxNotices) {
                 // Never chased — the first notice, and the only branch that existed before.
